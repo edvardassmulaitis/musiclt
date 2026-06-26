@@ -174,38 +174,33 @@ export default function AdminEventEditPage() {
 
   if (status === 'loading' || !isAdmin) return null
 
-  // Input styles matching ArtistForm
-  const inputCls = 'w-full h-9 rounded-lg px-3 text-sm border border-[var(--input-border)] bg-[var(--bg-surface)] focus:outline-none focus:border-blue-300 text-[var(--text-primary)]'
+  const inputCls = 'w-full h-10 rounded-lg px-3 text-sm border border-[var(--input-border)] bg-[var(--bg-surface)] focus:outline-none focus:border-blue-300 text-[var(--text-primary)]'
   const labelCls = 'block text-xs font-bold text-[var(--text-muted)] uppercase tracking-wide mb-1'
+  const cardCls = 'rounded-xl border border-[var(--input-border)] bg-[var(--bg-surface)] p-4 sm:p-5 space-y-4'
+  const cardTitle = 'text-sm font-bold text-[var(--text-primary)]'
 
   return (
     <div className="min-h-screen bg-[var(--bg-elevated)]">
-      {/* Breadcrumb bar */}
-      <div className="bg-[var(--bg-surface)]/95 backdrop-blur border-b border-[var(--input-border)]">
-        <div className="flex items-center justify-between gap-2 px-4 py-2">
-          <nav className="flex items-center gap-1 text-sm">
-            <Link href="/admin" className="text-[var(--text-muted)] hover:text-[var(--text-secondary)]">Admin</Link>
-            <span className="text-[var(--text-faint)]">/</span>
-            <Link href="/admin/events" className="text-[var(--text-muted)] hover:text-[var(--text-secondary)]">Renginiai</Link>
-            <span className="text-[var(--text-faint)]">/</span>
-            <span className="text-[var(--text-primary)] font-semibold">{isNew ? 'Naujas' : title || '...'}</span>
+      {/* Sticky viršutinė juosta (mobile draugiška — Išsaugoti visada pasiekiamas) */}
+      <div className="sticky top-0 z-30 bg-[var(--bg-surface)]/95 backdrop-blur border-b border-[var(--input-border)]">
+        <div className="flex items-center justify-between gap-2 px-3 sm:px-4 py-2.5 max-w-5xl mx-auto">
+          <nav className="flex items-center gap-1 text-sm min-w-0">
+            <Link href="/admin" className="text-[var(--text-muted)] hover:text-[var(--text-secondary)] hidden sm:inline">Admin</Link>
+            <span className="text-[var(--text-faint)] hidden sm:inline">/</span>
+            <Link href="/admin/events" className="text-[var(--text-muted)] hover:text-[var(--text-secondary)] flex-shrink-0">← Renginiai</Link>
+            <span className="text-[var(--text-faint)] hidden sm:inline">/</span>
+            <span className="text-[var(--text-primary)] font-semibold truncate hidden sm:inline">{isNew ? 'Naujas' : title || '...'}</span>
           </nav>
-          <div className="flex items-center gap-1.5">
-            <Link href="/admin/events"
-              className="px-3 py-1.5 border border-[var(--input-border)] text-[var(--text-muted)] rounded-lg text-sm font-medium hover:bg-[var(--bg-hover)] transition-colors">
-              Atšaukti
-            </Link>
-            <button onClick={handleSave} disabled={saving}
-              className={`flex items-center gap-1.5 px-4 py-1.5 rounded-lg text-sm font-bold transition-all ${
-                saved ? 'bg-green-500 text-white' : 'bg-blue-600 hover:bg-blue-700 text-white'} disabled:opacity-50`}>
-              {saving ? 'Saugoma...' : saved ? '✓ Išsaugota!' : isNew ? '✓ Sukurti' : '✓ Išsaugoti'}
-            </button>
-          </div>
+          <button onClick={handleSave} disabled={saving}
+            className={`flex items-center gap-1.5 px-4 py-1.5 rounded-lg text-sm font-bold transition-all flex-shrink-0 ${
+              saved ? 'bg-green-500 text-white' : 'bg-blue-600 hover:bg-blue-700 text-white'} disabled:opacity-50`}>
+            {saving ? 'Saugoma...' : saved ? '✓ Išsaugota!' : isNew ? '✓ Sukurti' : '✓ Išsaugoti'}
+          </button>
         </div>
       </div>
 
       {error && (
-        <div className="max-w-2xl mx-auto px-4 pt-3">
+        <div className="max-w-5xl mx-auto px-3 sm:px-4 pt-3">
           <div className="p-2.5 bg-red-50 border border-red-200 text-red-700 rounded-xl text-sm flex items-center gap-2">
             ❌ {error}
             <button onClick={() => setError('')} className="ml-auto text-red-400 hover:text-red-600">✕</button>
@@ -213,282 +208,243 @@ export default function AdminEventEditPage() {
         </div>
       )}
 
-      <div className="max-w-2xl mx-auto px-4 py-6 space-y-5">
-        {/* Title */}
-        <div>
-          <label className={labelCls}>Pavadinimas *</label>
-          <input value={title} onChange={e => setTitle(e.target.value)} className={inputCls} placeholder="Koncerto pavadinimas" />
-        </div>
-
-        {/* Dates */}
-        <div className="grid grid-cols-2 gap-4">
-          <div>
-            <label className={labelCls}>Pradžia *</label>
-            <input type="datetime-local" value={startDate} onChange={e => setStartDate(e.target.value)} className={inputCls} />
-          </div>
-          <div>
-            <label className={labelCls}>Pabaiga (jei festivalis)</label>
-            <input type="datetime-local" value={endDate} onChange={e => setEndDate(e.target.value)} className={inputCls} />
-          </div>
-        </div>
-
-        {/* Venue */}
-        <div className="grid grid-cols-3 gap-4">
-          <div>
-            <label className={labelCls}>
-              Vieta *
-              {venueId && (
-                <span className="ml-2 inline-flex items-center gap-1 px-1.5 py-0.5 text-[9px] font-black uppercase rounded-full bg-emerald-50 text-emerald-700 border border-emerald-200">
-                  🔗 Susieta
-                </span>
-              )}
-            </label>
-            <div className="relative">
-              <div className="flex gap-2">
-                <input
-                  value={venueName}
-                  onChange={e => {
-                    setVenueName(e.target.value)
-                    setVenueId(null) // unlink when user types free text
-                    setShowVenueDrop(true)
-                  }}
-                  onFocus={() => setShowVenueDrop(true)}
-                  onBlur={() => setTimeout(() => setShowVenueDrop(false), 200)}
-                  className={`${inputCls} flex-1`}
-                  placeholder="Žalgirio Arena"
-                />
-                <button
-                  type="button"
-                  onMouseDown={(e) => { e.preventDefault(); setShowVenueDrop(d => !d) }}
-                  className="px-2 py-1.5 bg-gray-50 hover:bg-gray-100 border border-gray-200 rounded-lg text-xs font-semibold text-gray-700"
-                  title="Rodyti sąrašą"
-                >
-                  ▾
-                </button>
-                {venueId && (
-                  <button
-                    type="button"
-                    onMouseDown={(e) => {
-                      e.preventDefault()
-                      setVenueId(null)
-                    }}
-                    className="px-2 py-1.5 bg-red-50 hover:bg-red-100 border border-red-200 rounded-lg text-xs font-semibold text-red-600"
-                    title="Atsieti nuo venues lentelės"
-                  >
-                    ✕
-                  </button>
-                )}
+      <div className="max-w-5xl mx-auto px-3 sm:px-4 py-5 lg:py-6 lg:grid lg:grid-cols-3 lg:gap-6 lg:items-start">
+        {/* ── KAIRĖ: pagrindiniai laukai ─────────────────────────── */}
+        <div className="lg:col-span-2 space-y-5">
+          {/* Renginys */}
+          <div className={cardCls}>
+            <div className={cardTitle}>Renginio informacija</div>
+            <div>
+              <label className={labelCls}>Pavadinimas *</label>
+              <input value={title} onChange={e => setTitle(e.target.value)} className={inputCls} placeholder="Koncerto pavadinimas" />
+            </div>
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+              <div>
+                <label className={labelCls}>Pradžia *</label>
+                <input type="datetime-local" value={startDate} onChange={e => setStartDate(e.target.value)} className={inputCls} />
               </div>
-              {showVenueDrop && (
-                <div className="absolute top-full left-0 right-0 z-20 mt-1 bg-white border border-gray-200 rounded-lg shadow-lg max-h-72 overflow-y-auto">
-                  {venueOptions.length === 0 ? (
-                    <div className="px-3 py-2 text-xs text-gray-500">Kraunu vietas…</div>
-                  ) : filteredVenues.length === 0 ? (
-                    <>
-                      <div className="px-3 py-2 text-[10px] text-gray-500 uppercase font-bold tracking-wide bg-gray-50 border-b border-gray-100">
-                        Nerasta pagal „{venueName}" — galima naudoti laisvu tekstu arba išrinkti iš sąrašo:
-                      </div>
-                      {venueOptions.slice(0, 20).map(v => (
-                        <VenueRow key={v.id} v={v} onPick={() => {
+              <div>
+                <label className={labelCls}>Pabaiga (jei festivalis)</label>
+                <input type="datetime-local" value={endDate} onChange={e => setEndDate(e.target.value)} className={inputCls} />
+              </div>
+            </div>
+
+            {/* Venue */}
+            <div>
+              <label className={labelCls}>
+                Vieta {isAbroad ? '' : '*'}
+                {venueId && (
+                  <span className="ml-2 inline-flex items-center gap-1 px-1.5 py-0.5 text-[9px] font-black uppercase rounded-full bg-emerald-50 text-emerald-700 border border-emerald-200">
+                    🔗 Susieta
+                  </span>
+                )}
+              </label>
+              <div className="relative">
+                <div className="flex gap-2">
+                  <input
+                    value={venueName}
+                    onChange={e => { setVenueName(e.target.value); setVenueId(null); setShowVenueDrop(true) }}
+                    onFocus={() => setShowVenueDrop(true)}
+                    onBlur={() => setTimeout(() => setShowVenueDrop(false), 200)}
+                    className={`${inputCls} flex-1`}
+                    placeholder={isAbroad ? 'Arena / vieta (laisvu tekstu)' : 'Žalgirio Arena'}
+                  />
+                  <button type="button" onMouseDown={(e) => { e.preventDefault(); setShowVenueDrop(d => !d) }}
+                    className="px-2.5 bg-[var(--bg-hover)] hover:bg-[var(--bg-elevated)] border border-[var(--input-border)] rounded-lg text-xs font-semibold text-[var(--text-secondary)]" title="Rodyti sąrašą">▾</button>
+                  {venueId && (
+                    <button type="button" onMouseDown={(e) => { e.preventDefault(); setVenueId(null) }}
+                      className="px-2.5 bg-red-50 hover:bg-red-100 border border-red-200 rounded-lg text-xs font-semibold text-red-600" title="Atsieti nuo venues lentelės">✕</button>
+                  )}
+                </div>
+                {showVenueDrop && (
+                  <div className="absolute top-full left-0 right-0 z-20 mt-1 bg-[var(--bg-surface)] border border-[var(--input-border)] rounded-lg shadow-lg max-h-72 overflow-y-auto">
+                    {venueOptions.length === 0 ? (
+                      <div className="px-3 py-2 text-xs text-[var(--text-muted)]">Kraunu vietas…</div>
+                    ) : filteredVenues.length === 0 ? (
+                      <>
+                        <div className="px-3 py-2 text-[10px] text-[var(--text-muted)] uppercase font-bold tracking-wide bg-[var(--bg-hover)] border-b border-[var(--border-subtle)]">
+                          Nerasta pagal „{venueName}" — galima naudoti laisvu tekstu arba išrinkti iš sąrašo:
+                        </div>
+                        {venueOptions.slice(0, 20).map(v => (
+                          <VenueRow key={v.id} v={v} onPick={() => {
+                            setVenueName(v.name); setVenueId(v.id)
+                            if (v.city) setCity(v.city); if (v.address) setAddress(v.address)
+                            setShowVenueDrop(false)
+                          }} />
+                        ))}
+                      </>
+                    ) : (
+                      filteredVenues.map(v => (
+                        <VenueRow key={v.id} v={v} highlighted={v.id === venueId} onPick={() => {
                           setVenueName(v.name); setVenueId(v.id)
                           if (v.city) setCity(v.city); if (v.address) setAddress(v.address)
                           setShowVenueDrop(false)
                         }} />
-                      ))}
-                    </>
-                  ) : (
-                    filteredVenues.map(v => (
-                      <VenueRow key={v.id} v={v} highlighted={v.id === venueId} onPick={() => {
-                        setVenueName(v.name); setVenueId(v.id)
-                        if (v.city) setCity(v.city); if (v.address) setAddress(v.address)
-                        setShowVenueDrop(false)
-                      }} />
-                    ))
-                  )}
-                  <Link
-                    href="/admin/venues/new"
-                    className="block px-3 py-2 text-xs text-blue-600 hover:bg-blue-50 border-t border-gray-100 font-semibold"
-                  >
-                    + Sukurti naują vietą…
-                  </Link>
+                      ))
+                    )}
+                    <Link href="/admin/venues/new" className="block px-3 py-2 text-xs text-blue-600 hover:bg-blue-50 border-t border-[var(--border-subtle)] font-semibold">
+                      + Sukurti naują vietą…
+                    </Link>
+                  </div>
+                )}
+              </div>
+              {venueId && <div className="mt-1 text-[10px] text-emerald-700 font-semibold">FK → venues.id = {venueId}</div>}
+            </div>
+
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+              <div>
+                <label className={labelCls}>Miestas{venueId || isAbroad ? '' : ' *'}</label>
+                <select value={city} onChange={e => setCity(e.target.value)} disabled={!!venueId}
+                  className={`${inputCls} ${venueId ? 'opacity-60 cursor-not-allowed' : ''}`}
+                  title={venueId ? 'Miestas imamas iš susietos vietos' : 'Pasirink miestą'}>
+                  <option value="">— miestas —</option>
+                  {city && !cityOptions.some(c => c.name === city) && <option value={city}>{city} (nestandartinis)</option>}
+                  {cityOptions.map(c => <option key={c.id} value={c.name}>{c.name}</option>)}
+                </select>
+              </div>
+              <div>
+                <label className={labelCls}>Adresas</label>
+                <input value={address} onChange={e => setAddress(e.target.value)} className={inputCls} placeholder="Karaliaus Mindaugo pr. 50" />
+              </div>
+            </div>
+
+            <div>
+              <label className={labelCls}>Aprašymas</label>
+              <textarea value={description} onChange={e => setDescription(e.target.value)} rows={4}
+                className="w-full rounded-lg px-3 py-2 text-sm border border-[var(--input-border)] bg-[var(--bg-surface)] focus:outline-none focus:border-blue-300 text-[var(--text-primary)] resize-y"
+                placeholder="Renginio aprašymas..." />
+            </div>
+          </div>
+
+          {/* Verta kelionės — kelionės laukai (rodomi tik pažymėjus) */}
+          {isAbroad && (
+            <div className="rounded-xl border border-orange-200 bg-orange-50/40 p-4 sm:p-5 space-y-4">
+              <div className="text-sm font-bold text-orange-700">🌍 Kelionės informacija</div>
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                <div>
+                  <label className={labelCls}>Kryptis *</label>
+                  <select value={destKey} onChange={e => setDestKey(e.target.value)} className={inputCls}>
+                    <option value="">— pasirink kryptį —</option>
+                    {destOptions.map(d => (
+                      <option key={d.key} value={d.key}>
+                        {d.city}{d.country ? `, ${d.country}` : ''} ({d.reach_mode === 'car' ? '🚗 mašina' : '✈ skrydis'})
+                      </option>
+                    ))}
+                  </select>
+                  <p className="mt-1 text-[10px] text-[var(--text-muted)]">Kryptys valdomos /admin/verta-keliones</p>
+                </div>
+                <div>
+                  <label className={labelCls}>Populiarumas (0–100)</label>
+                  <input type="number" value={popularity} onChange={e => setPopularity(e.target.value)} className={inputCls} placeholder="80" />
+                </div>
+              </div>
+              <div>
+                <label className={labelCls}>Kodėl verta keliauti</label>
+                <textarea value={why} onChange={e => setWhy(e.target.value)} rows={2}
+                  className="w-full rounded-lg px-3 py-2 text-sm border border-orange-200 bg-[var(--bg-surface)] focus:outline-none focus:border-orange-300 text-[var(--text-primary)] resize-y"
+                  placeholder="Pvz. vienintelis turo koncertas regione, pigus skrydis iš VNO..." />
+              </div>
+              <p className="text-[11px] text-orange-700/80">Vieta nebūtina — užsienio koncertams pildoma laisvu tekstu. Festivaliui pridėk grojančius atlikėjus žemiau.</p>
+            </div>
+          )}
+
+          {/* Bilietai */}
+          <div className={cardCls}>
+            <div className={cardTitle}>Bilietai</div>
+            <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
+              <div className="sm:col-span-1">
+                <label className={labelCls}>Bilietų URL</label>
+                <input value={ticketUrl} onChange={e => setTicketUrl(e.target.value)} className={inputCls} placeholder="https://bilietai.lt/..." />
+              </div>
+              <div>
+                <label className={labelCls}>Kaina nuo (€)</label>
+                <input type="number" value={priceFrom} onChange={e => setPriceFrom(e.target.value)} className={inputCls} placeholder="15" />
+              </div>
+              <div>
+                <label className={labelCls}>Kaina iki (€)</label>
+                <input type="number" value={priceTo} onChange={e => setPriceTo(e.target.value)} className={inputCls} placeholder="45" />
+              </div>
+            </div>
+          </div>
+
+          {/* Atlikėjai (lineup) */}
+          <div className={cardCls}>
+            <div className={cardTitle}>Atlikėjai {isFestival && <span className="font-normal text-[var(--text-muted)]">— festivalio lineup</span>}</div>
+            <div className="relative">
+              <input value={artistSearch} onChange={e => setArtistSearch(e.target.value)} className={inputCls} placeholder="Ieškoti atlikėjo..." />
+              {artistResults.length > 0 && (
+                <div className="absolute top-full left-0 right-0 mt-1 rounded-lg overflow-hidden z-10 max-h-48 overflow-y-auto bg-[var(--bg-surface)] border border-[var(--input-border)] shadow-lg">
+                  {artistResults.map((a: any) => (
+                    <button key={a.id} onClick={() => addArtist(a)}
+                      className="w-full text-left px-3 py-2 text-sm hover:bg-[var(--bg-hover)] transition flex items-center gap-2 text-[var(--text-primary)]">
+                      {a.cover_image_url && <img src={a.cover_image_url} alt="" className="w-6 h-6 rounded-full object-cover" />}
+                      {a.name}
+                    </button>
+                  ))}
                 </div>
               )}
             </div>
-            {venueId && (
-              <div className="mt-1 text-[10px] text-emerald-700 font-semibold">
-                FK → venues.id = {venueId}
-              </div>
-            )}
-          </div>
-          <div>
-            <label className={labelCls}>Miestas{venueId ? '' : ' *'}</label>
-            <select
-              value={city}
-              onChange={e => setCity(e.target.value)}
-              disabled={!!venueId}
-              className={`${inputCls} ${venueId ? 'opacity-60 cursor-not-allowed' : ''}`}
-              title={venueId ? 'Miestas imamas iš susietos vietos' : 'Pasirink miestą'}
-            >
-              <option value="">— miestas —</option>
-              {/* Jei esamo renginio city nėra fiksuotame sąraše, vis tiek parodom */}
-              {city && !cityOptions.some(c => c.name === city) && <option value={city}>{city} (nestandartinis)</option>}
-              {cityOptions.map(c => <option key={c.id} value={c.name}>{c.name}</option>)}
-            </select>
-          </div>
-          <div>
-            <label className={labelCls}>Adresas</label>
-            <input value={address} onChange={e => setAddress(e.target.value)} className={inputCls} placeholder="Karaliaus Mindaugo pr. 50" />
-          </div>
-        </div>
-
-        {/* Description */}
-        <div>
-          <label className={labelCls}>Aprašymas</label>
-          <textarea value={description} onChange={e => setDescription(e.target.value)} rows={4}
-            className="w-full rounded-lg px-3 py-2 text-sm border border-gray-200 bg-white focus:outline-none focus:border-blue-300 text-gray-700 resize-y"
-            placeholder="Renginio aprašymas..." />
-        </div>
-
-        {/* Cover */}
-        <div>
-          <label className={labelCls}>Cover nuotrauka</label>
-          <div className="flex gap-2">
-            <input
-              value={coverUrl}
-              onChange={e => setCoverUrl(e.target.value)}
-              className={`${inputCls} flex-1`}
-              placeholder="https://..."
-            />
-            <button
-              type="button"
-              onClick={() => setWikiOpen(true)}
-              className="px-3 py-1.5 bg-blue-50 hover:bg-blue-100 text-blue-700 border border-blue-200 rounded-lg text-xs font-semibold whitespace-nowrap"
-              title="Ieškoti nuotraukos Wikipedijoje"
-            >
-              🔍 Wiki
-            </button>
-          </div>
-          {coverUrl && (
-            <img
-              src={coverUrl}
-              alt=""
-              referrerPolicy="no-referrer"
-              className="mt-2 h-32 rounded-lg object-cover border border-gray-200"
-              onError={e => (e.currentTarget.style.display = 'none')}
-            />
-          )}
-          {wikiOpen && (
-            <WikimediaSearch
-              artistName={title || ''}
-              onAddMultiple={(photos) => {
-                if (photos.length > 0) {
-                  setCoverUrl(photos[0].url)
-                }
-                setWikiOpen(false)
-              }}
-              onClose={() => setWikiOpen(false)}
-            />
-          )}
-        </div>
-
-        {/* Tickets */}
-        <div className="grid grid-cols-3 gap-4">
-          <div>
-            <label className={labelCls}>Bilietų URL</label>
-            <input value={ticketUrl} onChange={e => setTicketUrl(e.target.value)} className={inputCls} placeholder="https://bilietai.lt/..." />
-          </div>
-          <div>
-            <label className={labelCls}>Kaina nuo (€)</label>
-            <input type="number" value={priceFrom} onChange={e => setPriceFrom(e.target.value)} className={inputCls} placeholder="15" />
-          </div>
-          <div>
-            <label className={labelCls}>Kaina iki (€)</label>
-            <input type="number" value={priceTo} onChange={e => setPriceTo(e.target.value)} className={inputCls} placeholder="45" />
-          </div>
-        </div>
-
-        {/* Featured + Festival */}
-        <div className="flex flex-wrap items-center gap-5">
-          <label className="flex items-center gap-2 cursor-pointer">
-            <input type="checkbox" checked={isFeatured} onChange={e => setIsFeatured(e.target.checked)} className="accent-blue-600 w-4 h-4" />
-            <span className="text-sm font-medium text-[var(--text-primary)]">Featured renginys</span>
-          </label>
-          <label className="flex items-center gap-2 cursor-pointer">
-            <input type="checkbox" checked={isFestival} onChange={e => setIsFestival(e.target.checked)} className="accent-cyan-600 w-4 h-4" />
-            <span className="text-sm font-medium text-[var(--text-primary)]">🎪 Festivalis</span>
-          </label>
-          <label className="flex items-center gap-2 cursor-pointer">
-            <input type="checkbox" checked={isAbroad} onChange={e => setIsAbroad(e.target.checked)} className="accent-orange-600 w-4 h-4" />
-            <span className="text-sm font-medium text-[var(--text-primary)]">🌍 Verta kelionės (užsienis)</span>
-          </label>
-        </div>
-
-        {/* Verta kelionės — kelionės laukai (rodomi tik pažymėjus) */}
-        {isAbroad && (
-          <div className="rounded-xl border border-orange-200 bg-orange-50/40 p-4 space-y-4">
-            <div className="text-xs font-bold text-orange-700 uppercase tracking-wide">🌍 Kelionės informacija</div>
-            <div className="grid grid-cols-2 gap-4">
-              <div>
-                <label className={labelCls}>Kryptis *</label>
-                <select value={destKey} onChange={e => setDestKey(e.target.value)} className={inputCls}>
-                  <option value="">— pasirink kryptį —</option>
-                  {destOptions.map(d => (
-                    <option key={d.key} value={d.key}>
-                      {d.city}{d.country ? `, ${d.country}` : ''} ({d.reach_mode === 'car' ? '🚗 mašina' : '✈ skrydis'})
-                    </option>
-                  ))}
-                </select>
-                <p className="mt-1 text-[10px] text-[var(--text-muted)]">Kryptys valdomos /admin/verta-keliones</p>
-              </div>
-              <div>
-                <label className={labelCls}>Populiarumas (0–100)</label>
-                <input type="number" value={popularity} onChange={e => setPopularity(e.target.value)} className={inputCls} placeholder="80" />
-              </div>
-            </div>
-            <div>
-              <label className={labelCls}>Kodėl verta keliauti</label>
-              <textarea value={why} onChange={e => setWhy(e.target.value)} rows={2}
-                className="w-full rounded-lg px-3 py-2 text-sm border border-gray-200 bg-white focus:outline-none focus:border-orange-300 text-gray-700 resize-y"
-                placeholder="Pvz. vienintelis turo koncertas regione, pigus skrydis iš VNO..." />
-            </div>
-            <p className="text-[11px] text-orange-700/80">Vieta nebūtina — užsienio koncertams pildoma laisvu tekstu (venues lentelės nereikia). Festivaliui pridėk grojančius atlikėjus žemiau.</p>
-          </div>
-        )}
-
-        {/* Artists */}
-        <div>
-          <label className={labelCls}>Atlikėjai</label>
-          <div className="relative mb-2">
-            <input value={artistSearch} onChange={e => setArtistSearch(e.target.value)}
-              className={inputCls} placeholder="Ieškoti atlikėjo..." />
-            {artistResults.length > 0 && (
-              <div className="absolute top-full left-0 right-0 mt-1 rounded-lg overflow-hidden z-10 max-h-48 overflow-y-auto bg-[var(--bg-surface)] border border-[var(--input-border)] shadow-lg">
-                {artistResults.map((a: any) => (
-                  <button key={a.id} onClick={() => addArtist(a)}
-                    className="w-full text-left px-3 py-2 text-sm hover:bg-[var(--bg-hover)] transition flex items-center gap-2 text-[var(--text-primary)]">
-                    {a.cover_image_url && <img src={a.cover_image_url} alt="" className="w-6 h-6 rounded-full object-cover" />}
-                    {a.name}
-                  </button>
+            {artists.length > 0 ? (
+              <div className="space-y-1.5">
+                {artists.map(a => (
+                  <div key={a.artist_id} className="flex items-center gap-2 px-3 py-2 bg-[var(--bg-elevated)] rounded-lg border border-[var(--border-subtle)]">
+                    <span className="text-sm text-[var(--text-primary)] flex-1 truncate">{a.name}</span>
+                    <button onClick={() => setArtists(artists.map(x => x.artist_id === a.artist_id ? { ...x, is_headliner: !x.is_headliner } : x))}
+                      className={`text-[10px] font-bold px-2 py-0.5 rounded-full transition flex-shrink-0 ${
+                        a.is_headliner ? 'bg-orange-50 text-orange-500 border border-orange-200' : 'text-gray-400 border border-gray-200 hover:text-orange-400'}`}>
+                      {a.is_headliner ? '★ Headliner' : 'Headliner?'}
+                    </button>
+                    <button onClick={() => setArtists(artists.filter(x => x.artist_id !== a.artist_id))}
+                      className="text-gray-300 hover:text-red-500 text-xs transition flex-shrink-0 w-6 h-6 flex items-center justify-center">✕</button>
+                  </div>
                 ))}
               </div>
+            ) : (
+              <p className="text-xs text-[var(--text-muted)]">Atlikėjų dar nėra. Ieškok ir pridėk — headlinerius pažymėk žvaigždute.</p>
             )}
           </div>
-          {artists.length > 0 && (
-            <div className="space-y-1">
-              {artists.map(a => (
-                <div key={a.artist_id} className="flex items-center gap-2 px-3 py-2 bg-[var(--bg-surface)] rounded-lg border border-[var(--input-border)]">
-                  <span className="text-sm text-[var(--text-primary)] flex-1">{a.name}</span>
-                  <button onClick={() => setArtists(artists.map(x => x.artist_id === a.artist_id ? { ...x, is_headliner: !x.is_headliner } : x))}
-                    className={`text-[10px] font-bold px-2 py-0.5 rounded-full transition ${
-                      a.is_headliner ? 'bg-orange-50 text-orange-500 border border-orange-200' : 'text-gray-400 border border-gray-200 hover:text-orange-400'}`}>
-                    {a.is_headliner ? '★ Headliner' : 'Headliner?'}
-                  </button>
-                  <button onClick={() => setArtists(artists.filter(x => x.artist_id !== a.artist_id))}
-                    className="text-gray-300 hover:text-red-500 text-xs transition">✕</button>
-                </div>
-              ))}
+        </div>
+
+        {/* ── DEŠINĖ: nustatymai + cover (sticky desktop) ─────────── */}
+        <div className="mt-5 lg:mt-0 lg:col-span-1">
+          <div className="space-y-5 lg:sticky lg:top-16">
+            {/* Tipas / viešinimas */}
+            <div className={cardCls}>
+              <div className={cardTitle}>Tipas ir viešinimas</div>
+              <label className="flex items-center gap-2.5 cursor-pointer py-1">
+                <input type="checkbox" checked={isFeatured} onChange={e => setIsFeatured(e.target.checked)} className="accent-blue-600 w-4 h-4" />
+                <span className="text-sm font-medium text-[var(--text-primary)]">⭐ Featured renginys</span>
+              </label>
+              <label className="flex items-center gap-2.5 cursor-pointer py-1">
+                <input type="checkbox" checked={isFestival} onChange={e => setIsFestival(e.target.checked)} className="accent-cyan-600 w-4 h-4" />
+                <span className="text-sm font-medium text-[var(--text-primary)]">🎪 Festivalis</span>
+              </label>
+              <label className="flex items-center gap-2.5 cursor-pointer py-1">
+                <input type="checkbox" checked={isAbroad} onChange={e => setIsAbroad(e.target.checked)} className="accent-orange-600 w-4 h-4" />
+                <span className="text-sm font-medium text-[var(--text-primary)]">🌍 Verta kelionės (užsienis)</span>
+              </label>
             </div>
-          )}
+
+            {/* Cover */}
+            <div className={cardCls}>
+              <div className={cardTitle}>Cover nuotrauka</div>
+              {coverUrl && (
+                <img src={coverUrl} alt="" referrerPolicy="no-referrer"
+                  className="w-full aspect-video rounded-lg object-cover border border-[var(--border-subtle)]"
+                  onError={e => (e.currentTarget.style.display = 'none')} />
+              )}
+              <div className="flex gap-2">
+                <input value={coverUrl} onChange={e => setCoverUrl(e.target.value)} className={`${inputCls} flex-1`} placeholder="https://..." />
+                <button type="button" onClick={() => setWikiOpen(true)}
+                  className="px-3 bg-blue-50 hover:bg-blue-100 text-blue-700 border border-blue-200 rounded-lg text-xs font-semibold whitespace-nowrap" title="Ieškoti nuotraukos Wikipedijoje">🔍 Wiki</button>
+              </div>
+              {wikiOpen && (
+                <WikimediaSearch artistName={title || ''}
+                  onAddMultiple={(photos) => { if (photos.length > 0) setCoverUrl(photos[0].url); setWikiOpen(false) }}
+                  onClose={() => setWikiOpen(false)} />
+              )}
+            </div>
+          </div>
         </div>
       </div>
     </div>
@@ -505,15 +461,15 @@ function VenueRow({ v, highlighted, onPick }: {
       type="button"
       onMouseDown={(e) => { e.preventDefault(); onPick() }}
       className={`w-full text-left px-3 py-1.5 text-xs transition-colors ${
-        highlighted ? 'bg-emerald-50 hover:bg-emerald-100' : 'hover:bg-gray-50'
+        highlighted ? 'bg-emerald-50 hover:bg-emerald-100' : 'hover:bg-[var(--bg-hover)]'
       }`}
     >
-      <div className="font-semibold text-gray-900 flex items-center gap-1">
+      <div className="font-semibold text-[var(--text-primary)] flex items-center gap-1">
         {v.name}
         {highlighted && <span className="text-[9px] text-emerald-600 font-bold">✓ pasirinkta</span>}
       </div>
       {(v.city || v.address) && (
-        <div className="text-gray-500 text-[10px]">
+        <div className="text-[var(--text-muted)] text-[10px]">
           {v.city}{v.city && v.address ? ' · ' : ''}{v.address}
         </div>
       )}
