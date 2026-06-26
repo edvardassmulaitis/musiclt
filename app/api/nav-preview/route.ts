@@ -16,6 +16,8 @@ import { getNewsFeed } from '@/lib/news-feed'
 import { getGenreCounts, getTrendingArtists } from '@/lib/muzika-hub'
 import { getEmergingArtists, getFeaturedArtists } from '@/lib/radaras'
 import { formatPrice } from '@/lib/skelbimai'
+import { getLatestRecordings, recordingHref } from '@/lib/concert-recordings'
+import { getLatestReportages } from '@/lib/galerija'
 
 export const dynamic = 'force-dynamic'
 
@@ -437,6 +439,31 @@ export async function GET() {
     const songsLt = rankSongs(aggLt, 12)
     const songsWorld = rankSongs(aggWorld, 12)
 
+    // ── Koncertai rail: namų (LT) / užsienio / festivaliai / įrašai / foto ──
+    const LT_MON = ['saus', 'vas', 'kov', 'bal', 'geg', 'birž', 'liep', 'rugp', 'rugs', 'spal', 'lapk', 'gruod']
+    const fmtD = (iso: any) => { if (!iso) return ''; try { const d = new Date(iso); return `${d.getDate()} ${LT_MON[d.getMonth()]}` } catch { return '' } }
+    const evSel = 'id, slug, title, start_date, venue_name, cover_image_url'
+    const [evHomeRes, evAbroadRes, evFestRes] = await Promise.all([
+      supabase.from('events').select(evSel).in('status', ['upcoming', 'ongoing']).or('is_abroad.is.null,is_abroad.eq.false').not('is_festival', 'is', true).order('start_date', { ascending: true }).limit(12),
+      supabase.from('events').select(evSel).in('status', ['upcoming', 'ongoing']).eq('is_abroad', true).not('is_festival', 'is', true).order('start_date', { ascending: true }).limit(12),
+      supabase.from('events').select(evSel).in('status', ['upcoming', 'ongoing']).eq('is_festival', true).order('start_date', { ascending: true }).limit(12),
+    ])
+    const evItem = (e: any) => ({ href: `/renginiai/${e.slug}`, title: e.title || '', image: e.cover_image_url || null, meta: [fmtD(e.start_date), e.venue_name].filter(Boolean).join(' · ') })
+    const eventsHome   = ((evHomeRes.data || []) as any[]).map(evItem)
+    const eventsAbroad = ((evAbroadRes.data || []) as any[]).map(evItem)
+    const festivals    = ((evFestRes.data || []) as any[]).map(evItem)
+
+    const [recList, repList] = await Promise.all([getLatestRecordings(10), getLatestReportages(10)])
+    const recordings = (recList as any[]).map((r: any) => ({
+      href: recordingHref(r), title: r.title || '',
+      image: r.thumbnail_url || (r.youtube_id ? `https://i.ytimg.com/vi/${r.youtube_id}/hqdefault.jpg` : null),
+      meta: [r.artist_name, r.recorded_year].filter(Boolean).join(' · '),
+    }))
+    const reportages = (repList as any[]).map((r: any) => ({
+      href: r.href, title: r.title || '', image: r.coverUrl || null,
+      meta: [r.city, r.eventName].filter(Boolean).join(' · '),
+    }))
+
     const payload = {
       radar: radarArtists,
       artistsLt:    trLt.map(mapNavArtist),
@@ -447,6 +474,11 @@ export async function GET() {
       songsLt,
       songsWorld,
       memberTops,
+      eventsHome,
+      eventsAbroad,
+      festivals,
+      recordings,
+      reportages,
       chartLtSongs,
       chartLtAlbums,
       chartWorldSongs,

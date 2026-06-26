@@ -55,6 +55,11 @@ type NavPreview = {
   songsLt?:     { id: number; slug: string | null; title: string; image: string | null; artist: string; artistSlug: string }[]
   songsWorld?:  { id: number; slug: string | null; title: string; image: string | null; artist: string; artistSlug: string }[]
   memberTops?:  { id: number; title: string; image: string | null; author: string; href: string }[]
+  eventsHome?:   { href: string; title: string; image: string | null; meta: string }[]
+  eventsAbroad?: { href: string; title: string; image: string | null; meta: string }[]
+  festivals?:    { href: string; title: string; image: string | null; meta: string }[]
+  recordings?:   { href: string; title: string; image: string | null; meta: string }[]
+  reportages?:   { href: string; title: string; image: string | null; meta: string }[]
   chartLtSongs?:    { href: string; title: string; artist: string; image: string | null }[]
   chartLtAlbums?:   { href: string; title: string; artist: string; image: string | null }[]
   chartWorldSongs?: { href: string; title: string; artist: string; image: string | null }[]
@@ -739,60 +744,74 @@ function TopaiPanel({ data, accent }: { data: NavPreview | null; accent: string 
 }
 
 function RenginiaiPanel({ data, accent }: { data: NavPreview | null; accent: string }) {
-  // Layout kaip Muzika/Topai: LT + užsienio eilutės (horizontalūs strip'ai),
-  // žemiau — kitos sekcijos (festivaliai, verta kelionės, foto reportažai,
-  // koncertų įrašai). Edvardo prašymu 2026-06-03.
-  const eventsLt = data?.eventsLt || []
-  const eventsWorld = data?.eventsWorld || []
+  // Rail (Edvardo prašymu): Lietuvoje · Užsienyje · Festivaliai · Koncertų įrašai · Foto reportažai.
+  const [sec, setSec] = useState<'lietuva' | 'uzsienyje' | 'festivaliai' | 'irasai' | 'foto'>('lietuva')
 
-  const renderRow = (list: NonNullable<NavPreview['eventsLt']>, kind: 'lt' | 'world') => (
-    <div>
-      <div className="sh-strip-more">
-        <Link href="/koncertai" className="sh-more-link">Daugiau →</Link>
-      </div>
-      <div className="sh-strip-wrap">
-        <RowStripe kind={kind} />
-        <div className="sh-strip">
-          {(list.length > 0 ? list : Array(5).fill(null)).map((e, i) => (
-            <Link key={e?.id || `${kind}-${i}`} href={e ? `/renginiai/${e.slug}` : '/koncertai'} className="sh-mini sh-mini-xl">
-              <ImageBox src={e?.image} accent={accent} glyph={I.calendar} className="sh-mini-img" />
-              <span className="sh-mini-title sh-mini-title-2">{e?.title || <span style={{ opacity: 0.45 }}>Koncertas</span>}</span>
-            </Link>
-          ))}
-        </div>
-      </div>
+  const eventsHome   = data?.eventsHome   || data?.eventsLt || []
+  const eventsAbroad = data?.eventsAbroad || []
+  const festivals    = data?.festivals    || []
+  const recordings   = data?.recordings   || []
+  const reportages   = data?.reportages   || []
+
+  const ltFlagIcon = (
+    <span style={{ width: 16, height: 11, borderRadius: 2, overflow: 'hidden', display: 'flex', flexDirection: 'column' }} aria-hidden>
+      <span style={{ flex: 1, background: '#FDBA12' }} />
+      <span style={{ flex: 1, background: '#006A44' }} />
+      <span style={{ flex: 1, background: '#C1272D' }} />
+    </span>
+  )
+  const RAIL: { k: typeof sec; icon: React.ReactNode; label: string; href: string }[] = [
+    { k: 'lietuva',     icon: ltFlagIcon, label: 'Lietuvoje',       href: '/koncertai' },
+    { k: 'uzsienyje',   icon: I.plane,    label: 'Užsienyje',       href: '/verta-keliones' },
+    { k: 'festivaliai', icon: I.festival, label: 'Festivaliai',     href: '/festivaliai' },
+    { k: 'irasai',      icon: I.video,    label: 'Koncertų įrašai', href: '/koncertu-irasai' },
+    { k: 'foto',        icon: I.gallery,  label: 'Foto reportažai', href: '/galerija' },
+  ]
+
+  const head = (label: string, href: string) => (
+    <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 10 }}>
+      <span style={{ fontFamily: "'Outfit', sans-serif", fontSize: 13, fontWeight: 800, color: 'var(--text-primary)' }}>{label}</span>
+      <Link href={href} className="sh-more-link">Daugiau →</Link>
     </div>
   )
 
-  const tiles: { href: string; title: string; desc: string; rgb: string; icon: React.ReactNode }[] = [
-    { href: '/festivaliai',    title: 'Festivaliai',     desc: 'Vasaros festivaliai ir line-up\'ai',      rgb: '#06b6d4', icon: I.festival },
-    { href: '/verta-keliones', title: 'Verta kelionės',  desc: 'Koncertai užsienyje, pasiekiami iš LT',   rgb: '#10b981', icon: I.plane },
-    { href: '/galerija',       title: 'Foto reportažai', desc: 'Koncertų ir festivalių nuotraukos',        rgb: '#ec4899', icon: I.gallery },
-    { href: '/koncertu-irasai',title: 'Koncertų įrašai', desc: 'Live pasirodymų vaizdo įrašai',           rgb: '#8b5cf6', icon: I.video },
-  ]
+  type EvItem = { href: string; title: string; image: string | null; meta: string }
+  const itemGrid = (items: EvItem[], more: string, glyph: React.ReactNode, emptyLabel: string) => (
+    <div className="sh-vgrid sh-vgrid-5">
+      {(items.length > 0 ? items : Array(10).fill(null)).slice(0, 10).map((it: EvItem | null, i: number) => (
+        <Link key={it?.href || `e-${i}`} href={it?.href || more} className="sh-vcard" title={it?.title || ''}>
+          <ImageBox src={it?.image} accent={accent} glyph={glyph} className="sh-vimg" />
+          <span style={{ fontFamily: "'Outfit', sans-serif", fontSize: 12, fontWeight: 600, lineHeight: 1.3, color: 'var(--text-primary)', display: '-webkit-box', WebkitLineClamp: 2, WebkitBoxOrient: 'vertical', overflow: 'hidden' }}>{it?.title || <span style={{ opacity: 0.45 }}>{emptyLabel}</span>}</span>
+          {it?.meta ? <span className="sh-vmeta">{it.meta}</span> : null}
+        </Link>
+      ))}
+    </div>
+  )
 
   return (
-    <div className="sh-panel">
-      <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 10 }}>
-        <span style={{ display: 'flex', alignItems: 'center', gap: 6, fontFamily: "'Outfit', sans-serif", fontSize: 11, fontWeight: 800, textTransform: 'uppercase', letterSpacing: '0.1em', color: 'var(--text-muted)' }}>
-          <span className="sh-trending-glyph">{I.calendar}</span>
-          Artimiausi koncertai
-        </span>
+    <div className="sh-panel sh-panel-muzika sh-panel-railed" onMouseLeave={() => setSec('lietuva')}>
+      <div className="sh-rail" aria-label="Koncertų skiltys">
+        {RAIL.map(r => (
+          <Link
+            key={r.k}
+            href={r.href}
+            aria-current={sec === r.k ? 'true' : undefined}
+            className={`sh-railitem${sec === r.k ? ' active' : ''}`}
+            onMouseEnter={() => setSec(r.k)}
+            onFocus={() => setSec(r.k)}
+          >
+            <span className="sh-railitem-ic" style={sec === r.k ? { color: accent } : undefined}>{r.icon}</span>
+            <span className="sh-railitem-label">{r.label}</span>
+          </Link>
+        ))}
       </div>
 
-      {renderRow(eventsLt, 'lt')}
-      <div style={{ height: 10 }} />
-      {renderRow(eventsWorld, 'world')}
-
-      <div style={{ marginTop: 16, paddingTop: 14, borderTop: '1px solid var(--border-default)' }}>
-        <div className="sh-chiprow">
-          {tiles.map(t => (
-            <Link key={t.href} href={t.href} className="sh-navchip" title={t.desc}>
-              <span className="sh-navchip-ic" aria-hidden>{t.icon}</span>
-              {t.title}
-            </Link>
-          ))}
-        </div>
+      <div className="sh-railbody">
+        {sec === 'lietuva'     && (<div>{head('Artimiausi Lietuvoje', '/koncertai')}{itemGrid(eventsHome, '/koncertai', I.calendar, 'Koncertas')}</div>)}
+        {sec === 'uzsienyje'   && (<div>{head('Koncertai užsienyje', '/verta-keliones')}{itemGrid(eventsAbroad, '/verta-keliones', I.plane, 'Koncertas')}</div>)}
+        {sec === 'festivaliai' && (<div>{head('Festivaliai', '/festivaliai')}{itemGrid(festivals, '/festivaliai', I.festival, 'Festivalis')}</div>)}
+        {sec === 'irasai'      && (<div>{head('Koncertų įrašai', '/koncertu-irasai')}{itemGrid(recordings, '/koncertu-irasai', I.video, 'Įrašas')}</div>)}
+        {sec === 'foto'        && (<div>{head('Foto reportažai', '/galerija')}{itemGrid(reportages, '/galerija', I.gallery, 'Reportažas')}</div>)}
       </div>
     </div>
   )
