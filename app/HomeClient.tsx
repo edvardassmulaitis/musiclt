@@ -2828,7 +2828,7 @@ export default function HomeClient({ initialLatest }: { initialLatest?: InitialL
     const hp: Promise<any>[] = []
     hp.push(fetch('/api/top/entries?type=lt_top30').then(r => r.json()).then(d => { setLtTop(parseTop(d.entries || [])); setLtTopDate(d.week?.created_at || d.week?.week_start || ''); readyBits.current.tops = true; tryReady.current() }).catch(() => { readyBits.current.tops = true; tryReady.current() }))
     hp.push(fetch('/api/top/entries?type=top40').then(r => r.json()).then(d => { setWorldTop(parseTop(d.entries || [])); setWorldTopDate(d.week?.created_at || d.week?.week_start || '') }).catch(() => {}))
-    hp.push(fetch('/api/events?limit=24').then(r => r.json()).then(d => setEvents(d.events || [])).catch(() => {}))
+    hp.push(fetch('/api/events?limit=60').then(r => r.json()).then(d => setEvents(d.events || [])).catch(() => {}))
     hp.push(fetch('/api/events?home_hero=1&limit=8').then(r => r.json()).then(d => setHeroEvents(d.events || [])).catch(() => {}))
     hp.push(fetch('/api/blog/home-hero').then(r => r.json()).then(d => setHeroPosts(d.posts || [])).catch(() => {}))
     hp.push(fetch('/api/dienos-daina/winners?limit=7').then(r => r.json()).then(d => setDailyWinners(d.winners || [])).catch(() => {}))
@@ -3687,7 +3687,7 @@ export default function HomeClient({ initialLatest }: { initialLatest?: InitialL
                     const dDiff = rd ? Math.floor((Date.now() - new Date(rd).getTime()) / 86400000) : null
                     const highlight = dDiff !== null && dDiff >= 0 && dDiff <= 14
                     return (
-                      <button key={t.id} type="button" onClick={() => setOpenTrack(t)} className="group block no-underline text-left p-0 bg-transparent border-0 cursor-pointer">
+                      <button key={t.id} type="button" onClick={() => setOpenTrack(t)} className="group block w-[160px] shrink-0 no-underline text-left p-0 bg-transparent border-0 cursor-pointer lg:w-auto">
                         <div className="relative aspect-video overflow-hidden rounded-lg border border-[var(--border-default)] bg-[var(--cover-placeholder)] shadow-[0_3px_10px_rgba(0,0,0,0.18)] transition-all duration-300 group-hover:-translate-y-0.5 group-hover:border-[rgba(249,115,22,0.5)]">
                           {imgSrc ? (
                             // eslint-disable-next-line @next/next/no-img-element
@@ -3709,8 +3709,8 @@ export default function HomeClient({ initialLatest }: { initialLatest?: InitialL
                             <span className="flex items-center gap-2 font-['Outfit',sans-serif] text-[14px] font-extrabold text-[var(--text-primary)]"><span className={`h-2 w-2 rounded-full ${box.lane === 'lt' ? 'bg-[var(--accent-orange)]' : 'bg-[var(--accent-blue)]'}`} />{box.label}</span>
                             <button type="button" onClick={() => setListModal(`tracks-${box.lane}`)} className={`font-['Outfit',sans-serif] text-[11.5px] font-bold transition-opacity hover:opacity-70 ${box.lane === 'lt' ? 'text-[var(--accent-orange)]' : 'text-[var(--accent-blue)]'}`}>Daugiau →</button>
                           </div>
-                          <div className="grid grid-cols-2 gap-3">
-                            {tracksStatus === 'loading' && tracks.length === 0 ? Array(6).fill(null).map((_, i) => (<div key={i} className="hp-skel aspect-video rounded-lg" />)) : box.items.length === 0 ? (<div className="col-span-2 py-6 text-center text-[12px] text-[var(--text-faint)]">{box.lane === 'lt' ? 'Lietuviškų dainų netrukus' : 'Užsienio dainų netrukus'}</div>) : box.items.slice(0, 6).map(songCard)}
+                          <div className="flex gap-3 overflow-x-auto pb-1 [scrollbar-width:none] [&::-webkit-scrollbar]:hidden lg:grid lg:gap-3 lg:overflow-visible lg:pb-0 lg:grid-cols-3">
+                            {tracksStatus === 'loading' && tracks.length === 0 ? Array(6).fill(null).map((_, i) => (<div key={i} className="hp-skel aspect-video w-[160px] shrink-0 rounded-lg lg:w-auto" />)) : box.items.length === 0 ? (<div className="col-span-2 py-6 text-center text-[12px] text-[var(--text-faint)]">{box.lane === 'lt' ? 'Lietuviškų dainų netrukus' : 'Užsienio dainų netrukus'}</div>) : box.items.slice(0, 6).map(songCard)}
                           </div>
                         </div>
                       ))}
@@ -3742,7 +3742,7 @@ export default function HomeClient({ initialLatest }: { initialLatest?: InitialL
                     else if (validRD) { const rel = formatRelativeDateLT(rd); label = rel || String(a.year || ''); if (diff !== null && diff <= -2 && diff >= -30) highlight = true }
                     else if (a.year) { label = String(a.year) }
                     return (
-                      <button key={a.id} type="button" onClick={() => { setOpenAlbumId(a.id); setOpenAlbumPreview({ title: sanitizeTitle(a.title), cover_image_url: a.cover_image_url || a.artists?.cover_image_url || null, year: a.year || null }) }} className="group block no-underline text-left p-0 bg-transparent border-0 cursor-pointer">
+                      <button key={a.id} type="button" onClick={() => { setOpenAlbumId(a.id); setOpenAlbumPreview({ title: sanitizeTitle(a.title), cover_image_url: a.cover_image_url || a.artists?.cover_image_url || null, year: a.year || null }) }} className="group block w-[120px] shrink-0 no-underline text-left p-0 bg-transparent border-0 cursor-pointer lg:w-auto">
                         <div className="relative aspect-square overflow-hidden rounded-lg border border-[var(--border-default)] bg-[var(--cover-placeholder)] shadow-[0_3px_10px_rgba(0,0,0,0.18)] transition-all duration-300 group-hover:-translate-y-0.5 group-hover:border-[rgba(249,115,22,0.5)]">
                           {a.cover_image_url || a.artists?.cover_image_url ? (
                             // eslint-disable-next-line @next/next/no-img-element
@@ -3763,8 +3763,8 @@ export default function HomeClient({ initialLatest }: { initialLatest?: InitialL
                             <span className="flex items-center gap-2 font-['Outfit',sans-serif] text-[14px] font-extrabold text-[var(--text-primary)]"><span className={`h-2 w-2 rounded-full ${box.lane === 'lt' ? 'bg-[var(--accent-orange)]' : 'bg-[var(--accent-blue)]'}`} />{box.label}</span>
                             <button type="button" onClick={() => setListModal(`albums-${box.lane}`)} className={`font-['Outfit',sans-serif] text-[11.5px] font-bold transition-opacity hover:opacity-70 ${box.lane === 'lt' ? 'text-[var(--accent-orange)]' : 'text-[var(--accent-blue)]'}`}>Daugiau →</button>
                           </div>
-                          <div className="grid grid-cols-3 gap-3">
-                            {tracksStatus === 'loading' && albums.length === 0 ? Array(6).fill(null).map((_, i) => (<div key={i} className="hp-skel aspect-square rounded-lg" />)) : box.items.length === 0 ? (<div className="col-span-3 py-6 text-center text-[12px] text-[var(--text-faint)]">{box.lane === 'lt' ? 'Lietuviškų albumų netrukus' : 'Užsienio albumų netrukus'}</div>) : box.items.slice(0, 6).map(albCard)}
+                          <div className="flex gap-3 overflow-x-auto pb-1 [scrollbar-width:none] [&::-webkit-scrollbar]:hidden lg:grid lg:gap-3 lg:overflow-visible lg:pb-0 lg:grid-cols-3">
+                            {tracksStatus === 'loading' && albums.length === 0 ? Array(6).fill(null).map((_, i) => (<div key={i} className="hp-skel aspect-square w-[120px] shrink-0 rounded-lg lg:w-auto" />)) : box.items.length === 0 ? (<div className="col-span-3 py-6 text-center text-[12px] text-[var(--text-faint)]">{box.lane === 'lt' ? 'Lietuviškų albumų netrukus' : 'Užsienio albumų netrukus'}</div>) : box.items.slice(0, 6).map(albCard)}
                           </div>
                         </div>
                       ))}
@@ -3866,7 +3866,7 @@ export default function HomeClient({ initialLatest }: { initialLatest?: InitialL
                 featured praeina). Užsienis = TIK verified (kaip /verta-keliones). 2026-06-26. */}
             <div className="rounded-2xl border border-[var(--border-subtle)] bg-[var(--bg-surface)] p-4 sm:p-5">
               <div className="mb-4 flex items-center justify-between">
-                <h2 className="m-0 font-['Outfit',sans-serif] text-[18px] font-extrabold tracking-[-0.01em] text-[var(--text-primary)]">Renginiai ir koncertai</h2>
+                <h2 className="m-0 font-['Outfit',sans-serif] text-[18px] font-extrabold tracking-[-0.01em] text-[var(--text-primary)]">Koncertai</h2>
                 <Link href="/koncertai" className="font-['Outfit',sans-serif] text-[12px] font-bold text-[var(--accent-orange)] no-underline transition-opacity hover:opacity-70">Daugiau →</Link>
               </div>
               <div className="flex gap-3 overflow-x-auto pb-1 [scrollbar-width:none] [&::-webkit-scrollbar]:hidden lg:grid lg:grid-cols-5 lg:gap-4 lg:overflow-x-visible lg:pb-0">
@@ -3879,7 +3879,7 @@ export default function HomeClient({ initialLatest }: { initialLatest?: InitialL
                   const scoreOf = (e: any) => Math.max(0, ...(e.event_artists || []).map((ea: any) => { const a = Array.isArray(ea.artists) ? ea.artists[0] : ea.artists; return a?.score || 0 }))
                   const all = [...filtEvt].sort((x, y) => new Date(((x as any).start_date || x.event_date || 0) as any).getTime() - new Date(((y as any).start_date || y.event_date || 0) as any).getTime())
                   const foreign = vertaConcerts.concerts || []
-                  const main = all.filter(e => !isAbroad(e) && (e.is_festival || (e as any).is_featured || scoreOf(e) >= 10)).slice(0, foreign.length ? 9 : 10)
+                  const main = all.filter(e => !isAbroad(e) && (e.is_festival || (e as any).is_featured || scoreOf(e) >= 10) && (!!e.cover_image_url || (e.event_artists || []).some((ea: any) => { const a = Array.isArray(ea.artists) ? ea.artists[0] : ea.artists; return !!a?.cover_image_url }))).slice(0, foreign.length ? 15 : 16)
                   const photoOf = (e: any) => { const ea = (e.event_artists || []).map((x: any) => Array.isArray(x.artists) ? x.artists[0] : x.artists).filter(Boolean); return ea.find((a: any) => a?.cover_image_url)?.cover_image_url || e.cover_image_url || null }
                   const cards: React.ReactNode[] = main.map(ev => {
                     const dateRaw = (ev as any).start_date || ev.event_date
@@ -3903,18 +3903,14 @@ export default function HomeClient({ initialLatest }: { initialLatest?: InitialL
                         ? artistList.slice(0, 2).join(', ') + (artistList.length > 2 ? ` +${artistList.length - 2}` : '')
                         : sanitizeTitle(ev.title)
                     const smalls = photos.slice(1, 3)
-                    const extra = photos.length - 1 - smalls.length
                     return (
                       <Link key={ev.id} href={`/renginiai/${ev.slug}`} className={cardCls}>
                         <div className="relative flex-1 overflow-hidden">
                           {useCollage ? (
                             <div className="grid h-full w-full grid-cols-2 grid-rows-[3fr_2fr] gap-px">
-                              <div className="col-span-2 bg-cover bg-center" style={{ backgroundImage: `url(${proxyImg(photos[0].cover_image_url!)})` }} />
+                              <div className="col-span-2 bg-cover bg-top" style={{ backgroundImage: `url(${proxyImg(photos[0].cover_image_url!)})` }} />
                               {smalls.map((a, idx) => (
-                                <div key={idx} className={`relative bg-cover bg-center ${smalls.length === 1 ? 'col-span-2' : ''}`} style={{ backgroundImage: `url(${proxyImg(a.cover_image_url!)})` }}>
-                                  {idx === smalls.length - 1 && extra > 0 && (
-                                    <span className="absolute inset-0 flex items-center justify-center bg-black/45 font-['Outfit',sans-serif] text-[12px] font-black text-white">+{extra}</span>
-                                  )}
+                                <div key={idx} className={`bg-cover bg-top ${smalls.length === 1 ? 'col-span-2' : ''}`} style={{ backgroundImage: `url(${proxyImg(a.cover_image_url!)})` }}>
                                 </div>
                               ))}
                             </div>
@@ -3952,7 +3948,7 @@ export default function HomeClient({ initialLatest }: { initialLatest?: InitialL
                         <div className="relative flex-1 overflow-hidden bg-[#15203a]">
                           <div className="grid h-full w-full grid-cols-3 grid-rows-2 gap-px">
                             {fImgs.map((src, i) => (
-                              <div key={i} className="bg-cover bg-center" style={{ backgroundImage: `url(${proxyImg(src)})` }} />
+                              <div key={i} className="bg-cover bg-top" style={{ backgroundImage: `url(${proxyImg(src)})` }} />
                             ))}
                           </div>
                         </div>
