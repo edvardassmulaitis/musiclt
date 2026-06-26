@@ -227,23 +227,24 @@ async function buildRecs(uid: string, likedIds: number[], limit: number) {
         artist: a ? { id: al.artist_id, name: a.name, slug: a.slug } : null,
       })
     }
-    // Albumams — vedančios dainos ytId (inline ▶ grotuvui).
+    // Albumams — ≤2 populiariausios dainos su klipais (inline ▶ grotuvai).
     if (albumIds.length) {
       try {
         const { data: at } = await sb.from('album_tracks')
-          .select('album_id, tracks:track_id(video_url, video_views)').in('album_id', albumIds)
-        const best = new Map<number, { yt: string; views: number }>()
+          .select('album_id, tracks:track_id(title, video_url, video_views)').in('album_id', albumIds)
+        const byAlbum = new Map<number, { yt: string; title: string; views: number }[]>()
         for (const r of (at || []) as any[]) {
           const t = one(r.tracks); if (!t) continue
           const yt = t.video_url?.match?.(YT_RE)?.[1]; if (!yt) continue
-          const aid = Number(r.album_id); const views = Number(t.video_views) || 0
-          const cur = best.get(aid)
-          if (!cur || views > cur.views) best.set(aid, { yt, views })
+          const aid = Number(r.album_id)
+          const arr = byAlbum.get(aid) || []; arr.push({ yt, title: t.title || '', views: Number(t.video_views) || 0 }); byAlbum.set(aid, arr)
         }
         for (const item of queues.release) {
           if (item.kind !== 'album') continue
-          const b = best.get(Number(item.key.split('-').pop()))
-          if (b) item.meta = { ...(item.meta || {}), ytId: b.yt }
+          const arr = (byAlbum.get(Number(item.key.split('-').pop())) || []).sort((a, b) => b.views - a.views)
+          const seenYt = new Set<string>(); const top: { ytId: string; title: string }[] = []
+          for (const x of arr) { if (seenYt.has(x.yt)) continue; seenYt.add(x.yt); top.push({ ytId: x.yt, title: x.title }); if (top.length >= 2) break }
+          if (top.length) item.meta = { ...(item.meta || {}), albumTracks: top }
         }
       } catch { /* ignore */ }
     }
@@ -460,7 +461,7 @@ async function buildRecs(uid: string, likedIds: number[], limit: number) {
           if (!t) continue
           const pr = one(c.profiles)
           lastComment.set(c.discussion_id, {
-            body: t.length > 260 ? t.slice(0, 260).trimEnd() + '…' : t,
+            body: t.length > 400 ? t.slice(0, 400).trimEnd() + '…' : t,
             by: pr?.full_name || pr?.username || null,
             avatar: pr?.avatar_url || null,
           })
@@ -514,7 +515,7 @@ async function buildRecs(uid: string, likedIds: number[], limit: number) {
 // kartą (RPC + 4 užklausos). Pakeitus pamėgtus → likedIds keičiasi → naujas key.
 const getCachedRecs = unstable_cache(
   async (uid: string, likedIds: number[], limit: number) => buildRecs(uid, likedIds, limit),
-  ['srautas-recs-v16'],
+  ['srautas-recs-v17'],
   { revalidate: 300 },
 )
 
