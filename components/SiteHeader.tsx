@@ -912,61 +912,93 @@ const SECTION_HEAD: React.CSSProperties = {
   color: 'var(--text-muted)', marginBottom: 8,
 }
 function NaujienosPanel({ data, accent }: { data: NavPreview | null; accent: string }) {
-  const newsLt = data?.newsLt || data?.news || []
+  // Rail (Edvardo prašymu): Lietuvoje · Pasaulyje · Pagal stilių (tipai = too much).
+  const [sec, setSec] = useState<'lietuva' | 'pasaulis' | 'stiliai'>('lietuva')
+
+  const newsLt    = data?.newsLt || data?.news || []
   const newsWorld = data?.newsWorld || []
-  // LT / Pasaulio naujienų juostos — kaip Muzika/Topai/Koncertai (vientisumas).
-  const newsRow = (kind: 'lt' | 'world', href: string, items: any[]) => (
-    <div>
-      <div className="sh-strip-more">
-        <Link href={href} className="sh-more-link">Daugiau →</Link>
-      </div>
-      <div className="sh-strip-wrap">
-        <RowStripe kind={kind} />
-        <div className="sh-strip">
-          {(items.length > 0 ? items : Array(6).fill(null)).map((n: any, i: number) => (
-            <Link key={n?.id || `${kind}-${i}`} href={n ? `/news/${n.slug}` : href} className="sh-mini sh-mini-xl">
-              <ImageBox src={n?.image} accent={accent} glyph={I.news} className="sh-mini-img" />
-              <span className="sh-mini-title sh-mini-title-2">{n?.title || <span style={{ opacity: 0.45 }}>Naujiena</span>}</span>
-            </Link>
-          ))}
-        </div>
-      </div>
+  const genres    = data?.genres || {}
+
+  const ltFlagIcon = (
+    <span style={{ width: 16, height: 11, borderRadius: 2, overflow: 'hidden', display: 'flex', flexDirection: 'column' }} aria-hidden>
+      <span style={{ flex: 1, background: '#FDBA12' }} />
+      <span style={{ flex: 1, background: '#006A44' }} />
+      <span style={{ flex: 1, background: '#C1272D' }} />
+    </span>
+  )
+  const globeIcon = (
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><circle cx="12" cy="12" r="9"/><path d="M3 12h18"/><path d="M12 3c2.5 2.5 3.8 5.6 3.8 9s-1.3 6.5-3.8 9c-2.5-2.5-3.8-5.6-3.8-9s1.3-6.5 3.8-9Z"/></svg>
+  )
+  const RAIL: { k: typeof sec; icon: React.ReactNode; label: string; href: string }[] = [
+    { k: 'lietuva',  icon: ltFlagIcon,  label: 'Lietuvoje',    href: '/naujienos/lietuva' },
+    { k: 'pasaulis', icon: globeIcon,   label: 'Pasaulyje',    href: '/naujienos/pasaulis' },
+    { k: 'stiliai',  icon: I.equalizer, label: 'Pagal stilių', href: '/naujienos' },
+  ]
+
+  const head = (label: string, href: string) => (
+    <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 10 }}>
+      <span style={{ fontFamily: "'Outfit', sans-serif", fontSize: 13, fontWeight: 800, color: 'var(--text-primary)' }}>{label}</span>
+      <Link href={href} className="sh-more-link">Daugiau →</Link>
     </div>
   )
+
+  // Naujienų gridas — 2 eilutės po 5 (užpildo vitriną, vientisas aukštis).
+  const newsGrid = (items: any[], href: string) => (
+    <div className="sh-vgrid sh-vgrid-5">
+      {(items.length > 0 ? items : Array(10).fill(null)).slice(0, 10).map((n: any, i: number) => (
+        <Link key={n?.id || `n-${i}`} href={n ? `/news/${n.slug}` : href} className="sh-vcard" title={n?.title || ''}>
+          <ImageBox src={n?.image} accent={accent} glyph={I.news} className="sh-vimg" />
+          <span style={{ fontFamily: "'Outfit', sans-serif", fontSize: 12, fontWeight: 600, lineHeight: 1.3, color: 'var(--text-primary)', display: '-webkit-box', WebkitLineClamp: 2, WebkitBoxOrient: 'vertical', overflow: 'hidden' }}>{n?.title || <span style={{ opacity: 0.45 }}>Naujiena</span>}</span>
+          {n?.date ? <span className="sh-vmeta">{formatEventDate(n.date)}</span> : null}
+        </Link>
+      ))}
+    </div>
+  )
+
   return (
-    <div className="sh-panel sh-panel-muzika">
-      {/* ── Naujausios naujienos: LT + Pasaulis juostos ── */}
-      <div style={SECTION_HEAD}>
-        <span className="sh-trending-glyph" title="Naujienos">{I.news}</span>
-        Naujausios naujienos
-      </div>
-      {newsRow('lt', '/naujienos/lietuva', newsLt)}
-      <div style={{ height: 10 }} />
-      {newsRow('world', '/naujienos/pasaulis', newsWorld)}
-
-      {/* ── Pagal tipą (greitos nuorodos) ── */}
-      <div style={{ marginTop: 16, paddingTop: 14, borderTop: '1px solid var(--border-default)' }}>
-        <div style={SECTION_HEAD}>Pagal tipą</div>
-        <div style={{ display: 'flex', flexWrap: 'wrap', gap: 7 }}>
-          {NEWS_TYPES.filter(t => t.key !== 'kita').map(t => (
-            <Link key={t.key} href={`/naujienos/tipas/${t.slug}`} className="sh-news-chip">{t.labelPlural}</Link>
-          ))}
-        </div>
+    <div className="sh-panel sh-panel-muzika sh-panel-railed" onMouseLeave={() => setSec('lietuva')}>
+      <div className="sh-rail" aria-label="Naujienų skiltys">
+        {RAIL.map(r => (
+          <Link
+            key={r.k}
+            href={r.href}
+            aria-current={sec === r.k ? 'true' : undefined}
+            className={`sh-railitem${sec === r.k ? ' active' : ''}`}
+            onMouseEnter={() => setSec(r.k)}
+            onFocus={() => setSec(r.k)}
+          >
+            <span className="sh-railitem-ic" style={sec === r.k ? { color: accent } : undefined}>{r.icon}</span>
+            <span className="sh-railitem-label">{r.label}</span>
+          </Link>
+        ))}
       </div>
 
-      {/* ── Pagal stilių (kompaktiški spalvų chip'ai — kaip Muzika) ── */}
-      <div style={{ marginTop: 16, paddingTop: 14, borderTop: '1px solid var(--border-default)' }}>
-        <div style={{ marginBottom: 8 }}>
-          <span style={{ ...SECTION_HEAD, marginBottom: 0, paddingTop: 2 }}>Pagal stilių</span>
-        </div>
-        <div className="sh-chiprow">
-          {NEWS_STYLES.map(s => (
-            <Link key={s.id} href={`/naujienos/stilius/${s.slug}`} className="sh-navchip" title={s.name}>
-              <span className="sh-navchip-dot" style={{ background: 'var(--text-faint)' }} aria-hidden />
-              {s.name.replace(' muzika', '')}
-            </Link>
-          ))}
-        </div>
+      <div className="sh-railbody">
+        {sec === 'lietuva' && (
+          <div>
+            {head('Lietuvos naujienos', '/naujienos/lietuva')}
+            {newsGrid(newsLt, '/naujienos/lietuva')}
+          </div>
+        )}
+        {sec === 'pasaulis' && (
+          <div>
+            {head('Pasaulio naujienos', '/naujienos/pasaulis')}
+            {newsGrid(newsWorld, '/naujienos/pasaulis')}
+          </div>
+        )}
+        {sec === 'stiliai' && (
+          <div>
+            {head('Naršyk pagal stilių', '/naujienos')}
+            <div className="sh-vgrid sh-vgrid-4">
+              {NEWS_STYLES.map(s => (
+                <Link key={s.id} href={`/naujienos/stilius/${s.slug}`} className="sh-vcard" title={s.name}>
+                  <ImageBox src={genres[s.name]} accent={accent} glyph={I.news} className="sh-vimg" />
+                  <span className="sh-vtitle">{s.name.replace(' muzika', '')}</span>
+                </Link>
+              ))}
+            </div>
+          </div>
+        )}
       </div>
     </div>
   )

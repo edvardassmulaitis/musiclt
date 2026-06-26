@@ -126,8 +126,8 @@ export async function GET() {
     // Naujienų LT/užsienio skaidymas dropdown'ui — per news_feed RPC (scope).
     // Atskiros juostos „Lietuva" / „Pasaulis", kaip Muzika/Topai/Koncertai.
     const [ltNewsFeed, worldNewsFeed] = await Promise.all([
-      getNewsFeed({ scope: 'lt', sort: 'newest', limit: 8 }),
-      getNewsFeed({ scope: 'world', sort: 'newest', limit: 8 }),
+      getNewsFeed({ scope: 'lt', sort: 'newest', limit: 10 }),
+      getNewsFeed({ scope: 'world', sort: 'newest', limit: 10 }),
     ])
     const mapFeedNews = (it: any) => ({
       id: it.uid, slug: it.slug, title: it.title, image: it.image, date: it.date,
