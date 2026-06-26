@@ -690,14 +690,16 @@ function TopaiPanel({ data, accent }: { data: NavPreview | null; accent: string 
               <span style={{ fontFamily: "'Outfit', sans-serif", fontSize: 13, fontWeight: 800, color: 'var(--text-primary)' }}>Narių sudaryti topai</span>
               <Link href="/topai/nariu" className="sh-more-link">Daugiau →</Link>
             </div>
-            <div className="sh-vgrid sh-vgrid-4">
-              {(memberTops.length > 0 ? memberTops : Array(8).fill(null)).map((m, i) => (
-                <Link key={m?.id || `mt-${i}`} href={m?.href || '/topai/nariu'} className="sh-vcard" title={m?.title || ''}>
-                  <ImageBox src={m?.image} accent={accent} glyph={I.trophy} className="sh-vimg" />
-                  <span className="sh-vtitle">{m?.title || <span style={{ opacity: 0.45 }}>Nario topas</span>}</span>
-                  {m?.author ? <span className="sh-vmeta">@{m.author}</span> : null}
-                </Link>
-              ))}
+            <div className="sh-strip-wrap">
+              <div className="sh-strip">
+                {(memberTops.length > 0 ? memberTops : Array(6).fill(null)).map((m, i) => (
+                  <Link key={m?.id || `mt-${i}`} href={m?.href || '/topai/nariu'} className="sh-mini sh-mini-xl sh-mini--meta" title={m?.title || ''}>
+                    <ImageBox src={m?.image} accent={accent} glyph={I.trophy} className="sh-mini-img" />
+                    <span className="sh-mini-title" style={{ display: 'block', WebkitLineClamp: 'unset', overflow: 'visible', whiteSpace: 'normal' }}>{m?.title || <span style={{ opacity: 0.45 }}>Nario topas</span>}</span>
+                    {m?.author ? <span className="sh-mini-meta">@{m.author}</span> : null}
+                  </Link>
+                ))}
+              </div>
             </div>
           </div>
         )}

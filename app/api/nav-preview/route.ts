@@ -293,7 +293,7 @@ export async function GET() {
         .eq('chart_id', ch.id)
         .order('position', { ascending: true })
         .limit(limit)
-      return ((ents || []) as any[]).map((e: any) => {
+      const items = ((ents || []) as any[]).map((e: any) => {
         const tr = Array.isArray(e.tracks) ? e.tracks[0] : e.tracks
         const al = Array.isArray(e.albums) ? e.albums[0] : e.albums
         let href = '/topai'
@@ -306,6 +306,20 @@ export async function GET() {
         }
         return { href, title: e.title || '', artist: e.artist_name || '', image: e.cover_url || tr?.cover_url || al?.cover_image_url || ytThumb(tr?.video_url) || null }
       })
+      // Albumams be viršelio (AGATA/consensus entries dažnai be cover_url) —
+      // bandom paimti viršelį iš katalogo pagal albumo pavadinimą.
+      if (kind === 'album') {
+        const norm = (s: string) => (s || '').toLowerCase().replace(/[^a-z0-9]/g, '')
+        const titles = [...new Set(items.filter((i: any) => !i.image).map((i: any) => i.title).filter(Boolean))] as string[]
+        if (titles.length) {
+          const { data: albs } = await supabase
+            .from('albums').select('title, cover_image_url').in('title', titles).not('cover_image_url', 'is', null).limit(300)
+          const byT = new Map<string, string>()
+          for (const a of (albs || []) as any[]) { const k = norm(a.title); if (!byT.has(k)) byT.set(k, a.cover_image_url) }
+          return items.map((i: any) => i.image ? i : { ...i, image: byT.get(norm(i.title)) || null })
+        }
+      }
+      return items
     }
     const [chartLtSongs, chartLtAlbums, chartWorldSongs, chartWorldAlbums] = await Promise.all([
       chartItems('consensus', 'lt', 'song', 10),
@@ -324,9 +338,12 @@ export async function GET() {
     const mapNavChart = (c: any) => ({ id: c.id, source: c.source, chartKey: c.chart_key, title: c.title, subtitle: null, scope: c.scope, country: c.country ?? null, accent: '#6366f1', image: null as string | null, period: '', size: c.size })
     const MAIN_LT = new Set(['consensus-lt', 'agata-albums'])
     const MAIN_WORLD = new Set(['consensus-world', 'consensus-albums'])
-    const isLtChartRow = (c: any) => { const cc = String(c.country || '').toLowerCase(); return cc === 'lt' || cc === 'lietuva' || String(c.scope || '').toLowerCase() === 'lt' }
-    const chartsLt    = ((allChartsRows || []) as any[]).filter(c => isLtChartRow(c) && !MAIN_LT.has(`${c.source}-${c.chart_key}`)).map(mapNavChart)
-    const chartsWorld = ((allChartsRows || []) as any[]).filter(c => !isLtChartRow(c) && !MAIN_WORLD.has(`${c.source}-${c.chart_key}`)).map(mapNavChart)
+    // LT chartų slug'ai (mirror'as /topai SOURCE_CARDS region='lt'). DB scope/country
+    // nepatikimas — klasifikuojam pagal slug. Pasaulyje = visa kita (world/us/uk).
+    const LT_SLUGS = new Set(['consensus-lt', 'agata-singles', 'apple-lt_songs', 'spotify-lt', 'mama-top40', 'shazam-lt', 'agata-albums'])
+    const slugOf = (c: any) => `${c.source}-${c.chart_key}`
+    const chartsLt    = ((allChartsRows || []) as any[]).filter(c => LT_SLUGS.has(slugOf(c)) && !MAIN_LT.has(slugOf(c))).map(mapNavChart)
+    const chartsWorld = ((allChartsRows || []) as any[]).filter(c => !LT_SLUGS.has(slugOf(c)) && !MAIN_WORLD.has(slugOf(c))).map(mapNavChart)
 
     // ── Narių topai (blog_posts post_type=topas) — Topai „Narių topai" skilčiai ──
     const { data: memberTopRows } = await supabase
