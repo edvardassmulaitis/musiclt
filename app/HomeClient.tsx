@@ -3978,7 +3978,7 @@ export default function HomeClient({ initialLatest }: { initialLatest?: InitialL
             }
           >
           <section>
-            {/* ── Renginiai — afiša v3: desktop 5-stulpelių tinklelis, mobile
+            {/* ── Renginiai — afiša v4: desktop 5-stulpelių tinklelis, mobile
                 horizontalus slankiklis. Festivaliai: jei įkeltas admino plakatas
                 (cover_image_url) — jis pagrindinis; jei ne — collage iš atlikėjų.
                 Užsienio koncertai (is_abroad && !festival) sujungti į VIENĄ collage
@@ -3994,8 +3994,8 @@ export default function HomeClient({ initialLatest }: { initialLatest?: InitialL
                 )) : (() => {
                   const isAbroad = (e: any) => !!e.is_abroad
                   const all = [...filtEvt].sort((x, y) => new Date(((x as any).start_date || x.event_date || 0) as any).getTime() - new Date(((y as any).start_date || y.event_date || 0) as any).getTime())
-                  const foreign = all.filter(e => isAbroad(e) && !e.is_festival)
-                  const main = all.filter(e => !(isAbroad(e) && !e.is_festival)).slice(0, foreign.length ? 9 : 10)
+                  const foreign = all.filter(e => isAbroad(e))
+                  const main = all.filter(e => !isAbroad(e)).slice(0, foreign.length ? 9 : 10)
                   const cardCls = "group relative block aspect-[3/4] w-[158px] shrink-0 overflow-hidden rounded-xl border border-[var(--border-default)] bg-[var(--cover-placeholder)] no-underline shadow-[0_5px_14px_rgba(0,0,0,0.2)] transition-all duration-300 hover:-translate-y-0.5 hover:border-[rgba(249,115,22,0.5)] hover:shadow-[0_14px_30px_rgba(249,115,22,0.2)] lg:w-auto"
                   const cards: React.ReactNode[] = main.map(ev => {
                     const dateRaw = (ev as any).start_date || ev.event_date
@@ -4069,21 +4069,20 @@ export default function HomeClient({ initialLatest }: { initialLatest?: InitialL
                     const fImgs = foreign.map(e => {
                       const ea = (e.event_artists || []).map(x => Array.isArray(x.artists) ? x.artists[0] : x.artists).filter(Boolean) as { cover_image_url?: string | null }[]
                       return ea.find(a => a?.cover_image_url)?.cover_image_url || e.cover_image_url || null
-                    }).filter(Boolean).slice(0, 4) as string[]
+                    }).filter(Boolean).slice(0, 6) as string[]
                     cards.push(
                       <Link key="abroad" href="/verta-keliones" className={cardCls + ' !bg-[#15203a]'}>
-                        <div className="absolute inset-0 grid grid-cols-2 grid-rows-2">
+                        <div className="absolute inset-0 grid grid-cols-2 grid-rows-3">
                           {fImgs.map((src, i) => (
                             <div key={i} className="bg-cover bg-center" style={{ backgroundImage: `url(${proxyImg(src)})` }} />
                           ))}
                         </div>
-                        <div className="absolute inset-0 bg-gradient-to-br from-[rgba(8,13,24,0.9)] to-[rgba(8,13,24,0.55)]" />
-                        <div className="absolute inset-0 flex flex-col items-start justify-center p-3 text-white">
-                          <span className="text-[20px]" aria-hidden>🌍</span>
-                          <h3 className="m-0 mt-1.5 font-['Outfit',sans-serif] text-[14px] font-black leading-tight">Koncertai užsienyje</h3>
-                          <p className="m-0 mt-1 text-[10.5px] text-[#cfe0f6]">{foreign.length} koncertų — pasiekiamų iš Lietuvos</p>
-                          <span className="mt-2.5 rounded-full bg-[var(--accent-orange)] px-3 py-1 font-['Outfit',sans-serif] text-[11px] font-extrabold">Daugiau →</span>
-                        </div>
+                        <div className="pointer-events-none absolute inset-0 bg-gradient-to-t from-black/88 via-black/20 to-transparent" />
+                        <div className="absolute inset-x-0 bottom-0 p-2.5 text-white">
+                          <span className="flex items-center gap-1 font-['Outfit',sans-serif] text-[9px] font-extrabold uppercase tracking-[0.06em] text-[#ffcea3]"><span aria-hidden>🌍</span> Užsienyje</span>
+                          <h3 className="m-0 mt-1 font-['Outfit',sans-serif] text-[13.5px] font-black leading-tight">Koncertai užsienyje</h3>
+                          <p className="m-0 mt-0.5 font-['Outfit',sans-serif] text-[10.5px] font-bold text-[#ff9d4d]">{foreign.length} koncertų · Daugiau →</p>
+                                                  </div>
                       </Link>
                     )
                   }
