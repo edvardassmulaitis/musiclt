@@ -66,39 +66,40 @@ export default function AdminEventsPage() {
 
   return (
     <div className="min-h-screen bg-[var(--bg-elevated)]">
-      {/* Breadcrumb bar — same style as artist edit */}
-      <div className="bg-[var(--bg-surface)]/95 backdrop-blur border-b border-[var(--input-border)]">
-        <div className="flex items-center justify-between gap-2 px-4 py-2">
-          <nav className="flex items-center gap-1 text-sm">
-            <Link href="/admin" className="text-[var(--text-muted)] hover:text-[var(--text-secondary)]">Admin</Link>
-            <span className="text-[var(--text-faint)]">/</span>
-            <span className="text-[var(--text-primary)] font-semibold">Renginiai</span>
-            {!loading && <span className="bg-[var(--bg-elevated)] text-[var(--text-muted)] text-xs font-bold px-1.5 py-0.5 rounded-full ml-1">{events.length}</span>}
+      {/* Sticky viršutinė juosta */}
+      <div className="sticky top-0 z-20 bg-[var(--bg-surface)]/95 backdrop-blur border-b border-[var(--input-border)]">
+        <div className="flex items-center justify-between gap-2 px-3 sm:px-4 py-2.5 max-w-6xl mx-auto">
+          <nav className="flex items-center gap-1 text-sm min-w-0">
+            <Link href="/admin" className="text-[var(--text-muted)] hover:text-[var(--text-secondary)] hidden sm:inline">Admin</Link>
+            <span className="text-[var(--text-faint)] hidden sm:inline">/</span>
+            <span className="text-[var(--text-primary)] font-semibold truncate">Renginiai</span>
+            {!loading && <span className="bg-[var(--bg-elevated)] text-[var(--text-muted)] text-xs font-bold px-1.5 py-0.5 rounded-full ml-1">{filtered.length}</span>}
           </nav>
           <Link href="/admin/events/new"
-            className="flex items-center gap-1.5 px-4 py-1.5 bg-blue-600 hover:bg-blue-700 text-white rounded-lg text-sm font-bold transition-colors">
-            + Naujas renginys
+            className="flex items-center gap-1.5 px-3 sm:px-4 py-1.5 bg-blue-600 hover:bg-blue-700 text-white rounded-lg text-sm font-bold transition-colors whitespace-nowrap flex-shrink-0">
+            <span className="sm:hidden text-base leading-none">+</span><span className="hidden sm:inline">+ Naujas renginys</span>
           </Link>
         </div>
       </div>
 
-      <div className="px-4 py-4 max-w-5xl mx-auto">
-        {/* Filters */}
-        <div className="flex items-center gap-3 mb-4 flex-wrap">
-          <input value={search} onChange={e => setSearch(e.target.value)} placeholder="Ieškoti..."
-            className="h-8 rounded-lg px-3 text-sm border border-[var(--input-border)] bg-[var(--bg-surface)] focus:outline-none focus:border-blue-300 text-[var(--text-primary)] w-48" />
-          <div className="flex gap-1">
+      <div className="px-3 sm:px-4 py-4 max-w-6xl mx-auto">
+        {/* Paieška */}
+        <input value={search} onChange={e => setSearch(e.target.value)} placeholder="Ieškoti renginio..."
+          className="w-full h-10 rounded-lg px-3.5 text-sm border border-[var(--input-border)] bg-[var(--bg-surface)] focus:outline-none focus:border-blue-300 text-[var(--text-primary)] mb-3" />
+        {/* Filtrai — slenkamos juostos mobile */}
+        <div className="space-y-2 mb-4">
+          <div className="flex gap-1.5 overflow-x-auto pb-1 -mx-1 px-1 scrollbar-none">
             {Object.keys(SL).map(f => (
               <button key={f} onClick={() => setFilter(f)}
-                className={`px-2.5 py-1 rounded-lg text-xs font-medium transition-colors ${filter === f ? 'bg-blue-600 text-white' : 'text-gray-500 hover:bg-gray-100'}`}>
+                className={`px-3 py-1.5 rounded-full text-xs font-semibold transition-colors whitespace-nowrap flex-shrink-0 ${filter === f ? 'bg-blue-600 text-white' : 'bg-[var(--bg-surface)] text-[var(--text-secondary)] border border-[var(--input-border)] hover:bg-[var(--bg-hover)]'}`}>
                 {SL[f]}
               </button>
             ))}
           </div>
-          <div className="flex gap-1 sm:border-l sm:border-[var(--border-subtle)] sm:pl-2">
+          <div className="flex gap-1.5 overflow-x-auto pb-1 -mx-1 px-1 scrollbar-none">
             {Object.keys(TL).map(f => (
               <button key={f} onClick={() => setTypeFilter(f)}
-                className={`px-2.5 py-1 rounded-lg text-xs font-medium transition-colors ${typeFilter === f ? 'bg-orange-500 text-white' : 'text-gray-500 hover:bg-gray-100'}`}>
+                className={`px-3 py-1.5 rounded-full text-xs font-semibold transition-colors whitespace-nowrap flex-shrink-0 ${typeFilter === f ? 'bg-orange-500 text-white' : 'bg-[var(--bg-surface)] text-[var(--text-secondary)] border border-[var(--input-border)] hover:bg-[var(--bg-hover)]'}`}>
                 {TL[f]}
               </button>
             ))}
@@ -115,27 +116,32 @@ export default function AdminEventsPage() {
         ) : (
           <div className="bg-[var(--bg-surface)] rounded-xl border border-[var(--input-border)] shadow-sm divide-y divide-[var(--border-subtle)] overflow-hidden">
             {filtered.map(ev => (
-              <div key={ev.id} className="flex items-center gap-3 px-4 py-2.5 hover:bg-[var(--bg-hover)] transition-colors group">
-                <div className="w-14 text-center flex-shrink-0">
-                  <p className="text-xs font-semibold text-[var(--text-primary)]">{new Date(ev.start_date).toLocaleDateString('lt-LT', { month: 'short', day: 'numeric' })}</p>
+              <div key={ev.id} className="flex items-center gap-3 px-3 sm:px-4 py-3 hover:bg-[var(--bg-hover)] transition-colors">
+                {/* Data */}
+                <div className="w-12 sm:w-14 text-center flex-shrink-0">
+                  <p className="text-xs font-bold text-[var(--text-primary)] leading-tight">{new Date(ev.start_date).toLocaleDateString('lt-LT', { month: 'short', day: 'numeric' })}</p>
                   <p className="text-[10px] text-[var(--text-muted)]">{new Date(ev.start_date).getFullYear()}</p>
                 </div>
+                {/* Pavadinimas + meta */}
                 <div className="flex-1 min-w-0">
                   <Link href={`/admin/events/${ev.id}`} className="text-sm font-semibold text-[var(--text-primary)] hover:text-blue-600 transition truncate block">
                     {ev.is_abroad && <span title="Verta kelionės (užsienis)" className="mr-1">🌍</span>}
                     {ev.is_festival && <span title="Festivalis" className="mr-1">🎪</span>}
                     {ev.title}
                   </Link>
-                  <p className="text-xs text-[var(--text-muted)]">{ev.city || '—'}</p>
+                  <div className="flex items-center gap-2 mt-0.5">
+                    <span className={`text-[10px] font-bold px-1.5 py-0.5 rounded-full ${SC[ev.status] || 'text-gray-500 bg-gray-100'}`}>{ev.status}</span>
+                    <span className="text-xs text-[var(--text-muted)] truncate">{ev.city || '—'}</span>
+                  </div>
                 </div>
-                <span className={`text-[10px] font-bold px-2 py-0.5 rounded-full flex-shrink-0 ${SC[ev.status] || 'text-gray-500 bg-gray-100'}`}>{ev.status}</span>
-                <button onClick={() => toggleFeatured(ev.id, ev.is_featured)} title="Featured"
-                  className={`text-sm flex-shrink-0 transition ${ev.is_featured ? 'text-orange-400' : 'text-gray-200 hover:text-orange-300'}`}>★</button>
-                <div className="flex items-center gap-1 flex-shrink-0 opacity-0 group-hover:opacity-100 transition">
-                  {ev.status === 'upcoming' && <button onClick={() => setEventStatus(ev.id, 'cancelled')} className="text-[10px] font-medium px-2 py-0.5 rounded text-red-500 hover:bg-red-50 transition">Atšaukti</button>}
-                  {ev.status === 'cancelled' && <button onClick={() => setEventStatus(ev.id, 'upcoming')} className="text-[10px] font-medium px-2 py-0.5 rounded text-emerald-500 hover:bg-emerald-50 transition">Atkurti</button>}
-                  <Link href={`/admin/events/${ev.id}`} className="px-2 py-1 text-xs text-blue-500 hover:text-blue-700 hover:bg-blue-50 rounded transition-colors font-medium">Redaguoti ↗</Link>
-                  <button onClick={() => remove(ev.id)} className="text-xs px-1.5 py-0.5 rounded text-gray-300 hover:text-red-500 hover:bg-red-50 transition">✕</button>
+                {/* Veiksmai — visada matomi (mobile draugiška) */}
+                <div className="flex items-center gap-0.5 sm:gap-1 flex-shrink-0">
+                  <button onClick={() => toggleFeatured(ev.id, ev.is_featured)} title="Featured"
+                    className={`w-8 h-8 flex items-center justify-center rounded-lg text-base transition ${ev.is_featured ? 'text-orange-400 bg-orange-50' : 'text-gray-300 hover:text-orange-300 hover:bg-[var(--bg-hover)]'}`}>★</button>
+                  {ev.status === 'upcoming' && <button onClick={() => setEventStatus(ev.id, 'cancelled')} title="Atšaukti" className="hidden sm:inline-flex text-[11px] font-medium px-2 py-1 rounded-lg text-red-500 hover:bg-red-50 transition">Atšaukti</button>}
+                  {ev.status === 'cancelled' && <button onClick={() => setEventStatus(ev.id, 'upcoming')} title="Atkurti" className="hidden sm:inline-flex text-[11px] font-medium px-2 py-1 rounded-lg text-emerald-500 hover:bg-emerald-50 transition">Atkurti</button>}
+                  <Link href={`/admin/events/${ev.id}`} title="Redaguoti" className="w-8 h-8 flex items-center justify-center rounded-lg text-blue-500 hover:text-blue-700 hover:bg-blue-50 transition">✎</Link>
+                  <button onClick={() => remove(ev.id)} title="Ištrinti" className="w-8 h-8 flex items-center justify-center rounded-lg text-gray-300 hover:text-red-500 hover:bg-red-50 transition">✕</button>
                 </div>
               </div>
             ))}
