@@ -277,6 +277,32 @@ export async function GET() {
       }
     } catch { radarArtists = [] }
 
+    // ── Narių topai (blog_posts post_type=topas) — Topai „Narių topai" skilčiai ──
+    const { data: memberTopRows } = await supabase
+      .from('blog_posts')
+      .select('id, slug, title, cover_image_url, list_items, blogs:blog_id!inner ( slug, profiles:user_id!inner ( username, full_name, hide_from_homepage ) )')
+      .eq('status', 'published')
+      .eq('post_type', 'topas')
+      .not('topas_approved_at', 'is', null)
+      .not('blogs.profiles.hide_from_homepage', 'is', true)
+      .order('like_count', { ascending: false, nullsFirst: false })
+      .order('published_at', { ascending: false })
+      .limit(10)
+    const memberTops = ((memberTopRows || []) as any[]).map((r: any) => {
+      const blg = Array.isArray(r.blogs) ? r.blogs[0] : r.blogs
+      const prof = blg ? (Array.isArray(blg.profiles) ? blg.profiles[0] : blg.profiles) : null
+      const items = Array.isArray(r.list_items) ? r.list_items : []
+      const cover = r.cover_image_url || (items.find((it: any) => it?.image_url)?.image_url) || null
+      const blogSlug = blg?.slug || prof?.username || null
+      return {
+        id: r.id,
+        title: r.title || 'Nario topas',
+        image: cover,
+        author: prof?.username || prof?.full_name || 'narys',
+        href: blogSlug ? `/blogas/${blogSlug}/${r.slug || r.id}` : '/topai/nariu',
+      }
+    })
+
     // ── Trending atlikėjai (charts → naujausi releases → score_trending) ──
     // Pakeičia seną all-time `score` rikiavimą — nav rodo DABAR populiarius.
     const [trLt, trWorld] = await Promise.all([
@@ -352,6 +378,7 @@ export async function GET() {
       albums:       [...albLtRows, ...albWorldRows].slice(0, 12).map(mapNavAlbum),
       songsLt,
       songsWorld,
+      memberTops,
       tracks: (tracksRes.data || []).map((t: any) => ({
         id: t.id,
         title: t.title,

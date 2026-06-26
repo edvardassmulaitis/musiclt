@@ -54,6 +54,7 @@ type NavPreview = {
   albumsWorld?: { id: number; slug: string; title: string; image: string | null; year: number | null; artist: string; artistSlug: string }[]
   songsLt?:     { id: number; slug: string | null; title: string; image: string | null; artist: string; artistSlug: string }[]
   songsWorld?:  { id: number; slug: string | null; title: string; image: string | null; artist: string; artistSlug: string }[]
+  memberTops?:  { id: number; title: string; image: string | null; author: string; href: string }[]
   tracks:       { id: number; title: string; image: string | null; year: number | null; artist: string; artistSlug: string }[]
   events:       { id: number; slug: string; title: string; date: string; venue: string | null; image: string | null }[]
   eventsLt?:    { id: number; slug: string; title: string; date: string; venue: string | null; image: string | null }[]
@@ -529,30 +530,66 @@ function TopMiniRow({ entry, fallbackHref, hex }: { entry: TopMini; fallbackHref
 }
 
 function TopaiPanel({ data, accent }: { data: NavPreview | null; accent: string }) {
-  const top30 = data?.topChart?.top30 || []
-  const top40 = data?.topChart?.top40 || []
-  const featured = data?.featuredCharts || []
-  const votings = data?.votings || []
+  // Rail skiltys (Edvardo prašymu): Music.lt · Lietuvoje · Pasaulyje · Narių
+  // topai · Apdovanojimai. Default Music.lt; onMouseLeave reset.
+  const [sec, setSec] = useState<'musiclt' | 'lietuva' | 'pasaulis' | 'nariu' | 'apdovanojimai'>('musiclt')
+
+  const top30      = data?.topChart?.top30 || []
+  const top40      = data?.topChart?.top40 || []
+  const songsLt    = data?.songsLt    || []
+  const songsWorld = data?.songsWorld || []
+  const featured   = data?.featuredCharts || []
+  const votings    = data?.votings || []
+  const memberTops = data?.memberTops || []
 
   const anchor = (s: string) => s === 'world' ? '/topai#pasaulio-topai' : s === 'social' ? '/topai#trendai' : '/topai#lt-topai'
   const scopeGlyph = (s: string) => (s === 'social' ? I.trending : I.trophy)
 
-  // Dainų juosta su flag/spalvos stripe — kompaktiškos kortelės (cover+title+artist).
-  const renderSongRow = (kind: 'lt' | 'world', title: string, href: string, hex: string, entries: TopMini[]) => (
-    <div style={{ ['--it-rgb' as any]: hexToRgb(hex) }}>
-      <div style={{ display: 'flex', alignItems: 'baseline', justifyContent: 'space-between', gap: 8, marginBottom: 6 }}>
-        <span style={{ fontFamily: "'Outfit', sans-serif", fontSize: 13, fontWeight: 800, color: 'var(--text-primary)' }}>{title}</span>
-        <Link href={href} className="sh-more-link">Daugiau →</Link>
+  // ── Rail ikonos ──
+  const ltFlagIcon = (
+    <span style={{ width: 16, height: 11, borderRadius: 2, overflow: 'hidden', display: 'inline-flex' }} aria-hidden>
+      <span style={{ flex: 1, background: '#FDBA12' }} />
+      <span style={{ flex: 1, background: '#006A44' }} />
+      <span style={{ flex: 1, background: '#C1272D' }} />
+    </span>
+  )
+  const globeIcon = (
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><circle cx="12" cy="12" r="9"/><path d="M3 12h18"/><path d="M12 3c2.5 2.5 3.8 5.6 3.8 9s-1.3 6.5-3.8 9c-2.5-2.5-3.8-5.6-3.8-9s1.3-6.5 3.8-9Z"/></svg>
+  )
+  const RAIL: { k: typeof sec; icon: React.ReactNode; label: string; href: string; iconColor?: string }[] = [
+    { k: 'musiclt',       icon: I.equalizer, label: 'Music.lt',      href: '/topai',          iconColor: 'var(--accent-orange)' },
+    { k: 'lietuva',       icon: ltFlagIcon,  label: 'Lietuvoje',     href: '/topai/lietuva' },
+    { k: 'pasaulis',      icon: globeIcon,   label: 'Pasaulyje',     href: '/topai/pasaulis' },
+    { k: 'nariu',         icon: I.users,     label: 'Narių topai',   href: '/topai/nariu' },
+    { k: 'apdovanojimai', icon: I.award,     label: 'Apdovanojimai', href: '/balsavimai' },
+  ]
+
+  // Dainų juosta su rank numeriais (chart stilius). items: normalizuotos eilutės.
+  type SongItem = { key: string | number; href: string; title: string; artist: string; image: string | null }
+  const topItems = (arr: TopMini[]): SongItem[] => arr.map((e, i) => ({
+    key: e?.trackSlug || i, href: e?.trackSlug ? `/dainos/${e.trackSlug}` : '/topai',
+    title: e?.title || '', artist: e?.artist || '', image: e?.image || null,
+  }))
+  const aggItems = (arr: typeof songsLt): SongItem[] => arr.map((t, i) => ({
+    key: t?.id || i, href: t ? `/dainos/${t.artistSlug ? `${t.artistSlug}-` : ''}${t.slug ? `${t.slug}-` : ''}${t.id}` : '/topai',
+    title: t?.title || '', artist: t?.artist || '', image: t?.image || null,
+  }))
+  const songStrip = (items: SongItem[], kind: 'lt' | 'world', label: string, more: string) => (
+    <div>
+      <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 8, marginBottom: 7 }}>
+        <span style={{ fontFamily: "'Outfit', sans-serif", fontSize: 13, fontWeight: 800, color: 'var(--text-primary)' }}>{label}</span>
+        <Link href={more} className="sh-more-link">Daugiau →</Link>
       </div>
       <div className="sh-strip-wrap">
         <RowStripe kind={kind} />
         <div className="sh-strip">
-          {(entries.length > 0 ? entries : Array(6).fill(null)).map((e: TopMini | null, i: number) => (
-            <Link key={e?.trackSlug || `${kind}-${i}`} href={e?.trackSlug ? `/dainos/${e.trackSlug}` : href}
-              className="sh-mini sh-mini-xl">
-              <ImageBox src={e?.image} accent={accent} glyph={I.music} className="sh-mini-img" />
-              <span className="sh-mini-title sh-mini-title-2">{e?.title || <span style={{ opacity: 0.45 }}>Daina</span>}</span>
-              {e?.artist ? <span className="sh-mini-meta">{e.artist}</span> : null}
+          {(items.length > 0 ? items : Array(6).fill(null)).map((it: SongItem | null, i: number) => (
+            <Link key={it?.key || `${kind}-${i}`} href={it?.href || more} className="sh-mini sh-mini-xl sh-mini--meta">
+              <ImageBox src={it?.image} accent={accent} glyph={I.music} className="sh-mini-img">
+                <span className="sh-rank">{i + 1}</span>
+              </ImageBox>
+              <span className="sh-mini-title sh-mini-title-1">{it?.title || <span style={{ opacity: 0.45 }}>Daina</span>}</span>
+              {it?.artist ? <span className="sh-mini-meta">{it.artist}</span> : null}
             </Link>
           ))}
         </div>
@@ -560,7 +597,7 @@ function TopaiPanel({ data, accent }: { data: NavPreview | null; accent: string 
     </div>
   )
 
-  // Kompaktiškas chip'as su maža vėliavėle (Pagal šalis) arba ikona (Kiti topai).
+  // Chartų chip'ai (vėliavėlė / ikona) — kaip anksčiau „Kiti topai".
   const chartFlag = (cc: string | null): string | null => {
     let c = (cc || '').toLowerCase()
     c = (c === 'uk' || c === 'en') ? 'gb' : c
@@ -578,56 +615,108 @@ function TopaiPanel({ data, accent }: { data: NavPreview | null; accent: string 
       </Link>
     )
   }
-  const byCountry = featured.filter(c => c.country)
-  const otherCharts = featured.filter(c => !c.country)
+  const isLtChart = (c: NonNullable<NavPreview['featuredCharts']>[number]) => {
+    const cc = (c.country || '').toLowerCase()
+    return cc === 'lt' || cc === 'lietuva' || (c.scope || '').toLowerCase() === 'lt'
+  }
+  const ltCharts    = featured.filter(isLtChart)
+  const worldCharts = featured.filter(c => !isLtChart(c))
+
+  // Regiono vitrina — agreguoto topo dainos + chartų chip'ai apačioje.
+  const regionView = (songs: SongItem[], kind: 'lt' | 'world', charts: typeof featured, more: string, label: string) => (
+    <>
+      {songStrip(songs, kind, label, more)}
+      <div style={{ marginTop: 16, paddingTop: 14, borderTop: '1px solid var(--border-default)' }}>
+        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 8 }}>
+          <span style={SEC_HEAD}>Atskiri chartai</span>
+          <Link href={more} className="sh-more-link">Daugiau →</Link>
+        </div>
+        <div className="sh-chiprow">
+          {charts.length > 0
+            ? charts.map(featChip)
+            : <Link href={more} className="sh-navchip"><span className="sh-navchip-ic" style={{ color: 'var(--text-secondary)' }} aria-hidden>{I.trophy}</span>Visi chartai</Link>}
+        </div>
+      </div>
+    </>
+  )
 
   return (
-    <div className="sh-panel sh-panel-muzika">
-      {/* ── Pagrindiniai topai: LT TOP 30 + TOP 40 juostos (kaip Muzika).
-          LT30 rodomas tik kai turi bent 3 įrašus su vizualais — kitaip pilna
-          placeholder'ių eilė atrodo kaip bug (2026-06-11 consistency). ── */}
-      {top30.filter(e => e.image).length >= 3 && (
-        <>
-          {renderSongRow('lt', 'LT TOP 30', '/top30', '#22c55e', top30)}
-          <div style={{ height: 12 }} />
-        </>
-      )}
-      {renderSongRow('world', 'TOP 40', '/top40', 'var(--accent-orange)', top40)}
-
-      {/* ── Kiti topai: visi (šalys su vėliavėlėmis + pasaulio/viral/albumai) iš eilės ── */}
-      {featured.length > 0 && (
-        <div style={{ marginTop: 16, paddingTop: 14, borderTop: '1px solid var(--border-default)' }}>
-          <div style={{ ...SEC_HEAD, marginBottom: 8 }}>Kiti topai</div>
-          <div className="sh-chiprow">{[...byCountry, ...otherCharts].map(featChip)}</div>
-        </div>
-      )}
-      {featured.length === 0 && (
-        <div style={{ marginTop: 16, paddingTop: 14, borderTop: '1px solid var(--border-default)' }}>
-          <Link href="/topai" className="sh-navchip"><span className="sh-navchip-ic" style={{ color: 'var(--text-secondary)' }} aria-hidden>{I.trophy}</span>Visi topai</Link>
-        </div>
-      )}
-
-      {/* ── Apdovanojimai / rinkimai ── */}
-      <div style={{ marginTop: 16, paddingTop: 14, borderTop: '1px solid var(--border-default)' }}>
-        <div style={{ ...SEC_HEAD, marginBottom: 10 }}>Apdovanojimai ir rinkimai</div>
-        {votings.length > 0 ? (
-          <div style={{ display: 'flex', flexWrap: 'wrap', gap: 8 }}>
-            {votings.map(v => (
-              <Link key={v.id} href={`/balsavimai/${v.slug}`}
-                style={{ display: 'flex', alignItems: 'center', gap: 9, padding: '7px 12px 7px 8px', borderRadius: 10, border: '1px solid var(--border-default)', textDecoration: 'none', background: 'var(--bg-elevated)' }}
-                className="sh-vote-chip">
-                <span style={{ width: 28, height: 28, borderRadius: 7, overflow: 'hidden', flexShrink: 0, display: 'flex', alignItems: 'center', justifyContent: 'center', background: 'var(--bg-hover)', color: 'var(--text-secondary)' }}>
-                  {v.image ? <img src={proxyImg(v.image)} alt="" style={{ width: '100%', height: '100%', objectFit: 'cover' }} /> : I.award}
-                </span>
-                <span style={{ fontSize: 13, fontWeight: 700, color: 'var(--text-primary)', whiteSpace: 'nowrap' }}>{v.name}</span>
-              </Link>
-            ))}
-          </div>
-        ) : (
-          <Link href="/balsavimai" style={{ display: 'inline-flex', alignItems: 'center', gap: 8, padding: '8px 14px', borderRadius: 10, border: '1px solid var(--border-default)', textDecoration: 'none' }}>
-            <span style={{ color: 'var(--text-secondary)' }}>{I.award}</span>
-            <span style={{ fontSize: 13, fontWeight: 700, color: 'var(--text-primary)' }}>Balsavimai ir apdovanojimai</span>
+    <div className="sh-panel sh-panel-muzika sh-panel-railed" onMouseLeave={() => setSec('musiclt')}>
+      {/* ── Šoninė rinkmena ── */}
+      <div className="sh-rail" aria-label="Topų skiltys">
+        {RAIL.map(r => (
+          <Link
+            key={r.k}
+            href={r.href}
+            aria-current={sec === r.k ? 'true' : undefined}
+            className={`sh-railitem${sec === r.k ? ' active' : ''}`}
+            onMouseEnter={() => setSec(r.k)}
+            onFocus={() => setSec(r.k)}
+          >
+            <span className="sh-railitem-ic" style={r.iconColor ? { color: r.iconColor } : (sec === r.k ? { color: accent } : undefined)}>{r.icon}</span>
+            <span className="sh-railitem-label">{r.label}</span>
           </Link>
+        ))}
+      </div>
+
+      {/* ── Vitrina ── */}
+      <div className="sh-railbody">
+        {sec === 'musiclt' && (
+          <>
+            {songStrip(topItems(top40), 'world', 'TOP 40', '/top40')}
+            {top30.filter(e => e?.image).length >= 3 && (
+              <>
+                <div style={{ height: 14 }} />
+                {songStrip(topItems(top30), 'lt', 'LT TOP 30', '/top30')}
+              </>
+            )}
+          </>
+        )}
+
+        {sec === 'lietuva'  && regionView(aggItems(songsLt),    'lt',    ltCharts,    '/topai/lietuva',  'Lietuvos topas')}
+        {sec === 'pasaulis' && regionView(aggItems(songsWorld), 'world', worldCharts, '/topai/pasaulis', 'Pasaulio topas')}
+
+        {sec === 'nariu' && (
+          <div>
+            <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 10 }}>
+              <span style={{ fontFamily: "'Outfit', sans-serif", fontSize: 13, fontWeight: 800, color: 'var(--text-primary)' }}>Narių sudaryti topai</span>
+              <Link href="/topai/nariu" className="sh-more-link">Daugiau →</Link>
+            </div>
+            <div className="sh-vgrid sh-vgrid-4">
+              {(memberTops.length > 0 ? memberTops : Array(8).fill(null)).map((m, i) => (
+                <Link key={m?.id || `mt-${i}`} href={m?.href || '/topai/nariu'} className="sh-vcard" title={m?.title || ''}>
+                  <ImageBox src={m?.image} accent={accent} glyph={I.trophy} className="sh-vimg" />
+                  <span className="sh-vtitle">{m?.title || <span style={{ opacity: 0.45 }}>Nario topas</span>}</span>
+                  {m?.author ? <span className="sh-vmeta">@{m.author}</span> : null}
+                </Link>
+              ))}
+            </div>
+          </div>
+        )}
+
+        {sec === 'apdovanojimai' && (
+          <div>
+            <div style={{ ...SEC_HEAD, marginBottom: 10 }}>Apdovanojimai ir rinkimai</div>
+            {votings.length > 0 ? (
+              <div style={{ display: 'flex', flexWrap: 'wrap', gap: 8 }}>
+                {votings.map(v => (
+                  <Link key={v.id} href={`/balsavimai/${v.slug}`}
+                    style={{ display: 'flex', alignItems: 'center', gap: 9, padding: '7px 12px 7px 8px', borderRadius: 10, border: '1px solid var(--border-default)', textDecoration: 'none', background: 'var(--bg-elevated)' }}
+                    className="sh-vote-chip">
+                    <span style={{ width: 28, height: 28, borderRadius: 7, overflow: 'hidden', flexShrink: 0, display: 'flex', alignItems: 'center', justifyContent: 'center', background: 'var(--bg-hover)', color: 'var(--text-secondary)' }}>
+                      {v.image ? <img src={proxyImg(v.image)} alt="" style={{ width: '100%', height: '100%', objectFit: 'cover' }} /> : I.award}
+                    </span>
+                    <span style={{ fontSize: 13, fontWeight: 700, color: 'var(--text-primary)', whiteSpace: 'nowrap' }}>{v.name}</span>
+                  </Link>
+                ))}
+              </div>
+            ) : (
+              <Link href="/balsavimai" style={{ display: 'inline-flex', alignItems: 'center', gap: 8, padding: '8px 14px', borderRadius: 10, border: '1px solid var(--border-default)', textDecoration: 'none' }}>
+                <span style={{ color: 'var(--text-secondary)' }}>{I.award}</span>
+                <span style={{ fontSize: 13, fontWeight: 700, color: 'var(--text-primary)' }}>Balsavimai ir apdovanojimai</span>
+              </Link>
+            )}
+          </div>
         )}
       </div>
     </div>
@@ -1628,6 +1717,15 @@ export function SiteHeader() {
         .sh-mini-title-1 { -webkit-line-clamp: 1; }
         .sh-mini-xl.sh-mini--meta { gap: 4px; }
         .sh-mini-xl.sh-mini--meta .sh-mini-title { min-height: 0; }
+
+        /* Rank numerio ženkliukas ant kortelės viršelio (Topai chart stilius). */
+        .sh-rank {
+          position: absolute; top: 5px; left: 6px; z-index: 1;
+          min-width: 18px; height: 18px; padding: 0 5px;
+          border-radius: 6px; background: rgba(0,0,0,0.62); color: #fff;
+          font-family: 'Outfit', sans-serif; font-size: 12px; font-weight: 800;
+          display: inline-flex; align-items: center; justify-content: center;
+        }
 
         /* Vizualų grid — Stiliai (4 stulp.) ir Radaras (5 stulp.), 2 eilutės,
            kad užpildytų erdvę ir nesiskirtų aukštis nuo juostų. */
