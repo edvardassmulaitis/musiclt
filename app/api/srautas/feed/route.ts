@@ -242,6 +242,26 @@ async function buildFeed(artistIds: number[], followedIds: string[], limit: numb
     const dedAlbums = capPerArtist(albums, 1, it => Date.parse(it.date || '') || 0)
     dedTracks.sort((a, b) => Date.parse(b.date || '') - Date.parse(a.date || ''))
     dedAlbums.sort((a, b) => Date.parse(b.date || '') - Date.parse(a.date || ''))
+    // Albumams — vedančios (populiariausios) dainos ytId, kad kortelėje būtų inline ▶ grotuvas.
+    try {
+      const albIds = dedAlbums.map(a => Number(a.key.split('-').pop())).filter(Boolean)
+      if (albIds.length) {
+        const { data: at } = await sb.from('album_tracks')
+          .select('album_id, tracks:track_id(video_url, video_views)').in('album_id', albIds)
+        const best = new Map<number, { yt: string; views: number }>()
+        for (const r of (at || []) as any[]) {
+          const t = one(r.tracks); if (!t) continue
+          const yt = t.video_url?.match?.(YT_RE)?.[1]; if (!yt) continue
+          const aid = Number(r.album_id); const views = Number(t.video_views) || 0
+          const cur = best.get(aid)
+          if (!cur || views > cur.views) best.set(aid, { yt, views })
+        }
+        for (const al of dedAlbums) {
+          const b = best.get(Number(al.key.split('-').pop()))
+          if (b) al.meta = { ...(al.meta || {}), ytId: b.yt }
+        }
+      }
+    } catch { /* ignore */ }
     return { tracks: dedTracks, albums: dedAlbums }
   }
 
@@ -321,7 +341,7 @@ async function buildFeed(artistIds: number[], followedIds: string[], limit: numb
       if (!charts.length) return []
       const chartById = new Map<number, any>(charts.map(c => [Number(c.id), c]))
       const { data: entries } = await sb.from('external_chart_entries')
-        .select('artist_id, chart_id, position').in('artist_id', artistIds).in('chart_id', charts.map(c => Number(c.id)))
+        .select('artist_id, chart_id, position, title, cover_url, artist_name').in('artist_id', artistIds).in('chart_id', charts.map(c => Number(c.id)))
         .order('position', { ascending: true }).limit(120)
       const eRows = (entries || []) as any[]
       const aids = Array.from(new Set(eRows.map(e => Number(e.artist_id)).filter(Boolean)))
@@ -330,25 +350,25 @@ async function buildFeed(artistIds: number[], followedIds: string[], limit: numb
       const artById = new Map<number, { name: string; image: string | null; slug: string | null }>(
         ((arts || []) as any[]).map(a => [Number(a.id), { name: a.name as string, image: a.cover_image_url || null, slug: a.slug || null }]))
       const seen = new Set<string>()
-      const rows: { artist: string; chart: string; position: number; href: string; image: string | null }[] = []
+      // chartRows — DAINOS lygmuo (pavadinimas + atlikėjas + dainos viršelis); pills — atlikėjai.
+      const rows: { artist: string; song: string | null; chart: string; position: number; href: string; image: string | null }[] = []
       const thumbs: { name: string; image: string | null; href: string }[] = []
       const seenArt = new Set<number>()
       for (const e of eRows) {
         const c = chartById.get(Number(e.chart_id)); if (!c) continue
         const a = artById.get(Number(e.artist_id)); if (!a) continue
-        const k = `${e.artist_id}-${e.chart_id}`; if (seen.has(k)) continue; seen.add(k)
-        rows.push({ artist: a.name, chart: c.title || 'Topas', position: Number(e.position) || 0, href: `/topai/${c.source}-${c.chart_key}`, image: a.image })
+        const k = `${e.artist_id}-${e.chart_id}-${e.title || ''}`; if (seen.has(k)) continue; seen.add(k)
+        rows.push({ artist: a.name || e.artist_name, song: e.title || null, chart: c.title || 'Topas', position: Number(e.position) || 0, href: `/topai/${c.source}-${c.chart_key}`, image: e.cover_url || a.image })
         const aid = Number(e.artist_id)
         if (!seenArt.has(aid)) { seenArt.add(aid); thumbs.push({ name: a.name, image: a.image, href: a.slug ? `/atlikejai/${a.slug}` : '/topai' }) }
       }
       if (!rows.length) return []
-      const names = thumbs.map(t => t.name)
       return [{
         key: 'charts-summary', kind: 'chart',
         title: 'Tavo atlikėjai topuose',
         subtitle: null, image: null, href: '/topai', date: nowIso, badge: 'Topai',
         artistId: null, avatar: null,
-        meta: { excerpt: names.join(', '), chartRows: rows.slice(0, 50), artistThumbs: thumbs.slice(0, 12) },
+        meta: { chartRows: rows.slice(0, 50), artistThumbs: thumbs.slice(0, 14) },
       }]
     } catch { /* ignore */ }
     return []
@@ -579,7 +599,7 @@ async function buildFeed(artistIds: number[], followedIds: string[], limit: numb
 const getCachedFeed = unstable_cache(
   async (_uid: string, artistIds: number[], followedIds: string[], limit: number, before: string | null) =>
     buildFeed(artistIds, followedIds, limit, before),
-  ['srautas-feed-v20'],
+  ['srautas-feed-v21'],
   { revalidate: 90 },
 )
 
