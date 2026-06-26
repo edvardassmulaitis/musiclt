@@ -69,6 +69,16 @@ function tripInfo(destKey: string): string | null {
 
 const YT_RE = /(?:youtu\.be\/|youtube\.com\/(?:watch\?v=|embed\/|shorts\/))([A-Za-z0-9_-]{11})/
 
+// Topų išdėstymo eiliškumas pagal regioną: LT → pasaulis → JAV → UK → kitos.
+function chartRegionRank(sourceKey: string): number {
+  const s = (sourceKey || '').toLowerCase()
+  if (/(^|[-_])lt([-_]|$)/.test(s) || s.includes('agata') || s.includes('top40') || s.includes('top30') || s.includes('music.lt')) return 0
+  if (s.includes('global') || s.includes('world')) return 1
+  if (/(^|[-_])us([-_]|$)/.test(s) || s.includes('hot100')) return 2
+  if (/(^|[-_])(uk|gb)([-_]|$)/.test(s) || s.includes('official_uk')) return 3
+  return 4
+}
+
 type Kind = 'news' | 'blog' | 'track' | 'album' | 'event' | 'topic' | 'chart' | 'recording'
 type FeedItem = {
   key: string
@@ -371,28 +381,33 @@ async function buildFeed(artistIds: number[], followedIds: string[], limit: numb
       const trackIds = Array.from(new Set(eRows.map(e => Number(e.track_id)).filter(Boolean)))
       const [artsRes, tracksRes] = await Promise.all([
         sb.from('artists').select('id, name, cover_image_url, slug').in('id', aids),
-        trackIds.length ? sb.from('tracks').select('id, title, video_url, cover_url').in('id', trackIds) : Promise.resolve({ data: [] as any[] }),
+        // Konkrečios dainos (kaip SUSIETA kataloge): pavadinimas, klipas, viršelis, atlikėjas.
+        trackIds.length ? sb.from('tracks').select('id, title, video_url, cover_url, artists:artist_id(name)').in('id', trackIds) : Promise.resolve({ data: [] as any[] }),
       ])
       const artById = new Map<number, { name: string; image: string | null; slug: string | null }>(
         ((artsRes.data || []) as any[]).map(a => [Number(a.id), { name: a.name as string, image: a.cover_image_url || null, slug: a.slug || null }]))
-      const trackById = new Map<number, { title: string; yt: string | null; cover: string | null }>(
-        ((tracksRes.data || []) as any[]).map(t => [Number(t.id), { title: t.title || '', yt: t.video_url?.match?.(YT_RE)?.[1] || null, cover: t.cover_url || null }]))
+      const trackById = new Map<number, { title: string; yt: string | null; cover: string | null; artist: string | null }>(
+        ((tracksRes.data || []) as any[]).map(t => [Number(t.id), { title: t.title || '', yt: t.video_url?.match?.(YT_RE)?.[1] || null, cover: t.cover_url || null, artist: one(t.artists)?.name || null }]))
       const seen = new Set<string>()
-      // chartRows — DAINOS lygmuo (pavadinimas + atlikėjas + dainos viršelis + klipas); pills — atlikėjai.
-      const rows: { artist: string; song: string | null; ytId: string | null; chart: string; position: number; href: string; image: string | null }[] = []
+      // chartRows — DAINOS lygmuo (katalogo pavadinimas + atlikėjas + viršelis + klipas); pills — atlikėjai.
+      const rows: { artist: string; song: string | null; ytId: string | null; chart: string; position: number; href: string; image: string | null; region: number }[] = []
       const thumbs: { name: string; image: string | null; href: string }[] = []
       const seenArt = new Set<number>()
       for (const e of eRows) {
         const c = chartById.get(Number(e.chart_id)); if (!c) continue
         const a = artById.get(Number(e.artist_id)); if (!a) continue
         const tr = e.track_id ? trackById.get(Number(e.track_id)) : null
-        const song = tr?.title || e.title || null
+        const song = tr?.title || e.title || null            // katalogo pavadinimas, jei susieta
+        const artistName = tr?.artist || a.name || e.artist_name
+        const sourceKey = `${c.source}-${c.chart_key}`
         const k = `${e.artist_id}-${e.chart_id}-${song || ''}`; if (seen.has(k)) continue; seen.add(k)
-        rows.push({ artist: a.name || e.artist_name, song, ytId: tr?.yt || null, chart: c.title || 'Topas', position: Number(e.position) || 0, href: `/topai/${c.source}-${c.chart_key}`, image: tr?.cover || e.cover_url || a.image })
+        rows.push({ artist: artistName, song, ytId: tr?.yt || null, chart: c.title || 'Topas', position: Number(e.position) || 0, href: `/topai/${sourceKey}`, image: tr?.cover || e.cover_url || a.image, region: chartRegionRank(sourceKey) })
         const aid = Number(e.artist_id)
         if (!seenArt.has(aid)) { seenArt.add(aid); thumbs.push({ name: a.name, image: a.image, href: a.slug ? `/atlikejai/${a.slug}` : '/topai' }) }
       }
       if (!rows.length) return []
+      // Išdėstymas: LT → pasaulis → JAV → UK → kitos; viduje pagal poziciją.
+      rows.sort((a, b) => a.region - b.region || a.position - b.position)
       return [{
         key: 'charts-summary', kind: 'chart',
         title: 'Tavo atlikėjai topuose',
@@ -653,7 +668,7 @@ async function buildFeed(artistIds: number[], followedIds: string[], limit: numb
 const getCachedFeed = unstable_cache(
   async (_uid: string, artistIds: number[], followedIds: string[], limit: number, before: string | null) =>
     buildFeed(artistIds, followedIds, limit, before),
-  ['srautas-feed-v22'],
+  ['srautas-feed-v23'],
   { revalidate: 90 },
 )
 
