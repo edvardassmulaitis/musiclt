@@ -623,9 +623,11 @@ function TopaiPanel({ data, accent }: { data: NavPreview | null; accent: string 
     return (
       <Link key={c.id} href={c.source === 'consensus' ? `/topai/${c.source}-${c.chartKey}` : anchor(c.scope)}
         className="sh-navchip" title={c.title}>
-        {flag
-          ? <img src={flag} alt="" className="sh-navchip-flag" />
-          : <span className="sh-navchip-ic" style={{ color: 'var(--text-secondary)' }} aria-hidden>{/album/i.test(c.title) ? I.vinyl : scopeGlyph(c.scope)}</span>}
+        {hideFlag
+          ? null
+          : flag
+            ? <img src={flag} alt="" className="sh-navchip-flag" />
+            : <span className="sh-navchip-ic" style={{ color: 'var(--text-secondary)' }} aria-hidden>{/album/i.test(c.title) ? I.vinyl : scopeGlyph(c.scope)}</span>}
         {c.title}
       </Link>
     )
@@ -643,7 +645,7 @@ function TopaiPanel({ data, accent }: { data: NavPreview | null; accent: string 
             <Link href={more} className="sh-more-link">Daugiau →</Link>
           </div>
           {/* Viena eilė (nowrap, clip) — visi per „Daugiau". LT be vėliavėlių. */}
-          <div className="sh-chiprow" style={{ flexWrap: 'nowrap', overflow: 'hidden' }}>
+          <div className="sh-chiprow" style={{ flexWrap: 'nowrap', overflow: 'hidden', maskImage: 'linear-gradient(to right, #000 86%, transparent)', WebkitMaskImage: 'linear-gradient(to right, #000 86%, transparent)' }}>
             {charts.slice(0, 8).map(c => featChip(c, kind === 'lt'))}
           </div>
         </div>
