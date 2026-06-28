@@ -2796,10 +2796,10 @@ export function SiteHeader() {
         }
         .sh-hub-create-standalone:hover { filter: brightness(1.08); }
         .sh-hub-create-standalone:active { transform: scale(.96); }
-        /* Mano muzika nuoroda — pavadinimą slepiam siauresniam desktop'e (≤1200px),
-           kad nesusigrūstų su paieška/„Kurti"; lieka tik ♥ ikona. */
+        /* Zonų skirtukas — atskiria „Kurti" CTA nuo asmeninės zonos (D variantas). */
+        .sh-zone-div { width: 1px; height: 22px; background: var(--border-default, var(--border-subtle)); margin: 0 4px; border-radius: 1px; flex: 0 0 auto; }
+        /* Mano muzika — lengvas tekstinis linkas; pavadinimą slepiam ≤1200px (lieka ♥). */
         @media (max-width: 1200px) { .sh-mymusic-label { display: none; } }
-        @media (max-width: 1200px) { .sh-mymusic-link { padding: 0 9px !important; } }
         /* display:contents — wrapper'is nesukuria box'o, bells lieka flex row'e.
            Mobile'e juos paslepiam (apatinis baras juos perima), bet komponentai
            lieka sumontuoti (NotificationsBell dropdown atidaromas per event'ą). */
@@ -3329,9 +3329,13 @@ export function SiteHeader() {
               <span>Kurti</span>
             </button>
 
+            {/* Zonų skirtukas — atskiria „Kurti" veiksmą nuo asmeninės zonos
+                (Mano muzika · žinutės · pranešimai · avataras). D variantas. */}
+            <span className="sh-desktop-action sh-zone-div" aria-hidden />
+
             {/* Mano muzika (♥) — asmeninė muzikos zona: kolekcija + Atradimai
-                (Mėgstami / Tau gali patikti). Buvo pliką širdelė be teksto → dabar
-                matoma nuoroda su pavadinimu. Tik desktop (mobile = apatinis baras). */}
+                (Mėgstami / Tau gali patikti). Lengvas tekstinis linkas (be rėmelio),
+                kad nekonkuruotų su „Kurti" CTA. Tik desktop (mobile = apatinis baras). */}
             {(() => {
               const mmActive = pathname.startsWith('/mano-muzika') || pathname.startsWith('/srautas')
               return (
@@ -3340,14 +3344,13 @@ export function SiteHeader() {
                   aria-label="Mano muzika"
                   className="sh-desktop-action sh-mymusic-link"
                   style={{
-                    alignItems: 'center', gap: 6, padding: '0 12px', height: 34, borderRadius: 12,
+                    alignItems: 'center', gap: 6, padding: '0 6px', height: 34,
                     color: mmActive ? 'var(--accent-orange)' : 'var(--text-secondary)',
-                    background: 'var(--bg-elevated)', border: '1px solid var(--border-default)',
-                    fontSize: 13, fontWeight: 700, textDecoration: 'none', whiteSpace: 'nowrap',
-                    transition: 'color .15s, background .15s, border-color .15s',
+                    fontSize: 13, fontWeight: 600, textDecoration: 'none', whiteSpace: 'nowrap',
+                    transition: 'color .15s',
                   }}
-                  onMouseEnter={e => { if (!mmActive) e.currentTarget.style.color = 'var(--text-primary)'; e.currentTarget.style.background = 'var(--bg-hover)' }}
-                  onMouseLeave={e => { if (!mmActive) e.currentTarget.style.color = 'var(--text-secondary)'; e.currentTarget.style.background = 'var(--bg-elevated)' }}
+                  onMouseEnter={e => { if (!mmActive) e.currentTarget.style.color = 'var(--text-primary)' }}
+                  onMouseLeave={e => { if (!mmActive) e.currentTarget.style.color = 'var(--text-secondary)' }}
                 >
                   <svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" style={{ flexShrink: 0 }}>
                     <path d="M19 14c1.49-1.46 3-3.21 3-5.5A5.5 5.5 0 0 0 16.5 3c-1.76 0-3 .5-4.5 2-1.5-1.5-2.74-2-4.5-2A5.5 5.5 0 0 0 2 8.5c0 2.29 1.51 4.04 3 5.5l7 7Z"/>
