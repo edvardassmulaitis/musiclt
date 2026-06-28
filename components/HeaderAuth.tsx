@@ -254,14 +254,16 @@ function UserMenu() {
     return () => document.removeEventListener('mousedown', handleClick)
   }, [])
 
-  // Username viešo profilio nuorodai — užkraunam pirmą kartą atidarius meniu.
+  // Username viešo profilio nuorodai — užkraunam iš karto (avataras = tiesioginė
+  // nuoroda į profilį, tad href reikia dar prieš atidarant meniu).
   useEffect(() => {
-    if (!open || username) return
+    if (username || !session?.user) return
     fetch('/api/profile').then(r => r.json()).then(d => { if (d?.username) setUsername(d.username) }).catch(() => {})
-  }, [open, username])
+  }, [username, session])
 
   if (!session?.user) return null
   const isAdmin = ['editor', 'admin', 'super_admin'].includes(session.user.role || '')
+  const profileHref = username ? `/@${username}` : '/auth/profile'
 
   const menuItem = (href: string, icon: React.ReactNode, label: string, accent?: boolean) => {
     const fg = accent ? 'var(--accent-orange)' : 'var(--text-secondary)'
@@ -298,43 +300,56 @@ function UserMenu() {
 
   return (
     <div ref={ref} className="relative">
-      <button
-        onClick={() => setOpen(!open)}
-        className="flex items-center gap-1.5 pl-1 pr-2 py-1 rounded-full transition-all"
+      {/* Avataras = TIESIOGINĖ nuoroda į profilį (1 paspaudimas). Meniu
+          (nustatymai, atsijungti) — per atskirą ↓ rodyklėlę šalia. Anksčiau
+          avataras atidarydavo tik meniu → profilis buvo 2 paspaudimai. */}
+      <div
+        className="flex items-center gap-0.5 pl-1 pr-1.5 py-1 rounded-full transition-all"
         style={{ background: open ? 'var(--bg-hover)' : 'transparent' }}
         onMouseEnter={e => ((e.currentTarget as HTMLElement).style.background = 'var(--bg-hover)')}
         onMouseLeave={e => ((e.currentTarget as HTMLElement).style.background = open ? 'var(--bg-hover)' : 'transparent')}
       >
-        {session.user.image ? (
-          // Paprastas <img> + proxyImg: next/image reikalauja domeno
-          // whitelist'o (remotePatterns), tad legacy music.lt avatarai (pvz.
-          // impersonuojant ghost-narį) per next/image lūždavo → „?". proxyImg
-          // music.lt URL'us paleidžia per weserv.nl, kitus (Google/FB) palieka.
-          // eslint-disable-next-line @next/next/no-img-element
-          <img
-            src={proxyImg(session.user.image)}
-            alt={session.user.name || ''}
-            width={32} height={32}
-            referrerPolicy="no-referrer"
-            className="w-8 h-8 rounded-full object-cover"
-            style={{ boxShadow: open ? '0 0 0 2px var(--accent-orange)' : '0 0 0 2px rgba(255,255,255,0.18)' }}
-          />
-        ) : (
-          <div
-            className="w-8 h-8 rounded-full bg-gradient-to-br from-blue-600 to-orange-500 flex items-center justify-center text-xs font-black text-white"
-            style={{ boxShadow: open ? '0 0 0 2px var(--accent-orange)' : '0 0 0 2px rgba(255,255,255,0.18)' }}
-          >
-            {session.user.name?.[0]?.toUpperCase() || '?'}
-          </div>
-        )}
-        <svg
-          className={`w-3.5 h-3.5 transition-transform duration-200 ${open ? 'rotate-180' : ''}`}
-          style={{ color: 'var(--text-muted)' }}
-          fill="none" stroke="currentColor" viewBox="0 0 24 24"
+        <Link href={profileHref} aria-label="Mano profilis" title="Mano profilis" className="flex items-center" onClick={() => setOpen(false)}>
+          {session.user.image ? (
+            // Paprastas <img> + proxyImg: next/image reikalauja domeno
+            // whitelist'o (remotePatterns), tad legacy music.lt avatarai (pvz.
+            // impersonuojant ghost-narį) per next/image lūždavo → „?". proxyImg
+            // music.lt URL'us paleidžia per weserv.nl, kitus (Google/FB) palieka.
+            // eslint-disable-next-line @next/next/no-img-element
+            <img
+              src={proxyImg(session.user.image)}
+              alt={session.user.name || ''}
+              width={32} height={32}
+              referrerPolicy="no-referrer"
+              className="w-8 h-8 rounded-full object-cover"
+              style={{ boxShadow: open ? '0 0 0 2px var(--accent-orange)' : '0 0 0 2px rgba(255,255,255,0.18)' }}
+            />
+          ) : (
+            <div
+              className="w-8 h-8 rounded-full bg-gradient-to-br from-blue-600 to-orange-500 flex items-center justify-center text-xs font-black text-white"
+              style={{ boxShadow: open ? '0 0 0 2px var(--accent-orange)' : '0 0 0 2px rgba(255,255,255,0.18)' }}
+            >
+              {session.user.name?.[0]?.toUpperCase() || '?'}
+            </div>
+          )}
+        </Link>
+        <button
+          onClick={() => setOpen(!open)}
+          aria-label="Paskyros meniu"
+          aria-haspopup="menu"
+          aria-expanded={open}
+          className="flex items-center justify-center rounded-full"
+          style={{ background: 'transparent', border: 'none', cursor: 'pointer', padding: 3 }}
         >
-          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
-        </svg>
-      </button>
+          <svg
+            className={`w-3.5 h-3.5 transition-transform duration-200 ${open ? 'rotate-180' : ''}`}
+            style={{ color: 'var(--text-muted)' }}
+            fill="none" stroke="currentColor" viewBox="0 0 24 24"
+          >
+            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
+          </svg>
+        </button>
+      </div>
 
       {open && (
         <div
@@ -345,13 +360,17 @@ function UserMenu() {
             boxShadow: '0 16px 48px -12px rgba(0,0,0,0.55), 0 4px 12px -4px rgba(0,0,0,0.4)',
           }}
         >
-          {/* User info */}
-          <div
-            className="flex items-center gap-3 px-4 pt-4 pb-3.5"
+          {/* User info — paspaudus → profilis (#1: antraštė irgi nuoroda). */}
+          <Link
+            href={profileHref}
+            onClick={() => setOpen(false)}
+            className="flex items-center gap-3 px-4 pt-4 pb-3.5 transition-colors"
             style={{
               borderBottom: '1px solid var(--border-subtle)',
               background: 'linear-gradient(180deg, rgba(249,115,22,0.06), transparent)',
             }}
+            onMouseEnter={e => ((e.currentTarget as HTMLElement).style.background = 'var(--bg-hover)')}
+            onMouseLeave={e => ((e.currentTarget as HTMLElement).style.background = 'linear-gradient(180deg, rgba(249,115,22,0.06), transparent)')}
           >
             {session.user.image ? (
               // eslint-disable-next-line @next/next/no-img-element
@@ -385,7 +404,7 @@ function UserMenu() {
                 <div className="text-xs truncate mt-0.5" style={{ color: 'var(--text-muted)' }}>{session.user.email}</div>
               )}
             </div>
-          </div>
+          </Link>
 
           {/* Main links */}
           <div className="py-1.5">
