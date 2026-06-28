@@ -775,19 +775,30 @@ async function getSimilar(artistId: number, genreIds: number[], substyleIds: num
   }
   if (substyleIds.length) {
     const { data } = await sb.from('artist_substyles')
-      .select('substyle_id, artists:artist_id(id, slug, name, cover_image_url, country, score, active_from, active_until)')
+      .select('substyle_id, artists:artist_id(id, slug, name, cover_image_url, country, score, active_from, active_until, legacy_likes, legacy_news_count, legacy_comments)')
       .in('substyle_id', substyleIds).limit(500)
     for (const r of (data || []) as any[]) add(r.artists, 'sub')
   }
   if (genreIds.length) {
     const { data } = await sb.from('artist_genres')
-      .select('genre_id, artists:artist_id(id, slug, name, cover_image_url, country, score, active_from, active_until)')
+      .select('genre_id, artists:artist_id(id, slug, name, cover_image_url, country, score, active_from, active_until, legacy_likes, legacy_news_count, legacy_comments)')
       .in('genre_id', genreIds).limit(500)
     for (const r of (data || []) as any[]) add(r.artists, 'gen')
   }
+  // Šlovės (populiarumo) signalas — score laukas matuoja vaizdo įrašų kiekį,
+  // NE faktinę šlovę. legacy_likes/news/comments daug geriau atskiria žinomus
+  // nuo nežinomų (pvz. Holly Valance 4 like vs Madonna 164 — abu turi tuos
+  // pačius substilius kaip Justin Timberlake). Imame log-skalę ir
+  // normalizuojam pagal populiariausią kandidatą šiame pool'e.
+  const _fame = (a: any) =>
+    (Number(a.legacy_likes) || 0) +
+    0.5 * (Number(a.legacy_news_count) || 0) +
+    0.3 * (Number(a.legacy_comments) || 0) +
+    0.3 * (Number(a.score) || 0)
+  const _maxFame = Math.max(1, ...[...cand.values()].map((e) => _fame(e.artist)))
+  const _lmax = Math.log1p(_maxFame)
   const scored = [...cand.values()].map((e) => {
     const sameCountry = country && e.artist.country === country ? 1 : 0
-    const pop = Math.min(Number(e.artist.score) || 0, 1000) / 1000
     // Eros persidengimas — veiklos langas [from, until||dabar]. MINKŠTAS:
     // trūkstant active_from (savo ar kandidato) → 0 (neutralu, ne bauda).
     // Kuo labiau persidengia aktyvumo laikotarpiai, tuo aukščiau (maks +40),
@@ -800,7 +811,13 @@ async function getSimilar(artistId: number, genreIds: number[], substyleIds: num
       const span = Math.max(myUntil, ct) - Math.min(myFrom, cf)
       era = (span > 0 ? overlap / span : 1) * 40
     }
-    const sim = e.sub * 100 + e.gen * 20 + sameCountry * 30 + era + pop * 5
+    // Stiliaus bazė: substilių sutapimas (×100, DOMINANTĖ) + žanras + šalis + era.
+    const base = e.sub * 100 + e.gen * 20 + sameCountry * 30 + era
+    // Populiarumas — DAUGIKLIS (0.40..1.00): stilius lieka pirminis (net
+    // nežinomas atlikėjas su daug bendrų substilių praeina), bet tarp panašaus
+    // stiliaus kandidatų žinomi iškyla, o visiškai nežinomi nuslopinami ~×0.4.
+    const popNorm = _lmax > 0 ? Math.log1p(_fame(e.artist)) / _lmax : 0
+    const sim = base * (0.40 + 0.60 * popNorm)
     return { artist: e.artist, sim }
   }).sort((a, b) => b.sim - a.sim)
   const out: any[] = scored.slice(0, 14).map((s) => s.artist)
