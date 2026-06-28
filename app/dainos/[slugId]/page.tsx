@@ -151,7 +151,7 @@ const fetchTrackData = unstable_cache(
       artistTopTracks: artistTop ?? [],
     }
   },
-  ['track-full-data-v4'],
+  ['track-full-data-v5'],
   { revalidate: TRACK_CACHE_TTL, tags: ['track'] },
 )
 
