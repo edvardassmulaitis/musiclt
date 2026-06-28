@@ -674,12 +674,16 @@ export function StreamFeed({ initialMode = 'sekami', onModeChange, showManageLin
           .srl-cover--ph span { font-size:32px; }
           .srl-title { font-size:14.5px; }
           .srl-body { padding:11px 46px 11px 13px; }
-          /* mini grotuvai keliasi po kortele (visa eilutė) */
-          .srl--hasmini { flex-wrap:wrap; }
-          .srl--hasmini .srl-minis, .srl--multi .srl-minis { order:3; flex:0 0 100%; width:100%; margin:0 0 4px; flex-direction:column; align-items:stretch; }
-          .srl-miniwrap { width:100%; }
-          .srl-minis .srl-mini, .srl--multi .srl-mini { width:100%; }
-          .srl--hasmini .srl-body { padding-right:46px; }
+          /* mini grotuvas lieka dešinėj — kompaktiškas thumbnailas (ne per visą plotį) */
+          .srl--hasmini { flex-wrap:nowrap; }
+          .srl--hasmini .srl-cover { width:84px; }
+          .srl-minis { margin:8px 10px 8px 4px; gap:6px; }
+          .srl-minis .srl-mini { width:104px; }
+          /* albumas — du grotuvai stulpeliu dešinėj */
+          .srl--multi .srl-minis { flex-direction:column; align-items:flex-end; }
+          .srl--multi .srl-mini { width:104px; }
+          .srl-mini-pbtn { width:36px; height:36px; }
+          .srl--hasmini .srl-body { padding-right:8px; }
           .srl-artcard-nm { max-width:120px; overflow:hidden; text-overflow:ellipsis; }
         }
 
