@@ -11,6 +11,7 @@ import Link from 'next/link'
 import { proxyImg } from '@/lib/img-proxy'
 import MusicSearchPicker, { type AttachmentHit } from '@/components/MusicSearchPicker'
 import { SideEqualizer } from '@/components/profile/SideEqualizer'
+import { StreamFeed } from '@/components/srautas/StreamFeed'
 import type { MyMusic, KindCollection, MusicItem, MoodSong, FavStyle } from '@/lib/mano-muzika'
 
 // Vieno stiliaus/substiliaus selektorius — bendras equalizeriui ir pill'ams.
@@ -18,9 +19,10 @@ type StyleSel = { key: string; label: string; color: string; match: (it: MusicIt
 
 const PROFILE_CUTOFF = 20
 type EntityTab = 'artist' | 'album' | 'track'
-type Tab = EntityTab | 'mood' | 'styles'
+type Tab = EntityTab | 'mood' | 'styles' | 'discoveries'
 const TYPEFILTER: Record<EntityTab, AttachmentHit['type']> = { artist: 'grupe', album: 'albumas', track: 'daina' }
 const TABS: { key: Tab; label: string; icon: IcoName }[] = [
+  { key: 'discoveries', label: 'Atradimai', icon: 'compass' },
   { key: 'artist', label: 'Atlikėjai', icon: 'person' }, { key: 'album', label: 'Albumai', icon: 'disc' },
   { key: 'track', label: 'Dainos', icon: 'note' }, { key: 'mood', label: 'Nuotaikos dainos', icon: 'repeat' }, { key: 'styles', label: 'Stiliai', icon: 'sliders' },
 ]
@@ -137,7 +139,7 @@ export default function MyMusicClient({ initial, username, suggestOnboarding }: 
             <span className="text-[12px] font-black" style={{ color: 'var(--accent-orange)' }}>{pct}%</span>
             <span className="text-[11.5px] font-bold" style={{ color: 'var(--text-muted)' }}>užpildyta</span>
           </div>
-          <div className="h-1.5 flex-1 min-w-[80px] rounded-full overflow-hidden" style={{ background: 'var(--bg-elevated)' }}><div className="h-full rounded-full transition-all duration-500" style={{ width: `${pct}%`, background: 'linear-gradient(90deg, var(--accent-orange), #a78bfa)' }} /></div>
+          <div className="h-1.5 flex-1 min-w-[80px] rounded-full overflow-hidden" style={{ background: 'var(--bg-elevated)' }}><div className="h-full rounded-full transition-all duration-500" style={{ width: `${pct}%`, background: 'linear-gradient(90deg, #f97316, #a78bfa)' }} /></div>
           <div className="hidden sm:flex flex-wrap gap-1.5 shrink-0">
             <Goal label="Atlikėjai" n={counts.artist} t={TARGETS.artists} /><Goal label="Albumai" n={counts.album} t={TARGETS.albums} />
             <Goal label="Dainos" n={counts.track} t={TARGETS.tracks} /><Goal label="Stiliai" n={counts.styles} t={TARGETS.styles} />
@@ -155,18 +157,24 @@ export default function MyMusicClient({ initial, username, suggestOnboarding }: 
 
       <div className="flex gap-1.5 overflow-x-auto pb-1 mb-5 -mx-1 px-1" role="tablist">
         {TABS.map(t => {
-          const c = t.key === 'mood' ? counts.mood : t.key === 'styles' ? counts.styles : counts[t.key as EntityTab]
+          const c = t.key === 'discoveries' ? null : t.key === 'mood' ? counts.mood : t.key === 'styles' ? counts.styles : counts[t.key as EntityTab]
           const active = tab === t.key
           return (
             <button key={t.key} onClick={() => setTab(t.key)} className="shrink-0 inline-flex items-center gap-1.5 rounded-full px-4 py-2 text-[13px] font-bold transition-colors"
               style={{ background: active ? 'var(--accent-orange)' : 'var(--bg-elevated)', color: active ? '#fff' : 'var(--text-secondary)', border: `1px solid ${active ? 'transparent' : 'var(--border-default)'}` }}>
               <Ico name={t.icon} size={14} />{t.label}
-              <span className="inline-flex items-center justify-center min-w-[18px] h-[18px] px-1 rounded-full text-[10.5px] font-black" style={{ background: active ? 'rgba(255,255,255,0.25)' : 'var(--bg-surface)', color: active ? '#fff' : 'var(--text-muted)' }}>{c}</span>
+              {c != null && <span className="inline-flex items-center justify-center min-w-[18px] h-[18px] px-1 rounded-full text-[10.5px] font-black" style={{ background: active ? 'rgba(255,255,255,0.25)' : 'var(--bg-surface)', color: active ? '#fff' : 'var(--text-muted)' }}>{c}</span>}
             </button>
           )
         })}
       </div>
 
+      {tab === 'discoveries' && (
+        <div>
+          <p className="mb-4 text-[12.5px]" style={{ color: 'var(--text-muted)' }}><b style={{ color: 'var(--text-secondary)' }}>Mėgstami</b> — naujienos, koncertai ir muzika iš tavo atlikėjų. <b style={{ color: 'var(--text-secondary)' }}>Tau gali patikti</b> — atradimai pagal tavo skonį. Širdele pažymėk, kas patinka — rekomendacijos taps tikslesnės.</p>
+          <StreamFeed embedded showManageLink={false} />
+        </div>
+      )}
       {(tab === 'artist' || tab === 'album' || tab === 'track') && (
         <CollectionPanel key={tab} kind={tab} data={coll[tab]} onMove={(it, pos) => moveToPosition(tab, it, pos)} onUnlike={(it) => unlike(tab, it)} onAdd={(hit) => addLib(tab, hit)} />
       )}
@@ -244,7 +252,7 @@ function SuggestionsPanel({ kind, ownedIds, onAdd }: { kind: EntityTab; ownedIds
   }
   return (
     <aside className="rounded-2xl p-3.5 lg:sticky lg:top-4" style={{ background: 'var(--bg-surface)', border: '1px solid var(--border-default)' }}>
-      <div className="flex items-center gap-1.5 mb-1"><span style={{ color: 'var(--accent-orange)' }}><Ico name="sparkle" size={15} /></span><h3 className="text-[13.5px] font-black">Galbūt patiks</h3></div>
+      <div className="flex items-center gap-1.5 mb-1"><span style={{ color: '#f97316' }}><Ico name="sparkle" size={15} /></span><h3 className="text-[13.5px] font-black">Galbūt patiks</h3></div>
       <p className="text-[11.5px] mb-3" style={{ color: 'var(--text-muted)' }}>{SUG_SUB[kind]} <span style={{ color: 'var(--text-faint)' }}>Širdelė — pridėti, ✕ — paslėpti (daugiau nesiūlysim).</span></p>
       {items === null ? (
         <div className="text-[12px] py-4 text-center" style={{ color: 'var(--text-faint)' }}>Kraunama…</div>
@@ -335,7 +343,7 @@ function OneList({ kind, items, onMove, onUnlike }: { kind: EntityTab; items: Mu
                   )}
                   <Cover kind={kind} cover={it.cover} />
                   <div className="min-w-0 flex-1"><div className="truncate text-[13px] font-bold">{it.href ? <Link href={it.href} className="hover:underline">{it.title}</Link> : it.title}</div><div className="truncate text-[11px] flex items-center gap-1.5" style={{ color: 'var(--text-muted)' }}>{it.subtitle}{it.style && <span className="rounded px-1.5 py-0.5 text-[9.5px] font-bold" style={{ background: 'var(--bg-elevated)', color: 'var(--text-faint)' }}>{it.style}</span>}</div></div>
-                  {!inProfile && <button onClick={() => onMove(it, PROFILE_CUTOFF)} title="Įkelti į Top 20" className="shrink-0 h-7 inline-flex items-center gap-1 rounded-full px-2.5 text-[11px] font-bold" style={{ background: 'rgba(249,115,22,0.12)', color: 'var(--accent-orange)' }}><Ico name="star" size={12} /> Top 20</button>}
+                  {!inProfile && <button onClick={() => onMove(it, PROFILE_CUTOFF)} title="Įkelti į Top 20" className="shrink-0 h-7 inline-flex items-center gap-1 rounded-full px-2.5 text-[11px] font-bold" style={{ background: 'rgba(249,115,22,0.12)', color: '#f97316' }}><Ico name="star" size={12} /> Top 20</button>}
                   <button onClick={() => onUnlike(it)} title="Pašalinti iš mėgstamų" className="shrink-0 h-7 w-7 inline-flex items-center justify-center rounded-lg opacity-0 group-hover:opacity-100 transition-opacity" style={{ color: 'var(--text-faint)' }} onMouseEnter={e => (e.currentTarget.style.color = '#f43f5e')} onMouseLeave={e => (e.currentTarget.style.color = 'var(--text-faint)')}><Ico name="x" size={14} /></button>
                 </div>
               </div>
@@ -425,7 +433,7 @@ function MoodSection({ moodSongs, setMoodSongs }: { moodSongs: MoodSong[]; setMo
   )
 }
 
-const METER_COLORS = ['var(--accent-orange)', '#a78bfa', '#34d399', '#60a5fa', '#f472b6', '#fbbf24', '#22d3ee', '#fb7185', '#fb923c', '#4ade80']
+const METER_COLORS = ['#f97316', '#a78bfa', '#34d399', '#60a5fa', '#f472b6', '#fbbf24', '#22d3ee', '#fb7185', '#fb923c', '#4ade80']
 function hexToRgb(hex: string): string {
   const h = hex.replace('#', '')
   const n = parseInt(h.length === 3 ? h.split('').map(c => c + c).join('') : h, 16)
@@ -583,7 +591,7 @@ function StyleSection({ coll, styles, setStyles, meterRaw, onStyleReorder, onUnl
   const hasMeter = Array.isArray(meterRaw) && meterRaw.length > 0
 
   // Selektoriai: equalizerio platus stilius (pagal žanro pavadinimą) / pill substilius.
-  const makeBroad = (full: string): StyleSel => ({ key: full, label: full, color: colorOf(full) || 'var(--accent-orange)', match: it => it.style === full })
+  const makeBroad = (full: string): StyleSel => ({ key: full, label: full, color: colorOf(full) || '#f97316', match: it => it.style === full })
   const makePill = (s: FavStyle, idx: number): StyleSel => ({ key: `sub:${s.legacy_style_id}`, label: s.style_name, color: METER_COLORS[idx % METER_COLORS.length], match: it => (it.substyleIds?.includes(s.legacy_style_id)) || it.style === s.style_name })
   const broadSelName = sel && !sel.key.startsWith('sub:') ? sel.key : null
 
@@ -652,7 +660,7 @@ function StyleSection({ coll, styles, setStyles, meterRaw, onStyleReorder, onUnl
 function Empty({ hint }: { hint: string }) { return <div className="rounded-2xl px-6 py-10 text-center" style={{ background: 'var(--bg-surface)', border: '1px dashed var(--border-default)' }}><div className="text-[13px]" style={{ color: 'var(--text-muted)' }}>{hint}</div></div> }
 
 // ── ICONS (inline SVG) ─────────────────────────────────────────────────────
-type IcoName = 'person' | 'disc' | 'note' | 'moon' | 'sliders' | 'star' | 'heart' | 'heartFull' | 'repeat' | 'play' | 'books' | 'download' | 'eye' | 'x' | 'up' | 'down' | 'grip' | 'sort' | 'sparkle' | 'target' | 'plus'
+type IcoName = 'person' | 'disc' | 'note' | 'moon' | 'sliders' | 'star' | 'heart' | 'heartFull' | 'repeat' | 'play' | 'books' | 'download' | 'eye' | 'x' | 'up' | 'down' | 'grip' | 'sort' | 'sparkle' | 'target' | 'plus' | 'compass'
 function Ico({ name, size = 16 }: { name: IcoName; size?: number }) {
   const p: Record<IcoName, ReactNode> = {
     person: <><circle cx="12" cy="8" r="4" /><path d="M5 20c0-3.3 3.1-6 7-6s7 2.7 7 6" /></>,
@@ -675,6 +683,7 @@ function Ico({ name, size = 16 }: { name: IcoName; size?: number }) {
     sort: <path d="M7 4v16M7 20l-3-3M7 4l3 3M17 20V4M17 4l3 3M17 20l-3-3" />,
     sparkle: <path d="M12 3l1.8 5.2L19 10l-5.2 1.8L12 17l-1.8-5.2L5 10l5.2-1.8z" />,
     target: <><circle cx="12" cy="12" r="8" /><circle cx="12" cy="12" r="3.5" /></>,
+    compass: <><circle cx="12" cy="12" r="9" /><path d="m15.5 8.5-2 5-5 2 2-5z" /></>,
   }
   const filled = name === 'star' || name === 'grip' || name === 'sparkle' || name === 'play' || name === 'heartFull'
   return <svg width={size} height={size} viewBox="0 0 24 24" fill={filled ? 'currentColor' : 'none'} stroke="currentColor" strokeWidth={name === 'x' || name === 'up' || name === 'down' ? 2.2 : 1.8} strokeLinecap="round" strokeLinejoin="round" aria-hidden style={{ flexShrink: 0 }}>{p[name]}</svg>
