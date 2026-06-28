@@ -621,15 +621,15 @@ export default function AlbumInfoModal({
                   <div className="mb-2 font-['Outfit',sans-serif] text-[10px] font-extrabold uppercase tracking-[0.16em] text-[var(--text-muted)]">
                     Daugiau / {artist.name}
                   </div>
-                  <div className="flex gap-2 overflow-x-auto pb-1 [scrollbar-width:thin]">
-                    {(details?.otherAlbums || []).slice(0, 8).map(a => (
+                  <div className="flex gap-2.5 overflow-x-auto pb-1 [scrollbar-width:thin]">
+                    {(details?.otherAlbums || []).slice(0, 6).map(a => (
                       <Link
                         key={a.id}
                         href={`/albumai/${artist.slug}-${a.slug}-${a.id}`}
                         target="_blank"
                         rel="noopener"
                         title={a.title}
-                        className="block w-[64px] shrink-0 no-underline group"
+                        className="block w-[84px] shrink-0 no-underline group"
                       >
                         <span className="block aspect-square w-full overflow-hidden rounded-md border border-[var(--border-subtle)] bg-[var(--cover-placeholder)] transition-colors group-hover:border-[var(--border-strong)]">
                           {a.cover_image_url && (
@@ -637,9 +637,12 @@ export default function AlbumInfoModal({
                             <img src={proxyImg(a.cover_image_url)} alt="" referrerPolicy="no-referrer" className="h-full w-full object-cover" />
                           )}
                         </span>
-                        <span className="mt-1 block truncate font-['Outfit',sans-serif] text-[9.5px] font-bold leading-tight text-[var(--text-primary)]">
+                        <span className="mt-1 block truncate font-['Outfit',sans-serif] text-[10px] font-bold leading-tight text-[var(--text-primary)]">
                           {a.title}
                         </span>
+                        {a.year && (
+                          <span className="block font-['Outfit',sans-serif] text-[9px] font-semibold text-[var(--text-faint)]">{a.year}</span>
+                        )}
                       </Link>
                     ))}
                   </div>
