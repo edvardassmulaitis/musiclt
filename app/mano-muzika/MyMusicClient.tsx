@@ -37,7 +37,7 @@ async function api(path: string, method: string, body?: any) {
 type Colls = Record<EntityTab, KindCollection>
 
 export default function MyMusicClient({ initial, username, suggestOnboarding }: { initial: MyMusic; username: string | null; avatarUrl: string | null; suggestOnboarding: boolean }) {
-  const [tab, setTab] = useState<Tab>('artist')
+  const [tab, setTab] = useState<Tab>('discoveries')
   const [coll, setColl] = useState<Colls>({ artist: initial.artist, album: initial.album, track: initial.track })
   const [moodSongs, setMoodSongs] = useState<MoodSong[]>(initial.moodSongs)
   const [styles, setStyles] = useState<FavStyle[]>(initial.styles)
