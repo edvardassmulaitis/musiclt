@@ -139,7 +139,7 @@ export default function MyMusicClient({ initial, username, suggestOnboarding }: 
             <span className="text-[12px] font-black" style={{ color: 'var(--accent-orange)' }}>{pct}%</span>
             <span className="text-[11.5px] font-bold" style={{ color: 'var(--text-muted)' }}>užpildyta</span>
           </div>
-          <div className="h-1.5 flex-1 min-w-[80px] rounded-full overflow-hidden" style={{ background: 'var(--bg-elevated)' }}><div className="h-full rounded-full transition-all duration-500" style={{ width: `${pct}%`, background: 'linear-gradient(90deg, #f97316, #a78bfa)' }} /></div>
+          <div className="h-1.5 flex-1 min-w-[80px] rounded-full overflow-hidden" style={{ background: 'var(--bg-elevated)' }}><div className="h-full rounded-full transition-all duration-500" style={{ width: `${pct}%`, background: 'linear-gradient(90deg, var(--accent-orange), #a78bfa)' }} /></div>
           <div className="hidden sm:flex flex-wrap gap-1.5 shrink-0">
             <Goal label="Atlikėjai" n={counts.artist} t={TARGETS.artists} /><Goal label="Albumai" n={counts.album} t={TARGETS.albums} />
             <Goal label="Dainos" n={counts.track} t={TARGETS.tracks} /><Goal label="Stiliai" n={counts.styles} t={TARGETS.styles} />
@@ -252,7 +252,7 @@ function SuggestionsPanel({ kind, ownedIds, onAdd }: { kind: EntityTab; ownedIds
   }
   return (
     <aside className="rounded-2xl p-3.5 lg:sticky lg:top-4" style={{ background: 'var(--bg-surface)', border: '1px solid var(--border-default)' }}>
-      <div className="flex items-center gap-1.5 mb-1"><span style={{ color: '#f97316' }}><Ico name="sparkle" size={15} /></span><h3 className="text-[13.5px] font-black">Galbūt patiks</h3></div>
+      <div className="flex items-center gap-1.5 mb-1"><span style={{ color: 'var(--accent-orange)' }}><Ico name="sparkle" size={15} /></span><h3 className="text-[13.5px] font-black">Galbūt patiks</h3></div>
       <p className="text-[11.5px] mb-3" style={{ color: 'var(--text-muted)' }}>{SUG_SUB[kind]} <span style={{ color: 'var(--text-faint)' }}>Širdelė — pridėti, ✕ — paslėpti (daugiau nesiūlysim).</span></p>
       {items === null ? (
         <div className="text-[12px] py-4 text-center" style={{ color: 'var(--text-faint)' }}>Kraunama…</div>
@@ -343,7 +343,7 @@ function OneList({ kind, items, onMove, onUnlike }: { kind: EntityTab; items: Mu
                   )}
                   <Cover kind={kind} cover={it.cover} />
                   <div className="min-w-0 flex-1"><div className="truncate text-[13px] font-bold">{it.href ? <Link href={it.href} className="hover:underline">{it.title}</Link> : it.title}</div><div className="truncate text-[11px] flex items-center gap-1.5" style={{ color: 'var(--text-muted)' }}>{it.subtitle}{it.style && <span className="rounded px-1.5 py-0.5 text-[9.5px] font-bold" style={{ background: 'var(--bg-elevated)', color: 'var(--text-faint)' }}>{it.style}</span>}</div></div>
-                  {!inProfile && <button onClick={() => onMove(it, PROFILE_CUTOFF)} title="Įkelti į Top 20" className="shrink-0 h-7 inline-flex items-center gap-1 rounded-full px-2.5 text-[11px] font-bold" style={{ background: 'rgba(249,115,22,0.12)', color: '#f97316' }}><Ico name="star" size={12} /> Top 20</button>}
+                  {!inProfile && <button onClick={() => onMove(it, PROFILE_CUTOFF)} title="Įkelti į Top 20" className="shrink-0 h-7 inline-flex items-center gap-1 rounded-full px-2.5 text-[11px] font-bold" style={{ background: 'rgba(249,115,22,0.12)', color: 'var(--accent-orange)' }}><Ico name="star" size={12} /> Top 20</button>}
                   <button onClick={() => onUnlike(it)} title="Pašalinti iš mėgstamų" className="shrink-0 h-7 w-7 inline-flex items-center justify-center rounded-lg opacity-0 group-hover:opacity-100 transition-opacity" style={{ color: 'var(--text-faint)' }} onMouseEnter={e => (e.currentTarget.style.color = '#f43f5e')} onMouseLeave={e => (e.currentTarget.style.color = 'var(--text-faint)')}><Ico name="x" size={14} /></button>
                 </div>
               </div>
@@ -433,7 +433,7 @@ function MoodSection({ moodSongs, setMoodSongs }: { moodSongs: MoodSong[]; setMo
   )
 }
 
-const METER_COLORS = ['#f97316', '#a78bfa', '#34d399', '#60a5fa', '#f472b6', '#fbbf24', '#22d3ee', '#fb7185', '#fb923c', '#4ade80']
+const METER_COLORS = ['var(--accent-orange)', '#a78bfa', '#34d399', '#60a5fa', '#f472b6', '#fbbf24', '#22d3ee', '#fb7185', '#fb923c', '#4ade80']
 function hexToRgb(hex: string): string {
   const h = hex.replace('#', '')
   const n = parseInt(h.length === 3 ? h.split('').map(c => c + c).join('') : h, 16)
@@ -591,7 +591,7 @@ function StyleSection({ coll, styles, setStyles, meterRaw, onStyleReorder, onUnl
   const hasMeter = Array.isArray(meterRaw) && meterRaw.length > 0
 
   // Selektoriai: equalizerio platus stilius (pagal žanro pavadinimą) / pill substilius.
-  const makeBroad = (full: string): StyleSel => ({ key: full, label: full, color: colorOf(full) || '#f97316', match: it => it.style === full })
+  const makeBroad = (full: string): StyleSel => ({ key: full, label: full, color: colorOf(full) || 'var(--accent-orange)', match: it => it.style === full })
   const makePill = (s: FavStyle, idx: number): StyleSel => ({ key: `sub:${s.legacy_style_id}`, label: s.style_name, color: METER_COLORS[idx % METER_COLORS.length], match: it => (it.substyleIds?.includes(s.legacy_style_id)) || it.style === s.style_name })
   const broadSelName = sel && !sel.key.startsWith('sub:') ? sel.key : null
 

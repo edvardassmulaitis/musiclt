@@ -193,20 +193,37 @@ const NAV: NavItem[] = [
    kurių nepamatai iš skyriaus pagrindinio puslapio (Koncertai, Bendruomenė).
    Muzika/Topai/Naujienos/Skelbimai hub'ai patys viską parodo → be pills.
    Tik patvirtinti route'ai (kad nebūtų 404). */
-const NAV_SUBLINKS: Partial<Record<NavItem['key'], { href: string; label: string }[]>> = {
+const NAV_SUBLINKS: Partial<Record<NavItem['key'], { href: string; label: string; dot?: boolean }[]>> = {
+  muzika: [
+    { href: '/muzika/lietuviska', label: '🇱🇹 Lietuviška' },
+    { href: '/muzika/uzsienio', label: 'Pasaulio' },
+    { href: '/muzikos-atradimai', label: 'Naujienų radaras', dot: true },
+  ],
+  topai: [
+    { href: '/top30', label: '🇱🇹 LT TOP 30' },
+    { href: '/top40', label: 'TOP 40' },
+    { href: '/balsavimai', label: 'Balsavimai ir rinkimai' },
+  ],
+  naujienos: [
+    { href: '/naujienos/lietuva', label: '🇱🇹 Lietuvoje' },
+    { href: '/naujienos/pasaulis', label: 'Pasaulyje' },
+  ],
   renginiai: [
+    { href: '/koncertu-irasai', label: 'Įrašai' },
+    { href: '/galerija', label: 'Nuotraukos' },
     { href: '/festivaliai', label: 'Festivaliai' },
-    { href: '/galerija', label: 'Foto reportažai' },
-    { href: '/verta-keliones', label: 'Verta kelionės' },
-    { href: '/koncertu-irasai', label: 'Koncertų įrašai' },
+    { href: '/verta-keliones', label: 'Kelionės' },
+  ],
+  skelbimai: [
+    { href: '/skelbimai/irasai', label: 'Vinilai, kiti įrašai' },
+    { href: '/skelbimai/instrumentai', label: 'Instrumentai' },
+    { href: '/skelbimai/muzikantai', label: 'Grupės ir nariai' },
   ],
   bendruomene: [
-    { href: '/vartotojai', label: 'Nariai' },
     { href: '/diskusijos', label: 'Diskusijos' },
-    { href: '/blogas', label: 'Narių įrašai' },
-    { href: '/dienos-daina', label: 'Dienos daina' },
-    { href: '/pokalbiai', label: 'Pokalbiai' },
-    { href: '/boombox', label: 'Boombox' },
+    { href: '/atradimai', label: 'Atradimai' },
+    { href: '/dienos-daina', label: 'Dienos dainos' },
+    { href: '/nariai', label: 'Nariai' },
   ],
 }
 
@@ -1277,7 +1294,7 @@ function MobileExpansion({
         {/* Pagrindiniai topai — LT TOP 30 + TOP 40, horizontaliai (kaip desktop) */}
         {mSongStrip('LT TOP 30', '/top30', '#22c55e', 'lt', mTop30)}
         <div style={{ height: 8 }} />
-        {mSongStrip('TOP 40', '/top40', '#f97316', 'world', mTop40)}
+        {mSongStrip('TOP 40', '/top40', 'var(--accent-orange)', 'world', mTop40)}
 
         {/* Pagal šalis / kiti topai — vėliavėlių chip'ai */}
         {mCharts.length > 0 && (
@@ -1512,11 +1529,13 @@ function MobileExpansion({
  * Main component
  * ──────────────────────────────────────────────────────────────── */
 export function SiteHeader() {
-  const { theme, setTheme, dk } = useSite()
+  const { setTheme, dk } = useSite()
   const pathname = usePathname()
   const [menuOpen, setMenuOpen] = useState(false)
   const [searchOpen, setSearchOpen] = useState(false)
   const [preview, setPreview] = useState<NavPreview | null>(null)
+  // Admin /admin/settings paslėpti / restricted nav punktai šiam vartotojui.
+  const [hiddenNav, setHiddenNav] = useState<string[]>([])
   // Desktop dropdown'o "closing" state — paspaudus link'ą uždaro
   // panel'ą iškart. SVARBU: suppress'as laikomas KOL pelė fiziškai
   // nepalieka grupės (onMouseLeave). Jei resetintume per pathname ar
@@ -1543,6 +1562,36 @@ export function SiteHeader() {
       .catch(() => {})
     return () => { mounted = false }
   }, [])
+
+  // Paslėpti / restricted nav punktai (admin /admin/settings), per-user.
+  // SSR jau paslepia VISUS ne-public punktus per <style id="nav-vis-ssr"> (be
+  // flash'o). Gavę vartotojui specifinį sąrašą, PERRAŠOM tą style'ą — taip
+  // leistini (allowlist) punktai vėl pasirodo, o uždrausti lieka paslėpti.
+  const [navLoaded, setNavLoaded] = useState(false)
+  useEffect(() => {
+    let mounted = true
+    fetch('/api/nav-settings')
+      .then(r => r.ok ? r.json() : null)
+      .then(d => {
+        if (!mounted) return
+        if (d && Array.isArray(d.hidden)) setHiddenNav(d.hidden)
+        setNavLoaded(true)
+      })
+      .catch(() => { if (mounted) setNavLoaded(true) })
+    return () => { mounted = false }
+  }, [])
+
+  useEffect(() => {
+    if (!navLoaded) return
+    const css = hiddenNav.map(k => `[data-nav-key="${k}"]{display:none!important}`).join('')
+    let el = document.getElementById('nav-vis-ssr') as HTMLStyleElement | null
+    if (!el && css) {
+      el = document.createElement('style')
+      el.id = 'nav-vis-ssr'
+      document.head.appendChild(el)
+    }
+    if (el) el.textContent = css
+  }, [navLoaded, hiddenNav])
 
   // Cmd/Ctrl+K bei "/" atidaro paiešką
   useEffect(() => {
@@ -2834,31 +2883,35 @@ export function SiteHeader() {
           min-height: 0;
           overflow-y: auto;
           -webkit-overflow-scrolling: touch;
+          display: flex;
+          flex-direction: column;
         }
 
         /* MAIN VIEW — clean text-row list (no gradients) */
         .sh-mlist {
+          flex: 1 1 auto;
           display: flex; flex-direction: column;
-          padding: 4px 0;
+          justify-content: space-evenly;
+          padding: 2px 0;
         }
         /* Flat blokas — skyriaus antraštė (nuoroda) + sub-nuorodų chip'ai */
         .sh-mblock {
           position: relative;
-          padding: 4px 0;
+          padding: 2px 0;
           border-bottom: 1px solid var(--border-default);
         }
         .sh-mblock:last-child { border-bottom: none; }
         .sh-mblock-acc {
           position: absolute;
-          left: 0; top: 12px; height: 38px;
+          left: 0; top: 9px; height: 26px;
           width: 3px;
           border-radius: 0 3px 3px 0;
           background: var(--accent-orange);
         }
         /* Antraštė — visa eilutė tiesioginė nuoroda į skyriaus puslapį */
         .sh-mblock-head {
-          display: flex; align-items: center; gap: 14px;
-          padding: 10px 16px;
+          display: flex; align-items: center; gap: 6px;
+          padding: 9px 16px;
           text-decoration: none;
           border-radius: 10px;
           transition: background .12s;
@@ -2867,18 +2920,24 @@ export function SiteHeader() {
         .sh-mblock-go {
           flex-shrink: 0;
           color: var(--text-muted);
-          opacity: 0.55;
+          opacity: 0.5;
           display: flex;
+          margin-top: 1px;
+          transition: transform .15s, color .15s, opacity .15s;
         }
+        .sh-mblock-head:hover .sh-mblock-go { transform: translateX(2px); opacity: 0.9; }
+        .sh-mblock.active .sh-mblock-go { color: var(--accent-orange); opacity: 0.9; }
         /* Sub-nuorodos — visada matomi chip'ai (wrap), kiekvienas tiesioginis link'as */
         .sh-mchips {
           display: flex; flex-wrap: wrap; gap: 7px;
-          padding: 2px 16px 8px 62px;
+          padding: 0 16px 8px 16px;
         }
         .sh-mchip {
-          font-size: 12.5px; font-weight: 600;
-          padding: 6px 12px;
+          display: inline-flex; align-items: center; gap: 6px;
+          font-size: 12px; font-weight: 600;
+          padding: 5px 11px;
           border-radius: 99px;
+          flex-shrink: 0;
           border: 1px solid var(--border-default);
           background: var(--bg-hover);
           color: var(--text-secondary);
@@ -2917,10 +2976,28 @@ export function SiteHeader() {
           gap: 3px;
         }
         .sh-mrow-title {
-          font-size: 15.5px; font-weight: 700;
+          font-size: 17.5px; font-weight: 800;
           color: var(--text-primary);
-          line-height: 1.2;
-          letter-spacing: -0.01em;
+          line-height: 1.15;
+          letter-spacing: -0.02em;
+        }
+        .sh-mblock.active .sh-mrow-title { color: var(--accent-orange); }
+        /* Pulsuojantis žalias taškas (pvz. „Naujienų radaras" — live) */
+        .sh-mchip-dot {
+          width: 7px; height: 7px;
+          border-radius: 50%;
+          background: var(--accent-green, #22c55e);
+          flex-shrink: 0;
+          box-shadow: 0 0 0 0 rgba(34, 197, 94, 0.55);
+          animation: shMchipPulse 1.8s ease-out infinite;
+        }
+        @keyframes shMchipPulse {
+          0%   { box-shadow: 0 0 0 0 rgba(34, 197, 94, 0.55); }
+          70%  { box-shadow: 0 0 0 6px rgba(34, 197, 94, 0); }
+          100% { box-shadow: 0 0 0 0 rgba(34, 197, 94, 0); }
+        }
+        @media (prefers-reduced-motion: reduce) {
+          .sh-mchip-dot { animation: none; }
         }
         .sh-mrow-desc {
           font-size: 12.5px; font-weight: 500;
@@ -2932,27 +3009,43 @@ export function SiteHeader() {
           padding: 10px 12px 14px;
         }
 
-        /* Footer — theme toggle */
+        /* Footer — greiti veiksmai + temos perjungiklis */
         .sh-mfoot {
           flex-shrink: 0;
-          padding: 10px 14px;
+          display: flex; align-items: center; gap: 8px;
+          padding: 9px 14px;
           border-top: 1px solid var(--border-default);
         }
-        .sh-mfoot-btn {
+        .sh-mfoot-act {
+          flex: 1;
           display: flex; align-items: center; justify-content: center;
-          gap: 8px;
-          width: 100%;
-          padding: 10px 14px;
+          gap: 7px;
+          padding: 10px 12px;
           border-radius: 10px;
           border: none;
           background: var(--bg-hover);
           color: var(--text-secondary);
-          font-size: 13px; font-weight: 700;
+          font-size: 13.5px; font-weight: 700;
           font-family: inherit;
+          text-decoration: none;
           cursor: pointer;
-          transition: background .12s;
+          transition: background .12s, color .12s;
         }
-        .sh-mfoot-btn:hover { background: var(--border-default); color: var(--text-primary); }
+        .sh-mfoot-act:hover, .sh-mfoot-act:active {
+          background: rgba(249,115,22,0.10); color: var(--accent-orange);
+        }
+        .sh-mfoot-theme {
+          flex-shrink: 0;
+          width: 42px; height: 42px;
+          display: flex; align-items: center; justify-content: center;
+          border-radius: 10px;
+          border: none;
+          background: var(--bg-hover);
+          color: var(--text-secondary);
+          cursor: pointer;
+          transition: background .12s, color .12s;
+        }
+        .sh-mfoot-theme:hover { background: var(--border-default); color: var(--text-primary); }
 
         .sh-mnav {
           flex: 1;
@@ -3117,17 +3210,8 @@ export function SiteHeader() {
             </svg>
           </button>
 
-          {/* Radaras — PRIEŠ logo, kairėje. Matomas ir mobile, ir desktop. */}
-          <Link
-            href="/nauji-atlikejai"
-            aria-label="Naujos muzikos radaras"
-            title="Naujos muzikos radaras — kylantys LT atlikėjai"
-            className="sh-radar"
-            style={{ flexShrink: 0, display: 'flex', alignItems: 'center', justifyContent: 'center', textDecoration: 'none' }}
-          >
-            <RadarSweepMini size={28} />
-          </Link>
-
+          {/* Radaro ikona iš top bar'o pašalinta (2026-06-25) — radaras lieka
+              Muzikos hover dropdown'e ir /nauji-atlikejai. Mažiau vizualaus triukšmo. */}
           <Link href="/" style={{ flexShrink: 0, textDecoration: 'none', display: 'flex', alignItems: 'center' }}>
             <span style={{ fontWeight: 900, fontSize: 21, letterSpacing: '-0.02em', color: logoColor }}>music</span>
             <span style={{ fontWeight: 900, fontSize: 21, letterSpacing: '-0.02em', color: 'var(--accent-orange)' }}>.lt</span>
@@ -3141,6 +3225,7 @@ export function SiteHeader() {
               return (
                 <div
                   key={n.label}
+                  data-nav-key={n.key}
                   className={`sh-group${closing ? ' closing' : ''}`}
                   // Suppress'as nuimamas TIK kai pelė palieka grupę — taip
                   // dropdown'as nebeatsiranda po click'o, kol cursor'is stovi vietoje.
@@ -3308,26 +3393,23 @@ export function SiteHeader() {
               const active = isActive(n)
               const subs = NAV_SUBLINKS[n.key] || []
               return (
-                <div key={n.label} className={`sh-mblock${active ? ' active' : ''}`}>
+                <div key={n.label} data-nav-key={n.key} className={`sh-mblock${active ? ' active' : ''}`}>
                   {active && <span className="sh-mblock-acc" />}
                   <Link
                     href={n.href}
                     onClick={() => setMenuOpen(false)}
                     className="sh-mblock-head"
                   >
-                    <span className="sh-mrow-icon">{n.icon}</span>
-                    <span className="sh-mrow-text">
-                      <span className="sh-mrow-title">{n.label}</span>
-                      <span className="sh-mrow-desc">{n.desc}</span>
-                    </span>
+                    <span className="sh-mrow-title">{n.label}</span>
                     <span className="sh-mblock-go" aria-hidden>
-                      <ArrowRight size={15} />
+                      <ArrowRight size={16} />
                     </span>
                   </Link>
                   {subs.length > 0 && (
                     <div className="sh-mchips">
                       {subs.map(s => (
                         <Link key={s.href} href={s.href} onClick={() => setMenuOpen(false)} className="sh-mchip">
+                          {s.dot && <span className="sh-mchip-dot" aria-hidden />}
                           {s.label}
                         </Link>
                       ))}
@@ -3339,10 +3421,24 @@ export function SiteHeader() {
           </nav>
         </div>
 
-        {/* Theme toggle — fixed footer */}
+        {/* FOOTER — greiti veiksmai + kompaktiškas temos perjungiklis */}
         <div className="sh-mfoot">
-          <button onClick={() => setTheme(theme === 'dark' ? 'light' : 'dark')} className="sh-mfoot-btn">
-            {dk ? <><SunIcon /> Šviesi tema</> : <><MoonIcon /> Tamsi tema</>}
+          <button type="button" onClick={openSearch} className="sh-mfoot-act">
+            <SearchIcon size={16} />
+            Paieška
+          </button>
+          <Link href="/auth/profile" onClick={() => setMenuOpen(false)} className="sh-mfoot-act">
+            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"/><circle cx="12" cy="7" r="4"/></svg>
+            Profilis
+          </Link>
+          <button
+            type="button"
+            onClick={() => setTheme(dk ? 'light' : 'dark')}
+            className="sh-mfoot-theme"
+            aria-label={dk ? 'Įjungti šviesią temą' : 'Įjungti tamsią temą'}
+            title={dk ? 'Šviesi tema' : 'Tamsi tema'}
+          >
+            {dk ? <SunIcon /> : <MoonIcon />}
           </button>
         </div>
       </div>
