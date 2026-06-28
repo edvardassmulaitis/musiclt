@@ -746,7 +746,7 @@ async function getEvents(id: number) {
     .sort((a: any, b: any) => new Date(b.start_date).getTime() - new Date(a.start_date).getTime())
   return [...upcoming, ...past].slice(0, 12)
 }
-async function getSimilar(artistId: number, genreIds: number[], substyleIds: number[] = [], country: string | null = null, activeFrom: number | string | null = null, activeUntil: number | string | null = null) {
+async function getSimilar(artistId: number, genreIds: number[], substyleIds: number[] = [], country: string | null = null, activeFrom: number | string | null = null, activeUntil: number | string | null = null, seedFame: number = 0) {
   if (!genreIds.length && !substyleIds.length) return []
   const sb = createAdminClient()
   // Veiklos laikotarpio (eros) helper — active_from/until gali būti year arba data.
@@ -785,39 +785,57 @@ async function getSimilar(artistId: number, genreIds: number[], substyleIds: num
       .in('genre_id', genreIds).limit(500)
     for (const r of (data || []) as any[]) add(r.artists, 'gen')
   }
-  // Šlovės (populiarumo) signalas — score laukas matuoja vaizdo įrašų kiekį,
-  // NE faktinę šlovę. legacy_likes/news/comments daug geriau atskiria žinomus
-  // nuo nežinomų (pvz. Holly Valance 4 like vs Madonna 164 — abu turi tuos
-  // pačius substilius kaip Justin Timberlake). Imame log-skalę ir
-  // normalizuojam pagal populiariausią kandidatą šiame pool'e.
+  // ── Eros langas iš ALBUMŲ metų (tiksliau nei active_from..dabar — realūs
+  //    leidybos metai; active_until dažnai null → langas tysojo iki dabar). ──
+  const _ids = [...cand.keys()]
+  const albumYears = new Map<number, { lo: number; hi: number }>()
+  if (_ids.length) {
+    const { data: albs } = await sb.from('albums')
+      .select('artist_id, year').in('artist_id', [artistId, ..._ids]).not('year', 'is', null)
+    for (const a of (albs || []) as any[]) {
+      const y = _yr(a.year); if (y == null) continue
+      const w = albumYears.get(a.artist_id)
+      if (!w) albumYears.set(a.artist_id, { lo: y, hi: y })
+      else { if (y < w.lo) w.lo = y; if (y > w.hi) w.hi = y }
+    }
+  }
+  // Seed eros langas (albumai → fallback veiklos langas active_from..until/dabar).
+  const _seedAlb = albumYears.get(artistId)
+  const seedLo = _seedAlb ? _seedAlb.lo : myFrom
+  const seedHi = _seedAlb ? _seedAlb.hi : myUntil
+
+  // Šlovė (fame) — score matuoja vaizdo įr. kiekį, NE šlovę; legacy_likes/news/
+  // comments daug geriau atskiria žinomus nuo nežinomų. Naudojam fame PROXIMITY
+  // (ne absoliutų populiarumą): rekomenduojam PANAŠAUS žinomumo atlikėjus —
+  // žvaigždei žvaigždes, nežinomam nežinomus. Taip top atlikėjai NEpakyla
+  // visur vien dėl populiarumo (Edvardo prašytas balansas).
   const _fame = (a: any) =>
     (Number(a.legacy_likes) || 0) +
     0.5 * (Number(a.legacy_news_count) || 0) +
     0.3 * (Number(a.legacy_comments) || 0) +
     0.3 * (Number(a.score) || 0)
-  const _maxFame = Math.max(1, ...[...cand.values()].map((e) => _fame(e.artist)))
-  const _lmax = Math.log1p(_maxFame)
+  const _lnSeed = Math.log1p(Math.max(0, seedFame))
   const scored = [...cand.values()].map((e) => {
     const sameCountry = country && e.artist.country === country ? 1 : 0
-    // Eros persidengimas — veiklos langas [from, until||dabar]. MINKŠTAS:
-    // trūkstant active_from (savo ar kandidato) → 0 (neutralu, ne bauda).
-    // Kuo labiau persidengia aktyvumo laikotarpiai, tuo aukščiau (maks +40),
-    // kad „logiškas pagal stilių, bet iš kito laikmečio" kristų žemiau.
+    // Eros persidengimas tarp ALBUMŲ metų langų. MINKŠTAS: trūkstant metų
+    // (savo ar kandidato) → 0 (neutralu, ne bauda). Kuo labiau persidengia
+    // leidybos laikotarpiai, tuo aukščiau (maks +40).
     let era = 0
-    const cf = _yr(e.artist.active_from)
-    const ct = _yr(e.artist.active_until) ?? (cf != null ? _NOW : null)
-    if (myFrom != null && myUntil != null && cf != null && ct != null) {
-      const overlap = Math.max(0, Math.min(myUntil, ct) - Math.max(myFrom, cf))
-      const span = Math.max(myUntil, ct) - Math.min(myFrom, cf)
+    const cAlb = albumYears.get(e.artist.id)
+    const cf = cAlb ? cAlb.lo : _yr(e.artist.active_from)
+    const ct = cAlb ? cAlb.hi : (_yr(e.artist.active_until) ?? (_yr(e.artist.active_from) != null ? _NOW : null))
+    if (seedLo != null && seedHi != null && cf != null && ct != null) {
+      const overlap = Math.max(0, Math.min(seedHi, ct) - Math.max(seedLo, cf))
+      const span = Math.max(seedHi, ct) - Math.min(seedLo, cf)
       era = (span > 0 ? overlap / span : 1) * 40
     }
     // Stiliaus bazė: substilių sutapimas (×100, DOMINANTĖ) + žanras + šalis + era.
     const base = e.sub * 100 + e.gen * 20 + sameCountry * 30 + era
-    // Populiarumas — DAUGIKLIS (0.40..1.00): stilius lieka pirminis (net
-    // nežinomas atlikėjas su daug bendrų substilių praeina), bet tarp panašaus
-    // stiliaus kandidatų žinomi iškyla, o visiškai nežinomi nuslopinami ~×0.4.
-    const popNorm = _lmax > 0 ? Math.log1p(_fame(e.artist)) / _lmax : 0
-    const sim = base * (0.40 + 0.60 * popNorm)
+    // Fame PROXIMITY daugiklis (0.50..1.00): kuo arčiau kandidato šlovė prie šio
+    // atlikėjo šlovės (log-skalėje), tuo aukščiau. Nutolę abiem kryptim (ir daug
+    // žinomesni, ir visai nežinomi) — slopinami. τ≈1.2.
+    const prox = Math.exp(-Math.abs(Math.log1p(_fame(e.artist)) - _lnSeed) / 1.2)
+    const sim = base * (0.5 + 0.5 * prox)
     return { artist: e.artist, sim }
   }).sort((a, b) => b.sim - a.sim)
   const out: any[] = scored.slice(0, 14).map((s) => s.artist)
@@ -1124,7 +1142,7 @@ export default async function ArtistPage({ params }: Props) {
  * <50ms iš cache'o.
  */
 const fetchArtistData = unstable_cache(
-  async (artistId: number, country: string | null, score: number, rawRoles: string[] | null, activeFrom: number | string | null = null, activeUntil: number | string | null = null) => {
+  async (artistId: number, country: string | null, score: number, rawRoles: string[] | null, activeFrom: number | string | null = null, activeUntil: number | string | null = null, seedFame: number = 0) => {
     const [genres, substyles, tableLinks, dbPhotos, albums, tracks, members, memberOf, followers, likeCount, news, rawEvents, _allTrackLegacyIds, legacyThreads, legacyNews, linkedTrackIdSet, awards, eras, displayRoles, discoveries] = await Promise.all([
       getGenres(artistId), getSubstyles(artistId), getLinks(artistId), getPhotos(artistId), getAlbums(artistId), getTracks(artistId),
       getMembers(artistId), getMemberOf(artistId), getFollowers(artistId), getLikeCount(artistId), getNews(artistId), getEvents(artistId),
@@ -1145,7 +1163,7 @@ const fetchArtistData = unstable_cache(
       ...(legacyNews as any[]).map((t) => t.legacy_id),
     ]
     const [similar, legacyCommunity, ranks, lastPosts, popBarLevel, recentPopBarLevel, concertRecordings] = await Promise.all([
-      getSimilar(artistId, genres.map((g: any) => g.id), (substyles as any[]).map((s: any) => s.id), country, activeFrom, activeUntil),
+      getSimilar(artistId, genres.map((g: any) => g.id), (substyles as any[]).map((s: any) => s.id), country, activeFrom, activeUntil, seedFame),
       getLegacyCommunity(artistId, albumIds, allTrackIds),
       getArtistRanks(artistId, country, genres as { id: number; name: string }[], score),
       getLastPostsByThread(allThreadIds, 2),
@@ -1166,7 +1184,7 @@ const fetchArtistData = unstable_cache(
   // v9 — 2026-05-24 bump: cached v8 nelaikė substyles/genres array'us
   // šviežiai INTL atlikėjams po backfill'o (cache hit grąžindavo stale empty
   // tuplus). v9 priverčia full refetch — visi artist'ai gauna fresh data.
-  ['artist-full-data-v12'],
+  ['artist-full-data-v13'],
   { revalidate: ARTIST_CACHE_TTL, tags: ['artist'] },
 )
 
@@ -1298,6 +1316,7 @@ async function ArtistContent({ artist }: { artist: any }) {
     (artist as any).roles || null,
     (artist as any).active_from ?? null,
     (artist as any).active_until ?? null,
+    ((artist as any).legacy_likes || 0) + 0.5 * ((artist as any).legacy_news_count || 0) + 0.3 * ((artist as any).legacy_comments || 0) + 0.3 * ((artist as any).score || 0),
   )
   const {
     genres, substyles, tableLinks, dbPhotos, albums, tracks, members, followers, likeCount,
