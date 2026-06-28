@@ -12,6 +12,7 @@ import React, { Suspense } from 'react'
 import { notFound, redirect } from 'next/navigation'
 import { unstable_cache } from 'next/cache'
 import { createAdminClient } from '@/lib/supabase'
+import { getRelatedTracks } from '@/lib/related-tracks'
 import TrackPageClient from '@/app/lt/daina/[slug]/[id]/track-page-client'
 import { PageLoader } from '@/components/PageLoader'
 // Teminių dainų kolekcijų interception: /dainos/{collection-slug} (be -{id} gale)
@@ -100,7 +101,7 @@ const fetchTrackData = unstable_cache(
     const [artistRes, featuringRes, albumTrackRes, likesRes, versionsRes, relatedRes] = await Promise.all([
       supabase.from('artists').select('id, slug, name, cover_image_url, cover_image_wide_url, description').eq('id', track.artist_id).single(),
       supabase.from('track_artists').select('artists(id, slug, name, cover_image_url)').eq('track_id', id).neq('artist_id', track.artist_id),
-      supabase.from('album_tracks').select('albums!album_tracks_album_id_fkey(id, slug, title, year, cover_image_url, type_studio, type)').eq('track_id', id),
+      supabase.from('album_tracks').select('albums!album_tracks_album_id_fkey(id, slug, title, year, cover_image_url, type_studio)').eq('track_id', id),
       supabase.from('likes').select('*', { count: 'exact', head: true }).eq('entity_type', 'track').eq('entity_id', id),
       supabase.from('tracks').select('id, slug, title, type, video_url').eq('artist_id', track.artist_id).ilike('title', `%${titleFragment}%`).neq('id', id).limit(10),
       // Tos pačios atlikėjo TOP dainos (pagal score, tik su video) — naudojam
@@ -108,53 +109,56 @@ const fetchTrackData = unstable_cache(
       supabase.from('tracks').select('id, slug, title, type, video_url, is_new, release_date, score').eq('artist_id', track.artist_id).neq('id', id).not('video_url', 'is', null).order('score', { ascending: false, nullsFirst: false }).limit(12),
     ])
 
-    // ── Cross-artist rekomendacijos pagal bendrus substyle'us ────────────────
-    // „Gudresnė" pasiūlymų sistema: ne tik to paties atlikėjo dainos, bet ir
-    // kitų atlikėjų, dalinančių muzikos stilių. Surenkam peer atlikėjus per
-    // artist_substyles, paimam jų TOP dainas (su video), o diversifikaciją
-    // (1 daina / atlikėją) atliekam JS pusėje žemiau (TrackContent).
-    let crossRows: any[] = []
-    try {
-      const { data: subs } = await supabase
-        .from('artist_substyles').select('substyle_id').eq('artist_id', track.artist_id)
-      const subIds = Array.from(new Set((subs ?? []).map((s: any) => s.substyle_id))).filter(Boolean)
-      if (subIds.length) {
-        const { data: peers } = await supabase
-          .from('artist_substyles').select('artist_id')
-          .in('substyle_id', subIds).neq('artist_id', track.artist_id).limit(600)
-        const peerIds = Array.from(new Set((peers ?? []).map((p: any) => p.artist_id))).slice(0, 250)
-        if (peerIds.length) {
-          const { data: ct } = await supabase
-            .from('tracks')
-            .select('id, slug, title, video_url, score, artists!tracks_artist_id_fkey(slug, name)')
-            .in('artist_id', peerIds)
-            .not('video_url', 'is', null)
-            .order('score', { ascending: false, nullsFirst: false })
-            .limit(120)
-          crossRows = ct ?? []
-        }
-      }
-    } catch { /* substyle lentelės nebuvimas neturi laužyti puslapio */ }
+    // ── Susijusi muzika (cross-artist) — bendras variklis ───────────────────
+    // co-like + YT populiarumas + substyle peers. Žr. lib/related-tracks.ts.
+    const related = await getRelatedTracks(supabase, { trackId: id, artistId: track.artist_id, limit: 14 })
+
+    // ── Info zonos „top dainos" ──────────────────────────────────────────────
+    // Albumo, iš kurio paimta daina, KITOS top dainos (pagal YT peržiūras) —
+    // rodomos po albumo kortele; jei albumo nėra, naudosim atlikėjo top dainas.
+    const albumRows = (albumTrackRes as any).data ?? []
+    const primaryAlbumId = albumRows[0]?.albums?.id ?? null
+    let albumTopTracks: any[] = []
+    if (primaryAlbumId) {
+      const { data: atr } = await supabase
+        .from('album_tracks')
+        .select('tracks!album_tracks_track_id_fkey(id, slug, title, video_url, video_views)')
+        .eq('album_id', primaryAlbumId)
+      albumTopTracks = (atr ?? [])
+        .map((r: any) => r.tracks)
+        .filter((t: any) => t && t.id !== id && t.video_url)
+        .sort((a: any, b: any) => (b.video_views ?? 0) - (a.video_views ?? 0))
+        .slice(0, 4)
+    }
+    // Atlikėjo top dainos (fallback zonai, kai nėra albumo).
+    const { data: artistTop } = await supabase
+      .from('tracks')
+      .select('id, slug, title, video_url, video_views')
+      .eq('artist_id', track.artist_id).neq('id', id)
+      .not('video_url', 'is', null)
+      .order('video_views', { ascending: false, nullsFirst: false })
+      .limit(4)
 
     return {
       track,
       artistRow: (artistRes as any).data,
       featuringRows: (featuringRes as any).data ?? [],
-      albumTrackRows: (albumTrackRes as any).data ?? [],
+      albumTrackRows: albumRows,
       likes: (likesRes as any).count ?? 0,
       versionRows: (versionsRes as any).data ?? [],
-      relatedRows: (relatedRes as any).data ?? [],
-      crossRows,
+      related,
+      albumTopTracks,
+      artistTopTracks: artistTop ?? [],
     }
   },
-  ['track-full-data-v3'],
+  ['track-full-data-v4'],
   { revalidate: TRACK_CACHE_TTL, tags: ['track'] },
 )
 
 async function TrackContent({ slug, id }: { slug: string; id: number }): Promise<React.ReactElement> {
   const data = await fetchTrackData(id)
   if (!data) notFound()
-  const { track, artistRow, featuringRows, albumTrackRows, likes, versionRows, relatedRows, crossRows } = data as any
+  const { track, artistRow, featuringRows, albumTrackRows, likes, versionRows, related, albumTopTracks, artistTopTracks } = data as any
   if (!artistRow) notFound()
 
   // ── Canonical slug check ─────────────────────────────────────────────────
@@ -171,39 +175,9 @@ async function TrackContent({ slug, id }: { slug: string; id: number }): Promise
   const albums = (albumTrackRows as any[])
     .map((r: any) => r.albums)
     .filter(Boolean)
-    .map((a: any) => ({ ...a, type: a.type_studio ? 'Studijinis albumas' : (a.type ?? 'Albumas') }))
 
   // ── Wikipedia trivia placeholder ──
   const trivia: string | null = null
-
-  // ── Susijusi muzika: sumiksuojam cross-artist + tos pačios atlikėjo ──────────
-  // Tikslas: dominuoja KITŲ atlikėjų (panašaus stiliaus) pasiūlymai, bet
-  // paliekam kelias to paties atlikėjo dainas. Kiekviena kortelė neša SAVO
-  // atlikėją (slug+name), kad rodytume ne tik dainos, bet ir atlikėjo vardą.
-  type Rel = { id: number; slug: string; title: string; video_url: string | null; artistSlug: string; artistName: string }
-  const sameArtist: Rel[] = (relatedRows as any[]).map((t: any) => ({
-    id: t.id, slug: t.slug, title: t.title, video_url: t.video_url,
-    artistSlug: artistRow.slug, artistName: artistRow.name,
-  }))
-  // Cross-artist diversifikacija — max 1 daina iš to paties atlikėjo.
-  const seenArtist = new Set<string>([artistRow.slug])
-  const cross: Rel[] = []
-  for (const t of (crossRows as any[] ?? [])) {
-    const a = t.artists
-    if (!a?.slug) continue
-    if (seenArtist.has(a.slug)) continue
-    seenArtist.add(a.slug)
-    cross.push({ id: t.id, slug: t.slug, title: t.title, video_url: t.video_url, artistSlug: a.slug, artistName: a.name })
-  }
-  // Galutinis sąrašas: 3 to paties atlikėjo + cross-artist (užpildo iki 14),
-  // dedup pagal track id, dabartinė daina išmesta.
-  const seenId = new Set<number>([id])
-  const relatedTracks: Rel[] = []
-  const pushRel = (it: Rel) => { if (!seenId.has(it.id)) { seenId.add(it.id); relatedTracks.push(it) } }
-  sameArtist.slice(0, 3).forEach(pushRel)
-  cross.forEach(pushRel)
-  sameArtist.slice(3).forEach(pushRel) // rezervas, jei cross tuščia
-  const relatedFinal = relatedTracks.slice(0, 14)
 
   return (
     <TrackPageClient
@@ -213,7 +187,9 @@ async function TrackContent({ slug, id }: { slug: string; id: number }): Promise
       versions={(versionRows ?? []) as any}
       likes={likes ?? 0}
       trivia={trivia}
-      relatedTracks={relatedFinal as any}
+      relatedTracks={(related ?? []) as any}
+      albumTopTracks={(albumTopTracks ?? []) as any}
+      artistTopTracks={(artistTopTracks ?? []) as any}
       aiInterpretation={(track as any).ai_interpretation ?? null}
     />
   )
