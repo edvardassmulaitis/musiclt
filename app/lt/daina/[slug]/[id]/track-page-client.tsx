@@ -642,14 +642,14 @@ export default function TrackPageClient({
                 const th = tv ? `https://i.ytimg.com/vi/${tv}/mqdefault.jpg` : null
                 return (
                   <Link key={t.id} href={`/dainos/${artist.slug}-${t.slug}-${t.id}`} title={t.title}
-                    className="group flex w-[116px] shrink-0 flex-col overflow-hidden rounded-lg border border-[var(--border-subtle)] bg-[var(--card-bg)] p-1 no-underline transition-colors hover:border-[var(--border-strong)] hover:bg-[var(--bg-hover)]">
+                    className="group flex w-[108px] shrink-0 flex-col overflow-hidden rounded-lg border border-[var(--border-subtle)] bg-[var(--card-bg)] p-1 no-underline transition-colors hover:border-[var(--border-strong)] hover:bg-[var(--bg-hover)]">
                     <span className="aspect-video w-full overflow-hidden rounded bg-black">
                       {th && (
                         // eslint-disable-next-line @next/next/no-img-element
                         <img src={th} alt="" referrerPolicy="no-referrer" className="h-full w-full object-cover transition-transform duration-300 group-hover:scale-[1.04]" />
                       )}
                     </span>
-                    <span className="mt-1 line-clamp-2 px-0.5 font-['Outfit',sans-serif] text-[10.5px] font-bold leading-tight text-[var(--text-secondary)] group-hover:text-[var(--text-primary)]">{t.title}</span>
+                    <span className="mt-0.5 truncate px-0.5 font-['Outfit',sans-serif] text-[10px] font-bold leading-tight text-[var(--text-secondary)] group-hover:text-[var(--text-primary)]">{t.title}</span>
                   </Link>
                 )
               }
@@ -695,8 +695,8 @@ export default function TrackPageClient({
                         </svg>
                       </Link>
                       {albumTopTracks.length > 0 && (
-                        <div className="border-t border-[var(--border-subtle)] px-3 pb-3 pt-2">
-                          <div className="pb-1.5 font-['Outfit',sans-serif] text-[9px] font-extrabold uppercase tracking-[0.14em] text-[var(--text-faint)]">Iš to paties albumo</div>
+                        <div className="border-t border-[var(--border-subtle)] px-3 pb-2 pt-1.5">
+                          <div className="pb-1 font-['Outfit',sans-serif] text-[9px] font-extrabold uppercase tracking-[0.14em] text-[var(--text-faint)]">Iš to paties albumo</div>
                           <div className="flex gap-2 overflow-x-auto pb-0.5 [scrollbar-width:thin]">
                             {albumTopTracks.map(MiniCard)}
                           </div>
@@ -728,8 +728,8 @@ export default function TrackPageClient({
                         </div>
                       </Link>
                       {artistTopTracks.length > 0 && (
-                        <div className="border-t border-[var(--border-subtle)] px-3 pb-3 pt-2">
-                          <div className="pb-1.5 font-['Outfit',sans-serif] text-[9px] font-extrabold uppercase tracking-[0.14em] text-[var(--text-faint)]">Populiariausios {artist.name}</div>
+                        <div className="border-t border-[var(--border-subtle)] px-3 pb-2 pt-1.5">
+                          <div className="pb-1 font-['Outfit',sans-serif] text-[9px] font-extrabold uppercase tracking-[0.14em] text-[var(--text-faint)]">Populiariausios {artist.name}</div>
                           <div className="flex gap-2 overflow-x-auto pb-0.5 [scrollbar-width:thin]">
                             {artistTopTracks.map(MiniCard)}
                           </div>
