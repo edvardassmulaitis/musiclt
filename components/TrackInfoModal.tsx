@@ -144,6 +144,21 @@ export function TrackInfoModal({
     m.addEventListener('change', h)
     return () => m.removeEventListener('change', h)
   }, [])
+  // Cross-artist „Susijusi muzika" — fetch'inam iš /api/tracks/[id]/related
+  // (co-like + YT populiarumas + substyle peers; ŽR. lib/related-tracks.ts).
+  // Suvienodinta su standalone dainos puslapiu — KITŲ atlikėjų panašios dainos.
+  const [related, setRelated] = useState<Array<{ id: number; slug: string; title: string; video_url: string | null; artistSlug: string; artistName: string }>>([])
+  useEffect(() => {
+    const tid = track?.id
+    if (!tid) { setRelated([]); return }
+    let cancelled = false
+    setRelated([])
+    fetch(`/api/tracks/${tid}/related`)
+      .then(r => r.json())
+      .then(d => { if (!cancelled) setRelated(d.related || []) })
+      .catch(() => {})
+    return () => { cancelled = true }
+  }, [track?.id])
   // Mobile'e modal'o iframe'as visada matomas (kai track turi video) — tai
   // suppress'inam hero player'į kad audio nedvigubėtų. Desktop'e flag false
   // (hero player'is veikia normaliai šalia modal'o).
@@ -636,45 +651,11 @@ export function TrackInfoModal({
                 (vietoj atlikėjo aprašymo) + „Daugiau / atlikėjas" žema juostelė.
                 Suvienodinta su albumo modalo struktūra. */}
             {(() => {
-              const more = (artistTracks || [])
-                .filter((t: any) => t.id !== track.id && yt(t.video_url))
-                .sort((a: any, b: any) => (b.score ?? 0) - (a.score ?? 0))
-                .slice(0, 8)
               const primaryAlbum = (track.albums || [])[0]
               return (
                 <div className="hidden md:flex flex-1 min-h-0 flex-col gap-2.5 overflow-y-auto px-3 py-3">
-                  {/* Po video — BE atlikėjo info kortelės: susijusi (top) muzika +
-                      albumas, suvienodinta su standalone dainos puslapiu. */}
-                  {more.length > 0 && (
-                    <div>
-                      <div className="mb-2 font-['Outfit',sans-serif] text-[10px] font-extrabold uppercase tracking-[0.16em] text-[var(--text-muted)]">
-                        Susijusi muzika
-                      </div>
-                      <div className="grid grid-cols-2 gap-1.5">
-                        {more.map((t: any) => {
-                          const tvid = yt(t.video_url)
-                          const inner = (
-                            <>
-                              <span className="aspect-video h-9 shrink-0 overflow-hidden rounded bg-black">
-                                {tvid && (
-                                  // eslint-disable-next-line @next/next/no-img-element
-                                  <img src={`https://i.ytimg.com/vi/${tvid}/mqdefault.jpg`} alt="" referrerPolicy="no-referrer" className="h-full w-full object-cover" />
-                                )}
-                              </span>
-                              <span className="min-w-0 flex-1 truncate font-['Outfit',sans-serif] text-[11px] font-extrabold leading-tight text-[var(--text-primary)]">{t.title}</span>
-                            </>
-                          )
-                          const cls = 'flex items-center gap-2 overflow-hidden rounded-lg border border-[var(--border-subtle)] bg-[var(--card-bg)] p-1 text-left no-underline transition-colors hover:border-[var(--border-strong)] hover:bg-[var(--bg-hover)]'
-                          return onSelectTrack ? (
-                            <button key={t.id} type="button" onClick={() => onSelectTrack(t)} title={t.title} className={cls}>{inner}</button>
-                          ) : (
-                            <Link key={t.id} href={`/dainos/${artistSlug}-${t.slug}-${t.id}`} title={t.title} className={cls}>{inner}</Link>
-                          )
-                        })}
-                      </div>
-                    </div>
-                  )}
-                  {/* Albumas, iš kurio daina. */}
+                  {/* Albumas, iš kurio daina — PIRMA (suvienodinta su standalone
+                      dainos puslapiu; anksčiau buvo po pasiūlymais). */}
                   {primaryAlbum && (
                     <Link
                       href={`/albumai/${artistSlug}-${primaryAlbum.slug}-${primaryAlbum.id}`}
@@ -700,6 +681,39 @@ export function TrackInfoModal({
                         <path d="M9 18l6-6-6-6" />
                       </svg>
                     </Link>
+                  )}
+                  {/* Susijusi muzika — KITŲ atlikėjų panašios dainos (cross-artist).
+                      Kortelėje rodom dainos pavadinimą IR atlikėją. */}
+                  {related.length > 0 && (
+                    <div>
+                      <div className="mb-2 font-['Outfit',sans-serif] text-[10px] font-extrabold uppercase tracking-[0.16em] text-[var(--text-muted)]">
+                        Susijusi muzika
+                      </div>
+                      <div className="grid grid-cols-2 gap-1.5">
+                        {related.map((t) => {
+                          const tvid = yt(t.video_url)
+                          return (
+                            <Link
+                              key={t.id}
+                              href={`/dainos/${t.artistSlug}-${t.slug}-${t.id}`}
+                              title={`${t.title} — ${t.artistName}`}
+                              className="group flex items-center gap-2 overflow-hidden rounded-lg border border-[var(--border-subtle)] bg-[var(--card-bg)] p-1 text-left no-underline transition-colors hover:border-[var(--border-strong)] hover:bg-[var(--bg-hover)]"
+                            >
+                              <span className="aspect-video h-9 shrink-0 overflow-hidden rounded bg-black">
+                                {tvid && (
+                                  // eslint-disable-next-line @next/next/no-img-element
+                                  <img src={`https://i.ytimg.com/vi/${tvid}/mqdefault.jpg`} alt="" referrerPolicy="no-referrer" className="h-full w-full object-cover" />
+                                )}
+                              </span>
+                              <span className="min-w-0 flex-1">
+                                <span className="block truncate font-['Outfit',sans-serif] text-[11px] font-extrabold leading-tight text-[var(--text-primary)]">{t.title}</span>
+                                <span className="block truncate font-['Outfit',sans-serif] text-[9.5px] font-semibold text-[var(--text-faint)]">{t.artistName}</span>
+                              </span>
+                            </Link>
+                          )
+                        })}
+                      </div>
+                    </div>
                   )}
                 </div>
               )
@@ -853,46 +867,42 @@ export function TrackInfoModal({
                     <Link href="/auth/signin" className="mt-3 inline-block rounded-xl bg-[var(--accent-orange)] px-4 py-2 font-['Outfit',sans-serif] text-[12px] font-extrabold text-white no-underline">Prisijungti</Link>
                   </div>
                 )}
-                {/* Daugiau / atlikėjas — mobile, NE sticky: po tekstu/įvedimu,
-                    scroll'inasi kartu su turiniu (anksčiau buvo sticky footer'is). */}
-                {(() => {
-                  const more = (artistTracks || [])
-                    .filter((t: any) => t.id !== track.id && yt(t.video_url))
-                    .slice(0, 6)
-                  if (more.length === 0) return null
-                  return (
-                    <div className="mt-5 border-t border-[var(--border-subtle)] pt-3 md:hidden">
-                      <div className="mb-2 font-['Outfit',sans-serif] text-[10px] font-extrabold uppercase tracking-[0.16em] text-[var(--text-muted)]">
-                        Daugiau / {artistName}
-                      </div>
-                      <div className="flex gap-2 overflow-x-auto pb-0.5 [scrollbar-width:thin]">
-                        {more.map((t: any) => {
-                          const tvid = yt(t.video_url)
-                          const inner = (
-                            <>
-                              <span className="block aspect-video w-full overflow-hidden rounded bg-black">
-                                {tvid && (
-                                  // eslint-disable-next-line @next/next/no-img-element
-                                  <img src={`https://i.ytimg.com/vi/${tvid}/mqdefault.jpg`} alt=""
-                                    referrerPolicy="no-referrer" className="h-full w-full object-cover" />
-                                )}
-                              </span>
-                              <span className="block truncate px-1 pb-0.5 pt-1 text-left font-['Outfit',sans-serif] text-[10.5px] font-extrabold text-[var(--text-primary)]">
-                                {t.title}
-                              </span>
-                            </>
-                          )
-                          const cls = 'block w-[124px] shrink-0 overflow-hidden rounded-lg border border-[var(--border-subtle)] bg-[var(--card-bg)] p-1 no-underline transition-colors hover:border-[var(--border-strong)] hover:bg-[var(--bg-hover)]'
-                          return onSelectTrack ? (
-                            <button key={t.id} type="button" onClick={() => onSelectTrack(t)} title={t.title} className={cls}>{inner}</button>
-                          ) : (
-                            <Link key={t.id} href={`/dainos/${artistSlug}-${t.slug}-${t.id}`} title={t.title} className={cls}>{inner}</Link>
-                          )
-                        })}
-                      </div>
+                {/* Susijusi muzika — mobile (cross-artist, kaip desktop'e).
+                    Po tekstu/įvedimu, scroll'inasi kartu su turiniu. */}
+                {related.length > 0 && (
+                  <div className="mt-5 border-t border-[var(--border-subtle)] pt-3 md:hidden">
+                    <div className="mb-2 font-['Outfit',sans-serif] text-[10px] font-extrabold uppercase tracking-[0.16em] text-[var(--text-muted)]">
+                      Susijusi muzika
                     </div>
-                  )
-                })()}
+                    <div className="flex gap-2 overflow-x-auto pb-0.5 [scrollbar-width:thin]">
+                      {related.map((t) => {
+                        const tvid = yt(t.video_url)
+                        return (
+                          <Link
+                            key={t.id}
+                            href={`/dainos/${t.artistSlug}-${t.slug}-${t.id}`}
+                            title={`${t.title} — ${t.artistName}`}
+                            className="block w-[124px] shrink-0 overflow-hidden rounded-lg border border-[var(--border-subtle)] bg-[var(--card-bg)] p-1 no-underline transition-colors hover:border-[var(--border-strong)] hover:bg-[var(--bg-hover)]"
+                          >
+                            <span className="block aspect-video w-full overflow-hidden rounded bg-black">
+                              {tvid && (
+                                // eslint-disable-next-line @next/next/no-img-element
+                                <img src={`https://i.ytimg.com/vi/${tvid}/mqdefault.jpg`} alt=""
+                                  referrerPolicy="no-referrer" className="h-full w-full object-cover" />
+                              )}
+                            </span>
+                            <span className="block truncate px-1 pt-1 text-left font-['Outfit',sans-serif] text-[10.5px] font-extrabold text-[var(--text-primary)]">
+                              {t.title}
+                            </span>
+                            <span className="block truncate px-1 pb-0.5 text-left font-['Outfit',sans-serif] text-[9px] font-semibold text-[var(--text-faint)]">
+                              {t.artistName}
+                            </span>
+                          </Link>
+                        )
+                      })}
+                    </div>
+                  </div>
+                )}
               </div>
               <div className={mobileTab === 'comments' ? 'block' : 'hidden'}>
                 <EntityCommentsBlock
