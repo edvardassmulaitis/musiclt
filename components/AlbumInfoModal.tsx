@@ -771,6 +771,22 @@ export default function AlbumInfoModal({
                               </div>
                               <PopBar level={level} />
                             </button>
+                            {/* Atidaryti dainą — nuoroda į pilną dainos puslapį
+                                (tekstas, komentarai). Suvienodinta su standalone
+                                albumo puslapiu (album-page-client). */}
+                            {artist && (
+                              <Link
+                                href={`/dainos/${artist.slug}-${t.slug || t.id}-${t.id}`}
+                                aria-label={`Atidaryti ${t.title}`}
+                                title="Atidaryti dainą"
+                                className="hidden h-7 w-7 shrink-0 items-center justify-center rounded-full text-[var(--text-faint)] transition-colors hover:bg-[var(--bg-hover)] hover:text-[var(--accent-orange)] sm:flex"
+                              >
+                                <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.4" strokeLinecap="round" strokeLinejoin="round" aria-hidden>
+                                  <path d="M7 17L17 7" />
+                                  <path d="M8 7h9v9" />
+                                </svg>
+                              </Link>
+                            )}
                             <button
                               onClick={() => canPlay && handlePlay(i)}
                               disabled={!canPlay}
