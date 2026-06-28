@@ -746,9 +746,18 @@ async function getEvents(id: number) {
     .sort((a: any, b: any) => new Date(b.start_date).getTime() - new Date(a.start_date).getTime())
   return [...upcoming, ...past].slice(0, 12)
 }
-async function getSimilar(artistId: number, genreIds: number[], substyleIds: number[] = [], country: string | null = null) {
+async function getSimilar(artistId: number, genreIds: number[], substyleIds: number[] = [], country: string | null = null, activeFrom: number | string | null = null, activeUntil: number | string | null = null) {
   if (!genreIds.length && !substyleIds.length) return []
   const sb = createAdminClient()
+  // Veiklos laikotarpio (eros) helper — active_from/until gali būti year arba data.
+  const _yr = (v: any): number | null => {
+    if (v == null) return null
+    const n = parseInt(String(v).slice(0, 4), 10)
+    return Number.isFinite(n) && n > 1900 && n < 2100 ? n : null
+  }
+  const _NOW = new Date().getFullYear()
+  const myFrom = _yr(activeFrom)
+  const myUntil = _yr(activeUntil) ?? (myFrom != null ? _NOW : null)
   // „Panaši muzika" relevancija (anksčiau buvo paprasčiausiai pirmi 14 atlikėjų
   // dalijančių BET KOKĮ platų žanrą → random'as). Dabar reitinguojam pagal:
   //   1) substilių persidengimą (Experimental rock, Pop rock ir kt.) — STIPRUS
@@ -766,20 +775,32 @@ async function getSimilar(artistId: number, genreIds: number[], substyleIds: num
   }
   if (substyleIds.length) {
     const { data } = await sb.from('artist_substyles')
-      .select('substyle_id, artists:artist_id(id, slug, name, cover_image_url, country, score)')
+      .select('substyle_id, artists:artist_id(id, slug, name, cover_image_url, country, score, active_from, active_until)')
       .in('substyle_id', substyleIds).limit(500)
     for (const r of (data || []) as any[]) add(r.artists, 'sub')
   }
   if (genreIds.length) {
     const { data } = await sb.from('artist_genres')
-      .select('genre_id, artists:artist_id(id, slug, name, cover_image_url, country, score)')
+      .select('genre_id, artists:artist_id(id, slug, name, cover_image_url, country, score, active_from, active_until)')
       .in('genre_id', genreIds).limit(500)
     for (const r of (data || []) as any[]) add(r.artists, 'gen')
   }
   const scored = [...cand.values()].map((e) => {
     const sameCountry = country && e.artist.country === country ? 1 : 0
     const pop = Math.min(Number(e.artist.score) || 0, 1000) / 1000
-    const sim = e.sub * 100 + e.gen * 20 + sameCountry * 30 + pop * 5
+    // Eros persidengimas — veiklos langas [from, until||dabar]. MINKŠTAS:
+    // trūkstant active_from (savo ar kandidato) → 0 (neutralu, ne bauda).
+    // Kuo labiau persidengia aktyvumo laikotarpiai, tuo aukščiau (maks +40),
+    // kad „logiškas pagal stilių, bet iš kito laikmečio" kristų žemiau.
+    let era = 0
+    const cf = _yr(e.artist.active_from)
+    const ct = _yr(e.artist.active_until) ?? (cf != null ? _NOW : null)
+    if (myFrom != null && myUntil != null && cf != null && ct != null) {
+      const overlap = Math.max(0, Math.min(myUntil, ct) - Math.max(myFrom, cf))
+      const span = Math.max(myUntil, ct) - Math.min(myFrom, cf)
+      era = (span > 0 ? overlap / span : 1) * 40
+    }
+    const sim = e.sub * 100 + e.gen * 20 + sameCountry * 30 + era + pop * 5
     return { artist: e.artist, sim }
   }).sort((a, b) => b.sim - a.sim)
   const out: any[] = scored.slice(0, 14).map((s) => s.artist)
@@ -1086,7 +1107,7 @@ export default async function ArtistPage({ params }: Props) {
  * <50ms iš cache'o.
  */
 const fetchArtistData = unstable_cache(
-  async (artistId: number, country: string | null, score: number, rawRoles: string[] | null) => {
+  async (artistId: number, country: string | null, score: number, rawRoles: string[] | null, activeFrom: number | string | null = null, activeUntil: number | string | null = null) => {
     const [genres, substyles, tableLinks, dbPhotos, albums, tracks, members, memberOf, followers, likeCount, news, rawEvents, _allTrackLegacyIds, legacyThreads, legacyNews, linkedTrackIdSet, awards, eras, displayRoles, discoveries] = await Promise.all([
       getGenres(artistId), getSubstyles(artistId), getLinks(artistId), getPhotos(artistId), getAlbums(artistId), getTracks(artistId),
       getMembers(artistId), getMemberOf(artistId), getFollowers(artistId), getLikeCount(artistId), getNews(artistId), getEvents(artistId),
@@ -1107,7 +1128,7 @@ const fetchArtistData = unstable_cache(
       ...(legacyNews as any[]).map((t) => t.legacy_id),
     ]
     const [similar, legacyCommunity, ranks, lastPosts, popBarLevel, recentPopBarLevel, concertRecordings] = await Promise.all([
-      getSimilar(artistId, genres.map((g: any) => g.id), (substyles as any[]).map((s: any) => s.id), country),
+      getSimilar(artistId, genres.map((g: any) => g.id), (substyles as any[]).map((s: any) => s.id), country, activeFrom, activeUntil),
       getLegacyCommunity(artistId, albumIds, allTrackIds),
       getArtistRanks(artistId, country, genres as { id: number; name: string }[], score),
       getLastPostsByThread(allThreadIds, 2),
@@ -1128,7 +1149,7 @@ const fetchArtistData = unstable_cache(
   // v9 — 2026-05-24 bump: cached v8 nelaikė substyles/genres array'us
   // šviežiai INTL atlikėjams po backfill'o (cache hit grąžindavo stale empty
   // tuplus). v9 priverčia full refetch — visi artist'ai gauna fresh data.
-  ['artist-full-data-v11'],
+  ['artist-full-data-v12'],
   { revalidate: ARTIST_CACHE_TTL, tags: ['artist'] },
 )
 
@@ -1258,6 +1279,8 @@ async function ArtistContent({ artist }: { artist: any }) {
     artist.country || null,
     (artist as any).score || 0,
     (artist as any).roles || null,
+    (artist as any).active_from ?? null,
+    (artist as any).active_until ?? null,
   )
   const {
     genres, substyles, tableLinks, dbPhotos, albums, tracks, members, followers, likeCount,
