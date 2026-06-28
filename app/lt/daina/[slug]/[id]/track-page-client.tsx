@@ -627,7 +627,7 @@ export default function TrackPageClient({
             albumas, iš kurio paimta daina; jei albumo nėra — atlikėjo kortelė.
             Susijusios muzikos juosta perkelta ŽEMIAU (pilnu pločiu). Desktop'e
             ši zona + playeris sutampa aukščiu su tekstui skirta dešine puse. */}
-        <div className="order-3 flex flex-col gap-3 px-5 py-5 lg:col-start-1 lg:row-start-2 lg:min-h-0 lg:overflow-y-auto">
+        <div className="order-3 flex flex-col gap-3 px-5 py-4 lg:col-start-1 lg:row-start-2 lg:min-h-0 lg:overflow-y-auto [scrollbar-width:none] [&::-webkit-scrollbar]:hidden">
             <AICard />
             <VersionsCard />
             {(() => {
