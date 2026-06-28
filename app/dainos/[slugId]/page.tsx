@@ -103,11 +103,39 @@ const fetchTrackData = unstable_cache(
       supabase.from('album_tracks').select('albums!album_tracks_album_id_fkey(id, slug, title, year, cover_image_url, type_studio, type)').eq('track_id', id),
       supabase.from('likes').select('*', { count: 'exact', head: true }).eq('entity_type', 'track').eq('entity_id', id),
       supabase.from('tracks').select('id, slug, title, type, video_url').eq('artist_id', track.artist_id).ilike('title', `%${titleFragment}%`).neq('id', id).limit(10),
-      // Susijusi muzika = TOP atlikėjo dainos (pagal score), tik su video, kad
-      // grotuvas veiktų. Anksčiau buvo pagal release_date (naujausios) — bet
-      // norим populiariausių. nullsFirst:false → bedaliai score'ai į galą.
+      // Tos pačios atlikėjo TOP dainos (pagal score, tik su video) — naudojam
+      // kaip rezervą / dalį susijusios muzikos, jei cross-artist tuščia.
       supabase.from('tracks').select('id, slug, title, type, video_url, is_new, release_date, score').eq('artist_id', track.artist_id).neq('id', id).not('video_url', 'is', null).order('score', { ascending: false, nullsFirst: false }).limit(12),
     ])
+
+    // ── Cross-artist rekomendacijos pagal bendrus substyle'us ────────────────
+    // „Gudresnė" pasiūlymų sistema: ne tik to paties atlikėjo dainos, bet ir
+    // kitų atlikėjų, dalinančių muzikos stilių. Surenkam peer atlikėjus per
+    // artist_substyles, paimam jų TOP dainas (su video), o diversifikaciją
+    // (1 daina / atlikėją) atliekam JS pusėje žemiau (TrackContent).
+    let crossRows: any[] = []
+    try {
+      const { data: subs } = await supabase
+        .from('artist_substyles').select('substyle_id').eq('artist_id', track.artist_id)
+      const subIds = Array.from(new Set((subs ?? []).map((s: any) => s.substyle_id))).filter(Boolean)
+      if (subIds.length) {
+        const { data: peers } = await supabase
+          .from('artist_substyles').select('artist_id')
+          .in('substyle_id', subIds).neq('artist_id', track.artist_id).limit(600)
+        const peerIds = Array.from(new Set((peers ?? []).map((p: any) => p.artist_id))).slice(0, 250)
+        if (peerIds.length) {
+          const { data: ct } = await supabase
+            .from('tracks')
+            .select('id, slug, title, video_url, score, artists!tracks_artist_id_fkey(slug, name)')
+            .in('artist_id', peerIds)
+            .not('video_url', 'is', null)
+            .order('score', { ascending: false, nullsFirst: false })
+            .limit(120)
+          crossRows = ct ?? []
+        }
+      }
+    } catch { /* substyle lentelės nebuvimas neturi laužyti puslapio */ }
+
     return {
       track,
       artistRow: (artistRes as any).data,
@@ -116,16 +144,17 @@ const fetchTrackData = unstable_cache(
       likes: (likesRes as any).count ?? 0,
       versionRows: (versionsRes as any).data ?? [],
       relatedRows: (relatedRes as any).data ?? [],
+      crossRows,
     }
   },
-  ['track-full-data-v2'],
+  ['track-full-data-v3'],
   { revalidate: TRACK_CACHE_TTL, tags: ['track'] },
 )
 
 async function TrackContent({ slug, id }: { slug: string; id: number }): Promise<React.ReactElement> {
   const data = await fetchTrackData(id)
   if (!data) notFound()
-  const { track, artistRow, featuringRows, albumTrackRows, likes, versionRows, relatedRows } = data
+  const { track, artistRow, featuringRows, albumTrackRows, likes, versionRows, relatedRows, crossRows } = data as any
   if (!artistRow) notFound()
 
   // ── Canonical slug check ─────────────────────────────────────────────────
@@ -147,16 +176,34 @@ async function TrackContent({ slug, id }: { slug: string; id: number }): Promise
   // ── Wikipedia trivia placeholder ──
   const trivia: string | null = null
 
-  const relatedTracks = (relatedRows as any[]).map((t: any) => ({
-    ...t,
-    spotify_id: null,
-    lyrics: null,
-    chords: null,
-    description: null,
-    show_player: false,
-    show_ai_interpretation: false,
-    featuring: [],
+  // ── Susijusi muzika: sumiksuojam cross-artist + tos pačios atlikėjo ──────────
+  // Tikslas: dominuoja KITŲ atlikėjų (panašaus stiliaus) pasiūlymai, bet
+  // paliekam kelias to paties atlikėjo dainas. Kiekviena kortelė neša SAVO
+  // atlikėją (slug+name), kad rodytume ne tik dainos, bet ir atlikėjo vardą.
+  type Rel = { id: number; slug: string; title: string; video_url: string | null; artistSlug: string; artistName: string }
+  const sameArtist: Rel[] = (relatedRows as any[]).map((t: any) => ({
+    id: t.id, slug: t.slug, title: t.title, video_url: t.video_url,
+    artistSlug: artistRow.slug, artistName: artistRow.name,
   }))
+  // Cross-artist diversifikacija — max 1 daina iš to paties atlikėjo.
+  const seenArtist = new Set<string>([artistRow.slug])
+  const cross: Rel[] = []
+  for (const t of (crossRows as any[] ?? [])) {
+    const a = t.artists
+    if (!a?.slug) continue
+    if (seenArtist.has(a.slug)) continue
+    seenArtist.add(a.slug)
+    cross.push({ id: t.id, slug: t.slug, title: t.title, video_url: t.video_url, artistSlug: a.slug, artistName: a.name })
+  }
+  // Galutinis sąrašas: 3 to paties atlikėjo + cross-artist (užpildo iki 14),
+  // dedup pagal track id, dabartinė daina išmesta.
+  const seenId = new Set<number>([id])
+  const relatedTracks: Rel[] = []
+  const pushRel = (it: Rel) => { if (!seenId.has(it.id)) { seenId.add(it.id); relatedTracks.push(it) } }
+  sameArtist.slice(0, 3).forEach(pushRel)
+  cross.forEach(pushRel)
+  sameArtist.slice(3).forEach(pushRel) // rezervas, jei cross tuščia
+  const relatedFinal = relatedTracks.slice(0, 14)
 
   return (
     <TrackPageClient
@@ -166,7 +213,7 @@ async function TrackContent({ slug, id }: { slug: string; id: number }): Promise
       versions={(versionRows ?? []) as any}
       likes={likes ?? 0}
       trivia={trivia}
-      relatedTracks={relatedTracks as any}
+      relatedTracks={relatedFinal as any}
       aiInterpretation={(track as any).ai_interpretation ?? null}
     />
   )
