@@ -110,14 +110,18 @@ export async function GET(
     .eq('entity_type', 'album')
     .eq('entity_id', albumId)
 
-  // Other albums by same artist
+  // Other albums by same artist — STUDIJINIAI pirma (album'ų score/views DB'je
+  // dažniausiai 0, todėl naudojam studio-flag'ą kaip „svarbumo" proxy: realūs
+  // albumai aukščiau, o EP/live/covers/compilation nukeliami žemyn arba iškrenta).
+  // Rodom mažiau (6), kad „Daugiau" juosta nebūtų suspausta.
   const { data: otherRows } = await sb
     .from('albums')
     .select('id, slug, title, year, cover_image_url, type_studio, type_ep, type_single, type_live, type_compilation, type_remix, type_soundtrack, type_demo')
     .eq('artist_id', artist.id)
     .neq('id', albumId)
+    .order('type_studio', { ascending: false, nullsFirst: false })
     .order('year', { ascending: false })
-    .limit(8)
+    .limit(6)
   const otherAlbums = ((otherRows || []) as any[]).map((a: any) => ({
     id: a.id, slug: a.slug, title: a.title, year: a.year,
     cover_image_url: a.cover_image_url || null,
