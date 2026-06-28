@@ -499,8 +499,9 @@ export default function TrackPageClient({
 
       {/* ── „Ekrano" zona — header + player|tekstas užima vieną viewport'ą
           (desktop), tekstas/extras scroll'inasi VIDUJ. Susijusios muzikos
-          juosta — ŽEMIAU šios zonos, pilnu pločiu (matoma nuscrol'inus). */}
-      <div className="lg:flex lg:h-[calc(100vh_-_56px)] lg:flex-col lg:overflow-hidden">
+          juosta — ŽEMIAU šios zonos, pilnu pločiu (matoma nuscrol'inus).
+          64px = site header + saugos tarpas, kad NIEKAS neperliptų ekrano. */}
+      <div className="lg:flex lg:h-[calc(100vh_-_64px)] lg:flex-col lg:overflow-hidden">
 
       {/* ── TOP BAR — border'as pilnu pločiu, turinys centruotas iki max-w-[1400px]
           (suvienodinta su body grid'u). Desktop'e shrink-0 — fiksuoto aukščio
@@ -632,21 +633,23 @@ export default function TrackPageClient({
             {(() => {
               const desc = plainText(track.description)
               const artistBio = plainText(artist.description)
-              // Maža dainos eilutė (albumo / atlikėjo top dainoms) — to paties
-              // atlikėjo, todėl naudojam artist.slug.
-              const MiniRow = (t: MiniTrack) => {
+              // Maža dainos KORTELĖ (albumo / atlikėjo top dainoms) — to paties
+              // atlikėjo, todėl naudojam artist.slug. Horizontaliai išdėstytos
+              // kortelės (ne vertikalus listas) → neatsiranda bereikalingo
+              // vertikalaus scroll'o info zonoje.
+              const MiniCard = (t: MiniTrack) => {
                 const tv = ytId(t.video_url)
                 const th = tv ? `https://i.ytimg.com/vi/${tv}/mqdefault.jpg` : null
                 return (
                   <Link key={t.id} href={`/dainos/${artist.slug}-${t.slug}-${t.id}`} title={t.title}
-                    className="group flex items-center gap-2 rounded-lg px-2 py-1.5 no-underline transition-colors hover:bg-[var(--bg-hover)]">
-                    <span className="aspect-video h-8 shrink-0 overflow-hidden rounded bg-black">
+                    className="group flex w-[116px] shrink-0 flex-col overflow-hidden rounded-lg border border-[var(--border-subtle)] bg-[var(--card-bg)] p-1 no-underline transition-colors hover:border-[var(--border-strong)] hover:bg-[var(--bg-hover)]">
+                    <span className="aspect-video w-full overflow-hidden rounded bg-black">
                       {th && (
                         // eslint-disable-next-line @next/next/no-img-element
-                        <img src={th} alt="" referrerPolicy="no-referrer" className="h-full w-full object-cover" />
+                        <img src={th} alt="" referrerPolicy="no-referrer" className="h-full w-full object-cover transition-transform duration-300 group-hover:scale-[1.04]" />
                       )}
                     </span>
-                    <span className="min-w-0 flex-1 truncate font-['Outfit',sans-serif] text-[12px] font-bold text-[var(--text-secondary)] group-hover:text-[var(--text-primary)]">{t.title}</span>
+                    <span className="mt-1 line-clamp-2 px-0.5 font-['Outfit',sans-serif] text-[10.5px] font-bold leading-tight text-[var(--text-secondary)] group-hover:text-[var(--text-primary)]">{t.title}</span>
                   </Link>
                 )
               }
@@ -692,9 +695,11 @@ export default function TrackPageClient({
                         </svg>
                       </Link>
                       {albumTopTracks.length > 0 && (
-                        <div className="border-t border-[var(--border-subtle)] px-1.5 pb-1.5 pt-1">
-                          <div className="px-1.5 pb-1 pt-1 font-['Outfit',sans-serif] text-[9px] font-extrabold uppercase tracking-[0.14em] text-[var(--text-faint)]">Iš to paties albumo</div>
-                          {albumTopTracks.map(MiniRow)}
+                        <div className="border-t border-[var(--border-subtle)] px-3 pb-3 pt-2">
+                          <div className="pb-1.5 font-['Outfit',sans-serif] text-[9px] font-extrabold uppercase tracking-[0.14em] text-[var(--text-faint)]">Iš to paties albumo</div>
+                          <div className="flex gap-2 overflow-x-auto pb-0.5 [scrollbar-width:thin]">
+                            {albumTopTracks.map(MiniCard)}
+                          </div>
                         </div>
                       )}
                     </div>
@@ -723,9 +728,11 @@ export default function TrackPageClient({
                         </div>
                       </Link>
                       {artistTopTracks.length > 0 && (
-                        <div className="border-t border-[var(--border-subtle)] px-1.5 pb-1.5 pt-1">
-                          <div className="px-1.5 pb-1 pt-1 font-['Outfit',sans-serif] text-[9px] font-extrabold uppercase tracking-[0.14em] text-[var(--text-faint)]">Populiariausios {artist.name}</div>
-                          {artistTopTracks.map(MiniRow)}
+                        <div className="border-t border-[var(--border-subtle)] px-3 pb-3 pt-2">
+                          <div className="pb-1.5 font-['Outfit',sans-serif] text-[9px] font-extrabold uppercase tracking-[0.14em] text-[var(--text-faint)]">Populiariausios {artist.name}</div>
+                          <div className="flex gap-2 overflow-x-auto pb-0.5 [scrollbar-width:thin]">
+                            {artistTopTracks.map(MiniCard)}
+                          </div>
                         </div>
                       )}
                     </div>
