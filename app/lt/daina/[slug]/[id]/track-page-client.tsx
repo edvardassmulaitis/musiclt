@@ -26,11 +26,14 @@ type Track = {
 }
 type Album = { id: number; slug: string; title: string; year?: number; cover_image_url: string | null; type: string }
 type Version = { id: number; slug: string; title: string; type: string; video_url: string | null }
+// Susijusi muzika — kiekvienas elementas neša SAVO atlikėją (cross-artist
+// rekomendacijos), kad kortelėje rodytume ir dainos, ir atlikėjo vardą.
+type RelatedItem = { id: number; slug: string; title: string; video_url: string | null; artistSlug: string; artistName: string }
 type Props = {
   track: Track; artist: Artist; albums: Album[]
   versions: Version[]; likes: number
   trivia: string | null
-  relatedTracks: Track[]
+  relatedTracks: RelatedItem[]
   aiInterpretation?: string | null
 }
 
@@ -487,7 +490,12 @@ export default function TrackPageClient({
 
   return (
     // route-enter: 280ms fade-in iš loading.tsx skeleton'o (žr. globals.css).
-    <div className="route-enter min-h-screen lg:min-h-0 lg:h-[calc(100vh_-_56px)] lg:flex lg:flex-col lg:overflow-hidden bg-[var(--bg-surface)] text-[var(--text-primary)]" style={{ fontFamily: "'DM Sans',system-ui,sans-serif", WebkitFontSmoothing: 'antialiased' }}>
+    <div className="route-enter min-h-screen bg-[var(--bg-surface)] text-[var(--text-primary)]" style={{ fontFamily: "'DM Sans',system-ui,sans-serif", WebkitFontSmoothing: 'antialiased' }}>
+
+      {/* ── „Ekrano" zona — header + player|tekstas užima vieną viewport'ą
+          (desktop), tekstas/extras scroll'inasi VIDUJ. Susijusios muzikos
+          juosta — ŽEMIAU šios zonos, pilnu pločiu (matoma nuscrol'inus). */}
+      <div className="lg:flex lg:h-[calc(100vh_-_56px)] lg:flex-col lg:overflow-hidden">
 
       {/* ── TOP BAR — border'as pilnu pločiu, turinys centruotas iki max-w-[1400px]
           (suvienodinta su body grid'u). Desktop'e shrink-0 — fiksuoto aukščio
@@ -609,20 +617,21 @@ export default function TrackPageClient({
           )}
         </div>
 
-        {/* Po video (extras) — dainos APRAŠYMAS (jei įdėtas) ARBA susijusi muzika.
-            Atlikėjo „grupės info" kortelė pašalinta (Edvardo prašymu). Desktop'e
-            scroll'inasi VIDUJ (row2 = 1fr), kad neišstumtų puslapio. */}
+        {/* Po video — DEDIKUOTA info zona: dainos aprašymas (jei įdėtas) +
+            albumas, iš kurio paimta daina; jei albumo nėra — atlikėjo kortelė.
+            Susijusios muzikos juosta perkelta ŽEMIAU (pilnu pločiu). Desktop'e
+            ši zona + playeris sutampa aukščiu su tekstui skirta dešine puse. */}
         <div className="order-3 flex flex-col gap-3 px-5 py-5 lg:col-start-1 lg:row-start-2 lg:min-h-0 lg:overflow-y-auto">
             <AICard />
             <VersionsCard />
             {(() => {
-              const more = relatedTracks.filter(t => ytId(t.video_url)).slice(0, 6)
               const desc = plainText(track.description)
+              const artistBio = plainText(artist.description)
               return (
-                <div>
-                  {/* Dainos aprašymas, jei įdėtas — kitu atveju susijusi muzika. */}
-                  {desc ? (
-                    <div className="mb-3 rounded-xl border border-[var(--border-subtle)] bg-[var(--card-bg)] p-4">
+                <div className="flex flex-col gap-3">
+                  {/* Dainos aprašymas, jei įdėtas. */}
+                  {desc && (
+                    <div className="rounded-xl border border-[var(--border-subtle)] bg-[var(--card-bg)] p-4">
                       <div className="mb-2 font-['Outfit',sans-serif] text-[11px] font-extrabold uppercase tracking-[0.18em] text-[var(--text-muted)]">
                         Apie dainą
                       </div>
@@ -630,60 +639,9 @@ export default function TrackPageClient({
                         {desc}
                       </p>
                     </div>
-                  ) : more.length > 0 ? (
-                    <div className="mb-3">
-                      <div className="mb-2 font-['Outfit',sans-serif] text-[11px] font-extrabold uppercase tracking-[0.18em] text-[var(--text-muted)]">
-                        Susijusi muzika
-                      </div>
-                      {/* Kompaktiškos eilutės 2 stulpeliais (maža miniatiūra + pavadinimas),
-                          kad netilptų į scroll'ą ir nebūtų „perdidelės" kortelės. */}
-                      <div className="hidden lg:grid grid-cols-2 gap-1.5">
-                        {more.slice(0, 6).map(t => {
-                          const tvid = ytId(t.video_url)
-                          const thumb = tvid ? `https://i.ytimg.com/vi/${tvid}/mqdefault.jpg` : null
-                          return (
-                            <Link key={t.id} href={`/dainos/${artist.slug}-${t.slug}-${t.id}`}
-                              title={`${t.title} — ${artist.name}`}
-                              className="group flex items-center gap-2 overflow-hidden rounded-lg border border-[var(--border-subtle)] bg-[var(--card-bg)] p-1 no-underline transition-colors hover:border-[var(--border-strong)] hover:bg-[var(--bg-hover)]">
-                              <div className="aspect-video h-9 shrink-0 overflow-hidden rounded bg-black">
-                                {thumb && (
-                                  // eslint-disable-next-line @next/next/no-img-element
-                                  <img src={thumb} alt="" referrerPolicy="no-referrer" className="h-full w-full object-cover transition-transform duration-300 group-hover:scale-[1.04]" />
-                                )}
-                              </div>
-                              <div className="min-w-0 flex-1">
-                                <div className="truncate font-['Outfit',sans-serif] text-[11px] font-extrabold leading-tight text-[var(--text-primary)]">{t.title}</div>
-                              </div>
-                            </Link>
-                          )
-                        })}
-                      </div>
-                      <div className="flex lg:hidden gap-2 overflow-x-auto pb-1 [scrollbar-width:thin]">
-                        {more.slice(0, 6).map(t => {
-                          const tvid = ytId(t.video_url)
-                          const thumb = tvid ? `https://i.ytimg.com/vi/${tvid}/mqdefault.jpg` : null
-                          return (
-                            <Link key={t.id} href={`/dainos/${artist.slug}-${t.slug}-${t.id}`}
-                              title={`${t.title} — ${artist.name}`}
-                              className="group flex w-[160px] shrink-0 flex-col gap-1.5 overflow-hidden rounded-lg border border-[var(--border-subtle)] bg-[var(--card-bg)] p-1.5 no-underline transition-colors hover:border-[var(--border-strong)] hover:bg-[var(--bg-hover)]">
-                              <div className="aspect-video w-full overflow-hidden rounded bg-black">
-                                {thumb && (
-                                  // eslint-disable-next-line @next/next/no-img-element
-                                  <img src={thumb} alt="" referrerPolicy="no-referrer" className="h-full w-full object-cover" />
-                                )}
-                              </div>
-                              <div className="px-1">
-                                <div className="truncate font-['Outfit',sans-serif] text-[12px] font-extrabold text-[var(--text-primary)]">{t.title}</div>
-                                <div className="truncate font-['Outfit',sans-serif] text-[10px] text-[var(--text-faint)]">{artist.name}</div>
-                              </div>
-                            </Link>
-                          )
-                        })}
-                      </div>
-                    </div>
-                  ) : null}
+                  )}
                   {/* Albumas, iš kurio daina. */}
-                  {primaryAlbum && (
+                  {primaryAlbum ? (
                     <Link
                       href={`/albumai/${artist.slug}-${primaryAlbum.slug}-${primaryAlbum.id}`}
                       title={primaryAlbum.title}
@@ -708,6 +666,29 @@ export default function TrackPageClient({
                       <svg viewBox="0 0 24 24" width={15} height={15} fill="none" stroke="currentColor" strokeWidth={2.2} strokeLinecap="round" strokeLinejoin="round" className="shrink-0 text-[var(--text-faint)] transition-colors group-hover:text-[var(--accent-orange)]">
                         <path d="M9 18l6-6-6-6" />
                       </svg>
+                    </Link>
+                  ) : (
+                    /* Atlikėjas — fallback, kai dainos albumo nėra. */
+                    <Link
+                      href={`/atlikejai/${artist.slug}`}
+                      title={artist.name}
+                      className="group flex items-start gap-3 rounded-xl border border-[var(--border-subtle)] bg-[var(--card-bg)] p-3 no-underline transition-colors hover:border-[var(--border-strong)]"
+                    >
+                      <span className="h-[60px] w-[60px] shrink-0 overflow-hidden rounded-lg bg-[var(--cover-placeholder)]">
+                        {(artist.cover_image_url) ? (
+                          // eslint-disable-next-line @next/next/no-img-element
+                          <img src={proxyImg(artist.cover_image_url)} alt="" referrerPolicy="no-referrer" style={{ objectPosition: 'center top' }} className="h-full w-full object-cover" />
+                        ) : (
+                          <span className="flex h-full w-full items-center justify-center text-[24px]">🎤</span>
+                        )}
+                      </span>
+                      <div className="min-w-0 flex-1">
+                        <div className="font-['Outfit',sans-serif] text-[9.5px] font-extrabold uppercase tracking-[0.14em] text-[var(--text-muted)]">Atlikėjas</div>
+                        <div className="truncate font-['Outfit',sans-serif] text-[14px] font-extrabold leading-tight text-[var(--text-primary)] group-hover:text-[var(--accent-orange)]">{artist.name}</div>
+                        {artistBio && (
+                          <p className="mt-1 line-clamp-3 whitespace-pre-line text-[12px] leading-[1.5] text-[var(--text-secondary)]">{artistBio}</p>
+                        )}
+                      </div>
                     </Link>
                   )}
                 </div>
@@ -926,6 +907,43 @@ export default function TrackPageClient({
         </div>
 
       </div>
+      {/* ── /Ekrano zona ── */}
+      </div>
+
+      {/* ── Susijusi muzika — pilno pločio juosta po pagrindine zona.
+          Cross-artist rekomendacijos: kortelėse rodom dainos pavadinimą IR
+          atlikėją (kiekvienas elementas neša savo artistSlug/artistName). ── */}
+      {relatedTracks.length > 0 && (
+        <section className="border-t border-[var(--border-subtle)] bg-[var(--bg-surface)]">
+          <div className="mx-auto w-full max-w-[1400px] px-4 py-5 sm:px-5">
+            <div className="mb-3 font-['Outfit',sans-serif] text-[11px] font-extrabold uppercase tracking-[0.18em] text-[var(--text-muted)]">
+              Susijusi muzika
+            </div>
+            <div className="flex gap-3 overflow-x-auto pb-2 [scrollbar-width:thin]">
+              {relatedTracks.map(t => {
+                const tvid = ytId(t.video_url)
+                const thumb = tvid ? `https://i.ytimg.com/vi/${tvid}/mqdefault.jpg` : null
+                return (
+                  <Link key={t.id} href={`/dainos/${t.artistSlug}-${t.slug}-${t.id}`}
+                    title={`${t.title} — ${t.artistName}`}
+                    className="group flex w-[168px] shrink-0 flex-col gap-1.5 overflow-hidden rounded-xl border border-[var(--border-subtle)] bg-[var(--card-bg)] p-1.5 no-underline transition-colors hover:border-[var(--border-strong)] hover:bg-[var(--bg-hover)]">
+                    <div className="aspect-video w-full overflow-hidden rounded-lg bg-black">
+                      {thumb && (
+                        // eslint-disable-next-line @next/next/no-img-element
+                        <img src={thumb} alt="" referrerPolicy="no-referrer" className="h-full w-full object-cover transition-transform duration-300 group-hover:scale-[1.04]" />
+                      )}
+                    </div>
+                    <div className="px-1 pb-0.5">
+                      <div className="truncate font-['Outfit',sans-serif] text-[12.5px] font-extrabold leading-tight text-[var(--text-primary)] group-hover:text-[var(--accent-orange)]">{t.title}</div>
+                      <div className="truncate font-['Outfit',sans-serif] text-[10.5px] font-semibold text-[var(--text-faint)]">{t.artistName}</div>
+                    </div>
+                  </Link>
+                )
+              })}
+            </div>
+          </div>
+        </section>
+      )}
 
       {/* Likers modal — universal'us pop-over visiems entity types */}
       {likersModalEntity && (
