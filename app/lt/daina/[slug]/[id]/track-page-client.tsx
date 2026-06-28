@@ -29,11 +29,15 @@ type Version = { id: number; slug: string; title: string; type: string; video_ur
 // Susijusi muzika — kiekvienas elementas neša SAVO atlikėją (cross-artist
 // rekomendacijos), kad kortelėje rodytume ir dainos, ir atlikėjo vardą.
 type RelatedItem = { id: number; slug: string; title: string; video_url: string | null; artistSlug: string; artistName: string }
+// Maža daina info zonai (albumo / atlikėjo top dainos) — to paties atlikėjo.
+type MiniTrack = { id: number; slug: string; title: string; video_url: string | null; video_views?: number | null }
 type Props = {
   track: Track; artist: Artist; albums: Album[]
   versions: Version[]; likes: number
   trivia: string | null
   relatedTracks: RelatedItem[]
+  albumTopTracks?: MiniTrack[]
+  artistTopTracks?: MiniTrack[]
   aiInterpretation?: string | null
 }
 
@@ -197,6 +201,7 @@ function CustomPlayOverlay({ vid, title, trackId }: { vid: string; title: string
 export default function TrackPageClient({
   track, artist, albums, versions, likes: initialLikes,
   trivia, relatedTracks,
+  albumTopTracks = [], artistTopTracks = [],
   aiInterpretation,
 }: Props) {
   // ── State ──────────────────────────────────────────────────────────────────
@@ -627,6 +632,24 @@ export default function TrackPageClient({
             {(() => {
               const desc = plainText(track.description)
               const artistBio = plainText(artist.description)
+              // Maža dainos eilutė (albumo / atlikėjo top dainoms) — to paties
+              // atlikėjo, todėl naudojam artist.slug.
+              const MiniRow = (t: MiniTrack) => {
+                const tv = ytId(t.video_url)
+                const th = tv ? `https://i.ytimg.com/vi/${tv}/mqdefault.jpg` : null
+                return (
+                  <Link key={t.id} href={`/dainos/${artist.slug}-${t.slug}-${t.id}`} title={t.title}
+                    className="group flex items-center gap-2 rounded-lg px-2 py-1.5 no-underline transition-colors hover:bg-[var(--bg-hover)]">
+                    <span className="aspect-video h-8 shrink-0 overflow-hidden rounded bg-black">
+                      {th && (
+                        // eslint-disable-next-line @next/next/no-img-element
+                        <img src={th} alt="" referrerPolicy="no-referrer" className="h-full w-full object-cover" />
+                      )}
+                    </span>
+                    <span className="min-w-0 flex-1 truncate font-['Outfit',sans-serif] text-[12px] font-bold text-[var(--text-secondary)] group-hover:text-[var(--text-primary)]">{t.title}</span>
+                  </Link>
+                )
+              }
               return (
                 <div className="flex flex-col gap-3">
                   {/* Dainos aprašymas, jei įdėtas. */}
@@ -640,56 +663,72 @@ export default function TrackPageClient({
                       </p>
                     </div>
                   )}
-                  {/* Albumas, iš kurio daina. */}
+                  {/* Albumas, iš kurio daina (+ kelios kitos albumo dainos). */}
                   {primaryAlbum ? (
-                    <Link
-                      href={`/albumai/${artist.slug}-${primaryAlbum.slug}-${primaryAlbum.id}`}
-                      title={primaryAlbum.title}
-                      className="group flex items-center gap-3 rounded-xl border border-[var(--border-subtle)] bg-[var(--card-bg)] p-3 no-underline transition-colors hover:border-[var(--border-strong)]"
-                    >
-                      <span className="h-[60px] w-[60px] shrink-0 overflow-hidden rounded-lg bg-[var(--cover-placeholder)]">
-                        {primaryAlbum.cover_image_url && (
-                          // eslint-disable-next-line @next/next/no-img-element
-                          <img src={proxyImg(primaryAlbum.cover_image_url)} alt="" referrerPolicy="no-referrer" className="h-full w-full object-cover" />
+                    <div className="overflow-hidden rounded-xl border border-[var(--border-subtle)] bg-[var(--card-bg)]">
+                      <Link
+                        href={`/albumai/${artist.slug}-${primaryAlbum.slug}-${primaryAlbum.id}`}
+                        title={primaryAlbum.title}
+                        className="group flex items-center gap-3 p-3 no-underline transition-colors hover:bg-[var(--bg-hover)]"
+                      >
+                        <span className="h-[60px] w-[60px] shrink-0 overflow-hidden rounded-lg bg-[var(--cover-placeholder)]">
+                          {primaryAlbum.cover_image_url && (
+                            // eslint-disable-next-line @next/next/no-img-element
+                            <img src={proxyImg(primaryAlbum.cover_image_url)} alt="" referrerPolicy="no-referrer" className="h-full w-full object-cover" />
+                          )}
+                        </span>
+                        <div className="min-w-0 flex-1">
+                          <div className="font-['Outfit',sans-serif] text-[9.5px] font-extrabold uppercase tracking-[0.14em] text-[var(--text-muted)]">Iš albumo</div>
+                          <div className="truncate font-['Outfit',sans-serif] text-[14px] font-extrabold leading-tight text-[var(--text-primary)] group-hover:text-[var(--accent-orange)]">{primaryAlbum.title}</div>
+                          {primaryAlbum.year && (
+                            <div className="text-[11.5px] font-semibold text-[var(--text-muted)]">{primaryAlbum.year} m.</div>
+                          )}
+                        </div>
+                        {albums.length > 1 && (
+                          <span className="shrink-0 font-['Outfit',sans-serif] text-[10px] font-bold text-[var(--text-faint)]" title={albums.slice(1).map(a => a.title).join(', ')}>+{albums.length - 1}</span>
                         )}
-                      </span>
-                      <div className="min-w-0 flex-1">
-                        <div className="font-['Outfit',sans-serif] text-[9.5px] font-extrabold uppercase tracking-[0.14em] text-[var(--text-muted)]">Iš albumo</div>
-                        <div className="truncate font-['Outfit',sans-serif] text-[14px] font-extrabold leading-tight text-[var(--text-primary)] group-hover:text-[var(--accent-orange)]">{primaryAlbum.title}</div>
-                        {primaryAlbum.year && (
-                          <div className="text-[11.5px] font-semibold text-[var(--text-muted)]">{primaryAlbum.year} m.</div>
-                        )}
-                      </div>
-                      {albums.length > 1 && (
-                        <span className="shrink-0 font-['Outfit',sans-serif] text-[10px] font-bold text-[var(--text-faint)]" title={albums.slice(1).map(a => a.title).join(', ')}>+{albums.length - 1}</span>
+                        <svg viewBox="0 0 24 24" width={15} height={15} fill="none" stroke="currentColor" strokeWidth={2.2} strokeLinecap="round" strokeLinejoin="round" className="shrink-0 text-[var(--text-faint)] transition-colors group-hover:text-[var(--accent-orange)]">
+                          <path d="M9 18l6-6-6-6" />
+                        </svg>
+                      </Link>
+                      {albumTopTracks.length > 0 && (
+                        <div className="border-t border-[var(--border-subtle)] px-1.5 pb-1.5 pt-1">
+                          <div className="px-1.5 pb-1 pt-1 font-['Outfit',sans-serif] text-[9px] font-extrabold uppercase tracking-[0.14em] text-[var(--text-faint)]">Iš to paties albumo</div>
+                          {albumTopTracks.map(MiniRow)}
+                        </div>
                       )}
-                      <svg viewBox="0 0 24 24" width={15} height={15} fill="none" stroke="currentColor" strokeWidth={2.2} strokeLinecap="round" strokeLinejoin="round" className="shrink-0 text-[var(--text-faint)] transition-colors group-hover:text-[var(--accent-orange)]">
-                        <path d="M9 18l6-6-6-6" />
-                      </svg>
-                    </Link>
+                    </div>
                   ) : (
-                    /* Atlikėjas — fallback, kai dainos albumo nėra. */
-                    <Link
-                      href={`/atlikejai/${artist.slug}`}
-                      title={artist.name}
-                      className="group flex items-start gap-3 rounded-xl border border-[var(--border-subtle)] bg-[var(--card-bg)] p-3 no-underline transition-colors hover:border-[var(--border-strong)]"
-                    >
-                      <span className="h-[60px] w-[60px] shrink-0 overflow-hidden rounded-lg bg-[var(--cover-placeholder)]">
-                        {(artist.cover_image_url) ? (
-                          // eslint-disable-next-line @next/next/no-img-element
-                          <img src={proxyImg(artist.cover_image_url)} alt="" referrerPolicy="no-referrer" style={{ objectPosition: 'center top' }} className="h-full w-full object-cover" />
-                        ) : (
-                          <span className="flex h-full w-full items-center justify-center text-[24px]">🎤</span>
-                        )}
-                      </span>
-                      <div className="min-w-0 flex-1">
-                        <div className="font-['Outfit',sans-serif] text-[9.5px] font-extrabold uppercase tracking-[0.14em] text-[var(--text-muted)]">Atlikėjas</div>
-                        <div className="truncate font-['Outfit',sans-serif] text-[14px] font-extrabold leading-tight text-[var(--text-primary)] group-hover:text-[var(--accent-orange)]">{artist.name}</div>
-                        {artistBio && (
-                          <p className="mt-1 line-clamp-3 whitespace-pre-line text-[12px] leading-[1.5] text-[var(--text-secondary)]">{artistBio}</p>
-                        )}
-                      </div>
-                    </Link>
+                    /* Atlikėjas — fallback, kai dainos albumo nėra (+ jo top dainos). */
+                    <div className="overflow-hidden rounded-xl border border-[var(--border-subtle)] bg-[var(--card-bg)]">
+                      <Link
+                        href={`/atlikejai/${artist.slug}`}
+                        title={artist.name}
+                        className="group flex items-start gap-3 p-3 no-underline transition-colors hover:bg-[var(--bg-hover)]"
+                      >
+                        <span className="h-[60px] w-[60px] shrink-0 overflow-hidden rounded-lg bg-[var(--cover-placeholder)]">
+                          {(artist.cover_image_url) ? (
+                            // eslint-disable-next-line @next/next/no-img-element
+                            <img src={proxyImg(artist.cover_image_url)} alt="" referrerPolicy="no-referrer" style={{ objectPosition: 'center top' }} className="h-full w-full object-cover" />
+                          ) : (
+                            <span className="flex h-full w-full items-center justify-center text-[24px]">🎤</span>
+                          )}
+                        </span>
+                        <div className="min-w-0 flex-1">
+                          <div className="font-['Outfit',sans-serif] text-[9.5px] font-extrabold uppercase tracking-[0.14em] text-[var(--text-muted)]">Atlikėjas</div>
+                          <div className="truncate font-['Outfit',sans-serif] text-[14px] font-extrabold leading-tight text-[var(--text-primary)] group-hover:text-[var(--accent-orange)]">{artist.name}</div>
+                          {artistBio && (
+                            <p className="mt-1 line-clamp-3 whitespace-pre-line text-[12px] leading-[1.5] text-[var(--text-secondary)]">{artistBio}</p>
+                          )}
+                        </div>
+                      </Link>
+                      {artistTopTracks.length > 0 && (
+                        <div className="border-t border-[var(--border-subtle)] px-1.5 pb-1.5 pt-1">
+                          <div className="px-1.5 pb-1 pt-1 font-['Outfit',sans-serif] text-[9px] font-extrabold uppercase tracking-[0.14em] text-[var(--text-faint)]">Populiariausios {artist.name}</div>
+                          {artistTopTracks.map(MiniRow)}
+                        </div>
+                      )}
+                    </div>
                   )}
                 </div>
               )
