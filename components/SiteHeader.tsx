@@ -2888,51 +2888,35 @@ export function SiteHeader() {
         }
 
         /* MAIN VIEW — clean text-row list (no gradients).
-           Sutankinta į viršų (be space-evenly) — atsilaisvinusi apačios
-           erdvė atitenka promo slotui. */
+           Erdvus, solidus ritmas: skiltys glaudžiai viršuje, bet su pakankamu
+           „oru" tarp eilučių (ne ikonos, ne promo — tik aiškūs keliai). */
         .sh-mlist {
           flex: 0 0 auto;
           display: flex; flex-direction: column;
-          padding: 4px 0 2px;
+          padding: 10px 0 4px;
         }
         /* Flat blokas — skyriaus antraštė (nuoroda) + sub-nuorodų chip'ai */
         .sh-mblock {
           position: relative;
-          padding: 1px 0;
+          padding: 5px 0;
           border-bottom: 1px solid var(--border-default);
         }
         .sh-mblock:last-child { border-bottom: none; }
         .sh-mblock-acc {
           position: absolute;
-          left: 0; top: 11px; height: 26px;
+          left: 0; top: 15px; height: 28px;
           width: 3px;
           border-radius: 0 3px 3px 0;
           background: var(--accent-orange);
         }
         /* Antraštė — visa eilutė tiesioginė nuoroda į skyriaus puslapį.
-           Ikona + pavadinimas + rodyklė prie pavadinimo (grupuoti kairėje). */
+           Pavadinimas + rodyklė prie pavadinimo (grupuoti kairėje). */
         .sh-mblock-head {
-          display: flex; align-items: center; gap: 9px;
-          padding: 8px 16px;
+          display: flex; align-items: center; gap: 7px;
+          padding: 12px 18px 9px;
           text-decoration: none;
           border-radius: 10px;
           transition: background .12s;
-        }
-        /* Skyriaus ikona — monochrome plytelė (kaip iOS Settings sidebar). */
-        .sh-mblock-ic {
-          flex-shrink: 0;
-          width: 30px; height: 30px;
-          border-radius: 8px;
-          display: flex; align-items: center; justify-content: center;
-          color: var(--text-secondary);
-          background: var(--bg-hover);
-          border: 1px solid var(--border-default);
-        }
-        .sh-mblock-ic svg { width: 17px; height: 17px; stroke-width: 2; }
-        .sh-mblock.active .sh-mblock-ic {
-          color: var(--accent-orange);
-          border-color: var(--accent-orange);
-          background: rgba(249, 115, 22, 0.08);
         }
         .sh-mblock-head:hover, .sh-mblock-head:active { background: var(--bg-hover); }
         .sh-mblock-go {
@@ -2947,8 +2931,8 @@ export function SiteHeader() {
         .sh-mblock.active .sh-mblock-go { color: var(--accent-orange); opacity: 0.9; }
         /* Sub-nuorodos — visada matomi chip'ai (wrap), kiekvienas tiesioginis link'as */
         .sh-mchips {
-          display: flex; flex-wrap: wrap; gap: 7px;
-          padding: 0 16px 8px 16px;
+          display: flex; flex-wrap: wrap; gap: 8px;
+          padding: 0 18px 11px 18px;
         }
         .sh-mchip {
           display: inline-flex; align-items: center; gap: 6px;
@@ -2994,7 +2978,7 @@ export function SiteHeader() {
           gap: 3px;
         }
         .sh-mrow-title {
-          font-size: 17.5px; font-weight: 800;
+          font-size: 18.5px; font-weight: 800;
           color: var(--text-primary);
           line-height: 1.15;
           letter-spacing: -0.02em;
@@ -3026,51 +3010,6 @@ export function SiteHeader() {
         .sh-msection {
           padding: 10px 12px 14px;
         }
-
-        /* PROMO slotas — prisispaudžia prie apačios (margin-top:auto),
-           užpildo atsilaisvinusią erdvę. Feature banneris (Dienos daina). */
-        .sh-mpromo {
-          margin: auto 12px 4px;
-          flex-shrink: 0;
-          display: flex; align-items: center; gap: 12px;
-          padding: 11px;
-          border-radius: 16px;
-          text-decoration: none;
-          background: linear-gradient(135deg, rgba(139,92,246,0.16), rgba(139,92,246,0.04));
-          border: 1px solid rgba(139,92,246,0.30);
-          transition: border-color .15s, transform .12s;
-        }
-        .sh-mpromo:hover, .sh-mpromo:active { border-color: rgba(139,92,246,0.55); }
-        .sh-mpromo-thumb {
-          flex-shrink: 0;
-          width: 58px; height: 58px;
-          border-radius: 12px;
-          background-color: #4c1d95;
-          background-size: cover; background-position: center;
-          display: flex; align-items: center; justify-content: center;
-          color: #fff;
-        }
-        .sh-mpromo-thumb svg { width: 24px; height: 24px; opacity: 0.9; }
-        .sh-mpromo-tx { flex: 1; min-width: 0; display: flex; flex-direction: column; gap: 2px; }
-        .sh-mpromo-tag {
-          display: flex; align-items: center; gap: 6px;
-          font-size: 10px; font-weight: 800;
-          text-transform: uppercase; letter-spacing: 0.06em;
-          color: #a78bfa;
-        }
-        .sh-mpromo-dot {
-          width: 6px; height: 6px; border-radius: 50%;
-          background: var(--accent-green);
-          box-shadow: 0 0 0 0 rgba(34,197,94,0.5);
-          animation: shMchipPulse 1.8s ease-out infinite;
-        }
-        .sh-mpromo-ti {
-          font-size: 14.5px; font-weight: 800; letter-spacing: -0.01em;
-          color: var(--text-primary); line-height: 1.15;
-          white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
-        }
-        .sh-mpromo-ds { font-size: 11.5px; color: var(--text-muted); }
-        .sh-mpromo-go { flex-shrink: 0; color: #a78bfa; display: flex; }
 
         /* Footer — greiti veiksmai + temos perjungiklis */
         .sh-mfoot {
@@ -3466,7 +3405,6 @@ export function SiteHeader() {
                     onClick={() => setMenuOpen(false)}
                     className="sh-mblock-head"
                   >
-                    <span className="sh-mblock-ic" aria-hidden>{n.icon}</span>
                     <span className="sh-mrow-title">{n.label}</span>
                     <span className="sh-mblock-go" aria-hidden>
                       <ArrowRight size={15} />
@@ -3486,36 +3424,6 @@ export function SiteHeader() {
               )
             })}
           </nav>
-
-          {/* PROMO — apačios slotas: „Dienos daina" feature (užpildo atsilaisvinusią
-              erdvę paslėpus Skelbimus). Realūs duomenys iš nav-preview.dailySongs;
-              jei dar neįkrauta — generinis CTA į /dienos-daina. */}
-          {(() => {
-            const ds = preview?.dailySongs?.[0]
-            const href = ds?.slug ? `/dainos/${ds.slug}` : '/dienos-daina'
-            const img = ds?.image ? proxyImg(ds.image) : null
-            return (
-              <Link href={href} onClick={() => setMenuOpen(false)} className="sh-mpromo">
-                <span
-                  className="sh-mpromo-thumb"
-                  style={img ? { backgroundImage: `url(${img})` } : undefined}
-                  aria-hidden
-                >
-                  {!img && I.music}
-                </span>
-                <span className="sh-mpromo-tx">
-                  <span className="sh-mpromo-tag">
-                    <span className="sh-mpromo-dot" />Dienos daina
-                  </span>
-                  <span className="sh-mpromo-ti">
-                    {ds ? `${ds.artist} — ${ds.title}` : 'Šiandienos pasirinkimas'}
-                  </span>
-                  <span className="sh-mpromo-ds">Bendruomenės išrinkta daina</span>
-                </span>
-                <span className="sh-mpromo-go" aria-hidden><ArrowRight size={16} /></span>
-              </Link>
-            )
-          })()}
         </div>
 
         {/* FOOTER — greiti veiksmai + kompaktiškas temos perjungiklis */}
