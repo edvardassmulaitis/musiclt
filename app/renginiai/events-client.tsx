@@ -207,6 +207,7 @@ export default function EventsClient({ events, cities, abroadConcerts = [], dest
   const [archive, setArchive] = useState(false)
   const [openId, setOpenId] = useState<string | null>(null)
   const [citySearch, setCitySearch] = useState('')
+  const [moreOpen, setMoreOpen] = useState(false) // mobile „daugiau" sheet
 
   const today = startOfDay(new Date())
 
@@ -245,6 +246,8 @@ export default function EventsClient({ events, cities, abroadConcerts = [], dest
   }, [base, city, from, to, ltOnly, price, styles, festOnly, worthTrip, archive])
 
   const anyFilter = city !== 'Visi' || !!from || ltOnly || !!price || styles.length > 0 || festOnly || worthTrip
+  // Secondary (už „daugiau") aktyvumas — taškas/oranžinis ant chevron mygtuko
+  const secActive = !!price || styles.length > 0 || ltOnly || festOnly || worthTrip
 
   // „Verta kelionės" — koncertai užsienyje (jau filtruoti į būsimus duomenų
   // sluoksnyje). Rodomi atskiru tinkleliu, kortelės veda į /verta-keliones/[slug].
@@ -296,7 +299,8 @@ export default function EventsClient({ events, cities, abroadConcerts = [], dest
       </div>
 
       {/* ── Kompaktiška filtrų juosta (viena eilutė) ── */}
-      <div className="ev-fbar">
+      <div className={`ev-fbar${moreOpen ? ' ev-more-open' : ''}`}>
+        <div className="ev-fbar-pri">
         {/* Laikotarpis */}
         <Popover id="period" openId={openId} setOpenId={setOpenId} label={periodLabel} icon={Icon.calendar} on={!!from} width={278}>
           <p className="ev-pop-lbl">Greiti pasirinkimai</p>
@@ -321,7 +325,8 @@ export default function EventsClient({ events, cities, abroadConcerts = [], dest
 
         <span className="ev-divider" />
 
-        {/* Miestai */}
+        {/* Miestai — DESKTOP chip'ai (mobile: vienas „Miestas" popover žemiau) */}
+        <span className="ev-city-desk">
         <button className={`ev-chip${city === 'Visi' ? ' on' : ''}`} onClick={() => setCity('Visi')}>Visi miestai</button>
         {PRIMARY_CITIES.filter(c => cities.includes(c)).map(c => (
           <button key={c} className={`ev-chip${city === c ? ' on' : ''}`} onClick={() => setCity(c)}>{c}</button>
@@ -337,7 +342,25 @@ export default function EventsClient({ events, cities, abroadConcerts = [], dest
             </div>
           </Popover>
         )}
+        </span>
+        <span className="ev-city-mob">
+          <Popover id="city-m" openId={openId} setOpenId={setOpenId} label={city === 'Visi' ? 'Miestas' : city} icon={<svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M12 21s-7-5.5-7-11a7 7 0 0 1 14 0c0 5.5-7 11-7 11z"/><circle cx="12" cy="10" r="2.5"/></svg>} on={city !== 'Visi'} width={230}>
+            <input autoFocus value={citySearch} onChange={e => setCitySearch(e.target.value)} placeholder="Ieškoti miesto…" className="ev-search" />
+            <div className="ev-pop-list">
+              <button type="button" className={`ev-opt${city === 'Visi' ? ' on' : ''}`} onClick={() => { setCity('Visi'); setOpenId(null); setCitySearch('') }}>Visi miestai</button>
+              {cities.filter(c => c.toLowerCase().includes(citySearch.toLowerCase())).map(c => (
+                <button key={c} type="button" className={`ev-opt${city === c ? ' on' : ''}`} onClick={() => { setCity(c); setOpenId(null); setCitySearch('') }}>{c}</button>
+              ))}
+            </div>
+          </Popover>
+        </span>
+        </div>
 
+        <button type="button" className={`ev-morebtn${secActive ? ' on' : ''}`} aria-expanded={moreOpen} aria-label="Daugiau filtrų" onClick={() => setMoreOpen(o => !o)}>
+          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round" aria-hidden><path d="M5 9l7 7 7-7" /></svg>
+        </button>
+
+        <div className="ev-fbar-sec">
         <span className="ev-divider" />
 
         {/* Kaina */}
@@ -373,6 +396,7 @@ export default function EventsClient({ events, cities, abroadConcerts = [], dest
         <button className={`ev-chip${worthTrip ? ' on' : ''}`} onClick={() => setWorthTrip(!worthTrip)}>{Icon.plane}<span>Verta kelionės</span></button>
 
         {anyFilter && <button className="ev-reset" onClick={resetAll}>Išvalyti ✕</button>}
+        </div>
         {(() => { const n = worthTrip ? abroadList.length : filtered.length; return (
         <span className="ev-count">{n} {n === 1 ? 'renginys' : n % 10 >= 1 && n % 10 <= 9 && !(n % 100 >= 11 && n % 100 <= 19) ? 'renginiai' : 'renginių'}</span>
         ) })()}
@@ -535,6 +559,29 @@ const EV_CSS = `
 .ev-fbar { display:flex; flex-wrap:wrap; gap:7px; align-items:center; padding:11px 12px; border-radius:14px;
   background:var(--bg-surface); border:1px solid var(--border-default,rgba(255,255,255,0.08)); margin-bottom:22px; }
 .ev-divider { width:1px; height:22px; background:var(--border-default,rgba(255,255,255,0.1)); margin:0 2px; }
+
+/* Responsive shell: desktop = viskas inline (display:contents); mobile =
+   Miestas+Data primary + chevron „daugiau" → secondary sheet'as. */
+.ev-fbar-pri, .ev-fbar-sec { display:contents; }
+.ev-city-desk { display:contents; }
+.ev-city-mob { display:none; }
+.ev-morebtn { display:none; }
+@media (max-width:680px) {
+  .ev-fbar { flex-wrap:wrap; gap:8px; }
+  .ev-fbar-pri { display:flex; align-items:center; gap:7px; flex:0 1 auto; min-width:0; order:0; }
+  .ev-city-desk { display:none; }
+  .ev-city-mob { display:contents; }
+  .ev-morebtn { display:inline-flex; align-items:center; justify-content:center; order:1; flex:0 0 auto;
+    padding:6px 12px; border-radius:var(--radius-pill,100px); background:var(--bg-hover);
+    border:1px solid var(--border-default,rgba(255,255,255,0.08)); color:var(--text-secondary); cursor:pointer; line-height:1; }
+  .ev-morebtn svg { display:block; transition:transform .15s; }
+  .ev-morebtn.on { color:var(--accent-orange); border-color:var(--accent-orange); }
+  .ev-morebtn[aria-expanded="true"] svg { transform:rotate(180deg); }
+  .ev-fbar-sec { order:2; flex-basis:100%; display:none; flex-wrap:wrap; align-items:center; gap:8px; }
+  .ev-more-open .ev-fbar-sec { display:flex; }
+  .ev-fbar .ev-divider { display:none; }
+  .ev-count { display:none; }
+}
 
 /* Chip (= mz-fchip) */
 .ev-chip { display:inline-flex; align-items:center; gap:6px; padding:6px 13px; border-radius:100px; font-size:12.5px; font-weight:600;
