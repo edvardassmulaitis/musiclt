@@ -144,7 +144,7 @@ function toCard(
 
 /* ───────────────────── View → tekstas (H1 / JSON-LD / crumb) ───────────────────── */
 const VIEW_INFO: Record<TopaiView, { h1: string; desc: string; crumb: string | null }> = {
-  all: { h1: 'Lietuvos ir pasaulio muzikos topai', desc: 'Visa populiariausia muzika – vienoje vietoje.', crumb: null },
+  all: { h1: 'Muzikos topai', desc: 'Visi svarbiausi Lietuvos ir pasaulio muzikos topai – vienoje vietoje.', crumb: null },
   lt: { h1: 'Lietuvos muzikos topai', desc: 'Lietuvos dainų ir albumų topai — AGATA, Spotify, Apple Music, Shazam ir Music.lt LT TOP 30.', crumb: 'Lietuva' },
   world: { h1: 'Pasaulio muzikos topai', desc: 'Pasaulio dainų ir albumų topai — Spotify Global, Billboard, Shazam ir Music.lt TOP 40.', crumb: 'Pasaulis' },
   us: { h1: 'JAV muzikos topai', desc: 'JAV dainų topai — Billboard Hot 100, Spotify ir Apple Music duomenys.', crumb: 'JAV' },
