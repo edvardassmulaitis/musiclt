@@ -221,7 +221,10 @@ const fbStyles = `
 
   @media (max-width: 680px) {
     .fb { padding: 0 var(--page-pad-x-sm, 16px); }
-    .fb-primary { flex: 1 1 auto; flex-wrap: nowrap; overflow-x: auto; scrollbar-width: none; scroll-snap-type: x mandatory; -webkit-mask-image: linear-gradient(90deg, #000 90%, transparent); mask-image: linear-gradient(90deg, #000 90%, transparent); padding-right: 4px; }
+    /* Centruojam visą grupę; chevron prilips prie chip'ų (ne į kraštą).
+       Kai chip'ų daug — .fb-primary susitraukia ir slenka viduje. */
+    .fb-bar { justify-content: center; }
+    .fb-primary { flex: 0 1 auto; flex-wrap: nowrap; overflow-x: auto; scrollbar-width: none; scroll-snap-type: x mandatory; }
     .fb-primary::-webkit-scrollbar { display: none; }
     .fb-primary .fb-chip { scroll-snap-align: start; flex: 0 0 auto; }
     .fb-divider { display: none; }
