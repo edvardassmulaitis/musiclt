@@ -45,12 +45,15 @@ export async function GET(req: Request) {
   // diskusijų sąrašą ir maišydavo realų pokalbio turinį.
   let query = supabase
     .from('discussions')
-    .select('id, slug, title, body, user_id, author_name, author_avatar, tags, is_pinned, is_locked, comment_count, like_count, view_count, last_comment_at, created_at, artist:artist_id(name, slug, cover_image_url)', { count: 'exact' })
+    .select('id, slug, title, body, user_id, author_name, author_avatar, tag, tags, is_pinned, is_locked, comment_count, like_count, view_count, last_comment_at, created_at, artist:artist_id(name, slug, cover_image_url)', { count: 'exact' })
     .eq('is_deleted', false)
     .or('legacy_kind.is.null,legacy_kind.eq.discussion')
     .range(offset, offset + limit - 1)
 
-  if (tag) query = query.contains('tags', [tag])
+  // Kategorija saugoma `tag` (text) stulpelyje — backfill'inta heuristiškai
+  // (legacy forum_id migracijoje prarastas). Senasis `tags` array filtras
+  // visada grąžindavo tuščią, nes nei vienas įrašas neturi tags.
+  if (tag && tag !== 'all') query = query.eq('tag', tag)
   if (sort === 'newest') query = query.order('is_pinned', { ascending: false }).order('created_at', { ascending: false })
   else if (sort === 'popular') query = query.order('is_pinned', { ascending: false }).order('like_count', { ascending: false })
   else query = query.order('is_pinned', { ascending: false }).order('last_comment_at', { ascending: false, nullsFirst: false }).order('created_at', { ascending: false })
@@ -75,7 +78,8 @@ export async function POST(req: Request) {
     return NextResponse.json({ error: 'Reikia prisijungti' }, { status: 401 })
 
   const body = await req.json()
-  const { title, text, tags } = body
+  const { title, text, tags, tag } = body
+  const category = (typeof tag === 'string' && tag.trim()) ? tag.trim() : 'Kita'
 
   if (!title?.trim() || title.trim().length < 5)
     return NextResponse.json({ error: 'Pavadinimas per trumpas' }, { status: 400 })
@@ -103,6 +107,7 @@ export async function POST(req: Request) {
       user_id: session.user.id,
       author_name: session.user.name || session.user.email || 'Vartotojas',
       author_avatar: session.user.image || null,
+      tag: category,
       tags: (tags || []).slice(0, 5),
     })
     .select()
