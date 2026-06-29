@@ -28,6 +28,7 @@ type Event = {
   status: string
   is_featured: boolean
   is_festival?: boolean
+  is_abroad?: boolean
   genres?: string[]
   event_artists: EventArtist[]
 }
@@ -211,11 +212,14 @@ export default function EventsClient({ events, cities, abroadConcerts = [], dest
 
   const today = startOfDay(new Date())
 
+  // „Koncertai Lietuvoje" — užsienio renginiai (is_abroad) NErodomi numatytai;
+  // jie atsidaro tik per „Verta kelionės" (atskiras abroadConcerts šaltinis).
   const active = useMemo(() => events.filter(e =>
+    !e.is_abroad &&
     (e.status === 'upcoming' || e.status === 'ongoing') &&
     startOfDay(new Date(e.end_date || e.start_date)).getTime() >= today.getTime()
   ), [events, today])
-  const past = useMemo(() => events.filter(e => !active.includes(e)), [events, active])
+  const past = useMemo(() => events.filter(e => !e.is_abroad && !active.includes(e)), [events, active])
   const base = archive ? past : active
 
   const availStyles = useMemo(() => {
@@ -556,8 +560,7 @@ const EV_CSS = `
 .ev-head p { color:var(--page-sub-color); font-size:var(--page-sub-size); line-height:var(--page-sub-line); margin-top:6px; max-width:var(--page-sub-max); }
 
 /* Filter bar — viena kompaktiška eilutė */
-.ev-fbar { display:flex; flex-wrap:wrap; gap:7px; align-items:center; padding:11px 12px; border-radius:14px;
-  background:var(--bg-surface); border:1px solid var(--border-default,rgba(255,255,255,0.08)); margin-bottom:22px; }
+.ev-fbar { display:flex; flex-wrap:wrap; gap:7px; align-items:center; margin-bottom:22px; }
 .ev-divider { width:1px; height:22px; background:var(--border-default,rgba(255,255,255,0.1)); margin:0 2px; }
 
 /* Responsive shell: desktop = viskas inline (display:contents); mobile =
