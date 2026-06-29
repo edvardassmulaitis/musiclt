@@ -197,7 +197,7 @@ const NAV_SUBLINKS: Partial<Record<NavItem['key'], { href: string; label: string
   muzika: [
     { href: '/muzika/lietuviska', label: '🇱🇹 Lietuviška' },
     { href: '/muzika/uzsienio', label: 'Pasaulio' },
-    { href: '/muzikos-atradimai', label: 'Naujienų radaras', dot: true },
+    { href: '/nauji-atlikejai', label: 'Naujų atlikėjų radaras', dot: true },
   ],
   topai: [
     { href: '/top30', label: '🇱🇹 LT TOP 30' },
