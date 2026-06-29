@@ -1559,7 +1559,8 @@ function Hero({
   // Anksčiau buvo country/global, bet useris paspaudęs chip'ą atidaro
   // ŽANRO modal'ą — ten matomas genre rank (Muse — #4 iš 51 Roko muzikoj).
   // Kad numeris chip'e ir modal'e SUTAPTŲ, abu naudoja žanro rank'ą.
-  const primaryRank = ranks.find(r => r.scope === 'genre')
+  const primaryRank = ranks.find(r => r.scope === 'country_genre')
+    ?? ranks.find(r => r.scope === 'genre')
   // Grayscale efektas hero foto, kai:
   //   - Solo atlikėjas miręs (death_date)
   //   - Grupė pabaigė veiklą (active_until <= currentYear)
@@ -1833,39 +1834,39 @@ function Hero({
               <div
                 className="-mx-4 flex flex-nowrap items-center gap-2 overflow-x-auto px-4 [scrollbar-width:none] [&::-webkit-scrollbar]:hidden sm:mx-0 sm:flex-wrap sm:px-0 lg:-mx-10 lg:px-10"
               >
-                {flag && artist.country && (
+                {/* SUJUNGTAS pill'as: [vėliava][pagrindinis stilius][#vieta].
+                    #vieta = pozicija TOJE šalyje IR TO stiliaus (country_genre
+                    rank). Paspaudus → modal'as su country+genre filtru (tie
+                    patys peers, ką ranke). Jei nėra žanro, bet yra šalis —
+                    rodom tik vėliavą (atidaro šalies top'ą). */}
+                {(genres[0] || (flag && artist.country)) && (
                   <button
                     type="button"
-                    onClick={() => onOpenTopArtists?.({ country: artist.country })}
-                    title={`${artist.country} top atlikėjai ir grupės`}
-                    aria-label={`Šalis: ${artist.country}. Atidaryti top sąrašą.`}
-                    // 2026-05-21 v3: pašalinau `hover:scale-110` — parent
-                    // container'is su `overflow-x-auto` automatiškai
-                    // konvertuoja `overflow-y` į `auto` (CSS spec), todėl
-                    // scale'inant chip'ą virš/po juo atsirasdavo nukirpimas.
-                    // Dabar hover feedback'as tik per border + bg color
-                    // change'ą (kas vis tiek aiškiai matosi).
-                    className="inline-flex h-10 w-10 shrink-0 items-center justify-center rounded-2xl border-2 border-[var(--border-default)] bg-[var(--card-bg)] text-[18px] leading-none transition-colors hover:border-[var(--accent-orange)] hover:bg-[rgba(249,115,22,0.12)] lg:border-white/25 lg:bg-white/10 lg:backdrop-blur-md lg:hover:border-[var(--accent-orange)] lg:hover:bg-[rgba(249,115,22,0.18)]"
+                    onClick={() => onOpenTopArtists?.(
+                      genres[0]
+                        ? { country: artist.country || undefined, genre: genres[0].name }
+                        : { country: artist.country }
+                    )}
+                    title={
+                      genres[0]
+                        ? (primaryRank && primaryRank.rank > 0
+                            ? `#${primaryRank.rank} iš ${primaryRank.total} — ${genres[0].name}${artist.country ? `, ${artist.country}` : ''}`
+                            : `Top atlikėjai: ${genres[0].name}${artist.country ? `, ${artist.country}` : ''}`)
+                        : `${artist.country} top atlikėjai ir grupės`
+                    }
+                    className="inline-flex shrink-0 items-center gap-2 rounded-full border border-[rgba(249,115,22,0.35)] bg-[rgba(249,115,22,0.12)] py-1.5 pl-2.5 pr-2.5 font-['Outfit',sans-serif] text-[13px] font-extrabold tracking-tight text-[var(--accent-orange)] transition-colors hover:border-[var(--accent-orange)] hover:bg-[rgba(249,115,22,0.22)] lg:bg-[rgba(249,115,22,0.18)] lg:backdrop-blur-md lg:hover:bg-[rgba(249,115,22,0.28)]"
                   >
-                    <span aria-hidden>{flag}</span>
-                  </button>
-                )}
-                {genres[0] && (
-                  <button
-                    type="button"
-                    onClick={() => onOpenTopArtists?.({ genre: genres[0].name })}
-                    title={`Top atlikėjai: ${genres[0].name}`}
-                    className="inline-flex shrink-0 items-center gap-1.5 rounded-full border border-[rgba(249,115,22,0.35)] bg-[rgba(249,115,22,0.12)] py-1.5 pl-3 pr-3.5 font-['Outfit',sans-serif] text-[13px] font-extrabold tracking-tight text-[var(--accent-orange)] transition-colors hover:border-[var(--accent-orange)] hover:bg-[rgba(249,115,22,0.22)] lg:bg-[rgba(249,115,22,0.18)] lg:backdrop-blur-md lg:hover:bg-[rgba(249,115,22,0.28)]"
-                  >
-                    {primaryRank && primaryRank.rank > 0 && (
+                    {flag && artist.country && (
+                      <span aria-hidden className="text-[16px] leading-none">{flag}</span>
+                    )}
+                    {genres[0] && <span>{genres[0].name}</span>}
+                    {genres[0] && primaryRank && primaryRank.rank > 0 && (
                       <span
                         className="inline-flex items-center rounded-full bg-[var(--accent-orange)] px-1.5 py-0.5 font-['Outfit',sans-serif] text-[10.5px] font-black tabular-nums text-white"
-                        title={`#${primaryRank.rank} iš ${primaryRank.total} žanre „${genres[0].name}"`}
                       >
                         #{primaryRank.rank}
                       </span>
                     )}
-                    <span>{genres[0].name}</span>
                   </button>
                 )}
                 {substyles.map(s => (
@@ -2025,6 +2026,8 @@ function TopArtistsModal({
     ? '🔥 Naujausi top atlikėjai ir grupės'
     : filter.zodiac
     ? `${ZODIAC_GLYPH[filter.zodiac] || '✶'} ${filter.zodiac} — top atlikėjai ir grupės`
+    : filter.country && filter.genre
+    ? `${flagFor(filter.country) || '🌍'} ${filter.country} · ${filter.genre} — top atlikėjai ir grupės`
     : filter.country
     ? `${flagFor(filter.country) || '🌍'} ${filter.country} top atlikėjai ir grupės`
     : filter.genre
