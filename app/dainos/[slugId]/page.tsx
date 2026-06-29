@@ -26,6 +26,15 @@ import SongCollectionView, { songCollectionMetadata } from '@/components/muzika/
 // (Supabase JS klientas vidiniai naudoja cache: no-store).
 const TRACK_CACHE_TTL = 60
 
+function decodeSlugForCompare(s: string): string {
+  // RSC/soft-nav metu Next.js grąžina dinaminį param'ą PROCENTAIS UŽKODUOTĄ
+  // (pvz. kirilica azzaro-%D0%B0-…), o hard-load metu — jau dekoduotą. Be šio
+  // suvienodinimo canonical palyginimas amžinai nesutampa unicode slug'ams →
+  // begalinis redirect loop (žr. „А Я КАЙФУЮ" bug 2026-06-29). NFC normalizuoja
+  // sudėtinius/išskaidytus unicode variantus.
+  try { return decodeURIComponent(s).normalize('NFC') } catch { return s.normalize('NFC') }
+}
+
 function parseSlugId(slugId: string): { slug: string; id: number } | null {
   const m = slugId.match(/^(.+)-(\d+)$/)
   if (!m) return null
@@ -164,7 +173,7 @@ async function TrackContent({ slug, id }: { slug: string; id: number }): Promise
   // ── Canonical slug check ─────────────────────────────────────────────────
   // Canonical URL: /dainos/{artist-slug}-{track-slug}-{id}
   const canonicalSlug = `${artistRow.slug}-${track.slug}`
-  if (slug !== canonicalSlug) {
+  if (decodeSlugForCompare(slug) !== canonicalSlug.normalize('NFC')) {
     redirect(`/dainos/${canonicalSlug}-${id}`)
   }
 
