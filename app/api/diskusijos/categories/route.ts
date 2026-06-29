@@ -4,7 +4,7 @@ import { createAdminClient } from '@/lib/supabase'
 // Kategorijų sąrašas + įrašų skaičius (Reddit-stiliaus šoninei juostai).
 // Kategorija saugoma discussions.tag (text). Skaičiuojam tik realias
 // diskusijas (legacy_kind null arba 'discussion'), ne news/events.
-export const CATEGORIES = [
+const CATEGORIES = [
   'Grupės ir atlikėjai',
   'Dainos',
   'Albumai',
