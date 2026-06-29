@@ -155,7 +155,7 @@ function RangeCalendar({ from, to, onPick }: { from: Date | null; to: Date | nul
   }
 
   return (
-    <div style={{ width: 250 }}>
+    <div style={{ width: '100%' }}>
       <div className="flex items-center justify-between mb-2">
         <button type="button" onClick={() => setView(new Date(y, m - 1, 1))} className="ev-cal-nav">{Icon.arrowL}</button>
         <span style={{ fontSize: 13, fontWeight: 800, color: 'var(--text-primary)' }}>{MONTHS_FULL[m]} {y}</span>
@@ -306,7 +306,7 @@ export default function EventsClient({ events, cities, abroadConcerts = [], dest
       <div className={`ev-fbar${moreOpen ? ' ev-more-open' : ''}`}>
         <div className="ev-fbar-pri">
         {/* Laikotarpis */}
-        <Popover id="period" openId={openId} setOpenId={setOpenId} label={periodLabel} icon={Icon.calendar} on={!!from} width={278}>
+        <Popover id="period" openId={openId} setOpenId={setOpenId} label={from ? periodLabel : 'Data'} icon={Icon.calendar} on={!!from} width={278}>
           <p className="ev-pop-lbl">Greiti pasirinkimai</p>
           <div className="ev-pop-presets">
             {[
@@ -348,16 +348,33 @@ export default function EventsClient({ events, cities, abroadConcerts = [], dest
         )}
         </span>
         <span className="ev-city-mob">
-          <Popover id="city-m" openId={openId} setOpenId={setOpenId} label={city === 'Visi' ? 'Miestas' : city} icon={<svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M12 21s-7-5.5-7-11a7 7 0 0 1 14 0c0 5.5-7 11-7 11z"/><circle cx="12" cy="10" r="2.5"/></svg>} on={city !== 'Visi'} width={230}>
-            <input autoFocus value={citySearch} onChange={e => setCitySearch(e.target.value)} placeholder="Ieškoti miesto…" className="ev-search" />
+          <Popover id="city-m" openId={openId} setOpenId={setOpenId} label={worthTrip ? 'Užsienis' : (city === 'Visi' ? 'Miestas' : city)} icon={<svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M12 21s-7-5.5-7-11a7 7 0 0 1 14 0c0 5.5-7 11-7 11z"/><circle cx="12" cy="10" r="2.5"/></svg>} on={city !== 'Visi' || worthTrip} width={230}>
             <div className="ev-pop-list">
-              <button type="button" className={`ev-opt${city === 'Visi' ? ' on' : ''}`} onClick={() => { setCity('Visi'); setOpenId(null); setCitySearch('') }}>Visi miestai</button>
-              {cities.filter(c => c.toLowerCase().includes(citySearch.toLowerCase())).map(c => (
-                <button key={c} type="button" className={`ev-opt${city === c ? ' on' : ''}`} onClick={() => { setCity(c); setOpenId(null); setCitySearch('') }}>{c}</button>
+              <button type="button" className={`ev-opt${city === 'Visi' && !worthTrip ? ' on' : ''}`} onClick={() => { setWorthTrip(false); setCity('Visi'); setOpenId(null) }}>Visi miestai</button>
+              {cities.map(c => (
+                <button key={c} type="button" className={`ev-opt${city === c && !worthTrip ? ' on' : ''}`} onClick={() => { setWorthTrip(false); setCity(c); setOpenId(null) }}>{c}</button>
               ))}
+              <button type="button" className={`ev-opt ev-opt-sep${worthTrip ? ' on' : ''}`} onClick={() => { setWorthTrip(true); setCity('Visi'); setOpenId(null) }}>{Icon.plane}<span>Užsienis</span></button>
             </div>
           </Popover>
         </span>
+
+        {/* Stilius — primary (mobile irgi matomas) */}
+        {availStyles.length > 0 && (
+          <Popover id="style" openId={openId} setOpenId={setOpenId} label={styles.length ? `Stilius · ${styles.length}` : 'Stilius'} icon={Icon.note} on={styles.length > 0} width={220}>
+            <div className="ev-pop-list">
+              {availStyles.map(g => {
+                const o = styles.includes(g)
+                return (
+                  <button key={g} type="button" className={`ev-opt${o ? ' on' : ''}`} onClick={() => setStyles(o ? styles.filter(x => x !== g) : [...styles, g])}>
+                    <span className="ev-check" style={{ background: o ? 'var(--accent-orange)' : 'transparent', borderColor: o ? 'var(--accent-orange)' : 'var(--border-default,rgba(255,255,255,0.2))' }}>{o ? '✓' : ''}</span>{g}
+                  </button>
+                )
+              })}
+            </div>
+            {styles.length > 0 && <button type="button" className="ev-pop-clear" onClick={() => setStyles([])}>Išvalyti</button>}
+          </Popover>
+        )}
         </div>
 
         <button type="button" className={`ev-morebtn${secActive ? ' on' : ''}`} aria-expanded={moreOpen} aria-label="Daugiau filtrų" onClick={() => setMoreOpen(o => !o)}>
@@ -374,23 +391,6 @@ export default function EventsClient({ events, cities, abroadConcerts = [], dest
             <button key={o.k} type="button" className={`ev-opt${price === o.k ? ' on' : ''}`} onClick={() => { setPrice(o.k); setOpenId(null) }}>{o.l}</button>
           ))}
         </Popover>
-
-        {/* Stilius */}
-        {availStyles.length > 0 && (
-          <Popover id="style" openId={openId} setOpenId={setOpenId} label={styles.length ? `Stilius · ${styles.length}` : 'Stilius'} icon={Icon.note} on={styles.length > 0} width={220}>
-            <div className="ev-pop-list">
-              {availStyles.map(g => {
-                const o = styles.includes(g)
-                return (
-                  <button key={g} type="button" className={`ev-opt${o ? ' on' : ''}`} onClick={() => setStyles(o ? styles.filter(x => x !== g) : [...styles, g])}>
-                    <span className="ev-check" style={{ background: o ? 'var(--accent-orange)' : 'transparent', borderColor: o ? 'var(--accent-orange)' : 'var(--border-default,rgba(255,255,255,0.2))' }}>{o ? '✓' : ''}</span>{g}
-                  </button>
-                )
-              })}
-            </div>
-            {styles.length > 0 && <button type="button" className="ev-pop-clear" onClick={() => setStyles([])}>Išvalyti</button>}
-          </Popover>
-        )}
 
         <span className="ev-divider" />
 
@@ -584,6 +584,11 @@ const EV_CSS = `
   .ev-more-open .ev-fbar-sec { display:flex; }
   .ev-fbar .ev-divider { display:none; }
   .ev-count { display:none; }
+  /* Popover'ai mobile = bottom sheet (visas plotis) — kalendorius/sąrašai netilpdavo */
+  .ev-pop { position:fixed; left:0; right:0; bottom:0; top:auto; width:auto !important; max-width:100%;
+    border-radius:16px 16px 0 0; max-height:82vh; overflow-y:auto; box-shadow:0 -8px 30px rgba(0,0,0,0.28);
+    padding-bottom:calc(14px + env(safe-area-inset-bottom)); }
+  .ev-pop-list { max-height:none; }
 }
 
 /* Chip (= mz-fchip) */
@@ -615,6 +620,7 @@ const EV_CSS = `
   font-weight:600; font-family:'Outfit',sans-serif; cursor:pointer; background:transparent; border:none; color:var(--text-secondary); transition:all .12s; }
 .ev-opt:hover { background:var(--bg-hover); color:var(--text-primary); }
 .ev-opt.on { color:var(--accent-orange); }
+.ev-opt-sep { border-top:1px solid var(--border-default,rgba(255,255,255,0.08)); margin-top:5px; padding-top:11px; }
 .ev-check { width:16px; height:16px; border-radius:5px; border:1.5px solid; display:flex; align-items:center; justify-content:center; font-size:10px; color:#fff; flex-shrink:0; }
 .ev-search { width:100%; height:34px; border-radius:9px; padding:0 11px; font-size:13px; margin-bottom:8px;
   background:var(--bg-hover); border:1px solid var(--border-default,rgba(255,255,255,0.1)); color:var(--text-primary); outline:none; }
