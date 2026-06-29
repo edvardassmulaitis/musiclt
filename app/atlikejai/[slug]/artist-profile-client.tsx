@@ -107,7 +107,7 @@ type LegacyThread = {
    *  null — fallback'as į legacy bridge'ą /diskusijos/tema/{legacy_id}. */
   canonical_slug?: string | null
 }
-type Rank = { category: string; rank: number; total: number; scope: 'country' | 'genre' | 'global' }
+type Rank = { category: string; rank: number; total: number; scope: 'country' | 'genre' | 'global' | 'country_genre' }
 /** „Muzikos atradimai" įrašas apie šį atlikėją (discoveries lentelė, žr.
  *  lib/discoveries.ts). Rodomas Diskusijų sekcijoje kaip speciali kortelė +
  *  modalas su pilnais komentarais ir veikiančiais embed'ais. */
