@@ -252,20 +252,29 @@ export const NEW_BADGE_DAYS = 3
    Floor (STRIP_MIN_ITEMS): jei riba praleidžia per mažai, papildom artimiausiais
    pagal populiarumą — kad juosta neliktų tuščia / su „...netrukus", kai šviežio
    turinio realiai yra. */
+// ⚠️ 2026-06-29 (Edvardo prašymu „per daug no-name'ų patenka") — pakelti
+// slenksčiai, kad homepage juostose liktų TIK realiai populiarūs releasai.
+// LT scenoje balai natūraliai žemesni (max ~60), todėl LT riba švelnesnė nei
+// pasaulio. Views ribos taip pat pakeltos (viralus no-name su daug peržiūrų
+// nebepraeina taip lengvai). Kartu su sumažintu STRIP_MIN_ITEMS (žr. žemiau)
+// — mažiau „užpildymo" nežinomais atlikėjais.
 const POP_THRESHOLDS = {
   tracks: {
-    lt: { score: 40, views: 50_000 },
-    world: { score: 55, views: 300_000 },
+    lt: { score: 50, views: 100_000 },
+    world: { score: 62, views: 500_000 },
   },
   albums: {
-    lt: { score: 30 },
-    world: { score: 50 },
+    lt: { score: 38 },
+    world: { score: 58 },
   },
 } as const
 
 // Minimalus juostos ilgis — žemiau jo papildom „kitais geriausiais", kad
-// nerodytume tuščios juostos lėtomis savaitėmis.
-const STRIP_MIN_ITEMS = 5
+// nerodytume tuščios juostos lėtomis savaitėmis. 2026-06-29: 5→3 (Edvardo
+// prašymu) — anksčiau lanas su mažai populiarių releasų buvo užpildomas iki 5
+// no-name'ais; dabar užpildom daugiausiai iki 3, todėl nepopuliarūs įrašai
+// retai patenka į juostą.
+const STRIP_MIN_ITEMS = 3
 
 /**
  * Homepage juostos atranka: paliekam tik populiarius (per `isPopular`), o jei jų
@@ -770,6 +779,7 @@ export function mapTrackForHome(t: LatestTrackRow) {
     video_uploaded_at: t.video_uploaded_at,
     release_year: t.release_year ?? null,
     release_date: t.release_date ?? null,
+    created_at: t.created_at ?? null,
     artist_id: t.artist_id,
     artists: t.artists,
     artist_name: t.artists?.name || '',
@@ -799,6 +809,7 @@ export function mapAlbumForHome(a: LatestAlbumRow) {
     day: a.day,
     is_upcoming: a.is_upcoming,
     is_new: isNew,
+    created_at: a.created_at ?? null,
     release_date,
     artist_id: a.artist_id,
     artists: a.artists,

@@ -47,6 +47,7 @@ type HeroSlide = {
   authorName?: string | null        // user content — autorius
   authorAvatar?: string | null
   likeable?: boolean                // ar rodyti ♥ (news kol kas)
+  fresh24?: boolean                 // pridėtas/paskelbtas DB per pask. 24h → žalias taškas
 }
 
 /* ────────────────────────────── Helpers ────────────────────────────── */
@@ -55,6 +56,33 @@ const MONTHS_FULL_LT = ['sausio', 'vasario', 'kovo', 'balandžio', 'gegužės', 
 
 function sanitizeTitle(raw: string): string {
   return raw.replace(/<[^>]*>/g, '').replace(/&[^;]+;/g, ' ').replace(/\s+/g, ' ').trim()
+}
+
+/** Ar įrašas pateko į DB / paskelbtas per paskutines 24h. Naudojama „naujumo"
+ *  žaliam taškui (hero, naujos dainos/albumai, greitai pasirodys, renginiai).
+ *  Skaičiuojama KLIENTE render metu — todėl tikslu net jei snapshot'as pasenęs
+ *  (created_at yra absoliuti data). */
+const FRESH_DOT_MS = 24 * 60 * 60 * 1000
+function isFresh24(input: string | null | undefined): boolean {
+  if (!input) return false
+  const t = Date.parse(input)
+  if (isNaN(t)) return false
+  const age = Date.now() - t
+  return age >= 0 && age < FRESH_DOT_MS
+}
+
+/** Žalias „nauja per 24h" taškas — fiksuojamas viršutiniame dešiniame kampe.
+ *  Tas pats vizualinis modelis kaip mobiliojo hero „neperžiūrėta" taškas, tik
+ *  žalias ir pagal DB amžių (ne per-naudotojo seen). Dėklas turi būti
+ *  position:relative. */
+function FreshDot({ right = 8, top = 8 }: { right?: number; top?: number }) {
+  return (
+    <span
+      aria-label="Nauja"
+      title="Pridėta per pastarąsias 24 val."
+      style={{ position: 'absolute', top, right, width: 9, height: 9, borderRadius: '50%', background: '#22c55e', boxShadow: '0 0 0 2px #fff, 0 1px 3px rgba(0,0,0,0.4)', zIndex: 4, pointerEvents: 'none' }}
+    />
+  )
 }
 
 /** Quick LT-aware slugify — naudoja tas pačias char mappings kaip server-side
@@ -1889,6 +1917,8 @@ function HeroV2Card({ slide, dk }: { slide: HeroSlide; dk: boolean }) {
           {slide.chip}
         </span>
       )}
+      {/* Žalias „nauja per 24h" taškas (DB amžius) — viršuj dešinėj. */}
+      {slide.fresh24 && <FreshDot right={12} top={12} />}
       {/* Bottom gradient for text readability */}
       <div className="pointer-events-none absolute inset-0 bg-gradient-to-t from-black/85 via-black/30 to-transparent" />
       {/* Content */}
@@ -2910,6 +2940,7 @@ export default function HomeClient({ initialLatest }: { initialLatest?: InitialL
         metaLine: dateLT(n.published_at),
         newsId: n.id,
         likeable: true,
+        fresh24: isFresh24(n.published_at),
         ctaLabel: 'Skaityti straipsnį',
         bgImg: n.image_title_url || n.image_small_url,
         href: `/news/${n.slug}`,
@@ -2931,6 +2962,7 @@ export default function HomeClient({ initialLatest }: { initialLatest?: InitialL
         metaLine: [p.author, dateLT(p.published_at)].filter(Boolean).join(' · '),
         authorName: p.author || null,
         ctaLabel: 'Skaityti',
+        fresh24: isFresh24(p.published_at),
         bgImg: p.cover,
         href: p.href,
         blogId: p.id || null,
@@ -3076,6 +3108,7 @@ export default function HomeClient({ initialLatest }: { initialLatest?: InitialL
         excerpt: evDesc,
         ticketUrl: ev.ticket_url || null,
         ctaLabel: 'Apie renginį',
+        fresh24: isFresh24(ev.created_at),
         bgImg: evImg,
         href: `/renginiai/${ev.slug}`,
         artist: firstArtist?.artists ? { name: firstArtist.artists.name, slug: firstArtist.artists.slug, image: firstArtist.artists.cover_image_url || null } : null,
@@ -3597,8 +3630,13 @@ export default function HomeClient({ initialLatest }: { initialLatest?: InitialL
                         </span>
                       </div>
                     )}
+                    {/* Žalias „nauja per 24h" taškas (DB amžius). Jei kartu su
+                        neperžiūrėta (oranžiniu) — oranžinį pastumiam kairėn. */}
+                    {slide.fresh24 && (
+                      <div style={{ position: 'absolute', top: 10, right: 10, width: 9, height: 9, borderRadius: '50%', background: '#22c55e', boxShadow: '0 0 0 2px #000', zIndex: 3 }} />
+                    )}
                     {!isSeen && (
-                      <div style={{ position: 'absolute', top: 10, right: 10, width: 8, height: 8, borderRadius: '50%', background: 'var(--accent-orange)', boxShadow: '0 0 0 2px #000', zIndex: 2 }} />
+                      <div style={{ position: 'absolute', top: 10, right: slide.fresh24 ? 27 : 10, width: 8, height: 8, borderRadius: '50%', background: 'var(--accent-orange)', boxShadow: '0 0 0 2px #000', zIndex: 2 }} />
                     )}
                   </button>
                 )
@@ -3695,6 +3733,7 @@ export default function HomeClient({ initialLatest }: { initialLatest?: InitialL
                           ) : (<div className="flex h-full w-full items-center justify-center text-xl text-[var(--text-faint)]">🎵</div>)}
                           <div className="pointer-events-none absolute inset-0 flex items-center justify-center opacity-0 transition-opacity duration-200 group-hover:opacity-100"><span className="flex h-9 w-9 items-center justify-center rounded-full bg-[var(--accent-orange)] shadow-[0_4px_16px_rgba(249,115,22,0.5)]"><svg width="13" height="13" viewBox="0 0 24 24" fill="white"><path d="M8 5v14l11-7z" /></svg></span></div>
                           {rel && (<span className={`absolute bottom-1.5 right-1.5 rounded px-1.5 py-0.5 font-['Outfit',sans-serif] text-[8.5px] font-bold backdrop-blur-sm ${highlight ? 'bg-[var(--accent-orange)] text-white' : 'bg-black/70 text-white'}`}>{rel}</span>)}
+                          {isFresh24(t.created_at) && <FreshDot />}
                         </div>
                         <p className="m-0 mt-1.5 truncate font-['Outfit',sans-serif] text-[12.5px] font-extrabold text-[var(--text-primary)] transition-colors group-hover:text-[var(--accent-orange)]">{sanitizeTitle(t.title)}</p>
                         <p className="m-0 truncate text-[11px] text-[var(--text-muted)]">{t.artists?.name}</p>
@@ -3706,7 +3745,7 @@ export default function HomeClient({ initialLatest }: { initialLatest?: InitialL
                       {boxes.map(box => (
                         <div key={box.lane} className={`rounded-2xl border border-[var(--border-subtle)] bg-[var(--bg-surface)] p-4 border-t-[3px] ${box.lane === 'lt' ? 'border-t-[var(--accent-orange)]' : 'border-t-[var(--accent-blue)]'}`}>
                           <div className="mb-3 flex items-center justify-between">
-                            <span className="flex items-center gap-2 font-['Outfit',sans-serif] text-[14px] font-extrabold text-[var(--text-primary)]"><span className={`h-2 w-2 rounded-full ${box.lane === 'lt' ? 'bg-[var(--accent-orange)]' : 'bg-[var(--accent-blue)]'}`} />{box.label}</span>
+                            <span className="font-['Outfit',sans-serif] text-[14px] font-extrabold text-[var(--text-primary)]">{box.label}</span>
                             <button type="button" onClick={() => setListModal(`tracks-${box.lane}`)} className={`font-['Outfit',sans-serif] text-[11.5px] font-bold transition-opacity hover:opacity-70 ${box.lane === 'lt' ? 'text-[var(--accent-orange)]' : 'text-[var(--accent-blue)]'}`}>Daugiau →</button>
                           </div>
                           <div className="flex gap-3 overflow-x-auto pb-1 [scrollbar-width:none] [&::-webkit-scrollbar]:hidden lg:grid lg:gap-3 lg:overflow-visible lg:pb-0 lg:grid-cols-3">
@@ -3749,6 +3788,7 @@ export default function HomeClient({ initialLatest }: { initialLatest?: InitialL
                             <img src={proxyImg(a.cover_image_url || a.artists?.cover_image_url || '')} alt={sanitizeTitle(a.title)} loading="lazy" className="h-full w-full object-cover transition-transform duration-500 group-hover:scale-[1.06]" />
                           ) : (<div className="flex h-full w-full items-center justify-center text-xl text-[var(--text-faint)]">💿</div>)}
                           {label && (<span className={`absolute bottom-1 right-1 rounded px-1.5 py-0.5 font-['Outfit',sans-serif] text-[8.5px] font-bold backdrop-blur-sm ${highlight ? 'bg-[var(--accent-orange)] text-white' : 'bg-black/70 text-white'}`}>{label}</span>)}
+                          {isFresh24(a.created_at) && <FreshDot />}
                         </div>
                         <p className="m-0 mt-1.5 truncate font-['Outfit',sans-serif] text-[12px] font-extrabold text-[var(--text-primary)] transition-colors group-hover:text-[var(--accent-orange)]">{sanitizeTitle(a.title)}</p>
                         <p className="m-0 truncate text-[10.5px] text-[var(--text-muted)]">{a.artists?.name}</p>
@@ -3760,7 +3800,7 @@ export default function HomeClient({ initialLatest }: { initialLatest?: InitialL
                       {boxes.map(box => (
                         <div key={box.lane} className={`rounded-2xl border border-[var(--border-subtle)] bg-[var(--bg-surface)] p-4 border-t-[3px] ${box.lane === 'lt' ? 'border-t-[var(--accent-orange)]' : 'border-t-[var(--accent-blue)]'}`}>
                           <div className="mb-3 flex items-center justify-between">
-                            <span className="flex items-center gap-2 font-['Outfit',sans-serif] text-[14px] font-extrabold text-[var(--text-primary)]"><span className={`h-2 w-2 rounded-full ${box.lane === 'lt' ? 'bg-[var(--accent-orange)]' : 'bg-[var(--accent-blue)]'}`} />{box.label}</span>
+                            <span className="font-['Outfit',sans-serif] text-[14px] font-extrabold text-[var(--text-primary)]">{box.label}</span>
                             <button type="button" onClick={() => setListModal(`albums-${box.lane}`)} className={`font-['Outfit',sans-serif] text-[11.5px] font-bold transition-opacity hover:opacity-70 ${box.lane === 'lt' ? 'text-[var(--accent-orange)]' : 'text-[var(--accent-blue)]'}`}>Daugiau →</button>
                           </div>
                           <div className="flex gap-3 overflow-x-auto pb-1 [scrollbar-width:none] [&::-webkit-scrollbar]:hidden lg:grid lg:gap-3 lg:overflow-visible lg:pb-0 lg:grid-cols-3">
@@ -3818,6 +3858,7 @@ export default function HomeClient({ initialLatest }: { initialLatest?: InitialL
                                 {label}
                               </span>
                             )}
+                            {isFresh24((a as any).created_at) && <FreshDot />}
                           </div>
                           <div className="mt-2 px-0.5">
                             <p className="m-0 truncate font-['Outfit',sans-serif] text-[13.5px] font-extrabold text-[var(--text-primary)] transition-colors group-hover:text-[var(--accent-orange)]">
@@ -3931,6 +3972,7 @@ export default function HomeClient({ initialLatest }: { initialLatest?: InitialL
                             </span>
                           )}
                         </div>
+                        {isFresh24(ev.created_at) && <FreshDot right={8} top={8} />}
                         <div className={capCls}>
                           {city && <p className="m-0 truncate font-['Outfit',sans-serif] text-[9px] font-bold uppercase tracking-[0.05em] text-[var(--text-muted)]">{city}</p>}
                           <h3 className="m-0 mt-0.5 flex items-start gap-1 font-['Outfit',sans-serif] text-[12.5px] font-black leading-tight text-[var(--text-primary)]">
