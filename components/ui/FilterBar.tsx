@@ -114,8 +114,9 @@ function IconDropdown({ g, open, setOpen, onSelect }: {
         aria-haspopup="menu"
         onClick={() => setOpen(!open)}
       >
-        <svg width="20" height="20" viewBox="0 0 24 24" fill="currentColor" aria-hidden>
-          <circle cx="5" cy="12" r="1.9" /><circle cx="12" cy="12" r="1.9" /><circle cx="19" cy="12" r="1.9" />
+        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor"
+          strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round" aria-hidden>
+          <path d="M5 9l7 7 7-7" />
         </svg>
       </button>
       <div className={`fb-pop${open ? ' open' : ''}`} role="menu">
@@ -207,8 +208,9 @@ const fbStyles = `
   .fb-sec-inline { display: flex; align-items: center; gap: 8px; }
   .fb-dd { position: relative; flex: 0 0 auto; }
   .fb-sec-dd { display: none; }
-  .fb-icon-btn { display: inline-flex; align-items: center; justify-content: center; width: 36px; height: 36px; padding: 0; border-radius: var(--radius-pill, 999px); background: var(--bg-hover, var(--bg-surface)); border: 1px solid var(--border-default, var(--border-subtle)); color: var(--text-secondary); cursor: pointer; }
-  .fb-icon-btn svg { display: block; }
+  .fb-icon-btn { display: inline-flex; align-items: center; justify-content: center; padding: 6px 12px; border-radius: var(--radius-pill, 999px); background: var(--bg-hover, var(--bg-surface)); border: 1px solid var(--border-default, var(--border-subtle)); color: var(--text-secondary); cursor: pointer; line-height: 1; }
+  .fb-icon-btn svg { display: block; transition: transform .15s; }
+  .fb-icon-btn[aria-expanded="true"] svg { transform: rotate(180deg); }
   .fb-icon-btn:hover { color: var(--text-primary); border-color: var(--accent-orange); }
   .fb-icon-btn.on, .fb-icon-btn[aria-expanded="true"] { color: var(--accent-orange); border-color: var(--accent-orange); }
   .fb-pop { position: absolute; top: calc(100% + 8px); right: 0; z-index: 50; min-width: 180px; display: none; flex-direction: column; gap: 2px; padding: 7px; background: var(--bg-surface, var(--bg-elevated)); border: 1px solid var(--border-default, rgba(0,0,0,0.1)); border-radius: 14px; box-shadow: 0 14px 40px rgba(0,0,0,0.18); }
