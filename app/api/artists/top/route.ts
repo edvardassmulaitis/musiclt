@@ -123,12 +123,25 @@ export async function GET(req: NextRequest) {
       .limit(5)
     const genreIds = (gRows || []).map((g: any) => g.id).filter(Boolean)
     if (genreIds.length > 0) {
-      const { data: agRows } = await sb
-        .from('artist_genres')
-        .select('artist_id')
-        .in('genre_id', genreIds)
-      for (const r of (agRows || []) as any[]) {
-        if (r.artist_id) ids.add(r.artist_id)
+      // PAGINUOTA — PostgREST grąžina max 1000 eilučių per request. Be
+      // pagination'o populiarūs žanrai (rokas/hip-hop'as) prarasdavo dalį
+      // atlikėjų → sąrašas/rank'as undercount'indavo (pvz. 2Pac dingdavo iš
+      // JAV hip-hop'o, Kanye rodydavo #2 vietoj #4). Imam VISAS eilutes.
+      const PAGE_G = 1000
+      let off = 0
+      while (true) {
+        const { data: agRows } = await sb
+          .from('artist_genres')
+          .select('artist_id')
+          .in('genre_id', genreIds)
+          .range(off, off + PAGE_G - 1)
+        const arr = (agRows || []) as any[]
+        for (const r of arr) {
+          if (r.artist_id) ids.add(r.artist_id)
+        }
+        if (arr.length < PAGE_G) break
+        off += PAGE_G
+        if (off > 200000) break
       }
     }
     // Substyles lentelė
@@ -139,12 +152,21 @@ export async function GET(req: NextRequest) {
       .limit(5)
     const substyleIds = (sRows || []).map((s: any) => s.id).filter(Boolean)
     if (substyleIds.length > 0) {
-      const { data: asRows } = await sb
-        .from('artist_substyles')
-        .select('artist_id')
-        .in('substyle_id', substyleIds)
-      for (const r of (asRows || []) as any[]) {
-        if (r.artist_id) ids.add(r.artist_id)
+      const PAGE_S = 1000
+      let off = 0
+      while (true) {
+        const { data: asRows } = await sb
+          .from('artist_substyles')
+          .select('artist_id')
+          .in('substyle_id', substyleIds)
+          .range(off, off + PAGE_S - 1)
+        const arr = (asRows || []) as any[]
+        for (const r of arr) {
+          if (r.artist_id) ids.add(r.artist_id)
+        }
+        if (arr.length < PAGE_S) break
+        off += PAGE_S
+        if (off > 200000) break
       }
     }
     artistIdFilter = Array.from(ids)
@@ -309,12 +331,56 @@ export async function GET(req: NextRequest) {
     })
   }
 
-  // ── Main artists query (filtruojam pagal country + artistIdFilter, sort
-  // by score desc). PostgREST max-rows = 1000 — limit'as <= 50, nieks nesilauš.
-  //
-  // 2026-05-21: Deterministic secondary sort 'id ASC' — kad tied score
-  // atvejais pozicijos sąraše būtų stable ir sutaptų su myRank skaičiavimu
-  // (kuris naudoja tą pačią tiebreaker logiką — žiūrėk aboveQ žemiau).
+  // ── Score-sort branch ──────────────────────────────────────────────
+  // Du keliai:
+  //  (1) Su genre/zodiac filtru (artistIdFilter aktyvus) — NEDAROM didelio
+  //      `.in(id, [tūkstančiai])` (URL limitas + PostgREST 1000-row cap
+  //      praleisdavo atlikėjus). Vietoj to surenkam (id, score) chunk'ais po
+  //      500, rikiuojam in-memory (score DESC, id ASC) — IDENTIŠKAI artist_rank
+  //      RPC tiebreaker'iui — ir myRank = indexOf+1 (tiksliai sutampa su sąrašo
+  //      pozicija ir su pill'o numeriu).
+  //  (2) Be genre/zodiac (tik country arba global) — paprasta query su count.
+  if (artistIdFilter) {
+    const scoreById = new Map<number, number>()
+    for (let i = 0; i < artistIdFilter.length; i += 500) {
+      const chunk = artistIdFilter.slice(i, i + 500)
+      let cq = sb.from('artists').select('id, score').gt('score', 0).in('id', chunk)
+      if (country) cq = cq.eq('country', country)
+      const { data: rows } = await cq
+      for (const r of (rows || []) as { id: number; score: number | null }[]) {
+        scoreById.set(r.id, Number(r.score) || 0)
+      }
+    }
+    const sortedIds = Array.from(scoreById.keys()).sort((a, b) => {
+      const sa = scoreById.get(a) || 0
+      const sbb = scoreById.get(b) || 0
+      if (sa !== sbb) return sbb - sa
+      return a - b
+    })
+    let myRankF: { rank: number; total: number } | null = null
+    if (includeRankFor) {
+      const idx = sortedIds.indexOf(includeRankFor)
+      if (idx >= 0) myRankF = { rank: idx + 1, total: sortedIds.length }
+    }
+    const topIds = sortedIds.slice(0, limit)
+    let items: any[] = []
+    if (topIds.length > 0) {
+      const { data: details } = await sb
+        .from('artists')
+        .select('id, slug, name, country, cover_image_url, cover_image_position, score, type, is_verified')
+        .in('id', topIds)
+      const map = new Map<number, any>((details || []).map((a: any) => [a.id, a]))
+      items = topIds.map(id => map.get(id)).filter(Boolean)
+    }
+    return NextResponse.json({
+      ok: true,
+      items,
+      total: sortedIds.length,
+      ...(myRankF ? { myRank: myRankF } : {}),
+    })
+  }
+
+  // ── (2) Tik country arba global — paprasta query (be didelio .in()) ──
   let q = sb
     .from('artists')
     .select('id, slug, name, country, cover_image_url, cover_image_position, score, type, is_verified', { count: 'exact' })
@@ -322,28 +388,18 @@ export async function GET(req: NextRequest) {
     .order('score', { ascending: false })
     .order('id', { ascending: true })
     .limit(limit)
-
   if (country) q = q.eq('country', country)
-  if (artistIdFilter) q = q.in('id', artistIdFilter)
 
   const { data, error, count } = await q
   if (error) {
     return NextResponse.json({ error: error.message }, { status: 500 })
   }
 
-  // includeRankFor — papildomai grąžinam atlikėjo poziciją (rank) visame
-  // filtruotame sąraše, ne tik top 20. Naudojam count() requests, nes 12k
-  // atlikėjų į memory load'inti vien dėl rank skaičiavimo per brangu.
-  //
-  // 2026-05-21: Tiebreaker fix — anksčiau aboveQ skaičiuodavo tik artists
-  // su score > myScore (strict). Jei kelis turi tą patį score (tied),
-  // sąrašo poziciją lemia secondary sort (id ASC), bet rank to neatspindi
-  // → header'is rodydavo #11, sąrašas #12 ir t.t. Naujasis condition'as:
-  //   above = score > myScore  OR  (score == myScore AND id < myId)
-  // tiksliai atitinka 'score DESC, id ASC' tvarką.
+  // includeRankFor — pozicija visame filtruotame sąraše (count requests).
+  // above = score > myScore OR (score == myScore AND id < myId) — atitinka
+  // 'score DESC, id ASC' tvarką.
   let myRank: { rank: number; total: number } | null = null
   if (includeRankFor) {
-    // Mūsų atlikėjo score
     const { data: my } = await sb
       .from('artists')
       .select('id, score')
@@ -352,7 +408,6 @@ export async function GET(req: NextRequest) {
     if (my && (my.score || 0) > 0) {
       const myScore = Number(my.score)
       const myId = Number(my.id)
-      // Total filtered + count su didesniu score (ar tied su mažesniu id).
       let totalQ = sb.from('artists').select('id', { count: 'exact', head: true }).gt('score', 0)
       let aboveQ = sb.from('artists').select('id', { count: 'exact', head: true })
         .or(`score.gt.${myScore},and(score.eq.${myScore},id.lt.${myId})`)
@@ -360,10 +415,6 @@ export async function GET(req: NextRequest) {
       if (country) {
         totalQ = totalQ.eq('country', country)
         aboveQ = aboveQ.eq('country', country)
-      }
-      if (artistIdFilter) {
-        totalQ = totalQ.in('id', artistIdFilter)
-        aboveQ = aboveQ.in('id', artistIdFilter)
       }
       const [{ count: totalCount }, { count: aboveCount }] = await Promise.all([totalQ, aboveQ])
       myRank = {
