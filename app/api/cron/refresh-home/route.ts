@@ -7,7 +7,7 @@
  * Apsauga: priimam (a) Vercel Cron: Authorization: Bearer <CRON_SECRET>, ARBA
  * (b) rankini trigger su ?key=<CRON_SECRET arba FALLBACK_KEY>.
  */
-import { NextResponse } from 'next/server'
+import { NextResponse, after } from 'next/server'
 import { computeHomeSnapshot, writeHomeSnapshot } from '@/lib/home-snapshot'
 import { revalidatePath, revalidateTag } from 'next/cache'
 import { HOME_TAGS, warmHomeList } from '@/lib/home-latest'
@@ -36,9 +36,12 @@ export async function GET(req: Request) {
       revalidateTag(HOME_TAGS.albums)
       revalidatePath('/')
     } catch {}
-    // „Daugiau" modalo cache'ą warm'inam IŠKART po invalidacijos — kad pirmas
-    // modalo atidarymas būtų instant (be 8s cold compute). Best-effort.
-    try { await warmHomeList() } catch {}
+    // „Daugiau" modalo cache'ą warm'inam PER after() — t.y. PO to, kai
+    // revalidateTag purge'as jau pritaikytas (request pabaigoje). Antraip warm'as
+    // įvyktų PRIEŠ purge'ą ir purge'as iškart nušluotų ką tik šiltą cache'ą
+    // (race) → pirmas modalo atidarymas vėl būtų 5s cold. after() warm'as
+    // išgyvena, todėl modalas VISADA instant. Best-effort.
+    try { after(async () => { try { await warmHomeList() } catch {} }) } catch {}
     return NextResponse.json({
       ok: true,
       counts: {
