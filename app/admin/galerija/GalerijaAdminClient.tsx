@@ -36,9 +36,11 @@ async function jpost(url: string, body: any, method = 'POST') {
   return data
 }
 
+export type AdminVenue = { name: string; city: string | null }
+
 export default function GalerijaAdminClient({
-  initialReportages, initialPhotographers,
-}: { initialReportages: AdminReportage[]; initialPhotographers: AdminPhotographer[] }) {
+  initialReportages, initialPhotographers, initialVenues = [],
+}: { initialReportages: AdminReportage[]; initialPhotographers: AdminPhotographer[]; initialVenues?: AdminVenue[] }) {
   const [tab, setTab] = useState<'reportages' | 'photographers'>('reportages')
   const [reportages, setReportages] = useState(initialReportages)
   const [photographers, setPhotographers] = useState(initialPhotographers)
@@ -62,7 +64,7 @@ export default function GalerijaAdminClient({
       </div>
 
       {tab === 'reportages'
-        ? <ReportagesTab reportages={reportages} photographers={photographers} reload={reloadReportages} />
+        ? <ReportagesTab reportages={reportages} photographers={photographers} venues={initialVenues} reload={reloadReportages} />
         : <PhotographersTab photographers={photographers} reload={reloadPhotographers} />}
     </div>
   )
@@ -70,8 +72,8 @@ export default function GalerijaAdminClient({
 
 /* ════════════════════════ REPORTAŽAI ════════════════════════ */
 
-function ReportagesTab({ reportages, photographers, reload }: {
-  reportages: AdminReportage[]; photographers: AdminPhotographer[]; reload: () => Promise<void>
+function ReportagesTab({ reportages, photographers, venues, reload }: {
+  reportages: AdminReportage[]; photographers: AdminPhotographer[]; venues: AdminVenue[]; reload: () => Promise<void>
 }) {
   const [editId, setEditId] = useState<number | 'new' | null>(null)
 
@@ -83,6 +85,7 @@ function ReportagesTab({ reportages, photographers, reload }: {
           key={editId}
           id={editId}
           photographers={photographers}
+          venues={venues}
           onClose={() => setEditId(null)}
           onSaved={async () => { await reload() }}
         />
@@ -108,8 +111,8 @@ function ReportagesTab({ reportages, photographers, reload }: {
   )
 }
 
-function ReportageEditor({ id, photographers, onClose, onSaved }: {
-  id: number | 'new'; photographers: AdminPhotographer[]; onClose: () => void; onSaved: () => Promise<void>
+function ReportageEditor({ id, photographers, venues, onClose, onSaved }: {
+  id: number | 'new'; photographers: AdminPhotographer[]; venues: AdminVenue[]; onClose: () => void; onSaved: () => Promise<void>
 }) {
   const isNew = id === 'new'
   const [realId, setRealId] = useState<number | null>(isNew ? null : (id as number))
@@ -223,11 +226,22 @@ function ReportageEditor({ id, photographers, onClose, onSaved }: {
           <label className={labelCls}>Fotografas</label>
           <select className={inputCls} value={d.photographer_id ?? ''} onChange={(e) => setD({ ...d, photographer_id: e.target.value ? Number(e.target.value) : null })}>
             <option value="">— nepriskirta —</option>
-            {photographers.filter(p => p.is_curated).map((p) => <option key={p.id} value={p.id}>{p.name}</option>)}
+            {photographers.map((p) => <option key={p.id} value={p.id}>{p.name}{p.is_curated ? '' : ' (auto)'}</option>)}
           </select>
         </div>
-        <div><label className={labelCls}>Vieta</label><input className={inputCls} value={d.venue} onChange={(e) => setD({ ...d, venue: e.target.value })} placeholder="Compensa" /></div>
-        <div><label className={labelCls}>Miestas</label><input className={inputCls} value={d.city} onChange={(e) => setD({ ...d, city: e.target.value })} placeholder="Vilnius" /></div>
+        <div>
+          <label className={labelCls}>Vieta</label>
+          <input className={inputCls} list="galerija-venues" value={d.venue}
+            onChange={(e) => {
+              const v = e.target.value
+              const match = venues.find((x) => x.name.toLowerCase() === v.toLowerCase())
+              setD({ ...d, venue: v, ...(match?.city ? { city: match.city } : {}) })
+            }} placeholder="Pasirink vietą…" />
+          <datalist id="galerija-venues">
+            {venues.map((v) => <option key={v.name} value={v.name}>{v.city || ''}</option>)}
+          </datalist>
+        </div>
+        <div><label className={labelCls}>Miestas</label><input className={inputCls} value={d.city} onChange={(e) => setD({ ...d, city: e.target.value })} placeholder="Užsipildo iš vietos" /></div>
         <div><label className={labelCls}>Renginio data</label><input type="date" className={inputCls} value={d.event_date || ''} onChange={(e) => setD({ ...d, event_date: e.target.value })} /></div>
         <div><label className={labelCls}>Renginio pavadinimas (jei be atlikėjo)</label><input className={inputCls} value={d.event_name} onChange={(e) => setD({ ...d, event_name: e.target.value })} placeholder="AMFest 2025" /></div>
         <div className="sm:col-span-2">
@@ -391,9 +405,16 @@ function PhotoManager({ reportageId, photos, lineup, flickrUrl, setFlickrUrl, on
           {found.length > 0 && <button className={btnPrimary} onClick={importFlickr} disabled={importing}>Importuoti {found.length} (re-host)</button>}
         </div>
         {found.length > 0 && (
-          <div className="mt-2 flex gap-1.5 overflow-x-auto">
-            {found.slice(0, 24).map((p) => <img key={p.flickrId} src={p.url} alt="" className="h-14 w-14 flex-none rounded object-cover" />)}
-          </div>
+          <>
+            <div className="mt-2 text-[12px] text-[var(--text-muted)]">Rasta {found.length} nuotraukų — importuojant bus perkeltos visos.</div>
+            <div className="mt-1 flex flex-wrap gap-1.5">
+              {found.map((p) => (
+                // Peržiūrai naudojam mažą Flickr miniatiūrą (_q=150) — didelės (_b) krenta dėl hotlink limito
+                <img key={p.flickrId} src={p.url.replace(/_[a-z]\.jpg$/i, '_q.jpg')} alt="" loading="lazy"
+                  className="h-14 w-14 flex-none rounded object-cover bg-[var(--bg-elevated)]" />
+              ))}
+            </div>
+          </>
         )}
       </div>
 
