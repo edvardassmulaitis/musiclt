@@ -257,14 +257,15 @@ export const NEW_BADGE_DAYS = 3
 // LT scenoje balai natūraliai žemesni (max ~62), todėl LT riba ŽYMIAI švelnesnė
 // nei pasaulio. Pasaulio riba lieka griežta (releasų daug, score gilus).
 //
-// 2026-06-29 v2 (LT juosta rodė tik ~4 dainas — per griežta): LT scenos realūs
-// atlikėjai score ~32–62, aiškūs „no-name'ai" score ≤21. Todėl LT track riba
-// score>=33 OR views>=50k → ~15 unikalių atlikėjų praeina (užtenka 6-vietei
-// juostai), bet apatinė pakopa (≤32 be peržiūrų: 21,20,16,12,7,0) atfiltruota.
+// 2026-06-29 v3: LT scenos realūs atlikėjai score ~33–62 (Marijonas, Jurga,
+// Jessica Shy, Jovani, 8 Kambarys, Sasha Song, Giedrė, Šeškės…) — vien score>=33
+// duoda ~15 unikalių atlikėjų (užtenka 10-vietei juostai). views-OR riba pakelta
+// 50k→150k, kad žemo-score „no-name'ai" su vidutiniu peržiūrų kiekiu (pvz. score
+// 21 / 75k) NEBEįsiterptų pagal datą — pro views praeina tik TIKRAI virusiniai.
 // Pasaulio ribos NEKEISTOS (juosta pilna).
 const POP_THRESHOLDS = {
   tracks: {
-    lt: { score: 33, views: 50_000 },
+    lt: { score: 33, views: 150_000 },
     world: { score: 62, views: 500_000 },
   },
   albums: {
@@ -820,4 +821,132 @@ export function mapAlbumForHome(a: LatestAlbumRow) {
     artist_name: a.artists?.name || '',
     artist_slug: a.artists?.slug || '',
   }
+}
+
+/* ──────────────────────── „Daugiau" modalo pilnas sąrašas (enriched + cache) ───────
+   /api/home/list naudoja šitą. SUNKUS darbas (pilnas rinkinys + artist_genres +
+   like_count RPC + album_tracks peržiūros) suvyniotas į `unstable_cache` per
+   type+lane raktą (revalidate 6h + HOME_TAGS invalidacija → admin pridėjus
+   track/album cache iškart išvalo). CRON (refresh-home) šaukia warmHomeList()
+   po snapshot'o, todėl cache VISADA šiltas → modalas atsidaro IŠKART (be 8s cold).
+   Edvardo prašymu 2026-06-29 („daugiau ilgai loadina, kešuok kad instant"). */
+
+export type HomeListType = 'tracks' | 'albums' | 'upcoming'
+export type HomeLane = 'lt' | 'world'
+
+async function buildHomeListEnriched(
+  type: HomeListType,
+  lane: HomeLane,
+): Promise<{ rows: any[]; genres: { name: string; count: number }[] }> {
+  const sb = createAdminClient()
+
+  let rows: any[] = []
+  let entityType: 'track' | 'album' = 'track'
+  if (type === 'albums') {
+    const a = await getLatestAlbumsForHome()
+    rows = (lane === 'world' ? a.worldFull : a.ltFull).map(mapAlbumForHome)
+    entityType = 'album'
+  } else if (type === 'upcoming') {
+    const u = await getUpcomingAlbumsForHome()
+    rows = u.full.map(mapAlbumForHome)
+    entityType = 'album'
+  } else {
+    const t = await getLatestTracksForHome()
+    rows = (lane === 'world' ? t.worldFull : t.ltFull).map(mapTrackForHome)
+    entityType = 'track'
+  }
+
+  // Žanrai per atlikėją.
+  const artistIds = Array.from(new Set(rows.map(r => r.artist_id).filter(Boolean)))
+  const genreByArtist = new Map<number, string[]>()
+  if (artistIds.length) {
+    const { data: agRows } = await sb
+      .from('artist_genres')
+      .select('artist_id, genres(name)')
+      .in('artist_id', artistIds)
+    for (const r of (agRows || []) as any[]) {
+      const name = r.genres?.name
+      if (!name) continue
+      const list = genreByArtist.get(r.artist_id) || []
+      if (!list.includes(name)) list.push(name)
+      genreByArtist.set(r.artist_id, list)
+    }
+  }
+  for (const r of rows) r.genres = genreByArtist.get(r.artist_id) || []
+
+  // like_count batch.
+  const ids = rows.map(r => r.id)
+  const likeMap = new Map<number, number>()
+  if (ids.length) {
+    try {
+      const { data: lc } = await sb.rpc('like_counts_by_entity', {
+        p_entity_type: entityType,
+        p_entity_ids: ids,
+      })
+      for (const r of (lc || []) as any[]) likeMap.set(Number(r.entity_id), Number(r.like_count))
+    } catch {
+      /* RPC nesukurta — like_count 0 */
+    }
+  }
+  for (const r of rows) r.like_count = likeMap.get(r.id) || 0
+
+  // Peržiūros → pop lygis.
+  if (entityType === 'album') {
+    const albIds = rows.map(r => r.id)
+    const viewByAlbum = new Map<number, number>()
+    if (albIds.length) {
+      const { data: atRows } = await sb
+        .from('album_tracks')
+        .select('album_id, tracks(video_views)')
+        .in('album_id', albIds)
+      for (const r of (atRows || []) as any[]) {
+        const v = Number(r.tracks?.video_views || 0)
+        if (v > (viewByAlbum.get(r.album_id) || 0)) viewByAlbum.set(r.album_id, v)
+      }
+    }
+    for (const r of rows) r.views = viewByAlbum.get(r.id) || 0
+  } else {
+    for (const r of rows) r.views = Number(r.video_views || 0)
+  }
+  const popTier = (v: number) => (v >= 5e6 ? 5 : v >= 1e6 ? 4 : v >= 2e5 ? 3 : v >= 3e4 ? 2 : v > 0 ? 1 : 0)
+  for (const r of rows) r.pop = popTier(r.views)
+
+  // Žanro facet'ai.
+  const facet = new Map<string, number>()
+  for (const r of rows) for (const name of r.genres as string[]) facet.set(name, (facet.get(name) || 0) + 1)
+  const genres = Array.from(facet.entries())
+    .map(([name, count]) => ({ name, count }))
+    .sort((a, b) => b.count - a.count || a.name.localeCompare(b.name, 'lt'))
+
+  // „new" tvarka iškart (dažniausias atvejis).
+  rows.sort((a, b) => {
+    const da = new Date(a.video_uploaded_at || a.release_date || (a.year ? `${a.year}-01-01` : '1970-01-01')).getTime()
+    const db = new Date(b.video_uploaded_at || b.release_date || (b.year ? `${b.year}-01-01` : '1970-01-01')).getTime()
+    return db - da
+  })
+
+  return { rows, genres }
+}
+
+// revalidate 6h — bazė keičiasi retai; naujam turiniui (admin) HOME_TAGS iškart
+// išvalo. CRON warm'ina po kiekvieno snapshot'o → praktiškai visada šiltas.
+const cachedHomeListEnriched = unstable_cache(
+  async (type: HomeListType, lane: HomeLane) => buildHomeListEnriched(type, lane),
+  ['home-list-enriched-v1'],
+  { tags: [HOME_TAGS.tracks, HOME_TAGS.albums], revalidate: 21_600 },
+)
+
+export async function getHomeListEnriched(type: HomeListType, lane: HomeLane) {
+  return cachedHomeListEnriched(type, lane)
+}
+
+/** CRON warm: užpildo „Daugiau" modalo cache visiems pagrindiniams deriniam,
+ *  kad pirmas atidarymas būtų instant. Klaidos nutylimos (best-effort). */
+export async function warmHomeList(): Promise<void> {
+  const combos: Array<[HomeListType, HomeLane]> = [
+    ['tracks', 'lt'], ['tracks', 'world'],
+    ['albums', 'lt'], ['albums', 'world'],
+    ['upcoming', 'lt'],
+  ]
+  await Promise.all(combos.map(([t, l]) => getHomeListEnriched(t, l).catch(() => {})))
 }

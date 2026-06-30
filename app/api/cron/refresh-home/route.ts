@@ -10,7 +10,7 @@
 import { NextResponse } from 'next/server'
 import { computeHomeSnapshot, writeHomeSnapshot } from '@/lib/home-snapshot'
 import { revalidatePath, revalidateTag } from 'next/cache'
-import { HOME_TAGS } from '@/lib/home-latest'
+import { HOME_TAGS, warmHomeList } from '@/lib/home-latest'
 
 export const dynamic = 'force-dynamic'
 export const maxDuration = 60
@@ -36,6 +36,9 @@ export async function GET(req: Request) {
       revalidateTag(HOME_TAGS.albums)
       revalidatePath('/')
     } catch {}
+    // „Daugiau" modalo cache'ą warm'inam IŠKART po invalidacijos — kad pirmas
+    // modalo atidarymas būtų instant (be 8s cold compute). Best-effort.
+    try { await warmHomeList() } catch {}
     return NextResponse.json({
       ok: true,
       counts: {
