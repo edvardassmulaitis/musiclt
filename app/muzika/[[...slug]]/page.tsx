@@ -31,7 +31,7 @@ import { muzikaStyles, SectionHead, ArtistRow, TrackList, AlbumRow } from '@/com
 import { hubHref, hubUrl, type HubMode, type HubTipas } from '@/components/muzika/MuzikaFilterBar'
 import MuzikaTabs from '@/components/muzika/MuzikaTabs'
 import { GenreCards } from '@/components/muzika/GenreCards'
-import { SongCollectionShowcase, AlbumCollectionShowcase } from '@/components/muzika/CollectionShowcase'
+import { SongCollectionShowcase } from '@/components/muzika/CollectionShowcase'
 import { albumCollectionHref } from '@/lib/collections'
 import { getAlbumCollections } from '@/lib/collections-db'
 
@@ -158,8 +158,8 @@ export default async function MuzikaHubPage({ params, searchParams }: Props) {
 
   // Sudedami filtrai iš query: ?tipas (atlikejai|dainos|albumai), ?stilius (žanro slug).
   const sp = (await searchParams) || {}
-  // /muzika rodo TIK atlikėjus — dainų/albumų vaizdai paslėpti (laikinai, kol netvarkingi).
-  const tipas = 'atlikejai' as HubTipas
+  const rawTipas = Array.isArray(sp.tipas) ? sp.tipas[0] : sp.tipas
+  const tipas: HubTipas = rawTipas === 'dainos' || rawTipas === 'albumai' ? rawTipas : 'atlikejai'
   const rawStilius = Array.isArray(sp.stilius) ? sp.stilius[0] : sp.stilius
   const reqGenreSlug = rawStilius ? String(rawStilius) : null
 
@@ -304,11 +304,10 @@ export default async function MuzikaHubPage({ params, searchParams }: Props) {
           </section>
         )}
 
-        {/* Teminiai rinkiniai (kuruotos dainų + albumų kolekcijos) */}
+        {/* Teminiai rinkiniai (kuruotos dainų kolekcijos) */}
         <section className="mz-sec">
-          <SectionHead title="Teminiai rinkiniai" sub="Dainų kolekcijos progai ir nuotaikai + geriausi albumai pagal žanrą" href="/dainos" hrefLabel="Visos dainos" />
+          <SectionHead title="Teminiai rinkiniai" sub="Dainų rinkiniai kiekvienai progai, nuotaikai ir dešimtmečiui" />
           <SongCollectionShowcase />
-          <div style={{ marginTop: 18 }}><AlbumCollectionShowcase /></div>
         </section>
 
         {/* SEO footer */}
