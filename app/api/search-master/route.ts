@@ -256,12 +256,16 @@ export async function GET(request: Request) {
 
     // ── Legacy naujienos (discussions su legacy_kind='news') ──
     // Vienas fetch'as visom trim kategorijom; suskirstom JS'e per classifyNews.
+    // news_has_text=true — paslepia ~17k „tik pavadinimas, be turinio/nuotraukų"
+    // (turinys senoje sistemoje ištrintas). Tas pats filtras kaip vieš. news_feed
+    // RPC (has_news_text) → paieška sutampa su /naujienos.
     wantNewsLike
       ? sb.from('discussions')
           .select('id,slug,title,news_category,first_post_at,created_at')
           .ilike('title_norm', pat)
           .eq('legacy_kind', 'news')
           .eq('is_deleted', false)
+          .eq('news_has_text', true)
           .order('first_post_at', { ascending: false, nullsFirst: false })
           .limit(legacyNewsFetch)
       : Promise.resolve(empty as R),
@@ -269,19 +273,19 @@ export async function GET(request: Request) {
     // Count-only totals legacy naujienoms (kad „Rodyti visus N" būtų teisinga).
     wantNewsLike
       ? sb.from('discussions').select('id', { count: 'exact', head: true })
-          .ilike('title_norm', pat).eq('legacy_kind', 'news').eq('is_deleted', false)
+          .ilike('title_norm', pat).eq('legacy_kind', 'news').eq('is_deleted', false).eq('news_has_text', true)
       : Promise.resolve(emptyCount as any),
     // Recenzijos — pavadinime „recenzij" (atitinka classifyNews).
     useCat('reviews')
       ? sb.from('discussions').select('id', { count: 'exact', head: true })
-          .ilike('title_norm', pat).eq('legacy_kind', 'news').eq('is_deleted', false)
+          .ilike('title_norm', pat).eq('legacy_kind', 'news').eq('is_deleted', false).eq('news_has_text', true)
           .ilike('title_norm', '%recenzij%')
       : Promise.resolve(emptyCount as any),
     // Fotoreportažai — „fotoreporta"/„foto galerij" BET NE recenzija
     // (recenzija turi prioritetą; mutual exclusion = count'ai atitinka display'ų).
     useCat('galleries')
       ? sb.from('discussions').select('id', { count: 'exact', head: true })
-          .ilike('title_norm', pat).eq('legacy_kind', 'news').eq('is_deleted', false)
+          .ilike('title_norm', pat).eq('legacy_kind', 'news').eq('is_deleted', false).eq('news_has_text', true)
           .or('title_norm.ilike.*fotoreporta*,title_norm.ilike.*foto galerij*')
           .not('title_norm', 'ilike', '%recenzij%')
       : Promise.resolve(emptyCount as any),
@@ -361,11 +365,14 @@ export async function GET(request: Request) {
     (fanoutAlbumsCount as any)?.count ?? 0,
   )
   // Naujienų tipų totals iš head-count'ų (recenzijos/fotoreportažai tiksliai;
-  // paprastos naujienos = visos legacy minus recenzijos/galerijos + modernios).
+  // paprastos naujienos = visos legacy minus recenzijos/galerijos).
+  // legacyNewsT JAU apima viską (news+reviews+galleries) → NEpridedam
+  // out.news.length (būtų dvigubas skaičiavimas). Modernios `news` lentelė
+  // tik ~18 eil., jas padengia Math.max žemiau.
   const reviewsT = (reviewsCount as any)?.count ?? 0
   const galleriesT = (galleriesCount as any)?.count ?? 0
   const legacyNewsT = (legacyNewsTotalCount as any)?.count ?? 0
-  const plainNewsT = Math.max(0, legacyNewsT - reviewsT - galleriesT) + out.news.length
+  const plainNewsT = Math.max(0, legacyNewsT - reviewsT - galleriesT)
   const totals: Record<Category, number> = {
     artists:     out.artists.length,        // artists query nelimit'uotas head'u — naudojam returned count
     albums:      Math.max(albumsTotal, out.albums.length),

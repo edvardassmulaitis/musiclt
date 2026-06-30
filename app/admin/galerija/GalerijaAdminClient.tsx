@@ -303,7 +303,6 @@ function PhotoManager({ reportageId, photos, lineup, flickrUrl, setFlickrUrl, on
   reportageId: number; photos: Photo[]; lineup: LineupItem[]; flickrUrl: string; setFlickrUrl: (u: string) => void; onChange: () => Promise<void>
 }) {
   const [importing, setImporting] = useState(false)
-  const [found, setFound] = useState<{ flickrId: string; url: string }[]>([])
   const [progress, setProgress] = useState('')
   // batch grupė importui/upload'ui
   const [batchGroup, setBatchGroup] = useState(''); const [batchTag, setBatchTag] = useState('')
@@ -312,48 +311,6 @@ function PhotoManager({ reportageId, photos, lineup, flickrUrl, setFlickrUrl, on
   const [assignGroup, setAssignGroup] = useState(''); const [assignTag, setAssignTag] = useState('')
   const nameById = (id: number | null) => (id ? lineup.find((a) => a.artist_id === id)?.name : null)
   const toggleSel = (id: number) => setSel((s) => { const n = new Set(s); n.has(id) ? n.delete(id) : n.add(id); return n })
-
-  const findFlickr = async () => {
-    if (!flickrUrl.trim()) return
-    setImporting(true); setProgress(''); setFound([])
-    try {
-      const r = await jpost('/api/admin/galerija/flickr-import', { album_url: flickrUrl })
-      setFound(r.photos)
-      setProgress(`Rasta ${r.count} nuotraukų. Spausk „Importuoti".`)
-    } catch (e: any) { setProgress(e.message) } finally { setImporting(false) }
-  }
-
-  // Importuoja rastas Flickr nuotraukas batch'ais (re-host į mūsų serverį)
-  const importFlickr = async () => {
-    if (!found.length) return
-    setImporting(true)
-    const CHUNK = 4
-    let done = 0
-    let failed = 0
-    let firstErr = ''
-    try {
-      const gf = groupToFields(batchGroup, batchTag)
-      for (let i = 0; i < found.length; i += CHUNK) {
-        const batch = found.slice(i, i + CHUNK).map((p) => ({ url: p.url, flickr_id: p.flickrId }))
-        const r = await jpost(`/api/admin/galerija/reportages/${reportageId}/photos`, { photos: batch, rehost: true, group_artist_id: gf.artist_id, group_tag: gf.tag })
-        done += r.inserted || 0
-        // Re-host'as serveryje gali nepavykti (Flickr 429) — route grąžina errors[].
-        const errs: string[] = Array.isArray(r.errors) ? r.errors : []
-        failed += errs.length
-        if (!firstErr && errs.length) firstErr = errs[0]
-        setProgress(`Importuota ${done}/${found.length}…${failed ? ` (nepavyko ${failed})` : ''}`)
-      }
-      // Persist Flickr album URL on the reportage
-      await jpost(`/api/admin/galerija/reportages/${reportageId}`, { flickr_album_url: flickrUrl }, 'PATCH')
-      if (done > 0) setFound([])
-      if (failed > 0) {
-        setProgress(`Importuota ${done}, nepavyko ${failed}. ${firstErr.includes('429') || /riboja/i.test(firstErr) ? 'Flickr riboja serverio užklausas — pabandyk dar kartą po kelių minučių.' : firstErr}`)
-      } else {
-        setProgress(`Baigta — importuota ${done}.`)
-      }
-      await onChange()
-    } catch (e: any) { setProgress(`Klaida: ${e.message}`) } finally { setImporting(false) }
-  }
 
   const uploadFiles = async (files: FileList | null) => {
     if (!files?.length) return
@@ -407,34 +364,9 @@ function PhotoManager({ reportageId, photos, lineup, flickrUrl, setFlickrUrl, on
         {groupControl(lineup, batchGroup, setBatchGroup, batchTag, setBatchTag)}
       </div>
 
-      {/* Flickr import */}
+      {/* Upload (Flickr importas pašalintas — Flickr riboja datacenter užklausas) */}
       <div className="mb-3 rounded-lg border border-[var(--border-default)] p-3">
-        <label className={labelCls}>Importuoti iš Flickr albumo</label>
-        <div className="flex flex-wrap gap-2">
-          <input className={`${inputCls} flex-1`} value={flickrUrl} onChange={(e) => setFlickrUrl(e.target.value)} placeholder="https://www.flickr.com/photos/…/albums/…" />
-          <button className={btnGhost} onClick={findFlickr} disabled={importing}>Rasti</button>
-          {found.length > 0 && <button className={btnPrimary} onClick={importFlickr} disabled={importing}>Importuoti {found.length} (re-host)</button>}
-        </div>
-        {found.length > 0 && (
-          <>
-            <div className="mt-2 text-[12px] text-[var(--text-muted)]">Rasta {found.length} nuotraukų — importuojant bus perkeltos visos.</div>
-            <div className="mt-1 flex flex-wrap gap-1.5">
-              {found.map((p) => (
-                // Peržiūrai naudojam mažą Flickr miniatiūrą (_q=150). referrerPolicy
-                // "no-referrer" — kad Flickr atiduotų hotlink'intą thumb'ą naršyklėj
-                // (su Referer header'iu jis blokuoja → matydavom „?" placeholder'į).
-                <img key={p.flickrId} src={p.url.replace(/_[a-z]\.jpg$/i, '_q.jpg')} alt="" loading="lazy"
-                  referrerPolicy="no-referrer"
-                  className="h-14 w-14 flex-none rounded object-cover bg-[var(--bg-elevated)]" />
-              ))}
-            </div>
-          </>
-        )}
-      </div>
-
-      {/* Upload */}
-      <div className="mb-3 rounded-lg border border-[var(--border-default)] p-3">
-        <label className={labelCls}>Arba įkelk nuotraukas iš kompiuterio</label>
+        <label className={labelCls}>Įkelk nuotraukas iš kompiuterio</label>
         <input type="file" accept="image/*" multiple onChange={(e) => uploadFiles(e.target.files)} className="text-sm text-[var(--text-secondary)]" />
       </div>
 
