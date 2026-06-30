@@ -312,6 +312,23 @@ export const muzikaStyles = `
 .mz-collrow-name { font-family:'Outfit',sans-serif; font-weight:700; font-size:13.5px; color:var(--text-secondary); }
 .mz-collrow:hover .mz-collrow-name { color:var(--text-primary); }
 
+/* Teminių rinkinių vitrina — tankios eilutės dviejuose stulpeliuose */
+.mz-crow-cols { display:grid; grid-template-columns:1fr 1fr; gap:14px 30px; }
+@media(max-width:760px){ .mz-crow-cols { grid-template-columns:1fr; gap:22px; } }
+.mz-crow-col { min-width:0; }
+.mz-crow-list { display:flex; flex-direction:column; }
+.mz-crow { display:flex; align-items:center; gap:12px; padding:8px 10px; border-radius:10px; border:1px solid transparent; transition:background .15s, border-color .15s; }
+.mz-crow + .mz-crow { border-top:1px solid var(--border-default,rgba(255,255,255,0.06)); }
+.mz-crow:hover { background:var(--bg-hover); border-color:rgba(249,115,22,0.35); }
+.mz-crow-art { flex:0 0 auto; width:44px; height:44px; border-radius:8px; overflow:hidden; display:grid; grid-template-columns:1fr 1fr; grid-template-rows:1fr 1fr; background:var(--bg-hover); }
+.mz-crow-cell { width:100%; height:100%; object-fit:cover; display:block; }
+.mz-crow-cell--empty { background:linear-gradient(135deg, rgba(249,115,22,0.18), rgba(249,115,22,0.04)); }
+.mz-crow-body { flex:1; min-width:0; display:flex; flex-direction:column; gap:2px; }
+.mz-crow-title { font-family:'Outfit',sans-serif; font-weight:700; font-size:14px; color:var(--text-primary); white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
+.mz-crow-meta { font-size:12px; color:var(--text-faint); }
+.mz-crow-go { flex:0 0 auto; font-size:20px; line-height:1; color:var(--text-faint); opacity:0; transition:opacity .15s; }
+.mz-crow:hover .mz-crow-go { opacity:1; }
+
 @media(max-width:640px){
   .mz-wrap { padding-left:var(--page-pad-x-sm); padding-right:var(--page-pad-x-sm); }
   .mz-hero { padding-left:var(--page-pad-x-sm); padding-right:var(--page-pad-x-sm); }

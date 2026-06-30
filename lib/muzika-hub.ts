@@ -605,6 +605,24 @@ export const getSongCollectionCounts = cache(async (): Promise<Record<string, nu
   }
 })
 
+/** YouTube ID → thumbnail iš įvairių video_url formatų. */
+function ytThumb(videoUrl: string | null | undefined): string | null {
+  if (!videoUrl) return null
+  const m = videoUrl.match(/(?:v=|youtu\.be\/|embed\/|shorts\/)([\w-]{11})/) || (/^[\w-]{11}$/.test(videoUrl) ? [null, videoUrl] : null)
+  return m ? `https://i.ytimg.com/vi/${m[1]}/mqdefault.jpg` : null
+}
+
+/** Pirmų dainų miniatiūros kiekvienai kolekcijai (collage'ui). slug → iki 4 thumb URL.
+ *  Šaltinis: track.cover_url, kitaip YouTube thumb iš video_url. */
+export const getCollectionThumbs = cache(async (): Promise<Record<string, string[]>> => {
+  try {
+    const sb = createAdminClient()
+    const { data } = await sb
+      .from('collection_tracks')
+      .select('collection_slug, position, tracks!inner(cover_url, video_url)')
+      .lt('position', 8)
+      .order('collection_slug', { ascending: true })
+
 /* ────────────────────────────── URL helpers ────────────────────────────── */
 
 export function artistHref(a: { slug: string }): string {
