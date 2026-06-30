@@ -55,8 +55,8 @@ export default function ReportageGallery({
       onClick={() => { setActive(key); setOpen(null) }}
       className={`whitespace-nowrap rounded-full px-3.5 py-1.5 text-[13px] font-semibold transition-colors ${
         active === key
-          ? 'bg-[#ec4899] text-white'
-          : 'border border-[var(--border-default)] bg-[var(--card-bg)] text-[var(--text-secondary)] hover:border-[#ec4899]/50'
+          ? 'bg-[var(--accent-orange)] text-white'
+          : 'border border-[var(--border-default)] bg-[var(--card-bg)] text-[var(--text-secondary)] hover:border-[var(--accent-orange)]/50'
       }`}
     >
       {label} <span className="opacity-70">{count}</span>

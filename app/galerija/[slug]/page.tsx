@@ -7,7 +7,7 @@ import { notFound, permanentRedirect } from 'next/navigation'
 import Link from 'next/link'
 import type { Metadata } from 'next'
 import { getReportageBySlug, getMoreByPhotographer, getReportagePlaylist, formatEventDate, reportagePlaceLine } from '@/lib/galerija'
-import { photographerHref, ltCount } from '@/lib/galerija-shared'
+import { photographerHref, ltCount, genitivasLT } from '@/lib/galerija-shared'
 import ReportageGallery from '@/components/galerija/ReportageGallery'
 import ReportageIntro from '@/components/galerija/ReportageIntro'
 import ReportagePlayer from '@/components/galerija/ReportagePlayer'
@@ -67,14 +67,9 @@ export default async function ReportagePage({ params }: Props) {
 
   return (
     <div className="mx-auto max-w-[1600px] px-4 pb-24 pt-6 sm:px-6 lg:px-8">
-      <Link href="/galerija" className="mb-4 inline-flex items-center gap-1.5 text-[13px] font-semibold text-[var(--text-muted)] no-underline hover:text-[#ec4899]">
-        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="m15 18-6-6 6-6" /></svg>
-        Foto galerija
-      </Link>
-
-      <div className="mb-6 lg:flex lg:items-start lg:gap-8">
+      <div className="lg:flex lg:items-start lg:gap-8">
       <header className="min-w-0 max-w-4xl lg:flex-1">
-        <div className="mb-1.5 font-['Outfit',sans-serif] text-[11px] font-extrabold uppercase tracking-[0.18em] text-[#ec4899]">
+        <div className="mb-1.5 font-['Outfit',sans-serif] text-[11px] font-extrabold uppercase tracking-[0.18em] text-[var(--accent-orange)]">
           Foto reportažas
         </div>
         <h1 className="font-['Outfit',sans-serif] text-[28px] font-black leading-[1.08] tracking-[-0.02em] text-[var(--text-primary)] sm:text-[36px]">
@@ -90,9 +85,9 @@ export default async function ReportagePage({ params }: Props) {
             <>
               <span className="opacity-40">·</span>
               <span className="inline-flex items-center gap-1">
-                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="#ec4899" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M14.5 4h-5L7 7H4a2 2 0 0 0-2 2v9a2 2 0 0 0 2 2h16a2 2 0 0 0 2-2V9a2 2 0 0 0-2-2h-3l-2.5-3z" /><circle cx="12" cy="13" r="3" /></svg>
+                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="var(--accent-orange)" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M14.5 4h-5L7 7H4a2 2 0 0 0-2 2v9a2 2 0 0 0 2 2h16a2 2 0 0 0 2-2V9a2 2 0 0 0-2-2h-3l-2.5-3z" /><circle cx="12" cy="13" r="3" /></svg>
                 {r.photographerSlug ? (
-                  <Link href={photographerHref(r.photographerSlug)} className="font-semibold text-[var(--text-secondary)] no-underline hover:text-[#ec4899]">{r.photographerName}</Link>
+                  <Link href={photographerHref(r.photographerSlug)} className="font-semibold text-[var(--text-secondary)] no-underline hover:text-[var(--accent-orange)]">{r.photographerName}</Link>
                 ) : <span className="font-semibold text-[var(--text-secondary)]">{r.photographerName}</span>}
               </span>
             </>
@@ -106,8 +101,8 @@ export default async function ReportagePage({ params }: Props) {
               const head = isHead(a, i)
               const roleLabel = a.role && NON_HEAD_ROLE[a.role] ? NON_HEAD_ROLE[a.role] : null
               const cls = head
-                ? 'group inline-flex items-center gap-2.5 rounded-2xl border border-[var(--border-default)] bg-[var(--card-bg)] py-1.5 pl-1.5 pr-4 shadow-sm transition-colors hover:border-[#ec4899]/60'
-                : 'inline-flex items-center gap-1.5 rounded-full border border-[var(--border-default)] bg-[var(--card-bg)] px-3 py-1 transition-colors hover:border-[#ec4899]/50'
+                ? 'group inline-flex items-center gap-2.5 rounded-2xl border border-[var(--border-default)] bg-[var(--card-bg)] py-1.5 pl-1.5 pr-4 shadow-sm transition-colors hover:border-[var(--accent-orange)]/60'
+                : 'inline-flex items-center gap-1.5 rounded-full border border-[var(--border-default)] bg-[var(--card-bg)] px-3 py-1 transition-colors hover:border-[var(--accent-orange)]/50'
               const inner = head ? (
                 <>
                   <span className="flex h-11 w-11 flex-none items-center justify-center overflow-hidden rounded-full bg-[var(--bg-elevated)]">
@@ -153,7 +148,7 @@ export default async function ReportagePage({ params }: Props) {
           Nuotraukos netrukus.
           {r.sourceUrl && (
             <>{' '}Originalus reportažas:{' '}
-              <a href={r.sourceUrl} target="_blank" rel="noopener" className="text-[#ec4899] hover:underline">music.lt</a>
+              <a href={r.sourceUrl} target="_blank" rel="noopener" className="text-[var(--accent-orange)] hover:underline">music.lt</a>
             </>
           )}
         </div>
@@ -164,15 +159,15 @@ export default async function ReportagePage({ params }: Props) {
         <section className="mt-14">
           <div className="mb-4 flex items-baseline justify-between gap-3">
             <h2 className="font-['Outfit',sans-serif] text-[19px] font-black tracking-[-0.01em] text-[var(--text-primary)]">
-              Daugiau {r.photographerName ? `fotografo ${r.photographerName}` : 'šio fotografo'} nuotraukų
+              Daugiau {r.photographerName ? `fotografo ${genitivasLT(r.photographerName)}` : 'šio fotografo'} nuotraukų
             </h2>
             {r.photographerSlug && (
-              <Link href={photographerHref(r.photographerSlug)} className="flex-none text-[13px] font-bold text-[#ec4899] no-underline hover:underline">Visi →</Link>
+              <Link href={photographerHref(r.photographerSlug)} className="flex-none text-[13px] font-bold text-[var(--accent-orange)] no-underline hover:underline">Visi →</Link>
             )}
           </div>
           <div className="grid grid-cols-2 gap-3 sm:grid-cols-3 lg:grid-cols-4">
             {more.map((m) => (
-              <Link key={m.id} href={m.href} className="group block overflow-hidden rounded-xl border border-[var(--border-default)] bg-[var(--card-bg)] no-underline transition-colors hover:border-[#ec4899]/50">
+              <Link key={m.id} href={m.href} className="group block overflow-hidden rounded-xl border border-[var(--border-default)] bg-[var(--card-bg)] no-underline transition-colors hover:border-[var(--accent-orange)]/50">
                 <div className="aspect-[4/3] w-full overflow-hidden bg-[var(--bg-elevated)]">
                   {m.coverUrl && (
                     // eslint-disable-next-line @next/next/no-img-element
@@ -190,6 +185,14 @@ export default async function ReportagePage({ params }: Props) {
           </div>
         </section>
       )}
+
+      {/* Nuoroda į visas galerijas — apačioje (vietoj viršuje buvusios) */}
+      <div className="mt-12 border-t border-[var(--border-default)] pt-6 text-center">
+        <Link href="/galerija" className="inline-flex items-center gap-1.5 text-[14px] font-bold text-[var(--accent-orange)] no-underline hover:underline">
+          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="m15 18-6-6 6-6" /></svg>
+          Visos foto galerijos
+        </Link>
+      </div>
     </div>
   )
 }

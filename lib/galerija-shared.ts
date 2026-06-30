@@ -74,6 +74,28 @@ export function reportageHref(slug: string): string {
   return `/galerija/${slug}`
 }
 
+/** Lietuviško vardo/pavardės kilmininkas (genityvas): „Mantas Daleckis" →
+ *  „Manto Daleckio", „Vytenis Jurevičius" → „Vytenio Jurevičiaus",
+ *  „Rūta Stankevičiūtė" → „Rūtos Stankevičiūtės". Nelietuviškus žodžius palieka. */
+export function genitivasLT(name: string | null | undefined): string {
+  if (!name) return ''
+  const declineWord = (w: string): string => {
+    if (w.length < 3) return w
+    const low = w.toLowerCase()
+    // Moteriškos
+    if (low.endsWith('ė')) return w.slice(0, -1) + 'ės'
+    if (low.endsWith('a')) return w.slice(0, -1) + 'os'
+    // Vyriškos
+    if (low.endsWith('ius')) return w.slice(0, -3) + 'iaus'
+    if (low.endsWith('us')) return w.slice(0, -2) + 'aus'
+    if (low.endsWith('ys')) return w.slice(0, -2) + 'io'
+    if (low.endsWith('is')) return w.slice(0, -2) + 'io'
+    if (low.endsWith('as')) return w.slice(0, -2) + 'o'
+    return w // nelietuviškas / nežinomas — paliekam
+  }
+  return name.trim().split(/\s+/).map(declineWord).join(' ')
+}
+
 export function photographerHref(slug: string): string {
   return `/fotografas/${slug}`
 }
