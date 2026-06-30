@@ -129,11 +129,22 @@ export const getReportageBySlug = cache(
   async (slug: string): Promise<{ reportage: Reportage; photos: ReportagePhoto[]; lineup: LineupArtist[]; groups: PhotoGroup[] } | null> => {
     try {
       const sb = createAdminClient()
-      const { data } = await sb
+      let { data } = await sb
         .from('reportages')
         .select(REPORTAGE_COLS)
         .eq('slug', slug)
         .maybeSingle()
+      // Senas slug'as (po SEO pervadinimo) → randam per old_slugs; page'as
+      // 301-redirect'ins į kanoninį (reportage.slug).
+      if (!data) {
+        const { data: byOld } = await sb
+          .from('reportages')
+          .select(REPORTAGE_COLS)
+          .contains('old_slugs', [slug])
+          .limit(1)
+          .maybeSingle()
+        data = byOld
+      }
       if (!data) return null
       const reportage = mapReportage(data)
       const [{ data: ph }, lineup] = await Promise.all([

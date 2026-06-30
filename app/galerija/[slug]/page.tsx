@@ -3,7 +3,7 @@
 // Foto reportažo detalė — editorial įžanga + nuotraukų galerija (lightbox) +
 // fotografo / atlikėjo nuorodos. Kanoninis reportažo URL. Žr. lib/galerija.ts.
 
-import { notFound } from 'next/navigation'
+import { notFound, permanentRedirect } from 'next/navigation'
 import Link from 'next/link'
 import type { Metadata } from 'next'
 import { getReportageBySlug, getMoreByPhotographer, formatEventDate, reportagePlaceLine } from '@/lib/galerija'
@@ -49,6 +49,8 @@ export default async function ReportagePage({ params }: Props) {
   const { slug } = await params
   const res = await getReportageBySlug(slug)
   if (!res) notFound()
+  // SEO: jei užklausa per seną slug'ą — 301 į kanoninį.
+  if (res.reportage.slug !== slug) permanentRedirect(`/galerija/${res.reportage.slug}`)
   const { reportage: r, photos, lineup, groups } = res
   const place = reportagePlaceLine(r)
   const date = formatEventDate(r.eventDate)
