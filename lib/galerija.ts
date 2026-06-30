@@ -127,9 +127,9 @@ export const getReportagePlaylist = cache(async (lineup: LineupArtist[]): Promis
     const sb = createAdminClient()
     const out: PlaylistItem[] = []
     const seen = new Set<number>()
-    for (let i = 0; i < lineup.length && out.length < 6; i++) {
+    for (let i = 0; i < lineup.length && out.length < 12; i++) {
       const a = lineup[i]
-      const take = i === 0 ? 3 : 1
+      const take = i === 0 ? 6 : 2
       const { data } = await sb
         .from('tracks')
         .select('id, slug, title, video_url, artists:artist_id(name, slug)')
