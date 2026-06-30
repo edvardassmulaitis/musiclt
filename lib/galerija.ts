@@ -7,7 +7,13 @@
 import { cache } from 'react'
 import { createAdminClient } from '@/lib/supabase'
 import { proxyImgResized } from '@/lib/img-proxy'
+import { getYouTubeId } from '@/lib/radaras-shared'
 import type { Reportage, ReportagePhoto, Photographer, LineupArtist, PhotoGroup } from '@/lib/galerija-shared'
+
+export type PlaylistItem = {
+  id: number; title: string; artistName: string; artistSlug: string | null
+  videoId: string; thumb: string; href: string; isMain: boolean
+}
 import { reportageHref, photographerHref, photoGroup, buildPhotoGroups } from '@/lib/galerija-shared'
 
 export type { Reportage, ReportagePhoto, Photographer, LineupArtist, PhotoGroup } from '@/lib/galerija-shared'
@@ -105,6 +111,44 @@ async function loadLineup(sb: ReturnType<typeof createAdminClient>, reportageId:
     image: r.artists?.cover_image_url ? proxyImgResized(r.artists.cover_image_url, 200) : null,
   }))
 }
+
+/** Grotuvas galerijos šonui — pagrindinio atlikėjo top dainos + po 1 iš
+ *  papildomų (line-up tvarka). Tik dainos su YouTube video. */
+export const getReportagePlaylist = cache(async (lineup: LineupArtist[]): Promise<PlaylistItem[]> => {
+  try {
+    if (!lineup.length) return []
+    const sb = createAdminClient()
+    const out: PlaylistItem[] = []
+    const seen = new Set<number>()
+    for (let i = 0; i < lineup.length && out.length < 8; i++) {
+      const a = lineup[i]
+      const take = i === 0 ? 4 : 1
+      const { data } = await sb
+        .from('tracks')
+        .select('id, slug, title, video_url, artists:artist_id(name, slug)')
+        .eq('artist_id', a.id)
+        .not('video_url', 'is', null)
+        .order('score', { ascending: false, nullsFirst: false })
+        .limit(take * 4)
+      let added = 0
+      for (const t of ((data || []) as any[])) {
+        if (added >= take) break
+        const vid = getYouTubeId(t.video_url)
+        if (!vid || seen.has(t.id)) continue
+        seen.add(t.id)
+        const aSlug = t.artists?.slug ?? a.slug
+        out.push({
+          id: t.id, title: t.title, artistName: t.artists?.name ?? a.name, artistSlug: aSlug,
+          videoId: vid, thumb: `https://img.youtube.com/vi/${vid}/mqdefault.jpg`,
+          href: aSlug ? `/dainos/${aSlug}-${t.slug}-${t.id}` : `/dainos/${t.slug}-${t.id}`,
+          isMain: i === 0,
+        })
+        added++
+      }
+    }
+    return out
+  } catch { return [] }
+})
 
 /** Kiti to paties fotografo reportažai (be dabartinio) — „Daugiau šio fotografo". */
 export const getMoreByPhotographer = cache(

@@ -6,10 +6,11 @@
 import { notFound, permanentRedirect } from 'next/navigation'
 import Link from 'next/link'
 import type { Metadata } from 'next'
-import { getReportageBySlug, getMoreByPhotographer, formatEventDate, reportagePlaceLine } from '@/lib/galerija'
+import { getReportageBySlug, getMoreByPhotographer, getReportagePlaylist, formatEventDate, reportagePlaceLine } from '@/lib/galerija'
 import { photographerHref, ltCount } from '@/lib/galerija-shared'
 import ReportageGallery from '@/components/galerija/ReportageGallery'
 import ReportageIntro from '@/components/galerija/ReportageIntro'
+import ReportagePlayer from '@/components/galerija/ReportagePlayer'
 
 export const revalidate = 300
 
@@ -56,7 +57,10 @@ export default async function ReportagePage({ params }: Props) {
   const date = formatEventDate(r.eventDate)
   const photoCount = photos.length ? ltCount(photos.length, ['nuotrauka', 'nuotraukos', 'nuotraukų']) : null
 
-  const more = r.photographerId ? await getMoreByPhotographer(r.photographerId, r.id, 8) : []
+  const [more, playlist] = await Promise.all([
+    r.photographerId ? getMoreByPhotographer(r.photographerId, r.id, 8) : Promise.resolve([]),
+    getReportagePlaylist(lineup),
+  ])
 
   const hasExplicitHead = lineup.some((a) => a.role === 'headlineris')
   const isHead = (a: typeof lineup[number], i: number) => a.role === 'headlineris' || (!hasExplicitHead && i === 0)
@@ -68,7 +72,8 @@ export default async function ReportagePage({ params }: Props) {
         Foto galerija
       </Link>
 
-      <header className="mb-6 max-w-4xl">
+      <div className="mb-6 lg:flex lg:items-start lg:gap-8">
+      <header className="min-w-0 max-w-4xl lg:flex-1">
         <div className="mb-1.5 font-['Outfit',sans-serif] text-[11px] font-extrabold uppercase tracking-[0.18em] text-[#ec4899]">
           Foto reportažas
         </div>
@@ -131,6 +136,15 @@ export default async function ReportagePage({ params }: Props) {
         {/* Pilnas editorial aprašymas + „Skaityti daugiau" */}
         {r.intro && <ReportageIntro html={r.intro} />}
       </header>
+
+      {playlist.length > 0 && (
+        <aside className="mt-5 lg:mt-0 lg:w-[330px] lg:flex-none">
+          <div className="lg:sticky lg:top-6">
+            <ReportagePlayer items={playlist} />
+          </div>
+        </aside>
+      )}
+      </div>
 
       {photos.length > 0 ? (
         <ReportageGallery photos={photos} groups={groups} photographerName={r.photographerName} />
