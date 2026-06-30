@@ -617,11 +617,31 @@ function ytThumb(videoUrl: string | null | undefined): string | null {
 export const getCollectionThumbs = cache(async (): Promise<Record<string, string[]>> => {
   try {
     const sb = createAdminClient()
-    const { data } = await sb
+    const { data: links } = await sb
       .from('collection_tracks')
-      .select('collection_slug, position, tracks!inner(cover_url, video_url)')
+      .select('collection_slug, track_id, position')
       .lt('position', 8)
-      .order('collection_slug', { ascending: true })
+      .order('position', { ascending: true })
+    const rows = (links || []) as { collection_slug: string; track_id: number }[]
+    const ids = Array.from(new Set(rows.map((r) => r.track_id))).filter(Boolean)
+    if (ids.length === 0) return {}
+    const { data: tr } = await sb.from('tracks').select('id, cover_url, video_url').in('id', ids)
+    const tmap = new Map<number, any>()
+    for (const t of (tr || []) as any[]) tmap.set(t.id, t)
+    const out: Record<string, string[]> = {}
+    for (const r of rows) {
+      const t = tmap.get(r.track_id)
+      if (!t) continue
+      const thumb = t.cover_url || ytThumb(t.video_url)
+      if (!thumb) continue
+      const arr = (out[r.collection_slug] ||= [])
+      if (arr.length < 4 && !arr.includes(thumb)) arr.push(thumb)
+    }
+    return out
+  } catch {
+    return {}
+  }
+})
 
 /* ────────────────────────────── URL helpers ────────────────────────────── */
 
