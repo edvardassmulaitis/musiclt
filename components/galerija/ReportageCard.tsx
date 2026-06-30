@@ -33,7 +33,7 @@ export function ReportageCard({ r, priority = false }: { r: Reportage; priority?
             className="h-full w-full object-cover transition-transform duration-500 group-hover:scale-[1.04]"
           />
         ) : (
-          <div className="flex h-full w-full items-center justify-center bg-gradient-to-br from-[#ec4899]/15 to-[#8b5cf6]/15 text-[var(--text-muted)]">
+          <div className="flex h-full w-full items-center justify-center bg-gradient-to-br from-[var(--accent-orange)]/15 to-[#8b5cf6]/15 text-[var(--text-muted)]">
             {CAMERA}
           </div>
         )}
@@ -47,7 +47,7 @@ export function ReportageCard({ r, priority = false }: { r: Reportage; priority?
       </div>
       <div className="p-3.5">
         {r.artistName && (
-          <div className="mb-1 truncate font-['Outfit',sans-serif] text-[11px] font-extrabold uppercase tracking-[0.12em] text-[#ec4899]">
+          <div className="mb-1 truncate font-['Outfit',sans-serif] text-[11px] font-extrabold uppercase tracking-[0.12em] text-[var(--accent-orange)]">
             {r.artistName}
           </div>
         )}

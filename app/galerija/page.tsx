@@ -12,9 +12,9 @@ import { PhotographerCard } from '@/components/galerija/PhotographerCard'
 export const revalidate = 300
 
 export const metadata: Metadata = {
-  title: 'Foto galerija — koncertų reportažai · music.lt',
+  title: 'Koncertų nuotraukos — foto reportažai · music.lt',
   description:
-    'Koncertų ir festivalių foto reportažai iš Lietuvos muzikos scenos. Gyvų pasirodymų akimirkos, užfiksuotos mūsų fotografų.',
+    'Koncertų ir festivalių nuotraukos iš Lietuvos muzikos scenos. Gyvų pasirodymų akimirkos, užfiksuotos mūsų fotografų.',
   alternates: { canonical: '/galerija' },
 }
 
@@ -29,8 +29,8 @@ export default async function GalleryPage() {
   return (
     <div className="page-shell">
       <header className="page-head">
-        <h1>Foto galerija</h1>
-        <p>Koncertų ir festivalių foto reportažai — gyvų pasirodymų akimirkos, užfiksuotos mūsų fotografų.</p>
+        <h1>Koncertų nuotraukos</h1>
+        <p>Foto reportažai iš koncertų ir festivalių — gyvų pasirodymų akimirkos, užfiksuotos mūsų fotografų.</p>
       </header>
 
       {reportages.length === 0 ? (
@@ -38,7 +38,7 @@ export default async function GalleryPage() {
           <div className="text-[15px] font-semibold text-[var(--text-primary)]">Reportažų dar nėra</div>
           <p className="mx-auto mt-1.5 max-w-sm text-[13px] text-[var(--text-muted)]">
             Netrukus čia atsiras koncertų foto reportažai. Tuo tarpu užsuk į{' '}
-            <Link href="/koncertai" className="text-[#ec4899] hover:underline">koncertus</Link>.
+            <Link href="/koncertai" className="text-[var(--accent-orange)] hover:underline">koncertus</Link>.
           </p>
         </div>
       ) : (
@@ -53,7 +53,7 @@ export default async function GalleryPage() {
                 {hero.coverUrl ? (
                   <img src={hero.coverUrl} alt={hero.title} className="h-full w-full object-cover transition-transform duration-500 group-hover:scale-[1.03]" />
                 ) : (
-                  <div className="h-full w-full bg-gradient-to-br from-[#ec4899]/20 to-[#8b5cf6]/20" />
+                  <div className="h-full w-full bg-gradient-to-br from-[var(--accent-orange)]/20 to-[#8b5cf6]/20" />
                 )}
                 {hero.photoCount > 0 && (
                   <span className="absolute left-4 top-4 rounded-full bg-black/65 px-3 py-1 text-[12px] font-bold text-white backdrop-blur">
@@ -62,8 +62,8 @@ export default async function GalleryPage() {
                 )}
               </div>
               <div className="flex flex-col justify-center p-6 sm:p-8">
-                <div className="mb-2 font-['Outfit',sans-serif] text-[11px] font-extrabold uppercase tracking-[0.18em] text-[#ec4899]">
-                  Foto reportažas
+                <div className="mb-2 font-['Outfit',sans-serif] text-[11px] font-extrabold uppercase tracking-[0.18em] text-[var(--accent-orange)]">
+                  Koncerto nuotraukos
                 </div>
                 <h2 className="font-['Outfit',sans-serif] text-[22px] font-black leading-tight tracking-[-0.01em] text-[var(--text-primary)] sm:text-[26px]">
                   {hero.title.replace(/^FOTO\s+(REPORTA[ŽZ]AS|GALERIJA)\s*\|\s*/i, '')}

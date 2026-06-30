@@ -33,13 +33,16 @@ export async function generateMetadata({ params }: Props): Promise<Metadata> {
   if (!res) return { title: 'Reportažas', robots: { index: false, follow: false } }
   const { reportage: r, photos } = res
   const title = cleanTitle(r.title)
+  // SEO: žmonės ieško „[atlikėjas] koncerto nuotraukos" (Google autocomplete) —
+  // tad title/desc naudoja „koncerto nuotraukos", ne „foto reportažas".
+  const kw = r.artistName ? `${r.artistName} koncerto nuotraukos` : 'Koncerto nuotraukos'
   const desc =
-    `Foto reportažas${r.artistName ? ` — ${r.artistName}` : ''}${
-      reportagePlaceLine(r) ? `, ${reportagePlaceLine(r)}` : ''
-    }${r.photographerName ? `. Fotografas: ${r.photographerName}.` : '.'}`
+    `${kw}${reportagePlaceLine(r) ? ` — ${reportagePlaceLine(r)}` : ''}${
+      r.eventDate ? `, ${formatEventDate(r.eventDate)}` : ''
+    }.${r.photographerName ? ` Fotografas: ${r.photographerName}.` : ''}`
   const img = photos[0]?.url || r.coverUrl || undefined
   return {
-    title: `${title} — foto reportažas · music.lt`,
+    title: `${title} — koncerto nuotraukos · music.lt`,
     description: desc,
     alternates: { canonical: `/galerija/${r.slug}` },
     openGraph: { title, description: desc, images: img ? [img] : undefined, type: 'article' },
@@ -72,7 +75,7 @@ export default async function ReportagePage({ params }: Props) {
       <header className="max-w-4xl">
         <Link href="/galerija" className="mb-1.5 inline-flex items-center gap-1 font-['Outfit',sans-serif] text-[11px] font-extrabold uppercase tracking-[0.18em] text-[var(--accent-orange)] no-underline transition-opacity hover:opacity-75">
           <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><path d="m15 18-6-6 6-6" /></svg>
-          Foto reportažas
+          Koncertų nuotraukos
         </Link>
         <h1 className="font-['Outfit',sans-serif] text-[28px] font-black leading-[1.08] tracking-[-0.02em] text-[var(--text-primary)] sm:text-[36px]">
           {cleanTitle(r.title)}
