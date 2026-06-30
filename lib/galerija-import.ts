@@ -57,10 +57,54 @@ export type FlickrPhoto = {
 }
 
 /**
- * Ištraukia Flickr albumo nuotraukas. Grąžina unikalias (pagal photo id) URL'us
- * pasirodymo tvarka. Naudoja static URL pattern'ą `{server}/{id}_{secret}_{size}`.
+ * Oficialus Flickr API (photosets.getPhotos) — VISOS albumo nuotraukos, NĖRA
+ * 429 IP riboto (raktas, ne IP). Naudojam kai FLICKR_API_KEY env nustatytas.
+ * Be jo Flickr blokuoja datacenter (Vercel) HTML scrape'ą per 429.
+ */
+async function extractViaApi(albumUrl: string): Promise<FlickrPhoto[]> {
+  const key = process.env.FLICKR_API_KEY
+  if (!key) return []
+  const m = albumUrl.match(/flickr\.com\/photos\/([^/]+)\/(?:albums|sets)\/(\d+)/i)
+  if (!m) return []
+  const [, userPart, setId] = m
+  const api = async (method: string, params: Record<string, string>) => {
+    const qs = new URLSearchParams({ method, api_key: key, format: 'json', nojsoncallback: '1', ...params })
+    const r = await fetch(`https://api.flickr.com/services/rest/?${qs}`, { signal: AbortSignal.timeout(20000) })
+    return r.ok ? r.json() : null
+  }
+  // NSID: jei tai path alias (ne 123@N04) — resolve per urls.lookupUser.
+  let nsid = userPart
+  if (!/^\d+@N\d+$/.test(userPart)) {
+    const d: any = await api('flickr.urls.lookupUser', { url: `https://www.flickr.com/photos/${userPart}` })
+    nsid = d?.user?.id || ''
+  }
+  if (!nsid) return []
+  const out: FlickrPhoto[] = []
+  for (let page = 1; page <= 10 && out.length < 300; page++) {
+    const d: any = await api('flickr.photosets.getPhotos', {
+      photoset_id: setId, user_id: nsid, per_page: '500', page: String(page),
+      extras: 'url_b,url_c,url_z,url_o',
+    })
+    const ps = d?.photoset
+    const photos: any[] = ps?.photo || []
+    if (!photos.length) break
+    for (const p of photos) {
+      const url = p.url_b || p.url_c || p.url_z || p.url_o
+      if (url) out.push({ flickrId: String(p.id), url })
+    }
+    if (page >= Number(ps?.pages || 1)) break
+  }
+  return out
+}
+
+/**
+ * Ištraukia Flickr albumo nuotraukas. Su FLICKR_API_KEY — per oficialų API
+ * (visos, be 429); kitaip HTML scrape (static URL `{server}/{id}_{secret}_{size}`).
  */
 export async function extractFlickrAlbum(albumUrl: string): Promise<FlickrPhoto[]> {
+  const viaApi = await extractViaApi(albumUrl)
+  if (viaApi.length) return viaApi
+
   const res = await fetchWithRetry(albumUrl, {
     'User-Agent': BROWSER_UA,
     'Accept': 'text/html,application/xhtml+xml,*/*;q=0.8',
