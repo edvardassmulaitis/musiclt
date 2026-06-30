@@ -66,6 +66,26 @@ export async function middleware(req: NextRequest) {
     return NextResponse.redirect(dest, 308)
   }
 
+  // Galerijos seni slug'ai (po SEO pervadinimo 2026-06-30) → kanoninis (301).
+  // Seni slug'ai turi didžiąsias raides arba „RENGINIO-RECENZIJA"/„FOTO-…"
+  // prefiksą; nauji — tik mažosios. Tikrinam TIK kai yra didžioji raidė, kad
+  // neapkrautume įprastų užklausų. Page-lygio permanentRedirect čia neveikia
+  // dėl Vercel edge cache (žr. /atradimai komentarą aukščiau).
+  const galMatch = pathname.match(/^\/galerija\/([^/]+)\/?$/)
+  if (galMatch && /[A-Z]/.test(galMatch[1])) {
+    try {
+      const raw = decodeURIComponent(galMatch[1])
+      const r = await fetch(new URL(`/api/galerija/resolve?slug=${encodeURIComponent(raw)}`, req.url))
+      const j: any = await r.json()
+      if (j?.slug && j.canonical === false) {
+        const dest = url.clone()
+        dest.pathname = `/galerija/${j.slug}`
+        dest.search = ''
+        return NextResponse.redirect(dest, 301)
+      }
+    } catch { /* resolve nepavyko — page'as parodys turinį su canonical */ }
+  }
+
   // Redirect /lt/daina/{slug}/{id}/ → /dainos/{slug}-{id}
   const trackMatch = pathname.match(/^\/lt\/daina\/(.+?)\/(\d+)\/?$/)
   if (trackMatch) {
