@@ -42,6 +42,10 @@ export type Reportage = {
   photographerId: number | null
   photographerName: string | null
   photographerSlug: string | null
+  photographerUsername: string | null   // narys (jei susietas)
+  authorName: string | null             // recenzijos/teksto autorius
+  authorSlug: string | null
+  authorUsername: string | null         // narys (jei susietas)
   eventName: string | null
   venue: string | null
   city: string | null

@@ -76,17 +76,31 @@ export default async function ReportagePage({ params }: Props) {
           {cleanTitle(r.title)}
         </h1>
 
-        {/* Meta eilutė: vieta · data · kiekis · fotografas */}
+        {/* Meta eilutė: vieta · data · kiekis · autorius · fotografas */}
         <div className="mt-3 flex flex-wrap items-center gap-x-2.5 gap-y-1 text-[13.5px] text-[var(--text-muted)]">
           {place && <><span>{place}</span><span className="opacity-40">·</span></>}
           {date && <span>{date}</span>}
           {photoCount && <><span className="opacity-40">·</span><span>{photoCount}</span></>}
+          {r.authorName && (
+            <>
+              <span className="opacity-40">·</span>
+              <span className="inline-flex items-center gap-1">
+                <span className="text-[var(--text-muted)]">Tekstas:</span>
+                {r.authorUsername ? (
+                  <Link href={`/@${r.authorUsername}`} className="font-semibold text-[var(--text-secondary)] no-underline hover:text-[var(--accent-orange)]">{r.authorName}</Link>
+                ) : <span className="font-semibold text-[var(--text-secondary)]">{r.authorName}</span>}
+              </span>
+            </>
+          )}
           {r.photographerName && (
             <>
               <span className="opacity-40">·</span>
               <span className="inline-flex items-center gap-1">
                 <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="var(--accent-orange)" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M14.5 4h-5L7 7H4a2 2 0 0 0-2 2v9a2 2 0 0 0 2 2h16a2 2 0 0 0 2-2V9a2 2 0 0 0-2-2h-3l-2.5-3z" /><circle cx="12" cy="13" r="3" /></svg>
-                {r.photographerSlug ? (
+                <span className="text-[var(--text-muted)]">Foto:</span>
+                {r.photographerUsername ? (
+                  <Link href={`/@${r.photographerUsername}`} className="font-semibold text-[var(--text-secondary)] no-underline hover:text-[var(--accent-orange)]">{r.photographerName}</Link>
+                ) : r.photographerSlug ? (
                   <Link href={photographerHref(r.photographerSlug)} className="font-semibold text-[var(--text-secondary)] no-underline hover:text-[var(--accent-orange)]">{r.photographerName}</Link>
                 ) : <span className="font-semibold text-[var(--text-secondary)]">{r.photographerName}</span>}
               </span>

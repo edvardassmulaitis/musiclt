@@ -23,13 +23,16 @@ export {
 } from '@/lib/galerija-shared'
 
 const REPORTAGE_COLS =
-  'id, slug, title, intro, artist_id, photographer_id, event_name, venue, city, ' +
+  'id, slug, title, intro, artist_id, photographer_id, author_id, event_name, venue, city, ' +
   'event_date, cover_url, photo_count, is_featured, published_at, flickr_album_url, source_url, ' +
-  'artists:artist_id(name, slug), photographers:photographer_id(name, slug)'
+  'artists:artist_id(name, slug), ' +
+  'photographers:photographer_id(name, slug, profiles:profile_id(username)), ' +
+  'author:author_id(name, slug, profiles:profile_id(username))'
 
 function mapReportage(r: any): Reportage {
   const a = r.artists || null
   const p = r.photographers || null
+  const au = r.author || null
   return {
     id: r.id,
     slug: r.slug,
@@ -42,6 +45,10 @@ function mapReportage(r: any): Reportage {
     photographerId: r.photographer_id ?? null,
     photographerName: p?.name ?? null,
     photographerSlug: p?.slug ?? null,
+    photographerUsername: p?.profiles?.username ?? null,
+    authorName: au?.name ?? null,
+    authorSlug: au?.slug ?? null,
+    authorUsername: au?.profiles?.username ?? null,
     eventName: r.event_name ?? null,
     venue: r.venue ?? null,
     city: r.city ?? null,
