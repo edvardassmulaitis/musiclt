@@ -33,7 +33,7 @@ import { proxyImg } from '@/lib/img-proxy'
 type Category =
   | 'artists' | 'albums' | 'tracks'
   | 'profiles' | 'events' | 'venues'
-  | 'news' | 'blog_posts' | 'discussions'
+  | 'news' | 'reviews' | 'galleries' | 'blog_posts' | 'discussions'
 
 type Hit = {
   id: number | string
@@ -111,6 +111,19 @@ const IconDiscussion = (p: { size?: number }) => (
     <path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"/>
   </svg>
 )
+// Recenzija — žvaigždutė (vertinimas)
+const IconReview = (p: { size?: number }) => (
+  <svg width={p.size ?? 14} height={p.size ?? 14} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden>
+    <polygon points="12 2 15.09 8.26 22 9.27 17 14.14 18.18 21.02 12 17.77 5.82 21.02 7 14.14 2 9.27 8.91 8.26 12 2"/>
+  </svg>
+)
+// Fotoreportažas — fotoaparatas
+const IconGallery = (p: { size?: number }) => (
+  <svg width={p.size ?? 14} height={p.size ?? 14} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden>
+    <path d="M23 19a2 2 0 0 1-2 2H3a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h4l2-3h6l2 3h4a2 2 0 0 1 2 2z"/>
+    <circle cx="12" cy="13" r="4"/>
+  </svg>
+)
 
 // Spalvos paletė — be žaliųjų atspalvių. Brand orange'as eina pagrindiniam
 // turiniui (dainos), o likę kategorijos turi distinct atspalvį, kad UI'jus
@@ -124,13 +137,15 @@ const CAT_LABELS: Record<Category, { sg: string; pl: string; Icon: (p: { size?: 
   events:      { sg: 'Renginys',   pl: 'Renginiai',   Icon: IconEvent,      color: '#f472b6' }, // pink
   venues:      { sg: 'Vieta',      pl: 'Vietos',      Icon: IconVenue,      color: '#eab308' }, // amber
   news:        { sg: 'Naujiena',   pl: 'Naujienos',   Icon: IconNews,       color: '#22d3ee' }, // cyan
+  reviews:     { sg: 'Recenzija',  pl: 'Recenzijos',  Icon: IconReview,     color: '#facc15' }, // gold
+  galleries:   { sg: 'Fotoreportažas', pl: 'Fotoreportažai', Icon: IconGallery, color: '#38bdf8' }, // sky
   blog_posts:  { sg: 'Blogas',     pl: 'Blogai',      Icon: IconBlog,       color: '#fb923c' }, // light orange
   discussions: { sg: 'Diskusija',  pl: 'Diskusijos',  Icon: IconDiscussion, color: '#ef4444' }, // red
 }
 
 const CAT_ORDER: Category[] = [
   'artists', 'tracks', 'albums', 'events', 'profiles',
-  'news', 'blog_posts', 'discussions', 'venues',
+  'news', 'reviews', 'galleries', 'blog_posts', 'discussions', 'venues',
 ]
 
 export type MasterSearchProps = {
@@ -864,7 +879,7 @@ function emptyResults(): Results {
   return {
     artists: [], albums: [], tracks: [],
     profiles: [], events: [], venues: [],
-    news: [], blog_posts: [], discussions: [],
+    news: [], reviews: [], galleries: [], blog_posts: [], discussions: [],
   }
 }
 
@@ -872,7 +887,7 @@ function emptyTotals(): Totals {
   return {
     artists: 0, albums: 0, tracks: 0,
     profiles: 0, events: 0, venues: 0,
-    news: 0, blog_posts: 0, discussions: 0,
+    news: 0, reviews: 0, galleries: 0, blog_posts: 0, discussions: 0,
   }
 }
 

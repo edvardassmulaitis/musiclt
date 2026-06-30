@@ -329,17 +329,28 @@ function PhotoManager({ reportageId, photos, lineup, flickrUrl, setFlickrUrl, on
     setImporting(true)
     const CHUNK = 4
     let done = 0
+    let failed = 0
+    let firstErr = ''
     try {
       const gf = groupToFields(batchGroup, batchTag)
       for (let i = 0; i < found.length; i += CHUNK) {
         const batch = found.slice(i, i + CHUNK).map((p) => ({ url: p.url, flickr_id: p.flickrId }))
         const r = await jpost(`/api/admin/galerija/reportages/${reportageId}/photos`, { photos: batch, rehost: true, group_artist_id: gf.artist_id, group_tag: gf.tag })
-        done += r.inserted
-        setProgress(`Importuota ${done}/${found.length}…`)
+        done += r.inserted || 0
+        // Re-host'as serveryje gali nepavykti (Flickr 429) — route grąžina errors[].
+        const errs: string[] = Array.isArray(r.errors) ? r.errors : []
+        failed += errs.length
+        if (!firstErr && errs.length) firstErr = errs[0]
+        setProgress(`Importuota ${done}/${found.length}…${failed ? ` (nepavyko ${failed})` : ''}`)
       }
       // Persist Flickr album URL on the reportage
       await jpost(`/api/admin/galerija/reportages/${reportageId}`, { flickr_album_url: flickrUrl }, 'PATCH')
-      setFound([]); setProgress(`Baigta — importuota ${done}.`)
+      if (done > 0) setFound([])
+      if (failed > 0) {
+        setProgress(`Importuota ${done}, nepavyko ${failed}. ${firstErr.includes('429') || /riboja/i.test(firstErr) ? 'Flickr riboja serverio užklausas — pabandyk dar kartą po kelių minučių.' : firstErr}`)
+      } else {
+        setProgress(`Baigta — importuota ${done}.`)
+      }
       await onChange()
     } catch (e: any) { setProgress(`Klaida: ${e.message}`) } finally { setImporting(false) }
   }
@@ -409,8 +420,11 @@ function PhotoManager({ reportageId, photos, lineup, flickrUrl, setFlickrUrl, on
             <div className="mt-2 text-[12px] text-[var(--text-muted)]">Rasta {found.length} nuotraukų — importuojant bus perkeltos visos.</div>
             <div className="mt-1 flex flex-wrap gap-1.5">
               {found.map((p) => (
-                // Peržiūrai naudojam mažą Flickr miniatiūrą (_q=150) — didelės (_b) krenta dėl hotlink limito
+                // Peržiūrai naudojam mažą Flickr miniatiūrą (_q=150). referrerPolicy
+                // "no-referrer" — kad Flickr atiduotų hotlink'intą thumb'ą naršyklėj
+                // (su Referer header'iu jis blokuoja → matydavom „?" placeholder'į).
                 <img key={p.flickrId} src={p.url.replace(/_[a-z]\.jpg$/i, '_q.jpg')} alt="" loading="lazy"
+                  referrerPolicy="no-referrer"
                   className="h-14 w-14 flex-none rounded object-cover bg-[var(--bg-elevated)]" />
               ))}
             </div>

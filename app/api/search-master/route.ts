@@ -32,7 +32,22 @@ import { ytThumb } from '@/lib/radaras-shared'
 type Category =
   | 'artists' | 'albums' | 'tracks'
   | 'profiles' | 'events' | 'venues'
-  | 'news' | 'blog_posts' | 'discussions'
+  | 'news' | 'reviews' | 'galleries' | 'blog_posts' | 'discussions'
+
+// Senos music.lt naujienos migruotos į `discussions` lentelę su
+// legacy_kind='news' (~25k įrašų; modernių `news` lentelėje ~18). Tai
+// NĖRA diskusijos — tai naujienos, kurios skiriasi tipu. Paieškoje jas
+// suskirstom: recenzijos (RECENZIJA), fotoreportažai (FOTO GALERIJA /
+// FOTOREPORTAŽAS), o likusios — paprastos naujienos.
+function classifyNews(title: string | null | undefined): 'news' | 'reviews' | 'galleries' {
+  const t = (title || '').toLowerCase()
+  // Recenzija turi prioritetą: „RENGINIO RECENZIJA … (+ FOTO GALERIJA)"
+  // pirmiausia yra recenzija, net jei prie jos pridėta galerija. Klasifikacija
+  // remiasi TIK pavadinimu — kad DB count'ai (žemiau) atitiktų display'ų 1:1.
+  if (/recenzij/.test(t)) return 'reviews'
+  if (/fotoreporta|foto\s*galerij/.test(t)) return 'galleries'
+  return 'news'
+}
 
 type Hit = {
   id: number | string
@@ -120,12 +135,19 @@ export async function GET(request: Request) {
   type R = { data: any[] | null; count?: number | null }
   const empty = { data: [] as any[] }
   const emptyCount = { count: 0 }
+  // Naujienos (modern `news` lentelė) IR migruotos (discussions legacy_kind='news')
+  // eina į news/reviews/galleries. Bet kuri iš trijų leista → traukiam legacy.
+  const wantNewsLike = useCat('news') || useCat('reviews') || useCat('galleries')
+  // Kiek legacy naujienų traukti: „Visi" preview'ui ×3 (užpildyt 3 kategorijas),
+  // pasirinkus konkrečią kategoriją — pilną limitą (iki 200).
+  const legacyNewsFetch = Math.min(categoriesFilter.length ? limitPerCat : limitPerCat * 3, 250)
   const [
     albumsRes, tracksRes, profilesRes, eventsRes, venuesRes,
     newsRes, blogRes, discRes,
     fanoutTracksRes, fanoutAlbumsRes,
     fanoutTracksCount, fanoutAlbumsCount,
     titleAlbumsCount, titleTracksCount,
+    legacyNewsRes, legacyNewsTotalCount, reviewsCount, galleriesCount,
     compoundResults,
   ] = await Promise.all([
     useCat('albums')
@@ -187,11 +209,14 @@ export async function GET(request: Request) {
           .limit(limitPerCat)
       : Promise.resolve(empty as R),
 
+    // Diskusijos — TIK tikros. legacy_kind='news' (~25k migruotų naujienų)
+    // EXCLUDE'inam: jos eina į news/reviews/galleries kategorijas, ne čia.
     useCat('discussions')
       ? sb.from('discussions')
           .select('id,slug,title,body,author_name,author_avatar,comment_count,like_count,created_at,is_deleted')
           .ilike('title_norm', pat)
           .eq('is_deleted', false)
+          .or('legacy_kind.is.null,legacy_kind.eq.discussion')
           .order('last_comment_at', { ascending: false, nullsFirst: false })
           .limit(limitPerCat)
       : Promise.resolve(empty as R),
@@ -229,6 +254,38 @@ export async function GET(request: Request) {
       ? sb.from('tracks').select('id', { count: 'exact', head: true }).ilike('title_norm', pat)
       : Promise.resolve(emptyCount as any),
 
+    // ── Legacy naujienos (discussions su legacy_kind='news') ──
+    // Vienas fetch'as visom trim kategorijom; suskirstom JS'e per classifyNews.
+    wantNewsLike
+      ? sb.from('discussions')
+          .select('id,slug,title,news_category,first_post_at,created_at')
+          .ilike('title_norm', pat)
+          .eq('legacy_kind', 'news')
+          .eq('is_deleted', false)
+          .order('first_post_at', { ascending: false, nullsFirst: false })
+          .limit(legacyNewsFetch)
+      : Promise.resolve(empty as R),
+
+    // Count-only totals legacy naujienoms (kad „Rodyti visus N" būtų teisinga).
+    wantNewsLike
+      ? sb.from('discussions').select('id', { count: 'exact', head: true })
+          .ilike('title_norm', pat).eq('legacy_kind', 'news').eq('is_deleted', false)
+      : Promise.resolve(emptyCount as any),
+    // Recenzijos — pavadinime „recenzij" (atitinka classifyNews).
+    useCat('reviews')
+      ? sb.from('discussions').select('id', { count: 'exact', head: true })
+          .ilike('title_norm', pat).eq('legacy_kind', 'news').eq('is_deleted', false)
+          .ilike('title_norm', '%recenzij%')
+      : Promise.resolve(emptyCount as any),
+    // Fotoreportažai — „fotoreporta"/„foto galerij" BET NE recenzija
+    // (recenzija turi prioritetą; mutual exclusion = count'ai atitinka display'ų).
+    useCat('galleries')
+      ? sb.from('discussions').select('id', { count: 'exact', head: true })
+          .ilike('title_norm', pat).eq('legacy_kind', 'news').eq('is_deleted', false)
+          .or('title_norm.ilike.*fotoreporta*,title_norm.ilike.*foto galerij*')
+          .not('title_norm', 'ilike', '%recenzij%')
+      : Promise.resolve(emptyCount as any),
+
     // Compound queries (artist + title) — tik kai ≥2 meaningful tokenai.
     compound ? runCompound(sb, tokens, limitPerCat, useCat) : Promise.resolve({ tracks: [] as Hit[], albums: [] as Hit[] }),
   ])
@@ -245,7 +302,14 @@ export async function GET(request: Request) {
   for (const p of (profilesRes.data || [])) out.profiles.push(toProfile(p))
   for (const e of (eventsRes.data || [])) out.events.push(toEvent(e))
   for (const v of (venuesRes.data || [])) out.venues.push(toVenue(v))
-  for (const n of (newsRes.data || [])) out.news.push(toNews(n))
+  // Modernios naujienos (news lentelė) — suklasifikuojam pagal pavadinimą.
+  for (const n of (newsRes.data || [])) {
+    out[classifyNews(n.title)].push(toNews(n))
+  }
+  // Migruotos legacy naujienos (discussions legacy_kind='news') — į news/reviews/galleries.
+  for (const n of (legacyNewsRes.data || [])) {
+    out[classifyNews(n.title)].push(toLegacyNews(n))
+  }
   for (const b of (blogRes.data || [])) out.blog_posts.push(toBlog(b))
   for (const d of (discRes.data || [])) out.discussions.push(toDiscussion(d))
 
@@ -296,6 +360,12 @@ export async function GET(request: Request) {
     (titleAlbumsCount as any)?.count ?? 0,
     (fanoutAlbumsCount as any)?.count ?? 0,
   )
+  // Naujienų tipų totals iš head-count'ų (recenzijos/fotoreportažai tiksliai;
+  // paprastos naujienos = visos legacy minus recenzijos/galerijos + modernios).
+  const reviewsT = (reviewsCount as any)?.count ?? 0
+  const galleriesT = (galleriesCount as any)?.count ?? 0
+  const legacyNewsT = (legacyNewsTotalCount as any)?.count ?? 0
+  const plainNewsT = Math.max(0, legacyNewsT - reviewsT - galleriesT) + out.news.length
   const totals: Record<Category, number> = {
     artists:     out.artists.length,        // artists query nelimit'uotas head'u — naudojam returned count
     albums:      Math.max(albumsTotal, out.albums.length),
@@ -303,7 +373,9 @@ export async function GET(request: Request) {
     profiles:    out.profiles.length,
     events:      out.events.length,
     venues:      out.venues.length,
-    news:        out.news.length,
+    news:        Math.max(plainNewsT, out.news.length),
+    reviews:     Math.max(reviewsT, out.reviews.length),
+    galleries:   Math.max(galleriesT, out.galleries.length),
     blog_posts:  out.blog_posts.length,
     discussions: out.discussions.length,
   }
@@ -373,7 +445,7 @@ function emptyResults(): Record<Category, Hit[]> {
   return {
     artists: [], albums: [], tracks: [],
     profiles: [], events: [], venues: [],
-    news: [], blog_posts: [], discussions: [],
+    news: [], reviews: [], galleries: [], blog_posts: [], discussions: [],
   }
 }
 
@@ -469,14 +541,32 @@ function toVenue(row: any): Hit {
 }
 
 function toNews(row: any): Hit {
+  const type = classifyNews(row.title)
   return {
-    id: row.id, type: 'news',
+    id: row.id, type,
     title: row.title,
     subtitle: row.published_at ? formatDate(row.published_at) : null,
     image_url: row.image_small_url || row.image_title_url,
     href: `/news/${row.slug}`,
-    meta: { type: row.type, published_at: row.published_at },
+    meta: { news_type: row.type, published_at: row.published_at },
     score: 0,
+  }
+}
+
+// Legacy naujiena iš discussions (legacy_kind='news'). Renderinasi per
+// /news/[slug] (ta pati page'as adaptuoja discussions→news shape).
+function toLegacyNews(row: any): Hit {
+  const type = classifyNews(row.title)
+  const when = row.first_post_at || row.created_at
+  return {
+    id: row.id, type,
+    title: row.title,
+    subtitle: when ? formatDate(when) : null,
+    image_url: null, // discussions lentelėj nuotraukos URL nėra; rodom ikoną
+    href: `/news/${row.slug}`,
+    meta: { news_category: row.news_category, published_at: when, legacy: true },
+    // Naujausios viršuje (rerank tier'as vienodas naujienoms → score=laikas).
+    score: when ? new Date(when).getTime() / 1e10 : 0,
   }
 }
 
