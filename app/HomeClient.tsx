@@ -76,11 +76,15 @@ function isFresh24(input: string | null | undefined): boolean {
  *  žalias ir pagal DB amžių (ne per-naudotojo seen). Dėklas turi būti
  *  position:relative. */
 function FreshDot({ right = 8, top = 8 }: { right?: number; top?: number }) {
+  // Vizualas = radaro „blip" taškas (RadarSweepMini): grynas žalias su švelniu
+  // švytėjimu (be balto rėmelio) + lengvas pulsavimas. Stilius .hp-freshdot
+  // pagrindiniame <style> bloke.
   return (
     <span
       aria-label="Nauja"
       title="Pridėta per pastarąsias 24 val."
-      style={{ position: 'absolute', top, right, width: 9, height: 9, borderRadius: '50%', background: '#22c55e', boxShadow: '0 0 0 2px #fff, 0 1px 3px rgba(0,0,0,0.4)', zIndex: 4, pointerEvents: 'none' }}
+      className="hp-freshdot"
+      style={{ position: 'absolute', top, right, zIndex: 4, pointerEvents: 'none' }}
     />
   )
 }
@@ -3213,6 +3217,8 @@ export default function HomeClient({ initialLatest }: { initialLatest?: InitialL
         @keyframes hp-img-in{from{opacity:0;transform:scale(1.04)}to{opacity:1;transform:scale(1)}}
         @keyframes hp-pulse{0%,100%{opacity:.05}50%{opacity:.08}}
         .hp-skel{background:var(--homepage-skeleton-bg);animation:hp-pulse 1.8s ease-in-out infinite}
+        .hp-freshdot{width:10px;height:10px;border-radius:50%;background:var(--accent-green);box-shadow:0 0 6px 1.5px rgba(34,197,94,0.85);animation:hp-blip 2.4s ease-in-out infinite}
+        @keyframes hp-blip{0%,100%{box-shadow:0 0 4px 1px rgba(34,197,94,0.5);transform:scale(.9)}50%{box-shadow:0 0 9px 2.5px rgba(34,197,94,1);transform:scale(1)}}
         .hp-scroll{overflow-x:auto;scrollbar-width:none;-webkit-overflow-scrolling:touch;scroll-behavior:smooth}
         .hp-hero-slot{width:580px;flex-shrink:0;min-width:0}
         /* >=1400px: siauresnės kortelės, kad 3-čia naujiena aiškiau matytųsi
@@ -3633,7 +3639,7 @@ export default function HomeClient({ initialLatest }: { initialLatest?: InitialL
                     {/* Žalias „nauja per 24h" taškas (DB amžius). Jei kartu su
                         neperžiūrėta (oranžiniu) — oranžinį pastumiam kairėn. */}
                     {slide.fresh24 && (
-                      <div style={{ position: 'absolute', top: 10, right: 10, width: 9, height: 9, borderRadius: '50%', background: '#22c55e', boxShadow: '0 0 0 2px #000', zIndex: 3 }} />
+                      <span className="hp-freshdot" style={{ position: 'absolute', top: 10, right: 10, zIndex: 3 }} />
                     )}
                     {!isSeen && (
                       <div style={{ position: 'absolute', top: 10, right: slide.fresh24 ? 27 : 10, width: 8, height: 8, borderRadius: '50%', background: 'var(--accent-orange)', boxShadow: '0 0 0 2px #000', zIndex: 2 }} />

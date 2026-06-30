@@ -254,13 +254,17 @@ export const NEW_BADGE_DAYS = 3
    turinio realiai yra. */
 // ⚠️ 2026-06-29 (Edvardo prašymu „per daug no-name'ų patenka") — pakelti
 // slenksčiai, kad homepage juostose liktų TIK realiai populiarūs releasai.
-// LT scenoje balai natūraliai žemesni (max ~60), todėl LT riba švelnesnė nei
-// pasaulio. Views ribos taip pat pakeltos (viralus no-name su daug peržiūrų
-// nebepraeina taip lengvai). Kartu su sumažintu STRIP_MIN_ITEMS (žr. žemiau)
-// — mažiau „užpildymo" nežinomais atlikėjais.
+// LT scenoje balai natūraliai žemesni (max ~62), todėl LT riba ŽYMIAI švelnesnė
+// nei pasaulio. Pasaulio riba lieka griežta (releasų daug, score gilus).
+//
+// 2026-06-29 v2 (LT juosta rodė tik ~4 dainas — per griežta): LT scenos realūs
+// atlikėjai score ~32–62, aiškūs „no-name'ai" score ≤21. Todėl LT track riba
+// score>=33 OR views>=50k → ~15 unikalių atlikėjų praeina (užtenka 6-vietei
+// juostai), bet apatinė pakopa (≤32 be peržiūrų: 21,20,16,12,7,0) atfiltruota.
+// Pasaulio ribos NEKEISTOS (juosta pilna).
 const POP_THRESHOLDS = {
   tracks: {
-    lt: { score: 50, views: 100_000 },
+    lt: { score: 33, views: 50_000 },
     world: { score: 62, views: 500_000 },
   },
   albums: {
