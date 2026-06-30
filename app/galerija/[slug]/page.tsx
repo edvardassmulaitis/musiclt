@@ -68,10 +68,12 @@ export default async function ReportagePage({ params }: Props) {
   return (
     <div className="mx-auto max-w-[1600px] px-4 pb-24 pt-6 sm:px-6 lg:px-8">
       <div className="lg:flex lg:items-start lg:gap-8">
-      <header className="min-w-0 max-w-4xl lg:flex-1">
-        <div className="mb-1.5 font-['Outfit',sans-serif] text-[11px] font-extrabold uppercase tracking-[0.18em] text-[var(--accent-orange)]">
+      <div className="min-w-0 lg:flex-1">
+      <header className="max-w-4xl">
+        <Link href="/galerija" className="mb-1.5 inline-flex items-center gap-1 font-['Outfit',sans-serif] text-[11px] font-extrabold uppercase tracking-[0.18em] text-[var(--accent-orange)] no-underline transition-opacity hover:opacity-75">
+          <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><path d="m15 18-6-6 6-6" /></svg>
           Foto reportažas
-        </div>
+        </Link>
         <h1 className="font-['Outfit',sans-serif] text-[28px] font-black leading-[1.08] tracking-[-0.02em] text-[var(--text-primary)] sm:text-[36px]">
           {cleanTitle(r.title)}
         </h1>
@@ -146,27 +148,31 @@ export default async function ReportagePage({ params }: Props) {
         {r.intro && <ReportageIntro html={r.intro} />}
       </header>
 
+      {/* Galerija — kairėje kolonoje, iškart po antrašte (be tarpo prie grotuvo) */}
+      <div className="mt-6">
+        {photos.length > 0 ? (
+          <ReportageGallery photos={photos} groups={groups} photographerName={r.photographerName} />
+        ) : (
+          <div className="rounded-2xl border border-dashed border-[var(--border-default)] p-10 text-center text-[14px] text-[var(--text-muted)]">
+            Nuotraukos netrukus.
+            {r.sourceUrl && (
+              <>{' '}Originalus reportažas:{' '}
+                <a href={r.sourceUrl} target="_blank" rel="noopener" className="text-[var(--accent-orange)] hover:underline">music.lt</a>
+              </>
+            )}
+          </div>
+        )}
+      </div>
+      </div>{/* kairė kolona */}
+
       {playlist.length > 0 && (
-        <aside className="mt-5 lg:mt-0 lg:w-[330px] lg:flex-none">
+        <aside className="mt-6 lg:mt-0 lg:w-[340px] lg:flex-none">
           <div className="lg:sticky lg:top-6">
             <ReportagePlayer items={playlist} />
           </div>
         </aside>
       )}
-      </div>
-
-      {photos.length > 0 ? (
-        <ReportageGallery photos={photos} groups={groups} photographerName={r.photographerName} />
-      ) : (
-        <div className="rounded-2xl border border-dashed border-[var(--border-default)] p-10 text-center text-[14px] text-[var(--text-muted)]">
-          Nuotraukos netrukus.
-          {r.sourceUrl && (
-            <>{' '}Originalus reportažas:{' '}
-              <a href={r.sourceUrl} target="_blank" rel="noopener" className="text-[var(--accent-orange)] hover:underline">music.lt</a>
-            </>
-          )}
-        </div>
-      )}
+      </div>{/* flex */}
 
       {/* Daugiau šio fotografo nuotraukų — kiti koncertai */}
       {more.length > 0 && (
