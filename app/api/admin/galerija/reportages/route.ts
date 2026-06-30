@@ -72,6 +72,7 @@ export async function POST(req: NextRequest) {
       intro: body?.intro?.toString() || null,
       artist_id: primaryArtist,
       photographer_id: Number(body?.photographer_id) || null,
+      event_id: body?.event_id || null,
       event_name: body?.event_name?.toString().trim() || null,
       venue: body?.venue?.toString().trim() || null,
       city: body?.city?.toString().trim() || null,

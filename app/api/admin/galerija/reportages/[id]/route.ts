@@ -19,7 +19,7 @@ async function requireAdmin() {
 }
 
 const FIELDS = [
-  'title', 'intro', 'artist_id', 'photographer_id', 'event_name', 'venue', 'city',
+  'title', 'intro', 'artist_id', 'photographer_id', 'event_id', 'event_name', 'venue', 'city',
   'event_date', 'cover_url', 'flickr_album_url', 'source_url', 'is_published', 'is_featured', 'published_at',
 ]
 
@@ -28,7 +28,7 @@ export async function GET(_req: NextRequest, { params }: { params: Promise<{ id:
   const { id } = await params
   try {
     const sb = createAdminClient()
-    const { data: reportage } = await sb.from('reportages').select('*').eq('id', id).maybeSingle()
+    const { data: reportage } = await sb.from('reportages').select('*, events:event_id(title, start_date, venue_name, city)').eq('id', id).maybeSingle()
     if (!reportage) return NextResponse.json({ ok: false, error: 'Nerasta' }, { status: 404 })
     const [{ data: photos }, { data: lineup }] = await Promise.all([
       sb.from('reportage_photos')

@@ -23,6 +23,9 @@ export type AdminPhotographer = {
 type Photo = { id: number; url: string; thumb_url: string | null; caption: string | null; flickr_id: string | null; sort_order: number; artist_id: number | null; tag: string | null }
 type LineupItem = { artist_id: number; name: string; role: string }
 
+// Standartizuoti bendrų (ne atlikėjų) nuotraukų tag'ai. Plečiama čia.
+const STANDARD_TAGS = ['Žiūrovai', 'Atmosfera', 'Scena · Apšvietimas', 'Užkulisiai', 'Grupės muzikantai'] as const
+
 const inputCls = 'w-full rounded-lg border border-[var(--input-border)] bg-[var(--input-bg)] px-3 py-2 text-sm text-[var(--input-text)] placeholder:text-[var(--input-placeholder)] focus:border-blue-400 focus:outline-none'
 const labelCls = 'mb-1 block text-[12px] font-semibold text-[var(--text-muted)]'
 const btn = 'rounded-lg px-3.5 py-2 text-sm font-semibold transition-colors disabled:opacity-50'
@@ -122,7 +125,8 @@ function ReportageEditor({ id, photographers, venues, onClose, onSaved }: {
   const [photos, setPhotos] = useState<Photo[]>([])
   const [d, setD] = useState({
     title: '', intro: '', artists: [] as Array<{ artist_id: number; name: string; role: string }>,
-    photographer_id: null as number | null, event_name: '', venue: '', city: '',
+    photographer_id: null as number | null, event_id: null as string | null, event_title: '' as string,
+    event_name: '', venue: '', city: '',
     event_date: '', flickr_album_url: '', source_url: '', is_featured: false, is_published: true,
   })
 
@@ -137,7 +141,8 @@ function ReportageEditor({ id, photographers, venues, onClose, onSaved }: {
           setD({
             title: x.title || '', intro: x.intro || '',
             artists: ((r.lineup || []) as any[]).map((a) => ({ artist_id: a.artist_id, name: a.name || 'Atlikėjas', role: a.role || '' })),
-            photographer_id: x.photographer_id, event_name: x.event_name || '', venue: x.venue || '', city: x.city || '',
+            photographer_id: x.photographer_id, event_id: x.event_id || null, event_title: x.events?.title || '',
+            event_name: x.event_name || '', venue: x.venue || '', city: x.city || '',
             event_date: x.event_date || '', flickr_album_url: x.flickr_album_url || '', source_url: x.source_url || '',
             is_featured: !!x.is_featured, is_published: !!x.is_published,
           })
@@ -195,8 +200,9 @@ function ReportageEditor({ id, photographers, venues, onClose, onSaved }: {
           <label className={labelCls}>Pavadinimas *</label>
           <input className={inputCls} value={d.title} onChange={(e) => setD({ ...d, title: e.target.value })} placeholder="Chet Faker debiutas Lietuvoje" />
         </div>
+        <EventLink reportageId={realId} d={d} setD={setD} />
         <div className="sm:col-span-2">
-          <label className={labelCls}>Atlikėjai (line-up) — pirmas = pagrindinis</label>
+          <label className={labelCls}>Atlikėjai (line-up) — pirmas = pagrindinis (užsipildo iš renginio)</label>
           {d.artists.length > 0 && (
             <div className="mb-2 space-y-1.5">
               {d.artists.map((a, idx) => (
@@ -273,6 +279,85 @@ function ReportageEditor({ id, photographers, venues, onClose, onSaved }: {
   )
 }
 
+/* ──────────────── Renginio susiejimas (event_id) ──────────────── */
+// Susieja galeriją su renginiu ir VIENU paspaudimu užpildo line-up'ą iš renginio
+// atlikėjų (event_artists) — kad nereikėtų suvesti dukart. Auto-pasiūlymai pagal
+// datą+pavadinimą; arba paieška.
+type EventHit = { id: string; title: string; start_date: string | null; venue_name: string | null; city: string | null; lineup: { artist_id: number; name: string; is_headliner: boolean }[] }
+
+function EventLink({ reportageId, d, setD }: { reportageId: number | null; d: any; setD: (updater: any) => void }) {
+  const [q, setQ] = useState('')
+  const [results, setResults] = useState<EventHit[]>([])
+  const [suggest, setSuggest] = useState<EventHit[]>([])
+
+  useEffect(() => {
+    if (!reportageId || d.event_id) { setSuggest([]); return }
+    fetch(`/api/admin/galerija/events?suggestFor=${reportageId}`).then((r) => r.json()).then((j) => { if (j.ok) setSuggest(j.events) }).catch(() => {})
+  }, [reportageId, d.event_id])
+
+  useEffect(() => {
+    if (q.trim().length < 2) { setResults([]); return }
+    const t = setTimeout(() => {
+      fetch(`/api/admin/galerija/events?q=${encodeURIComponent(q)}`).then((r) => r.json()).then((j) => { if (j.ok) setResults(j.events) }).catch(() => {})
+    }, 200)
+    return () => clearTimeout(t)
+  }, [q])
+
+  const link = (e: EventHit) => {
+    const lineup = e.lineup.map((a) => ({ artist_id: a.artist_id, name: a.name, role: a.is_headliner ? 'headlineris' : '' }))
+    setD((prev: any) => ({
+      ...prev, event_id: e.id, event_title: e.title,
+      artists: lineup.length ? lineup : prev.artists,
+      venue: prev.venue || e.venue_name || '',
+      city: prev.city || e.city || '',
+      event_date: prev.event_date || (e.start_date ? e.start_date.slice(0, 10) : ''),
+    }))
+    setQ(''); setResults([])
+  }
+  const unlink = () => setD((prev: any) => ({ ...prev, event_id: null, event_title: '' }))
+
+  const Row = ({ e }: { e: EventHit }) => (
+    <button type="button" onClick={() => link(e)}
+      className="flex w-full items-center gap-2 rounded-lg border border-[var(--border-default)] bg-[var(--bg-elevated)] px-2.5 py-1.5 text-left hover:border-[#ec4899]/60">
+      <span className="min-w-0 flex-1">
+        <span className="block truncate text-[13px] font-semibold text-[var(--text-primary)]">{e.title}</span>
+        <span className="block truncate text-[11px] text-[var(--text-muted)]">
+          {[e.start_date ? e.start_date.slice(0, 10) : null, e.city, e.lineup.slice(0, 3).map((a) => a.name).join(', ')].filter(Boolean).join(' · ')}
+        </span>
+      </span>
+      <span className="flex-none text-[11px] font-bold text-[#ec4899]">Susieti →</span>
+    </button>
+  )
+
+  return (
+    <div className="sm:col-span-2 rounded-lg border border-[var(--border-default)] bg-[var(--bg-elevated)]/40 p-3">
+      <label className={labelCls}>Renginys (atlikėjai užsipildo automatiškai)</label>
+      {d.event_id ? (
+        <div className="flex items-center gap-2 rounded-lg border border-[#ec4899]/40 bg-[#ec4899]/5 px-3 py-2">
+          <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="#ec4899" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><rect x="3" y="4" width="18" height="18" rx="2"/><path d="M16 2v4M8 2v4M3 10h18"/></svg>
+          <span className="min-w-0 flex-1 truncate text-sm font-semibold text-[var(--text-primary)]">{d.event_title || 'Susietas renginys'}</span>
+          <button type="button" className="text-[12px] font-semibold text-[var(--text-muted)] hover:text-red-500" onClick={unlink}>Atsieti</button>
+        </div>
+      ) : (
+        <>
+          {suggest.length > 0 && (
+            <div className="mb-2 space-y-1.5">
+              <div className="text-[11px] font-bold uppercase tracking-wide text-[var(--text-muted)]">Pasiūlymai</div>
+              {suggest.map((e) => <Row key={e.id} e={e} />)}
+            </div>
+          )}
+          <input className={inputCls} value={q} onChange={(e) => setQ(e.target.value)} placeholder="Ieškoti renginio pagal pavadinimą…" />
+          {results.length > 0 && (
+            <div className="mt-1.5 space-y-1.5">
+              {results.map((e) => <Row key={e.id} e={e} />)}
+            </div>
+          )}
+        </>
+      )}
+    </div>
+  )
+}
+
 /* ──────────────── Nuotraukų valdymas (Flickr / upload) ──────────────── */
 
 // Grupės pasirinkimas (atlikėjas iš line-up arba laisvas tagas). value:
@@ -282,11 +367,18 @@ function groupControl(lineup: LineupItem[], value: string, onChange: (v: string)
     <span className="inline-flex flex-wrap items-center gap-1.5">
       <select className="rounded border border-[var(--input-border)] bg-[var(--input-bg)] px-1.5 py-1 text-[12px] text-[var(--input-text)]" value={value} onChange={(e) => onChange(e.target.value)}>
         <option value="">Bendros (be grupės)</option>
-        {lineup.map((a) => <option key={a.artist_id} value={`a:${a.artist_id}`}>{a.name}</option>)}
-        <option value="t:__custom">Tagas…</option>
+        {lineup.length > 0 && (
+          <optgroup label="Atlikėjai (iš renginio)">
+            {lineup.map((a) => <option key={a.artist_id} value={`a:${a.artist_id}`}>{a.name}</option>)}
+          </optgroup>
+        )}
+        <optgroup label="Tipas">
+          {STANDARD_TAGS.map((t) => <option key={t} value={`t:${t}`}>{t}</option>)}
+        </optgroup>
+        <option value="t:__custom">Kita (laisvas)…</option>
       </select>
       {value === 't:__custom' && (
-        <input className="w-28 rounded border border-[var(--input-border)] bg-[var(--input-bg)] px-1.5 py-1 text-[12px] text-[var(--input-text)]" placeholder="pvz. Žiūrovai" value={tagValue} onChange={(e) => onTag(e.target.value)} />
+        <input className="w-28 rounded border border-[var(--input-border)] bg-[var(--input-bg)] px-1.5 py-1 text-[12px] text-[var(--input-text)]" placeholder="laisvas tagas" value={tagValue} onChange={(e) => onTag(e.target.value)} />
       )}
     </span>
   )
