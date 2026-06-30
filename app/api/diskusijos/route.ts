@@ -48,6 +48,12 @@ export async function GET(req: Request) {
     .select('id, slug, title, body, user_id, author_name, author_avatar, tag, tags, is_pinned, is_locked, comment_count, like_count, view_count, last_comment_at, created_at, artist:artist_id(name, slug, cover_image_url)', { count: 'exact' })
     .eq('is_deleted', false)
     .or('legacy_kind.is.null,legacy_kind.eq.discussion')
+    // Slepiam tuščius legacy stub'us: forum_discover atranda temos antraštę
+    // (created_at = importo laikas), bet komentarai/turinys dar nenuscrapinti
+    // → rodo „0 komentarų" ir užteršia „Naujos". Rodom tik temas su realiu
+    // turiniu (komentaras) ARBA nario sukurtas (user_id). Self-healing:
+    // nuscrapinus komentarus tema vėl atsiranda.
+    .or('comment_count.gt.0,user_id.not.is.null')
     .range(offset, offset + limit - 1)
 
   // Kategorija saugoma `tag` (text) stulpelyje — backfill'inta heuristiškai

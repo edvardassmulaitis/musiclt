@@ -26,6 +26,9 @@ export async function GET() {
       .select('id', { count: 'exact', head: true })
       .eq('is_deleted', false)
       .or('legacy_kind.is.null,legacy_kind.eq.discussion')
+      // Tas pats filtras kaip /api/diskusijos — slepiam tuščius legacy stub'us,
+      // kad sidebar skaičiai sutaptų su realiai rodomu sąrašu.
+      .or('comment_count.gt.0,user_id.not.is.null')
 
   const [totalRes, ...catResults] = await Promise.all([
     base(),
