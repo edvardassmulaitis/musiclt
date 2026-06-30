@@ -93,7 +93,7 @@ export const getLatestReportages = cache(async (limit = 60): Promise<Reportage[]
 async function loadLineup(sb: ReturnType<typeof createAdminClient>, reportageId: number): Promise<LineupArtist[]> {
   const { data } = await sb
     .from('reportage_artists')
-    .select('artist_id, role, sort_order, artists:artist_id(name, slug)')
+    .select('artist_id, role, sort_order, artists:artist_id(name, slug, cover_image_url)')
     .eq('reportage_id', reportageId)
     .order('sort_order', { ascending: true })
     .order('id', { ascending: true })
@@ -102,8 +102,27 @@ async function loadLineup(sb: ReturnType<typeof createAdminClient>, reportageId:
     name: r.artists?.name ?? 'Atlikėjas',
     slug: r.artists?.slug ?? null,
     role: r.role ?? null,
+    image: r.artists?.cover_image_url ? proxyImgResized(r.artists.cover_image_url, 200) : null,
   }))
 }
+
+/** Kiti to paties fotografo reportažai (be dabartinio) — „Daugiau šio fotografo". */
+export const getMoreByPhotographer = cache(
+  async (photographerId: number, excludeId: number, limit = 8): Promise<Reportage[]> => {
+    try {
+      const sb = createAdminClient()
+      const { data } = await sb
+        .from('reportages')
+        .select(REPORTAGE_COLS)
+        .eq('photographer_id', photographerId)
+        .eq('is_published', true)
+        .neq('id', excludeId)
+        .order('published_at', { ascending: false })
+        .limit(limit)
+      return ((data || []) as any[]).map(mapReportage)
+    } catch { return [] }
+  }
+)
 
 /** Vienas reportažas pagal slug + nuotraukos + line-up + grupės. */
 export const getReportageBySlug = cache(

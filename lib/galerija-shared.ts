@@ -24,6 +24,7 @@ export type LineupArtist = {
   name: string
   slug: string | null
   role: string | null   // 'headlineris' | 'apšildantis' | 'svečias' | null
+  image: string | null  // atlikėjo nuotrauka (kortelei)
 }
 
 /** Nuotraukų grupė galerijos filtrui. */
