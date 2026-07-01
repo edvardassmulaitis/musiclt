@@ -32,8 +32,9 @@ type Item = {
   status: 'pending' | 'linked' | 'converted' | 'dismissed'
   converted_blog_post_id: string | null
   member: Member | null
+  gallery: { slug: string; photo_count: number } | null
 }
-type Counts = { total: number; with_text: number; parsed: number; linked: number; converted: number; dismissed: number; pending: number }
+type Counts = { total: number; with_text: number; with_gallery: number; parsed: number; linked: number; converted: number; dismissed: number; pending: number }
 
 const STATUS_LABEL: Record<string, string> = {
   pending: 'Laukia', linked: 'Susieta', converted: 'Konvertuota', dismissed: 'Praleista',
@@ -173,7 +174,7 @@ export default function NaujienuTriage() {
       })
       const data = await res.json()
       if (!res.ok) { setMsg(`Klaida: ${data.error || 'nepavyko'}`); return }
-      setMsg(data.already ? 'Jau buvo konvertuota.' : `Konvertuota į narių įrašą${data.url ? ` — ${data.url}` : ''}.`)
+      setMsg(data.already ? 'Jau buvo konvertuota.' : `Konvertuota į narių įrašą${data.url ? ` — ${data.url}` : ''}${data.gallery ? ' · galerija susieta 📸' : ''}.`)
       await load()
     } finally { setBusyId(null) }
   }
@@ -220,7 +221,7 @@ export default function NaujienuTriage() {
               {label}
             </button>
           ))}
-          <span className="px-2.5 py-1" style={{ color: 'var(--text-muted)' }}>· su tekstu: {counts.with_text} · parsinta: {counts.parsed}</span>
+          <span className="px-2.5 py-1" style={{ color: 'var(--text-muted)' }}>· su tekstu: {counts.with_text} · su galerija: {counts.with_gallery} · parsinta: {counts.parsed}</span>
         </div>
       )}
 
@@ -253,7 +254,15 @@ export default function NaujienuTriage() {
                   <a href={it.source_url || '#'} target="_blank" rel="noreferrer"
                     className="truncate text-sm font-semibold hover:underline" style={{ color: 'var(--text-primary)' }}>{it.title}</a>
                 </div>
-                <div className="text-xs mt-0.5" style={{ color: 'var(--text-muted)' }}>{fmtDate(it.published_at)} · #{it.discussion_id}</div>
+                <div className="text-xs mt-0.5 flex items-center gap-2 flex-wrap" style={{ color: 'var(--text-muted)' }}>
+                  <span>{fmtDate(it.published_at)} · #{it.discussion_id}</span>
+                  {it.gallery && (
+                    <a href={`/galerija/${it.gallery.slug}`} target="_blank" rel="noreferrer"
+                      className="px-1.5 py-0.5 rounded bg-purple-100 text-purple-700 hover:underline">
+                      📸 galerija{it.gallery.photo_count ? ` (${it.gallery.photo_count})` : ''}
+                    </a>
+                  )}
+                </div>
               </div>
 
               {/* Parsintas autorius */}

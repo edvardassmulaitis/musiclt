@@ -138,6 +138,23 @@ export async function POST(req: NextRequest) {
     )
   }
 
+  // 6. GALERIJA (Thread C, 3 etapas): jei recenzija turi susietą reportažą
+  //    (reportages.legacy_discussion_id = discussionId), įrašom nuorodą ATGAL
+  //    į šį narių įrašą — dvipusis viešas cross-link. Idempotentiška.
+  let gallery: { slug: string } | null = null
+  const { data: rep } = await sb
+    .from('reportages')
+    .select('id, slug, blog_post_id')
+    .eq('legacy_discussion_id', discussionId)
+    .limit(1)
+    .maybeSingle()
+  if (rep) {
+    if (!rep.blog_post_id) {
+      await sb.from('reportages').update({ blog_post_id: post.id, updated_at: now }).eq('id', rep.id)
+    }
+    gallery = { slug: rep.slug }
+  }
+
   const url = blog.slug && post.slug ? `/blogas/${blog.slug}/${post.slug}` : '/blogas'
-  return NextResponse.json({ ok: true, action: 'convert', blog_post_id: post.id, url, member: { id: prof.id, username: prof.username } })
+  return NextResponse.json({ ok: true, action: 'convert', blog_post_id: post.id, url, gallery, member: { id: prof.id, username: prof.username } })
 }

@@ -43,6 +43,17 @@ export async function GET(_req: NextRequest) {
     for (const t of triage || []) triageById.set(t.discussion_id, t)
   }
 
+  // 2b. Galerijos (reportages) šioms recenzijoms — Thread C 3 etapas.
+  //     Ryšys per reportages.legacy_discussion_id = discussions.id.
+  const galleryByDisc = new Map<number, any>()
+  if (ids.length) {
+    const { data: reps } = await sb
+      .from('reportages')
+      .select('legacy_discussion_id, slug, photo_count')
+      .in('legacy_discussion_id', ids)
+    for (const g of reps || []) if (g.legacy_discussion_id != null) galleryByDisc.set(g.legacy_discussion_id, g)
+  }
+
   // 3. Susietų narių profiliai.
   const profileIds = Array.from(
     new Set((Array.from(triageById.values()).map((t) => t.author_profile_id).filter(Boolean))),
@@ -60,6 +71,7 @@ export async function GET(_req: NextRequest) {
   const items = rows.map((r) => {
     const t = triageById.get(r.id)
     const prof = t?.author_profile_id ? profileById.get(t.author_profile_id) : null
+    const g = galleryByDisc.get(r.id)
     return {
       discussion_id: r.id,
       title: r.title,
@@ -75,6 +87,7 @@ export async function GET(_req: NextRequest) {
       status: t?.status ?? 'pending',
       converted_blog_post_id: t?.converted_blog_post_id ?? null,
       member: prof ? { id: prof.id, username: prof.username, full_name: prof.full_name, avatar_url: prof.avatar_url } : null,
+      gallery: g ? { slug: g.slug, photo_count: g.photo_count ?? 0 } : null,
     }
   })
 
@@ -82,6 +95,7 @@ export async function GET(_req: NextRequest) {
   const counts = {
     total: items.length,
     with_text: items.filter((i) => i.has_text).length,
+    with_gallery: items.filter((i) => i.gallery).length,
     parsed: items.filter((i) => i.author_raw).length,
     linked: items.filter((i) => i.status === 'linked').length,
     converted: items.filter((i) => i.status === 'converted').length,
