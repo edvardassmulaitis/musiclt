@@ -16,7 +16,14 @@ export async function GET(req: NextRequest) {
   if (q.length < 2) return NextResponse.json({ members: [] })
 
   const sb = createAdminClient()
-  const like = `%${q.replace(/[%_]/g, '')}%`
+  // BUG FIX: anksčiau `%` ir `_` buvo IŠTRINAMI — todėl vartotojai su
+  // pabraukimais (pvz. legacy "p_ruta_") tapdavo nerandami (paieška
+  // virsdavo "%pruta%"). Dabar wildcard'us ESCAPE'inam (ILIKE default escape
+  // '\\'), kad `_`/`%` būtų ieškomi kaip tikri simboliai. Papildomai pašalinam
+  // PostgREST `.or()` filtro struktūrinius simbolius, kad neaplaužtų užklausos.
+  const safe = q.replace(/[(),.:*]/g, ' ').trim()
+  const esc = safe.replace(/[\\%_]/g, (c) => `\\${c}`)
+  const like = `%${esc}%`
   const { data, error } = await sb
     .from('profiles')
     .select('id, username, full_name, avatar_url')
