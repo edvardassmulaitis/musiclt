@@ -34,7 +34,7 @@ export function SiteFooter() {
           ))}
         </div>
         <div className="flex flex-col sm:flex-row justify-between items-center gap-3 pt-8" style={{ borderTop: '1px solid var(--border-default)' }}>
-          <span className="text-xs" style={{ color: 'var(--text-faint)' }}>© 2026 Music.lt — Visos teisės saugomos</span>
+          <span className="text-xs" style={{ color: 'var(--text-faint)' }}>© {new Date().getFullYear()} Music.lt — Visos teisės saugomos</span>
           {/* Socialiniai grįš, kai turėsim realius profilių URL — negyvi „#" išimti. */}
         </div>
       </div>
