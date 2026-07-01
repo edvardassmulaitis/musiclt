@@ -3606,7 +3606,10 @@ export default function HomeClient({ initialLatest }: { initialLatest?: InitialL
                 return (
                   <button key={`${slide.type}-${slide.href}`} onClick={() => { setReelsIdx(i); setReelsOpen(true) }}
                     style={{ flexShrink: 0, position: 'relative', borderRadius: 16, overflow: 'hidden',
-                      border: isSeen ? '2px solid rgba(255,255,255,0.10)' : '2px solid var(--accent-orange)',
+                      // Vienas akcentas vienu metu: „nauja per 24h" → ŽALIAS rėmelis
+                      // (+ žalias taškas); kitaip neperžiūrėta → oranžinis; peržiūrėta
+                      // → blankus. Taip nesimaišo oranžinis su žaliu (Edvardas).
+                      border: slide.fresh24 ? '2px solid var(--accent-green)' : isSeen ? '2px solid rgba(255,255,255,0.10)' : '2px solid var(--accent-orange)',
                       background: '#000', cursor: 'pointer', padding: 0, width: 188, height: 290,
                       scrollSnapAlign: 'start',
                       transition: 'opacity .15s, border-color .15s, transform .15s',
@@ -3636,14 +3639,14 @@ export default function HomeClient({ initialLatest }: { initialLatest?: InitialL
                         </span>
                       </div>
                     )}
-                    {/* Žalias „nauja per 24h" taškas (DB amžius). Jei kartu su
-                        neperžiūrėta (oranžiniu) — oranžinį pastumiam kairėn. */}
-                    {slide.fresh24 && (
+                    {/* Vienas taškas viršuj-dešinėj: „nauja per 24h" → žalias;
+                        kitaip neperžiūrėta → oranžinis. Niekada abu kartu (kad
+                        nesikluvintų su rėmeliu). */}
+                    {slide.fresh24 ? (
                       <span className="hp-freshdot" style={{ position: 'absolute', top: 10, right: 10, zIndex: 3 }} />
-                    )}
-                    {!isSeen && (
-                      <div style={{ position: 'absolute', top: 10, right: slide.fresh24 ? 27 : 10, width: 8, height: 8, borderRadius: '50%', background: 'var(--accent-orange)', boxShadow: '0 0 0 2px #000', zIndex: 2 }} />
-                    )}
+                    ) : !isSeen ? (
+                      <div style={{ position: 'absolute', top: 10, right: 10, width: 8, height: 8, borderRadius: '50%', background: 'var(--accent-orange)', boxShadow: '0 0 0 2px #000', zIndex: 2 }} />
+                    ) : null}
                   </button>
                 )
               })}
