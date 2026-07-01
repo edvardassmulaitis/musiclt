@@ -8,7 +8,8 @@
 //   2. peržiūri parsintus vardus,
 //   3. susieja autorių → narį (autocomplete). Susiejimas ĮSIMENAMAS ir
 //      pritaikomas VISIEMS to autoriaus įrašams (atmintis).
-// Konversija į narių įrašus (blog_posts) — 2 etapas (ateina atskirai).
+// Konversija į narių įrašus (blog_posts) — 2 etapas: "Konvertuoti" mygtukas
+// susietiems įrašams (post_type='review', editorial_type='recenzija').
 
 import { useEffect, useState, useCallback, useRef } from 'react'
 import { useSession } from 'next-auth/react'
@@ -162,6 +163,21 @@ export default function NaujienuTriage() {
   const unlink = (it: Item) => doAction({ action: 'unlink', discussion_id: it.discussion_id })
   const dismiss = (it: Item) => doAction({ action: it.status === 'dismissed' ? 'undismiss' : 'dismiss', discussion_id: it.discussion_id })
 
+  // Konversija į narių įrašą (blog_posts) — 2 etapas. Tik susietiems + su tekstu.
+  const convert = async (it: Item) => {
+    setBusyId(it.discussion_id); setMsg(null)
+    try {
+      const res = await fetch('/api/admin/naujienu-triage/convert', {
+        method: 'POST', headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ discussion_id: it.discussion_id }),
+      })
+      const data = await res.json()
+      if (!res.ok) { setMsg(`Klaida: ${data.error || 'nepavyko'}`); return }
+      setMsg(data.already ? 'Jau buvo konvertuota.' : `Konvertuota į narių įrašą${data.url ? ` — ${data.url}` : ''}.`)
+      await load()
+    } finally { setBusyId(null) }
+  }
+
   const filtered = items.filter((i) => {
     if (textOnly && !i.has_text) return false
     if (statusFilter !== 'all' && i.status !== statusFilter) return false
@@ -262,6 +278,11 @@ export default function NaujienuTriage() {
                   </>
                 ) : (
                   <MemberPicker onPick={(m) => link(it, m)} />
+                )}
+                {it.member && it.status === 'linked' && it.has_text && (
+                  <button onClick={() => convert(it)} disabled={busyId === it.discussion_id}
+                    className="text-xs px-2 py-1 rounded font-semibold text-white disabled:opacity-50"
+                    style={{ background: 'var(--accent-orange, #ea580c)' }}>Konvertuoti</button>
                 )}
                 <button onClick={() => dismiss(it)} disabled={busyId === it.discussion_id}
                   className="text-xs px-2 py-1 rounded border disabled:opacity-50" style={{ borderColor: 'var(--border-default)', color: 'var(--text-muted)' }}>
