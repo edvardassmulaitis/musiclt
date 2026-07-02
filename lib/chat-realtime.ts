@@ -28,7 +28,9 @@ function realtimeClient() {
   const anon = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY
   if (!url || !anon) return null
   _client = createClient(url, anon, {
-    auth: { autoRefreshToken: false, persistSession: false },
+    // Unikalus storageKey — kad NEsutaptų su createPublicClient ir dingtų
+    // "Multiple GoTrueClient instances ... same storage key" warning.
+    auth: { autoRefreshToken: false, persistSession: false, storageKey: 'sb-musiclt-realtime' },
     realtime: { params: { eventsPerSecond: 10 } },
   })
   return _client
