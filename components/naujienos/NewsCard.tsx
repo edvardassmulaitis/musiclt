@@ -44,9 +44,9 @@ function Placeholder({ accent }: { accent: string }) {
   return (
     <div
       className="flex h-full w-full items-center justify-center"
-      style={{ background: `linear-gradient(135deg, ${accent}26, ${accent}0a)` }}
+      style={{ background: `linear-gradient(135deg, ${accent}4d, ${accent}1a)` }}
     >
-      <svg width="34" height="34" viewBox="0 0 24 24" fill="none" style={{ color: accent, opacity: 0.55 }}>
+      <svg width="34" height="34" viewBox="0 0 24 24" fill="none" style={{ color: accent, opacity: 0.7 }}>
         <path d="M9 18V5l12-2v13" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" />
         <circle cx="6" cy="18" r="3" stroke="currentColor" strokeWidth="2" />
         <circle cx="18" cy="16" r="3" stroke="currentColor" strokeWidth="2" />

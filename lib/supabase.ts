@@ -13,9 +13,16 @@ export function createAdminClient() {
   )
 }
 
+// Singleton — kad naršyklėje NEbūtų kuriama kelios GoTrueClient instancijos
+// tuo pačiu storage raktu ("Multiple GoTrueClient instances" warning).
+// Auth persistencija išjungta: appas naudoja NextAuth, ne Supabase auth.
+let _publicClient: ReturnType<typeof createClient> | null = null
 export function createPublicClient() {
-  return createClient(
+  if (_publicClient) return _publicClient
+  _publicClient = createClient(
     process.env.NEXT_PUBLIC_SUPABASE_URL!,
-    process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!
+    process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!,
+    { auth: { persistSession: false, autoRefreshToken: false } }
   )
+  return _publicClient
 }

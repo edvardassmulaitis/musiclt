@@ -2859,19 +2859,19 @@ export default function HomeClient({ initialLatest }: { initialLatest?: InitialL
     //     `{false &&` toggle'u (kol kas paslėpta). Brangus reverse'as DB nieko.
     // VISI hero duomenų fetch'ai. Surenkam jų Promise'us → kai VISI atsako,
     // atskleidžiam hero (pilnas, stabilus). maxT — saugiklis jei kas pakimba.
-    const hp: Promise<any>[] = []
-    hp.push(fetch('/api/top/entries?type=lt_top30').then(r => r.json()).then(d => { setLtTop(parseTop(d.entries || [])); setLtTopDate(d.week?.created_at || d.week?.week_start || ''); readyBits.current.tops = true; tryReady.current() }).catch(() => { readyBits.current.tops = true; tryReady.current() }))
-    hp.push(fetch('/api/top/entries?type=top40').then(r => r.json()).then(d => { setWorldTop(parseTop(d.entries || [])); setWorldTopDate(d.week?.created_at || d.week?.week_start || '') }).catch(() => {}))
-    hp.push(fetch('/api/events?limit=60').then(r => r.json()).then(d => setEvents(d.events || [])).catch(() => {}))
-    hp.push(fetch('/api/events?home_hero=1&limit=8').then(r => r.json()).then(d => setHeroEvents(d.events || [])).catch(() => {}))
-    hp.push(fetch('/api/blog/home-hero').then(r => r.json()).then(d => setHeroPosts(d.posts || [])).catch(() => {}))
-    hp.push(fetch('/api/dienos-daina/winners?limit=7').then(r => r.json()).then(d => setDailyWinners(d.winners || [])).catch(() => {}))
-    hp.push(fetch('/api/dienos-daina/nominations').then(r => r.json()).then(d => setDailyNomsCount((d.nominations || []).filter((n: any) => n.tracks).length)).catch(() => {}))
-    hp.push(fetch('/api/muzikos-atradimai?featured=1&limit=6').then(r => r.json()).then(d => setDiscoveries(d.items || [])).catch(() => {}))
-    hp.push(fetch('/api/koncertu-irasai?limit=6').then(r => r.json()).then(d => setRecordings(d.recordings || [])).catch(() => {}))
-    hp.push(fetch('/api/verta-keliones').then(r => r.json()).then(d => setVertaConcerts({ concerts: d.concerts || [], destinations: d.destinations || [] })).catch(() => {}))
-    hp.push(fetch('/api/feed/overrides').then(r => r.json()).then(d => { setFeedOverrides(d.overrides || []); setFeedCustom(d.custom || []) }).catch(() => {}))
-    hp.push(fetch('/api/news?limit=12&include=songs&since_days=7')
+    // PERF: hero atsiskleidžia, kai paruošti tik HERO-ESMINIAI duomenys
+    // (`core`) — nebelaukiam lėčiausio iš 12 fetch'ų. Žemesnes sekcijas
+    // (renginių afiša, atradimai, įrašai, verta kelionės, feed override'ai)
+    // maitina `rest` — jie tęsiasi fone su savo krovimo būsenom.
+    const core: Promise<any>[] = []
+    const rest: Promise<any>[] = []
+    core.push(fetch('/api/top/entries?type=lt_top30').then(r => r.json()).then(d => { setLtTop(parseTop(d.entries || [])); setLtTopDate(d.week?.created_at || d.week?.week_start || ''); readyBits.current.tops = true; tryReady.current() }).catch(() => { readyBits.current.tops = true; tryReady.current() }))
+    core.push(fetch('/api/top/entries?type=top40').then(r => r.json()).then(d => { setWorldTop(parseTop(d.entries || [])); setWorldTopDate(d.week?.created_at || d.week?.week_start || '') }).catch(() => {}))
+    core.push(fetch('/api/events?home_hero=1&limit=8').then(r => r.json()).then(d => setHeroEvents(d.events || [])).catch(() => {}))
+    core.push(fetch('/api/blog/home-hero').then(r => r.json()).then(d => setHeroPosts(d.posts || [])).catch(() => {}))
+    core.push(fetch('/api/dienos-daina/winners?limit=7').then(r => r.json()).then(d => setDailyWinners(d.winners || [])).catch(() => {}))
+    core.push(fetch('/api/dienos-daina/nominations').then(r => r.json()).then(d => setDailyNomsCount((d.nominations || []).filter((n: any) => n.tracks).length)).catch(() => {}))
+    core.push(fetch('/api/news?limit=12&include=songs&since_days=7')
       .then(r => r.json())
       .then(d => {
         const newsList = d.news || []
@@ -2885,9 +2885,16 @@ export default function HomeClient({ initialLatest }: { initialLatest?: InitialL
         setNewsSongs(songsMap)
       })
       .catch(() => {}))
+    // feed/overrides valdo hero prisegtų slide'ų tvarką — paruošiam PRIEŠ reveal.
+    core.push(fetch('/api/feed/overrides').then(r => r.json()).then(d => { setFeedOverrides(d.overrides || []); setFeedCustom(d.custom || []) }).catch(() => {}))
+    rest.push(fetch('/api/events?limit=60').then(r => r.json()).then(d => setEvents(d.events || [])).catch(() => {}))
+    rest.push(fetch('/api/muzikos-atradimai?featured=1&limit=6').then(r => r.json()).then(d => setDiscoveries(d.items || [])).catch(() => {}))
+    rest.push(fetch('/api/koncertu-irasai?limit=6').then(r => r.json()).then(d => setRecordings(d.recordings || [])).catch(() => {}))
+    rest.push(fetch('/api/verta-keliones').then(r => r.json()).then(d => setVertaConcerts({ concerts: d.concerts || [], destinations: d.destinations || [] })).catch(() => {}))
+    void Promise.all(rest)
     // +80ms — kad build effect spėtų perkurti heroSlides su PASKUTINIU duomeniu
     // prieš atskleidžiant.
-    Promise.all(hp).then(() => setTimeout(() => setHeroReady(true), 80))
+    Promise.all(core).then(() => setTimeout(() => setHeroReady(true), 80))
     const heroMaxT = setTimeout(() => setHeroReady(true), 5000)
     return () => clearTimeout(heroMaxT)
   }, [])
@@ -3161,7 +3168,12 @@ export default function HomeClient({ initialLatest }: { initialLatest?: InitialL
     const finalSlides = items.map(x => x.slide)
 
     setHeroSlides(finalSlides.length ? finalSlides : slides)
-    setHeroIdx(0)
+    // PERF: hero atsiskleidžia anksčiau (core-ready), o `rest` slide'ai prisikabina
+    // vėliau — NEnullinam žiūrimo slide indekso, jei jis dar galioja (be peršokimo).
+    setHeroIdx(i => {
+      const n = (finalSlides.length ? finalSlides : slides).length
+      return i < n ? i : 0
+    })
     readyBits.current.hero = true
     tryReady.current()
   }, [news, events, newsSongs, ltTop, worldTop, ltTopDate, worldTopDate, heroPosts, heroEvents, discoveries, recordings, dailyWinners, dailyNomsCount, vertaConcerts, feedOverrides, feedCustom])
