@@ -29,8 +29,15 @@ type Props = { params: Promise<{ slug: string }> }
 // 2× select('*') per 57-stulpelių artists lentelę kiekvienam SSR render'iui.
 const getArtist = cache(async (slug: string) => {
   const sb = createAdminClient()
-  let { data } = await sb.from('artists').select('*').eq('slug', slug).single()
-  if (!data) { const id = parseInt(slug); if (!isNaN(id)) { const r = await sb.from('artists').select('*').eq('id', id).single(); data = r.data } }
+  // NB: artists.slug NĖRA unikalus (~94 slug'ai kartojasi, pvz. „dara" ×2).
+  // Anksčiau .single() mesdavo klaidą, kai slug'ą turi ≥2 atlikėjai → puslapis
+  // virsdavo 404. Renkamės „pagrindinį" pagal score (tada id) ir imam 1.
+  let { data } = await sb
+    .from('artists').select('*').eq('slug', slug)
+    .order('score', { ascending: false, nullsFirst: false })
+    .order('id', { ascending: true })
+    .limit(1).maybeSingle()
+  if (!data) { const id = parseInt(slug); if (!isNaN(id)) { const r = await sb.from('artists').select('*').eq('id', id).maybeSingle(); data = r.data } }
   return data
 })
 
