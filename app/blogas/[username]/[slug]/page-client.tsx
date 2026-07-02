@@ -65,6 +65,8 @@ type Props = {
   playerTracks: BlogPlayerTrack[]
   targetInfo: any | null
   hasSidebar: boolean
+  /** Thread C 3b: susieta foto galerija (reportages.blog_post_id = post.id). */
+  gallery: { slug: string; photoCount: number; coverUrl: string | null } | null
 }
 
 const AUTO_TAGS = new Set([
@@ -101,7 +103,7 @@ function useIsMobile(breakpoint = 960): boolean {
 
 export default function BlogPostPageClient(props: Props) {
   const { post, postType, typeLabel, authorName, authorUsername, authorAvatar,
-          authorKarma, blogTitle, heroImage, attachments, playerTracks, targetInfo } = props
+          authorKarma, blogTitle, heroImage, attachments, playerTracks, targetInfo, gallery } = props
   void props.hasSidebar
   void blogTitle
   void authorName
@@ -479,6 +481,25 @@ export default function BlogPostPageClient(props: Props) {
                     <Link key={tag} href={`/blogas?tag=${encodeURIComponent(tag)}`} className="bp-tag">#{tag}</Link>
                   ))}
                 </div>
+              )}
+
+              {gallery && (
+                <Link href={`/galerija/${gallery.slug}`}
+                  style={{ display: 'flex', alignItems: 'center', gap: 14, marginTop: 32, padding: 12,
+                    borderRadius: 14, border: '1px solid var(--border-default)', background: 'var(--bg-elevated)',
+                    textDecoration: 'none', color: 'var(--text-primary)' }}>
+                  {gallery.coverUrl && (
+                    // eslint-disable-next-line @next/next/no-img-element
+                    <img src={proxyImg(gallery.coverUrl, 200)} alt="" width={72} height={72}
+                      style={{ width: 72, height: 72, objectFit: 'cover', borderRadius: 10, flex: 'none' }} />
+                  )}
+                  <span style={{ display: 'flex', flexDirection: 'column', gap: 2 }}>
+                    <span style={{ fontWeight: 800 }}>📸 Nuotraukos iš renginio</span>
+                    <span style={{ fontSize: 13, color: 'var(--text-muted)' }}>
+                      Foto galerija{gallery.photoCount ? ` · ${gallery.photoCount} nuotr.` : ''}
+                    </span>
+                  </span>
+                </Link>
               )}
 
               <div id="bp-comments" className="bp-comments">

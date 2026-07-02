@@ -71,6 +71,20 @@ export default async function PostPage({ params }: { params: Promise<{ username:
   ])
   const manualTrackIds: number[] = ((manualRowsRes as any)?.data || []).map((r: any) => r.track_id).filter(Boolean)
 
+  // Thread C 3b: susieta foto galerija (reportages.blog_post_id = post.id) —
+  // rodoma tik recenzijoms (post_type='review').
+  let gallery: { slug: string; photoCount: number; coverUrl: string | null } | null = null
+  if (postType === 'review') {
+    const { data: rep } = await sbAdmin
+      .from('reportages')
+      .select('slug, photo_count, cover_url')
+      .eq('blog_post_id', post.id)
+      .eq('is_published', true)
+      .limit(1)
+      .maybeSingle()
+    if (rep) gallery = { slug: rep.slug, photoCount: (rep as any).photo_count ?? 0, coverUrl: (rep as any).cover_url ?? null }
+  }
+
   // ── PLAYER GROJARAŠTIS — visada mūsų DB dainos + YouTube (ne Spotify) ──
   let playerTracks: BlogPlayerTrack[] = []
   if (postType === 'topas') {
@@ -181,6 +195,7 @@ export default async function PostPage({ params }: { params: Promise<{ username:
         playerTracks={playerTracks}
         targetInfo={targetInfo}
         hasSidebar={hasSidebar}
+        gallery={gallery}
       />
     </>
   )

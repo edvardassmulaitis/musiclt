@@ -55,7 +55,7 @@ export default async function ReportagePage({ params }: Props) {
   if (!res) notFound()
   // SEO: jei užklausa per seną slug'ą — 301 į kanoninį.
   if (res.reportage.slug !== slug) permanentRedirect(`/galerija/${res.reportage.slug}`)
-  const { reportage: r, photos, lineup, groups } = res
+  const { reportage: r, photos, lineup, groups, reviewPost } = res
   const place = reportagePlaceLine(r)
   const date = formatEventDate(r.eventDate)
   const photoCount = photos.length ? ltCount(photos.length, ['nuotrauka', 'nuotraukos', 'nuotraukų']) : null
@@ -148,6 +148,14 @@ export default async function ReportagePage({ params }: Props) {
 
         {/* Pilnas editorial aprašymas + „Skaityti daugiau" */}
         {r.intro && <ReportageIntro html={r.intro} />}
+
+        {/* Thread C 3b: nuoroda į susietą narių recenzijos įrašą */}
+        {reviewPost && (
+          <Link href={`/blogas/${reviewPost.blogSlug}/${reviewPost.slug}`}
+            className="mt-4 inline-flex items-center gap-1.5 rounded-full border border-[var(--border-default)] px-3.5 py-1.5 text-[13px] font-semibold text-[var(--text-primary)] hover:border-[var(--accent-orange)] hover:text-[var(--accent-orange)] transition-colors">
+            📖 Skaityti recenziją
+          </Link>
+        )}
       </header>
 
       {playlist.length > 0 && (

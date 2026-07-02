@@ -24,7 +24,7 @@ export {
 
 const REPORTAGE_COLS =
   'id, slug, title, intro, artist_id, photographer_id, author_id, event_name, venue, city, ' +
-  'event_date, cover_url, photo_count, is_featured, published_at, flickr_album_url, source_url, ' +
+  'event_date, cover_url, photo_count, is_featured, published_at, flickr_album_url, source_url, blog_post_id, ' +
   'artists:artist_id(name, slug), ' +
   'photographers:photographer_id(name, slug, profiles:profile_id(username)), ' +
   'author:author_id(name, slug, profiles:profile_id(username))'
@@ -176,8 +176,10 @@ export const getMoreByPhotographer = cache(
 )
 
 /** Vienas reportažas pagal slug + nuotraukos + line-up + grupės. */
+export type ReviewPostLink = { blogSlug: string; slug: string; title: string | null }
+
 export const getReportageBySlug = cache(
-  async (slug: string): Promise<{ reportage: Reportage; photos: ReportagePhoto[]; lineup: LineupArtist[]; groups: PhotoGroup[] } | null> => {
+  async (slug: string): Promise<{ reportage: Reportage; photos: ReportagePhoto[]; lineup: LineupArtist[]; groups: PhotoGroup[]; reviewPost: ReviewPostLink | null } | null> => {
     try {
       const sb = createAdminClient()
       let { data } = await sb
@@ -209,7 +211,24 @@ export const getReportageBySlug = cache(
       const photos = ((ph || []) as any[]).map(mapPhoto)
       const lineupOrder = new Map(lineup.map((a, i) => [a.id, i]))
       const groups = buildPhotoGroups(photos, lineupOrder)
-      return { reportage, photos, lineup, groups }
+
+      // Thread C 3b: susietas narių recenzijos įrašas (per reportages.blog_post_id).
+      // URL segmentas = blogo slug'as (žr. /blogas/[username]/[slug]).
+      let reviewPost: ReviewPostLink | null = null
+      const bpId = (data as any).blog_post_id
+      if (bpId) {
+        const { data: bp } = await sb
+          .from('blog_posts')
+          .select('slug, title, is_deleted, status, blogs:blog_id(slug)')
+          .eq('id', bpId)
+          .maybeSingle()
+        const blogSlug = (bp as any)?.blogs?.slug
+        if (bp && !(bp as any).is_deleted && (bp as any).status === 'published' && blogSlug && bp.slug) {
+          reviewPost = { blogSlug, slug: bp.slug, title: bp.title ?? null }
+        }
+      }
+
+      return { reportage, photos, lineup, groups, reviewPost }
     } catch { return null }
   }
 )
