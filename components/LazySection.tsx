@@ -31,6 +31,13 @@ type LazySectionProps = {
   minHeight?: number | string
   /** Disable'inam lazy elgseną (debugging). */
   eager?: boolean
+  /**
+   * IDLE PREFETCH: po tiek ms nuo mount'o sekcija render'inama IR JEI dar
+   * nepriscrollinta — kad below-fold turinys (Bendruomenė, Istorija) užsikraut'ų
+   * fone, kol user'is skaito viršų, ir NEBŪTŲ „pop-in" priscrollinus. IO lieka
+   * greitam scroll'ui. Default 1800ms (po above-fold krovimosi). 0 = išjungta.
+   */
+  idleDelay?: number
 }
 
 export function LazySection({
@@ -39,6 +46,7 @@ export function LazySection({
   rootMargin = '400px',
   minHeight = 200,
   eager = false,
+  idleDelay = 1800,
 }: LazySectionProps) {
   const ref = useRef<HTMLDivElement>(null)
   const [visible, setVisible] = useState(eager)
@@ -66,8 +74,15 @@ export function LazySection({
       { rootMargin, threshold: 0.01 }
     )
     obs.observe(el)
-    return () => obs.disconnect()
-  }, [visible, rootMargin])
+
+    // Idle prefetch — sekcija atsiranda net be scroll'o, kad duomenys būtų
+    // paruošti iš anksto (dažniausiai anksčiau nei user'is priscrollina).
+    let idleT: ReturnType<typeof setTimeout> | null = null
+    if (idleDelay > 0) {
+      idleT = setTimeout(() => { setVisible(true); obs.disconnect() }, idleDelay)
+    }
+    return () => { obs.disconnect(); if (idleT) clearTimeout(idleT) }
+  }, [visible, rootMargin, idleDelay])
 
   return (
     <div ref={ref} style={visible ? undefined : { minHeight }}>

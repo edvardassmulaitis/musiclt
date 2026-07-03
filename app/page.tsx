@@ -27,17 +27,48 @@ import {
   mapTrackForHome,
   mapAlbumForHome,
 } from '@/lib/home-latest'
-import HomeClient, { type InitialLatest } from './HomeClient'
+import HomeClient, { type InitialLatest, type InitialHero } from './HomeClient'
 import { readHomeSnapshot } from '@/lib/home-snapshot'
 
 // ISR — puslapio HTML (su seed'intais tracks/albums) cache'inamas 5 min;
 // stale-while-revalidate serve'ina iškart, o regeneracija vyksta fone.
 export const revalidate = 300
 
+// SSR HERO SEED: hero endpoint'us (edge-cache'inti) paimam server-side ir įdedam
+// į pradinį HTML, kad hero NEBŪTŲ „pop-in" po hydration'o. ISR (revalidate 300)
+// amortizuoja. Niekada nemeta: timeout + null fallback → be seed'o client'as
+// fetchina kaip anksčiau.
+async function fetchInitialHero(): Promise<InitialHero> {
+  const base = process.env.NEXT_PUBLIC_SITE_URL || 'https://musiclt.vercel.app'
+  const j = async (path: string): Promise<any> => {
+    try {
+      const ctrl = new AbortController()
+      const t = setTimeout(() => ctrl.abort(), 2500)
+      const r = await fetch(base + path, { next: { revalidate: 300 }, signal: ctrl.signal })
+      clearTimeout(t)
+      return r.ok ? await r.json() : null
+    } catch { return null }
+  }
+  const [news, ev, posts, win] = await Promise.all([
+    j('/api/news?limit=12&include=songs&since_days=7'),
+    j('/api/events?home_hero=1&limit=8'),
+    j('/api/blog/home-hero'),
+    j('/api/dienos-daina/winners?limit=7'),
+  ])
+  const hero = {
+    news: (news?.news ?? []) as any[],
+    heroEvents: (ev?.events ?? []) as any[],
+    heroPosts: (posts?.posts ?? []) as any[],
+    dailyWinners: (win?.winners ?? []) as any[],
+  }
+  const total = hero.news.length + hero.heroEvents.length + hero.heroPosts.length + hero.dailyWinners.length
+  return total > 0 ? hero : null
+}
+
 export default async function HomePage() {
-  // 1) Precomputed snapshot (CRON 3x/d) — greita, patikima. Fallback i live zemiau.
-  const __snap = await readHomeSnapshot()
-  if (__snap) return <HomeClient initialLatest={__snap as InitialLatest} />
+  // 1) Precomputed snapshot (CRON 3x/d) + hero seed'as (paraleliai).
+  const [__snap, __hero] = await Promise.all([readHomeSnapshot(), fetchInitialHero()])
+  if (__snap) return <HomeClient initialLatest={__snap as InitialLatest} initialHero={__hero} />
 
   // Server-side fetch — paralelinis. Kiekvienas getLatest* viduje jau daro
   // query retry + grąžina in-memory last-known-good, jei DB transient'iškai krenta.
@@ -87,5 +118,5 @@ export default async function HomePage() {
     upcomingTotal: upcoming.total,
   }
 
-  return <HomeClient initialLatest={initialLatest} />
+  return <HomeClient initialLatest={initialLatest} initialHero={__hero} />
 }

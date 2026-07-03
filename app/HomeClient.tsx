@@ -2587,7 +2587,24 @@ export type InitialLatest = {
   upcomingTotal: number
 }
 
-export default function HomeClient({ initialLatest }: { initialLatest?: InitialLatest }) {
+// SSR hero seed'as — page.tsx paima hero endpoint'us server-side ir perduoda
+// čia, kad hero būtų PIRMAME HTML'e (be laukimo, kol client-side fetch'ai
+// atsakys po hydration'o). Client'as vis tiek atsinaujina (šviežiausi duomenys).
+// Raw endpoint'ų shape'ai — identiški tiems, kuriuos setter'iai gauna client'e.
+export type InitialHero = {
+  news?: any[]
+  heroEvents?: any[]
+  heroPosts?: any[]
+  dailyWinners?: any[]
+  ltTop?: any[]        // /api/top/entries d.entries (dar neparse'inta)
+  worldTop?: any[]
+  ltTopDate?: string
+  worldTopDate?: string
+} | null
+
+export default function HomeClient({ initialLatest, initialHero }: { initialLatest?: InitialLatest; initialHero?: InitialHero }) {
+  // Ar SSR hero seed'as turi REALAUS turinio (kad hero būtų rodomas iškart).
+  const heroSeeded = !!(initialHero && ((initialHero.news?.length || 0) + (initialHero.heroEvents?.length || 0) + (initialHero.heroPosts?.length || 0) + (initialHero.dailyWinners?.length || 0)) > 0)
   const { dk } = useSite()
   const seeded = !!initialLatest
 
@@ -2642,12 +2659,12 @@ export default function HomeClient({ initialLatest }: { initialLatest?: InitialL
     : { tracksLt: 0, tracksWorld: 0, albumsLt: 0, albumsWorld: 0, upcoming: 0 })
   const [artists, setArtists] = useState<Artist[]>([])
   const [events, setEvents] = useState<Event[]>([])
-  const [news, setNews] = useState<NewsItem[]>([])
+  const [news, setNews] = useState<NewsItem[]>((initialHero?.news as any) ?? [])
   // Admine pažymėti homepage hero: vartotojų įrašai + renginiai.
-  const [heroPosts, setHeroPosts] = useState<{ id: string; title: string; href: string; cover: string | null; chip: string; chipBg: string; published_at: string | null; author: string | null; excerpt?: string | null; videoId?: string | null; songTitle?: string | null; songArtist?: string | null }[]>([])
-  const [heroEvents, setHeroEvents] = useState<Event[]>([])
+  const [heroPosts, setHeroPosts] = useState<{ id: string; title: string; href: string; cover: string | null; chip: string; chipBg: string; published_at: string | null; author: string | null; excerpt?: string | null; videoId?: string | null; songTitle?: string | null; songArtist?: string | null }[]>((initialHero?.heroPosts as any) ?? [])
+  const [heroEvents, setHeroEvents] = useState<Event[]>((initialHero?.heroEvents as any) ?? [])
   // Reader v3 papildomi feed šaltiniai
-  const [dailyWinners, setDailyWinners] = useState<any[]>([])
+  const [dailyWinners, setDailyWinners] = useState<any[]>(initialHero?.dailyWinners ?? [])
   const [dailyNomsCount, setDailyNomsCount] = useState<number>(0)
   // Admin feed override'ai (paslėpti/prisegti/eiliškumas) + laisvi įrašai
   const [feedOverrides, setFeedOverrides] = useState<{ item_key: string; hidden: boolean; pinned: boolean; sort_order: number | null }[]>([])
@@ -2707,7 +2724,9 @@ export default function HomeClient({ initialLatest }: { initialLatest?: InitialL
   // Hero atskleidžiamas TIK kai VISI jo duomenų šaltiniai atsako (fetch effect
   // Promise.all) — turinys pilnas, stabilus, vienodas kiekvienam reload, be
   // persirikiavimo. Iki tol — permatomas (vietos aukštis rezervuotas).
-  const [heroReady, setHeroReady] = useState(false)
+  // SSR seed'as → hero rodomas IŠ KARTO (turinys jau HTML'e); be seed'o —
+  // atskleidžiamas po core fetch'ų (žr. žemiau).
+  const [heroReady, setHeroReady] = useState(heroSeeded)
 
   /* ── Naujos dainos + albumai loader (retry + degraded handling) ──
      /api/home/latest dabar grąžina `degraded: true` kai DB užklausa fail'ino
