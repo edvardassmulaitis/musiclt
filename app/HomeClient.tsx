@@ -2723,6 +2723,8 @@ export default function HomeClient({ initialLatest, initialHero }: { initialLate
   // Admin feed override'ai (paslėpti/prisegti/eiliškumas) + laisvi įrašai
   const [feedOverrides, setFeedOverrides] = useState<{ item_key: string; hidden: boolean; pinned: boolean; sort_order: number | null }[]>([])
   const [feedCustom, setFeedCustom] = useState<any[]>([])
+  // Kandidatų sistema: pending/rejected raktai (type::href) — praslepiami feed'e.
+  const [feedBlocked, setFeedBlocked] = useState<Set<string>>(new Set())
   const [discoveries, setDiscoveries] = useState<any[]>([])
   const [recordings, setRecordings] = useState<any[]>([])
   const [vertaConcerts, setVertaConcerts] = useState<{ concerts: any[]; destinations: any[] }>({ concerts: [], destinations: [] })
@@ -2959,7 +2961,7 @@ export default function HomeClient({ initialLatest, initialHero }: { initialLate
       })
       .catch(() => {}))
     // feed/overrides valdo hero prisegtų slide'ų tvarką — paruošiam PRIEŠ reveal.
-    core.push(fetch('/api/feed/overrides').then(r => r.json()).then(d => { setFeedOverrides(d.overrides || []); setFeedCustom(d.custom || []) }).catch(() => {}))
+    core.push(fetch('/api/feed/overrides').then(r => r.json()).then(d => { setFeedOverrides(d.overrides || []); setFeedCustom(d.custom || []); setFeedBlocked(new Set((d.blocked || []) as string[])) }).catch(() => {}))
     rest.push(fetch('/api/events?limit=60').then(r => r.json()).then(d => setEvents(d.events || [])).catch(() => {}))
     rest.push(fetch('/api/muzikos-atradimai?featured=1&limit=6').then(r => r.json()).then(d => setDiscoveries(d.items || [])).catch(() => {}))
     rest.push(fetch('/api/koncertu-irasai?limit=6').then(r => r.json()).then(d => setRecordings(d.recordings || [])).catch(() => {}))
@@ -3240,6 +3242,8 @@ export default function HomeClient({ initialLatest, initialHero }: { initialLate
     slides.forEach((s, i) => {
       const o = ovMap.get(feedKey(s))
       if (o?.hidden) return
+      // Kandidatų sistema: laukiantys/atmesti auto-įrašai nepatenka į feed'ą.
+      if (feedBlocked.has(feedKey(s))) return
       // Rankinė tvarka nugali, BET nauji auto-įrašai (be override'o) iškyla į priekį.
       const ord = (o && typeof o.sort_order === 'number') ? o.sort_order : null
       items.push({ slide: s, i, ord, pinned: !!o?.pinned })
@@ -3288,7 +3292,7 @@ export default function HomeClient({ initialLatest, initialHero }: { initialLate
     })
     readyBits.current.hero = true
     tryReady.current()
-  }, [news, events, newsSongs, ltTop, worldTop, ltTopDate, worldTopDate, heroPosts, heroEvents, discoveries, recordings, dailyWinners, dailyNomsCount, vertaConcerts, feedOverrides, feedCustom])
+  }, [news, events, newsSongs, ltTop, worldTop, ltTopDate, worldTopDate, heroPosts, heroEvents, discoveries, recordings, dailyWinners, dailyNomsCount, vertaConcerts, feedOverrides, feedCustom, feedBlocked])
 
   useEffect(() => {
     if (!heroSlides.length || heroVideoPlaying) return

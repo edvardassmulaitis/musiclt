@@ -24,11 +24,35 @@ function ytId(url: string | null | undefined): string | null {
 function ytThumb(id: string | null): string | null { return id ? `https://img.youtube.com/vi/${id}/hqdefault.jpg` : null }
 function strip(s: string | null | undefined): string { return (s || '').replace(/<[^>]*>/g, '').replace(/&[^;]+;/g, ' ').replace(/\s+/g, ' ').trim() }
 
+// Kandidatų sistemos eilutė (kind='candidate' iš home_feed).
+type PendingCand = { id: number; item_key: string; item_type: string | null; title: string | null; image_url: string | null; href: string | null; first_seen_at: string }
+
+const CAND_TYPE_LT: Record<string, string> = { news: 'Naujiena', event: 'Renginys', recording: 'Įrašas', verta: 'Verta kelionės' }
+
 export default function FeedAdminClient() {
   const [cands, setCands] = useState<Cand[]>([])
   const [loading, setLoading] = useState(true)
   const [busy, setBusy] = useState(false)
   const [msg, setMsg] = useState('')
+  // Laukiantys kandidatai (nauji auto-įrašai, dar nepatvirtinti į feed'ą).
+  const [pending, setPending] = useState<PendingCand[]>([])
+  const [candBusy, setCandBusy] = useState<number | null>(null)
+
+  const loadPending = useCallback(async () => {
+    try {
+      const d = await fetch('/api/admin/feed/candidates').then(r => r.json())
+      setPending(d.pending || [])
+    } catch { /* tyliai */ }
+  }, [])
+  useEffect(() => { loadPending() }, [loadPending])
+
+  const decideCand = async (id: number, action: 'approve' | 'reject') => {
+    setCandBusy(id)
+    try {
+      const r = await fetch('/api/admin/feed/candidates', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ id, action }) })
+      if (r.ok) setPending(p => p.filter(x => x.id !== id))
+    } finally { setCandBusy(null) }
+  }
   // add-custom form
   const [add, setAdd] = useState({ title: '', href: '', image_url: '', chip: '', video_url: '' })
   const [adding, setAdding] = useState(false)
@@ -181,6 +205,35 @@ export default function FeedAdminClient() {
 
   return (
     <div>
+      {/* ── KANDIDATAI: nauji auto-įrašai laukia patvirtinimo (auto-approve po 8h) ── */}
+      {pending.length > 0 && (
+        <div className="mb-6 rounded-xl border-2 border-amber-400/60 bg-[var(--bg-surface)] p-3">
+          <div className="mb-2 flex items-center gap-2">
+            <span className="text-sm font-black text-[var(--text-primary)]">🕐 Kandidatai ({pending.length})</span>
+            <span className="text-xs text-[var(--text-muted)]">nauji įrašai laukia patvirtinimo · nepatvirtinti auto-įsileidžiami po 8 val.</span>
+          </div>
+          <div className="flex flex-col gap-1.5">
+            {pending.map(p => (
+              <div key={p.id} className="flex items-center gap-3 rounded-lg border border-[var(--border-default)] p-2">
+                {p.image_url
+                  // eslint-disable-next-line @next/next/no-img-element
+                  ? <img src={p.image_url} alt="" className="h-10 w-10 shrink-0 rounded object-cover" />
+                  : <span className="h-10 w-10 shrink-0 rounded bg-[var(--bg-hover)]" />}
+                <div className="min-w-0 flex-1">
+                  <p className="m-0 truncate text-sm font-semibold text-[var(--text-primary)]">{p.title || p.item_key}</p>
+                  <p className="m-0 text-xs text-[var(--text-muted)]">{CAND_TYPE_LT[p.item_type || ''] || p.item_type} · {new Date(p.first_seen_at).toLocaleString('lt-LT', { month: '2-digit', day: '2-digit', hour: '2-digit', minute: '2-digit' })}</p>
+                </div>
+                {p.href && <a href={p.href} target="_blank" rel="noreferrer" className="text-xs text-[var(--text-muted)] hover:underline">peržiūra ↗</a>}
+                <button onClick={() => decideCand(p.id, 'approve')} disabled={candBusy === p.id}
+                  className="rounded-lg bg-green-600 px-3 py-1.5 text-xs font-bold text-white disabled:opacity-50">✓ Į feed'ą</button>
+                <button onClick={() => decideCand(p.id, 'reject')} disabled={candBusy === p.id}
+                  className="rounded-lg border border-[var(--border-default)] px-3 py-1.5 text-xs font-semibold text-[var(--text-muted)] disabled:opacity-50">✕ Atmesti</button>
+              </div>
+            ))}
+          </div>
+        </div>
+      )}
+
       <div className="mb-4 flex flex-wrap items-center gap-2">
         <button onClick={saveOrder} disabled={busy} className="rounded-lg bg-[var(--accent-orange)] px-4 py-2 text-sm font-bold text-white disabled:opacity-50">Išsaugoti tvarką</button>
         <button onClick={load} disabled={busy} className="rounded-lg border border-[var(--border-default)] px-4 py-2 text-sm font-semibold text-[var(--text-primary)]">↻ Atnaujinti</button>
