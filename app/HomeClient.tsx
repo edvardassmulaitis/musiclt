@@ -603,6 +603,18 @@ function DiscussionsWidget() {
    ════════════════════════════════════════════════════════════════════ */
 
 const REELS_DURATION = 13000
+/* Auto-advance trukmė pagal slide tipą: ilgas skaitomas turinys gauna daugiau,
+ * trumpos vizualinės kortelės — mažiau. Interaktyvios (chart/daily) auto
+ * neturi iš viso (žr. `interactive`). */
+function slideDuration(s: HeroSlide): number {
+  if (s.type === 'news' || s.type === 'blog') return 18000
+  if (s.type === 'daily_winner' || s.type === 'event' || s.type === 'verta' || s.type === 'discovery' || s.type === 'recording' || s.type === 'promo' || s.type === 'custom') return 9000
+  return REELS_DURATION
+}
+/* Unikalus slide raktas „peržiūrėta" žymėjimui. Anksčiau buvo vien href —
+ * `daily` ir `daily_winner` abu turi /dienos-daina, tad peržiūrėjus vieną
+ * pasižymėdavo abu. */
+const slideKey = (s: HeroSlide) => `${s.type}::${s.href}`
 
 /** Pilno news straipsnio body cache — modulio lygyje, kad keičiant slide'us
  *  nereiktų perkrauti to paties straipsnio iš naujo. */
@@ -885,6 +897,11 @@ function ReaderSlide({ slide, active, seen, dk, scrollTopSignal, onScrolledChang
   const artistName = slide.artist?.name || null
   const showArtistRow = !!artistName && slide.type !== 'event' && !isChart && !isDaily
   const showMedia = videoOn || slide.bgImg || hasVideo
+  // Trumpo turinio kortelės (be body teksto) — aukštesnis posteris, kad kortelė
+  // neatrodytų pustuštė (daily_winner/event/verta/discovery/recording).
+  const tallPoster = !body && !bodyLoading && !isChart && !isDaily && !isNews && !isBlog
+  // daily_winner: pirminis veiksmas — GROTI vietoje (ne navigacija į puslapį).
+  const playInPlace = slide.type === 'daily_winner' && hasVideo
 
   return (
     <div ref={scrollRef} className="rdr-slide" onScroll={onScroll}>
@@ -893,7 +910,7 @@ function ReaderSlide({ slide, active, seen, dk, scrollTopSignal, onScrolledChang
       {/* Grotuvo konteineris — visada kai kortelė aktyvi (iframe įdedamas imperatyviai
           paspaudimo metu). Paslėptas kol negroja. */}
       {(hasVideo || videoOn) ? (
-        <div className="rdr-media rdr-media-video">
+        <div className={`rdr-media rdr-media-video${tallPoster && !videoOn ? ' rdr-media-tall' : ''}`}>
           {/* Native YouTube <iframe> — šviežias kas paleidimą (key=playToken).
               Paprasčiausia ir patikimiausia (Safari įsk.): groja kas kartą, grįžus
               po braukimo irgi, o autoplay neuždegus — native ▶ visada po ranka. */}
@@ -1026,11 +1043,26 @@ function ReaderSlide({ slide, active, seen, dk, scrollTopSignal, onScrolledChang
               <svg width="20" height="20" viewBox="0 0 24 24" fill={liked ? '#f43f5e' : 'none'} stroke={liked ? '#f43f5e' : 'currentColor'} strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M20.8 4.6a5.5 5.5 0 0 0-7.8 0L12 5.6l-1-1a5.5 5.5 0 1 0-7.8 7.8l1 1L12 21l7.8-7.6 1-1a5.5 5.5 0 0 0 0-7.8z" /></svg>
             </button>
           )}
+          {playInPlace ? (
+            /* daily_winner: „Klausyti" GROJA čia pat (ne naviguoja); šalia — subtili
+               nuoroda į dienos dainos puslapį. */
+            <>
+              <button className="rdr-cta" onClick={() => play()}
+                style={{ background: '#f59e0b', border: 'none', cursor: 'pointer' }}>
+                {videoOn ? 'Groja' : 'Klausyti'}
+                <svg width="14" height="14" viewBox="0 0 24 24" fill="currentColor"><path d="M8 5v14l11-7z" /></svg>
+              </button>
+              <Link href={slide.href} onClick={onNavLink} className="rdr-ticket" style={{ textDecoration: 'none' }}>
+                Dienos daina
+              </Link>
+            </>
+          ) : (
           <Link href={slide.href} onClick={onNavLink} className={`rdr-cta${isNews ? ' subtle' : ''}`}
             style={isNews ? undefined : { background: seen ? 'rgba(255,255,255,0.18)' : (isChart ? (slide.type === 'chart_lt' ? 'var(--accent-orange)' : '#3b82f6') : isDaily ? '#f59e0b' : 'var(--accent-orange)') }}>
             {(isNews ? 'Pilna versija ir komentarai' : slide.ctaLabel) || (isChart ? 'Visas topas' : isDaily ? 'Dienos daina' : 'Skaityti')}
             <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.4" strokeLinecap="round" strokeLinejoin="round"><path d="M5 12h14M12 5l7 7-7 7" /></svg>
           </Link>
+          )}
           {slide.ticketUrl && (
             <a href={slide.ticketUrl} target="_blank" rel="noopener noreferrer" className="rdr-ticket">
               <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M3 7v3a2 2 0 0 1 0 4v3a1 1 0 0 0 1 1h16a1 1 0 0 0 1-1v-3a2 2 0 0 1 0-4V7a1 1 0 0 0-1-1H4a1 1 0 0 0-1 1z" /></svg>
@@ -1056,19 +1088,23 @@ function ReelsOverlay({ slides, initialIdx, seenSlides, onSeen, onClose, onChart
   dk: boolean
 }) {
   const [idx, setIdx] = useState(initialIdx)
-  const [progress, setProgress] = useState(0)
-  const [dragging, setDragging] = useState(false)
-  const [dragOffset, setDragOffset] = useState(0)
   const [scrolled, setScrolled] = useState(false)   // aktyvi kortelė nuscrollinta žemyn
   const [playing, setPlaying] = useState(false)      // aktyvioj kortelėj groja video
   const [scrollTopReq, setScrollTopReq] = useState(0) // „į viršų" rodyklės signalas aktyviai kortelei
 
+  // PERF PERDARYMAS (2026-07-03): progresas ir braukimas — per ref'us + tiesioginį
+  // DOM stilių, BE React state. Anksčiau setProgress kas RAF kadrą (~60fps)
+  // re-renderindavo VISĄ overlay su visomis kortelėmis → strigo, pamesdavo
+  // tap'us/klavišus. Dabar React re-renderina TIK keičiantis idx/scrolled/playing.
   const startRef = useRef<number>(0)
   const rafRef = useRef<any>(null)
+  const barFillRef = useRef<HTMLDivElement | null>(null)   // aktyvios juostelės fill
+  const trackRef = useRef<HTMLDivElement | null>(null)     // slide track (drag transform)
   const touchStartX = useRef<number>(0)
   const touchStartY = useRef<number>(0)
   const gestureDir = useRef<'h' | 'v' | null>(null)
   const ignoreGesture = useRef<boolean>(false)  // tap'ai ant mygtukų/nuorodų/grotuvo NEturi tapti braukimu
+  const draggingRef = useRef(false)
 
   const slide = slides[idx]
   // Interaktyvios kortelės (topai, dienos daina) — auto-advance IŠ VISO neveikia
@@ -1077,32 +1113,39 @@ function ReelsOverlay({ slides, initialIdx, seenSlides, onSeen, onClose, onChart
   const autoOff = interactive || scrolled || playing
   // Braukimas į šoną veikia VISADA (ir skaitant) — pagal gesto kryptį (h vs v).
 
-  const stopProgress = useCallback(() => { cancelAnimationFrame(rafRef.current) }, [])
-  const startProgress = useCallback(() => {
-    cancelAnimationFrame(rafRef.current)
-    startRef.current = Date.now()
-    const tick = () => {
-      const p = Math.min((Date.now() - startRef.current) / REELS_DURATION, 1)
-      setProgress(p)
-      if (p < 1) rafRef.current = requestAnimationFrame(tick)
-    }
-    rafRef.current = requestAnimationFrame(tick)
-  }, [])
-
   const goTo = useCallback((n: number) => {
     if (n < 0) return
     if (n >= slides.length) { onClose(); return }
     setIdx(n)
   }, [slides.length, onClose])
 
+  // Ref'ai stabiliems handler'iams (klaviatūra/RAF nesikabina iš naujo kas idx).
+  const idxRef = useRef(idx); idxRef.current = idx
+  const goToRef = useRef(goTo); goToRef.current = goTo
+  const autoOffRef = useRef(autoOff); autoOffRef.current = autoOff
+
+  const stopProgress = useCallback(() => { cancelAnimationFrame(rafRef.current) }, [])
+  const startProgress = useCallback(() => {
+    cancelAnimationFrame(rafRef.current)
+    startRef.current = Date.now()
+    const dur = slides[idxRef.current] ? slideDuration(slides[idxRef.current]) : REELS_DURATION
+    const tick = () => {
+      const p = Math.min((Date.now() - startRef.current) / dur, 1)
+      if (barFillRef.current) barFillRef.current.style.width = `${p * 100}%`
+      if (p >= 1) { if (!autoOffRef.current) goToRef.current(idxRef.current + 1); return }
+      rafRef.current = requestAnimationFrame(tick)
+    }
+    rafRef.current = requestAnimationFrame(tick)
+  }, [slides]) // eslint-disable-line
+
   /* Slide pasikeitė — reset; pažymim seen išeinant. */
   useEffect(() => {
     if (!slide) return
     setScrolled(false)
     setPlaying(false)
-    setProgress(0)
+    if (barFillRef.current) barFillRef.current.style.width = '0%'
     startProgress()
-    return () => { stopProgress(); onSeen(slide.href) }
+    return () => { stopProgress(); onSeen(slideKey(slide)) }
   }, [idx]) // eslint-disable-line
 
   /* Pauzė kai skaitoma/grojama. */
@@ -1110,27 +1153,34 @@ function ReelsOverlay({ slides, initialIdx, seenSlides, onSeen, onClose, onChart
     if (autoOff) stopProgress(); else startProgress()
   }, [autoOff]) // eslint-disable-line
 
-  /* Auto-advance. */
-  useEffect(() => {
-    if (progress >= 1 && !autoOff) goTo(idx + 1)
-  }, [progress]) // eslint-disable-line
-
-  /* Klaviatūra (desktop). */
+  /* Klaviatūra (desktop) — VIENAS stabilus listener'is (per ref'us). Anksčiau
+   * re-subscribindavo kas idx ir per re-render audrą pamesdavo paspaudimus. */
   useEffect(() => {
     const onKey = (e: KeyboardEvent) => {
       if (e.key === 'Escape') onClose()
-      else if (e.key === 'ArrowRight') goTo(idx + 1)
-      else if (e.key === 'ArrowLeft') goTo(idx - 1)
+      else if (e.key === 'ArrowRight') goToRef.current(idxRef.current + 1)
+      else if (e.key === 'ArrowLeft') goToRef.current(idxRef.current - 1)
     }
     window.addEventListener('keydown', onKey)
     return () => window.removeEventListener('keydown', onKey)
-  }, [idx, goTo, onClose])
+  }, [onClose])
 
-  /* Touch — horizontalus braukimas keičia istoriją (tik jei NEnuscrollinta);
-   *  vertikalus = native scroll. */
+  /* Touch — horizontalus braukimas keičia istoriją; vertikalus = native scroll.
+   * Drag poslinkis piešiamas TIESIOGIAI ant track'o (be state → be re-render'ų). */
+  const setTrackX = (extraPx: number) => {
+    const el = trackRef.current
+    if (!el) return
+    const w = typeof window !== 'undefined' ? window.innerWidth : 400
+    el.style.transition = 'none'
+    el.style.transform = `translateX(calc(${-idxRef.current * 100}% + ${(extraPx / w) * 100}%))`
+  }
+  const resetTrackX = () => {
+    const el = trackRef.current
+    if (!el) return
+    el.style.transition = 'transform .32s cubic-bezier(.4,0,.2,1)'
+    el.style.transform = `translateX(${-idxRef.current * 100}%)`
+  }
   const onTouchStart = (e: React.TouchEvent) => {
-    // Jei lietimas prasideda ant interaktyvaus elemento (play, balsavimas, nuoroda,
-    // grotuvas) — NEperimam gesto, kad mygtukas tikrai suveiktų iš pirmo karto.
     const t = e.target as HTMLElement
     ignoreGesture.current = !!(t && t.closest && t.closest('button, a, iframe, input, textarea, .rdr-actions'))
     touchStartX.current = e.touches[0].clientX
@@ -1143,39 +1193,38 @@ function ReelsOverlay({ slides, initialIdx, seenSlides, onSeen, onClose, onChart
     const dy = e.touches[0].clientY - touchStartY.current
     if (gestureDir.current === null && (Math.abs(dx) > 12 || Math.abs(dy) > 12)) {
       gestureDir.current = Math.abs(dx) > Math.abs(dy) * 1.2 ? 'h' : 'v'
-      if (gestureDir.current === 'h') { setDragging(true); stopProgress() }
+      if (gestureDir.current === 'h') { draggingRef.current = true; stopProgress() }
     }
     if (gestureDir.current === 'h') {
       e.preventDefault()
-      setDragOffset(dx)
+      setTrackX(dx)
     }
   }
   const onTouchEnd = (e: React.TouchEvent) => {
     if (ignoreGesture.current) { ignoreGesture.current = false; return }
     if (gestureDir.current === 'h') {
       const dx = e.changedTouches[0].clientX - touchStartX.current
-      setDragging(false)
-      setDragOffset(0)
-      if (Math.abs(dx) > 55) goTo(dx < 0 ? idx + 1 : idx - 1)
-      else if (!autoOff) startProgress()
+      draggingRef.current = false
+      if (Math.abs(dx) > 55) { resetTrackX(); goTo(dx < 0 ? idx + 1 : idx - 1) }
+      else { resetTrackX(); if (!autoOff) startProgress() }
     }
     gestureDir.current = null
   }
 
-  const translateX = -idx * 100 + (dragging ? (dragOffset / (typeof window !== 'undefined' ? window.innerWidth : 400)) * 100 : 0)
+  const translateX = -idx * 100
 
   return (
     <div className={`hp-reels${dk ? '' : ' light'}`}>
-      {/* Progreso juostelės */}
+      {/* Progreso juostelės — aktyvios fill'as varomas per ref (RAF), be state. */}
       <div className="rdr-bars">
         {slides.map((s, i) => {
-          const isSeen = seenSlides.has(s.href)
+          const isSeen = seenSlides.has(slideKey(s))
           const isPast = i < idx
           const isCurrent = i === idx
           const barColor = isCurrent ? 'var(--accent-orange)' : isPast ? (isSeen ? 'rgba(255,255,255,0.7)' : 'var(--accent-orange)') : 'rgba(255,255,255,0.0)'
           return (
             <div key={i} className="rdr-bar">
-              <div style={{ height: '100%', borderRadius: 2, background: barColor, width: isPast ? '100%' : isCurrent ? `${progress * 100}%` : '0%' }} />
+              <div ref={isCurrent ? barFillRef : undefined} style={{ height: '100%', borderRadius: 2, background: barColor, width: isPast ? '100%' : '0%' }} />
             </div>
           )
         })}
@@ -1193,27 +1242,32 @@ function ReelsOverlay({ slides, initialIdx, seenSlides, onSeen, onClose, onChart
       <button className="rdr-nav rdr-nav-r" onClick={() => goTo(idx + 1)} aria-label="Toliau">›</button>
 
       <div
+        ref={trackRef}
         className="hp-reels-track"
-        style={{ transform: `translateX(${translateX}%)`, transition: dragging ? 'none' : 'transform .32s cubic-bezier(.4,0,.2,1)' }}
+        style={{ transform: `translateX(${translateX}%)`, transition: 'transform .32s cubic-bezier(.4,0,.2,1)' }}
         onTouchStart={onTouchStart}
         onTouchMove={onTouchMove}
         onTouchEnd={onTouchEnd}
       >
         {slides.map((s, i) => (
           <div key={`${s.type}-${s.href}-${i}`} className="hp-reels-slide">
-            <ReaderSlide
-              slide={s}
-              active={i === idx}
-              seen={seenSlides.has(s.href)}
-              dk={dk}
-              scrollTopSignal={i === idx ? scrollTopReq : 0}
-              onScrolledChange={(sc) => { if (i === idx) setScrolled(sc) }}
-              onPlayingChange={(pl) => { if (i === idx) setPlaying(pl) }}
-              onClose={onClose}
-              onChartVote={onChartVote}
-              onDailyVote={onDailyVote}
-              onNavLink={onClose}
-            />
+            {/* PERF: mount'inam tik aktyvią kortelę ±1 (kaimynai preload'ui).
+                Anksčiau visos ~25 kortelės kartu — sunkus atidarymas. */}
+            {Math.abs(i - idx) <= 1 ? (
+              <ReaderSlide
+                slide={s}
+                active={i === idx}
+                seen={seenSlides.has(slideKey(s))}
+                dk={dk}
+                scrollTopSignal={i === idx ? scrollTopReq : 0}
+                onScrolledChange={(sc) => { if (i === idx) setScrolled(sc) }}
+                onPlayingChange={(pl) => { if (i === idx) setPlaying(pl) }}
+                onClose={onClose}
+                onChartVote={onChartVote}
+                onDailyVote={onDailyVote}
+                onNavLink={onClose}
+              />
+            ) : null}
           </div>
         ))}
       </div>
@@ -2958,7 +3012,8 @@ export default function HomeClient({ initialLatest, initialHero }: { initialLate
       const d = s ? new Date(s) : null
       return d && !isNaN(d.getTime()) ? `${d.getFullYear()} m. ${MONTHS_FULL_LT[d.getMonth()]} ${d.getDate()} d.` : ''
     }
-    news.slice(0, 30).forEach(n => {
+    // TIPO RIBA: max 8 naujienos (anksčiau 30 — naujienos uždominuodavo feed'ą).
+    news.slice(0, 8).forEach(n => {
       const typeLT = n.type === 'review' ? 'Recenzija' : n.type === 'interview' ? 'Interviu' : n.type === 'report' ? 'Reportažas' : 'Naujiena'
       const songs = newsSongs[n.id] || []
       const song = songs.find((s: any) => s.youtube_url)
@@ -2983,7 +3038,16 @@ export default function HomeClient({ initialLatest, initialHero }: { initialLate
     })
     // Admine pažymėti vartotojų įrašai (home_hero) — įsiterpia į feed'ą tarp
     // naujienų pagal publikavimo datą (badge pagal įrašo tipą).
-    heroPosts.forEach(p => {
+    // ŠVIEŽUMAS: admin prisegti hero įrašai auto-pasensta po 14 d. (anksčiau
+    // kabodavo mėnesiais, pvz. vasario topas liepą). TIPO RIBA: max 4.
+    heroPosts
+      .filter(p => {
+        if (!p.published_at) return true
+        const d = new Date(p.published_at)
+        return isNaN(d.getTime()) || (Date.now() - d.getTime()) < 14 * 86400000
+      })
+      .slice(0, 4)
+      .forEach(p => {
       dated.push({ sortMs: ms(p.published_at), slide: {
         type: 'blog', chip: (p.chip || 'Įrašas').toUpperCase(), chipBg: p.chipBg || '#94a3b8',
         title: sanitizeTitle(p.title),
@@ -3064,13 +3128,22 @@ export default function HomeClient({ initialLatest, initialHero }: { initialLate
     if (dailyWinners.length > 0) {
       const w = dailyWinners[0]  // naujausias laimėtojas
       const tr = w?.tracks
-      if (tr) {
+      // ŠVIEŽUMAS: laimėtojas rodomas TIK jei jo data per pask. 2 paras — kitaip
+      // feed'e kabodavo pasenusios „Vakar laimėjo" dainos (pastebėta 2026-07-03).
+      const wDate = w?.date ? new Date(w.date) : null
+      const ageDays = wDate && !isNaN(wDate.getTime()) ? (Date.now() - wDate.getTime()) / 86400000 : Infinity
+      const isYesterday = ageDays < 1.5
+      if (tr && ageDays <= 2.5) {
+        // Sąžiningas tekstas: „Vakar laimėjo" tik kai tikrai vakar; kitaip — reali data.
+        const wonLabel = isYesterday
+          ? 'Vakar laimėjo'
+          : (wDate ? `${MONTHS_FULL_LT[wDate.getMonth()][0].toUpperCase()}${MONTHS_FULL_LT[wDate.getMonth()].slice(1)} ${wDate.getDate()} d. laimėjo` : 'Laimėjo')
         dailySlides.push({
           type: 'daily_winner', chip: 'DIENOS DAINA', chipBg: '#f59e0b',
           title: sanitizeTitle(tr.title || ''),
           subtitle: '',
           excerpt: w.winning_comment || '',
-          metaLine: ['Vakar laimėjo', tr.artists?.name, w.proposer ? `siūlė ${w.proposer.full_name || w.proposer.username}` : ''].filter(Boolean).join(' · '),
+          metaLine: [wonLabel, tr.artists?.name, w.proposer ? `siūlė ${w.proposer.full_name || w.proposer.username}` : ''].filter(Boolean).join(' · '),
           bgImg: extractYouTubeId(tr.video_url || null) ? `https://img.youtube.com/vi/${extractYouTubeId(tr.video_url || null)}/hqdefault.jpg` : (tr.cover_url || tr.artists?.cover_image_url || null),
           href: '/dienos-daina',
           videoId: extractYouTubeId(tr.video_url || null),
@@ -3083,8 +3156,16 @@ export default function HomeClient({ initialLatest, initialHero }: { initialLate
     }
     // Įterpiam dienos dainas giliau į feed'ą (po ~3 įrašų).
     slides.splice(Math.min(3, slides.length), 0, ...dailySlides)
-    // Verti kelionės koncertai (užsienyje).
-    ;(vertaConcerts.concerts || []).slice(0, 2).forEach((c: any) => {
+    // Verti kelionės koncertai (užsienyje). ŠVIEŽUMAS + TIPO RIBA: tik ateities
+    // datos ir max 1 kortelė (anksčiau 2 + pasenusios datos — perdominuodavo).
+    ;(vertaConcerts.concerts || [])
+      .filter((c: any) => {
+        if (!c.date) return true
+        const d = new Date(c.date)
+        return isNaN(d.getTime()) || d.getTime() > Date.now() - 86400000
+      })
+      .slice(0, 1)
+      .forEach((c: any) => {
       const dest = (vertaConcerts.destinations || []).find((x: any) => x.key === c.destKey)
       const cd = c.date ? new Date(c.date) : null
       const ds = cd && !isNaN(cd.getTime()) ? `${cd.getFullYear()} m. ${MONTHS_FULL_LT[cd.getMonth()]} ${cd.getDate()} d.` : ''
@@ -3108,7 +3189,8 @@ export default function HomeClient({ initialLatest, initialHero }: { initialLate
     const evSeen = new Set<number>()
     const evList: Event[] = []
     for (const ev of heroEvents) { if (!evSeen.has(ev.id)) { evSeen.add(ev.id); evList.push(ev) } }
-    for (const ev of events) { if (evList.length >= 4) break; if (!evSeen.has(ev.id)) { evSeen.add(ev.id); evList.push(ev) } }
+    // TIPO RIBA: max 3 renginiai (kad afiša neuždominuotų feed'o).
+    for (const ev of events) { if (evList.length >= 3) break; if (!evSeen.has(ev.id)) { evSeen.add(ev.id); evList.push(ev) } }
     evList.forEach(ev => {
       // Renginys be vizualo NEPATENKA (rebuild2) į feed'ą (kad nebūtų tuščių tamsių kortelių).
       const evImg = ev.image_small_url || ev.cover_image_url || null
@@ -3185,6 +3267,17 @@ export default function HomeClient({ initialLatest, initialHero }: { initialLate
       return ((a.ord ?? -1) - (b.ord ?? -1)) || (a.i - b.i)
     })
     const finalSlides = items.map(x => x.slide)
+
+    // ANTI-DOMINAVIMAS: ne daugiau 2 to paties tipo iš eilės (pvz. naujienų ar
+    // renginių blokai išsklaidomi) — nekeičiant bendro eiliškumo daugiau nei būtina.
+    for (let i = 2; i < finalSlides.length; i++) {
+      if (finalSlides[i].type === finalSlides[i - 1].type && finalSlides[i].type === finalSlides[i - 2].type) {
+        const j = finalSlides.findIndex((s, k) => k > i && s.type !== finalSlides[i].type)
+        if (j === -1) break
+        const [moved] = finalSlides.splice(j, 1)
+        finalSlides.splice(i, 0, moved)
+      }
+    }
 
     setHeroSlides(finalSlides.length ? finalSlides : slides)
     // PERF: hero atsiskleidžia anksčiau (core-ready), o `rest` slide'ai prisikabina
@@ -3309,6 +3402,7 @@ export default function HomeClient({ initialLatest, initialHero }: { initialLate
         .rdr-ytslot{position:absolute;inset:0;width:100%;height:100%;border:0;display:block;background:#000}
         /* Video kortelės media — 16/10, NORMALUS srautas (NE sticky → scrollinasi su tekstu) */
         .rdr-media-video{aspect-ratio:16/10;max-height:none}
+        .rdr-media-tall{aspect-ratio:4/5;max-height:60vh}
         .rdr-poster-layer{position:absolute;inset:0;z-index:2}
         .rdr-poster{position:absolute;inset:0;z-index:2;border:0;padding:0;margin:0;cursor:pointer;background:#000;display:block;width:100%;height:100%}
         .rdr-poster-bg{position:absolute;inset:0;background-size:cover;background-position:center;filter:blur(26px) brightness(0.55);transform:scale(1.18)}
@@ -3627,7 +3721,7 @@ export default function HomeClient({ initialLatest, initialHero }: { initialLate
                   )
                 }
                 // ── Default slide (news/event/promo) — opens reels ──
-                const isSeen = seenSlides.has(slide.href)
+                const isSeen = seenSlides.has(slideKey(slide))
                 // Renginiams title JAU yra atlikėjas — nerodom dar kartą po juo.
                 const artistName = slide.type === 'event' ? null : (slide.artist?.name || null)
                 // showExcerpt — naujienoms NEBE rodom subtitle (excerpt'as).
