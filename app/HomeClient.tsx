@@ -3824,7 +3824,7 @@ export default function HomeClient({ initialLatest, initialHero }: { initialLate
         {/* Mobile chart pašalintas — chart'ai integruoti į hero v2. */}
 
         {/* ═══════════════════════ REELS OVERLAY — horizontal Stories ═══════════════════════ */}
-        {reelsOpen && (
+        {reelsOpen && typeof document !== 'undefined' && createPortal((
           <ReelsOverlay
             slides={heroSlides}
             initialIdx={reelsIdx}
@@ -3843,7 +3843,7 @@ export default function HomeClient({ initialLatest, initialHero }: { initialLate
             onDailyVote={() => setDailySheetOpen(true)}
             dk={dk}
           />
-        )}
+        ), document.body)}
 
         {/* ═══════════════════════ CHART BOTTOM SHEET ═══════════════════════ */}
         <ChartBottomSheet
