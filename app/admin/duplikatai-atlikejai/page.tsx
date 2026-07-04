@@ -132,7 +132,7 @@ export default function DuplikataiAtlikejai() {
                     </span>
                     <a href={`/atlikejai/${a.id}`} target="_blank" rel="noreferrer"
                       className="text-xs hover:underline" style={{ color: 'var(--text-muted)' }}>peržiūra ↗</a>
-                    {keeper[g.slug] === a.id && <span className="text-[11px] font-bold px-1.5 py-0.5 rounded bg-green-100 text-green-700">KEEPER</span>}
+                    {keeper[g.slug] === a.id && <span className="text-[12px] font-bold px-1.5 py-0.5 rounded bg-green-100 text-green-700">KEEPER</span>}
                   </label>
                 ))}
               </div>

@@ -240,7 +240,7 @@ export function NewConversationModal({ onClose }: Props) {
                   display: 'inline-flex', alignItems: 'center', gap: 6,
                   padding: '4px 4px 4px 4px', borderRadius: 16,
                   background: 'var(--bg-elevated)', border: '1px solid var(--border-default)',
-                  fontSize: 13, color: 'var(--text-primary)', cursor: 'pointer',
+                  fontSize: 14, color: 'var(--text-primary)', cursor: 'pointer',
                 }}
               >
                 <ChatAvatar url={u.avatar_url} fallbackName={u.full_name || u.username} size={20} />
@@ -279,7 +279,7 @@ export function NewConversationModal({ onClose }: Props) {
 
         <div style={{ maxHeight: 320, overflowY: 'auto', borderRadius: 8, border: '1px solid var(--border-subtle)' }}>
           {results.length === 0 ? (
-            <div style={{ padding: 24, textAlign: 'center', fontSize: 13, color: 'var(--text-muted)' }}>
+            <div style={{ padding: 24, textAlign: 'center', fontSize: 14, color: 'var(--text-muted)' }}>
               {query ? 'Niekas neatitiko' : 'Pradėk vesti vartotojo vardą…'}
             </div>
           ) : (
@@ -307,7 +307,7 @@ export function NewConversationModal({ onClose }: Props) {
                       {u.full_name || u.username || 'Vartotojas'}
                     </div>
                     {u.username && u.full_name && (
-                      <div style={{ fontSize: 12, color: 'var(--text-muted)' }}>@{u.username}</div>
+                      <div style={{ fontSize: 13, color: 'var(--text-muted)' }}>@{u.username}</div>
                     )}
                   </div>
                   {sel && (
@@ -361,7 +361,7 @@ function ModeButton({ active, children, onClick }: { active: boolean; children: 
         flex: 1, padding: '7px 12px', borderRadius: 6, border: 'none',
         background: active ? 'var(--bg-surface)' : 'transparent',
         color: active ? 'var(--text-primary)' : 'var(--text-muted)',
-        fontSize: 13, fontWeight: 700, cursor: 'pointer',
+        fontSize: 14, fontWeight: 700, cursor: 'pointer',
         boxShadow: active ? '0 1px 3px rgba(0,0,0,0.2)' : 'none',
         transition: 'all .12s',
       }}

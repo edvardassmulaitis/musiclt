@@ -301,7 +301,7 @@ export default function SettingsPage() {
             )}
             <div className="min-w-0 flex-1">
               <div className="text-[14px] font-black truncate leading-tight">{name}</div>
-              {uname && <div className="text-[13px] truncate" style={{ color: 'var(--text-muted)' }}>@{uname}</div>}
+              {uname && <div className="text-[14px] truncate" style={{ color: 'var(--text-muted)' }}>@{uname}</div>}
             </div>
             {uname && (
               <Link href={`/@${uname}`} title="Peržiūrėti viešą profilį" aria-label="Peržiūrėti viešą profilį"
@@ -438,11 +438,11 @@ export default function SettingsPage() {
                       {/* eslint-disable-next-line @next/next/no-img-element */}
                       <img src={p.thumb_url || p.url} alt="" className="w-full h-full object-cover" />
                       <button type="button" onClick={() => setPhotos(arr => arr.filter((_, j) => j !== i))}
-                        className="absolute top-1 right-1 w-6 h-6 rounded-full flex items-center justify-center text-[13px] text-white" style={{ background: 'rgba(0,0,0,0.6)' }} aria-label="Pašalinti">✕</button>
+                        className="absolute top-1 right-1 w-6 h-6 rounded-full flex items-center justify-center text-[14px] text-white" style={{ background: 'rgba(0,0,0,0.6)' }} aria-label="Pašalinti">✕</button>
                     </div>
                   ))}
                   <button type="button" onClick={() => photoInput.current?.click()} disabled={uploading === 'photo'}
-                    className="aspect-square rounded-lg flex items-center justify-center text-[12px] font-bold transition hover:opacity-85 disabled:opacity-60"
+                    className="aspect-square rounded-lg flex items-center justify-center text-[13px] font-bold transition hover:opacity-85 disabled:opacity-60"
                     style={{ background: 'var(--card-bg)', border: '1px dashed var(--border-default)', color: 'var(--accent-orange)' }}>
                     {uploading === 'photo' ? '…' : '+ Įkelti'}
                   </button>
@@ -453,7 +453,7 @@ export default function SettingsPage() {
               {profileErr && <p className="text-[14px] font-semibold mt-4" style={{ color: '#ef4444' }}>{profileErr}</p>}
 
               <div className="flex items-center justify-end gap-3 mt-6 pt-4" style={{ borderTop: '1px solid var(--border-subtle)' }}>
-                {savedProfile && <span className="inline-flex items-center gap-1 text-[13.5px] font-bold" style={{ color: '#34d399' }}><IcCheck className="h-3.5 w-3.5" /> Išsaugota</span>}
+                {savedProfile && <span className="inline-flex items-center gap-1 text-[14.5px] font-bold" style={{ color: '#34d399' }}><IcCheck className="h-3.5 w-3.5" /> Išsaugota</span>}
                 <button type="button" onClick={saveProfile} disabled={savingProfile || !!uploading}
                   className="px-5 py-2.5 rounded-xl text-[14.5px] font-extrabold transition hover:opacity-90 disabled:opacity-60"
                   style={{ background: 'var(--accent-orange)', color: '#fff' }}>
@@ -466,7 +466,7 @@ export default function SettingsPage() {
           {section === 'rodinys' && (
             <Card>
               <CardHead title="Profilio išdėstymas" sub="Ką lankytojai mato pirma, atvėrę tavo viešą profilį."
-                right={savedTab ? <span className="inline-flex items-center gap-1 text-[12.5px] font-bold" style={{ color: '#34d399' }}><IcCheck className="h-3.5 w-3.5" /> Išsaugota</span> : null} />
+                right={savedTab ? <span className="inline-flex items-center gap-1 text-[13.5px] font-bold" style={{ color: '#34d399' }}><IcCheck className="h-3.5 w-3.5" /> Išsaugota</span> : null} />
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-2.5">
                 {DEFAULT_VIEW_OPTIONS.map(opt => {
                   const active = defaultTab === opt.key
@@ -478,7 +478,7 @@ export default function SettingsPage() {
                         <span className="text-[14.5px] font-bold" style={{ color: active ? 'var(--accent-orange)' : 'var(--text-primary)' }}>{opt.label}</span>
                         <span className="flex h-4 w-4 items-center justify-center rounded-full shrink-0" style={{ border: `1.5px solid ${active ? 'var(--accent-orange)' : 'var(--border-default)'}`, background: active ? 'var(--accent-orange)' : 'transparent' }}>{active && <IcCheck className="h-2.5 w-2.5" />}</span>
                       </div>
-                      <div className="text-[12.5px] mt-1 leading-snug" style={{ color: 'var(--text-muted)' }}>{opt.sub}</div>
+                      <div className="text-[13.5px] mt-1 leading-snug" style={{ color: 'var(--text-muted)' }}>{opt.sub}</div>
                     </button>
                   )
                 })}
@@ -536,12 +536,12 @@ export default function SettingsPage() {
                   ) : (
                     <div className="rounded-xl p-4" style={{ background: 'rgba(244,63,94,0.06)', border: '1px solid rgba(244,63,94,0.25)' }}>
                       <div className="text-[14.5px] font-bold" style={{ color: '#f43f5e' }}>Deaktyvuoti anketą?</div>
-                      <ul className="text-[13.5px] mt-2 leading-relaxed list-disc pl-4" style={{ color: 'var(--text-secondary)' }}>
+                      <ul className="text-[14.5px] mt-2 leading-relaxed list-disc pl-4" style={{ color: 'var(--text-secondary)' }}>
                         <li>Tavo viešas profilis taps nematomas (puslapis grąžins „nerasta“).</li>
                         <li>Būsi paslėptas iš bendruomenės ir narių sąrašų.</li>
                         <li>Duomenys NEbus ištrinti — bet kada gali vėl aktyvuoti.</li>
                       </ul>
-                      <label className="flex items-center gap-2 mt-3 text-[13.5px] cursor-pointer" style={{ color: 'var(--text-primary)' }}>
+                      <label className="flex items-center gap-2 mt-3 text-[14.5px] cursor-pointer" style={{ color: 'var(--text-primary)' }}>
                         <input type="checkbox" checked={deactAck} onChange={e => setDeactAck(e.target.checked)} />
                         Suprantu ir noriu deaktyvuoti savo anketą.
                       </label>
@@ -557,7 +557,7 @@ export default function SettingsPage() {
                   )
                 ) : (
                   <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 rounded-xl p-4" style={{ background: 'var(--bg-elevated)', border: '1px solid var(--border-default)' }}>
-                    <div className="text-[13.5px]" style={{ color: 'var(--text-muted)' }}>Anketa deaktyvuota. Profilis ir įrašai paslėpti nuo kitų.</div>
+                    <div className="text-[14.5px]" style={{ color: 'var(--text-muted)' }}>Anketa deaktyvuota. Profilis ir įrašai paslėpti nuo kitų.</div>
                     <button type="button" disabled={deactBusy} onClick={() => setAnketaActive(true)}
                       className="shrink-0 rounded-xl px-4 py-2 text-[14px] font-extrabold transition hover:opacity-90 disabled:opacity-60"
                       style={{ background: 'var(--accent-orange)', color: '#fff' }}>{deactBusy ? 'Vykdoma…' : 'Vėl aktyvuoti'}</button>
@@ -596,15 +596,15 @@ function CardHead({ title, sub, right }: { title: string; sub?: string; right?: 
         <h2 className="text-[17px] sm:text-[18px] font-black tracking-tight">{title}</h2>
         {right}
       </div>
-      {sub && <p className="text-[13.5px] mt-1 leading-snug" style={{ color: 'var(--text-muted)' }}>{sub}</p>}
+      {sub && <p className="text-[14.5px] mt-1 leading-snug" style={{ color: 'var(--text-muted)' }}>{sub}</p>}
     </div>
   )
 }
 function Label({ children }: { children: ReactNode }) {
-  return <span className="block text-[12px] font-extrabold uppercase tracking-wider mb-1.5" style={{ color: 'var(--text-muted)' }}>{children}</span>
+  return <span className="block text-[13px] font-extrabold uppercase tracking-wider mb-1.5" style={{ color: 'var(--text-muted)' }}>{children}</span>
 }
 function Hint({ children }: { children: ReactNode }) {
-  return <span className="block text-[12px] mt-1 truncate" style={{ color: 'var(--text-faint)' }}>{children}</span>
+  return <span className="block text-[13px] mt-1 truncate" style={{ color: 'var(--text-faint)' }}>{children}</span>
 }
 function Inp({ value, onChange, placeholder, maxLength }: { value: string; onChange: (v: string) => void; placeholder?: string; maxLength?: number }) {
   return <input className="w-full px-3 py-2 rounded-lg text-sm outline-none" style={fieldStyle} value={value} maxLength={maxLength} placeholder={placeholder} onChange={e => onChange(e.target.value)} />
@@ -651,15 +651,15 @@ function NotificationsBody({ prefs, savingPref, toggleNotif, masterNotif, pushSt
           <div className="flex-1 min-w-0">
             <div className="text-[14px] font-bold flex items-center gap-2" style={{ color: 'var(--text-primary)' }}>
               Push pranešimai naršyklėje
-              {pushStatus === 'subscribed' && <span className="px-2 py-0.5 rounded-full text-[11px] font-extrabold uppercase tracking-wide" style={{ background: 'rgba(16,185,129,0.15)', color: '#10b981' }}>Aktyvūs</span>}
+              {pushStatus === 'subscribed' && <span className="px-2 py-0.5 rounded-full text-[12px] font-extrabold uppercase tracking-wide" style={{ background: 'rgba(16,185,129,0.15)', color: '#10b981' }}>Aktyvūs</span>}
             </div>
-            <div className="text-[13px] mt-0.5 leading-snug" style={{ color: 'var(--text-muted)' }}>
+            <div className="text-[14px] mt-0.5 leading-snug" style={{ color: 'var(--text-muted)' }}>
               {pushStatus === 'subscribed' ? 'Naują pranešimą gausi tiesiai į naršyklę net kai music.lt nėra atviras.'
                 : pushStatus === 'denied' ? 'Naršyklė atmetė leidimą. Atblokuok rankiniu būdu naršyklės nustatymuose, tada pakartok.'
                 : pushStatus === 'not-configured' ? 'Push paslauga dar neaktyvuota svetainėje.'
                 : 'Įjunk, kad gautum pranešimus net kai music.lt skirtukas uždarytas.'}
             </div>
-            {pushError && <div className="text-[12px] mt-1" style={{ color: '#ef4444' }}>{pushError}</div>}
+            {pushError && <div className="text-[13px] mt-1" style={{ color: '#ef4444' }}>{pushError}</div>}
           </div>
           {(pushStatus === 'subscribed' || pushStatus === 'unsubscribed') && <Toggle checked={pushStatus === 'subscribed'} onChange={togglePush} disabled={pushBusy} size="lg" />}
         </div>
@@ -668,20 +668,20 @@ function NotificationsBody({ prefs, savingPref, toggleNotif, masterNotif, pushSt
       <div className="rounded-xl p-4 flex items-center justify-between gap-4" style={{ background: 'var(--bg-elevated)', border: '1px solid var(--border-default)' }}>
         <div>
           <div className="text-[14px] font-bold" style={{ color: 'var(--text-primary)' }}>Visi pranešimai</div>
-          <div className="text-[13px]" style={{ color: 'var(--text-muted)' }}>{allEnabled ? 'Įjungta — gauni visus pažymėtus žemiau.' : anyEnabled ? 'Iš dalies — kai kurie tipai išjungti.' : 'Išjungta — pranešimų negausi.'}</div>
+          <div className="text-[14px]" style={{ color: 'var(--text-muted)' }}>{allEnabled ? 'Įjungta — gauni visus pažymėtus žemiau.' : anyEnabled ? 'Iš dalies — kai kurie tipai išjungti.' : 'Išjungta — pranešimų negausi.'}</div>
         </div>
         <Toggle checked={allEnabled} onChange={() => masterNotif(!allEnabled)} disabled={savingPref === '__all'} size="lg" />
       </div>
 
       {(['reactions', 'comments', 'community', 'system'] as const).map(g => grouped[g] && (
         <div key={g}>
-          <div className="text-[12px] font-extrabold uppercase tracking-wider mb-2 px-1" style={{ color: 'var(--text-muted)' }}>{GROUP_LABEL[g]}</div>
+          <div className="text-[13px] font-extrabold uppercase tracking-wider mb-2 px-1" style={{ color: 'var(--text-muted)' }}>{GROUP_LABEL[g]}</div>
           <div className="rounded-xl overflow-hidden" style={{ background: 'var(--bg-elevated)', border: '1px solid var(--border-default)' }}>
             {grouped[g].map((t, i) => (
               <div key={t.type} className="px-4 py-3.5 flex items-center justify-between gap-4" style={{ borderTop: i === 0 ? 'none' : '1px solid var(--border-subtle)' }}>
                 <div className="flex-1 min-w-0">
                   <div className="text-[14.5px] font-semibold" style={{ color: 'var(--text-primary)' }}>{t.label}</div>
-                  <div className="text-[13px] mt-0.5 leading-snug" style={{ color: 'var(--text-muted)' }}>{t.desc}</div>
+                  <div className="text-[14px] mt-0.5 leading-snug" style={{ color: 'var(--text-muted)' }}>{t.desc}</div>
                 </div>
                 <Toggle checked={prefs[t.type] !== false} onChange={() => toggleNotif(t.type)} disabled={savingPref === t.type} />
               </div>
@@ -690,7 +690,7 @@ function NotificationsBody({ prefs, savingPref, toggleNotif, masterNotif, pushSt
         </div>
       ))}
 
-      <div className="rounded-xl p-3.5 text-[13px] leading-snug" style={{ background: 'rgba(96,165,250,0.06)', border: '1px solid rgba(96,165,250,0.18)', color: 'var(--text-secondary)' }}>
+      <div className="rounded-xl p-3.5 text-[14px] leading-snug" style={{ background: 'rgba(96,165,250,0.06)', border: '1px solid rgba(96,165,250,0.18)', color: 'var(--text-secondary)' }}>
         <strong>Pastaba:</strong> el. paštu pranešimų kol kas neišsiunčiame — viskas pasirodo svetainėje, varpelio ikonoje.
       </div>
     </div>

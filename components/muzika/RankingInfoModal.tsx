@@ -66,7 +66,7 @@ export default function RankingInfoModal({ kind }: { kind: 'alltime' | 'trending
           display: 'inline-flex', alignItems: 'center', justifyContent: 'center',
           width: 20, height: 20, marginLeft: 7, borderRadius: '50%',
           border: '1.5px solid var(--modal-border, #d4d4d8)', color: 'var(--text-muted, #71717a)',
-          fontSize: 13, fontWeight: 700, lineHeight: 1, cursor: 'pointer', background: 'transparent',
+          fontSize: 14, fontWeight: 700, lineHeight: 1, cursor: 'pointer', background: 'transparent',
           verticalAlign: 'middle', flex: '0 0 auto',
         }}
       >i</button>
@@ -103,14 +103,14 @@ export default function RankingInfoModal({ kind }: { kind: 'alltime' | 'trending
                     <span style={{ width: 11, height: 11, borderRadius: 3, background: p.color, flex: '0 0 auto', marginTop: 3 }} />
                     <div style={{ minWidth: 0 }}>
                       <div style={{ fontSize: 14.5, fontWeight: 700, lineHeight: 1.25 }}>{p.label}</div>
-                      <div style={{ fontSize: 13, color: 'var(--text-muted, #a1a1aa)', lineHeight: 1.3 }}>{p.hint}</div>
+                      <div style={{ fontSize: 14, color: 'var(--text-muted, #a1a1aa)', lineHeight: 1.3 }}>{p.hint}</div>
                     </div>
                   </div>
                 ))}
               </div>
             </div>
 
-            <p style={{ fontSize: 12.5, color: 'var(--text-faint, #71717a)', margin: '18px 0 0', lineHeight: 1.5, borderTop: '1px solid var(--modal-border, rgba(255,255,255,.1))', paddingTop: 11 }}>
+            <p style={{ fontSize: 13.5, color: 'var(--text-faint, #71717a)', margin: '18px 0 0', lineHeight: 1.5, borderTop: '1px solid var(--modal-border, rgba(255,255,255,.1))', paddingTop: 11 }}>
               Atnaujinama automatiškai.
             </p>
           </div>

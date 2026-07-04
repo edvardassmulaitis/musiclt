@@ -91,9 +91,9 @@ export default function OnboardingClient({ styles, initialArtists, username }: P
         {step > 0 && step < 4 && (
           <div className="mb-6">
             <div className="flex items-center justify-between mb-3">
-              <button onClick={() => setStep(s => Math.max(0, s - 1))} className="text-[13.5px] font-bold" style={{ color: 'var(--text-muted)' }}>← Atgal</button>
+              <button onClick={() => setStep(s => Math.max(0, s - 1))} className="text-[14.5px] font-bold" style={{ color: 'var(--text-muted)' }}>← Atgal</button>
               <PointsBadge points={points} badge={badge} popKey={pop} />
-              <button onClick={() => { api('/setup', 'POST', { action: 'skip' }); router.push('/mano-muzika') }} className="text-[13.5px] font-bold" style={{ color: 'var(--text-faint)' }}>Praleisti</button>
+              <button onClick={() => { api('/setup', 'POST', { action: 'skip' }); router.push('/mano-muzika') }} className="text-[14.5px] font-bold" style={{ color: 'var(--text-faint)' }}>Praleisti</button>
             </div>
             <div className="flex gap-1.5">
               {progressSteps.map((_, i) => (
@@ -120,7 +120,7 @@ export default function OnboardingClient({ styles, initialArtists, username }: P
               style={{ background: 'var(--accent-orange)' }}>
               Pradėti žaidimą →
             </button>
-            <div className="mt-4 text-[13px]" style={{ color: 'var(--text-faint)' }}>~ 1 minutė · gali praleisti bet kada</div>
+            <div className="mt-4 text-[14px]" style={{ color: 'var(--text-faint)' }}>~ 1 minutė · gali praleisti bet kada</div>
           </div>
         )}
 
@@ -170,14 +170,14 @@ export default function OnboardingClient({ styles, initialArtists, username }: P
                         </div>
                       )}
                     </div>
-                    <div className="mt-1.5 truncate text-[12.5px] font-bold px-0.5">{a.name}</div>
+                    <div className="mt-1.5 truncate text-[13.5px] font-bold px-0.5">{a.name}</div>
                   </button>
                 )
               })}
             </div>
             <div className="mt-4 text-center">
               <button onClick={loadMore} disabled={loadingMore}
-                className="rounded-full px-5 py-2 text-[13.5px] font-bold disabled:opacity-50"
+                className="rounded-full px-5 py-2 text-[14.5px] font-bold disabled:opacity-50"
                 style={{ background: 'var(--bg-elevated)', border: '1px solid var(--border-default)', color: 'var(--text-secondary)' }}>
                 {loadingMore ? 'Kraunama…' : '↻ Rodyti daugiau'}
               </button>
@@ -204,9 +204,9 @@ export default function OnboardingClient({ styles, initialArtists, username }: P
                 </div>
                 <div className="min-w-0 flex-1">
                   <div className="truncate text-[14.5px] font-black">{moodTrack.title}</div>
-                  <div className="text-[12.5px]" style={{ color: '#a78bfa' }}>🌙 Tavo nuotaikos daina</div>
+                  <div className="text-[13.5px]" style={{ color: '#a78bfa' }}>🌙 Tavo nuotaikos daina</div>
                 </div>
-                <button onClick={() => { api('/mood', 'DELETE', { track_id: moodTrack.id }); setMoodTrack(null) }} className="text-[13px] font-bold" style={{ color: 'var(--text-faint)' }}>Keisti</button>
+                <button onClick={() => { api('/mood', 'DELETE', { track_id: moodTrack.id }); setMoodTrack(null) }} className="text-[14px] font-bold" style={{ color: 'var(--text-faint)' }}>Keisti</button>
               </div>
             )}
             <NextBar disabled={false} label={moodTrack ? 'Baigti →' : 'Praleisti ir baigti →'} onNext={() => setStep(4)} />
@@ -234,7 +234,7 @@ export default function OnboardingClient({ styles, initialArtists, username }: P
                 {saving ? 'Įrašoma…' : 'Eiti į Mano muziką →'}
               </button>
               {username && (
-                <button onClick={() => router.push(`/vartotojas/${username}`)} className="text-[13.5px] font-bold" style={{ color: 'var(--text-muted)' }}>
+                <button onClick={() => router.push(`/vartotojas/${username}`)} className="text-[14.5px] font-bold" style={{ color: 'var(--text-muted)' }}>
                   Peržiūrėti profilį
                 </button>
               )}
@@ -273,7 +273,7 @@ function PointsBadge({ points, badge, popKey }: { points: number; badge: { name:
     <div className="flex items-center gap-2 rounded-full px-3 py-1.5" style={{ background: 'var(--bg-elevated)', border: '1px solid var(--border-default)' }}>
       <span className="text-[14px]">{badge.emoji}</span>
       <span key={popKey} className="text-[14px] font-black tabular-nums" style={{ color: 'var(--accent-orange)', animation: 'mzpop 0.4s ease' }}>{points}</span>
-      <span className="text-[12px] font-bold" style={{ color: 'var(--text-muted)' }}>tšk</span>
+      <span className="text-[13px] font-bold" style={{ color: 'var(--text-muted)' }}>tšk</span>
       <style jsx>{`@keyframes mzpop { 0% { transform: scale(1) } 40% { transform: scale(1.5) } 100% { transform: scale(1) } }`}</style>
     </div>
   )
@@ -283,7 +283,7 @@ function Stat({ n, label }: { n: number; label: string }) {
   return (
     <div className="flex-1 rounded-xl py-3" style={{ background: 'var(--bg-surface)', border: '1px solid var(--border-default)' }}>
       <div className="text-[22px] font-black" style={{ color: 'var(--accent-orange)' }}>{n}</div>
-      <div className="text-[12px] font-bold" style={{ color: 'var(--text-muted)' }}>{label}</div>
+      <div className="text-[13px] font-bold" style={{ color: 'var(--text-muted)' }}>{label}</div>
     </div>
   )
 }

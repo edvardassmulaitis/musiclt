@@ -483,7 +483,7 @@ export default function AlbumInfoModal({
             {/* Kicker — tik „Greitai" žyma. Tipas pašalintas, data perkelta žemiau. */}
             {album?.is_upcoming && (
               <div className="mb-1 flex flex-wrap items-center gap-1.5">
-                <span className="rounded-md border border-[rgba(249,115,22,0.3)] bg-[rgba(249,115,22,0.15)] px-1.5 py-0.5 font-['Outfit',sans-serif] text-[10px] font-bold uppercase tracking-[0.08em] text-[var(--accent-orange)]">
+                <span className="rounded-md border border-[rgba(249,115,22,0.3)] bg-[rgba(249,115,22,0.15)] px-1.5 py-0.5 font-['Outfit',sans-serif] text-[11px] font-bold uppercase tracking-[0.08em] text-[var(--accent-orange)]">
                   Greitai
                 </span>
               </div>
@@ -492,7 +492,7 @@ export default function AlbumInfoModal({
               {titleNow || 'Kraunama…'}
             </div>
             {artist && (
-              <div className="truncate text-[13px] leading-tight">
+              <div className="truncate text-[14px] leading-tight">
                 <Link href={`/atlikejai/${artist.slug}`} className="font-['Outfit',sans-serif] font-bold text-[var(--accent-orange)] no-underline hover:underline">
                   {artist.name}
                 </Link>
@@ -500,7 +500,7 @@ export default function AlbumInfoModal({
             )}
             {/* Data — po atlikėjo pavadinimo (perkelta iš kicker'io). */}
             {album && (album.dateFormatted || album.year) && (
-              <div className="mt-0.5 text-[12px] font-semibold text-[var(--text-muted)]">
+              <div className="mt-0.5 text-[13px] font-semibold text-[var(--text-muted)]">
                 {album.dateFormatted || `${album.year} m.`}
               </div>
             )}
@@ -562,7 +562,7 @@ export default function AlbumInfoModal({
                   )}
                 </>
               ) : (
-                <div className="flex h-full w-full items-center justify-center text-[11px] uppercase tracking-wider text-[var(--text-faint)]">
+                <div className="flex h-full w-full items-center justify-center text-[12px] uppercase tracking-wider text-[var(--text-faint)]">
                   Vaizdo įrašo nėra
                 </div>
               )}
@@ -573,10 +573,10 @@ export default function AlbumInfoModal({
                   atlikėjo info. Kitaip — standartinė atlikėjo kortelė. */}
               {album?.description && plainText(album.description) ? (
                 <div className="mb-3">
-                  <div className="mb-1.5 font-['Outfit',sans-serif] text-[11px] font-extrabold uppercase tracking-[0.14em] text-[var(--text-muted)]">
+                  <div className="mb-1.5 font-['Outfit',sans-serif] text-[12px] font-extrabold uppercase tracking-[0.14em] text-[var(--text-muted)]">
                     Apie albumą
                   </div>
-                  <p className="whitespace-pre-line text-[13.5px] leading-[1.6] text-[var(--text-secondary)]">
+                  <p className="whitespace-pre-line text-[14.5px] leading-[1.6] text-[var(--text-secondary)]">
                     {plainText(album.description)}
                   </p>
                 </div>
@@ -599,14 +599,14 @@ export default function AlbumInfoModal({
                     {artistGenres.length > 0 && (
                       <div className="mt-1 flex flex-wrap gap-1">
                         {artistGenres.map(g => (
-                          <span key={g} className="rounded-full bg-[var(--bg-hover)] px-2 py-0.5 font-['Outfit',sans-serif] text-[11px] font-bold text-[var(--text-muted)]">
+                          <span key={g} className="rounded-full bg-[var(--bg-hover)] px-2 py-0.5 font-['Outfit',sans-serif] text-[12px] font-bold text-[var(--text-muted)]">
                             {g}
                           </span>
                         ))}
                       </div>
                     )}
                     {artistDesc && (
-                      <p className="mt-1.5 line-clamp-4 whitespace-pre-line text-[13px] leading-[1.5] text-[var(--text-secondary)]">
+                      <p className="mt-1.5 line-clamp-4 whitespace-pre-line text-[14px] leading-[1.5] text-[var(--text-secondary)]">
                         {plainText(artistDesc)}
                       </p>
                     )}
@@ -618,7 +618,7 @@ export default function AlbumInfoModal({
                   aukščio, todėl neatsiranda papildomo scroll'o. */}
               {artist && (details?.otherAlbums || []).length > 0 && (
                 <div className="mt-auto border-t border-[var(--border-subtle)] pt-3">
-                  <div className="mb-2 font-['Outfit',sans-serif] text-[11px] font-extrabold uppercase tracking-[0.16em] text-[var(--text-muted)]">
+                  <div className="mb-2 font-['Outfit',sans-serif] text-[12px] font-extrabold uppercase tracking-[0.16em] text-[var(--text-muted)]">
                     Daugiau / {artist.name}
                   </div>
                   <div className="flex gap-2.5 overflow-x-auto pb-1 [scrollbar-width:thin]">
@@ -637,11 +637,11 @@ export default function AlbumInfoModal({
                             <img src={proxyImg(a.cover_image_url)} alt="" referrerPolicy="no-referrer" className="h-full w-full object-cover" />
                           )}
                         </span>
-                        <span className="mt-1 block truncate font-['Outfit',sans-serif] text-[11px] font-bold leading-tight text-[var(--text-primary)]">
+                        <span className="mt-1 block truncate font-['Outfit',sans-serif] text-[12px] font-bold leading-tight text-[var(--text-primary)]">
                           {a.title}
                         </span>
                         {a.year && (
-                          <span className="block font-['Outfit',sans-serif] text-[10px] font-semibold text-[var(--text-faint)]">{a.year}</span>
+                          <span className="block font-['Outfit',sans-serif] text-[11px] font-semibold text-[var(--text-faint)]">{a.year}</span>
                         )}
                       </Link>
                     ))}
@@ -659,7 +659,7 @@ export default function AlbumInfoModal({
                 type="button"
                 onClick={() => setMobileTab('tracks')}
                 className={[
-                  "relative flex items-center gap-1.5 px-1 py-1 font-['Outfit',sans-serif] text-[13px] font-bold transition-colors",
+                  "relative flex items-center gap-1.5 px-1 py-1 font-['Outfit',sans-serif] text-[14px] font-bold transition-colors",
                   mobileTab === 'tracks'
                     ? 'text-[var(--accent-orange)] after:absolute after:inset-x-0 after:-bottom-[8px] after:h-[2px] after:bg-[var(--accent-orange)]'
                     : 'text-[var(--text-muted)]',
@@ -667,7 +667,7 @@ export default function AlbumInfoModal({
               >
                 <span>Dainos</span>
                 {tracks.length > 0 && (
-                  <span className="rounded-full bg-[var(--bg-hover)] px-1.5 py-px text-[11px] font-extrabold leading-none text-[var(--text-muted)]">
+                  <span className="rounded-full bg-[var(--bg-hover)] px-1.5 py-px text-[12px] font-extrabold leading-none text-[var(--text-muted)]">
                     {tracks.length}
                   </span>
                 )}
@@ -676,7 +676,7 @@ export default function AlbumInfoModal({
                 type="button"
                 onClick={() => setMobileTab('comments')}
                 className={[
-                  "relative flex items-center gap-1.5 px-1 py-1 font-['Outfit',sans-serif] text-[13px] font-bold transition-colors",
+                  "relative flex items-center gap-1.5 px-1 py-1 font-['Outfit',sans-serif] text-[14px] font-bold transition-colors",
                   mobileTab === 'comments'
                     ? 'text-[var(--accent-orange)] after:absolute after:inset-x-0 after:-bottom-[8px] after:h-[2px] after:bg-[var(--accent-orange)]'
                     : 'text-[var(--text-muted)]',
@@ -684,7 +684,7 @@ export default function AlbumInfoModal({
               >
                 <span>Komentarai</span>
                 {commentTotal > 0 && (
-                  <span className="rounded-full bg-[var(--accent-orange)] px-1.5 py-px text-[11px] font-extrabold leading-none text-white">
+                  <span className="rounded-full bg-[var(--accent-orange)] px-1.5 py-px text-[12px] font-extrabold leading-none text-white">
                     {commentTotal}
                   </span>
                 )}
@@ -720,11 +720,11 @@ export default function AlbumInfoModal({
                       <span className="w-[3px] origin-bottom rounded-[1px] bg-[var(--accent-orange)]" style={{ animation: 'eqBar 1.0s ease-in-out -0.45s infinite' }} />
                       <span className="w-[3px] origin-bottom rounded-[1px] bg-[var(--accent-orange)]" style={{ animation: 'eqBar 1.0s ease-in-out -0.10s infinite' }} />
                     </span>
-                    <div className="text-[12px] uppercase tracking-wider text-[var(--text-muted)]">Kraunama…</div>
+                    <div className="text-[13px] uppercase tracking-wider text-[var(--text-muted)]">Kraunama…</div>
                     <style>{`@keyframes eqBar { 0%,100% { height: 30%; } 50% { height: 100%; } }`}</style>
                   </div>
                 ) : tracks.length === 0 ? (
-                  <div className="rounded-xl border border-dashed border-[var(--border-subtle)] bg-[var(--bg-elevated)] px-4 py-10 text-center text-[13px] text-[var(--text-faint)]">
+                  <div className="rounded-xl border border-dashed border-[var(--border-subtle)] bg-[var(--bg-elevated)] px-4 py-10 text-center text-[14px] text-[var(--text-faint)]">
                     Dainų nėra
                   </div>
                 ) : (
@@ -747,7 +747,7 @@ export default function AlbumInfoModal({
                           >
                             <span
                               className={[
-                                'w-5 shrink-0 text-center font-["Outfit",sans-serif] text-[13px] font-bold tabular-nums',
+                                'w-5 shrink-0 text-center font-["Outfit",sans-serif] text-[14px] font-bold tabular-nums',
                                 isActive ? 'text-[var(--accent-orange)]' : 'text-[var(--text-faint)]',
                               ].join(' ')}
                               aria-hidden
@@ -825,7 +825,7 @@ export default function AlbumInfoModal({
                     onCountChange={setCommentTotal}
                   />
                 ) : (
-                  <div className="text-[13px] text-[var(--text-faint)]">Kraunama…</div>
+                  <div className="text-[14px] text-[var(--text-faint)]">Kraunama…</div>
                 )}
               </div>
               {/* „Daugiau iš atlikėjo" — INSIDE scroll area so it doesn't steal
@@ -833,7 +833,7 @@ export default function AlbumInfoModal({
                   rodomas kairiajame stulpelyje (vietoj komentaro CTA). */}
               {artist && (details?.otherAlbums || []).length > 0 && (
                 <div className="mt-4 border-t border-[var(--border-subtle)] pt-3 md:hidden">
-                  <div className="mb-2 font-['Outfit',sans-serif] text-[11px] font-extrabold uppercase tracking-[0.16em] text-[var(--text-muted)]">
+                  <div className="mb-2 font-['Outfit',sans-serif] text-[12px] font-extrabold uppercase tracking-[0.16em] text-[var(--text-muted)]">
                     Daugiau iš {artist.name}
                   </div>
                   <div className="flex gap-2 overflow-x-auto pb-0.5 [scrollbar-width:thin]">
@@ -852,7 +852,7 @@ export default function AlbumInfoModal({
                             <img src={proxyImg(a.cover_image_url)} alt="" referrerPolicy="no-referrer" className="h-full w-full object-cover" />
                           )}
                         </span>
-                        <span className="block truncate px-0.5 pb-0.5 pt-1 font-['Outfit',sans-serif] text-[11px] font-extrabold text-[var(--text-primary)]">
+                        <span className="block truncate px-0.5 pb-0.5 pt-1 font-['Outfit',sans-serif] text-[12px] font-extrabold text-[var(--text-primary)]">
                           {a.title}
                         </span>
                       </Link>

@@ -9,7 +9,7 @@ import Link from 'next/link'
 type State = 'idle' | 'sending' | 'done' | 'error'
 
 const lbl: React.CSSProperties = {
-  display: 'block', fontFamily: "'Outfit',sans-serif", fontSize: 13.5, fontWeight: 700,
+  display: 'block', fontFamily: "'Outfit',sans-serif", fontSize: 14.5, fontWeight: 700,
   color: 'var(--text-secondary)', marginBottom: 6,
 }
 const field: React.CSSProperties = {
@@ -124,7 +124,7 @@ export default function RadarSubmitForm() {
         {state === 'sending' ? 'Siunčiama…' : 'Pateikti radarui'}
       </button>
 
-      <p style={{ fontSize: 12.5, color: 'var(--text-faint)', lineHeight: 1.5 }}>
+      <p style={{ fontSize: 13.5, color: 'var(--text-faint)', lineHeight: 1.5 }}>
         Pateikdami sutinkate, kad su jumis susisieksime nurodytu el. paštu. Pateikimai peržiūrimi rankiniu būdu.
       </p>
     </form>

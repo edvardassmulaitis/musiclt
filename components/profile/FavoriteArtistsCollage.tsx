@@ -82,7 +82,7 @@ export function FavoriteArtistsCollage({
             <div className="absolute inset-0 bg-gradient-to-t from-black/90 via-black/15 to-transparent" />
 
             {score > 0 && isHero && (
-              <div className="absolute top-2 right-2 px-2 py-0.5 rounded-full backdrop-blur-md text-[11px] font-extrabold uppercase tracking-wider flex items-center gap-1"
+              <div className="absolute top-2 right-2 px-2 py-0.5 rounded-full backdrop-blur-md text-[12px] font-extrabold uppercase tracking-wider flex items-center gap-1"
                    style={{ background: 'rgba(0,0,0,0.45)', color: 'rgba(255,255,255,0.95)', border: '1px solid rgba(255,255,255,0.18)' }}>
                 <svg width="9" height="9" viewBox="0 0 24 24" fill="currentColor" aria-hidden>
                   <path d="M12 21.35l-1.45-1.32C5.4 15.36 2 12.28 2 8.5 2 5.42 4.42 3 7.5 3c1.74 0 3.41.81 4.5 2.09C13.09 3.81 14.76 3 16.5 3 19.58 3 22 5.42 22 8.5c0 3.78-3.4 6.86-8.55 11.54L12 21.35z" />
@@ -100,7 +100,7 @@ export function FavoriteArtistsCollage({
               </p>
               {isHero && (a.liked_album_count || a.liked_track_count) ? (
                 <p
-                  className="mt-0.5 text-[11px] uppercase tracking-wider font-bold"
+                  className="mt-0.5 text-[12px] uppercase tracking-wider font-bold"
                   style={{ color: 'rgba(255,255,255,0.65)', fontFamily: "'Outfit', sans-serif" }}
                 >
                   {(a.liked_album_count || 0) > 0 && `${a.liked_album_count} alb.`}
@@ -128,7 +128,7 @@ export function FavoriteArtistsCollage({
           <span className="text-xl sm:text-2xl font-black" style={{ fontFamily: "'Outfit', sans-serif", color: 'var(--accent-orange)' }}>
             +{remaining.toLocaleString('lt-LT')}
           </span>
-          <span className="mt-0.5 text-[11px] font-bold uppercase tracking-wider" style={{ fontFamily: "'Outfit', sans-serif" }}>
+          <span className="mt-0.5 text-[12px] font-bold uppercase tracking-wider" style={{ fontFamily: "'Outfit', sans-serif" }}>
             daugiau
           </span>
         </button>

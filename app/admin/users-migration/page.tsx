@@ -172,7 +172,7 @@ function SummaryCard({ label, value }: { label: string; value: string }) {
   return (
     <div className="p-3 rounded-xl"
          style={{ background: 'var(--card-bg)', border: '1px solid var(--border-subtle)' }}>
-      <div className="text-[12px] uppercase tracking-wider" style={{ color: 'var(--text-muted)' }}>{label}</div>
+      <div className="text-[13px] uppercase tracking-wider" style={{ color: 'var(--text-muted)' }}>{label}</div>
       <div className="text-xl font-extrabold tabular-nums mt-0.5" style={{ color: 'var(--text-primary)' }}>{value}</div>
     </div>
   )
@@ -209,7 +209,7 @@ function UserRow({ row: r, idx }: { row: Row; idx: number }) {
             /* eslint-disable-next-line @next/next/no-img-element */
             <img src={r.avatar_url} alt="" className="w-7 h-7 rounded-full object-cover" />
           ) : (
-            <div className="w-7 h-7 rounded-full flex items-center justify-center text-[11px] font-bold"
+            <div className="w-7 h-7 rounded-full flex items-center justify-center text-[12px] font-bold"
                  style={{ background: 'var(--border-subtle)', color: 'var(--text-muted)' }}>
               {r.username.slice(0, 2).toUpperCase()}
             </div>
@@ -219,10 +219,10 @@ function UserRow({ row: r, idx }: { row: Row; idx: number }) {
               {r.username}
             </div>
             {r.full_name && (
-              <div className="text-[11px] truncate" style={{ color: 'var(--text-muted)' }}>{r.full_name}</div>
+              <div className="text-[12px] truncate" style={{ color: 'var(--text-muted)' }}>{r.full_name}</div>
             )}
           </div>
-          {r.is_claimed && <span className="text-[10px] px-1 rounded font-bold"
+          {r.is_claimed && <span className="text-[11px] px-1 rounded font-bold"
                                   style={{ background: 'rgba(34,197,94,0.15)', color: '#16a34a' }}>✓</span>}
         </Link>
       </td>
@@ -237,12 +237,12 @@ function UserRow({ row: r, idx }: { row: Row; idx: number }) {
           {likesResolved.toLocaleString('lt-LT')}
         </span>
         {likesPending > 0 && (
-          <span className="ml-1 text-[11px]" style={{ color: 'var(--text-faint)' }}>
+          <span className="ml-1 text-[12px]" style={{ color: 'var(--text-faint)' }}>
             +{likesPending.toLocaleString('lt-LT')}
           </span>
         )}
         {expectedLikesArtist > 0 && totalLikesNow === 0 && (
-          <span className="text-[11px]" style={{ color: '#dc2626' }}>—</span>
+          <span className="text-[12px]" style={{ color: '#dc2626' }}>—</span>
         )}
       </td>
       <PhaseCell count={r.friends_count} />
@@ -253,7 +253,7 @@ function UserRow({ row: r, idx }: { row: Row; idx: number }) {
       <PhaseCell count={r.daily_picks_count} />
       <PhaseCell count={r.comments_count} />
       <td className="px-3 py-2 text-center">
-        <span className="text-[12px] font-bold tabular-nums">
+        <span className="text-[13px] font-bold tabular-nums">
           <span style={{ color: r.phases_touched >= 5 ? '#16a34a' : r.phases_touched >= 2 ? '#d97706' : '#dc2626' }}>
             {r.phases_touched}
           </span>

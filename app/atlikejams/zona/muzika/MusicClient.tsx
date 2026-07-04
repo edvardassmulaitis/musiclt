@@ -115,7 +115,7 @@ export default function MusicClient({ artist, songs, albums }: { artist: Artist;
   const inp = 'w-full rounded-lg border border-[var(--border-default)] bg-[var(--bg-surface)] px-3 py-2 text-sm text-[var(--text-primary)] outline-none placeholder:text-[var(--text-faint)] focus:border-[var(--accent-orange)]'
   const sec = 'mt-7 mb-3 flex items-center gap-2'
   const secT = 'font-[Outfit,sans-serif] text-[15px] font-extrabold text-[var(--text-primary)]'
-  const pill = 'rounded-full bg-[var(--bg-hover)] px-2 py-0.5 text-[12px] font-bold text-[var(--text-muted)]'
+  const pill = 'rounded-full bg-[var(--bg-hover)] px-2 py-0.5 text-[13px] font-bold text-[var(--text-muted)]'
 
   function SongRow({ s, inAlbum }: { s: Song; inAlbum?: boolean }) {
     const editing = editSong === s.id
@@ -123,7 +123,7 @@ export default function MusicClient({ artist, songs, albums }: { artist: Artist;
       <div className="rounded-xl border border-[rgba(249,115,22,0.4)] bg-[rgba(249,115,22,0.05)] p-3">
         <input value={sDraft.title} onChange={(e) => setSDraft({ ...sDraft, title: e.target.value })} placeholder="Pavadinimas" className={inp} autoFocus />
         <div className="mt-2.5 flex flex-wrap items-center gap-2">
-          <span className="text-[12px] text-[var(--text-muted)]">Išleista:</span>
+          <span className="text-[13px] text-[var(--text-muted)]">Išleista:</span>
           <input value={sDraft.year} onChange={(e) => setSDraft({ ...sDraft, year: e.target.value.replace(/\D/g, '').slice(0, 4) })} placeholder="metai" className={`${inp} w-20`} />
           <input value={sDraft.month} onChange={(e) => setSDraft({ ...sDraft, month: e.target.value.replace(/\D/g, '').slice(0, 2) })} placeholder="mėn" className={`${inp} w-16`} />
           <input value={sDraft.day} onChange={(e) => setSDraft({ ...sDraft, day: e.target.value.replace(/\D/g, '').slice(0, 2) })} placeholder="d" className={`${inp} w-14`} />
@@ -146,7 +146,7 @@ export default function MusicClient({ artist, songs, albums }: { artist: Artist;
         </div>
         <div className="min-w-0 flex-1">
           <b className="block truncate text-[14px] font-semibold text-[var(--text-primary)]">{s.title}</b>
-          <small className="text-[11.5px] text-[var(--text-muted)]">{s.is_pinned && !inAlbum ? 'Prisegta · ' : ''}{dateLabel(s.year, s.month, s.day)}{s.is_legacy ? ' · iš senojo music.lt' : ''}</small>
+          <small className="text-[12.5px] text-[var(--text-muted)]">{s.is_pinned && !inAlbum ? 'Prisegta · ' : ''}{dateLabel(s.year, s.month, s.day)}{s.is_legacy ? ' · iš senojo music.lt' : ''}</small>
         </div>
         <button onClick={() => startEdit(s)} title="Redaguoti" className="grid h-8 w-8 shrink-0 place-items-center rounded-lg text-[var(--text-faint)] opacity-0 transition hover:bg-[var(--bg-hover)] hover:text-[var(--text-primary)] group-hover:opacity-100">{I.edit}</button>
         {s.is_legacy
@@ -163,7 +163,7 @@ export default function MusicClient({ artist, songs, albums }: { artist: Artist;
         <a href={`/atlikejams/zona?a=${artist.id}`} className="inline-flex h-9 w-9 items-center justify-center rounded-full border border-[var(--border-default)] bg-[var(--bg-elevated)] text-[var(--text-secondary)] hover:text-[var(--text-primary)]">{I.back}</a>
         <div>
           <h1 className="font-[Outfit,sans-serif] text-2xl font-extrabold text-[var(--text-primary)]">Visa muzika</h1>
-          <a href={`/atlikejai/${artist.slug}`} target="_blank" rel="noreferrer" className="inline-flex items-center gap-1 text-[13.5px] text-[var(--accent-link)]">{artist.name} — vieša anketa {I.ext}</a>
+          <a href={`/atlikejai/${artist.slug}`} target="_blank" rel="noreferrer" className="inline-flex items-center gap-1 text-[14.5px] text-[var(--accent-link)]">{artist.name} — vieša anketa {I.ext}</a>
         </div>
       </div>
 
@@ -182,7 +182,7 @@ export default function MusicClient({ artist, songs, albums }: { artist: Artist;
       <div className={sec}>
         <span className={secT}>Albumai ir leidiniai</span>
         <span className={pill}>{albums.length}</span>
-        <button onClick={() => { setEditAlbum(null); setAlbumOpen(true) }} className="ml-auto inline-flex items-center gap-1.5 rounded-full bg-[var(--accent-orange)] px-3.5 py-1.5 text-[13px] font-bold text-white font-[Outfit,sans-serif]">{I.plus} Pridėti albumą</button>
+        <button onClick={() => { setEditAlbum(null); setAlbumOpen(true) }} className="ml-auto inline-flex items-center gap-1.5 rounded-full bg-[var(--accent-orange)] px-3.5 py-1.5 text-[14px] font-bold text-white font-[Outfit,sans-serif]">{I.plus} Pridėti albumą</button>
       </div>
       {albums.length === 0 && (
         <div className={`${card} flex flex-col items-center gap-2 py-8 text-center`}>
@@ -201,12 +201,12 @@ export default function MusicClient({ artist, songs, albums }: { artist: Artist;
                 <div className="min-w-0 flex-1">
                   <div className="flex flex-wrap items-center gap-1.5">
                     <b className="truncate text-[14.5px] font-bold text-[var(--text-primary)]">{a.title}</b>
-                    {a.year && <span className="text-[12px] text-[var(--text-muted)]">{a.year}</span>}
-                    <span className="rounded bg-[var(--bg-hover)] px-1.5 py-0.5 text-[11px] font-semibold text-[var(--text-secondary)]">{TYPE_LABEL[a.type] || 'Albumas'}</span>
-                    {a.is_upcoming && <span className="rounded bg-[rgba(34,197,94,.14)] px-1.5 py-0.5 text-[11px] font-semibold text-[var(--accent-green)]">greitai</span>}
-                    {a.is_legacy && <span className="rounded bg-[var(--bg-hover)] px-1.5 py-0.5 text-[11px] text-[var(--text-faint)]">importuotas</span>}
+                    {a.year && <span className="text-[13px] text-[var(--text-muted)]">{a.year}</span>}
+                    <span className="rounded bg-[var(--bg-hover)] px-1.5 py-0.5 text-[12px] font-semibold text-[var(--text-secondary)]">{TYPE_LABEL[a.type] || 'Albumas'}</span>
+                    {a.is_upcoming && <span className="rounded bg-[rgba(34,197,94,.14)] px-1.5 py-0.5 text-[12px] font-semibold text-[var(--accent-green)]">greitai</span>}
+                    {a.is_legacy && <span className="rounded bg-[var(--bg-hover)] px-1.5 py-0.5 text-[12px] text-[var(--text-faint)]">importuotas</span>}
                   </div>
-                  <small className="text-[12px] text-[var(--text-muted)]">{a.trackIds.length} dain.</small>
+                  <small className="text-[13px] text-[var(--text-muted)]">{a.trackIds.length} dain.</small>
                 </div>
                 <button onClick={(e) => { e.stopPropagation(); setEditAlbum(a); setAlbumOpen(true) }} title="Redaguoti" className="grid h-8 w-8 shrink-0 place-items-center rounded-lg text-[var(--text-faint)] opacity-0 transition hover:bg-[var(--bg-active)] hover:text-[var(--text-primary)] group-hover:opacity-100">{I.edit}</button>
                 {a.is_legacy
@@ -216,14 +216,14 @@ export default function MusicClient({ artist, songs, albums }: { artist: Artist;
               </div>
               {isOpen && (
                 <div className="border-t border-[var(--border-subtle)] px-2.5 py-1.5">
-                  {albumSongs.length === 0 && <p className="px-1 py-2 text-[13px] text-[var(--text-muted)]">Šiam albumui dar nepriskirta dainų.</p>}
+                  {albumSongs.length === 0 && <p className="px-1 py-2 text-[14px] text-[var(--text-muted)]">Šiam albumui dar nepriskirta dainų.</p>}
                   {albumSongs.map((s, i) => (
                     <div key={s.id} className="flex items-center gap-1.5 border-b border-[var(--border-subtle)] py-0.5 last:border-0">
-                      <span className="w-5 shrink-0 text-right text-[12px] tabular-nums text-[var(--text-faint)]">{i + 1}.</span>
+                      <span className="w-5 shrink-0 text-right text-[13px] tabular-nums text-[var(--text-faint)]">{i + 1}.</span>
                       <div className="min-w-0 flex-1"><SongRow s={s} inAlbum /></div>
                     </div>
                   ))}
-                  <button onClick={() => { setEditAlbum(a); setAlbumOpen(true) }} className="mt-1 inline-flex items-center gap-1 px-1 py-1 text-[13px] font-semibold text-[var(--accent-link)]">{I.plus} Priskirti / tvarkyti dainas</button>
+                  <button onClick={() => { setEditAlbum(a); setAlbumOpen(true) }} className="mt-1 inline-flex items-center gap-1 px-1 py-1 text-[14px] font-semibold text-[var(--accent-link)]">{I.plus} Priskirti / tvarkyti dainas</button>
                 </div>
               )}
             </div>
@@ -245,7 +245,7 @@ export default function MusicClient({ artist, songs, albums }: { artist: Artist;
         {filtered.map((s) => <div key={s.id} className="py-0.5"><SongRow s={s} /></div>)}
         {songs.length > 0 && filtered.length === 0 && <p className="px-1 py-4 text-center text-[14px] text-[var(--text-muted)]">Nieko nerasta pagal „{query}"</p>}
       </div>
-      <p className="mt-2 text-[11.5px] text-[var(--text-faint)]">Prisegtos (★) rodomos viršuje, atlikėjo playeryje. Importuotų dainų pavadinimą/datą gali taisyti, bet trinti — ne.</p>
+      <p className="mt-2 text-[12.5px] text-[var(--text-faint)]">Prisegtos (★) rodomos viršuje, atlikėjo playeryje. Importuotų dainų pavadinimą/datą gali taisyti, bet trinti — ne.</p>
 
       {albumOpen && <AlbumEditor artist={artist} songs={songs} album={editAlbum} onClose={() => setAlbumOpen(false)} onSaved={(msg) => { setAlbumOpen(false); flash(true, msg); router.refresh() }} onError={(m) => flash(false, m)} />}
 
@@ -312,11 +312,11 @@ function AlbumEditor({ artist, songs, album, onClose, onSaved, onError }: {
         <div className="grid gap-3 sm:grid-cols-[120px_1fr]">
           <div>
             <div className="grid aspect-square w-full place-items-center overflow-hidden rounded-xl border border-[var(--border-default)] bg-[var(--bg-surface)] text-[var(--text-faint)]">{cover ? <img src={cover} alt="" className="h-full w-full object-cover" /> : I.disc}</div>
-            <label className="mt-2 block cursor-pointer rounded-lg border border-[var(--border-default)] py-1.5 text-center text-[12px] font-semibold text-[var(--text-secondary)] hover:text-[var(--text-primary)]">
+            <label className="mt-2 block cursor-pointer rounded-lg border border-[var(--border-default)] py-1.5 text-center text-[13px] font-semibold text-[var(--text-secondary)] hover:text-[var(--text-primary)]">
               {uploading ? 'Keliama…' : 'Įkelti viršelį'}
               <input type="file" accept="image/*" className="hidden" onChange={(e) => { const f = e.target.files?.[0]; if (f) uploadCover(f) }} />
             </label>
-            <input value={cover} onChange={(e) => setCover(e.target.value)} placeholder="arba URL…" className={`${inp} mt-1.5 text-[12px]`} />
+            <input value={cover} onChange={(e) => setCover(e.target.value)} placeholder="arba URL…" className={`${inp} mt-1.5 text-[13px]`} />
           </div>
 
           <div className="space-y-2.5">
@@ -329,16 +329,16 @@ function AlbumEditor({ artist, songs, album, onClose, onSaved, onError }: {
               <input value={month} onChange={(e) => setMonth(e.target.value.replace(/\D/g, '').slice(0, 2))} placeholder="mėn" className={`${inp} w-20`} />
             </div>
             <textarea value={description} onChange={(e) => setDescription(e.target.value)} placeholder="Aprašymas (nebūtina)" rows={2} className={`${inp} resize-none`} />
-            <label className="flex items-center gap-2 text-[13.5px] text-[var(--text-secondary)]"><input type="checkbox" checked={upcoming} onChange={(e) => setUpcoming(e.target.checked)} /> Dar neišleistas (greitai)</label>
+            <label className="flex items-center gap-2 text-[14.5px] text-[var(--text-secondary)]"><input type="checkbox" checked={upcoming} onChange={(e) => setUpcoming(e.target.checked)} /> Dar neišleistas (greitai)</label>
           </div>
         </div>
 
         <div className="mt-4">
-          <div className="mb-2 text-[13px] font-bold uppercase tracking-wide text-[var(--text-faint)] font-[Outfit,sans-serif]">Dainos albume ({selected.length})</div>
+          <div className="mb-2 text-[14px] font-bold uppercase tracking-wide text-[var(--text-faint)] font-[Outfit,sans-serif]">Dainos albume ({selected.length})</div>
           {selected.length > 0 && (
             <div className="mb-2 space-y-1.5 rounded-xl border border-[var(--border-subtle)] bg-[var(--bg-elevated)] p-2">
               {selected.map((id, idx) => { const s = byId.get(id); if (!s) return null; return (
-                <div key={id} className="flex items-center gap-2 text-[13.5px]">
+                <div key={id} className="flex items-center gap-2 text-[14.5px]">
                   <span className="w-5 shrink-0 text-right text-[var(--text-faint)]">{idx + 1}.</span>
                   <span className="min-w-0 flex-1 truncate text-[var(--text-primary)]">{s.title}</span>
                   <button onClick={() => move(idx, -1)} disabled={idx === 0} className="grid h-6 w-6 place-items-center rounded text-[var(--text-muted)] disabled:opacity-30 hover:text-[var(--text-primary)]">{I.up}</button>
@@ -355,14 +355,14 @@ function AlbumEditor({ artist, songs, album, onClose, onSaved, onError }: {
           {unselected.length > 0 && (
             <div className="max-h-48 space-y-1 overflow-y-auto rounded-xl border border-dashed border-[var(--border-default)] p-2">
               {unselected.slice(0, 80).map((s) => (
-                <button key={s.id} onClick={() => toggle(s.id)} className="flex w-full items-center gap-2 rounded-lg px-2 py-1 text-left text-[13.5px] text-[var(--text-secondary)] hover:bg-[var(--bg-hover)]">
+                <button key={s.id} onClick={() => toggle(s.id)} className="flex w-full items-center gap-2 rounded-lg px-2 py-1 text-left text-[14.5px] text-[var(--text-secondary)] hover:bg-[var(--bg-hover)]">
                   <span className="text-[var(--accent-orange)]">{I.plus}</span><span className="min-w-0 flex-1 truncate">{s.title}</span>
-                  <span className="shrink-0 text-[11px] text-[var(--text-faint)]">{dateLabel(s.year, s.month, s.day)}</span>
+                  <span className="shrink-0 text-[12px] text-[var(--text-faint)]">{dateLabel(s.year, s.month, s.day)}</span>
                 </button>
               ))}
             </div>
           )}
-          {songs.length === 0 && <p className="text-[13px] text-[var(--text-muted)]">Dar nėra dainų, kurias galima priskirti.</p>}
+          {songs.length === 0 && <p className="text-[14px] text-[var(--text-muted)]">Dar nėra dainų, kurias galima priskirti.</p>}
         </div>
 
         <div className="mt-5 flex gap-2">

@@ -86,7 +86,7 @@ export function ProfileEditModal({ profile, onClose }: { profile: any; onClose: 
 
   const field = 'w-full px-3 py-2 rounded-lg text-sm'
   const fieldStyle: React.CSSProperties = { fontFamily: "'Outfit', sans-serif", background: 'var(--card-bg)', border: '1px solid var(--border-default)', color: 'var(--text-primary)' }
-  const label = 'block text-[12px] font-extrabold uppercase tracking-wider mb-1.5'
+  const label = 'block text-[13px] font-extrabold uppercase tracking-wider mb-1.5'
   const labelStyle: React.CSSProperties = { color: 'var(--text-muted)', fontFamily: "'Outfit', sans-serif" }
   const cityKnown = !city || CITY_OPTIONS.includes(city)
 
@@ -166,11 +166,11 @@ export function ProfileEditModal({ profile, onClose }: { profile: any; onClose: 
                   {/* eslint-disable-next-line @next/next/no-img-element */}
                   <img src={p.thumb_url || p.url} alt="" className="w-full h-full object-cover" />
                   <button type="button" onClick={() => setPhotos((arr) => arr.filter((_, j) => j !== i))}
-                          className="absolute top-1 right-1 w-6 h-6 rounded-full flex items-center justify-center text-[13px] text-white" style={{ background: 'rgba(0,0,0,0.6)' }} aria-label="Pašalinti">✕</button>
+                          className="absolute top-1 right-1 w-6 h-6 rounded-full flex items-center justify-center text-[14px] text-white" style={{ background: 'rgba(0,0,0,0.6)' }} aria-label="Pašalinti">✕</button>
                 </div>
               ))}
               <button type="button" onClick={() => photoInput.current?.click()} disabled={uploading === 'photo'}
-                      className="aspect-square rounded-lg flex flex-col items-center justify-center text-[12px] font-bold transition hover:opacity-85 disabled:opacity-60"
+                      className="aspect-square rounded-lg flex flex-col items-center justify-center text-[13px] font-bold transition hover:opacity-85 disabled:opacity-60"
                       style={{ background: 'var(--card-bg)', border: '1px dashed var(--border-default)', color: 'var(--accent-orange)', fontFamily: "'Outfit', sans-serif" }}>
                 {uploading === 'photo' ? '…' : '+ Įkelti'}
               </button>
@@ -223,7 +223,7 @@ function AvatarPickerModal({ current, username, onPick, onUpload, onClose }: {
         <header className="flex items-center justify-between gap-3 px-5 py-4 flex-shrink-0" style={{ borderBottom: '1px solid var(--border-subtle)' }}>
           <h3 className="font-black text-base" style={{ fontFamily: "'Outfit', sans-serif", color: 'var(--text-primary)' }}>Pasirink avatarą</h3>
           <button type="button" onClick={() => inp.current?.click()} disabled={uploading}
-                  className="px-3 py-1.5 rounded-full text-[13px] font-bold transition hover:opacity-85 disabled:opacity-60"
+                  className="px-3 py-1.5 rounded-full text-[14px] font-bold transition hover:opacity-85 disabled:opacity-60"
                   style={{ fontFamily: "'Outfit', sans-serif", background: 'var(--accent-orange)', color: '#fff' }}>
             {uploading ? 'Keliama…' : '+ Įkelti savo'}
           </button>

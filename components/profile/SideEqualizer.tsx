@@ -283,7 +283,7 @@ function LedHorizontal({
             </div>
             <span
               className="font-mono tabular-nums flex-shrink-0"
-              style={{ fontSize: '12px', color: isSelected ? b.hex : 'var(--text-muted)', width: '34px', textAlign: 'right' }}
+              style={{ fontSize: '13px', color: isSelected ? b.hex : 'var(--text-muted)', width: '34px', textAlign: 'right' }}
             >
               {b.percent.toFixed(0)}%
             </span>
@@ -382,7 +382,7 @@ function LedEqualizer({
           <button
             type="button"
             onClick={() => onSelect(null)}
-            className="text-[11px] font-bold uppercase tracking-wider transition hover:opacity-80"
+            className="text-[12px] font-bold uppercase tracking-wider transition hover:opacity-80"
             style={{ fontFamily: "'Outfit', sans-serif", color: 'var(--text-muted)' }}
           >
             ✕ Atstatyti
@@ -477,7 +477,7 @@ export function SideEqualizer({ meter, selectedGenre, onSelect, variant = 'side'
           Muzikinis skonis
         </div>
         {selectedGenre && onSelect && (
-          <button onClick={() => onSelect(null)} className="text-[11px] font-bold uppercase tracking-wider transition hover:opacity-80"
+          <button onClick={() => onSelect(null)} className="text-[12px] font-bold uppercase tracking-wider transition hover:opacity-80"
                   style={{ fontFamily: "'Outfit', sans-serif", color: 'var(--text-muted)' }}>
             ✕ Atstatyti
           </button>

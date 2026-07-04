@@ -139,7 +139,7 @@ const CARD_MIN_H = 330
 
 function Badge({ meta }: { meta: TypeMeta }) {
   return (
-    <span className="absolute left-2.5 top-2.5 z-[2] rounded-[7px] px-2 py-1 font-['Outfit',sans-serif] text-[10px] font-extrabold uppercase tracking-[0.08em] text-white"
+    <span className="absolute left-2.5 top-2.5 z-[2] rounded-[7px] px-2 py-1 font-['Outfit',sans-serif] text-[11px] font-extrabold uppercase tracking-[0.08em] text-white"
       style={{ background: meta.color }}>{meta.label}</span>
   )
 }
@@ -173,15 +173,15 @@ function AuthorRow({ it }: { it: CommunityItem }) {
         ? <img src={proxyImg(it.author_avatar)} alt="" loading="lazy" // eslint-disable-line @next/next/no-img-element
             className="h-[18px] w-[18px] shrink-0 rounded-full object-cover" />
         : name
-          ? <div className="flex h-[18px] w-[18px] shrink-0 items-center justify-center rounded-full text-[9px] font-extrabold"
+          ? <div className="flex h-[18px] w-[18px] shrink-0 items-center justify-center rounded-full text-[10px] font-extrabold"
               style={{ fontFamily: "'Outfit',sans-serif", background: `hsl(${h},32%,18%)`, color: `hsl(${h},45%,55%)` }}>
               {name.charAt(0).toUpperCase()}
             </div>
           : null
       }
-      <span className="min-w-0 flex-1 truncate text-[12px] font-semibold text-[var(--text-secondary)]"
+      <span className="min-w-0 flex-1 truncate text-[13px] font-semibold text-[var(--text-secondary)]"
             style={{ fontFamily: "'Outfit',sans-serif" }}>{name || 'narys'}</span>
-      {ago && <span className="shrink-0 text-[10.5px] text-[var(--text-faint)]">{ago}</span>}
+      {ago && <span className="shrink-0 text-[11.5px] text-[var(--text-faint)]">{ago}</span>}
     </div>
   )
 }
@@ -198,9 +198,9 @@ function CommentBubbleEl({ c, clamp = 4 }: { c: CommentBubble; clamp?: number })
           : <div className="h-[15px] w-[15px] shrink-0 rounded-full"
               style={{ background: `hsl(${ch},30%,25%)` }} />
         }
-        {c.author && <span className="truncate text-[11px] font-bold text-[var(--text-primary)]">{c.author}</span>}
+        {c.author && <span className="truncate text-[12px] font-bold text-[var(--text-primary)]">{c.author}</span>}
       </div>
-      <p className={`m-0 text-[12px] leading-relaxed text-[var(--text-secondary)]`}
+      <p className={`m-0 text-[13px] leading-relaxed text-[var(--text-secondary)]`}
          style={{ display: '-webkit-box', WebkitLineClamp: clamp, WebkitBoxOrient: 'vertical', overflow: 'hidden' }}>{c.text}</p>
     </div>
   )
@@ -234,32 +234,32 @@ function DDCard({ it }: { it: CommunityItem }) {
               </div>
           }
           {/* #1 badge */}
-          <span className="absolute left-1 top-1 flex h-[18px] w-[18px] items-center justify-center rounded-full font-['Outfit',sans-serif] text-[10px] font-black text-white"
+          <span className="absolute left-1 top-1 flex h-[18px] w-[18px] items-center justify-center rounded-full font-['Outfit',sans-serif] text-[11px] font-black text-white"
                 style={{ background: 'var(--accent-orange)' }}>#1</span>
         </div>
         <div className="min-w-0 flex-1">
           <p className="m-0 line-clamp-2 font-['Outfit',sans-serif] text-[15px] font-extrabold leading-tight text-[var(--text-primary)]">{it.title}</p>
-          {it.author_name && <p className="m-0 mt-0.5 truncate text-[12.5px] text-[var(--text-muted)]">{it.author_name}</p>}
+          {it.author_name && <p className="m-0 mt-0.5 truncate text-[13.5px] text-[var(--text-muted)]">{it.author_name}</p>}
           <div className="mt-1.5"><PopBar level={winnerLevel} /></div>
         </div>
       </div>
       <div className="mx-3.5 mt-3 flex flex-col gap-1.5 border-t border-[var(--border-subtle)] pt-2.5">
         {candidates.length > 0 ? (
           <>
-            <p className="m-0 font-['Outfit',sans-serif] text-[9.5px] font-extrabold uppercase tracking-[0.1em] text-[var(--text-muted)]">Kiti pasiūlymai</p>
+            <p className="m-0 font-['Outfit',sans-serif] text-[10.5px] font-extrabold uppercase tracking-[0.1em] text-[var(--text-muted)]">Kiti pasiūlymai</p>
             {candidates.map((c, i) => {
               const level = Math.max(1, Math.round((c.votes / maxVotes) * 5))
               return (
                 <div key={i} className="flex items-center gap-2">
-                  <span className="w-4 shrink-0 text-center font-['Outfit',sans-serif] text-[13px] font-black text-[var(--text-muted)]">{c.rank ?? i + 2}</span>
+                  <span className="w-4 shrink-0 text-center font-['Outfit',sans-serif] text-[14px] font-black text-[var(--text-muted)]">{c.rank ?? i + 2}</span>
                   {c.cover
                     ? <img src={proxyImg(c.cover)} alt="" loading="lazy" // eslint-disable-line @next/next/no-img-element
                         className="h-[30px] w-[30px] shrink-0 rounded-md object-cover" />
                     : <div className="h-[30px] w-[30px] shrink-0 rounded-md" style={{ background: `hsl(${strHue(c.title)},30%,22%)` }} />
                   }
                   <div className="min-w-0 flex-1">
-                    <p className="m-0 truncate text-[12.5px] font-bold leading-tight text-[var(--text-primary)]" style={{ fontFamily: "'Outfit',sans-serif" }}>{c.title}</p>
-                    {c.artist && <p className="m-0 truncate text-[10.5px] leading-tight text-[var(--text-muted)]">{c.artist}</p>}
+                    <p className="m-0 truncate text-[13.5px] font-bold leading-tight text-[var(--text-primary)]" style={{ fontFamily: "'Outfit',sans-serif" }}>{c.title}</p>
+                    {c.artist && <p className="m-0 truncate text-[11.5px] leading-tight text-[var(--text-muted)]">{c.artist}</p>}
                     <div className="mt-1"><PopBar level={level} w={9} /></div>
                   </div>
                 </div>
@@ -276,13 +276,13 @@ function DDCard({ it }: { it: CommunityItem }) {
               </svg>
             </div>
             <div className="min-w-0 flex-1">
-              <p className="m-0 font-['Outfit',sans-serif] text-[13px] font-bold text-[var(--text-primary)]">Siūlyti dainą</p>
-              <p className="m-0 text-[11px] text-[var(--text-muted)]">Rink dienos dainą su bendruomene</p>
+              <p className="m-0 font-['Outfit',sans-serif] text-[14px] font-bold text-[var(--text-primary)]">Siūlyti dainą</p>
+              <p className="m-0 text-[12px] text-[var(--text-muted)]">Rink dienos dainą su bendruomene</p>
             </div>
           </a>
         )}
       </div>
-      <span className="mt-auto px-3.5 pb-3.5 pt-3 font-['Outfit',sans-serif] text-[12.5px] font-bold text-[var(--accent-orange)]">
+      <span className="mt-auto px-3.5 pb-3.5 pt-3 font-['Outfit',sans-serif] text-[13.5px] font-bold text-[var(--accent-orange)]">
         {isToday ? 'Balsuoti →' : 'Dienos daina →'}
       </span>
     </Link>
@@ -311,13 +311,13 @@ function BlogCard({ it }: { it: CommunityItem }) {
             return (
               <div className="min-h-0 flex-1 overflow-hidden">
                 {lines.map((line, i) => (
-                  <span key={i} className="block truncate text-[13px] leading-[1.7] text-[var(--text-secondary)]" style={{ fontStyle: 'italic' }}>{line}</span>
+                  <span key={i} className="block truncate text-[14px] leading-[1.7] text-[var(--text-secondary)]" style={{ fontStyle: 'italic' }}>{line}</span>
                 ))}
               </div>
             )
           })()
         ) : it.excerpt ? (
-          <p className="m-0 text-[12.5px] leading-relaxed text-[var(--text-secondary)]"
+          <p className="m-0 text-[13.5px] leading-relaxed text-[var(--text-secondary)]"
              style={{ display: '-webkit-box', WebkitLineClamp: isLong ? 6 : 4, WebkitBoxOrient: 'vertical', overflow: 'hidden' }}>{it.excerpt}</p>
         ) : null}
       </div>
@@ -340,7 +340,7 @@ function TopasCard({ it }: { it: CommunityItem }) {
           <div className="mt-1 flex flex-col">
             {entries.map(e => (
               <div key={e.rank} className="flex items-center gap-2 border-b border-[var(--border-subtle)] py-[6px] last:border-b-0">
-                <span className="w-4 shrink-0 text-center text-[13px] font-black"
+                <span className="w-4 shrink-0 text-center text-[14px] font-black"
                       style={{ color: e.rank === 1 ? '#fbbf24' : e.rank === 2 ? '#94a3b8' : e.rank === 3 ? '#c97d4d' : 'var(--text-faint)', fontFamily: "'Outfit',sans-serif" }}>
                   {e.rank}
                 </span>
@@ -351,10 +351,10 @@ function TopasCard({ it }: { it: CommunityItem }) {
                       style={{ background: `hsl(${strHue(e.title)},30%,20%)` }} />
                 }
                 <div className="min-w-0 flex-1">
-                  <p className="m-0 truncate text-[12.5px] font-bold leading-tight text-[var(--text-primary)]"
+                  <p className="m-0 truncate text-[13.5px] font-bold leading-tight text-[var(--text-primary)]"
                      style={{ fontFamily: "'Outfit',sans-serif" }}>{e.title}</p>
                   {e.artist && (
-                    <p className="m-0 truncate text-[10.5px] leading-tight text-[var(--text-muted)]"
+                    <p className="m-0 truncate text-[11.5px] leading-tight text-[var(--text-muted)]"
                        style={{ fontFamily: "'Outfit',sans-serif" }}>{e.artist}</p>
                   )}
                 </div>
@@ -363,7 +363,7 @@ function TopasCard({ it }: { it: CommunityItem }) {
           </div>
         )}
         {(it.entries?.length || 0) > 5 && (
-          <p className="m-0 pt-1 text-[11.5px] text-[var(--text-muted)]">Visas topas →</p>
+          <p className="m-0 pt-1 text-[12.5px] text-[var(--text-muted)]">Visas topas →</p>
         )}
       </div>
       <AuthorRow it={it} />
@@ -386,13 +386,13 @@ function DiscCard({ it }: { it: CommunityItem }) {
               className="h-full w-full object-cover transition-transform duration-500 group-hover:scale-[1.05]" />
             <div className="pointer-events-none absolute inset-0" style={{ background: 'linear-gradient(to bottom,transparent 40%,rgba(13,19,32,0.8))' }} />
             {(it.comment_count ?? 0) > 0 && (
-              <span className="absolute bottom-2 right-2 rounded bg-black/60 px-1.5 py-0.5 text-[10px] font-bold text-white backdrop-blur-sm"
+              <span className="absolute bottom-2 right-2 rounded bg-black/60 px-1.5 py-0.5 text-[11px] font-bold text-white backdrop-blur-sm"
                     style={{ fontFamily: "'Outfit',sans-serif" }}>{it.comment_count} atsak.</span>
             )}
           </div>
         </>
       ) : (
-        <div className="px-3 pt-3"><span className="rounded-[7px] px-2 py-1 font-['Outfit',sans-serif] text-[10px] font-extrabold uppercase tracking-[0.08em] text-white" style={{ background: meta.color }}>{meta.label}</span></div>
+        <div className="px-3 pt-3"><span className="rounded-[7px] px-2 py-1 font-['Outfit',sans-serif] text-[11px] font-extrabold uppercase tracking-[0.08em] text-white" style={{ background: meta.color }}>{meta.label}</span></div>
       )}
       <div className="flex flex-col gap-1.5 px-3 pb-3 pt-2.5">
         <p className="m-0 line-clamp-2 text-[14.5px] font-extrabold leading-snug text-[var(--text-primary)] transition-colors group-hover:text-[var(--accent-orange)]"
@@ -426,7 +426,7 @@ function AtradimasCard({ it }: { it: CommunityItem }) {
              style={{ fontFamily: "'Outfit',sans-serif" }}>{it.title}</p>
         )}
         {artistName && trackName && (
-          <p className="m-0 truncate text-[12px] font-bold text-[var(--text-muted)]"
+          <p className="m-0 truncate text-[13px] font-bold text-[var(--text-muted)]"
              style={{ fontFamily: "'Outfit',sans-serif" }}>{artistName}</p>
         )}
         {it.excerpt && (
@@ -435,13 +435,13 @@ function AtradimasCard({ it }: { it: CommunityItem }) {
               ? <img src={proxyImg(it.author_avatar)} alt="" loading="lazy" // eslint-disable-line @next/next/no-img-element
                   className="mt-0.5 h-[18px] w-[18px] shrink-0 rounded-full object-cover" />
               : it.author_name
-                ? <div className="mt-0.5 flex h-[18px] w-[18px] shrink-0 items-center justify-center rounded-full text-[9px] font-extrabold"
+                ? <div className="mt-0.5 flex h-[18px] w-[18px] shrink-0 items-center justify-center rounded-full text-[10px] font-extrabold"
                     style={{ fontFamily: "'Outfit',sans-serif", background: `hsl(${strHue(it.author_name)},32%,18%)`, color: `hsl(${strHue(it.author_name)},45%,55%)` }}>
                     {it.author_name.charAt(0).toUpperCase()}
                   </div>
                 : null
             }
-            <p className="m-0 text-[12px] leading-relaxed text-[var(--text-secondary)]"
+            <p className="m-0 text-[13px] leading-relaxed text-[var(--text-secondary)]"
                style={{ display: '-webkit-box', WebkitLineClamp: 5, WebkitBoxOrient: 'vertical', overflow: 'hidden' }}>{it.excerpt}</p>
           </div>
         )}
@@ -488,7 +488,7 @@ export default function BendruomeneSection() {
           Bendruomenė
         </h2>
         <Link href="/bendruomene"
-              className="font-['Outfit',sans-serif] text-[12.5px] font-bold text-[var(--accent-orange)] no-underline transition-opacity hover:opacity-70">
+              className="font-['Outfit',sans-serif] text-[13.5px] font-bold text-[var(--accent-orange)] no-underline transition-opacity hover:opacity-70">
           Daugiau →
         </Link>
       </div>

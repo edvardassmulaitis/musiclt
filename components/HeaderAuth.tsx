@@ -198,7 +198,7 @@ function AuthModal({ onClose }: { onClose: () => void }) {
 
             <div className="flex items-center gap-3 py-1">
               <div className="flex-1 h-px" style={{ background: 'var(--border-subtle)' }} />
-              <span className="text-[12px]" style={{ color: 'var(--text-faint)' }}>arba el. paštu</span>
+              <span className="text-[13px]" style={{ color: 'var(--text-faint)' }}>arba el. paštu</span>
               <div className="flex-1 h-px" style={{ background: 'var(--border-subtle)' }} />
             </div>
 
@@ -226,7 +226,7 @@ function AuthModal({ onClose }: { onClose: () => void }) {
               </button>
             </form>
 
-            <p className="text-center text-[12px] pt-1" style={{ color: 'var(--text-faint)' }}>
+            <p className="text-center text-[13px] pt-1" style={{ color: 'var(--text-faint)' }}>
               Prisijungdamas sutinki su{' '}
               <a href="/privatumas" className="transition-colors" style={{ color: 'var(--accent-link)' }}>privatumo politika</a>
             </p>
@@ -394,7 +394,7 @@ function UserMenu() {
               <div className="text-sm font-bold truncate" style={{ color: 'var(--text-primary)' }}>{session.user.name}</div>
               {isAdmin ? (
                 <span
-                  className="inline-flex items-center gap-1 mt-1 text-[11px] px-2 py-0.5 rounded-full font-bold"
+                  className="inline-flex items-center gap-1 mt-1 text-[12px] px-2 py-0.5 rounded-full font-bold"
                   style={{ background: 'rgba(249,115,22,0.15)', color: 'var(--accent-orange)' }}
                 >
                   <svg width="9" height="9" viewBox="0 0 24 24" fill="currentColor"><path d="M12 2l2.9 6.26L22 9.27l-5 4.87 1.18 6.88L12 17.77l-6.18 3.25L7 14.14l-5-4.87 7.1-1.01z"/></svg>

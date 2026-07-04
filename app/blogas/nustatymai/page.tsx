@@ -140,13 +140,13 @@ export default function BlogSettingsPage() {
 
         <div className="space-y-4">
           <div>
-            <label className="text-[11px] font-bold uppercase tracking-wider text-[#334058] mb-1 block" style={{ fontFamily: "'Outfit', sans-serif" }}>Blogo pavadinimas</label>
+            <label className="text-[12px] font-bold uppercase tracking-wider text-[#334058] mb-1 block" style={{ fontFamily: "'Outfit', sans-serif" }}>Blogo pavadinimas</label>
             <input value={title} onChange={e => setTitle(e.target.value)} placeholder="Jono muzikos kampas" className="w-full px-3 py-2 rounded-lg bg-white/[.03] border border-white/[.06] text-sm outline-none focus:border-[var(--accent-orange)]/30" />
           </div>
 
           {mode === 'create' && (
             <div>
-              <label className="text-[11px] font-bold uppercase tracking-wider text-[#334058] mb-1 block" style={{ fontFamily: "'Outfit', sans-serif" }}>URL slug</label>
+              <label className="text-[12px] font-bold uppercase tracking-wider text-[#334058] mb-1 block" style={{ fontFamily: "'Outfit', sans-serif" }}>URL slug</label>
               <div className="flex items-center gap-0 rounded-lg overflow-hidden border border-white/[.06]">
                 <span className="px-3 py-2 bg-white/[.03] text-xs text-[#334058] border-r border-white/[.06]">music.lt/blogas/</span>
                 <input value={slug} onChange={e => setSlug(e.target.value)} className="flex-1 px-3 py-2 bg-white/[.02] text-sm outline-none" />
@@ -155,13 +155,13 @@ export default function BlogSettingsPage() {
           )}
 
           <div>
-            <label className="text-[11px] font-bold uppercase tracking-wider text-[#334058] mb-1 block" style={{ fontFamily: "'Outfit', sans-serif" }}>Aprašymas</label>
+            <label className="text-[12px] font-bold uppercase tracking-wider text-[#334058] mb-1 block" style={{ fontFamily: "'Outfit', sans-serif" }}>Aprašymas</label>
             <textarea value={description} onChange={e => setDescription(e.target.value)} rows={3} placeholder="Apie ką rašysi..." className="w-full px-3 py-2 rounded-lg bg-white/[.03] border border-white/[.06] text-sm outline-none focus:border-[var(--accent-orange)]/30 resize-none" />
           </div>
 
           {mode === 'edit' && (
             <div>
-              <label className="text-[11px] font-bold uppercase tracking-wider text-[#334058] mb-1 block" style={{ fontFamily: "'Outfit', sans-serif" }}>Cover nuotrauka (URL)</label>
+              <label className="text-[12px] font-bold uppercase tracking-wider text-[#334058] mb-1 block" style={{ fontFamily: "'Outfit', sans-serif" }}>Cover nuotrauka (URL)</label>
               <input value={coverUrl} onChange={e => setCoverUrl(e.target.value)} placeholder="https://..." className="w-full px-3 py-2 rounded-lg bg-white/[.03] border border-white/[.06] text-sm outline-none focus:border-[var(--accent-orange)]/30" />
             </div>
           )}
@@ -173,7 +173,7 @@ export default function BlogSettingsPage() {
 
         {mode === 'edit' && (
           <div className="mt-6 pt-4 border-t border-white/[.04]">
-            <p className="text-[11px] text-[#334058]">Tavo blogo adresas: <a href={`/blogas/${slug}`} className="text-[var(--accent-orange)]">music.lt/blogas/{slug}</a></p>
+            <p className="text-[12px] text-[#334058]">Tavo blogo adresas: <a href={`/blogas/${slug}`} className="text-[var(--accent-orange)]">music.lt/blogas/{slug}</a></p>
           </div>
         )}
       </div>

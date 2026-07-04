@@ -162,7 +162,7 @@ function RangeCalendar({ from, to, onPick }: { from: Date | null; to: Date | nul
         <button type="button" onClick={() => setView(new Date(y, m + 1, 1))} className="ev-cal-nav">{Icon.arrowR}</button>
       </div>
       <div className="grid grid-cols-7 gap-0.5 mb-1">
-        {WEEKDAYS.map(w => <div key={w} style={{ textAlign: 'center', fontSize: 11, fontWeight: 700, padding: '3px 0', color: 'var(--text-faint)' }}>{w}</div>)}
+        {WEEKDAYS.map(w => <div key={w} style={{ textAlign: 'center', fontSize: 12, fontWeight: 700, padding: '3px 0', color: 'var(--text-faint)' }}>{w}</div>)}
       </div>
       <div className="grid grid-cols-7 gap-0.5">
         {cells.map((day, i) => {

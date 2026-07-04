@@ -89,7 +89,7 @@ export default function HotStrip() {
         </h2>
         <Link
           href="/bendruomene"
-          className="font-['Outfit',sans-serif] text-[12.5px] font-bold text-[var(--accent-orange)] no-underline transition-opacity hover:opacity-70"
+          className="font-['Outfit',sans-serif] text-[13.5px] font-bold text-[var(--accent-orange)] no-underline transition-opacity hover:opacity-70"
         >
           Atrasti →
         </Link>

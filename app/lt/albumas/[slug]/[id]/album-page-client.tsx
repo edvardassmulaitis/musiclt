@@ -229,20 +229,20 @@ export default function AlbumPageClient({
   const Tracklist = (
     <div>
       <div className="mb-3 flex items-baseline gap-2">
-        <div className="font-['Outfit',sans-serif] text-[12px] font-extrabold uppercase tracking-[0.18em] text-[var(--text-muted)]">
+        <div className="font-['Outfit',sans-serif] text-[13px] font-extrabold uppercase tracking-[0.18em] text-[var(--text-muted)]">
           Dainos
         </div>
         {tracks.length > 0 && (
-          <span className="font-['Outfit',sans-serif] text-[11px] font-bold text-[var(--text-faint)]">
+          <span className="font-['Outfit',sans-serif] text-[12px] font-bold text-[var(--text-faint)]">
             {tracks.length}
           </span>
         )}
         {positionsUnknown && tracks.length > 0 && (
-          <span className="ml-auto text-[11px] font-medium text-[var(--text-muted)]">tvarka nenurodyta</span>
+          <span className="ml-auto text-[12px] font-medium text-[var(--text-muted)]">tvarka nenurodyta</span>
         )}
       </div>
       {tracks.length === 0 ? (
-        <div className="rounded-xl border border-dashed border-[var(--border-subtle)] bg-[var(--bg-elevated)] px-4 py-10 text-center text-[13px] text-[var(--text-faint)]">
+        <div className="rounded-xl border border-dashed border-[var(--border-subtle)] bg-[var(--bg-elevated)] px-4 py-10 text-center text-[14px] text-[var(--text-faint)]">
           Dainų nėra
         </div>
       ) : (
@@ -266,7 +266,7 @@ export default function AlbumPageClient({
                   {/* Position number */}
                   <span
                     className={[
-                      'w-5 shrink-0 text-center font-["Outfit",sans-serif] text-[13px] font-bold tabular-nums',
+                      'w-5 shrink-0 text-center font-["Outfit",sans-serif] text-[14px] font-bold tabular-nums',
                       isActive ? 'text-[var(--accent-orange)]' : 'text-[var(--text-faint)]',
                     ].join(' ')}
                     aria-hidden
@@ -369,7 +369,7 @@ export default function AlbumPageClient({
             {/* Kicker — tik „Greitai" žyma. Tipas pašalintas, data perkelta žemiau. */}
             {album.is_upcoming && (
               <div className="mb-1 flex flex-wrap items-center gap-1.5">
-                <span className="rounded-md border border-[rgba(249,115,22,0.3)] bg-[rgba(249,115,22,0.15)] px-1.5 py-0.5 font-['Outfit',sans-serif] text-[10px] font-bold uppercase tracking-[0.08em] text-[var(--accent-orange)]">
+                <span className="rounded-md border border-[rgba(249,115,22,0.3)] bg-[rgba(249,115,22,0.15)] px-1.5 py-0.5 font-['Outfit',sans-serif] text-[11px] font-bold uppercase tracking-[0.08em] text-[var(--accent-orange)]">
                   Greitai
                 </span>
               </div>
@@ -377,7 +377,7 @@ export default function AlbumPageClient({
             <h1 className="truncate font-['Outfit',sans-serif] text-[16px] font-extrabold leading-tight text-[var(--text-primary)]">
               {album.title}
             </h1>
-            <div className="truncate text-[13px] leading-tight">
+            <div className="truncate text-[14px] leading-tight">
               <Link href={`/atlikejai/${artist.slug}`} className="font-['Outfit',sans-serif] font-bold text-[var(--accent-orange)] no-underline hover:underline">
                 {artist.name}
               </Link>
@@ -385,7 +385,7 @@ export default function AlbumPageClient({
             {/* Data — po atlikėjo pavadinimo. Tik mobile (desktop'e data rodoma chip'e
                 kairiajame stulpelyje). */}
             {dateStr && (
-              <div className="mt-0.5 text-[12px] font-semibold text-[var(--text-muted)] md:hidden">
+              <div className="mt-0.5 text-[13px] font-semibold text-[var(--text-muted)] md:hidden">
                 {dateStr}
               </div>
             )}
@@ -449,7 +449,7 @@ export default function AlbumPageClient({
                     )}
                   </>
                 ) : (
-                  <div className="flex h-full w-full items-center justify-center text-[11px] uppercase tracking-wider text-[var(--text-faint)]">
+                  <div className="flex h-full w-full items-center justify-center text-[12px] uppercase tracking-wider text-[var(--text-faint)]">
                     Vaizdo įrašo nėra
                   </div>
                 )}
@@ -459,17 +459,17 @@ export default function AlbumPageClient({
             <div className="hidden md:flex flex-col px-4 py-3">
               <div className="flex flex-wrap gap-1.5 mb-3">
                 {dateStr && (
-                  <span className="inline-flex items-center rounded-full border border-[var(--border-subtle)] bg-[var(--card-bg)] px-2.5 py-1 font-['Outfit',sans-serif] text-[11.5px] font-extrabold leading-tight text-[var(--text-primary)]">
+                  <span className="inline-flex items-center rounded-full border border-[var(--border-subtle)] bg-[var(--card-bg)] px-2.5 py-1 font-['Outfit',sans-serif] text-[12.5px] font-extrabold leading-tight text-[var(--text-primary)]">
                     {dateStr}
                   </span>
                 )}
                 {tracks.length > 0 && (
-                  <span className="inline-flex items-center rounded-full border border-[var(--border-subtle)] bg-[var(--card-bg)] px-2.5 py-1 font-['Outfit',sans-serif] text-[11.5px] font-bold leading-tight text-[var(--text-muted)]">
+                  <span className="inline-flex items-center rounded-full border border-[var(--border-subtle)] bg-[var(--card-bg)] px-2.5 py-1 font-['Outfit',sans-serif] text-[12.5px] font-bold leading-tight text-[var(--text-muted)]">
                     {tracks.length} dain{tracks.length % 10 === 1 && tracks.length % 100 !== 11 ? 'a' : (tracks.length % 10 >= 2 && tracks.length % 10 <= 9 && (tracks.length % 100 < 11 || tracks.length % 100 > 19) ? 'os' : 'ų')}
                   </span>
                 )}
                 {album.is_upcoming && (
-                  <span className="inline-flex items-center rounded-full border border-[rgba(249,115,22,0.3)] bg-[rgba(249,115,22,0.18)] px-2 py-0.5 font-['Outfit',sans-serif] text-[10px] font-extrabold uppercase tracking-wider text-[var(--accent-orange)]">
+                  <span className="inline-flex items-center rounded-full border border-[rgba(249,115,22,0.3)] bg-[rgba(249,115,22,0.18)] px-2 py-0.5 font-['Outfit',sans-serif] text-[11px] font-extrabold uppercase tracking-wider text-[var(--accent-orange)]">
                     Greitai
                   </span>
                 )}
@@ -477,7 +477,7 @@ export default function AlbumPageClient({
               <button
                 type="button"
                 onClick={() => setMobileTab('comments')}
-                className="flex w-full items-center justify-center gap-2 rounded-xl border-2 border-[var(--accent-orange)] bg-[rgba(249,115,22,0.08)] px-3 py-2.5 font-['Outfit',sans-serif] text-[13px] font-extrabold text-[var(--accent-orange)] transition-colors hover:bg-[rgba(249,115,22,0.15)]"
+                className="flex w-full items-center justify-center gap-2 rounded-xl border-2 border-[var(--accent-orange)] bg-[rgba(249,115,22,0.08)] px-3 py-2.5 font-['Outfit',sans-serif] text-[14px] font-extrabold text-[var(--accent-orange)] transition-colors hover:bg-[rgba(249,115,22,0.15)]"
               >
                 <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5"><path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"/></svg>
                 {commentTotal > 0 ? `Komentarai (${commentTotal})` : 'Pasidalink nuomone'}
@@ -493,7 +493,7 @@ export default function AlbumPageClient({
                 type="button"
                 onClick={() => setMobileTab('tracks')}
                 className={[
-                  "relative flex items-center gap-1.5 px-1 py-1 font-['Outfit',sans-serif] text-[13px] font-bold transition-colors",
+                  "relative flex items-center gap-1.5 px-1 py-1 font-['Outfit',sans-serif] text-[14px] font-bold transition-colors",
                   mobileTab === 'tracks'
                     ? 'text-[var(--accent-orange)] after:absolute after:inset-x-0 after:-bottom-[8px] after:h-[2px] after:bg-[var(--accent-orange)]'
                     : 'text-[var(--text-muted)]',
@@ -501,7 +501,7 @@ export default function AlbumPageClient({
               >
                 <span>Dainos</span>
                 {tracks.length > 0 && (
-                  <span className="rounded-full bg-[var(--bg-hover)] px-1.5 py-px text-[11px] font-extrabold leading-none text-[var(--text-muted)]">
+                  <span className="rounded-full bg-[var(--bg-hover)] px-1.5 py-px text-[12px] font-extrabold leading-none text-[var(--text-muted)]">
                     {tracks.length}
                   </span>
                 )}
@@ -510,7 +510,7 @@ export default function AlbumPageClient({
                 type="button"
                 onClick={() => setMobileTab('comments')}
                 className={[
-                  "relative flex items-center gap-1.5 px-1 py-1 font-['Outfit',sans-serif] text-[13px] font-bold transition-colors",
+                  "relative flex items-center gap-1.5 px-1 py-1 font-['Outfit',sans-serif] text-[14px] font-bold transition-colors",
                   mobileTab === 'comments'
                     ? 'text-[var(--accent-orange)] after:absolute after:inset-x-0 after:-bottom-[8px] after:h-[2px] after:bg-[var(--accent-orange)]'
                     : 'text-[var(--text-muted)]',
@@ -518,7 +518,7 @@ export default function AlbumPageClient({
               >
                 <span>Komentarai</span>
                 {commentTotal > 0 && (
-                  <span className="rounded-full bg-[var(--accent-orange)] px-1.5 py-px text-[11px] font-extrabold leading-none text-white">
+                  <span className="rounded-full bg-[var(--accent-orange)] px-1.5 py-px text-[12px] font-extrabold leading-none text-white">
                     {commentTotal}
                   </span>
                 )}
@@ -561,12 +561,12 @@ export default function AlbumPageClient({
           {otherAlbums.length > 0 && (
             <div>
               <div className="mb-3 flex items-baseline justify-between">
-                <div className="font-['Outfit',sans-serif] text-[12px] font-extrabold uppercase tracking-[0.18em] text-[var(--text-muted)]">
+                <div className="font-['Outfit',sans-serif] text-[13px] font-extrabold uppercase tracking-[0.18em] text-[var(--text-muted)]">
                   Daugiau {artist.name}
                 </div>
                 <Link
                   href={`/atlikejai/${artist.slug}`}
-                  className="font-['Outfit',sans-serif] text-[11px] font-bold text-[var(--accent-orange)] no-underline hover:underline"
+                  className="font-['Outfit',sans-serif] text-[12px] font-bold text-[var(--accent-orange)] no-underline hover:underline"
                 >
                   Visi →
                 </Link>
@@ -586,7 +586,7 @@ export default function AlbumPageClient({
           )}
           {similarAlbums.length > 0 && (
             <div>
-              <div className="mb-3 font-['Outfit',sans-serif] text-[12px] font-extrabold uppercase tracking-[0.18em] text-[var(--text-muted)]">
+              <div className="mb-3 font-['Outfit',sans-serif] text-[13px] font-extrabold uppercase tracking-[0.18em] text-[var(--text-muted)]">
                 Panaši muzika
               </div>
               <div className="grid grid-cols-3 gap-2.5 sm:grid-cols-4 lg:grid-cols-6">
@@ -639,11 +639,11 @@ function AlbumThumbCard({ href, cover, title, subtitle }: { href: string; cover:
         )}
       </div>
       <div className="min-w-0">
-        <div className="line-clamp-2 font-['Outfit',sans-serif] text-[12.5px] font-bold leading-tight text-[var(--text-primary)] group-hover:text-[var(--accent-orange)]">
+        <div className="line-clamp-2 font-['Outfit',sans-serif] text-[13.5px] font-bold leading-tight text-[var(--text-primary)] group-hover:text-[var(--accent-orange)]">
           {title}
         </div>
         {subtitle && (
-          <div className="mt-0.5 truncate text-[11px] text-[var(--text-muted)]">{subtitle}</div>
+          <div className="mt-0.5 truncate text-[12px] text-[var(--text-muted)]">{subtitle}</div>
         )}
       </div>
     </Link>

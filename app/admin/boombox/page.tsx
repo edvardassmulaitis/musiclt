@@ -197,7 +197,7 @@ function AutoGenerateBar({ type, onGenerate, disabled }: {
         <div style={{ fontFamily: 'Outfit, system-ui, sans-serif', fontSize: 15, fontWeight: 700, marginBottom: 2 }}>
           Auto-generuoti {type === 'duel' ? 'dvikovas' : 'verdiktus'}
         </div>
-        <div style={{ fontSize: 13, color: 'var(--text-muted)' }}>
+        <div style={{ fontSize: 14, color: 'var(--text-muted)' }}>
           {type === 'duel'
             ? 'Pora dainų iš katalogo — rotuoja old vs old / new vs new / old vs new. Šalys nemaišomos.'
             : 'Track\'ai su video iš top atlikėjų. Pirmiausia naujausi (≥2024).'}
@@ -292,14 +292,14 @@ function ImageCreator({ onCreated }: { onCreated: () => void }) {
       <div style={{ fontFamily: 'Outfit, system-ui, sans-serif', fontSize: 15, fontWeight: 700, marginBottom: 4 }}>
         Naujas atspėk vaizdo drop'as
       </div>
-      <div style={{ fontSize: 13, color: 'var(--text-muted)', marginBottom: 14 }}>
+      <div style={{ fontSize: 14, color: 'var(--text-muted)', marginBottom: 14 }}>
         Įkelk AI vaizdą + pasirink teisingą dainą. Decoy track'ai parinkti automatiškai (panašus laikmetis, ta pati šalis, kitas atlikėjas).
       </div>
 
       <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 12, alignItems: 'flex-start' }}>
         {/* Image upload zona */}
         <div>
-          <label style={{ display: 'block', fontSize: 13, color: 'var(--text-muted)', marginBottom: 4, fontWeight: 600 }}>Vaizdas *</label>
+          <label style={{ display: 'block', fontSize: 14, color: 'var(--text-muted)', marginBottom: 4, fontWeight: 600 }}>Vaizdas *</label>
           {imageUrl ? (
             <div style={{ position: 'relative', borderRadius: 8, overflow: 'hidden', border: '1px solid var(--accent-orange)' }}>
               <img src={imageUrl} alt="preview" style={{ width: '100%', height: 180, objectFit: 'cover', display: 'block' }} />
@@ -340,7 +340,7 @@ function ImageCreator({ onCreated }: { onCreated: () => void }) {
                 <>
                   <div style={{ fontSize: 32 }}>📥</div>
                   <div style={{ fontSize: 14, fontWeight: 600 }}>Tempk failą čia</div>
-                  <div style={{ fontSize: 12, color: 'var(--text-muted)' }}>arba spauk pasirinkti · max 5MB</div>
+                  <div style={{ fontSize: 13, color: 'var(--text-muted)' }}>arba spauk pasirinkti · max 5MB</div>
                 </>
               )}
               <input
@@ -358,7 +358,7 @@ function ImageCreator({ onCreated }: { onCreated: () => void }) {
         </div>
 
         <div>
-          <label style={{ display: 'block', fontSize: 13, color: 'var(--text-muted)', marginBottom: 4, fontWeight: 600 }}>Teisinga daina *</label>
+          <label style={{ display: 'block', fontSize: 14, color: 'var(--text-muted)', marginBottom: 4, fontWeight: 600 }}>Teisinga daina *</label>
           {correctTrack ? (
             <div style={{ display: 'flex', alignItems: 'center', gap: 8, background: 'var(--card-bg)', border: '1px solid var(--accent-orange)', borderRadius: 8, padding: '8px 12px' }}>
               <div style={{ flex: 1, fontSize: 14 }}>
@@ -376,7 +376,7 @@ function ImageCreator({ onCreated }: { onCreated: () => void }) {
             />
           )}
 
-          <label style={{ display: 'block', fontSize: 13, color: 'var(--text-muted)', marginTop: 12, marginBottom: 4, fontWeight: 600 }}>
+          <label style={{ display: 'block', fontSize: 14, color: 'var(--text-muted)', marginTop: 12, marginBottom: 4, fontWeight: 600 }}>
             AI prompt'as <span style={{ color: 'var(--text-faint)' }}>(optional)</span>
           </label>
           <textarea
@@ -390,7 +390,7 @@ function ImageCreator({ onCreated }: { onCreated: () => void }) {
         </div>
       </div>
 
-      {err && <div style={{ color: 'var(--status-error-text)', fontSize: 13, marginTop: 8 }}>{err}</div>}
+      {err && <div style={{ color: 'var(--status-error-text)', fontSize: 14, marginTop: 8 }}>{err}</div>}
 
       <div style={{ marginTop: 12 }}>
         <button
@@ -448,12 +448,12 @@ function VideoCreator({ onCreated }: { onCreated: () => void }) {
       <div style={{ fontFamily: 'Outfit, system-ui, sans-serif', fontSize: 15, fontWeight: 700, marginBottom: 4 }}>
         Naujas video drop'as
       </div>
-      <div style={{ fontSize: 13, color: 'var(--text-muted)', marginBottom: 14 }}>
+      <div style={{ fontSize: 14, color: 'var(--text-muted)', marginBottom: 14 }}>
         Įmesk TikTok / YT Shorts / IG Reels link'ą. Šaltinį ir embed_id išgaus automatiškai.
       </div>
 
       <div style={{ marginBottom: 10 }}>
-        <label style={{ display: 'block', fontSize: 13, color: 'var(--text-muted)', marginBottom: 4, fontWeight: 600 }}>Video URL *</label>
+        <label style={{ display: 'block', fontSize: 14, color: 'var(--text-muted)', marginBottom: 4, fontWeight: 600 }}>Video URL *</label>
         <input
           type="url"
           value={url}
@@ -466,7 +466,7 @@ function VideoCreator({ onCreated }: { onCreated: () => void }) {
 
       <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 12, marginBottom: 8 }}>
         <div>
-          <label style={{ display: 'block', fontSize: 13, color: 'var(--text-muted)', marginBottom: 4, fontWeight: 600 }}>Caption <span style={{ color: 'var(--text-faint)' }}>(optional)</span></label>
+          <label style={{ display: 'block', fontSize: 14, color: 'var(--text-muted)', marginBottom: 4, fontWeight: 600 }}>Caption <span style={{ color: 'var(--text-faint)' }}>(optional)</span></label>
           <input
             type="text"
             value={caption}
@@ -478,11 +478,11 @@ function VideoCreator({ onCreated }: { onCreated: () => void }) {
         </div>
 
         <div>
-          <label style={{ display: 'block', fontSize: 13, color: 'var(--text-muted)', marginBottom: 4, fontWeight: 600 }}>Susijęs atlikėjas / daina <span style={{ color: 'var(--text-faint)' }}>(optional)</span></label>
+          <label style={{ display: 'block', fontSize: 14, color: 'var(--text-muted)', marginBottom: 4, fontWeight: 600 }}>Susijęs atlikėjas / daina <span style={{ color: 'var(--text-faint)' }}>(optional)</span></label>
           {tag ? (
             <div style={{ display: 'flex', alignItems: 'center', gap: 8, background: 'var(--card-bg)', border: '1px solid var(--accent-orange)', borderRadius: 8, padding: '8px 12px' }}>
               <div style={{ flex: 1, fontSize: 14 }}>
-                <span style={{ fontSize: 12, color: 'var(--text-muted)', marginRight: 6 }}>{tag.type === 'grupe' ? 'atlikėjas' : 'daina'}</span>
+                <span style={{ fontSize: 13, color: 'var(--text-muted)', marginRight: 6 }}>{tag.type === 'grupe' ? 'atlikėjas' : 'daina'}</span>
                 <strong>{tag.title}</strong>
                 {tag.artist && <span style={{ color: 'var(--text-muted)', marginLeft: 6 }}>{tag.artist}</span>}
               </div>
@@ -499,7 +499,7 @@ function VideoCreator({ onCreated }: { onCreated: () => void }) {
         </div>
       </div>
 
-      {err && <div style={{ color: 'var(--status-error-text)', fontSize: 13, marginTop: 8 }}>{err}</div>}
+      {err && <div style={{ color: 'var(--status-error-text)', fontSize: 14, marginTop: 8 }}>{err}</div>}
 
       <div style={{ marginTop: 12 }}>
         <button
@@ -546,16 +546,16 @@ function DropTable({ type, drops, trackMap, artistMap, statsMap, onPatch, onArch
             const queueLabel = isArchived ? 'arch' : isPublished ? '—' : isDraft ? 'off' : `#${d.sort_order || 0}`
             return (
               <tr key={d.id} style={{ borderTop: '1px solid var(--border-default)', opacity: isDraft || isArchived ? 0.55 : 1 }}>
-                <td style={{ ...td, color: isPublished ? 'var(--text-faint)' : isReady ? 'var(--accent-green)' : 'var(--text-faint)', fontWeight: 600, fontFamily: 'monospace', fontSize: 13 }}>
+                <td style={{ ...td, color: isPublished ? 'var(--text-faint)' : isReady ? 'var(--accent-green)' : 'var(--text-faint)', fontWeight: 600, fontFamily: 'monospace', fontSize: 14 }}>
                   {queueLabel}
                   {isPublished && (
-                    <div style={{ fontSize: 11, color: 'var(--text-faint)', marginTop: 2, fontFamily: 'inherit', fontWeight: 400 }}>
+                    <div style={{ fontSize: 12, color: 'var(--text-faint)', marginTop: 2, fontFamily: 'inherit', fontWeight: 400 }}>
                       {new Date(d.published_at).toLocaleDateString('lt-LT', { month: 'short', day: 'numeric' })}
                     </div>
                   )}
                 </td>
                 <td style={td}>{describeDrop(type, d, trackMap, artistMap)}</td>
-                <td style={{ ...td, fontSize: 13 }}>
+                <td style={{ ...td, fontSize: 14 }}>
                   {stats && stats.total > 0 ? (
                     <div>
                       <div><strong>{stats.total}</strong> {stats.total === 1 ? 'atsakymas' : 'atsakymai'}</div>
@@ -579,7 +579,7 @@ function DropTable({ type, drops, trackMap, artistMap, statsMap, onPatch, onArch
                         background: isReady ? 'transparent' : 'var(--status-success-bg)',
                         border: `1px solid ${isReady ? 'var(--border-default)' : 'var(--accent-green)'}`,
                         color: isReady ? 'var(--text-muted)' : 'var(--accent-green)',
-                        padding: '4px 10px', borderRadius: 6, fontSize: 12, cursor: 'pointer', marginRight: 6, fontWeight: 600,
+                        padding: '4px 10px', borderRadius: 6, fontSize: 13, cursor: 'pointer', marginRight: 6, fontWeight: 600,
                       }}
                     >
                       {isReady ? 'Išjungti' : 'Įjungti'}
@@ -589,7 +589,7 @@ function DropTable({ type, drops, trackMap, artistMap, statsMap, onPatch, onArch
                     <button
                       onClick={() => onPatch(d.id, { sort_order: 0 })}
                       title="Pakelti į priekį"
-                      style={{ background: 'transparent', border: '1px solid var(--border-default)', color: 'var(--text-muted)', padding: '4px 8px', borderRadius: 6, fontSize: 12, cursor: 'pointer', marginRight: 6 }}
+                      style={{ background: 'transparent', border: '1px solid var(--border-default)', color: 'var(--text-muted)', padding: '4px 8px', borderRadius: 6, fontSize: 13, cursor: 'pointer', marginRight: 6 }}
                     >
                       ↑ next
                     </button>
@@ -597,7 +597,7 @@ function DropTable({ type, drops, trackMap, artistMap, statsMap, onPatch, onArch
                   {!isArchived && (
                     <button
                       onClick={() => onArchive(d.id)}
-                      style={{ background: 'transparent', border: '1px solid var(--border-default)', color: 'var(--text-muted)', padding: '4px 10px', borderRadius: 6, fontSize: 12, cursor: 'pointer' }}
+                      style={{ background: 'transparent', border: '1px solid var(--border-default)', color: 'var(--text-muted)', padding: '4px 10px', borderRadius: 6, fontSize: 13, cursor: 'pointer' }}
                     >
                       Archyvuoti
                     </button>
@@ -624,7 +624,7 @@ function DateLabel({ t }: { t: TrackInfo | undefined }) {
   if (!d.label) return null
   return (
     <span style={{
-      marginLeft: 8, fontSize: 12,
+      marginLeft: 8, fontSize: 13,
       color: d.missing ? 'var(--status-error-text)' : 'var(--text-faint)',
       fontStyle: d.missing ? 'italic' : 'normal',
     }}>
@@ -645,7 +645,7 @@ function describeDrop(type: DropType, d: any, trackMap: Record<number, TrackInfo
             ✓ {correct ? `${correct.artist} — ${correct.title}` : `track #${d.correct_track_id}`}
             <DateLabel t={correct} />
           </div>
-          <div style={{ fontSize: 12, color: 'var(--text-muted)', marginTop: 2 }}>
+          <div style={{ fontSize: 13, color: 'var(--text-muted)', marginTop: 2 }}>
             decoys: {decoys || '—'}
           </div>
         </div>
@@ -657,7 +657,7 @@ function describeDrop(type: DropType, d: any, trackMap: Record<number, TrackInfo
     const matchup = String(d.matchup_type || '').replace(/_/g, ' ')
     return (
       <div>
-        <div style={{ fontSize: 11, color: 'var(--text-muted)', textTransform: 'uppercase', letterSpacing: 1, marginBottom: 4 }}>{matchup}</div>
+        <div style={{ fontSize: 12, color: 'var(--text-muted)', textTransform: 'uppercase', letterSpacing: 1, marginBottom: 4 }}>{matchup}</div>
         <div>
           A: {a ? `${a.artist} — ${a.title}` : `#${d.track_a_id}`}
           <DateLabel t={a} />
@@ -683,17 +683,17 @@ function describeDrop(type: DropType, d: any, trackMap: Record<number, TrackInfo
     const t = d.related_track_id ? trackMap[d.related_track_id] : null
     return (
       <div>
-        <div style={{ fontSize: 11, color: 'var(--text-muted)', textTransform: 'uppercase', letterSpacing: 1, marginBottom: 4 }}>{d.source}</div>
+        <div style={{ fontSize: 12, color: 'var(--text-muted)', textTransform: 'uppercase', letterSpacing: 1, marginBottom: 4 }}>{d.source}</div>
         {d.caption && <div style={{ fontWeight: 600 }}>{d.caption}</div>}
-        <div style={{ fontSize: 12, color: 'var(--text-muted)', marginTop: 2 }}>
+        <div style={{ fontSize: 13, color: 'var(--text-muted)', marginTop: 2 }}>
           {t ? `→ ${t.artist} — ${t.title}` : a ? `→ ${a.name}` : <span style={{ color: 'var(--text-faint)' }}>be tag&apos;o</span>}
         </div>
-        <a href={d.source_url} target="_blank" rel="noopener noreferrer" style={{ fontSize: 12, color: 'var(--accent-orange)' }}>↗ source</a>
+        <a href={d.source_url} target="_blank" rel="noopener noreferrer" style={{ fontSize: 13, color: 'var(--accent-orange)' }}>↗ source</a>
       </div>
     )
   }
   return null
 }
 
-const th: React.CSSProperties = { padding: '10px 12px', fontSize: 12, color: 'var(--text-muted)', textTransform: 'uppercase', letterSpacing: 1, fontWeight: 600, textAlign: 'left' }
+const th: React.CSSProperties = { padding: '10px 12px', fontSize: 13, color: 'var(--text-muted)', textTransform: 'uppercase', letterSpacing: 1, fontWeight: 600, textAlign: 'left' }
 const td: React.CSSProperties = { padding: '12px', fontSize: 14, verticalAlign: 'top' }

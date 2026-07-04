@@ -50,13 +50,13 @@ export function BlogEditor({ value, onChange, placeholder }: BlogEditorProps) {
     <div>
       {/* Subtle hint above editor */}
       <div className="flex items-center justify-between mb-2">
-        <p className="text-[11px]" style={{ color: 'var(--text-muted)' }}>
+        <p className="text-[12px]" style={{ color: 'var(--text-muted)' }}>
           Įklijuok YouTube / Spotify nuorodą — auto-embed. Numesk nuotrauką — auto-upload.
         </p>
         <button
           type="button"
           onClick={() => setShowMusicModal(true)}
-          className="px-2.5 py-1 rounded-md text-[11px] font-bold transition hover:brightness-110"
+          className="px-2.5 py-1 rounded-md text-[12px] font-bold transition hover:brightness-110"
           style={{ background: 'var(--bg-elevated)', border: '1px solid var(--border-subtle)', color: 'var(--accent-orange)' }}
         >
           + music.lt

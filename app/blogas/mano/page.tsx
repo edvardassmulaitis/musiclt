@@ -209,7 +209,7 @@ function StatBox({
     >
       <div className="flex items-center gap-1.5 mb-2">
         {icon && <span className="text-sm">{icon}</span>}
-        <p className="text-[11px] font-bold uppercase tracking-wider" style={{ color: 'var(--text-muted)' }}>
+        <p className="text-[12px] font-bold uppercase tracking-wider" style={{ color: 'var(--text-muted)' }}>
           {label}
         </p>
       </div>
@@ -219,7 +219,7 @@ function StatBox({
       >
         {value.toLocaleString('lt-LT')}
       </p>
-      {sub && <p className="text-[12px] mt-1.5" style={{ color: 'var(--text-muted)' }}>{sub}</p>}
+      {sub && <p className="text-[13px] mt-1.5" style={{ color: 'var(--text-muted)' }}>{sub}</p>}
     </div>
   )
 }
@@ -322,7 +322,7 @@ function PostCard({ post, onDelete }: { post: Post; onDelete: () => void }) {
           {/* Status + type + rating */}
           <div className="flex items-center gap-2 mb-1.5 flex-wrap">
             <span
-              className="text-[10px] font-bold uppercase tracking-wider px-2 py-0.5 rounded-full"
+              className="text-[11px] font-bold uppercase tracking-wider px-2 py-0.5 rounded-full"
               style={
                 published
                   ? { background: 'rgba(34,197,94,0.14)', color: 'var(--accent-green)' }
@@ -332,13 +332,13 @@ function PostCard({ post, onDelete }: { post: Post; onDelete: () => void }) {
               {published ? 'Publikuotas' : 'Juodraštis'}
             </span>
             {typeMeta && (
-              <span className="inline-flex items-center gap-1.5 text-[11px] font-bold uppercase tracking-wide" style={{ color: typeColor }}>
+              <span className="inline-flex items-center gap-1.5 text-[12px] font-bold uppercase tracking-wide" style={{ color: typeColor }}>
                 <span className="inline-block w-1.5 h-1.5 rounded-full" style={{ background: typeColor }} />
                 {typeMeta.label}
               </span>
             )}
             {post.rating !== null && post.rating !== undefined && (
-              <span className="text-[11px] font-black" style={{ color: 'var(--accent-orange)' }}>
+              <span className="text-[12px] font-black" style={{ color: 'var(--accent-orange)' }}>
                 {post.rating}/10
               </span>
             )}
@@ -360,7 +360,7 @@ function PostCard({ post, onDelete }: { post: Post; onDelete: () => void }) {
           )}
 
           {/* Meta */}
-          <div className="flex items-center gap-2.5 text-[11px] flex-wrap" style={{ color: 'var(--text-muted)' }}>
+          <div className="flex items-center gap-2.5 text-[12px] flex-wrap" style={{ color: 'var(--text-muted)' }}>
             <span>
               {new Date(post.published_at || post.updated_at).toLocaleDateString('lt-LT', {
                 year: 'numeric', month: 'short', day: 'numeric',
@@ -379,18 +379,18 @@ function PostCard({ post, onDelete }: { post: Post; onDelete: () => void }) {
         {/* Actions — desktop */}
         <div className="hidden sm:flex flex-col gap-1.5 items-stretch shrink-0">
           {viewUrl ? (
-            <Link href={viewUrl} className="px-3 py-1 rounded-lg text-[12px] font-bold text-center transition hover:brightness-110"
+            <Link href={viewUrl} className="px-3 py-1 rounded-lg text-[13px] font-bold text-center transition hover:brightness-110"
               style={{ background: 'var(--bg-elevated)', color: 'var(--text-primary)' }}>
               Peržiūrėti
             </Link>
           ) : (
-            <span className="px-3 py-1 text-[12px] text-center" style={{ color: 'var(--text-faint)' }}>—</span>
+            <span className="px-3 py-1 text-[13px] text-center" style={{ color: 'var(--text-faint)' }}>—</span>
           )}
-          <Link href={editUrl} className="px-3 py-1 rounded-lg text-[12px] font-bold text-center transition hover:brightness-110"
+          <Link href={editUrl} className="px-3 py-1 rounded-lg text-[13px] font-bold text-center transition hover:brightness-110"
             style={{ background: 'var(--bg-elevated)', color: 'var(--text-secondary)' }}>
             Redaguoti
           </Link>
-          <button onClick={onDelete} className="px-3 py-1 rounded-lg text-[12px] font-bold transition hover:bg-red-500/10"
+          <button onClick={onDelete} className="px-3 py-1 rounded-lg text-[13px] font-bold transition hover:bg-red-500/10"
             style={{ color: 'var(--text-muted)' }}>
             Trinti
           </button>
@@ -400,16 +400,16 @@ function PostCard({ post, onDelete }: { post: Post; onDelete: () => void }) {
       {/* Actions — mobile */}
       <div className="flex sm:hidden gap-2 mt-3 pt-3" style={{ borderTop: '1px solid var(--border-subtle)' }}>
         {viewUrl && (
-          <Link href={viewUrl} className="flex-1 py-1.5 rounded-lg text-[12px] font-bold text-center"
+          <Link href={viewUrl} className="flex-1 py-1.5 rounded-lg text-[13px] font-bold text-center"
             style={{ background: 'var(--bg-elevated)', color: 'var(--text-primary)' }}>
             Peržiūrėti
           </Link>
         )}
-        <Link href={editUrl} className="flex-1 py-1.5 rounded-lg text-[12px] font-bold text-center"
+        <Link href={editUrl} className="flex-1 py-1.5 rounded-lg text-[13px] font-bold text-center"
           style={{ background: 'var(--bg-elevated)', color: 'var(--text-secondary)' }}>
           Redaguoti
         </Link>
-        <button onClick={onDelete} className="px-3 py-1.5 rounded-lg text-[12px] font-bold"
+        <button onClick={onDelete} className="px-3 py-1.5 rounded-lg text-[13px] font-bold"
           style={{ color: 'var(--text-muted)' }}>
           Trinti
         </button>

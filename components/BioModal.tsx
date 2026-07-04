@@ -71,7 +71,7 @@ export default function BioModal({ open, onClose, title, subtitle, html }: Props
             {subtitle && (
               <div
                 style={{
-                  marginTop: 4, fontSize: 13, color: 'var(--text-muted)', fontWeight: 600,
+                  marginTop: 4, fontSize: 14, color: 'var(--text-muted)', fontWeight: 600,
                   fontFamily: 'Outfit,sans-serif',
                 }}
               >

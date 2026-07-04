@@ -147,7 +147,7 @@ function CoverImageField({ value, onChange }: { value: string; onChange: (url: s
         ) : (
           <div className="w-full h-full flex flex-col items-center justify-center text-[var(--text-muted)] group-hover:text-blue-400 transition-colors">
             <svg className="w-7 h-7 mb-1" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M9 19V6l12-3v13M9 19c0 1.105-1.343 2-3 2s-3-.895-3-2 1.343-2 3-2 3 .895 3 2zm12-3c0 1.105-1.343 2-3 2s-3-.895-3-2 1.343-2 3-2 3 .895 3 2z" /></svg>
-            <span className="text-[11px]">Viršelis</span>
+            <span className="text-[12px]">Viršelis</span>
           </div>
         )}
         {uploading && (
@@ -370,14 +370,14 @@ function ExistingTrackPicker({ artistId, currentTrackIds, onPick, onClose }: {
         <div className="flex items-center justify-between px-4 py-3 border-b border-[var(--border-subtle)]">
           <div>
             <div className="font-bold text-[var(--text-primary)]">Pridėti esamą dainą</div>
-            <div className="text-[12px] text-[var(--text-muted)]">Artist'o tracks dar nepriskirti prie šio albumo</div>
+            <div className="text-[13px] text-[var(--text-muted)]">Artist'o tracks dar nepriskirti prie šio albumo</div>
           </div>
           <button onClick={onClose} className="text-[var(--text-muted)] hover:text-[var(--text-primary)] text-xl">×</button>
         </div>
         <div className="px-4 py-2 border-b border-[var(--border-subtle)] flex flex-col sm:flex-row gap-2 items-stretch sm:items-center">
           <input type="text" autoFocus placeholder="Ieškoti..." value={search} onChange={e => setSearch(e.target.value)}
             className="flex-1 px-3 py-2 rounded-lg border border-[var(--input-border)] bg-[var(--bg-elevated)] text-sm" />
-          <label className="flex items-center gap-2 text-[12px] text-[var(--text-secondary)] cursor-pointer select-none">
+          <label className="flex items-center gap-2 text-[13px] text-[var(--text-secondary)] cursor-pointer select-none">
             <input type="checkbox" checked={filterOrphans} onChange={e => setFilterOrphans(e.target.checked)} />
             Tik orphan (be albumo)
           </label>
@@ -393,19 +393,19 @@ function ExistingTrackPicker({ artistId, currentTrackIds, onPick, onClose }: {
                 className="w-full flex items-center justify-between gap-3 px-3 py-2 rounded-lg hover:bg-[var(--bg-hover)] text-left">
                 <div className="min-w-0 flex-1">
                   <div className="text-sm text-[var(--text-primary)] truncate">{t.title}</div>
-                  <div className="text-[11px] text-[var(--text-muted)] flex gap-2">
+                  <div className="text-[12px] text-[var(--text-muted)] flex gap-2">
                     <span>id #{t.id}</span>
                     {t.type && t.type !== 'normal' && <span className="text-purple-500">{t.type}</span>}
                     {t.source === 'legacy_scrape_pending' && <span className="text-amber-500 font-bold">pending</span>}
                     <span>{t.album_tracks && t.album_tracks.length > 0 ? `${t.album_tracks.length} alb.` : 'orphan'}</span>
                   </div>
                 </div>
-                <span className="text-[11px] text-blue-500 shrink-0">pridėti →</span>
+                <span className="text-[12px] text-blue-500 shrink-0">pridėti →</span>
               </button>
             ))
           )}
         </div>
-        <div className="px-4 py-2 border-t border-[var(--border-subtle)] text-[12px] text-[var(--text-muted)]">
+        <div className="px-4 py-2 border-t border-[var(--border-subtle)] text-[13px] text-[var(--text-muted)]">
           {loading ? '' : `${filtered.length} iš ${tracks.length - currentSet.size}`}
         </div>
       </div>
@@ -682,7 +682,7 @@ export default function AdminAlbumEditPage({ params }: { params: Promise<{ id: s
             ) : null}
             {featuredArtists.map((a, i) => (
               <div key={a.id} className="flex items-center gap-1 bg-[var(--bg-surface)] border border-[var(--input-border)] rounded-xl px-2 py-1 text-xs shadow-sm shrink-0">
-                <span className="text-[var(--text-muted)] text-[11px]">su</span>
+                <span className="text-[var(--text-muted)] text-[12px]">su</span>
                 <span className="text-[var(--text-secondary)] font-medium">{a.name}</span>
                 <button type="button" onClick={() => setFeaturedArtists(p => p.filter((_, j) => j !== i))}
                   className="text-[var(--text-faint)] hover:text-red-500 ml-0.5 leading-none">×</button>

@@ -97,7 +97,7 @@ export default async function GenresPage() {
                     <span style={{ fontFamily: "'Outfit', sans-serif", fontWeight: 800, fontSize: 17, color: 'var(--text-primary)', letterSpacing: '-0.01em' }}>
                       {g.name.replace(/\s*muzika$/i, '')}
                     </span>
-                    <span style={{ fontSize: 13, color: 'var(--text-muted)' }}>
+                    <span style={{ fontSize: 14, color: 'var(--text-muted)' }}>
                       {g.n.toLocaleString('lt-LT')} atlikėj{g.n % 10 === 1 && g.n % 100 !== 11 ? 'as' : g.n % 10 >= 2 && g.n % 10 <= 9 && !(g.n % 100 >= 11 && g.n % 100 <= 19) ? 'ai' : 'ų'}
                     </span>
                   </Link>

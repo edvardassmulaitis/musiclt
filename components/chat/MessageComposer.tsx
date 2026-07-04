@@ -180,7 +180,7 @@ export function MessageComposer({ placeholder, onSend, onTyping, disabled, compa
           </svg>
         </button>
       </div>
-      <div style={{ fontSize: 11.5, color: 'var(--text-faint, var(--text-muted))', marginTop: 4, paddingLeft: 4 }}>
+      <div style={{ fontSize: 12.5, color: 'var(--text-faint, var(--text-muted))', marginTop: 4, paddingLeft: 4 }}>
         Enter — siųsti · Shift+Enter — nauja eilutė
       </div>
     </div>

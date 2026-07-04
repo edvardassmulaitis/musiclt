@@ -397,7 +397,7 @@ export default function LyricsWithReactions({ trackId, lyrics, compact = false }
                         key={`${s.start}-${s.end}`}
                         type="button"
                         onClick={(e) => onClickChip(s, e)}
-                        className="inline-flex items-center gap-1 rounded-full border border-[rgba(249,115,22,0.4)] bg-[var(--bg-surface)] px-1.5 py-0.5 font-['Outfit',sans-serif] text-[10.5px] font-extrabold text-[var(--accent-orange)] transition-colors hover:bg-[rgba(249,115,22,0.12)]"
+                        className="inline-flex items-center gap-1 rounded-full border border-[rgba(249,115,22,0.4)] bg-[var(--bg-surface)] px-1.5 py-0.5 font-['Outfit',sans-serif] text-[11.5px] font-extrabold text-[var(--accent-orange)] transition-colors hover:bg-[rgba(249,115,22,0.12)]"
                         title={`${likes} patiko, ${comments} komentarai`}
                       >
                         {likes > 0 && (
@@ -439,7 +439,7 @@ export default function LyricsWithReactions({ trackId, lyrics, compact = false }
           width={290}
         >
           <div className="flex flex-col gap-2">
-            <div className="max-h-[120px] overflow-y-auto whitespace-pre-wrap text-[12.5px] italic leading-snug text-[var(--text-muted)]">
+            <div className="max-h-[120px] overflow-y-auto whitespace-pre-wrap text-[13.5px] italic leading-snug text-[var(--text-muted)]">
               „{panel.text}"
             </div>
             <div className="flex items-center gap-2">
@@ -492,13 +492,13 @@ export default function LyricsWithReactions({ trackId, lyrics, compact = false }
                   placeholder="Komentaras šiai eilutei…"
                   rows={2}
                   autoFocus
-                  className="w-full resize-none rounded-lg border border-[var(--border-subtle)] bg-[var(--bg-elevated)] px-2.5 py-2 text-[13.5px] leading-snug text-[var(--text-primary)] outline-none placeholder:text-[var(--text-faint)] focus:border-[var(--accent-orange)] focus-visible:outline-none focus-visible:ring-0"
+                  className="w-full resize-none rounded-lg border border-[var(--border-subtle)] bg-[var(--bg-elevated)] px-2.5 py-2 text-[14.5px] leading-snug text-[var(--text-primary)] outline-none placeholder:text-[var(--text-faint)] focus:border-[var(--accent-orange)] focus-visible:outline-none focus-visible:ring-0"
                 />
                 <button
                   type="button"
                   onClick={submitComment}
                   disabled={saving || !draft.trim()}
-                  className="self-end inline-flex items-center gap-1 rounded-full bg-[var(--accent-orange)] px-3 py-1.5 font-['Outfit',sans-serif] text-[12px] font-extrabold text-white transition-opacity hover:opacity-90 disabled:opacity-40"
+                  className="self-end inline-flex items-center gap-1 rounded-full bg-[var(--accent-orange)] px-3 py-1.5 font-['Outfit',sans-serif] text-[13px] font-extrabold text-white transition-opacity hover:opacity-90 disabled:opacity-40"
                 >
                   <svg width="11" height="11" viewBox="0 0 24 24" fill="currentColor"><path d="M2 21l21-9L2 3v7l15 2-15 2z" /></svg>
                   Siųsti
@@ -506,7 +506,7 @@ export default function LyricsWithReactions({ trackId, lyrics, compact = false }
               </div>
             )}
             {actionErr && (
-              <div className="rounded-md bg-[rgba(239,68,68,0.10)] px-2 py-1 text-[12px] font-bold text-[#dc2626]">
+              <div className="rounded-md bg-[rgba(239,68,68,0.10)] px-2 py-1 text-[13px] font-bold text-[#dc2626]">
                 {actionErr}
               </div>
             )}
@@ -523,7 +523,7 @@ export default function LyricsWithReactions({ trackId, lyrics, compact = false }
           width={320}
         >
           <div className="flex flex-col gap-2">
-            <div className="max-h-[100px] overflow-y-auto whitespace-pre-wrap border-b border-[var(--border-subtle)] pb-1.5 text-[12px] italic text-[var(--text-muted)]">
+            <div className="max-h-[100px] overflow-y-auto whitespace-pre-wrap border-b border-[var(--border-subtle)] pb-1.5 text-[13px] italic text-[var(--text-muted)]">
               „{tooltip.span.reactions[0].selected_text}"
             </div>
             <div className="flex flex-col gap-2">
@@ -536,11 +536,11 @@ export default function LyricsWithReactions({ trackId, lyrics, compact = false }
                   <MiniAvatar name={g.authorName} url={g.authorAvatarUrl} size={22} />
                   <div className="min-w-0 flex-1">
                     <div className="flex flex-wrap items-center gap-1.5">
-                      <span className="font-['Outfit',sans-serif] text-[12.5px] font-extrabold text-[var(--text-secondary)]">
+                      <span className="font-['Outfit',sans-serif] text-[13.5px] font-extrabold text-[var(--text-secondary)]">
                         {g.authorName}
                       </span>
                       {g.hasLike && (
-                        <span className="inline-flex items-center gap-0.5 text-[11px] font-bold text-[var(--accent-orange)]">
+                        <span className="inline-flex items-center gap-0.5 text-[12px] font-bold text-[var(--accent-orange)]">
                           <svg width="9" height="9" viewBox="0 0 24 24" fill="currentColor"><path d="M20.84 4.61a5.5 5.5 0 0 0-7.78 0L12 5.67l-1.06-1.06a5.5 5.5 0 0 0-7.78 7.78l1.06 1.06L12 21.23l7.78-7.78 1.06-1.06a5.5 5.5 0 0 0 0-7.78z" /></svg>
                           Patinka
                         </span>
@@ -561,7 +561,7 @@ export default function LyricsWithReactions({ trackId, lyrics, compact = false }
                     </div>
                     {g.comments.map((c) => (
                       <div key={c.id} className="mt-0.5 flex items-start gap-1.5">
-                        <div className="min-w-0 flex-1 break-words text-[13px] leading-snug text-[var(--text-primary)]">
+                        <div className="min-w-0 flex-1 break-words text-[14px] leading-snug text-[var(--text-primary)]">
                           {c.text}
                         </div>
                         {(isAdmin || g.isOwn) && (

@@ -37,7 +37,7 @@ export function TagInput({
 
   return (
     <div>
-      <label className="text-[11px] font-bold uppercase tracking-wider mb-2 block" style={{ color: 'var(--text-muted)', fontFamily: "'Outfit', sans-serif" }}>
+      <label className="text-[12px] font-bold uppercase tracking-wider mb-2 block" style={{ color: 'var(--text-muted)', fontFamily: "'Outfit', sans-serif" }}>
         Tagai
       </label>
       <div
@@ -47,7 +47,7 @@ export function TagInput({
         {value.map(tag => (
           <span
             key={tag}
-            className="inline-flex items-center gap-1 px-2 py-0.5 rounded text-[12px] font-semibold"
+            className="inline-flex items-center gap-1 px-2 py-0.5 rounded text-[13px] font-semibold"
             style={{ background: 'var(--bg-elevated)', color: 'var(--text-secondary)', border: '1px solid var(--border-subtle)' }}
           >
             {tag}

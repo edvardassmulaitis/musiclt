@@ -152,7 +152,7 @@ export default function AdminEventaiPage() {
       {/* Per-type stats grid */}
       {(Object.keys(grouped) as Array<keyof typeof grouped>).map(g => (
         <section key={g as string} style={{ marginBottom: 20 }}>
-          <h2 style={{ fontSize: 12, fontWeight: 800, textTransform: 'uppercase', letterSpacing: '0.06em', color: '#888', margin: '0 0 8px 4px' }}>
+          <h2 style={{ fontSize: 13, fontWeight: 800, textTransform: 'uppercase', letterSpacing: '0.06em', color: '#888', margin: '0 0 8px 4px' }}>
             {GROUP_LABEL[g as string]}
           </h2>
           <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(250px, 1fr))', gap: 10 }}>
@@ -178,16 +178,16 @@ export default function AdminEventaiPage() {
                   <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'baseline' }}>
                     <span style={{ fontSize: 14.5, fontWeight: 700 }}>{meta.label}</span>
                     <span style={{
-                      fontSize: 12, fontWeight: 800,
+                      fontSize: 13, fontWeight: 800,
                       padding: '2px 8px', borderRadius: 999,
                       background: count > 0 ? 'rgba(16,185,129,0.12)' : '#f0f0f0',
                       color: count > 0 ? '#10b981' : '#999',
                     }}>{count}</span>
                   </div>
-                  <code style={{ fontSize: 12, color: '#555', background: '#f5f5f5', padding: '2px 6px', borderRadius: 4 }}>
+                  <code style={{ fontSize: 13, color: '#555', background: '#f5f5f5', padding: '2px 6px', borderRadius: 4 }}>
                     {meta.type}
                   </code>
-                  <div style={{ fontSize: 12, color: '#888' }}>{meta.source}</div>
+                  <div style={{ fontSize: 13, color: '#888' }}>{meta.source}</div>
                 </button>
               )
             })}
@@ -203,7 +203,7 @@ export default function AdminEventaiPage() {
         <Stat label="Iš viso įvykių" value={totalAcrossTypes} />
         <Stat label="Iš viso pranešimų (notifications)" value={notifTotal ?? '—'} />
         {filterType && <Stat label="Filtras" value={filterType} />}
-        {filterType && <button onClick={() => setFilterType('')} style={{ marginLeft: 'auto', fontSize: 13, color: '#0070f3', background: 'none', border: 'none', cursor: 'pointer' }}>Išvalyti filtrą</button>}
+        {filterType && <button onClick={() => setFilterType('')} style={{ marginLeft: 'auto', fontSize: 14, color: '#0070f3', background: 'none', border: 'none', cursor: 'pointer' }}>Išvalyti filtrą</button>}
       </div>
 
       {/* Recent rows */}
@@ -234,10 +234,10 @@ export default function AdminEventaiPage() {
                 <div style={{ fontSize: 14, fontWeight: 600, lineHeight: 1.3 }}>
                   {row.actor_name || '—'} <span style={{ color: '#888', fontWeight: 400 }}>· {row.event_type}</span>
                 </div>
-                <div style={{ fontSize: 13, color: '#555', lineHeight: 1.35, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+                <div style={{ fontSize: 14, color: '#555', lineHeight: 1.35, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
                   {row.entity_title || '—'}
                 </div>
-                <div style={{ fontSize: 12, color: '#999' }}>
+                <div style={{ fontSize: 13, color: '#999' }}>
                   {relTime(row.created_at)}
                   {row.entity_url && <> · <a href={row.entity_url} style={{ color: '#0070f3' }}>{row.entity_url}</a></>}
                 </div>
@@ -245,7 +245,7 @@ export default function AdminEventaiPage() {
               <button
                 onClick={() => onDelete(row.id)}
                 disabled={deleting === row.id}
-                style={{ flexShrink: 0, padding: '4px 10px', fontSize: 12, color: '#ef4444', background: 'none', border: '1px solid #fecaca', borderRadius: 6, cursor: 'pointer' }}
+                style={{ flexShrink: 0, padding: '4px 10px', fontSize: 13, color: '#ef4444', background: 'none', border: '1px solid #fecaca', borderRadius: 6, cursor: 'pointer' }}
               >
                 {deleting === row.id ? '...' : 'Pašalinti'}
               </button>
@@ -264,7 +264,7 @@ function Centered({ children }: { children: React.ReactNode }) {
 function Stat({ label, value }: { label: string; value: string | number }) {
   return (
     <div>
-      <div style={{ fontSize: 12, color: '#888', textTransform: 'uppercase', letterSpacing: '0.05em', fontWeight: 700 }}>{label}</div>
+      <div style={{ fontSize: 13, color: '#888', textTransform: 'uppercase', letterSpacing: '0.05em', fontWeight: 700 }}>{label}</div>
       <div style={{ fontSize: 18, fontWeight: 800, color: '#111' }}>{value}</div>
     </div>
   )

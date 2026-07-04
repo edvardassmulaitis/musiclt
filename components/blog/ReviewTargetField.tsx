@@ -39,7 +39,7 @@ export function ReviewTargetField({
   return (
     <div className="space-y-4 mb-6">
       <div>
-        <label className="text-[11px] font-bold uppercase tracking-wider mb-2 block" style={{ color: 'var(--text-muted)', fontFamily: "'Outfit', sans-serif" }}>
+        <label className="text-[12px] font-bold uppercase tracking-wider mb-2 block" style={{ color: 'var(--text-muted)', fontFamily: "'Outfit', sans-serif" }}>
           Ką recenzuoji
         </label>
 
@@ -50,7 +50,7 @@ export function ReviewTargetField({
               <img src={proxyImg(target.display.image_url)} alt="" className="w-10 h-10 rounded object-cover" />
             )}
             <div className="flex-1 min-w-0">
-              <p className="text-[10px] font-bold uppercase tracking-wider" style={{ color: 'var(--text-muted)' }}>
+              <p className="text-[11px] font-bold uppercase tracking-wider" style={{ color: 'var(--text-muted)' }}>
                 {target.display.type === 'grupe' ? 'Atlikėjas' : target.display.type === 'albumas' ? 'Albumas' : 'Daina'}
               </p>
               <p className="text-sm font-semibold truncate" style={{ color: 'var(--text-primary)' }}>
@@ -78,7 +78,7 @@ export function ReviewTargetField({
       </div>
 
       <div>
-        <label className="text-[11px] font-bold uppercase tracking-wider mb-2 block" style={{ color: 'var(--text-muted)', fontFamily: "'Outfit', sans-serif" }}>
+        <label className="text-[12px] font-bold uppercase tracking-wider mb-2 block" style={{ color: 'var(--text-muted)', fontFamily: "'Outfit', sans-serif" }}>
           Balas {rating !== null && <span style={{ color: 'var(--accent-orange)' }}>{rating}/10</span>}
         </label>
         <div className="flex items-center gap-3">
@@ -91,11 +91,11 @@ export function ReviewTargetField({
             className="flex-1 accent-[#f97316]"
           />
           {rating !== null ? (
-            <button type="button" onClick={() => onRatingChange(null)} className="text-[11px] hover:opacity-80 transition" style={{ color: 'var(--text-muted)' }}>
+            <button type="button" onClick={() => onRatingChange(null)} className="text-[12px] hover:opacity-80 transition" style={{ color: 'var(--text-muted)' }}>
               išvalyti
             </button>
           ) : (
-            <button type="button" onClick={() => onRatingChange(5)} className="text-[11px] font-bold" style={{ color: 'var(--accent-orange)' }}>
+            <button type="button" onClick={() => onRatingChange(5)} className="text-[12px] font-bold" style={{ color: 'var(--accent-orange)' }}>
               nustatyti
             </button>
           )}

@@ -56,13 +56,13 @@ export default async function GalleryPage() {
                   <div className="h-full w-full bg-gradient-to-br from-[var(--accent-orange)]/20 to-[#8b5cf6]/20" />
                 )}
                 {hero.photoCount > 0 && (
-                  <span className="absolute left-4 top-4 rounded-full bg-black/65 px-3 py-1 text-[13px] font-bold text-white backdrop-blur">
+                  <span className="absolute left-4 top-4 rounded-full bg-black/65 px-3 py-1 text-[14px] font-bold text-white backdrop-blur">
                     📸 {hero.photoCount} nuotraukos
                   </span>
                 )}
               </div>
               <div className="flex flex-col justify-center p-6 sm:p-8">
-                <div className="mb-2 font-['Outfit',sans-serif] text-[12px] font-extrabold uppercase tracking-[0.18em] text-[var(--accent-orange)]">
+                <div className="mb-2 font-['Outfit',sans-serif] text-[13px] font-extrabold uppercase tracking-[0.18em] text-[var(--accent-orange)]">
                   Koncerto nuotraukos
                 </div>
                 <h2 className="font-['Outfit',sans-serif] text-[22px] font-black leading-tight tracking-[-0.01em] text-[var(--text-primary)] sm:text-[26px]">

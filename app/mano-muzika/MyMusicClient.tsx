@@ -99,7 +99,7 @@ export default function MyMusicClient({ initial, username, suggestOnboarding }: 
 
   return (
     <div className="page-shell" style={{ color: 'var(--text-primary)' }}>
-      {toast && <div className="fixed left-1/2 -translate-x-1/2 top-4 z-[200] rounded-full px-4 py-2 text-[13.5px] font-bold shadow-lg" style={{ background: '#f43f5e', color: '#fff' }}>{toast}</div>}
+      {toast && <div className="fixed left-1/2 -translate-x-1/2 top-4 z-[200] rounded-full px-4 py-2 text-[14.5px] font-bold shadow-lg" style={{ background: '#f43f5e', color: '#fff' }}>{toast}</div>}
 
       <div className="page-head">
         <div className="flex items-center justify-between gap-3">
@@ -109,8 +109,8 @@ export default function MyMusicClient({ initial, username, suggestOnboarding }: 
           </div>
           <div className="shrink-0 flex items-center gap-2">
             {/* Desktop — pilnos nuorodos */}
-            <Link href="/perkelti" className="hidden sm:inline-flex items-center gap-1.5 rounded-full px-3.5 py-1.5 text-[13.5px] font-bold text-white transition-transform hover:scale-[1.03]" style={{ background: 'var(--accent-orange)' }}><Ico name="download" size={13} /> Importuoti <BrandIcons /></Link>
-            {username && <Link href={`/vartotojas/${username}`} className="hidden sm:inline-flex items-center gap-1.5 rounded-full px-3.5 py-1.5 text-[13.5px] font-bold" style={{ background: 'var(--bg-elevated)', border: '1px solid var(--border-default)' }}><Ico name="eye" size={13} /> Profilis</Link>}
+            <Link href="/perkelti" className="hidden sm:inline-flex items-center gap-1.5 rounded-full px-3.5 py-1.5 text-[14.5px] font-bold text-white transition-transform hover:scale-[1.03]" style={{ background: 'var(--accent-orange)' }}><Ico name="download" size={13} /> Importuoti <BrandIcons /></Link>
+            {username && <Link href={`/vartotojas/${username}`} className="hidden sm:inline-flex items-center gap-1.5 rounded-full px-3.5 py-1.5 text-[14.5px] font-bold" style={{ background: 'var(--bg-elevated)', border: '1px solid var(--border-default)' }}><Ico name="eye" size={13} /> Profilis</Link>}
             {/* Mobile — ⋯ meniu (kompaktiška: importai, profilis, užpildymas) */}
             <div className="relative sm:hidden">
               <button onClick={() => setMenuOpen(o => !o)} aria-label="Daugiau" className="inline-flex items-center justify-center w-9 h-9 rounded-full" style={{ background: 'var(--bg-elevated)', border: '1px solid var(--border-default)' }}>
@@ -122,7 +122,7 @@ export default function MyMusicClient({ initial, username, suggestOnboarding }: 
                   <div className="absolute right-0 mt-2 z-[100] w-60 rounded-2xl p-2 shadow-xl" style={{ background: 'var(--bg-elevated)', border: '1px solid var(--border-default)' }}>
                     <Link href="/perkelti" className="flex items-center gap-2 rounded-xl px-3 py-2.5 text-[14px] font-bold text-white mb-1" style={{ background: 'var(--accent-orange)' }}><Ico name="download" size={14} /> Importuoti muziką</Link>
                     {username && <Link href={`/vartotojas/${username}`} className="flex items-center gap-2 rounded-xl px-3 py-2.5 text-[14px] font-bold mb-2" style={{ background: 'var(--bg-surface)', border: '1px solid var(--border-default)' }}><Ico name="eye" size={14} /> Mano profilis</Link>}
-                    <div className="px-1 pt-1 pb-1.5 text-[11.5px] font-black uppercase tracking-wide" style={{ color: 'var(--text-faint)' }}>Užpildymas</div>
+                    <div className="px-1 pt-1 pb-1.5 text-[12.5px] font-black uppercase tracking-wide" style={{ color: 'var(--text-faint)' }}>Užpildymas</div>
                     <div className="flex flex-wrap gap-1.5 px-1 pb-1">
                       <Goal label="Atlikėjai" n={counts.artist} t={TARGETS.artists} /><Goal label="Albumai" n={counts.album} t={TARGETS.albums} />
                       <Goal label="Dainos" n={counts.track} t={TARGETS.tracks} /><Goal label="Stiliai" n={counts.styles} t={TARGETS.styles} />
@@ -136,8 +136,8 @@ export default function MyMusicClient({ initial, username, suggestOnboarding }: 
         {/* Progreso juosta — mobile tik % + juosta; chip'ai (užpildymas) keliasi į ⋯ meniu. */}
         <div className="mt-3 rounded-xl px-3 py-2 flex items-center gap-3" style={{ background: 'var(--bg-surface)', border: '1px solid var(--border-default)' }}>
           <div className="flex items-center gap-2 shrink-0">
-            <span className="text-[13px] font-black" style={{ color: 'var(--accent-orange)' }}>{pct}%</span>
-            <span className="text-[12.5px] font-bold" style={{ color: 'var(--text-muted)' }}>užpildyta</span>
+            <span className="text-[14px] font-black" style={{ color: 'var(--accent-orange)' }}>{pct}%</span>
+            <span className="text-[13.5px] font-bold" style={{ color: 'var(--text-muted)' }}>užpildyta</span>
           </div>
           <div className="h-1.5 flex-1 min-w-[80px] rounded-full overflow-hidden" style={{ background: 'var(--bg-elevated)' }}><div className="h-full rounded-full transition-all duration-500" style={{ width: `${pct}%`, background: 'linear-gradient(90deg, var(--accent-orange), #a78bfa)' }} /></div>
           <div className="hidden sm:flex flex-wrap gap-1.5 shrink-0">
@@ -150,8 +150,8 @@ export default function MyMusicClient({ initial, username, suggestOnboarding }: 
       {showOnboard && (
         <div className="mb-5 rounded-2xl p-4 sm:p-5 flex items-center gap-4 flex-wrap" style={{ background: 'linear-gradient(135deg, rgba(249,115,22,0.14), rgba(167,139,250,0.12))', border: '1px solid var(--border-default)' }}>
           <Ico name="sparkle" size={26} />
-          <div className="flex-1 min-w-[200px]"><div className="text-[15px] font-black">Susidėk savo muziką per minutę</div><div className="text-[13.5px] mt-0.5" style={{ color: 'var(--text-muted)' }}>Greitas žaidimas — pasirink mėgstamus atlikėjus ir stilius.</div></div>
-          <div className="flex items-center gap-2"><Link href="/mano-muzika/pradzia" className="rounded-full px-5 py-2.5 text-[14px] font-black text-white" style={{ background: 'var(--accent-orange)' }}>Pradėti →</Link><button onClick={() => { setShowOnboard(false); api('/setup', 'POST', { action: 'skip' }).catch(() => {}) }} className="rounded-full px-3 py-2.5 text-[13px] font-bold" style={{ color: 'var(--text-muted)' }}>Vėliau</button></div>
+          <div className="flex-1 min-w-[200px]"><div className="text-[15px] font-black">Susidėk savo muziką per minutę</div><div className="text-[14.5px] mt-0.5" style={{ color: 'var(--text-muted)' }}>Greitas žaidimas — pasirink mėgstamus atlikėjus ir stilius.</div></div>
+          <div className="flex items-center gap-2"><Link href="/mano-muzika/pradzia" className="rounded-full px-5 py-2.5 text-[14px] font-black text-white" style={{ background: 'var(--accent-orange)' }}>Pradėti →</Link><button onClick={() => { setShowOnboard(false); api('/setup', 'POST', { action: 'skip' }).catch(() => {}) }} className="rounded-full px-3 py-2.5 text-[14px] font-bold" style={{ color: 'var(--text-muted)' }}>Vėliau</button></div>
         </div>
       )}
 
@@ -163,7 +163,7 @@ export default function MyMusicClient({ initial, username, suggestOnboarding }: 
             <button key={t.key} onClick={() => setTab(t.key)} className="shrink-0 inline-flex items-center gap-1.5 rounded-full px-4 py-2 text-[14px] font-bold transition-colors"
               style={{ background: active ? 'var(--accent-orange)' : 'var(--bg-elevated)', color: active ? '#fff' : 'var(--text-secondary)', border: `1px solid ${active ? 'transparent' : 'var(--border-default)'}` }}>
               <Ico name={t.icon} size={14} />{t.label}
-              {c != null && <span className="inline-flex items-center justify-center min-w-[18px] h-[18px] px-1 rounded-full text-[11.5px] font-black" style={{ background: active ? 'rgba(255,255,255,0.25)' : 'var(--bg-surface)', color: active ? '#fff' : 'var(--text-muted)' }}>{c}</span>}
+              {c != null && <span className="inline-flex items-center justify-center min-w-[18px] h-[18px] px-1 rounded-full text-[12.5px] font-black" style={{ background: active ? 'rgba(255,255,255,0.25)' : 'var(--bg-surface)', color: active ? '#fff' : 'var(--text-muted)' }}>{c}</span>}
             </button>
           )
         })}
@@ -171,7 +171,7 @@ export default function MyMusicClient({ initial, username, suggestOnboarding }: 
 
       {tab === 'discoveries' && (
         <div>
-          <p className="mb-4 text-[13.5px]" style={{ color: 'var(--text-muted)' }}><b style={{ color: 'var(--text-secondary)' }}>Mėgstami</b> — naujienos, koncertai ir muzika iš tavo atlikėjų. <b style={{ color: 'var(--text-secondary)' }}>Tau gali patikti</b> — atradimai pagal tavo skonį. Širdele pažymėk, kas patinka — rekomendacijos taps tikslesnės.</p>
+          <p className="mb-4 text-[14.5px]" style={{ color: 'var(--text-muted)' }}><b style={{ color: 'var(--text-secondary)' }}>Mėgstami</b> — naujienos, koncertai ir muzika iš tavo atlikėjų. <b style={{ color: 'var(--text-secondary)' }}>Tau gali patikti</b> — atradimai pagal tavo skonį. Širdele pažymėk, kas patinka — rekomendacijos taps tikslesnės.</p>
           <StreamFeed embedded showManageLink={false} />
         </div>
       )}
@@ -197,7 +197,7 @@ function BrandIcons() {
 
 function Goal({ label, n, t }: { label: string; n: number; t: number }) {
   const done = n >= t
-  return <span className="inline-flex items-center gap-1 rounded-full px-2.5 py-0.5 text-[12px] font-bold" style={{ background: 'var(--bg-elevated)', color: done ? '#34d399' : 'var(--text-muted)' }}>{label} {Math.min(n, t)}/{t}{done ? ' ✓' : ''}</span>
+  return <span className="inline-flex items-center gap-1 rounded-full px-2.5 py-0.5 text-[13px] font-bold" style={{ background: 'var(--bg-elevated)', color: done ? '#34d399' : 'var(--text-muted)' }}>{label} {Math.min(n, t)}/{t}{done ? ' ✓' : ''}</span>
 }
 
 // ═══════════════════════════════════════════════════════════════════════════
@@ -253,17 +253,17 @@ function SuggestionsPanel({ kind, ownedIds, onAdd }: { kind: EntityTab; ownedIds
   return (
     <aside className="rounded-2xl p-3.5 lg:sticky lg:top-4" style={{ background: 'var(--bg-surface)', border: '1px solid var(--border-default)' }}>
       <div className="flex items-center gap-1.5 mb-1"><span style={{ color: 'var(--accent-orange)' }}><Ico name="sparkle" size={15} /></span><h3 className="text-[14.5px] font-black">Galbūt patiks</h3></div>
-      <p className="text-[12.5px] mb-3" style={{ color: 'var(--text-muted)' }}>{SUG_SUB[kind]} <span style={{ color: 'var(--text-faint)' }}>Širdelė — pridėti, ✕ — paslėpti (daugiau nesiūlysim).</span></p>
+      <p className="text-[13.5px] mb-3" style={{ color: 'var(--text-muted)' }}>{SUG_SUB[kind]} <span style={{ color: 'var(--text-faint)' }}>Širdelė — pridėti, ✕ — paslėpti (daugiau nesiūlysim).</span></p>
       {items === null ? (
-        <div className="text-[13px] py-4 text-center" style={{ color: 'var(--text-faint)' }}>Kraunama…</div>
+        <div className="text-[14px] py-4 text-center" style={{ color: 'var(--text-faint)' }}>Kraunama…</div>
       ) : visible.length === 0 ? (
-        <div className="text-[13px] py-4 text-center" style={{ color: 'var(--text-faint)' }}>{kind === 'artist' ? 'Šiuo metu pasiūlymų nėra.' : 'Pridėk daugiau atlikėjų — atsiras pasiūlymų.'}</div>
+        <div className="text-[14px] py-4 text-center" style={{ color: 'var(--text-faint)' }}>{kind === 'artist' ? 'Šiuo metu pasiūlymų nėra.' : 'Pridėk daugiau atlikėjų — atsiras pasiūlymų.'}</div>
       ) : (
         <ul className="flex flex-col gap-1.5">
           {visible.map(t => (
             <li key={t.id} className="group flex items-center gap-2 rounded-xl px-2 py-1.5" style={{ background: 'var(--bg-elevated)' }}>
               <Cover kind={kind} cover={t.cover_url} />
-              <div className="min-w-0 flex-1"><div className="truncate text-[13.5px] font-bold">{t.title}</div><div className="truncate text-[11.5px]" style={{ color: 'var(--text-muted)' }}>{t.artist?.name || fallbackLabel}</div></div>
+              <div className="min-w-0 flex-1"><div className="truncate text-[14.5px] font-bold">{t.title}</div><div className="truncate text-[12.5px]" style={{ color: 'var(--text-muted)' }}>{t.artist?.name || fallbackLabel}</div></div>
               <button onClick={() => pick(t)} title="Pridėti į mėgstamus" className="shrink-0 h-7 w-7 inline-flex items-center justify-center transition hover:scale-110" style={{ color: 'var(--accent-orange)' }}><Ico name="heart" size={16} /></button>
               <button onClick={() => dismiss(t)} title="Paslėpti — daugiau nesiūlyti" className="shrink-0 h-7 w-7 inline-flex items-center justify-center opacity-45 group-hover:opacity-100 transition" style={{ color: 'var(--text-faint)' }}><Ico name="x" size={14} /></button>
             </li>
@@ -302,16 +302,16 @@ function OneList({ kind, items, onMove, onUnlike }: { kind: EntityTab; items: Mu
   return (
     <div>
       <div className="flex items-center justify-between gap-2 mb-2 flex-wrap">
-        <h2 className="text-[15px] font-black flex items-center gap-1.5" style={{ color: 'var(--text-primary)' }}><span style={{ color: 'var(--accent-orange)' }}><Ico name="heartFull" size={15} /></span> Mėgstami <span className="text-[13px] font-bold" style={{ color: 'var(--text-faint)' }}>{items.length}</span></h2>
+        <h2 className="text-[15px] font-black flex items-center gap-1.5" style={{ color: 'var(--text-primary)' }}><span style={{ color: 'var(--accent-orange)' }}><Ico name="heartFull" size={15} /></span> Mėgstami <span className="text-[14px] font-bold" style={{ color: 'var(--text-faint)' }}>{items.length}</span></h2>
         {items.length > 0 && (
           <div className="flex items-center gap-2">
-            <input value={q} onChange={e => { setQ(e.target.value); setLimit(200) }} placeholder="Ieškoti sąraše..." className="w-[200px] sm:w-[240px] rounded-lg px-3 py-1.5 text-[13.5px] outline-none" style={{ background: 'var(--bg-elevated)', border: '1px solid var(--border-default)', color: 'var(--text-primary)' }} />
-            <button onClick={nextSort} className="inline-flex items-center gap-1 rounded-lg px-3 py-1.5 text-[13px] font-bold" style={{ background: 'var(--bg-elevated)', border: '1px solid var(--border-default)', color: 'var(--text-secondary)' }}>{sortLabel} <Ico name="sort" size={12} /></button>
+            <input value={q} onChange={e => { setQ(e.target.value); setLimit(200) }} placeholder="Ieškoti sąraše..." className="w-[200px] sm:w-[240px] rounded-lg px-3 py-1.5 text-[14.5px] outline-none" style={{ background: 'var(--bg-elevated)', border: '1px solid var(--border-default)', color: 'var(--text-primary)' }} />
+            <button onClick={nextSort} className="inline-flex items-center gap-1 rounded-lg px-3 py-1.5 text-[14px] font-bold" style={{ background: 'var(--bg-elevated)', border: '1px solid var(--border-default)', color: 'var(--text-secondary)' }}>{sortLabel} <Ico name="sort" size={12} /></button>
           </div>
         )}
       </div>
       {items.length === 0 ? (
-        <div className="rounded-xl px-4 py-6 text-[13.5px] text-center" style={{ background: 'var(--bg-surface)', border: '1px dashed var(--border-default)', color: 'var(--text-muted)' }}>
+        <div className="rounded-xl px-4 py-6 text-[14.5px] text-center" style={{ background: 'var(--bg-surface)', border: '1px dashed var(--border-default)', color: 'var(--text-muted)' }}>
           Tuščia. Pridėk per paiešką (žemiau) arba <Link href="/perkelti" className="underline" style={{ color: 'var(--accent-orange)' }}>importuok</Link>. Pirmi {PROFILE_CUTOFF} rodomi tavo profilyje.
         </div>
       ) : (
@@ -322,7 +322,7 @@ function OneList({ kind, items, onMove, onUnlike }: { kind: EntityTab; items: Mu
             return (
               <div key={it.id}>
                 {!browsing && pos === PROFILE_CUTOFF && (
-                  <div className="flex items-center gap-2 my-2 px-1"><div className="flex-1 h-px" style={{ background: 'var(--border-default)' }} /><span className="text-[11.5px] font-bold uppercase tracking-wider" style={{ color: 'var(--text-faint)' }}>↑ Top {PROFILE_CUTOFF} rodoma profilyje</span><div className="flex-1 h-px" style={{ background: 'var(--border-default)' }} /></div>
+                  <div className="flex items-center gap-2 my-2 px-1"><div className="flex-1 h-px" style={{ background: 'var(--border-default)' }} /><span className="text-[12.5px] font-bold uppercase tracking-wider" style={{ color: 'var(--text-faint)' }}>↑ Top {PROFILE_CUTOFF} rodoma profilyje</span><div className="flex-1 h-px" style={{ background: 'var(--border-default)' }} /></div>
                 )}
                 <div draggable={!browsing} onDragStart={() => { if (!browsing) dragId.current = it.id }} onDragOver={e => { if (!browsing) { e.preventDefault(); setDragOver(it.id) } }} onDragLeave={() => setDragOver(o => o === it.id ? null : o)} onDrop={() => { if (!browsing) drop(it.id) }}
                   className="group flex items-center gap-2.5 rounded-xl px-2.5 py-2 transition-colors"
@@ -331,9 +331,9 @@ function OneList({ kind, items, onMove, onUnlike }: { kind: EntityTab; items: Mu
                   {jumpId === it.id ? (
                     <input autoFocus type="number" min={1} max={items.length} defaultValue={pos + 1}
                       onKeyDown={e => { if (e.key === 'Enter') { setJumpId(null); onMove(it, Number((e.target as HTMLInputElement).value) || 1) } if (e.key === 'Escape') setJumpId(null) }} onBlur={e => { setJumpId(null); onMove(it, Number(e.target.value) || pos + 1) }}
-                      className="w-11 h-7 text-center text-[13px] font-black rounded-md outline-none" style={{ background: 'var(--bg-elevated)', border: '1px solid var(--accent-orange)', color: 'var(--text-primary)' }} />
+                      className="w-11 h-7 text-center text-[14px] font-black rounded-md outline-none" style={{ background: 'var(--bg-elevated)', border: '1px solid var(--accent-orange)', color: 'var(--text-primary)' }} />
                   ) : (
-                    <button onClick={() => setJumpId(it.id)} title="Spustelėk ir įrašyk vietą" className="min-w-[28px] h-7 px-1 shrink-0 rounded-md text-[13px] font-black tabular-nums" style={{ background: 'var(--bg-elevated)', color: inProfile ? 'var(--accent-orange)' : 'var(--text-muted)' }}>{pos + 1}</button>
+                    <button onClick={() => setJumpId(it.id)} title="Spustelėk ir įrašyk vietą" className="min-w-[28px] h-7 px-1 shrink-0 rounded-md text-[14px] font-black tabular-nums" style={{ background: 'var(--bg-elevated)', color: inProfile ? 'var(--accent-orange)' : 'var(--text-muted)' }}>{pos + 1}</button>
                   )}
                   {!browsing && (
                     <div className="flex flex-col gap-0.5">
@@ -342,15 +342,15 @@ function OneList({ kind, items, onMove, onUnlike }: { kind: EntityTab; items: Mu
                     </div>
                   )}
                   <Cover kind={kind} cover={it.cover} />
-                  <div className="min-w-0 flex-1"><div className="truncate text-[14px] font-bold">{it.href ? <Link href={it.href} className="hover:underline">{it.title}</Link> : it.title}</div><div className="truncate text-[12px] flex items-center gap-1.5" style={{ color: 'var(--text-muted)' }}>{it.subtitle}{it.style && <span className="rounded px-1.5 py-0.5 text-[10.5px] font-bold" style={{ background: 'var(--bg-elevated)', color: 'var(--text-faint)' }}>{it.style}</span>}</div></div>
-                  {!inProfile && <button onClick={() => onMove(it, PROFILE_CUTOFF)} title="Įkelti į Top 20" className="shrink-0 h-7 inline-flex items-center gap-1 rounded-full px-2.5 text-[12px] font-bold" style={{ background: 'rgba(249,115,22,0.12)', color: 'var(--accent-orange)' }}><Ico name="star" size={12} /> Top 20</button>}
+                  <div className="min-w-0 flex-1"><div className="truncate text-[14px] font-bold">{it.href ? <Link href={it.href} className="hover:underline">{it.title}</Link> : it.title}</div><div className="truncate text-[13px] flex items-center gap-1.5" style={{ color: 'var(--text-muted)' }}>{it.subtitle}{it.style && <span className="rounded px-1.5 py-0.5 text-[11.5px] font-bold" style={{ background: 'var(--bg-elevated)', color: 'var(--text-faint)' }}>{it.style}</span>}</div></div>
+                  {!inProfile && <button onClick={() => onMove(it, PROFILE_CUTOFF)} title="Įkelti į Top 20" className="shrink-0 h-7 inline-flex items-center gap-1 rounded-full px-2.5 text-[13px] font-bold" style={{ background: 'rgba(249,115,22,0.12)', color: 'var(--accent-orange)' }}><Ico name="star" size={12} /> Top 20</button>}
                   <button onClick={() => onUnlike(it)} title="Pašalinti iš mėgstamų" className="shrink-0 h-7 w-7 inline-flex items-center justify-center rounded-lg opacity-0 group-hover:opacity-100 transition-opacity" style={{ color: 'var(--text-faint)' }} onMouseEnter={e => (e.currentTarget.style.color = '#f43f5e')} onMouseLeave={e => (e.currentTarget.style.color = 'var(--text-faint)')}><Ico name="x" size={14} /></button>
                 </div>
               </div>
             )
           })}
-          {view.length > limit && <div className="mt-1 flex items-center justify-center gap-2"><button onClick={() => setLimit(l => l + 200)} className="rounded-full px-5 py-2 text-[13.5px] font-bold" style={{ background: 'var(--bg-elevated)', border: '1px solid var(--border-default)', color: 'var(--text-secondary)' }}>Rodyti daugiau ({view.length - limit})</button><button onClick={() => setLimit(view.length)} className="rounded-full px-4 py-2 text-[13.5px] font-bold" style={{ background: 'transparent', border: '1px solid var(--border-default)', color: 'var(--text-muted)' }}>Rodyti visus</button></div>}
-          {view.length === 0 && <div className="text-center text-[13px] py-4" style={{ color: 'var(--text-faint)' }}>Nieko nerasta.</div>}
+          {view.length > limit && <div className="mt-1 flex items-center justify-center gap-2"><button onClick={() => setLimit(l => l + 200)} className="rounded-full px-5 py-2 text-[14.5px] font-bold" style={{ background: 'var(--bg-elevated)', border: '1px solid var(--border-default)', color: 'var(--text-secondary)' }}>Rodyti daugiau ({view.length - limit})</button><button onClick={() => setLimit(view.length)} className="rounded-full px-4 py-2 text-[14.5px] font-bold" style={{ background: 'transparent', border: '1px solid var(--border-default)', color: 'var(--text-muted)' }}>Rodyti visus</button></div>}
+          {view.length === 0 && <div className="text-center text-[14px] py-4" style={{ color: 'var(--text-faint)' }}>Nieko nerasta.</div>}
         </div>
       )}
     </div>
@@ -396,10 +396,10 @@ function MoodSection({ moodSongs, setMoodSongs }: { moodSongs: MoodSong[]; setMo
 
   return (
     <div>
-      <p className="mb-3 text-[13.5px]" style={{ color: 'var(--text-muted)' }}>Top {MOOD_MAX} nuotaikos dainų. <b style={{ color: 'var(--text-secondary)' }}>#1</b> rodoma profilio viršuje; profilyje paspaudus atsidaro grotuvas su visomis. Stumdyk tvarką kaip nori.</p>
+      <p className="mb-3 text-[14.5px]" style={{ color: 'var(--text-muted)' }}>Top {MOOD_MAX} nuotaikos dainų. <b style={{ color: 'var(--text-secondary)' }}>#1</b> rodoma profilio viršuje; profilyje paspaudus atsidaro grotuvas su visomis. Stumdyk tvarką kaip nori.</p>
       <div className="mb-4 max-w-[520px]">
         <MusicSearchPicker attached={attached} onAdd={add} typeFilter="daina" placeholder={full ? `Pasiektas maks. (${MOOD_MAX})` : 'Surask nuotaikos dainą...'} />
-        {full && <div className="mt-1.5 text-[12.5px]" style={{ color: 'var(--text-faint)' }}>Sąrašas pilnas — pašalink dainą, kad pridėtum naują.</div>}
+        {full && <div className="mt-1.5 text-[13.5px]" style={{ color: 'var(--text-faint)' }}>Sąrašas pilnas — pašalink dainą, kad pridėtum naują.</div>}
       </div>
       {items.length === 0 ? <Empty hint="Dar nepridėjai nuotaikos dainų." /> : (
         <div className="flex flex-col gap-2">
@@ -412,17 +412,17 @@ function MoodSection({ moodSongs, setMoodSongs }: { moodSongs: MoodSong[]; setMo
                 {jumpId === m.id ? (
                   <input autoFocus type="number" min={1} max={items.length} defaultValue={idx + 1}
                     onKeyDown={e => { if (e.key === 'Enter') { setJumpId(null); jump(idx, Number((e.target as HTMLInputElement).value) || 1) } if (e.key === 'Escape') setJumpId(null) }} onBlur={e => { setJumpId(null); jump(idx, Number(e.target.value) || idx + 1) }}
-                    className="w-10 h-7 text-center text-[13px] font-black rounded-md outline-none" style={{ background: 'var(--bg-elevated)', border: '1px solid #a78bfa', color: 'var(--text-primary)' }} />
+                    className="w-10 h-7 text-center text-[14px] font-black rounded-md outline-none" style={{ background: 'var(--bg-elevated)', border: '1px solid #a78bfa', color: 'var(--text-primary)' }} />
                 ) : (
-                  <button onClick={() => setJumpId(m.id)} title="Įrašyk vietą" className="w-7 h-7 shrink-0 rounded-md text-[13px] font-black tabular-nums" style={{ background: 'var(--bg-elevated)', color: isFirst ? '#a78bfa' : 'var(--text-muted)' }}>{idx + 1}</button>
+                  <button onClick={() => setJumpId(m.id)} title="Įrašyk vietą" className="w-7 h-7 shrink-0 rounded-md text-[14px] font-black tabular-nums" style={{ background: 'var(--bg-elevated)', color: isFirst ? '#a78bfa' : 'var(--text-muted)' }}>{idx + 1}</button>
                 )}
                 <div className="flex flex-col gap-0.5">
                   <button onClick={() => move(idx, -1)} disabled={idx === 0} aria-label="Aukštyn" className="h-5 w-6 inline-flex items-center justify-center rounded disabled:opacity-20" style={{ background: 'var(--bg-elevated)', color: 'var(--text-muted)' }}><Ico name="up" size={11} /></button>
                   <button onClick={() => move(idx, 1)} disabled={idx === items.length - 1} aria-label="Žemyn" className="h-5 w-6 inline-flex items-center justify-center rounded disabled:opacity-20" style={{ background: 'var(--bg-elevated)', color: 'var(--text-muted)' }}><Ico name="down" size={11} /></button>
                 </div>
                 <div className="h-10 w-10 shrink-0 overflow-hidden rounded-lg flex items-center justify-center" style={{ background: 'var(--bg-elevated)', color: 'var(--text-faint)' }}>{m.track?.cover_url ? (/* eslint-disable-next-line @next/next/no-img-element */<img src={proxyImg(m.track.cover_url)} alt="" referrerPolicy="no-referrer" className="h-full w-full object-cover" />) : <Ico name="note" size={16} />}</div>
-                <div className="min-w-0 flex-1"><div className="truncate text-[14px] font-bold">{m.track?.title || '—'}</div><div className="truncate text-[12px]" style={{ color: 'var(--text-muted)' }}>{m.track?.artist?.name || 'Daina'}</div></div>
-                {isFirst && <span className="shrink-0 inline-flex items-center gap-1 rounded-full px-2.5 py-1 text-[11.5px] font-black" style={{ background: 'rgba(167,139,250,0.18)', color: '#a78bfa' }}><Ico name="play" size={10} /> Profilyje</span>}
+                <div className="min-w-0 flex-1"><div className="truncate text-[14px] font-bold">{m.track?.title || '—'}</div><div className="truncate text-[13px]" style={{ color: 'var(--text-muted)' }}>{m.track?.artist?.name || 'Daina'}</div></div>
+                {isFirst && <span className="shrink-0 inline-flex items-center gap-1 rounded-full px-2.5 py-1 text-[12.5px] font-black" style={{ background: 'rgba(167,139,250,0.18)', color: '#a78bfa' }}><Ico name="play" size={10} /> Profilyje</span>}
                 <button onClick={() => remove(m.track_id)} title="Pašalinti" className="shrink-0 h-7 w-7 inline-flex items-center justify-center rounded-lg opacity-0 group-hover:opacity-100 transition-opacity" style={{ color: 'var(--text-faint)' }} onMouseEnter={e => (e.currentTarget.style.color = '#f43f5e')} onMouseLeave={e => (e.currentTarget.style.color = 'var(--text-faint)')}><Ico name="x" size={14} /></button>
               </div>
             )
@@ -457,7 +457,7 @@ function StyleLedBars({ top, maxCount, selName, onPick, colorOf }: {
           const lit = Math.max(Math.round((d.count / (maxCount || 1)) * LED_SEGMENTS), d.count > 0 ? 1 : 0)
           return (
             <button key={d.name} onClick={() => onPick(d.name)} title={`${d.name} — ${d.count}`} className={`group flex-1 min-w-0 flex flex-col items-center transition hover:-translate-y-0.5 ${sel && !active ? 'opacity-45' : ''}`}>
-              <span className="text-[12px] font-black tabular-nums mb-1" style={{ color: active ? hex : 'var(--text-faint)' }}>{d.count}</span>
+              <span className="text-[13px] font-black tabular-nums mb-1" style={{ color: active ? hex : 'var(--text-faint)' }}>{d.count}</span>
               <div className="flex flex-col-reverse gap-[2px] w-full px-[3px]" style={{ maxWidth: 46, margin: '0 auto' }}>
                 {Array.from({ length: LED_SEGMENTS }).map((_, s) => {
                   const on = s < lit
@@ -467,7 +467,7 @@ function StyleLedBars({ top, maxCount, selName, onPick, colorOf }: {
                   return <div key={s} style={{ height: 8, borderRadius: 2, background: on ? `rgba(${rgb}, ${active ? Math.min(alpha + 0.15, 1) : alpha})` : 'rgba(255,255,255,0.05)', boxShadow: glow ? `0 0 ${active ? 9 : 6}px rgba(${rgb}, ${active ? 0.9 : 0.6})` : 'none' }} />
                 })}
               </div>
-              <span className="mt-1.5 text-[10.5px] font-bold text-center leading-tight overflow-hidden" style={{ height: 26, color: active ? 'var(--text-primary)' : 'var(--text-muted)', display: '-webkit-box', WebkitLineClamp: 2, WebkitBoxOrient: 'vertical' }}>{d.name}</span>
+              <span className="mt-1.5 text-[11.5px] font-bold text-center leading-tight overflow-hidden" style={{ height: 26, color: active ? 'var(--text-primary)' : 'var(--text-muted)', display: '-webkit-box', WebkitLineClamp: 2, WebkitBoxOrient: 'vertical' }}>{d.name}</span>
             </button>
           )
         })}
@@ -480,11 +480,11 @@ function StyleLedBars({ top, maxCount, selName, onPick, colorOf }: {
           const pct = (d.count / (maxCount || 1)) * 100
           return (
             <button key={d.name} onClick={() => onPick(d.name)} className={`group flex items-center gap-3 w-full text-left transition ${sel && !active ? 'opacity-45' : ''}`}>
-              <span className="font-extrabold truncate" style={{ width: 96, flexShrink: 0, fontSize: 13.5, color: active ? hex : 'var(--text-primary)' }}>{d.name}</span>
+              <span className="font-extrabold truncate" style={{ width: 96, flexShrink: 0, fontSize: 14.5, color: active ? hex : 'var(--text-primary)' }}>{d.name}</span>
               <span className="flex-1 relative h-3.5 rounded-md overflow-hidden" style={{ background: 'rgba(255,255,255,0.05)' }}>
                 <span className="absolute inset-y-0 left-0 rounded-md" style={{ width: `${Math.max(6, pct)}%`, background: `linear-gradient(to right, rgba(${rgb}, 0.55), rgba(${rgb}, 0.95))`, boxShadow: active ? `0 0 14px rgba(${rgb}, 0.6)` : `0 0 6px rgba(${rgb}, 0.3)` }} />
               </span>
-              <span className="font-mono tabular-nums text-right" style={{ width: 28, fontSize: 12, color: active ? hex : 'var(--text-faint)' }}>{d.count}</span>
+              <span className="font-mono tabular-nums text-right" style={{ width: 28, fontSize: 13, color: active ? hex : 'var(--text-faint)' }}>{d.count}</span>
             </button>
           )
         })}
@@ -534,14 +534,14 @@ function StyleManager({ sel, coll, onReorder, onUnlike }: {
         {kinds.map(k => {
           const a = active === k
           return (
-            <button key={k} onClick={() => setSub(k)} className="shrink-0 inline-flex items-center gap-1.5 rounded-full px-3.5 py-1.5 text-[13.5px] font-bold" style={{ background: a ? color : 'var(--bg-elevated)', color: a ? '#fff' : 'var(--text-secondary)', border: `1px solid ${a ? 'transparent' : 'var(--border-default)'}` }}>
-              <Ico name={k === 'artist' ? 'person' : k === 'album' ? 'disc' : 'note'} size={13} /> {tabLabel(k)} <span className="text-[11.5px] font-black" style={{ opacity: 0.8 }}>{byKind[k].length}</span>
+            <button key={k} onClick={() => setSub(k)} className="shrink-0 inline-flex items-center gap-1.5 rounded-full px-3.5 py-1.5 text-[14.5px] font-bold" style={{ background: a ? color : 'var(--bg-elevated)', color: a ? '#fff' : 'var(--text-secondary)', border: `1px solid ${a ? 'transparent' : 'var(--border-default)'}` }}>
+              <Ico name={k === 'artist' ? 'person' : k === 'album' ? 'disc' : 'note'} size={13} /> {tabLabel(k)} <span className="text-[12.5px] font-black" style={{ opacity: 0.8 }}>{byKind[k].length}</span>
             </button>
           )
         })}
       </div>
       {items.length === 0 && (
-        <div className="rounded-xl px-4 py-5 text-center text-[13.5px]" style={{ background: 'var(--bg-elevated)', color: 'var(--text-muted)' }}>Dar neturi šio stiliaus įrašų. Pridėk atlikėjų/albumų/dainų — atsiras čia.</div>
+        <div className="rounded-xl px-4 py-5 text-center text-[14.5px]" style={{ background: 'var(--bg-elevated)', color: 'var(--text-muted)' }}>Dar neturi šio stiliaus įrašų. Pridėk atlikėjų/albumų/dainų — atsiras čia.</div>
       )}
       <div className="flex flex-col gap-1.5">
         {items.map((it, idx) => (
@@ -551,16 +551,16 @@ function StyleManager({ sel, coll, onReorder, onUnlike }: {
             {jumpId === it.id ? (
               <input autoFocus type="number" min={1} max={items.length} defaultValue={idx + 1}
                 onKeyDown={e => { if (e.key === 'Enter') { setJumpId(null); jump(it.id, Number((e.target as HTMLInputElement).value) || 1) } if (e.key === 'Escape') setJumpId(null) }} onBlur={e => { setJumpId(null); jump(it.id, Number(e.target.value) || idx + 1) }}
-                className="w-10 h-7 text-center text-[13px] font-black rounded-md outline-none" style={{ background: 'var(--bg-elevated)', border: `1px solid ${color}`, color: 'var(--text-primary)' }} />
+                className="w-10 h-7 text-center text-[14px] font-black rounded-md outline-none" style={{ background: 'var(--bg-elevated)', border: `1px solid ${color}`, color: 'var(--text-primary)' }} />
             ) : (
-              <button onClick={() => setJumpId(it.id)} title="Įrašyk vietą šio stiliaus tope" className="w-7 h-7 shrink-0 rounded-md text-[13px] font-black tabular-nums" style={{ background: 'var(--bg-elevated)', color }}>{idx + 1}</button>
+              <button onClick={() => setJumpId(it.id)} title="Įrašyk vietą šio stiliaus tope" className="w-7 h-7 shrink-0 rounded-md text-[14px] font-black tabular-nums" style={{ background: 'var(--bg-elevated)', color }}>{idx + 1}</button>
             )}
             <div className="flex flex-col gap-0.5">
               <button onClick={() => move(it.id, -1)} disabled={idx === 0} aria-label="Aukštyn" className="h-5 w-6 inline-flex items-center justify-center rounded disabled:opacity-20" style={{ background: 'var(--bg-elevated)', color: 'var(--text-muted)' }}><Ico name="up" size={11} /></button>
               <button onClick={() => move(it.id, 1)} disabled={idx === items.length - 1} aria-label="Žemyn" className="h-5 w-6 inline-flex items-center justify-center rounded disabled:opacity-20" style={{ background: 'var(--bg-elevated)', color: 'var(--text-muted)' }}><Ico name="down" size={11} /></button>
             </div>
             <Cover kind={active} cover={it.cover} />
-            <div className="min-w-0 flex-1"><div className="truncate text-[14px] font-bold">{it.href ? <Link href={it.href} className="hover:underline">{it.title}</Link> : it.title}</div><div className="truncate text-[12px]" style={{ color: 'var(--text-muted)' }}>{it.subtitle}</div></div>
+            <div className="min-w-0 flex-1"><div className="truncate text-[14px] font-bold">{it.href ? <Link href={it.href} className="hover:underline">{it.title}</Link> : it.title}</div><div className="truncate text-[13px]" style={{ color: 'var(--text-muted)' }}>{it.subtitle}</div></div>
             <button onClick={() => onUnlike(active, it)} title="Pašalinti iš mėgstamų" className="shrink-0 h-7 w-7 inline-flex items-center justify-center rounded-lg opacity-0 group-hover:opacity-100 transition-opacity" style={{ color: 'var(--text-faint)' }} onMouseEnter={e => (e.currentTarget.style.color = '#f43f5e')} onMouseLeave={e => (e.currentTarget.style.color = 'var(--text-faint)')}><Ico name="x" size={14} /></button>
           </div>
         ))}
@@ -606,21 +606,21 @@ function StyleSection({ coll, styles, setStyles, meterRaw, onStyleReorder, onUnl
       {hasMeter ? (
         <div className="mb-5">
           <SideEqualizer meter={meterRaw} variant="led-large" topN={8} ledSelectedGenre={broadSelName} onSelect={(full) => setSel(full ? makeBroad(full) : null)} />
-          <p className="mt-1.5 text-[12.5px]" style={{ color: 'var(--text-faint)' }}>Spustelėk stilių juostą — susidėliosi to stiliaus topą žemiau.</p>
+          <p className="mt-1.5 text-[13.5px]" style={{ color: 'var(--text-faint)' }}>Spustelėk stilių juostą — susidėliosi to stiliaus topą žemiau.</p>
         </div>
       ) : dist.length > 0 ? (
         <div className="mb-5 rounded-2xl p-4 sm:p-5" style={{ background: 'var(--bg-surface)', border: '1px solid var(--border-default)' }}>
-          <div className="text-[12px] font-extrabold uppercase tracking-[0.2em] mb-3" style={{ color: 'var(--accent-orange)' }}>Muzikinis skonis <span className="font-medium normal-case tracking-normal" style={{ color: 'var(--text-muted)' }}>· spustelėk ir tvarkyk to stiliaus topą</span></div>
+          <div className="text-[13px] font-extrabold uppercase tracking-[0.2em] mb-3" style={{ color: 'var(--accent-orange)' }}>Muzikinis skonis <span className="font-medium normal-case tracking-normal" style={{ color: 'var(--text-muted)' }}>· spustelėk ir tvarkyk to stiliaus topą</span></div>
           <StyleLedBars top={top} maxCount={maxCount} selName={broadSelName} onPick={(name) => setSel(broadSelName === name ? null : makeBroad(name))} colorOf={colorOf} />
         </div>
       ) : (
-        <p className="mb-5 text-[13.5px]" style={{ color: 'var(--text-muted)' }}>Pridėk atlikėjų, albumų ar dainų — iš jų žanrų susiformuos tavo stilių pasiskirstymas.</p>
+        <p className="mb-5 text-[14.5px]" style={{ color: 'var(--text-muted)' }}>Pridėk atlikėjų, albumų ar dainų — iš jų žanrų susiformuos tavo stilių pasiskirstymas.</p>
       )}
 
       {/* Mėgstami stiliai — pills PO equalizer, spustelimi → substiliaus topas */}
       <div className="mb-5">
-        <h3 className="text-[14px] font-black mb-1.5">Mėgstami stiliai <span className="text-[13px] font-bold" style={{ color: 'var(--text-faint)' }}>{styles.length}</span></h3>
-        <p className="mb-2.5 text-[13px]" style={{ color: 'var(--text-muted)' }}>Žymos tavo profiliui. Spustelėk stilių — susidėliosi jo topą; ✕ pašalina žymą.</p>
+        <h3 className="text-[14px] font-black mb-1.5">Mėgstami stiliai <span className="text-[14px] font-bold" style={{ color: 'var(--text-faint)' }}>{styles.length}</span></h3>
+        <p className="mb-2.5 text-[14px]" style={{ color: 'var(--text-muted)' }}>Žymos tavo profiliui. Spustelėk stilių — susidėliosi jo topą; ✕ pašalina žymą.</p>
         <div className="flex flex-wrap gap-2 items-center">
           {styles.map((s, idx) => {
             const active = sel?.key === `sub:${s.legacy_style_id}`
@@ -628,17 +628,17 @@ function StyleSection({ coll, styles, setStyles, meterRaw, onStyleReorder, onUnl
             return (
               <button key={s.legacy_style_id} onClick={() => setSel(active ? null : makePill(s, idx))} className="group inline-flex items-center gap-1.5 rounded-full pl-2.5 pr-1.5 py-1.5 transition-colors" style={{ background: active ? `${col}22` : 'var(--bg-elevated)', border: `1px solid ${active ? col : 'var(--border-default)'}` }}>
                 <span className="inline-block h-2 w-2 rounded-full" style={{ background: col }} />
-                <span className="text-[13.5px] font-bold">{s.style_name}</span>
+                <span className="text-[14.5px] font-bold">{s.style_name}</span>
                 <span role="button" tabIndex={0} onClick={e => { e.stopPropagation(); removeStyle(s.legacy_style_id) }} title="Pašalinti žymą" className="h-4 w-4 inline-flex items-center justify-center rounded-full" style={{ color: 'var(--text-faint)' }} onMouseEnter={e => (e.currentTarget.style.color = '#ef4444')} onMouseLeave={e => (e.currentTarget.style.color = 'var(--text-faint)')}><Ico name="x" size={9} /></span>
               </button>
             )
           })}
           <div className="relative">
-            <button onClick={() => { ensureCatalog(); setOpen(o => !o) }} className="inline-flex items-center gap-1 rounded-full px-3 py-1.5 text-[13px] font-bold" style={{ background: 'transparent', border: '1px dashed var(--border-default)', color: 'var(--text-muted)' }}>+ Pridėk stilių</button>
+            <button onClick={() => { ensureCatalog(); setOpen(o => !o) }} className="inline-flex items-center gap-1 rounded-full px-3 py-1.5 text-[14px] font-bold" style={{ background: 'transparent', border: '1px dashed var(--border-default)', color: 'var(--text-muted)' }}>+ Pridėk stilių</button>
             {open && (
               <div className="absolute left-0 bottom-full z-40 mb-1.5 w-[260px] max-h-[280px] overflow-y-auto rounded-lg shadow-xl" style={{ background: 'var(--bg-surface)', border: '1px solid var(--border-default)' }}>
-                <div className="p-2 sticky top-0" style={{ background: 'var(--bg-surface)' }}><input autoFocus value={q} onChange={e => setQ(e.target.value)} placeholder="Ieškoti stiliaus..." className="w-full rounded-md px-2.5 py-1.5 text-[13.5px] outline-none" style={{ background: 'var(--bg-elevated)', border: '1px solid var(--border-default)', color: 'var(--text-primary)' }} /></div>
-                {!catalog ? <div className="px-3 py-3 text-center text-[13px]" style={{ color: 'var(--text-faint)' }}>Kraunama…</div> : filteredCatalog.length === 0 ? <div className="px-3 py-3 text-center text-[13px]" style={{ color: 'var(--text-faint)' }}>Nieko nerasta.</div> : <ul className="pb-1">{filteredCatalog.map(c => (<li key={c.legacy_style_id}><button onClick={() => addStyle(c)} className="w-full text-left px-3 py-1.5 text-[13.5px] font-medium" style={{ color: 'var(--text-primary)' }} onMouseEnter={e => (e.currentTarget.style.background = 'var(--bg-hover)')} onMouseLeave={e => (e.currentTarget.style.background = 'transparent')}>{c.style_name}</button></li>))}</ul>}
+                <div className="p-2 sticky top-0" style={{ background: 'var(--bg-surface)' }}><input autoFocus value={q} onChange={e => setQ(e.target.value)} placeholder="Ieškoti stiliaus..." className="w-full rounded-md px-2.5 py-1.5 text-[14.5px] outline-none" style={{ background: 'var(--bg-elevated)', border: '1px solid var(--border-default)', color: 'var(--text-primary)' }} /></div>
+                {!catalog ? <div className="px-3 py-3 text-center text-[14px]" style={{ color: 'var(--text-faint)' }}>Kraunama…</div> : filteredCatalog.length === 0 ? <div className="px-3 py-3 text-center text-[14px]" style={{ color: 'var(--text-faint)' }}>Nieko nerasta.</div> : <ul className="pb-1">{filteredCatalog.map(c => (<li key={c.legacy_style_id}><button onClick={() => addStyle(c)} className="w-full text-left px-3 py-1.5 text-[14.5px] font-medium" style={{ color: 'var(--text-primary)' }} onMouseEnter={e => (e.currentTarget.style.background = 'var(--bg-hover)')} onMouseLeave={e => (e.currentTarget.style.background = 'transparent')}>{c.style_name}</button></li>))}</ul>}
               </div>
             )}
           </div>
@@ -648,8 +648,8 @@ function StyleSection({ coll, styles, setStyles, meterRaw, onStyleReorder, onUnl
       {sel && (
         <div className="mb-2 rounded-2xl p-4" style={{ background: 'var(--bg-surface)', border: `1px solid ${sel.color}55` }}>
           <div className="flex items-center justify-between mb-3">
-            <h3 className="text-[14px] font-black flex items-center gap-2"><span className="inline-block h-3 w-3 rounded-full" style={{ background: sel.color }} /> {sel.label} <span className="text-[12.5px] font-medium" style={{ color: 'var(--text-muted)' }}>· susidėliok savo topą šiame stiliuje</span></h3>
-            <button onClick={() => setSel(null)} className="inline-flex items-center gap-1 text-[13px] font-bold" style={{ color: 'var(--text-muted)' }}>Uždaryti <Ico name="x" size={12} /></button>
+            <h3 className="text-[14px] font-black flex items-center gap-2"><span className="inline-block h-3 w-3 rounded-full" style={{ background: sel.color }} /> {sel.label} <span className="text-[13.5px] font-medium" style={{ color: 'var(--text-muted)' }}>· susidėliok savo topą šiame stiliuje</span></h3>
+            <button onClick={() => setSel(null)} className="inline-flex items-center gap-1 text-[14px] font-bold" style={{ color: 'var(--text-muted)' }}>Uždaryti <Ico name="x" size={12} /></button>
           </div>
           <StyleManager key={sel.key} sel={sel} coll={coll} onReorder={onStyleReorder} onUnlike={onUnlike} />
         </div>

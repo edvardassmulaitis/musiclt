@@ -104,7 +104,7 @@ function SignInContent() {
             Prisijungimo nuorodą išsiuntėme į<br />
             <span style={{ color: 'var(--text-primary)', fontWeight: 600 }}>{email}</span>
           </p>
-          <p style={{ fontSize: 13, color: 'var(--text-faint)', margin: '8px 0 0' }}>Nuoroda galioja 24 valandas. Nepamiršk patikrinti ir šlamšto aplanko.</p>
+          <p style={{ fontSize: 14, color: 'var(--text-faint)', margin: '8px 0 0' }}>Nuoroda galioja 24 valandas. Nepamiršk patikrinti ir šlamšto aplanko.</p>
           <button onClick={() => setEmailSent(false)} style={{ marginTop: 18, fontSize: 14, fontWeight: 600, color: 'var(--accent-orange)', background: 'none', border: 'none', cursor: 'pointer' }}>
             ← Grįžti
           </button>
@@ -158,7 +158,7 @@ function SignInContent() {
           ) : (
             <form onSubmit={handleEmail} style={{ display: 'flex', flexDirection: 'column', gap: 14 }}>
               <div>
-                <label style={{ display: 'block', fontSize: 13, color: 'var(--text-muted)', marginBottom: 6 }}>El. pašto adresas</label>
+                <label style={{ display: 'block', fontSize: 14, color: 'var(--text-muted)', marginBottom: 6 }}>El. pašto adresas</label>
                 <input
                   type="email"
                   value={email}
@@ -171,7 +171,7 @@ function SignInContent() {
                   }}
                 />
               </div>
-              {error && <p style={{ color: '#ef4444', fontSize: 13, margin: 0 }}>{error}</p>}
+              {error && <p style={{ color: '#ef4444', fontSize: 14, margin: 0 }}>{error}</p>}
               <button
                 type="submit"
                 disabled={loading === 'email' || !email}
@@ -185,7 +185,7 @@ function SignInContent() {
                 {loading === 'email' ? <span style={{ width: 18, height: 18, border: '2px solid rgba(255,255,255,.5)', borderTopColor: '#fff', borderRadius: '50%', display: 'inline-block', animation: 'spin 0.7s linear infinite' }} /> : null}
                 Gauti prisijungimo nuorodą
               </button>
-              <p style={{ textAlign: 'center', fontSize: 13, color: 'var(--text-faint)', margin: 0 }}>
+              <p style={{ textAlign: 'center', fontSize: 14, color: 'var(--text-faint)', margin: 0 }}>
                 Išsiųsime prisijungimo nuorodą — slaptažodžio nereikia.
               </p>
             </form>
@@ -193,7 +193,7 @@ function SignInContent() {
         </div>
       </div>
 
-      <p style={{ textAlign: 'center', fontSize: 13, color: 'var(--text-faint)', marginTop: 20 }}>
+      <p style={{ textAlign: 'center', fontSize: 14, color: 'var(--text-faint)', marginTop: 20 }}>
         Prisijungdami sutinkate su{' '}
         <a href="/privatumas" style={{ color: 'var(--accent-orange)', textDecoration: 'none' }}>privatumo politika</a>
       </p>

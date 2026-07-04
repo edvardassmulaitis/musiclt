@@ -65,10 +65,10 @@ export function ListeningIdentity({ favoriteStyles, musicMeter, username }: Prop
         <div className="relative rounded-3xl overflow-hidden bg-gradient-to-br from-[#111822] via-[#0a1018] to-[#080c12] border border-white/[.06]">
           {/* Top eyebrow */}
           <div className="absolute top-5 sm:top-8 left-5 sm:left-10 right-5 sm:right-10 flex items-center justify-between">
-            <div className="text-[11px] sm:text-[12px] font-extrabold uppercase tracking-[0.22em] text-[#f97316]" style={{ fontFamily: "'Outfit', sans-serif" }}>
+            <div className="text-[12px] sm:text-[13px] font-extrabold uppercase tracking-[0.22em] text-[#f97316]" style={{ fontFamily: "'Outfit', sans-serif" }}>
               Klausymo identitetas
             </div>
-            <div className="text-[11px] text-[#5e7290] uppercase tracking-wider font-bold" style={{ fontFamily: "'Outfit', sans-serif" }}>
+            <div className="text-[12px] text-[#5e7290] uppercase tracking-wider font-bold" style={{ fontFamily: "'Outfit', sans-serif" }}>
               {username}
             </div>
           </div>
@@ -92,7 +92,7 @@ export function ListeningIdentity({ favoriteStyles, musicMeter, username }: Prop
             <div className="flex flex-col justify-center">
               {top3.length > 0 ? (
                 <>
-                  <div className="text-[12px] font-extrabold uppercase tracking-widest text-[#5e7290] mb-4" style={{ fontFamily: "'Outfit', sans-serif" }}>
+                  <div className="text-[13px] font-extrabold uppercase tracking-widest text-[#5e7290] mb-4" style={{ fontFamily: "'Outfit', sans-serif" }}>
                     Pagrindiniai stiliai
                   </div>
                   <div className="space-y-1 sm:space-y-2">
@@ -124,12 +124,12 @@ export function ListeningIdentity({ favoriteStyles, musicMeter, username }: Prop
                   {favoriteStyles.length > 3 && (
                     <div className="mt-6 flex flex-wrap gap-1.5">
                       {favoriteStyles.slice(3, 12).map((s) => (
-                        <span key={s.legacy_style_id} className="text-[11px] sm:text-xs text-[#5e7290] font-semibold" style={{ fontFamily: "'Outfit', sans-serif" }}>
+                        <span key={s.legacy_style_id} className="text-[12px] sm:text-xs text-[#5e7290] font-semibold" style={{ fontFamily: "'Outfit', sans-serif" }}>
                           {s.style_name}{' '}<span className="text-[#334058]">·</span>
                         </span>
                       ))}
                       {favoriteStyles.length > 12 && (
-                        <span className="text-[11px] text-[#334058] font-bold">+{favoriteStyles.length - 12} dar</span>
+                        <span className="text-[12px] text-[#334058] font-bold">+{favoriteStyles.length - 12} dar</span>
                       )}
                     </div>
                   )}
@@ -142,7 +142,7 @@ export function ListeningIdentity({ favoriteStyles, musicMeter, username }: Prop
             {/* RIGHT — equalizer */}
             {hasMeter && (
               <div className="flex flex-col justify-end">
-                <div className="text-[12px] font-extrabold uppercase tracking-widest text-[#5e7290] mb-3 lg:text-right" style={{ fontFamily: "'Outfit', sans-serif" }}>
+                <div className="text-[13px] font-extrabold uppercase tracking-widest text-[#5e7290] mb-3 lg:text-right" style={{ fontFamily: "'Outfit', sans-serif" }}>
                   Klausymo pasiskirstymas
                 </div>
                 <div className="flex items-end justify-between gap-1 h-[180px] sm:h-[220px]">
@@ -174,10 +174,10 @@ export function ListeningIdentity({ favoriteStyles, musicMeter, username }: Prop
                         </div>
                         {/* Label */}
                         <div className="w-full text-center mt-2">
-                          <div className="text-[10px] sm:text-[11px] font-bold text-[#dde8f8] truncate" style={{ fontFamily: "'Outfit', sans-serif" }}>
+                          <div className="text-[11px] sm:text-[12px] font-bold text-[#dde8f8] truncate" style={{ fontFamily: "'Outfit', sans-serif" }}>
                             {s.name}
                           </div>
-                          <div className="text-[10px] text-[#5e7290] font-mono">{(s.percent || 0).toFixed(0)}%</div>
+                          <div className="text-[11px] text-[#5e7290] font-mono">{(s.percent || 0).toFixed(0)}%</div>
                         </div>
                       </div>
                     )

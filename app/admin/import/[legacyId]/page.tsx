@@ -315,7 +315,7 @@ export default function AdminImportDetailPage() {
                 <a key={p.id} href={p.source_url || p.url} target="_blank" rel="noopener noreferrer" className="block">
                   {/* eslint-disable-next-line @next/next/no-img-element */}
                   <img src={p.url} alt={p.caption || ''} className="w-full aspect-square object-cover rounded-lg hover:opacity-80" />
-                  {p.caption && <div className="mt-1 text-[11px] text-[var(--text-muted)] truncate">{p.caption}</div>}
+                  {p.caption && <div className="mt-1 text-[12px] text-[var(--text-muted)] truncate">{p.caption}</div>}
                 </a>
               ))}
             </div>
@@ -358,7 +358,7 @@ function JobRow({ job }: { job: ImportJob }) {
       <div className="flex-1 min-w-0">
         <div className="font-semibold text-sm text-[var(--text-primary)]">
           {job.job_type === 'wiki' ? 'Wikipedia' : job.job_type === 'scrape' ? 'music.lt scrape' : 'populate'}
-          <span className={`ml-2 px-2 py-0.5 text-[11px] rounded-full bg-${statusColor}-100 text-${statusColor}-700`}>
+          <span className={`ml-2 px-2 py-0.5 text-[12px] rounded-full bg-${statusColor}-100 text-${statusColor}-700`}>
             {job.status}
           </span>
         </div>
@@ -406,7 +406,7 @@ function ReportBlock({ report, completedAt }: { report: any; completedAt: string
         <div className="grid grid-cols-2 sm:grid-cols-4 lg:grid-cols-6 gap-2">
           {numericStats.map(({ k, v }) => (
             <div key={k} className="p-2 bg-[var(--bg-elevated)] rounded border border-[var(--input-border)]">
-              <div className="text-[11px] text-[var(--text-muted)] uppercase tracking-wide">{k.replace(/_/g, ' ')}</div>
+              <div className="text-[12px] text-[var(--text-muted)] uppercase tracking-wide">{k.replace(/_/g, ' ')}</div>
               <div className="text-base font-bold tabular-nums text-[var(--text-primary)]">
                 {k === 'duration_sec' ? `${v.toFixed(0)}s` : v.toLocaleString()}
               </div>
@@ -427,7 +427,7 @@ function ReportBlock({ report, completedAt }: { report: any; completedAt: string
           <summary className="px-3 py-2 text-xs font-semibold text-[var(--text-muted)] cursor-pointer">
             Raw scraper output (last lines)
           </summary>
-          <pre className="px-3 pb-3 text-[12px] font-mono whitespace-pre-wrap break-words text-[var(--text-secondary)]">
+          <pre className="px-3 pb-3 text-[13px] font-mono whitespace-pre-wrap break-words text-[var(--text-secondary)]">
             {report.last_lines}
           </pre>
         </details>
@@ -453,7 +453,7 @@ function YtEnrichCard({ data }: { data: any }) {
           {data.status ? `HTTP ${data.status}: ` : ''}{data.body || data.exception || 'unknown'}
         </div>
         {data.status === 401 && (
-          <div className="mt-2 text-[12px] text-red-700 bg-red-100 px-2 py-1 rounded">
+          <div className="mt-2 text-[13px] text-red-700 bg-red-100 px-2 py-1 rounded">
             Tikriausiai INTERNAL_API_SECRET nesutampa tarp Vercel ir Mac worker'io. Patikrink Vercel env vars.
           </div>
         )}
@@ -516,7 +516,7 @@ function YtMini({ label, value, tone }: { label: string; value: number | undefin
             : 'text-[var(--text-primary)]'
   return (
     <div className="bg-white border border-[var(--input-border)] rounded p-2">
-      <div className="text-[11px] uppercase tracking-wide text-[var(--text-faint)]">{label}</div>
+      <div className="text-[12px] uppercase tracking-wide text-[var(--text-faint)]">{label}</div>
       <div className={`text-base font-bold tabular-nums ${cls}`}>{v.toLocaleString()}</div>
     </div>
   )
@@ -544,7 +544,7 @@ function DiffColumn({ title, color, items }: {
           {items.map(it => (
             <div key={it.id} className="text-xs bg-white rounded px-2 py-1 border border-gray-200">
               <div className="font-medium text-gray-800 truncate">{it.title}</div>
-              <div className="text-[11px] text-gray-500">{it.meta}</div>
+              <div className="text-[12px] text-gray-500">{it.meta}</div>
             </div>
           ))}
         </div>

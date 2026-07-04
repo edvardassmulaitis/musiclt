@@ -39,7 +39,7 @@ export function ReportageCard({ r, priority = false }: { r: Reportage; priority?
         )}
         {/* Foto skaičiaus badge */}
         {r.photoCount > 0 && (
-          <span className="absolute right-2.5 top-2.5 inline-flex items-center gap-1 rounded-full bg-black/65 px-2 py-[3px] text-[12px] font-bold text-white backdrop-blur">
+          <span className="absolute right-2.5 top-2.5 inline-flex items-center gap-1 rounded-full bg-black/65 px-2 py-[3px] text-[13px] font-bold text-white backdrop-blur">
             {CAMERA}
             {r.photoCount}
           </span>
@@ -47,16 +47,16 @@ export function ReportageCard({ r, priority = false }: { r: Reportage; priority?
       </div>
       <div className="p-3.5">
         {r.artistName && (
-          <div className="mb-1 truncate font-['Outfit',sans-serif] text-[12px] font-extrabold uppercase tracking-[0.12em] text-[var(--accent-orange)]">
+          <div className="mb-1 truncate font-['Outfit',sans-serif] text-[13px] font-extrabold uppercase tracking-[0.12em] text-[var(--accent-orange)]">
             {r.artistName}
           </div>
         )}
         <h3 className="line-clamp-2 font-['Outfit',sans-serif] text-[15px] font-bold leading-snug text-[var(--text-primary)]">
           {r.title.replace(/^FOTO\s+(REPORTA[ŽZ]AS|GALERIJA)\s*\|\s*/i, '')}
         </h3>
-        {meta && <div className="mt-1.5 text-[13px] text-[var(--text-muted)]">{meta}</div>}
+        {meta && <div className="mt-1.5 text-[14px] text-[var(--text-muted)]">{meta}</div>}
         {r.photographerName && (
-          <div className="mt-1 text-[13px] text-[var(--text-secondary)]">
+          <div className="mt-1 text-[14px] text-[var(--text-secondary)]">
             Fotografas: <span className="font-semibold">{r.photographerName}</span>
           </div>
         )}

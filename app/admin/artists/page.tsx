@@ -255,7 +255,7 @@ export default function ArtistsAdmin() {
                             </Link>
                             {artist.is_verified && <span className="text-xs text-green-500">✓</span>}
                             {artist.is_active === false && (
-                              <span className="text-[11px] px-1.5 py-0.5 bg-red-100 text-red-500 rounded-full font-semibold">neaktyvus</span>
+                              <span className="text-[12px] px-1.5 py-0.5 bg-red-100 text-red-500 rounded-full font-semibold">neaktyvus</span>
                             )}
                           </div>
                           <div className="text-xs text-[var(--text-muted)] sm:hidden mt-0.5">

@@ -50,7 +50,7 @@ export function SharePill({ title, url, size = 'md' }: Props) {
       aria-label="Dalintis"
       className={[
         "inline-flex items-center gap-1.5 rounded-full border border-[var(--border-subtle)] bg-[var(--card-bg)] font-['Outfit',sans-serif] font-bold text-[var(--text-secondary)] transition-colors hover:border-[var(--border-strong)] hover:text-[var(--text-primary)]",
-        size === 'sm' ? 'h-[26px] px-2.5 text-[12px]' : 'h-[30px] px-3 text-[13px]',
+        size === 'sm' ? 'h-[26px] px-2.5 text-[13px]' : 'h-[30px] px-3 text-[14px]',
         copied ? '!border-[rgba(34,197,94,0.4)] !text-[#4ade80]' : '',
       ].join(' ')}
     >

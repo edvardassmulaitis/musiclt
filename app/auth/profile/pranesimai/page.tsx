@@ -207,11 +207,11 @@ export default function NotificationPreferencesPage() {
                   <span style={{
                     padding: '2px 8px', borderRadius: 999,
                     background: 'rgba(16,185,129,0.15)', color: '#10b981',
-                    fontSize: 11, fontWeight: 800, textTransform: 'uppercase', letterSpacing: '0.05em',
+                    fontSize: 12, fontWeight: 800, textTransform: 'uppercase', letterSpacing: '0.05em',
                   }}>Aktyvūs</span>
                 )}
               </div>
-              <div style={{ fontSize: 13, color: 'var(--text-muted)', lineHeight: 1.4 }}>
+              <div style={{ fontSize: 14, color: 'var(--text-muted)', lineHeight: 1.4 }}>
                 {pushStatus === 'subscribed'
                   ? 'Naują pranešimą gausi tiesiai į naršyklę net kai music.lt nėra atviras.'
                   : pushStatus === 'denied'
@@ -221,7 +221,7 @@ export default function NotificationPreferencesPage() {
                       : 'Įjunk, kad gautum pranešimus net kai music.lt skirtukas uždarytas.'}
               </div>
               {pushError && (
-                <div style={{ fontSize: 12, color: '#ef4444', marginTop: 4 }}>
+                <div style={{ fontSize: 13, color: '#ef4444', marginTop: 4 }}>
                   {pushError}
                 </div>
               )}
@@ -248,7 +248,7 @@ export default function NotificationPreferencesPage() {
             <div style={{ fontWeight: 700, fontSize: 14, color: 'var(--text-primary)', marginBottom: 2 }}>
               Visi pranešimai
             </div>
-            <div style={{ fontSize: 13, color: 'var(--text-muted)' }}>
+            <div style={{ fontSize: 14, color: 'var(--text-muted)' }}>
               {allEnabled
                 ? 'Įjungta — gauni visus pažymėtus žemiau.'
                 : anyEnabled
@@ -269,7 +269,7 @@ export default function NotificationPreferencesPage() {
           grouped[g] && (
             <div key={g} style={{ marginBottom: 18 }}>
               <div style={{
-                fontSize: 12, fontWeight: 800, textTransform: 'uppercase',
+                fontSize: 13, fontWeight: 800, textTransform: 'uppercase',
                 letterSpacing: '0.08em', color: 'var(--text-muted)',
                 margin: '0 4px 8px',
               }}>
@@ -292,7 +292,7 @@ export default function NotificationPreferencesPage() {
                         <div style={{ fontWeight: 600, fontSize: 14.5, color: 'var(--text-primary)', marginBottom: 2 }}>
                           {t.label}
                         </div>
-                        <div style={{ fontSize: 13, color: 'var(--text-muted)', lineHeight: 1.4 }}>
+                        <div style={{ fontSize: 14, color: 'var(--text-muted)', lineHeight: 1.4 }}>
                           {t.desc}
                         </div>
                       </div>
@@ -312,7 +312,7 @@ export default function NotificationPreferencesPage() {
         {/* Saved hint */}
         <div style={{
           minHeight: 24, marginTop: 4,
-          fontSize: 13, color: 'var(--text-muted)',
+          fontSize: 14, color: 'var(--text-muted)',
           textAlign: 'center',
           opacity: showSavedHint ? 1 : 0,
           transition: 'opacity .25s ease',
@@ -325,7 +325,7 @@ export default function NotificationPreferencesPage() {
           background: 'rgba(96,165,250,0.06)',
           border: '1px solid rgba(96,165,250,0.18)',
           borderRadius: 12,
-          fontSize: 13, color: 'var(--text-secondary)', lineHeight: 1.5,
+          fontSize: 14, color: 'var(--text-secondary)', lineHeight: 1.5,
         }}>
           <strong>Pastaba:</strong> el. paštu pranešimų kol kas neišsiunčiame —
           viskas pasirodo svetainėje, varpelio ikonoje. El. pašto pranešimų

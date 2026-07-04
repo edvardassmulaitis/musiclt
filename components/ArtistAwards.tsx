@@ -132,7 +132,7 @@ export default function ArtistAwards({ awards }: { awards: AwardRow[] }) {
                           <span className="text-[var(--text-faint)] italic truncate max-w-[160px] hidden sm:block">{item.work}</span>
                         )}
                         <span
-                          className="text-[11px] font-extrabold uppercase tracking-wider px-2 py-0.5 rounded shrink-0 inline-flex items-center font-['Outfit',sans-serif]"
+                          className="text-[12px] font-extrabold uppercase tracking-wider px-2 py-0.5 rounded shrink-0 inline-flex items-center font-['Outfit',sans-serif]"
                           style={{ background: meta.bg, color: meta.fg }}
                         >
                           {meta.label}

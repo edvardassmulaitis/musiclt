@@ -80,18 +80,18 @@ function MissingRow({ m, onDone }: { m: Missing; onDone: () => void }) {
   return (
     <div className="border-b border-gray-100 px-3 py-2.5 last:border-b-0">
       <div className="flex items-center gap-3">
-        <span className="shrink-0 rounded bg-amber-100 px-2 py-0.5 text-[12px] font-bold tabular-nums text-amber-700" title="Keliuose topuose">{m.chartCount}×</span>
+        <span className="shrink-0 rounded bg-amber-100 px-2 py-0.5 text-[13px] font-bold tabular-nums text-amber-700" title="Keliuose topuose">{m.chartCount}×</span>
         <div className="min-w-0 flex-1">
           <p className="truncate text-sm font-semibold text-gray-800">{m.title}</p>
           <p className="truncate text-xs text-gray-500">{m.artist} <span className="text-gray-300">· {m.charts.join(', ')}</span></p>
         </div>
-        {msg && <span className="shrink-0 text-[12px] font-medium text-gray-500">{msg}</span>}
+        {msg && <span className="shrink-0 text-[13px] font-medium text-gray-500">{msg}</span>}
         <div className="flex shrink-0 items-center gap-1.5">
           <button onClick={() => setSearching(s => !s)} disabled={busy}
-            className="rounded bg-gray-100 px-2.5 py-1 text-[12px] font-medium text-gray-700 hover:bg-gray-200 disabled:opacity-50">Susieti</button>
+            className="rounded bg-gray-100 px-2.5 py-1 text-[13px] font-medium text-gray-700 hover:bg-gray-200 disabled:opacity-50">Susieti</button>
           <button onClick={() => act('create')} disabled={busy}
             title="Sukurti dainą + atlikėją ir susieti visuose topuose"
-            className="rounded bg-blue-50 px-2.5 py-1 text-[12px] font-semibold text-blue-600 hover:bg-blue-100 disabled:opacity-50">Sukurti</button>
+            className="rounded bg-blue-50 px-2.5 py-1 text-[13px] font-semibold text-blue-600 hover:bg-blue-100 disabled:opacity-50">Sukurti</button>
         </div>
       </div>
       {searching && <LinkSearch defaultQuery={`${simpleArtist(m.artist)} ${cleanTitle(m.title)}`} fallbackQuery={cleanTitle(m.title)} onPick={(h) => { setSearching(false); act('link', { trackId: h.id }) }} />}
@@ -137,7 +137,7 @@ function LinkSearch({ defaultQuery, fallbackQuery, onPick }: { defaultQuery: str
           <button key={h.id} onClick={() => onPick(h)} className="flex w-full items-center gap-2 rounded-md px-2 py-1.5 text-left hover:bg-white">
             {h.image_url ? <img src={h.image_url} alt="" className="h-7 w-7 shrink-0 rounded object-cover" /> : <span className="flex h-7 w-7 shrink-0 items-center justify-center rounded bg-gray-200 text-gray-400">♪</span>}
             <span className="min-w-0 flex-1"><span className="block truncate text-sm font-medium text-gray-800">{h.title}</span><span className="block truncate text-xs text-gray-400">{h.artist}</span></span>
-            <span className="shrink-0 text-[12px] font-semibold text-violet-600">Susieti</span>
+            <span className="shrink-0 text-[13px] font-semibold text-violet-600">Susieti</span>
           </button>
         ))}
       </div>

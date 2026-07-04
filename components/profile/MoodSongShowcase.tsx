@@ -84,7 +84,7 @@ export function MoodSongShowcase({ track, username }: { track: Track; username: 
           </div>
 
           {/* Eyebrow */}
-          <div className="text-[11px] sm:text-[12px] font-extrabold uppercase tracking-[0.3em] text-orange-400 mb-3" style={{ fontFamily: "'Outfit', sans-serif" }}>
+          <div className="text-[12px] sm:text-[13px] font-extrabold uppercase tracking-[0.3em] text-orange-400 mb-3" style={{ fontFamily: "'Outfit', sans-serif" }}>
             ♬ {username} nuotaikos daina
           </div>
 

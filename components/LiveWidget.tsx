@@ -38,7 +38,7 @@ function Avatar({ name, src, size = 6 }: { name: string | null; src: string | nu
   if (src) return <img src={src} alt={name || ''} className={`w-${size} h-${size} rounded-full object-cover flex-shrink-0`} />
   const initials = (name || '?').slice(0, 1).toUpperCase()
   return (
-    <div className={`w-${size} h-${size} rounded-full flex items-center justify-center text-[11px] font-black flex-shrink-0`}
+    <div className={`w-${size} h-${size} rounded-full flex items-center justify-center text-[12px] font-black flex-shrink-0`}
       style={{ background: 'var(--avatar-bg)', color: 'var(--avatar-text)' }}>
       {initials}
     </div>
@@ -223,7 +223,7 @@ export default function LiveWidget() {
 
           {/* Unread badge */}
           {!open && unread > 0 && (
-            <span className="absolute -top-1 -right-1 w-5 h-5 rounded-full flex items-center justify-center text-[11px] font-black text-white animate-bounce"
+            <span className="absolute -top-1 -right-1 w-5 h-5 rounded-full flex items-center justify-center text-[12px] font-black text-white animate-bounce"
               style={{ background: '#ef4444' }}>
               {unread > 9 ? '9+' : unread}
             </span>
@@ -256,7 +256,7 @@ export default function LiveWidget() {
                 }`}>
                 {l}
                 {k === 'shout' && tab !== 'shout' && unread > 0 && (
-                  <span className="ml-1 px-1.5 py-0.5 rounded-full text-[10px] font-black bg-red-500 text-white">
+                  <span className="ml-1 px-1.5 py-0.5 rounded-full text-[11px] font-black bg-red-500 text-white">
                     {unread}
                   </span>
                 )}
@@ -285,16 +285,16 @@ export default function LiveWidget() {
                       <Avatar name={msg.author_name} src={msg.author_avatar} size={6} />
                       <div className="flex-1 min-w-0">
                         <div className="flex items-baseline gap-1.5">
-                          <span className="text-[12px] font-bold text-blue-300 truncate max-w-[100px]">
+                          <span className="text-[13px] font-bold text-blue-300 truncate max-w-[100px]">
                             {msg.author_name}
                           </span>
-                          <span className="text-[11px] text-gray-700 flex-shrink-0">{timeShort(msg.created_at)}</span>
+                          <span className="text-[12px] text-gray-700 flex-shrink-0">{timeShort(msg.created_at)}</span>
                         </div>
                         <p className="text-xs text-gray-300 leading-relaxed break-words">{msg.body}</p>
                       </div>
                       {isAdmin && (
                         <button onClick={() => handleDelete(msg.id)}
-                          className="opacity-0 group-hover:opacity-100 text-[11px] text-gray-700 hover:text-red-500 transition-all flex-shrink-0 mt-0.5">
+                          className="opacity-0 group-hover:opacity-100 text-[12px] text-gray-700 hover:text-red-500 transition-all flex-shrink-0 mt-0.5">
                           ✕
                         </button>
                       )}
@@ -326,7 +326,7 @@ export default function LiveWidget() {
                         className="w-9 h-9 rounded-xl flex items-center justify-center transition-all disabled:opacity-30"
                         style={{ background: 'linear-gradient(135deg, #1d4ed8, #4f46e5)' }}>
                         {cooldown > 0 ? (
-                          <span className="text-[11px] font-black text-white">{cooldown}</span>
+                          <span className="text-[12px] font-black text-white">{cooldown}</span>
                         ) : (
                           <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="white" strokeWidth="2.5" strokeLinecap="round">
                             <line x1="22" y1="2" x2="11" y2="13" />
@@ -335,10 +335,10 @@ export default function LiveWidget() {
                         )}
                       </button>
                     </div>
-                    {sendError && <p className="text-red-400 text-[11px] mt-1.5 px-1">{sendError}</p>}
+                    {sendError && <p className="text-red-400 text-[12px] mt-1.5 px-1">{sendError}</p>}
                     <div className="flex justify-between mt-1">
-                      <span className="text-[11px] text-gray-700">{newText.length}/255</span>
-                      {cooldown > 0 && <span className="text-[11px] text-gray-600">Laukti {cooldown}s</span>}
+                      <span className="text-[12px] text-gray-700">{newText.length}/255</span>
+                      {cooldown > 0 && <span className="text-[12px] text-gray-600">Laukti {cooldown}s</span>}
                     </div>
                   </>
                 ) : (
@@ -375,8 +375,8 @@ export default function LiveWidget() {
                     <div className="flex items-start gap-2 px-2 py-2 rounded-xl transition-colors hover:bg-white/5 cursor-pointer">
                       <span className="text-sm flex-shrink-0 mt-0.5">{icon}</span>
                       <div className="flex-1 min-w-0">
-                        <p className="text-[12px] text-gray-300 leading-relaxed line-clamp-2">{text}</p>
-                        <span className="text-[11px] text-gray-700">{timeShort(event.created_at)}</span>
+                        <p className="text-[13px] text-gray-300 leading-relaxed line-clamp-2">{text}</p>
+                        <span className="text-[12px] text-gray-700">{timeShort(event.created_at)}</span>
                       </div>
                     </div>
                   )

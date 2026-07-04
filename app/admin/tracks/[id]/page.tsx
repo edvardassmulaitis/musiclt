@@ -151,7 +151,7 @@ function ViewsSparkline({ history, currentVideoId }: { history: StatsData['views
     ? history.filter(h => h.video_id === currentVideoId)
     : history
   if (!relevantHistory || relevantHistory.length < 2) {
-    return <span className="text-[11px] text-[var(--text-faint)]">{relevantHistory.length === 1 ? '1 snapshot — nepakanka trend\'ui' : '—'}</span>
+    return <span className="text-[12px] text-[var(--text-faint)]">{relevantHistory.length === 1 ? '1 snapshot — nepakanka trend\'ui' : '—'}</span>
   }
   const W = 120, H = 28, P = 2
   const xs = relevantHistory.map(h => new Date(h.captured_at).getTime())
@@ -171,7 +171,7 @@ function ViewsSparkline({ history, currentVideoId }: { history: StatsData['views
       <svg width={W} height={H} className="block">
         <polyline points={pts} fill="none" stroke="currentColor" strokeWidth="1.5" className="text-blue-500" />
       </svg>
-      <span className={`text-[11px] tabular-nums ${delta >= 0 ? 'text-green-600' : 'text-red-500'}`} title={`Δ nuo pirmo snapshot'o (tik dabartinis video_id)`}>
+      <span className={`text-[12px] tabular-nums ${delta >= 0 ? 'text-green-600' : 'text-red-500'}`} title={`Δ nuo pirmo snapshot'o (tik dabartinis video_id)`}>
         {delta >= 0 ? '+' : ''}{fmtN(delta)}
       </span>
     </div>
@@ -225,9 +225,9 @@ function StatsCard({ trackId }: { trackId: number }) {
     <div className="bg-[var(--bg-surface)] rounded-xl border border-[var(--border-subtle)] shadow-sm overflow-hidden">
       <div className="px-3 py-2 border-b border-[var(--border-subtle)] flex items-center gap-1.5">
         <span className="text-xs font-bold text-[var(--text-secondary)]">Statistika</span>
-        <span className="text-[11px] text-[var(--text-faint)]">paskutinis enrich {fmtDate(v.checked_at)}</span>
+        <span className="text-[12px] text-[var(--text-faint)]">paskutinis enrich {fmtDate(v.checked_at)}</span>
         <button type="button" onClick={refresh} disabled={loading}
-          className="ml-auto text-[11px] text-blue-500 hover:underline disabled:opacity-50">
+          className="ml-auto text-[12px] text-blue-500 hover:underline disabled:opacity-50">
           {loading ? '…' : '↻ atnaujinti'}
         </button>
       </div>
@@ -236,9 +236,9 @@ function StatsCard({ trackId }: { trackId: number }) {
       <div className="px-3 py-2 border-b border-[var(--border-subtle)] grid grid-cols-2 gap-3">
         <div className="min-w-0">
           <div className="flex items-baseline gap-1.5">
-            <span className="text-[11px] uppercase tracking-wide font-semibold text-[var(--text-muted)]">YT Views</span>
-            {v.embeddable === false && <span className="text-[10px] text-red-600 bg-red-50 border border-red-100 px-1 rounded">embed off</span>}
-            {v.embeddable === true && <span className="text-[10px] text-green-700 bg-green-50 border border-green-100 px-1 rounded">embed ok</span>}
+            <span className="text-[12px] uppercase tracking-wide font-semibold text-[var(--text-muted)]">YT Views</span>
+            {v.embeddable === false && <span className="text-[11px] text-red-600 bg-red-50 border border-red-100 px-1 rounded">embed off</span>}
+            {v.embeddable === true && <span className="text-[11px] text-green-700 bg-green-50 border border-green-100 px-1 rounded">embed ok</span>}
           </div>
           <div className="text-lg font-bold text-[var(--text-primary)] tabular-nums leading-tight" title={v.current?.toString() || ''}>
             {v.current != null ? v.current.toLocaleString('lt-LT') : '—'}
@@ -249,15 +249,15 @@ function StatsCard({ trackId }: { trackId: number }) {
             const days = Math.max(1, Math.round((Date.now() - d.getTime()) / 86400000))
             const perDay = Math.round(v.current / days)
             return (
-              <div className="text-[11px] text-[var(--text-muted)] tabular-nums">
+              <div className="text-[12px] text-[var(--text-muted)] tabular-nums">
                 Įkelta {d.toLocaleDateString('lt-LT')} · ≈ {perDay.toLocaleString('lt-LT')} peržiūrų/d ({days} d.)
               </div>
             )
           })() : v.uploaded_at ? (
-            <div className="text-[11px] text-[var(--text-muted)]">Įkelta {new Date(v.uploaded_at).toLocaleDateString('lt-LT')}</div>
+            <div className="text-[12px] text-[var(--text-muted)]">Įkelta {new Date(v.uploaded_at).toLocaleDateString('lt-LT')}</div>
           ) : null}
           <div className="flex items-center gap-1.5">
-            <span className="text-[11px] text-[var(--text-faint)]">{v.history.length} snapshot'as{v.history.length === 1 ? '' : 'ai'}</span>
+            <span className="text-[12px] text-[var(--text-faint)]">{v.history.length} snapshot'as{v.history.length === 1 ? '' : 'ai'}</span>
             {/* Filtruojam tik dabartinio video_id snapshot'us — paskutinė
                 history entry priklauso current video'ai (enrichTrack visada
                 įrašo naują eilutę su nauju videoId po URL pakeitimo). */}
@@ -269,12 +269,12 @@ function StatsCard({ trackId }: { trackId: number }) {
         </div>
         <div className="min-w-0 border-l border-[var(--border-subtle)] pl-3">
           <div className="flex items-baseline gap-1.5">
-            <span className="text-[11px] uppercase tracking-wide font-semibold text-[var(--text-muted)]" title="Kiek kartų atidarytas /lt/daina/{slug} puslapis (nuo migracijos taikymo). 30 min dedup'as cookie'iu, kad refresh nedubliuotų.">Page views</span>
+            <span className="text-[12px] uppercase tracking-wide font-semibold text-[var(--text-muted)]" title="Kiek kartų atidarytas /lt/daina/{slug} puslapis (nuo migracijos taikymo). 30 min dedup'as cookie'iu, kad refresh nedubliuotų.">Page views</span>
           </div>
           <div className="text-lg font-bold text-[var(--text-primary)] tabular-nums leading-tight">
             {data.pageViews == null ? <span className="text-[var(--text-faint)] text-sm">—</span> : data.pageViews.toLocaleString('lt-LT')}
           </div>
-          <div className="text-[11px] text-[var(--text-faint)]">
+          <div className="text-[12px] text-[var(--text-faint)]">
             {data.pageViews == null ? 'migracija neaplikuota' : 'unique sessions/30min'}
           </div>
         </div>
@@ -283,19 +283,19 @@ function StatsCard({ trackId }: { trackId: number }) {
       {/* Score */}
       <div className="px-3 py-2 border-b border-[var(--border-subtle)]">
         <div className="flex items-baseline gap-1.5">
-          <span className="text-[11px] uppercase tracking-wide font-semibold text-[var(--text-muted)]">Score</span>
+          <span className="text-[12px] uppercase tracking-wide font-semibold text-[var(--text-muted)]">Score</span>
           <span className="text-lg font-bold text-[var(--text-primary)] tabular-nums">{s.value ?? '—'}</span>
-          <span className="text-[11px] text-[var(--text-faint)]">/ 100</span>
-          {s.updated_at && <span className="ml-auto text-[11px] text-[var(--text-faint)]">{fmtDate(s.updated_at)}</span>}
+          <span className="text-[12px] text-[var(--text-faint)]">/ 100</span>
+          {s.updated_at && <span className="ml-auto text-[12px] text-[var(--text-faint)]">{fmtDate(s.updated_at)}</span>}
           {s.breakdown && (
             <button type="button" onClick={() => setShowBreakdown(p => !p)}
-              className="text-[11px] text-blue-500 hover:underline">
+              className="text-[12px] text-blue-500 hover:underline">
               {showBreakdown ? 'sutraukti' : 'detalės'}
             </button>
           )}
         </div>
         {showBreakdown && s.breakdown && (
-          <pre className="mt-1.5 text-[11px] bg-[var(--bg-elevated)] rounded p-2 overflow-x-auto text-[var(--text-muted)] font-mono leading-relaxed">
+          <pre className="mt-1.5 text-[12px] bg-[var(--bg-elevated)] rounded p-2 overflow-x-auto text-[var(--text-muted)] font-mono leading-relaxed">
             {JSON.stringify(s.breakdown, null, 2)}
           </pre>
         )}
@@ -317,25 +317,25 @@ function StatsCard({ trackId }: { trackId: number }) {
               ? `Aukščiausia vieta #${cp.peak_position}, viso ${cp.weeks_total} sav. chart'uose. ${cp.weeks_at_1 ? cp.weeks_at_1 + ' sav. #1, ' : ''}${cp.weeks_top10} sav. top 10. Score = vidutinė pozicija (100 = visada #1, 51 = visada #50). Palyginamas tarp dainų.`
               : 'Daina dar nepateko į top chart\'us'}>
             <div className="flex items-baseline gap-2">
-              <span className="text-[11px] uppercase tracking-wide font-semibold text-[var(--text-muted)]">🏆 Top chart'ai</span>
+              <span className="text-[12px] uppercase tracking-wide font-semibold text-[var(--text-muted)]">🏆 Top chart'ai</span>
               {hasChart && cp.weeks_at_1 > 0 && (
-                <span className="text-[10px] bg-yellow-100 text-yellow-800 border border-yellow-200 px-1 rounded">{cp.weeks_at_1} sav. #1</span>
+                <span className="text-[11px] bg-yellow-100 text-yellow-800 border border-yellow-200 px-1 rounded">{cp.weeks_at_1} sav. #1</span>
               )}
-              <span className="ml-auto text-[11px] text-[var(--text-faint)]">score {cp.chart_score} / 100</span>
+              <span className="ml-auto text-[12px] text-[var(--text-faint)]">score {cp.chart_score} / 100</span>
             </div>
             <div className="flex items-baseline gap-3 mt-0.5">
               <div>
                 <span className={`text-2xl font-bold tabular-nums ${peakColor}`}>{peakLabel}</span>
-                <span className="text-[11px] text-[var(--text-faint)] ml-1">peak</span>
+                <span className="text-[12px] text-[var(--text-faint)] ml-1">peak</span>
               </div>
               <div>
                 <span className="text-lg font-bold text-[var(--text-secondary)] tabular-nums">{cp.weeks_total}</span>
-                <span className="text-[11px] text-[var(--text-faint)] ml-1">sav. viso</span>
+                <span className="text-[12px] text-[var(--text-faint)] ml-1">sav. viso</span>
               </div>
               {hasChart && (
                 <div>
                   <span className="text-lg font-bold text-[var(--text-secondary)] tabular-nums">{cp.weeks_top10}</span>
-                  <span className="text-[11px] text-[var(--text-faint)] ml-1">sav. top 10</span>
+                  <span className="text-[12px] text-[var(--text-faint)] ml-1">sav. top 10</span>
                 </div>
               )}
             </div>
@@ -354,14 +354,14 @@ function StatsCard({ trackId }: { trackId: number }) {
           <div key={i} className="px-2 py-2 text-center" title={tip}>
             <div className="text-base leading-none">{icon}</div>
             <div className="text-sm font-bold text-[var(--text-primary)] tabular-nums mt-0.5">{fmtN(n)}</div>
-            <div className="text-[10px] text-[var(--text-faint)] uppercase tracking-wide leading-tight">{label}</div>
+            <div className="text-[11px] text-[var(--text-faint)] uppercase tracking-wide leading-tight">{label}</div>
           </div>
         ))}
       </div>
 
       {/* Source link → music.lt */}
       {data.sourceUrl && (
-        <div className="px-3 py-1.5 border-b border-[var(--border-subtle)] flex items-center gap-2 text-[12px]">
+        <div className="px-3 py-1.5 border-b border-[var(--border-subtle)] flex items-center gap-2 text-[13px]">
           <span className="text-[var(--text-faint)]">Senoje svetainėje:</span>
           <a
             href={data.sourceUrl}
@@ -376,7 +376,7 @@ function StatsCard({ trackId }: { trackId: number }) {
       )}
 
       {/* Identifiers + timestamps */}
-      <div className="px-3 py-2 grid grid-cols-2 gap-x-3 gap-y-1 text-[11px]">
+      <div className="px-3 py-2 grid grid-cols-2 gap-x-3 gap-y-1 text-[12px]">
         <div><span className="text-[var(--text-faint)]">ID:</span> <span className="font-mono text-[var(--text-secondary)]">{data.trackId}</span></div>
         <div><span className="text-[var(--text-faint)]">Legacy:</span> <span className="font-mono text-[var(--text-secondary)]">{data.legacyId ?? '—'}</span></div>
         <div className="col-span-2"><span className="text-[var(--text-faint)]">Slug:</span> <span className="font-mono text-[var(--text-secondary)]">{data.slug || '—'}</span></div>

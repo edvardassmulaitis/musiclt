@@ -373,7 +373,7 @@ export default function TrackPageClient({
   const headStyle: React.CSSProperties = {
     display: 'flex', alignItems: 'center', justifyContent: 'space-between',
     padding: '10px 14px', borderBottom: '1px solid var(--card-border-subtle)',
-    fontSize: 12, fontWeight: 700, color: 'var(--head-text)',
+    fontSize: 13, fontWeight: 700, color: 'var(--head-text)',
     fontFamily: 'Outfit,sans-serif', textTransform: 'uppercase', letterSpacing: '.08em',
   }
 
@@ -407,29 +407,29 @@ export default function TrackPageClient({
       <div style={cardStyle}>
         <div style={headStyle}>
           <span>✦ AI interpretacija</span>
-          {!aiText && <span style={{ fontSize: 10, fontWeight: 400, color: 'var(--text-faint)', textTransform: 'none', letterSpacing: 0 }}>beta</span>}
+          {!aiText && <span style={{ fontSize: 11, fontWeight: 400, color: 'var(--text-faint)', textTransform: 'none', letterSpacing: 0 }}>beta</span>}
         </div>
         <div style={{ padding: 14 }}>
           {!aiText && !aiLoad && !aiErr && (
             <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 10, padding: '4px 0' }}>
-              <p style={{ fontSize: 13, color: 'var(--text-muted)', textAlign: 'center', margin: 0, lineHeight: 1.6 }}>
+              <p style={{ fontSize: 14, color: 'var(--text-muted)', textAlign: 'center', margin: 0, lineHeight: 1.6 }}>
                 Claude perskaitys žodžius ir sukurs interpretaciją bei abstraktų paveikslėlį, perteikiantį dainos nuotaiką.
               </p>
               <button onClick={doAI}
-                style={{ display: 'flex', alignItems: 'center', gap: 7, padding: '9px 20px', borderRadius: 999, background: 'rgba(249,115,22,.12)', border: '1px solid rgba(249,115,22,.35)', color: 'var(--accent-orange)', fontSize: 13, fontWeight: 700, cursor: 'pointer', fontFamily: 'Outfit,sans-serif' }}>
+                style={{ display: 'flex', alignItems: 'center', gap: 7, padding: '9px 20px', borderRadius: 999, background: 'rgba(249,115,22,.12)', border: '1px solid rgba(249,115,22,.35)', color: 'var(--accent-orange)', fontSize: 14, fontWeight: 700, cursor: 'pointer', fontFamily: 'Outfit,sans-serif' }}>
                 ✦ Generuoti
               </button>
             </div>
           )}
           {aiLoad && (
-            <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 8, padding: '12px 0', color: 'var(--text-muted)', fontSize: 13 }}>
+            <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 8, padding: '12px 0', color: 'var(--text-muted)', fontSize: 14 }}>
               <span style={{ animation: 'spin 1.2s linear infinite', display: 'inline-block', fontSize: 20, color: 'var(--accent-orange)' }}>✦</span>
               Claude analizuoja žodžius…
             </div>
           )}
           {aiErr && (
-            <div style={{ fontSize: 13, color: 'var(--text-muted)', textAlign: 'center', padding: '6px 0' }}>
-              Nepavyko. <button onClick={doAI} style={{ color: 'var(--accent-orange)', background: 'none', border: 'none', cursor: 'pointer', fontSize: 13, fontWeight: 700 }}>Bandyti dar kartą</button>
+            <div style={{ fontSize: 14, color: 'var(--text-muted)', textAlign: 'center', padding: '6px 0' }}>
+              Nepavyko. <button onClick={doAI} style={{ color: 'var(--accent-orange)', background: 'none', border: 'none', cursor: 'pointer', fontSize: 14, fontWeight: 700 }}>Bandyti dar kartą</button>
             </div>
           )}
           {aiText && (
@@ -452,7 +452,7 @@ export default function TrackPageClient({
     const vis = showAllV ? versions : versions.slice(0, 4)
     return (
       <div style={cardStyle}>
-        <div style={headStyle}>Versijos ir remixai <span style={{ fontSize: 10, fontWeight: 400, color: 'var(--text-faint)', textTransform: 'none', letterSpacing: 0 }}>{versions.length}</span></div>
+        <div style={headStyle}>Versijos ir remixai <span style={{ fontSize: 11, fontWeight: 400, color: 'var(--text-faint)', textTransform: 'none', letterSpacing: 0 }}>{versions.length}</span></div>
         {vis.map((v, i) => (
           <Link key={v.id} href={`/dainos/${artist.slug}-${v.slug}-${v.id}`}
             style={{ display: 'flex', alignItems: 'center', gap: 10, padding: '9px 14px', borderBottom: i < vis.length - 1 ? '1px solid var(--card-border-subtle)' : 'none', textDecoration: 'none' }}
@@ -462,15 +462,15 @@ export default function TrackPageClient({
               {ytId(v.video_url) ? <svg width="9" height="9" viewBox="0 0 10 10" fill="var(--accent-orange)"><polygon points="2,1 9,5 2,9"/></svg> : <MusicIcon s={11} c="var(--text-faint)" />}
             </div>
             <div style={{ flex: 1, minWidth: 0 }}>
-              <div style={{ fontSize: 13, fontWeight: 600, color: 'var(--text-secondary)', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{v.title}</div>
-              <div style={{ fontSize: 11, color: 'var(--text-faint)' }}>{v.type === 'normal' ? 'Daina' : v.type}</div>
+              <div style={{ fontSize: 14, fontWeight: 600, color: 'var(--text-secondary)', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{v.title}</div>
+              <div style={{ fontSize: 12, color: 'var(--text-faint)' }}>{v.type === 'normal' ? 'Daina' : v.type}</div>
             </div>
-            <span style={{ fontSize: 11, color: 'var(--text-faint)' }}>→</span>
+            <span style={{ fontSize: 12, color: 'var(--text-faint)' }}>→</span>
           </Link>
         ))}
         {versions.length > 4 && (
           <button onClick={() => setShowAllV(x => !x)}
-            style={{ width: '100%', padding: 9, background: 'transparent', border: 'none', borderTop: '1px solid var(--card-border-subtle)', cursor: 'pointer', fontSize: 12, fontWeight: 700, color: 'var(--text-muted)', fontFamily: 'Outfit,sans-serif' }}>
+            style={{ width: '100%', padding: 9, background: 'transparent', border: 'none', borderTop: '1px solid var(--card-border-subtle)', cursor: 'pointer', fontSize: 13, fontWeight: 700, color: 'var(--text-muted)', fontFamily: 'Outfit,sans-serif' }}>
             {showAllV ? '↑ Mažiau' : `Visos ${versions.length} versijos ↓`}
           </button>
         )}
@@ -556,18 +556,18 @@ export default function TrackPageClient({
               {track.title}
             </h1>
             {track.is_new && (
-              <span className="inline-flex items-center rounded-full border border-[rgba(249,115,22,0.3)] bg-[rgba(249,115,22,0.18)] px-2 py-0.5 font-['Outfit',sans-serif] text-[10px] font-extrabold uppercase tracking-wider text-[var(--accent-orange)]">
+              <span className="inline-flex items-center rounded-full border border-[rgba(249,115,22,0.3)] bg-[rgba(249,115,22,0.18)] px-2 py-0.5 font-['Outfit',sans-serif] text-[11px] font-extrabold uppercase tracking-wider text-[var(--accent-orange)]">
                 NEW
               </span>
             )}
           </div>
-          <div className="mt-0.5 truncate text-[13px] sm:text-[13.5px]">
+          <div className="mt-0.5 truncate text-[14px] sm:text-[14.5px]">
             {artistLine}
           </div>
           {/* Data PO atlikėjo (albumas perkeltas žemiau, kairėje — nebesikartoja). */}
-          <div className="mt-1 flex flex-wrap items-center gap-1.5 text-[12px] text-[var(--text-muted)]">
+          <div className="mt-1 flex flex-wrap items-center gap-1.5 text-[13px] text-[var(--text-muted)]">
             {dateStr && (
-              <span className="font-['Outfit',sans-serif] text-[12px] font-bold text-[var(--text-secondary)]">
+              <span className="font-['Outfit',sans-serif] text-[13px] font-bold text-[var(--text-secondary)]">
                 {dateStr}
               </span>
             )}
@@ -616,7 +616,7 @@ export default function TrackPageClient({
                   <rect x="1" y="5" width="15" height="14" rx="2" ry="2" />
                 </svg>
               </div>
-              <div className="font-['Outfit',sans-serif] text-[12px] font-extrabold uppercase tracking-[0.18em] text-[var(--text-muted)]">
+              <div className="font-['Outfit',sans-serif] text-[13px] font-extrabold uppercase tracking-[0.18em] text-[var(--text-muted)]">
                 Vaizdo įrašo nėra
               </div>
             </div>
@@ -649,7 +649,7 @@ export default function TrackPageClient({
                         <img src={th} alt="" referrerPolicy="no-referrer" className="h-full w-full object-cover transition-transform duration-300 group-hover:scale-[1.04]" />
                       )}
                     </span>
-                    <span className="mt-0.5 truncate px-0.5 font-['Outfit',sans-serif] text-[11px] font-bold leading-tight text-[var(--text-secondary)] group-hover:text-[var(--text-primary)]">{t.title}</span>
+                    <span className="mt-0.5 truncate px-0.5 font-['Outfit',sans-serif] text-[12px] font-bold leading-tight text-[var(--text-secondary)] group-hover:text-[var(--text-primary)]">{t.title}</span>
                   </Link>
                 )
               }
@@ -658,7 +658,7 @@ export default function TrackPageClient({
                   {/* Dainos aprašymas, jei įdėtas. */}
                   {desc && (
                     <div className="rounded-xl border border-[var(--border-subtle)] bg-[var(--card-bg)] p-4">
-                      <div className="mb-2 font-['Outfit',sans-serif] text-[12px] font-extrabold uppercase tracking-[0.18em] text-[var(--text-muted)]">
+                      <div className="mb-2 font-['Outfit',sans-serif] text-[13px] font-extrabold uppercase tracking-[0.18em] text-[var(--text-muted)]">
                         Apie dainą
                       </div>
                       <p className="whitespace-pre-line font-['Outfit',sans-serif] text-[14px] leading-[1.7] text-[var(--text-secondary)]">
@@ -681,14 +681,14 @@ export default function TrackPageClient({
                           )}
                         </span>
                         <div className="min-w-0 flex-1">
-                          <div className="font-['Outfit',sans-serif] text-[10.5px] font-extrabold uppercase tracking-[0.14em] text-[var(--text-muted)]">Iš albumo</div>
+                          <div className="font-['Outfit',sans-serif] text-[11.5px] font-extrabold uppercase tracking-[0.14em] text-[var(--text-muted)]">Iš albumo</div>
                           <div className="truncate font-['Outfit',sans-serif] text-[14px] font-extrabold leading-tight text-[var(--text-primary)] group-hover:text-[var(--accent-orange)]">{primaryAlbum.title}</div>
                           {primaryAlbum.year && (
-                            <div className="text-[12.5px] font-semibold text-[var(--text-muted)]">{primaryAlbum.year} m.</div>
+                            <div className="text-[13.5px] font-semibold text-[var(--text-muted)]">{primaryAlbum.year} m.</div>
                           )}
                         </div>
                         {albums.length > 1 && (
-                          <span className="shrink-0 font-['Outfit',sans-serif] text-[11px] font-bold text-[var(--text-faint)]" title={albums.slice(1).map(a => a.title).join(', ')}>+{albums.length - 1}</span>
+                          <span className="shrink-0 font-['Outfit',sans-serif] text-[12px] font-bold text-[var(--text-faint)]" title={albums.slice(1).map(a => a.title).join(', ')}>+{albums.length - 1}</span>
                         )}
                         <svg viewBox="0 0 24 24" width={15} height={15} fill="none" stroke="currentColor" strokeWidth={2.2} strokeLinecap="round" strokeLinejoin="round" className="shrink-0 text-[var(--text-faint)] transition-colors group-hover:text-[var(--accent-orange)]">
                           <path d="M9 18l6-6-6-6" />
@@ -696,7 +696,7 @@ export default function TrackPageClient({
                       </Link>
                       {albumTopTracks.length > 0 && (
                         <div className="border-t border-[var(--border-subtle)] px-3 pb-2 pt-1.5">
-                          <div className="pb-1 font-['Outfit',sans-serif] text-[10px] font-extrabold uppercase tracking-[0.14em] text-[var(--text-faint)]">Iš to paties albumo</div>
+                          <div className="pb-1 font-['Outfit',sans-serif] text-[11px] font-extrabold uppercase tracking-[0.14em] text-[var(--text-faint)]">Iš to paties albumo</div>
                           <div className="flex gap-2 overflow-x-auto pb-0.5 [scrollbar-width:thin]">
                             {albumTopTracks.map(MiniCard)}
                           </div>
@@ -720,16 +720,16 @@ export default function TrackPageClient({
                           )}
                         </span>
                         <div className="min-w-0 flex-1">
-                          <div className="font-['Outfit',sans-serif] text-[10.5px] font-extrabold uppercase tracking-[0.14em] text-[var(--text-muted)]">Atlikėjas</div>
+                          <div className="font-['Outfit',sans-serif] text-[11.5px] font-extrabold uppercase tracking-[0.14em] text-[var(--text-muted)]">Atlikėjas</div>
                           <div className="truncate font-['Outfit',sans-serif] text-[14px] font-extrabold leading-tight text-[var(--text-primary)] group-hover:text-[var(--accent-orange)]">{artist.name}</div>
                           {artistBio && (
-                            <p className="mt-1 line-clamp-3 whitespace-pre-line text-[13px] leading-[1.5] text-[var(--text-secondary)]">{artistBio}</p>
+                            <p className="mt-1 line-clamp-3 whitespace-pre-line text-[14px] leading-[1.5] text-[var(--text-secondary)]">{artistBio}</p>
                           )}
                         </div>
                       </Link>
                       {artistTopTracks.length > 0 && (
                         <div className="border-t border-[var(--border-subtle)] px-3 pb-2 pt-1.5">
-                          <div className="pb-1 font-['Outfit',sans-serif] text-[10px] font-extrabold uppercase tracking-[0.14em] text-[var(--text-faint)]">Populiariausios {artist.name}</div>
+                          <div className="pb-1 font-['Outfit',sans-serif] text-[11px] font-extrabold uppercase tracking-[0.14em] text-[var(--text-faint)]">Populiariausios {artist.name}</div>
                           <div className="flex gap-2 overflow-x-auto pb-0.5 [scrollbar-width:thin]">
                             {artistTopTracks.map(MiniCard)}
                           </div>
@@ -754,7 +754,7 @@ export default function TrackPageClient({
               type="button"
               onClick={() => setMobileTab('lyrics')}
               className={[
-                "relative flex items-center gap-1.5 px-1 py-1.5 font-['Outfit',sans-serif] text-[13px] font-bold transition-colors",
+                "relative flex items-center gap-1.5 px-1 py-1.5 font-['Outfit',sans-serif] text-[14px] font-bold transition-colors",
                 mobileTab === 'lyrics'
                   ? 'text-[var(--accent-orange)]'
                   : 'text-[var(--text-muted)]',
@@ -766,7 +766,7 @@ export default function TrackPageClient({
               type="button"
               onClick={() => setMobileTab('comments')}
               className={[
-                "relative flex items-center gap-1.5 px-1 py-1.5 font-['Outfit',sans-serif] text-[13px] font-bold transition-colors",
+                "relative flex items-center gap-1.5 px-1 py-1.5 font-['Outfit',sans-serif] text-[14px] font-bold transition-colors",
                 mobileTab === 'comments'
                   ? 'text-[var(--accent-orange)]'
                   : 'text-[var(--text-muted)]',
@@ -774,7 +774,7 @@ export default function TrackPageClient({
             >
               Komentarai
               {commentTotal > 0 && (
-                <span className="rounded-full bg-[var(--accent-orange)] px-1.5 py-px text-[11px] font-extrabold leading-none text-white">
+                <span className="rounded-full bg-[var(--accent-orange)] px-1.5 py-px text-[12px] font-extrabold leading-none text-white">
                   {commentTotal}
                 </span>
               )}
@@ -823,7 +823,7 @@ export default function TrackPageClient({
                       type="button"
                       onClick={nominateDienosDaina}
                       disabled={menuBusy}
-                      className="flex w-full items-center gap-2.5 px-3.5 py-2.5 text-left font-['Outfit',sans-serif] text-[13.5px] font-bold text-[var(--text-primary)] transition-colors hover:bg-[var(--bg-hover)] disabled:opacity-50"
+                      className="flex w-full items-center gap-2.5 px-3.5 py-2.5 text-left font-['Outfit',sans-serif] text-[14.5px] font-bold text-[var(--text-primary)] transition-colors hover:bg-[var(--bg-hover)] disabled:opacity-50"
                     >
                       <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="shrink-0 text-[var(--accent-orange)]">
                         <circle cx="12" cy="12" r="4" /><path d="M12 2v2M12 20v2M4.93 4.93l1.41 1.41M17.66 17.66l1.41 1.41M2 12h2M20 12h2M6.34 17.66l-1.41 1.41M19.07 4.93l-1.41 1.41" />
@@ -834,7 +834,7 @@ export default function TrackPageClient({
                       type="button"
                       onClick={makeMoodSong}
                       disabled={menuBusy}
-                      className="flex w-full items-center gap-2.5 px-3.5 py-2.5 text-left font-['Outfit',sans-serif] text-[13.5px] font-bold text-[var(--text-primary)] transition-colors hover:bg-[var(--bg-hover)] disabled:opacity-50"
+                      className="flex w-full items-center gap-2.5 px-3.5 py-2.5 text-left font-['Outfit',sans-serif] text-[14.5px] font-bold text-[var(--text-primary)] transition-colors hover:bg-[var(--bg-hover)] disabled:opacity-50"
                     >
                       <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="shrink-0 text-[var(--text-muted)]">
                         <path d="M17 2l4 4-4 4" /><path d="M3 11V9a4 4 0 0 1 4-4h14M7 22l-4-4 4-4M21 13v2a4 4 0 0 1-4 4H3" />
@@ -848,7 +848,7 @@ export default function TrackPageClient({
           </div>
           {menuMsg && (
             <div className={[
-              'shrink-0 px-4 py-2 text-center font-["Outfit",sans-serif] text-[13px] font-bold',
+              'shrink-0 px-4 py-2 text-center font-["Outfit",sans-serif] text-[14px] font-bold',
               menuMsg.ok ? 'bg-[rgba(34,197,94,0.12)] text-[#16a34a]' : 'bg-[rgba(239,68,68,0.10)] text-[#dc2626]',
             ].join(' ')}>
               {menuMsg.text}
@@ -864,11 +864,11 @@ export default function TrackPageClient({
             mobileTab === 'lyrics' ? 'block' : 'hidden',
           ].join(' ')}>
             <div className="mb-4 flex items-baseline gap-2">
-              <div className="font-['Outfit',sans-serif] text-[12px] font-extrabold uppercase tracking-[0.18em] text-[var(--text-muted)]">
+              <div className="font-['Outfit',sans-serif] text-[13px] font-extrabold uppercase tracking-[0.18em] text-[var(--text-muted)]">
                 Dainos tekstas
               </div>
               {hasLyrics && (
-                <span className="font-['Outfit',sans-serif] text-[10px] font-extrabold uppercase tracking-wider text-[var(--accent-orange)]">
+                <span className="font-['Outfit',sans-serif] text-[11px] font-extrabold uppercase tracking-wider text-[var(--accent-orange)]">
                   pažymėk → reaguok
                 </span>
               )}
@@ -876,7 +876,7 @@ export default function TrackPageClient({
                 <button
                   type="button"
                   onClick={() => setTab(tab === 'lyrics' ? 'chords' : 'lyrics')}
-                  className="ml-auto inline-flex items-center gap-1 rounded-full border border-[var(--border-subtle)] bg-[var(--card-bg)] px-2 py-0.5 font-['Outfit',sans-serif] text-[11px] font-extrabold uppercase tracking-wider text-[var(--text-muted)] transition-colors hover:border-[var(--border-strong)] hover:text-[var(--text-primary)]"
+                  className="ml-auto inline-flex items-center gap-1 rounded-full border border-[var(--border-subtle)] bg-[var(--card-bg)] px-2 py-0.5 font-['Outfit',sans-serif] text-[12px] font-extrabold uppercase tracking-wider text-[var(--text-muted)] transition-colors hover:border-[var(--border-strong)] hover:text-[var(--text-primary)]"
                 >
                   <GuitarIcon s={9} /> {tab === 'lyrics' ? 'Akordai' : 'Tekstas'}
                 </button>
@@ -892,7 +892,7 @@ export default function TrackPageClient({
                     if (isChord) return (
                       <div key={i} style={{ marginBottom: 2 }}>
                         {line.split(/(\s+)/).map((tok, j) => tok.trim()
-                          ? <span key={j} style={{ display: 'inline-block', padding: '1px 6px', borderRadius: 5, background: 'var(--chord-bg)', color: 'var(--chord-text)', fontWeight: 700, marginRight: 4, fontSize: 13 }}>{tok}</span>
+                          ? <span key={j} style={{ display: 'inline-block', padding: '1px 6px', borderRadius: 5, background: 'var(--chord-bg)', color: 'var(--chord-text)', fontWeight: 700, marginRight: 4, fontSize: 14 }}>{tok}</span>
                           : <span key={j}>{tok}</span>)}
                       </div>
                     )
@@ -903,11 +903,11 @@ export default function TrackPageClient({
             ) : lyricsSubmitted ? (
               <div className="rounded-xl border border-[var(--border-subtle)] bg-[var(--bg-elevated)] px-4 py-8 text-center">
                 <div className="text-[14px] font-extrabold text-[var(--text-primary)]">Ačiū! Tekstas išsiųstas peržiūrai.</div>
-                <div className="mt-1 text-[13px] text-[var(--text-muted)]">Administratoriui patvirtinus, jis atsiras čia.</div>
+                <div className="mt-1 text-[14px] text-[var(--text-muted)]">Administratoriui patvirtinus, jis atsiras čia.</div>
               </div>
             ) : isLoggedIn ? (
               <div>
-                <p className="mb-2 text-[13.5px] leading-[1.5] text-[var(--text-muted)]">
+                <p className="mb-2 text-[14.5px] leading-[1.5] text-[var(--text-muted)]">
                   Šios dainos teksto dar nėra. Žinai jį? Pasiūlyk — administratorius peržiūrės ir paskelbs.
                 </p>
                 <textarea
@@ -917,12 +917,12 @@ export default function TrackPageClient({
                   placeholder="Įrašyk dainos tekstą…"
                   className="w-full resize-y rounded-xl border border-[var(--border-subtle)] bg-[var(--bg-elevated)] px-3 py-2.5 text-[14px] leading-[1.6] text-[var(--text-primary)] outline-none focus:border-[var(--accent-orange)]"
                 />
-                {lyricsErr && <div className="mt-1 text-[12px] font-semibold text-red-500">{lyricsErr}</div>}
+                {lyricsErr && <div className="mt-1 text-[13px] font-semibold text-red-500">{lyricsErr}</div>}
                 <button
                   type="button"
                   onClick={submitLyrics}
                   disabled={lyricsSubmitting}
-                  className="mt-2 rounded-xl bg-[var(--accent-orange)] px-4 py-2 font-['Outfit',sans-serif] text-[13px] font-extrabold text-white disabled:opacity-50"
+                  className="mt-2 rounded-xl bg-[var(--accent-orange)] px-4 py-2 font-['Outfit',sans-serif] text-[14px] font-extrabold text-white disabled:opacity-50"
                 >
                   {lyricsSubmitting ? 'Siunčiama…' : 'Pasiūlyti tekstą'}
                 </button>
@@ -930,8 +930,8 @@ export default function TrackPageClient({
             ) : (
               <div className="rounded-xl border border-dashed border-[var(--border-subtle)] bg-[var(--bg-elevated)] px-4 py-8 text-center">
                 <div className="text-[14px] font-extrabold text-[var(--text-primary)]">Šios dainos teksto dar nėra</div>
-                <p className="mt-1 text-[13px] text-[var(--text-muted)]">Prisijunk, kad galėtum pasiūlyti tekstą.</p>
-                <Link href="/auth/signin" className="mt-3 inline-block rounded-xl bg-[var(--accent-orange)] px-4 py-2 font-['Outfit',sans-serif] text-[13px] font-extrabold text-white no-underline">Prisijungti</Link>
+                <p className="mt-1 text-[14px] text-[var(--text-muted)]">Prisijunk, kad galėtum pasiūlyti tekstą.</p>
+                <Link href="/auth/signin" className="mt-3 inline-block rounded-xl bg-[var(--accent-orange)] px-4 py-2 font-['Outfit',sans-serif] text-[14px] font-extrabold text-white no-underline">Prisijungti</Link>
               </div>
             )}
           </div>
@@ -962,7 +962,7 @@ export default function TrackPageClient({
       {relatedTracks.length > 0 && (
         <section className="border-t border-[var(--border-subtle)] bg-[var(--bg-surface)]">
           <div className="mx-auto w-full max-w-[1400px] px-4 py-5 sm:px-5">
-            <div className="mb-3 font-['Outfit',sans-serif] text-[12px] font-extrabold uppercase tracking-[0.18em] text-[var(--text-muted)]">
+            <div className="mb-3 font-['Outfit',sans-serif] text-[13px] font-extrabold uppercase tracking-[0.18em] text-[var(--text-muted)]">
               Susijusi muzika
             </div>
             <div className="flex gap-3 overflow-x-auto pb-2 [scrollbar-width:thin]">
@@ -980,8 +980,8 @@ export default function TrackPageClient({
                       )}
                     </div>
                     <div className="px-1 pb-0.5">
-                      <div className="truncate font-['Outfit',sans-serif] text-[13.5px] font-extrabold leading-tight text-[var(--text-primary)] group-hover:text-[var(--accent-orange)]">{t.title}</div>
-                      <div className="truncate font-['Outfit',sans-serif] text-[11.5px] font-semibold text-[var(--text-faint)]">{t.artistName}</div>
+                      <div className="truncate font-['Outfit',sans-serif] text-[14.5px] font-extrabold leading-tight text-[var(--text-primary)] group-hover:text-[var(--accent-orange)]">{t.title}</div>
+                      <div className="truncate font-['Outfit',sans-serif] text-[12.5px] font-semibold text-[var(--text-faint)]">{t.artistName}</div>
                     </div>
                   </Link>
                 )
@@ -1004,7 +1004,7 @@ export default function TrackPageClient({
             <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '14px 18px', borderBottom: '1px solid var(--border-subtle)' }}>
               <div style={{ fontFamily: 'Outfit,sans-serif', fontSize: 14, fontWeight: 800 }}>
                 Dainą mėgstantys nariai
-                {likersModalUsers && <span style={{ marginLeft: 8, color: 'var(--text-muted)', fontSize: 12 }}>({likersModalUsers.length})</span>}
+                {likersModalUsers && <span style={{ marginLeft: 8, color: 'var(--text-muted)', fontSize: 13 }}>({likersModalUsers.length})</span>}
               </div>
               <button onClick={() => setLikersModalEntity(null)} style={{ background: 'none', border: 'none', color: 'var(--text-muted)', fontSize: 18, cursor: 'pointer' }}>✕</button>
             </div>
@@ -1020,11 +1020,11 @@ export default function TrackPageClient({
                       {u.user_avatar_url ? (
                         <img src={proxyImg(u.user_avatar_url)} alt="" style={{ width: 26, height: 26, borderRadius: '50%', objectFit: 'cover', flexShrink: 0 }} />
                       ) : (
-                        <div style={{ width: 26, height: 26, borderRadius: '50%', flexShrink: 0, background: 'rgba(99,102,241,.18)', color: '#818cf8', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 11, fontWeight: 700, fontFamily: 'Outfit,sans-serif' }}>{u.user_username.charAt(0).toUpperCase()}</div>
+                        <div style={{ width: 26, height: 26, borderRadius: '50%', flexShrink: 0, background: 'rgba(99,102,241,.18)', color: '#818cf8', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 12, fontWeight: 700, fontFamily: 'Outfit,sans-serif' }}>{u.user_username.charAt(0).toUpperCase()}</div>
                       )}
                       <div style={{ minWidth: 0 }}>
-                        <div style={{ fontSize: 13, fontWeight: 700, color: 'var(--text-primary)', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{u.user_username}</div>
-                        {u.user_rank && <div style={{ fontSize: 11, color: 'var(--text-faint)', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{u.user_rank}</div>}
+                        <div style={{ fontSize: 14, fontWeight: 700, color: 'var(--text-primary)', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{u.user_username}</div>
+                        {u.user_rank && <div style={{ fontSize: 12, color: 'var(--text-faint)', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{u.user_rank}</div>}
                       </div>
                     </div>
                   ))}

@@ -411,7 +411,7 @@ export function TrackInfoModal({
         <div className="flex items-center justify-between border-b border-[var(--border-subtle)] px-4 py-3">
           <div className="font-['Outfit',sans-serif] text-[14px] font-extrabold">
             Dainą mėgstantys nariai
-            {likersUsers && <span className="ml-2 text-[12px] text-[var(--text-muted)]">({likersUsers.length})</span>}
+            {likersUsers && <span className="ml-2 text-[13px] text-[var(--text-muted)]">({likersUsers.length})</span>}
           </div>
           <button
             onClick={() => setLikersOpen(false)}
@@ -421,9 +421,9 @@ export function TrackInfoModal({
         </div>
         <div className="px-4 py-3">
           {likersUsers === null ? (
-            <div className="py-7 text-center text-[13px] text-[var(--text-faint)]">Kraunama…</div>
+            <div className="py-7 text-center text-[14px] text-[var(--text-faint)]">Kraunama…</div>
           ) : likersUsers.length === 0 ? (
-            <div className="py-7 text-center text-[13px] text-[var(--text-faint)]">Nėra žinomų užliejusių (likers nebuvo importuoti)</div>
+            <div className="py-7 text-center text-[14px] text-[var(--text-faint)]">Nėra žinomų užliejusių (likers nebuvo importuoti)</div>
           ) : (
             <div className="grid gap-2" style={{ gridTemplateColumns: 'repeat(auto-fill,minmax(180px,1fr))' }}>
               {likersUsers.map(u => (
@@ -432,13 +432,13 @@ export function TrackInfoModal({
                     // eslint-disable-next-line @next/next/no-img-element
                     <img src={proxyImg(u.user_avatar_url)} alt="" className="h-[26px] w-[26px] flex-shrink-0 rounded-full object-cover" />
                   ) : (
-                    <div className="flex h-[26px] w-[26px] flex-shrink-0 items-center justify-center rounded-full bg-[rgba(99,102,241,0.18)] font-['Outfit',sans-serif] text-[11px] font-bold text-[#818cf8]">
+                    <div className="flex h-[26px] w-[26px] flex-shrink-0 items-center justify-center rounded-full bg-[rgba(99,102,241,0.18)] font-['Outfit',sans-serif] text-[12px] font-bold text-[#818cf8]">
                       {u.user_username.charAt(0).toUpperCase()}
                     </div>
                   )}
                   <div className="min-w-0">
-                    <div className="truncate text-[13px] font-bold text-[var(--text-primary)]">{u.user_username}</div>
-                    {u.user_rank && <div className="truncate text-[11px] text-[var(--text-faint)]">{u.user_rank}</div>}
+                    <div className="truncate text-[14px] font-bold text-[var(--text-primary)]">{u.user_username}</div>
+                    {u.user_rank && <div className="truncate text-[12px] text-[var(--text-faint)]">{u.user_rank}</div>}
                   </div>
                 </div>
               ))}
@@ -529,7 +529,7 @@ export function TrackInfoModal({
             <div className="truncate font-['Outfit',sans-serif] text-[16px] font-extrabold leading-tight text-[var(--text-primary)]">
               {track.title}
             </div>
-            <div className="truncate text-[13px] leading-tight">
+            <div className="truncate text-[14px] leading-tight">
               {formatArtistList(
                 { id: -1, slug: artistSlug, name: artistName },
                 track.featuring || [],
@@ -537,7 +537,7 @@ export function TrackInfoModal({
             </div>
             {/* Data PO atlikėjo (kaip albumuose) + trukmė. */}
             {(dateLabel || dur) && (
-              <div className="mt-0.5 flex flex-wrap items-center gap-1.5 text-[12px] text-[var(--text-muted)]">
+              <div className="mt-0.5 flex flex-wrap items-center gap-1.5 text-[13px] text-[var(--text-muted)]">
                 {dateLabel && (
                   <span className="font-['Outfit',sans-serif] font-semibold text-[var(--text-secondary)]">{dateLabel}</span>
                 )}
@@ -641,7 +641,7 @@ export function TrackInfoModal({
                     )}
                   </>
                 ) : (
-                  <div className="flex h-full w-full items-center justify-center text-[11px] uppercase tracking-wider text-[var(--text-faint)]">
+                  <div className="flex h-full w-full items-center justify-center text-[12px] uppercase tracking-wider text-[var(--text-faint)]">
                     Vaizdo įrašo nėra
                   </div>
                 )}
@@ -671,10 +671,10 @@ export function TrackInfoModal({
                         )}
                       </span>
                       <div className="min-w-0 flex-1">
-                        <div className="font-['Outfit',sans-serif] text-[10px] font-extrabold uppercase tracking-[0.14em] text-[var(--text-muted)]">Iš albumo</div>
+                        <div className="font-['Outfit',sans-serif] text-[11px] font-extrabold uppercase tracking-[0.14em] text-[var(--text-muted)]">Iš albumo</div>
                         <div className="truncate font-['Outfit',sans-serif] text-[14px] font-extrabold leading-tight text-[var(--text-primary)] group-hover:text-[var(--accent-orange)]">{primaryAlbum.title}</div>
                         {primaryAlbum.year && (
-                          <div className="text-[12px] font-semibold text-[var(--text-muted)]">{primaryAlbum.year} m.</div>
+                          <div className="text-[13px] font-semibold text-[var(--text-muted)]">{primaryAlbum.year} m.</div>
                         )}
                       </div>
                       <svg viewBox="0 0 24 24" width={14} height={14} fill="none" stroke="currentColor" strokeWidth={2.2} strokeLinecap="round" strokeLinejoin="round" className="shrink-0 text-[var(--text-faint)] transition-colors group-hover:text-[var(--accent-orange)]">
@@ -686,7 +686,7 @@ export function TrackInfoModal({
                       Kortelėje rodom dainos pavadinimą IR atlikėją. */}
                   {related.length > 0 && (
                     <div>
-                      <div className="mb-2 font-['Outfit',sans-serif] text-[11px] font-extrabold uppercase tracking-[0.16em] text-[var(--text-muted)]">
+                      <div className="mb-2 font-['Outfit',sans-serif] text-[12px] font-extrabold uppercase tracking-[0.16em] text-[var(--text-muted)]">
                         Susijusi muzika
                       </div>
                       <div className="grid grid-cols-2 gap-1.5">
@@ -706,8 +706,8 @@ export function TrackInfoModal({
                                 )}
                               </span>
                               <span className="min-w-0 flex-1">
-                                <span className="block truncate font-['Outfit',sans-serif] text-[12px] font-extrabold leading-tight text-[var(--text-primary)]">{t.title}</span>
-                                <span className="block truncate font-['Outfit',sans-serif] text-[10.5px] font-semibold text-[var(--text-faint)]">{t.artistName}</span>
+                                <span className="block truncate font-['Outfit',sans-serif] text-[13px] font-extrabold leading-tight text-[var(--text-primary)]">{t.title}</span>
+                                <span className="block truncate font-['Outfit',sans-serif] text-[11.5px] font-semibold text-[var(--text-faint)]">{t.artistName}</span>
                               </span>
                             </Link>
                           )
@@ -729,7 +729,7 @@ export function TrackInfoModal({
                 type="button"
                 onClick={() => setMobileTab('lyrics')}
                 className={[
-                  "relative flex items-center gap-1.5 px-1 py-1 font-['Outfit',sans-serif] text-[13px] font-bold transition-colors",
+                  "relative flex items-center gap-1.5 px-1 py-1 font-['Outfit',sans-serif] text-[14px] font-bold transition-colors",
                   mobileTab === 'lyrics'
                     ? 'text-[var(--accent-orange)]'
                     : 'text-[var(--text-muted)]',
@@ -741,7 +741,7 @@ export function TrackInfoModal({
                 type="button"
                 onClick={() => setMobileTab('comments')}
                 className={[
-                  "relative flex items-center gap-1.5 px-1 py-1 font-['Outfit',sans-serif] text-[13px] font-bold transition-colors",
+                  "relative flex items-center gap-1.5 px-1 py-1 font-['Outfit',sans-serif] text-[14px] font-bold transition-colors",
                   mobileTab === 'comments'
                     ? 'text-[var(--accent-orange)]'
                     : 'text-[var(--text-muted)]',
@@ -749,7 +749,7 @@ export function TrackInfoModal({
               >
                 <span>Komentarai</span>
                 {commentTotal > 0 && (
-                  <span className="rounded-full bg-[var(--accent-orange)] px-1.5 py-px text-[11px] font-extrabold leading-none text-white">
+                  <span className="rounded-full bg-[var(--accent-orange)] px-1.5 py-px text-[12px] font-extrabold leading-none text-white">
                     {commentTotal}
                   </span>
                 )}
@@ -784,7 +784,7 @@ export function TrackInfoModal({
                         type="button"
                         onClick={nominateDienosDaina}
                         disabled={menuBusy}
-                        className="flex w-full items-center gap-2.5 px-3.5 py-2.5 text-left font-['Outfit',sans-serif] text-[13.5px] font-bold text-[var(--text-primary)] transition-colors hover:bg-[var(--card-hover)] disabled:opacity-50"
+                        className="flex w-full items-center gap-2.5 px-3.5 py-2.5 text-left font-['Outfit',sans-serif] text-[14.5px] font-bold text-[var(--text-primary)] transition-colors hover:bg-[var(--card-hover)] disabled:opacity-50"
                       >
                         <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="shrink-0 text-[var(--accent-orange)]">
                           <circle cx="12" cy="12" r="4" /><path d="M12 2v2M12 20v2M4.93 4.93l1.41 1.41M17.66 17.66l1.41 1.41M2 12h2M20 12h2M6.34 17.66l-1.41 1.41M19.07 4.93l-1.41 1.41" />
@@ -795,7 +795,7 @@ export function TrackInfoModal({
                         type="button"
                         onClick={makeMoodSong}
                         disabled={menuBusy}
-                        className="flex w-full items-center gap-2.5 px-3.5 py-2.5 text-left font-['Outfit',sans-serif] text-[13.5px] font-bold text-[var(--text-primary)] transition-colors hover:bg-[var(--card-hover)] disabled:opacity-50"
+                        className="flex w-full items-center gap-2.5 px-3.5 py-2.5 text-left font-['Outfit',sans-serif] text-[14.5px] font-bold text-[var(--text-primary)] transition-colors hover:bg-[var(--card-hover)] disabled:opacity-50"
                       >
                         <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="shrink-0 text-[var(--text-muted)]">
                           <path d="M17 2l4 4-4 4" /><path d="M3 11V9a4 4 0 0 1 4-4h14M7 22l-4-4 4-4M21 13v2a4 4 0 0 1-4 4H3" />
@@ -809,7 +809,7 @@ export function TrackInfoModal({
             </div>
             {menuMsg && (
               <div className={[
-                'shrink-0 px-4 py-2 text-center font-["Outfit",sans-serif] text-[13px] font-bold',
+                'shrink-0 px-4 py-2 text-center font-["Outfit",sans-serif] text-[14px] font-bold',
                 menuMsg.ok ? 'bg-[rgba(34,197,94,0.12)] text-[#16a34a]' : 'bg-[rgba(239,68,68,0.10)] text-[#dc2626]',
               ].join(' ')}>
                 {menuMsg.text}
@@ -821,10 +821,10 @@ export function TrackInfoModal({
                 {lyricsText ? (
                   <>
                     <div className="mb-4 flex items-baseline gap-2">
-                      <div className="font-['Outfit',sans-serif] text-[12px] font-extrabold uppercase tracking-[0.18em] text-[var(--text-muted)]">
+                      <div className="font-['Outfit',sans-serif] text-[13px] font-extrabold uppercase tracking-[0.18em] text-[var(--text-muted)]">
                         Dainos tekstas
                       </div>
-                      <span className="font-['Outfit',sans-serif] text-[10px] font-extrabold uppercase tracking-wider text-[var(--accent-orange)]">
+                      <span className="font-['Outfit',sans-serif] text-[11px] font-extrabold uppercase tracking-wider text-[var(--accent-orange)]">
                         pažymėk → reaguok
                       </span>
                     </div>
@@ -833,14 +833,14 @@ export function TrackInfoModal({
                 ) : lyricsSubmitted ? (
                   <div className="rounded-xl border border-[var(--border-subtle)] bg-[var(--bg-elevated)] px-4 py-8 text-center">
                     <div className="text-[14px] font-extrabold text-[var(--text-primary)]">Ačiū! Tekstas išsiųstas peržiūrai.</div>
-                    <div className="mt-1 text-[13px] text-[var(--text-muted)]">Administratoriui patvirtinus, jis atsiras čia.</div>
+                    <div className="mt-1 text-[14px] text-[var(--text-muted)]">Administratoriui patvirtinus, jis atsiras čia.</div>
                   </div>
                 ) : isLoggedIn ? (
                   <div>
-                    <div className="mb-3 font-['Outfit',sans-serif] text-[12px] font-extrabold uppercase tracking-[0.18em] text-[var(--text-muted)]">
+                    <div className="mb-3 font-['Outfit',sans-serif] text-[13px] font-extrabold uppercase tracking-[0.18em] text-[var(--text-muted)]">
                       Dainos tekstas
                     </div>
-                    <p className="mb-2 text-[13.5px] leading-[1.5] text-[var(--text-muted)]">
+                    <p className="mb-2 text-[14.5px] leading-[1.5] text-[var(--text-muted)]">
                       Šios dainos teksto dar nėra. Žinai jį? Pasiūlyk — administratorius peržiūrės ir paskelbs.
                     </p>
                     <textarea
@@ -850,12 +850,12 @@ export function TrackInfoModal({
                       placeholder="Įrašyk dainos tekstą…"
                       className="w-full resize-y rounded-xl border border-[var(--border-subtle)] bg-[var(--bg-elevated)] px-3 py-2.5 text-[14px] leading-[1.6] text-[var(--text-primary)] outline-none focus:border-[var(--accent-orange)]"
                     />
-                    {lyricsErr && <div className="mt-1 text-[12px] font-semibold text-red-500">{lyricsErr}</div>}
+                    {lyricsErr && <div className="mt-1 text-[13px] font-semibold text-red-500">{lyricsErr}</div>}
                     <button
                       type="button"
                       onClick={submitLyrics}
                       disabled={lyricsSubmitting}
-                      className="mt-2 rounded-xl bg-[var(--accent-orange)] px-4 py-2 font-['Outfit',sans-serif] text-[13px] font-extrabold text-white disabled:opacity-50"
+                      className="mt-2 rounded-xl bg-[var(--accent-orange)] px-4 py-2 font-['Outfit',sans-serif] text-[14px] font-extrabold text-white disabled:opacity-50"
                     >
                       {lyricsSubmitting ? 'Siunčiama…' : 'Pasiūlyti tekstą'}
                     </button>
@@ -863,15 +863,15 @@ export function TrackInfoModal({
                 ) : (
                   <div className="rounded-xl border border-dashed border-[var(--border-subtle)] bg-[var(--bg-elevated)] px-4 py-8 text-center">
                     <div className="text-[14px] font-extrabold text-[var(--text-primary)]">Šios dainos teksto dar nėra</div>
-                    <p className="mt-1 text-[13px] text-[var(--text-muted)]">Prisijunk, kad galėtum pasiūlyti tekstą.</p>
-                    <Link href="/auth/signin" className="mt-3 inline-block rounded-xl bg-[var(--accent-orange)] px-4 py-2 font-['Outfit',sans-serif] text-[13px] font-extrabold text-white no-underline">Prisijungti</Link>
+                    <p className="mt-1 text-[14px] text-[var(--text-muted)]">Prisijunk, kad galėtum pasiūlyti tekstą.</p>
+                    <Link href="/auth/signin" className="mt-3 inline-block rounded-xl bg-[var(--accent-orange)] px-4 py-2 font-['Outfit',sans-serif] text-[14px] font-extrabold text-white no-underline">Prisijungti</Link>
                   </div>
                 )}
                 {/* Susijusi muzika — mobile (cross-artist, kaip desktop'e).
                     Po tekstu/įvedimu, scroll'inasi kartu su turiniu. */}
                 {related.length > 0 && (
                   <div className="mt-5 border-t border-[var(--border-subtle)] pt-3 md:hidden">
-                    <div className="mb-2 font-['Outfit',sans-serif] text-[11px] font-extrabold uppercase tracking-[0.16em] text-[var(--text-muted)]">
+                    <div className="mb-2 font-['Outfit',sans-serif] text-[12px] font-extrabold uppercase tracking-[0.16em] text-[var(--text-muted)]">
                       Susijusi muzika
                     </div>
                     <div className="flex gap-2 overflow-x-auto pb-0.5 [scrollbar-width:thin]">
@@ -891,10 +891,10 @@ export function TrackInfoModal({
                                   referrerPolicy="no-referrer" className="h-full w-full object-cover" />
                               )}
                             </span>
-                            <span className="block truncate px-1 pt-1 text-left font-['Outfit',sans-serif] text-[11.5px] font-extrabold text-[var(--text-primary)]">
+                            <span className="block truncate px-1 pt-1 text-left font-['Outfit',sans-serif] text-[12.5px] font-extrabold text-[var(--text-primary)]">
                               {t.title}
                             </span>
-                            <span className="block truncate px-1 pb-0.5 text-left font-['Outfit',sans-serif] text-[10px] font-semibold text-[var(--text-faint)]">
+                            <span className="block truncate px-1 pb-0.5 text-left font-['Outfit',sans-serif] text-[11px] font-semibold text-[var(--text-faint)]">
                               {t.artistName}
                             </span>
                           </Link>

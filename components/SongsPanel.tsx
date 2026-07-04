@@ -169,7 +169,7 @@ export function SongsPanel({ newsId, isNew }: { newsId: string | number; isNew: 
 
       {/* Header */}
       <div className="flex items-center justify-between">
-        <span className="text-[11px] font-bold text-gray-400 uppercase tracking-wider">
+        <span className="text-[12px] font-bold text-gray-400 uppercase tracking-wider">
           Susijusi muzika{songs.length > 0 && ` · ${songs.length}`}
         </span>
         {!isNew && songs.length > 0 && (
@@ -194,10 +194,10 @@ export function SongsPanel({ newsId, isNew }: { newsId: string | number; isNew: 
                 }
                 <div className="flex-1 min-w-0">
                   <div className="text-xs font-semibold text-gray-800 truncate">{s.title}</div>
-                  <div className="text-[11px] text-gray-400 truncate">{s.artist_name || '—'}</div>
+                  <div className="text-[12px] text-gray-400 truncate">{s.artist_name || '—'}</div>
                 </div>
                 {s.song_id && (
-                  <span className="text-[10px] font-bold text-blue-400 bg-blue-50 px-1.5 py-0.5 rounded shrink-0">DB</span>
+                  <span className="text-[11px] font-bold text-blue-400 bg-blue-50 px-1.5 py-0.5 rounded shrink-0">DB</span>
                 )}
                 <button onClick={() => setSongs(p => p.filter((_, j) => j !== i))}
                   className="w-6 h-6 flex items-center justify-center text-gray-300 hover:text-red-400 transition-colors shrink-0 text-sm">✕</button>
@@ -224,11 +224,11 @@ export function SongsPanel({ newsId, isNew }: { newsId: string | number; isNew: 
                   {vid
                     ? <img src={`https://img.youtube.com/vi/${vid}/default.jpg`} alt=""
                         className="w-8 h-8 rounded object-cover shrink-0" />
-                    : <div className="w-8 h-8 rounded bg-gray-100 shrink-0 flex items-center justify-center text-[11px] text-gray-300">♪</div>
+                    : <div className="w-8 h-8 rounded bg-gray-100 shrink-0 flex items-center justify-center text-[12px] text-gray-300">♪</div>
                   }
                   <div className="flex-1 min-w-0">
                     <div className="text-xs font-semibold text-gray-800 truncate">{track.title}</div>
-                    <div className="text-[11px] text-gray-400 truncate">{track.artist_name || track.artists?.name}</div>
+                    <div className="text-[12px] text-gray-400 truncate">{track.artist_name || track.artists?.name}</div>
                   </div>
                   {added && <span className="text-green-500 text-xs shrink-0">✓</span>}
                   {!added && vid && <svg className="w-3 h-3 text-red-400 shrink-0" viewBox="0 0 24 24" fill="currentColor"><path d="M23.498 6.186a3.016 3.016 0 00-2.122-2.136C19.505 3.545 12 3.545 12 3.545s-7.505 0-9.377.505A3.017 3.017 0 00.502 6.186C0 8.07 0 12 0 12s0 3.93.502 5.814a3.016 3.016 0 002.122 2.136c1.871.505 9.376.505 9.376.505s7.505 0 9.377-.505a3.015 3.015 0 002.122-2.136C24 15.93 24 12 24 12s0-3.93-.502-5.814zM9.545 15.568V8.432L15.818 12l-6.273 3.568z"/></svg>}
@@ -299,10 +299,10 @@ export function SongsPanel({ newsId, isNew }: { newsId: string | number; isNew: 
 
       {/* Auto-save hint */}
       {!isNew && songs.length > 0 && (
-        <p className="text-[11px] text-gray-300 text-center">Nepamirška išsaugoti dainas</p>
+        <p className="text-[12px] text-gray-300 text-center">Nepamirška išsaugoti dainas</p>
       )}
       {isNew && (
-        <p className="text-[11px] text-gray-300 text-center">Pirma išsaugok naujieną</p>
+        <p className="text-[12px] text-gray-300 text-center">Pirma išsaugok naujieną</p>
       )}
     </div>
   )

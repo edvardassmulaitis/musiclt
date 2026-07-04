@@ -154,14 +154,14 @@ export default function NewsInfoModal({
         {/* Header */}
         <div className="flex shrink-0 items-center gap-2.5 border-b border-[var(--border-subtle)] px-4 py-2">
           <div className="min-w-0 flex-1">
-            <div className="font-['Outfit',sans-serif] text-[11px] font-extrabold uppercase tracking-[0.18em] text-[var(--text-muted)]">
+            <div className="font-['Outfit',sans-serif] text-[12px] font-extrabold uppercase tracking-[0.18em] text-[var(--text-muted)]">
               Naujiena
             </div>
             <div className="line-clamp-2 font-['Outfit',sans-serif] text-[14.5px] font-extrabold leading-tight text-[var(--text-primary)] sm:text-[15.5px]">
               {titleNow}
             </div>
             {dateLabel && (
-              <div className="mt-0.5 truncate text-[12px] text-[var(--text-muted)]">{dateLabel}</div>
+              <div className="mt-0.5 truncate text-[13px] text-[var(--text-muted)]">{dateLabel}</div>
             )}
           </div>
           <Link
@@ -202,7 +202,7 @@ export default function NewsInfoModal({
             type="button"
             onClick={() => setTab('text')}
             className={[
-              "relative flex items-center gap-1.5 px-1 py-1 font-['Outfit',sans-serif] text-[13px] font-bold transition-colors",
+              "relative flex items-center gap-1.5 px-1 py-1 font-['Outfit',sans-serif] text-[14px] font-bold transition-colors",
               tab === 'text'
                 ? 'text-[var(--accent-orange)] after:absolute after:inset-x-0 after:-bottom-[8px] after:h-[2px] after:bg-[var(--accent-orange)]'
                 : 'text-[var(--text-muted)]',
@@ -214,7 +214,7 @@ export default function NewsInfoModal({
             type="button"
             onClick={() => setTab('comments')}
             className={[
-              "relative flex items-center gap-1.5 px-1 py-1 font-['Outfit',sans-serif] text-[13px] font-bold transition-colors",
+              "relative flex items-center gap-1.5 px-1 py-1 font-['Outfit',sans-serif] text-[14px] font-bold transition-colors",
               tab === 'comments'
                 ? 'text-[var(--accent-orange)] after:absolute after:inset-x-0 after:-bottom-[8px] after:h-[2px] after:bg-[var(--accent-orange)]'
                 : 'text-[var(--text-muted)]',
@@ -228,7 +228,7 @@ export default function NewsInfoModal({
         <div ref={bodyScrollRef} className="flex-1 min-h-0 overflow-y-auto overscroll-contain px-4 py-4 sm:px-5">
           <div className={tab === 'text' ? 'block' : 'hidden'}>
             {loading && !details ? (
-              <div className="rounded-xl border border-dashed border-[var(--border-subtle)] bg-[var(--bg-elevated)] px-4 py-10 text-center text-[13px] text-[var(--text-faint)]">
+              <div className="rounded-xl border border-dashed border-[var(--border-subtle)] bg-[var(--bg-elevated)] px-4 py-10 text-center text-[14px] text-[var(--text-faint)]">
                 Kraunama…
               </div>
             ) : body ? (
@@ -243,7 +243,7 @@ export default function NewsInfoModal({
             {/* Related artists */}
             {(details?.artist || details?.artist2) && (
               <div className="mt-5 border-t border-[var(--border-subtle)] pt-4">
-                <div className="mb-2 font-['Outfit',sans-serif] text-[12px] font-extrabold uppercase tracking-[0.18em] text-[var(--text-muted)]">
+                <div className="mb-2 font-['Outfit',sans-serif] text-[13px] font-extrabold uppercase tracking-[0.18em] text-[var(--text-muted)]">
                   Susiję atlikėjai
                 </div>
                 <div className="flex flex-wrap items-center gap-1.5">
@@ -251,7 +251,7 @@ export default function NewsInfoModal({
                     <Link
                       key={a.id}
                       href={`/atlikejai/${a.slug}`}
-                      className="inline-flex items-center rounded-full border border-[var(--border-subtle)] bg-[var(--card-bg)] px-3 py-1 font-['Outfit',sans-serif] text-[13px] font-bold text-[var(--text-secondary)] no-underline transition-colors hover:border-[var(--accent-orange)] hover:text-[var(--accent-orange)]"
+                      className="inline-flex items-center rounded-full border border-[var(--border-subtle)] bg-[var(--card-bg)] px-3 py-1 font-['Outfit',sans-serif] text-[14px] font-bold text-[var(--text-secondary)] no-underline transition-colors hover:border-[var(--accent-orange)] hover:text-[var(--accent-orange)]"
                     >
                       {a.name}
                     </Link>
@@ -267,7 +267,7 @@ export default function NewsInfoModal({
                   href={details.source_url}
                   target="_blank"
                   rel="noopener noreferrer"
-                  className="inline-flex items-center gap-1.5 font-['Outfit',sans-serif] text-[13px] font-bold text-[var(--accent-orange)] no-underline hover:underline"
+                  className="inline-flex items-center gap-1.5 font-['Outfit',sans-serif] text-[14px] font-bold text-[var(--accent-orange)] no-underline hover:underline"
                 >
                   Originalus šaltinis
                   <svg viewBox="0 0 24 24" width={11} height={11} fill="none" stroke="currentColor" strokeWidth={2} strokeLinecap="round" strokeLinejoin="round">
@@ -286,7 +286,7 @@ export default function NewsInfoModal({
                 title="Komentarai"
               />
             ) : (
-              <div className="text-[13px] text-[var(--text-faint)]">Kraunama…</div>
+              <div className="text-[14px] text-[var(--text-faint)]">Kraunama…</div>
             )}
           </div>
         </div>

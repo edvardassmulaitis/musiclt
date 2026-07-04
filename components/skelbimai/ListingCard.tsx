@@ -76,12 +76,12 @@ export function ListingCard({ listing }: { listing: Listing }) {
           </div>
         )}
         {sub && (
-          <span className="absolute left-2 top-2 rounded px-1.5 py-0.5 font-['Outfit',sans-serif] text-[10px] font-extrabold uppercase tracking-[0.05em] text-white backdrop-blur-sm" style={{ background: accent }}>
+          <span className="absolute left-2 top-2 rounded px-1.5 py-0.5 font-['Outfit',sans-serif] text-[11px] font-extrabold uppercase tracking-[0.05em] text-white backdrop-blur-sm" style={{ background: accent }}>
             {sub}
           </span>
         )}
         {listing.is_promoted && (
-          <span className="absolute right-2 top-2 rounded px-1.5 py-0.5 font-['Outfit',sans-serif] text-[10px] font-extrabold uppercase tracking-[0.05em] text-white" style={{ background: 'rgba(249,115,22,0.92)' }}>★</span>
+          <span className="absolute right-2 top-2 rounded px-1.5 py-0.5 font-['Outfit',sans-serif] text-[11px] font-extrabold uppercase tracking-[0.05em] text-white" style={{ background: 'rgba(249,115,22,0.92)' }}>★</span>
         )}
       </div>
 
@@ -95,12 +95,12 @@ export function ListingCard({ listing }: { listing: Listing }) {
             <>
               {/* eslint-disable-next-line @next/next/no-img-element */}
               <img src={proxyImg(artist.cover_image_url, 48)} alt="" className="h-[20px] w-[20px] flex-shrink-0 rounded-full object-cover" />
-              <span className="min-w-0 flex-1 truncate text-[12px] font-semibold text-[var(--text-secondary)]">{artist.name}</span>
+              <span className="min-w-0 flex-1 truncate text-[13px] font-semibold text-[var(--text-secondary)]">{artist.name}</span>
             </>
           ) : (
-            <span className="min-w-0 flex-1 truncate text-[12px] text-[var(--text-muted)]">{bottomLeft}</span>
+            <span className="min-w-0 flex-1 truncate text-[13px] text-[var(--text-muted)]">{bottomLeft}</span>
           )}
-          <span className="shrink-0 text-[10.5px] text-[var(--text-faint)]">{rightLabel}</span>
+          <span className="shrink-0 text-[11.5px] text-[var(--text-faint)]">{rightLabel}</span>
         </div>
       </div>
 

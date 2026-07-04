@@ -1545,7 +1545,7 @@ export default function WikipediaVotingImport({ eventId, editionId, onDone, onCl
                             className="w-full font-semibold text-sm text-[var(--text-primary)] bg-transparent border-none focus:outline-none focus:bg-[var(--bg-surface)] focus:ring-1 focus:ring-blue-400 rounded px-1 -mx-1"
                             title="LT pavadinimas (jei tuščias — bus saugomas originalus)"
                           />
-                          <div className="text-[11px] text-[var(--text-faint)] truncate">
+                          <div className="text-[12px] text-[var(--text-faint)] truncate">
                             <span className="font-medium">EN:</span> {cat.name}
                           </div>
                         </div>

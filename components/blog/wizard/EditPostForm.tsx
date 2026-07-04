@@ -111,7 +111,7 @@ export function EditPostForm({ editId }: { editId: string }) {
     <div className={`${wide ? 'max-w-4xl' : 'max-w-2xl'} mx-auto px-4 py-6`}>
       <div className="flex items-center justify-between mb-6">
         <Link href="/blogas/mano" className="text-xs hover:opacity-80 transition" style={{ color: 'var(--text-muted)' }}>← Mano įrašai</Link>
-        <span className="text-[12px] font-bold uppercase tracking-wider" style={{ color: 'var(--text-faint)', fontFamily: "'Outfit', sans-serif" }}>
+        <span className="text-[13px] font-bold uppercase tracking-wider" style={{ color: 'var(--text-faint)', fontFamily: "'Outfit', sans-serif" }}>
           Redaguoji · {TYPE_LABEL[postType] || postType}
         </span>
       </div>
@@ -120,7 +120,7 @@ export function EditPostForm({ editId }: { editId: string }) {
 
       {/* 1) Pavadinimas — pirmas, kaip įprasta dokumentų redaktoriuose */}
       <div className="mb-5">
-        <label className="text-[11px] font-bold uppercase tracking-wider mb-1.5 block" style={{ color: 'var(--text-faint)', fontFamily: "'Outfit', sans-serif" }}>Pavadinimas</label>
+        <label className="text-[12px] font-bold uppercase tracking-wider mb-1.5 block" style={{ color: 'var(--text-faint)', fontFamily: "'Outfit', sans-serif" }}>Pavadinimas</label>
         <input
           value={title}
           onChange={e => setTitle(e.target.value)}
@@ -134,14 +134,14 @@ export function EditPostForm({ editId }: { editId: string }) {
         /* TOPAS: Įžanga → Sąrašas → Apibendrinimas (logiška skaitymo tvarka) */
         <>
           <div className="mb-5">
-            <label className="text-[11px] font-bold uppercase tracking-wider mb-1.5 block" style={{ color: 'var(--text-faint)', fontFamily: "'Outfit', sans-serif" }}>Įžanga</label>
+            <label className="text-[12px] font-bold uppercase tracking-wider mb-1.5 block" style={{ color: 'var(--text-faint)', fontFamily: "'Outfit', sans-serif" }}>Įžanga</label>
             <BlogEditor value={content} onChange={setContent} placeholder="Trumpa įžanga prieš sąrašą (neprivaloma)…" />
           </div>
 
           <ListEditorField items={listItems} onChange={setListItems} />
 
           <div className="mb-4">
-            <label className="text-[11px] font-bold uppercase tracking-wider mb-1.5 block" style={{ color: 'var(--text-faint)', fontFamily: "'Outfit', sans-serif" }}>Apibendrinimas</label>
+            <label className="text-[12px] font-bold uppercase tracking-wider mb-1.5 block" style={{ color: 'var(--text-faint)', fontFamily: "'Outfit', sans-serif" }}>Apibendrinimas</label>
             <BlogEditor value={outro} onChange={setOutro} placeholder="Apibendrinimas po sąrašo (neprivaloma)…" />
           </div>
         </>
@@ -154,7 +154,7 @@ export function EditPostForm({ editId }: { editId: string }) {
 
           {/* 3) Tekstas */}
           <div className="mb-4">
-            <label className="text-[11px] font-bold uppercase tracking-wider mb-1.5 block" style={{ color: 'var(--text-faint)', fontFamily: "'Outfit', sans-serif" }}>
+            <label className="text-[12px] font-bold uppercase tracking-wider mb-1.5 block" style={{ color: 'var(--text-faint)', fontFamily: "'Outfit', sans-serif" }}>
               {postType === 'translation' ? 'Vertimas' : 'Tekstas'}
             </label>
             <BlogEditor value={content} onChange={setContent} />

@@ -2783,9 +2783,9 @@ export default function WikipediaImportDiscography({ artistId, artistName, artis
           <div className="flex-1 min-w-0">
             <div className="flex items-center gap-1.5 flex-wrap">
               <span className="text-[14px] sm:text-sm font-medium text-gray-900 truncate">{it.title}</span>
-              {it.type === 'ep' && <span className="text-[11px] font-semibold text-violet-500 shrink-0 uppercase tracking-wide">EP</span>}
+              {it.type === 'ep' && <span className="text-[12px] font-semibold text-violet-500 shrink-0 uppercase tracking-wide">EP</span>}
               {it.extraTypes?.map(et => (
-                <span key={et} className="text-[11px] font-semibold text-blue-400 shrink-0 uppercase tracking-wide">{et === 'soundtrack' ? 'Garso takelis' : et}</span>
+                <span key={et} className="text-[12px] font-semibold text-blue-400 shrink-0 uppercase tracking-wide">{et === 'soundtrack' ? 'Garso takelis' : et}</span>
               ))}
               {/* ↻ Action preview — specific lista what Wiki pridės. Vietoj
                   generic 'papildyti' badge'o, admin mato KONKREČIAI kas bus
@@ -2796,11 +2796,11 @@ export default function WikipediaImportDiscography({ artistId, artistName, artis
                 const preview = computeImportPreview(it)
                 if (preview.length === 0) {
                   // Wiki gali padėti, bet konkretūs duomenys dar nežinom (completeness neload'inta)
-                  return <span className="text-[11px] font-semibold text-amber-600 shrink-0" title="Wiki turi duomenų. Spausk info arba expand kad pamatytum kas konkrečiai.">↻ pridurs</span>
+                  return <span className="text-[12px] font-semibold text-amber-600 shrink-0" title="Wiki turi duomenų. Spausk info arba expand kad pamatytum kas konkrečiai.">↻ pridurs</span>
                 }
                 const inline = preview.slice(0, 3).join(', ') + (preview.length > 3 ? `, +${preview.length - 3}` : '')
                 const tooltip = `Wiki pridurs:\n• ${preview.join('\n• ')}\n\nFILL-ONLY: egzistuojantys laukai neperrašomi.\nUNION žanrai, REPLACE cert/peak/type.`
-                return <span className="text-[11px] font-semibold text-amber-600 shrink-0" title={tooltip}>↻ {inline}</span>
+                return <span className="text-[12px] font-semibold text-amber-600 shrink-0" title={tooltip}>↻ {inline}</span>
               })()}
               {/* Type diff preview — jei Wiki nori pakeisti type'ą po importo,
                   rodom 'studijinis → kompiliacija' badge'ą oranžiniu. Padeda
@@ -2820,14 +2820,14 @@ export default function WikipediaImportDiscography({ artistId, artistName, artis
                 if (added.length === 0 && removed.length === 0) return null
                 const tooltip = `Po importo tipo flags:\n${[...wikiTypeSet].map(t => '+ '+ltType(t as string)).join('\n')}\n\nDabar DB:\n${[...dbTypes].map(t => '• '+ltType(t)).join('\n')}`
                 return (
-                  <span className="text-[11px] font-semibold text-orange-600 shrink-0 inline-flex items-center gap-1" title={tooltip}>
+                  <span className="text-[12px] font-semibold text-orange-600 shrink-0 inline-flex items-center gap-1" title={tooltip}>
                     🔄 {removed.length > 0 && <span className="line-through opacity-60">{removed.map(t => ltType(t as string)).join('+')}</span>}
                     {added.length > 0 && <span>→ {added.map(t => ltType(t as string)).join('+')}</span>}
                   </span>
                 )
               })()}
-              {it.importing && <span className="text-[11px] text-violet-400 animate-pulse shrink-0">importuojama</span>}
-              {it.imported && <span className="text-[11px] text-emerald-500 shrink-0">✓ importuota</span>}
+              {it.importing && <span className="text-[12px] text-violet-400 animate-pulse shrink-0">importuojama</span>}
+              {it.imported && <span className="text-[12px] text-emerald-500 shrink-0">✓ importuota</span>}
               {/* Album completeness badge — trust server fully_complete=true
                   → ✓ sutvarkyta green. Žiūrim į:
                   • DB metadata pilnatva (cover/year/genre — has_cover etc.)
@@ -2872,10 +2872,10 @@ export default function WikipediaImportDiscography({ artistId, artistName, artis
                   // jog Wiki dar nepatikrinta. Po expand'o → ✓ sutvarkyta.
                   if (!wikiTracksKnown) {
                     const tooltip = `DB metadata pilna:\n• Viršelis ${c.has_cover ? '✓' : '—'}\n• Leidimo data ${c.has_full_date ? '✓ (pilna)' : c.has_year ? '✓ (tik metai)' : '—'}\n• ${c.substyles_count} žanras\n• ${c.tracks_count} dainų DB — visos pilnos\n\nWiki tracklist DAR neload'inta — spausk ▼ palyginti su Wiki, ar nieko netrūksta tracklist'e.`
-                    return <span className="text-[11px] font-semibold text-teal-600 shrink-0" title={tooltip}>✓ DB pilna</span>
+                    return <span className="text-[12px] font-semibold text-teal-600 shrink-0" title={tooltip}>✓ DB pilna</span>
                   }
                   const tooltip = `Sutvarkyta:\n• Viršelis ${c.has_cover ? '✓' : '—'}\n• Leidimo data ${c.has_full_date ? '✓ (pilna)' : c.has_year ? '✓ (tik metai)' : '—'}\n• ${c.substyles_count} žanras\n• ${c.tracks_count} dainų DB — visos pilnos\n• Wiki tracklist patikrinta — sutampa`
-                  return <span className="text-[11px] font-semibold text-emerald-600 shrink-0" title={tooltip}>✓ sutvarkyta</span>
+                  return <span className="text-[12px] font-semibold text-emerald-600 shrink-0" title={tooltip}>✓ sutvarkyta</span>
                 }
                 // Trūkumų label'as: inline'inam visus meta + dainų count.
                 const inlineParts: string[] = [...missingMeta]
@@ -2896,17 +2896,17 @@ export default function WikipediaImportDiscography({ artistId, artistName, artis
                 if (hasUnjoined) suffix = ' (spausk Importuoti — auto-prijungs)'
                 else if (!wikiCanHelp && externalIssues) suffix = ' (Wiki šito nepateikia — reikia rankinio darbo: YT, lyrics)'
                 return (
-                  <span className="text-[11px] font-semibold text-amber-700 shrink-0" title={tooltipParts.join('\n\n') + suffix}>
+                  <span className="text-[12px] font-semibold text-amber-700 shrink-0" title={tooltipParts.join('\n\n') + suffix}>
                     ⚠ trūksta: {inlineParts.join(', ')}
                   </span>
                 )
               })()}
-              {it.error && <span className="text-[11px] text-red-400 shrink-0" title={it.error}>klaida</span>}
+              {it.error && <span className="text-[12px] text-red-400 shrink-0" title={it.error}>klaida</span>}
             </div>
             <div className="flex items-center gap-1.5 mt-0.5 flex-wrap">
-              {it.year && <span className="text-[12px] text-gray-400">{it.year}</span>}
+              {it.year && <span className="text-[13px] text-gray-400">{it.year}</span>}
               {it.tracks !== undefined && (
-                <span className="text-[12px] text-gray-400 hidden sm:inline">
+                <span className="text-[13px] text-gray-400 hidden sm:inline">
                   {it.tracks.length} dainų{it.tracks.filter(t=>t.is_single).length ? ` · ${it.tracks.filter(t=>t.is_single).length} singlai` : ''}
                 </span>
               )}
@@ -2919,7 +2919,7 @@ export default function WikipediaImportDiscography({ artistId, artistName, artis
                     const name = substylesList.find(s => s.id === id)?.name
                     if (!name) return null
                     return (
-                      <span key={id} className="text-[11px] px-1.5 py-0.5 bg-blue-50 text-blue-700 border border-blue-200 rounded-full">
+                      <span key={id} className="text-[12px] px-1.5 py-0.5 bg-blue-50 text-blue-700 border border-blue-200 rounded-full">
                         {name}
                       </span>
                     )
@@ -2929,12 +2929,12 @@ export default function WikipediaImportDiscography({ artistId, artistName, artis
               {it.duplicate && it.duplicateId && (
                 <>
                   <a href={`/admin/albums/${it.duplicateId}`} target="_blank" rel="noreferrer" onClick={e => e.stopPropagation()}
-                    className="text-[11px] text-blue-500 hover:underline" title="Atidaryti album admin puslapyje">
+                    className="text-[12px] text-blue-500 hover:underline" title="Atidaryti album admin puslapyje">
                     DB →
                   </a>
                   {it.wikiTitle && (
                     <a href={`https://en.wikipedia.org/wiki/${encodeURIComponent(it.wikiTitle)}`} target="_blank" rel="noreferrer" onClick={e => e.stopPropagation()}
-                      className="text-[11px] text-emerald-600 hover:underline" title="Atidaryti Wikipedia album page'ą">
+                      className="text-[12px] text-emerald-600 hover:underline" title="Atidaryti Wikipedia album page'ą">
                       Wiki ↗
                     </a>
                   )}
@@ -2944,12 +2944,12 @@ export default function WikipediaImportDiscography({ artistId, artistName, artis
                       šis album'as music.lt vartotojų — verta detaliai tvarkyti. */}
                   {it.completeness?.legacy_url && (
                     <a href={it.completeness.legacy_url} target="_blank" rel="noreferrer" onClick={e => e.stopPropagation()}
-                      className="text-[11px] text-orange-500 hover:underline" title="Atidaryti senąją music.lt album puslapį palyginimui">
+                      className="text-[12px] text-orange-500 hover:underline" title="Atidaryti senąją music.lt album puslapį palyginimui">
                       music.lt ↗
                     </a>
                   )}
                   {it.completeness && (it.completeness.likes_count > 0 || it.completeness.comments_count > 0) && (
-                    <span className="text-[11px] text-gray-400 inline-flex items-center gap-1.5" title={`Music.lt vartotojai: ${it.completeness.likes_count} like'ų, ${it.completeness.comments_count} komentarų`}>
+                    <span className="text-[12px] text-gray-400 inline-flex items-center gap-1.5" title={`Music.lt vartotojai: ${it.completeness.likes_count} like'ų, ${it.completeness.comments_count} komentarų`}>
                       {it.completeness.likes_count > 0 && <span className="inline-flex items-center gap-0.5">♥ {it.completeness.likes_count}</span>}
                       {it.completeness.comments_count > 0 && <span className="inline-flex items-center gap-0.5">💬 {it.completeness.comments_count}</span>}
                     </span>
@@ -2958,7 +2958,7 @@ export default function WikipediaImportDiscography({ artistId, artistName, artis
               )}
               {!it.duplicate && it.wikiTitle && (
                 <a href={`https://en.wikipedia.org/wiki/${encodeURIComponent(it.wikiTitle)}`} target="_blank" rel="noreferrer" onClick={e => e.stopPropagation()}
-                  className="text-[11px] text-emerald-600 hover:underline" title="Atidaryti Wikipedia album page'ą">
+                  className="text-[12px] text-emerald-600 hover:underline" title="Atidaryti Wikipedia album page'ą">
                   Wiki ↗
                 </a>
               )}
@@ -2990,13 +2990,13 @@ export default function WikipediaImportDiscography({ artistId, artistName, artis
               <button type="button"
                 onClick={e => { e.stopPropagation(); hideAlbumInDb(i) }}
                 title="Paslėpti šį album'ą kaip 'sutvarkyta' — future Wiki importai nerodys"
-                className="shrink-0 px-1.5 py-1 rounded text-[12px] text-gray-400 hover:text-orange-500 hover:bg-orange-50 transition-colors">
+                className="shrink-0 px-1.5 py-1 rounded text-[13px] text-gray-400 hover:text-orange-500 hover:bg-orange-50 transition-colors">
                 🚫
               </button>
               <button type="button"
                 onClick={e => { e.stopPropagation(); deleteAlbumFromDb(i) }}
                 title="Ištrinti šį album'ą iš DB visam (su jo dainomis, jei nenaudojamos kitur)"
-                className="shrink-0 px-1.5 py-1 rounded text-[12px] text-gray-400 hover:text-red-500 hover:bg-red-50 transition-colors">
+                className="shrink-0 px-1.5 py-1 rounded text-[13px] text-gray-400 hover:text-red-500 hover:bg-red-50 transition-colors">
                 ×
               </button>
             </>
@@ -3005,14 +3005,14 @@ export default function WikipediaImportDiscography({ artistId, artistName, artis
             <button type="button"
               onClick={e => { e.stopPropagation(); hideWikiSuggestion(i) }}
               title="Paslėpti šį Wiki suggestion'ą — future importai nerodys"
-              className="shrink-0 px-1.5 py-1 rounded text-[12px] text-gray-400 hover:text-orange-500 hover:bg-orange-50 transition-colors">
+              className="shrink-0 px-1.5 py-1 rounded text-[13px] text-gray-400 hover:text-orange-500 hover:bg-orange-50 transition-colors">
               🚫
             </button>
           )}
           {/* Expand tracks */}
           <button type="button"
             onClick={e => { e.stopPropagation(); toggleExpand(i) }}
-            className={`shrink-0 w-6 h-6 rounded flex items-center justify-center text-[12px] transition-colors disabled:opacity-30 ${
+            className={`shrink-0 w-6 h-6 rounded flex items-center justify-center text-[13px] transition-colors disabled:opacity-30 ${
               isExpanded ? 'bg-violet-100 text-violet-600' : 'text-gray-300 hover:text-gray-500 hover:bg-gray-100'
             }`}
             title={isExpanded ? 'Slėpti dainas' : 'Rodyti dainas'}>
@@ -3034,7 +3034,7 @@ export default function WikipediaImportDiscography({ artistId, artistName, artis
               if (c.has_certifications) dbFacts.push('✓ cert')
               const wikiPreview = computeImportPreview(it)
               return (
-                <div className="mb-2 pb-2 border-b border-gray-100 grid grid-cols-1 sm:grid-cols-2 gap-2 text-[12px]">
+                <div className="mb-2 pb-2 border-b border-gray-100 grid grid-cols-1 sm:grid-cols-2 gap-2 text-[13px]">
                   <div>
                     <div className="font-semibold text-gray-600 mb-1">DB turi:</div>
                     <div className="text-gray-500 leading-relaxed">{dbFacts.join(' · ')}</div>
@@ -3069,7 +3069,7 @@ export default function WikipediaImportDiscography({ artistId, artistName, artis
                   const checkedSet = selectedNewTracks[i] || new Set<string>()
                   const allChecked = wikiOnly.every(t => checkedSet.has(t.title.toLowerCase()))
                   return (
-                    <div className="flex items-center justify-between gap-2 mb-1.5 pb-1.5 border-b border-gray-100 text-[12px]">
+                    <div className="flex items-center justify-between gap-2 mb-1.5 pb-1.5 border-b border-gray-100 text-[13px]">
                       <span className="text-gray-500">
                         {wikiOnly.length} dainų tik Wiki (DB neturi)
                       </span>
@@ -3128,7 +3128,7 @@ export default function WikipediaImportDiscography({ artistId, artistName, artis
                   <div key={ti} className="flex items-center gap-2 py-0.5">
                     <div className="flex items-center justify-end gap-0.5 w-5 shrink-0">
                       {t.is_single && <span className="w-1.5 h-1.5 rounded-full bg-orange-400 shrink-0" title="Singlas" />}
-                      <span className="text-[11px] text-gray-300 tabular-nums">{t.sort_order}</span>
+                      <span className="text-[12px] text-gray-300 tabular-nums">{t.sort_order}</span>
                     </div>
                     {/* Track title — click → /admin/tracks/{id} jei egzistuoja DB */}
                     {trackDupId ? (
@@ -3165,7 +3165,7 @@ export default function WikipediaImportDiscography({ artistId, artistName, artis
                       // Importuoti — auto-link prijungs prie šio album'o.
                       matchedNotLinked ? (
                         <a href={`/admin/tracks/${trackDupId}`} target="_blank" rel="noreferrer" onClick={e => e.stopPropagation()}
-                          className="text-[10px] font-semibold text-orange-600 shrink-0 hover:underline"
+                          className="text-[11px] font-semibold text-orange-600 shrink-0 hover:underline"
                           title={`Daina yra DB (id=${trackDupId}) bet nelinkint'a į šį album'ą. Spausk Importuoti — auto-link prijungs.\n\nKlikink badge'ą kad atidarytum DB įrašą patikrinti, ar tai tikrai ta pati daina (ne kitas variantas).`}>
                           ⊕ prijungti #{trackDupId}
                         </a>
@@ -3178,19 +3178,19 @@ export default function WikipediaImportDiscography({ artistId, artistName, artis
                             onChange={() => toggleNewTrack(i, t.title.toLowerCase())}
                             className="w-3 h-3 accent-violet-500"
                           />
-                          <span className={`text-[10px] font-semibold ${selectedNewTracks[i]?.has(t.title.toLowerCase()) ? 'text-violet-600' : 'text-gray-400'}`} title="DB neturi šios dainos. Pažymėk jei nori, kad enrich taip pat sukurtų ir prijungtų prie esamo album'o. Default — praleidimas.">
+                          <span className={`text-[11px] font-semibold ${selectedNewTracks[i]?.has(t.title.toLowerCase()) ? 'text-violet-600' : 'text-gray-400'}`} title="DB neturi šios dainos. Pažymėk jei nori, kad enrich taip pat sukurtų ir prijungtų prie esamo album'o. Default — praleidimas.">
                             {selectedNewTracks[i]?.has(t.title.toLowerCase()) ? '+ kurti' : '· tik Wiki'}
                           </span>
                         </label>
                       ) : (
                         // NEW album'e — visi tracks bus sukurti automatiškai
-                        <span className="text-[10px] text-violet-500 shrink-0 font-semibold" title="Naujas album'as — ši daina bus sukurta DB su visa Wiki info">+ naujas</span>
+                        <span className="text-[11px] text-violet-500 shrink-0 font-semibold" title="Naujas album'as — ši daina bus sukurta DB su visa Wiki info">+ naujas</span>
                       )
                     )}
-                    {t.type === 'instrumental' && <span className="text-[10px] text-gray-400 shrink-0 font-medium">instr.</span>}
-                    {t.type === 'live' && <span className="text-[10px] text-blue-400 shrink-0 font-medium">live</span>}
-                    {t.type === 'remix' && <span className="text-[10px] text-purple-400 shrink-0 font-medium">remix</span>}
-                    {t.type === 'covers' && <span className="text-[10px] text-orange-400 shrink-0 font-medium">cover</span>}
+                    {t.type === 'instrumental' && <span className="text-[11px] text-gray-400 shrink-0 font-medium">instr.</span>}
+                    {t.type === 'live' && <span className="text-[11px] text-blue-400 shrink-0 font-medium">live</span>}
+                    {t.type === 'remix' && <span className="text-[11px] text-purple-400 shrink-0 font-medium">remix</span>}
+                    {t.type === 'covers' && <span className="text-[11px] text-orange-400 shrink-0 font-medium">cover</span>}
                     {/* Per-track completeness — toks pats ✓/⚠ pattern'as kaip
                         album'o lygyje. Reikalingi laukai: video_url, release_year,
                         lyrics (be lyrics OK jei type=instrumental). Rodom KAS
@@ -3199,12 +3199,12 @@ export default function WikipediaImportDiscography({ artistId, artistName, artis
                         labels: video, data, žodžiai. */}
                     {trackComplete && (
                       trackComplete.complete ? (
-                        <span className="text-[10px] font-semibold text-emerald-600 shrink-0" title="Daina pilna: yra video, leidimo data, žodžiai (arba instrumental).">✓</span>
+                        <span className="text-[11px] font-semibold text-emerald-600 shrink-0" title="Daina pilna: yra video, leidimo data, žodžiai (arba instrumental).">✓</span>
                       ) : (() => {
                         const ltLabel = (k: string) => k === 'video' ? 'video' : k === 'data' ? 'data' : k === 'lyrics' ? 'žodžiai' : k
                         return (
                           <>
-                            <span className="text-[10px] font-semibold text-amber-700 shrink-0" title={`Trūksta: ${trackComplete.missing.map(ltLabel).join(', ')}`}>
+                            <span className="text-[11px] font-semibold text-amber-700 shrink-0" title={`Trūksta: ${trackComplete.missing.map(ltLabel).join(', ')}`}>
                               ⚠ {trackComplete.missing.map(ltLabel).join(', ')}
                             </span>
                             {/* Inline "instr" toggle — jei tik 'lyrics' missing ir track type='normal',
@@ -3236,7 +3236,7 @@ export default function WikipediaImportDiscography({ artistId, artistName, artis
                                   } catch (e: any) { addLog(`✗ ${e.message}`) }
                                 }}
                                 title="Pažymėti kaip instrumental — lyrics check'as bus praleidžiamas"
-                                className="text-[10px] font-medium text-violet-600 hover:bg-violet-50 px-1 rounded shrink-0">
+                                className="text-[11px] font-medium text-violet-600 hover:bg-violet-50 px-1 rounded shrink-0">
                                 🎹 instr?
                               </button>
                             )}
@@ -3248,12 +3248,12 @@ export default function WikipediaImportDiscography({ artistId, artistName, artis
                         Padeda admin'ui nuspręsti kuriom dainom verta detaliai
                         tvarkyti video/lyrics (populiarios tarp music.lt vart.). */}
                     {trackComplete && (trackComplete.likes_count > 0 || trackComplete.comments_count > 0) && (
-                      <span className="text-[10px] text-gray-400 shrink-0 inline-flex items-center gap-1" title={`${trackComplete.likes_count} like'ų · ${trackComplete.comments_count} komentarų`}>
+                      <span className="text-[11px] text-gray-400 shrink-0 inline-flex items-center gap-1" title={`${trackComplete.likes_count} like'ų · ${trackComplete.comments_count} komentarų`}>
                         {trackComplete.likes_count > 0 && <span>♥{trackComplete.likes_count}</span>}
                         {trackComplete.comments_count > 0 && <span>💬{trackComplete.comments_count}</span>}
                       </span>
                     )}
-                    {t.duration && <span className="text-[11px] text-gray-300 shrink-0">{t.duration}</span>}
+                    {t.duration && <span className="text-[12px] text-gray-300 shrink-0">{t.duration}</span>}
                   </div>
                 )})}
               </div>
@@ -3359,7 +3359,7 @@ export default function WikipediaImportDiscography({ artistId, artistName, artis
               <div className="shrink-0 border-b border-gray-100 bg-gradient-to-b from-gray-50/50 to-white px-3 sm:px-5 py-1.5">
                 <div className="flex items-center justify-between gap-2 flex-wrap">
                   {/* Legend chips — always visible */}
-                  <div className="flex items-center gap-1.5 sm:gap-2 text-[11px] flex-wrap">
+                  <div className="flex items-center gap-1.5 sm:gap-2 text-[12px] flex-wrap">
                     <span className="font-semibold text-gray-500">Spalvos:</span>
                     <span className="inline-flex items-center gap-0.5 text-amber-700"><span className="w-2 h-2 rounded-sm bg-amber-400" />↻ pridurs</span>
                     <span className="inline-flex items-center gap-0.5 text-emerald-700"><span className="w-2 h-2 rounded-sm bg-emerald-400" />✓ sutvarkyta</span>
@@ -3368,12 +3368,12 @@ export default function WikipediaImportDiscography({ artistId, artistName, artis
                     <span className="inline-flex items-center gap-0.5 text-gray-500"><span className="w-2 h-2 rounded-sm bg-gray-400" />· tik Wiki</span>
                   </div>
                   <button onClick={() => setHelpOpen(p => !p)} type="button"
-                    className="text-[12px] text-violet-600 hover:underline font-medium shrink-0">
+                    className="text-[13px] text-violet-600 hover:underline font-medium shrink-0">
                     {helpOpen ? '▲ Slėpti pagalbą' : '❓ Kaip veikia?'}
                   </button>
                 </div>
                 {helpOpen && (
-                  <div className="mt-2 pt-2 border-t border-gray-100 text-[12px] text-gray-600 space-y-1.5">
+                  <div className="mt-2 pt-2 border-t border-gray-100 text-[13px] text-gray-600 space-y-1.5">
                     <div className="font-semibold text-gray-700">Pilnas importo flow (1 mygtukas):</div>
                     <ol className="list-decimal list-inside space-y-0.5 ml-1">
                       <li><b>Wiki overlay</b> — pridurs trūkstamus laukus: leidimo data, viršelis, žanrai, peak chart, sertifikatai. Egzistuojantys laukai NIEKADA neperrašomi. Type flags REPLACE (Wiki canonical). Featuring artists UNION (priedam, netriname).</li>
@@ -3402,12 +3402,12 @@ export default function WikipediaImportDiscography({ artistId, artistName, artis
                   const isActive = activeTab === tab.id
                   return (
                     <button key={tab.id} onClick={() => setActiveTab(tab.id)}
-                      className={`relative flex items-center gap-1 sm:gap-1.5 px-2 sm:px-3 py-2 sm:py-2.5 text-[12px] sm:text-xs font-medium border-b-2 transition-colors -mb-px ${
+                      className={`relative flex items-center gap-1 sm:gap-1.5 px-2 sm:px-3 py-2 sm:py-2.5 text-[13px] sm:text-xs font-medium border-b-2 transition-colors -mb-px ${
                         isActive ? 'border-violet-600 text-violet-700' : 'border-transparent text-gray-500 hover:text-gray-700'
                       }`}>
                       {tab.label}
                       {tab.count > 0 && (
-                        <span className={`px-1.5 py-0.5 rounded text-[11px] font-semibold ${
+                        <span className={`px-1.5 py-0.5 rounded text-[12px] font-semibold ${
                           tab.newCount > 0
                             ? (isActive ? 'bg-violet-100 text-violet-600' : 'bg-gray-100 text-gray-500')
                             : 'bg-gray-50 text-gray-300'
@@ -3442,7 +3442,7 @@ export default function WikipediaImportDiscography({ artistId, artistName, artis
                       ↻ enrich = papildo trūkstamus laukus, nieko netrina;
                       + naujas = sukurs naują albumą su visais Wiki tracks. */}
                   {(activeTab === 'studio' || activeTab === 'other') && (
-                    <span className="flex items-center gap-2 text-[11px] text-gray-500" title={
+                    <span className="flex items-center gap-2 text-[12px] text-gray-500" title={
                       'GELTONAS (↻ enrich): albumas jau yra DB. Wiki tik papildys trūkstamus laukus — leidimo data, viršelis, sertifikatai, peak chart, žanrai, type flag. Egzistuojantys laukai NIEKADA neperrašomi. Albume esančios dainos taip pat papildomos (release date, single žymėjimas).' + '\n\n' +
                       'VIOLETINIS (+ naujas): albumas DB neegzistuoja. Bus sukurtas visas naujas album'+"'"+'as su tracks iš Wikipedia.'
                     }>
@@ -3452,7 +3452,7 @@ export default function WikipediaImportDiscography({ artistId, artistName, artis
                   )}
                   {(activeTab === 'studio' || activeTab === 'other' || activeTab === 'singles') && (
                     <button onClick={() => setSortDesc(p => !p)}
-                      className="flex items-center gap-1 px-1.5 py-0.5 rounded text-[11px] text-gray-400 hover:text-gray-600 hover:bg-gray-100 transition-colors"
+                      className="flex items-center gap-1 px-1.5 py-0.5 rounded text-[12px] text-gray-400 hover:text-gray-600 hover:bg-gray-100 transition-colors"
                       title={sortDesc ? "Nuo seniausio" : "Nuo naujausio"}>
                       {sortDesc ? '↓ Nauji' : '↑ Seni'}
                     </button>
@@ -3539,7 +3539,7 @@ export default function WikipediaImportDiscography({ artistId, artistName, artis
                         }
                         return (
                           <div key={type}>
-                            <div className="text-[11px] font-semibold text-gray-400 uppercase tracking-wider mb-1 mt-2">{typeLabels[type]}</div>
+                            <div className="text-[12px] font-semibold text-gray-400 uppercase tracking-wider mb-1 mt-2">{typeLabels[type]}</div>
                             <div className="space-y-1">{(sortDesc ? [...typeItems].reverse() : typeItems).map(({ it, i }) => renderAlbumRow(it, i))}</div>
                           </div>
                         )
@@ -3565,7 +3565,7 @@ export default function WikipediaImportDiscography({ artistId, artistName, artis
                         const yearEntries = Object.entries(byYear).sort(([a],[b]) => sortDesc ? b.localeCompare(a) : a.localeCompare(b))
                         return yearEntries.map(([yr, yrSongs]) => (
                           <div key={yr}>
-                            <div className="text-[11px] font-semibold text-gray-400 uppercase tracking-wider mb-1 mt-2.5">{yr}</div>
+                            <div className="text-[12px] font-semibold text-gray-400 uppercase tracking-wider mb-1 mt-2.5">{yr}</div>
                             <div className="space-y-1">
                               {yrSongs.map(song => (
                                 <div key={song.title} onClick={() => !song.duplicate && !song.imported && toggleSong(song.title)}
@@ -3586,18 +3586,18 @@ export default function WikipediaImportDiscography({ artistId, artistName, artis
                                   <div className="flex-1 min-w-0">
                                     <div className="flex items-baseline gap-1.5 flex-wrap">
                                       <span className="text-sm font-medium text-gray-900 truncate">{song.title}</span>
-                                      {song.duplicate && <span className="text-[11px] text-amber-500 shrink-0">jau yra</span>}
-                                      {song.imported && <span className="text-[11px] text-emerald-500 shrink-0">importuota</span>}
-                                      {song.importing && <span className="text-[11px] text-violet-400 animate-pulse shrink-0">importuojama</span>}
-                                      {song.error && <span className="text-[11px] text-red-400 shrink-0" title={song.error}>✗ klaida</span>}
+                                      {song.duplicate && <span className="text-[12px] text-amber-500 shrink-0">jau yra</span>}
+                                      {song.imported && <span className="text-[12px] text-emerald-500 shrink-0">importuota</span>}
+                                      {song.importing && <span className="text-[12px] text-violet-400 animate-pulse shrink-0">importuojama</span>}
+                                      {song.error && <span className="text-[12px] text-red-400 shrink-0" title={song.error}>✗ klaida</span>}
                                     </div>
-                                    {song.error && <div className="text-[11px] text-red-400 truncate mt-0.5">{song.error}</div>}
-                                    {song.albumTitle && !song.error && <div className="text-[12px] text-gray-400 truncate">{song.albumTitle}</div>}
+                                    {song.error && <div className="text-[12px] text-red-400 truncate mt-0.5">{song.error}</div>}
+                                    {song.albumTitle && !song.error && <div className="text-[13px] text-gray-400 truncate">{song.albumTitle}</div>}
                                     {song.featuredArtists && song.featuredArtists.length > 0 && !song.error && (
-                                      <div className="text-[11px] text-violet-400 truncate">feat. {song.featuredArtists.join(', ')}</div>
+                                      <div className="text-[12px] text-violet-400 truncate">feat. {song.featuredArtists.join(', ')}</div>
                                     )}
                                     {song.duplicate && song.duplicateId && (
-                                      <a href={`/admin/tracks/${song.duplicateId}`} target="_blank" rel="noreferrer" onClick={e => e.stopPropagation()} className="text-[11px] text-blue-500 hover:underline">atidaryti →</a>
+                                      <a href={`/admin/tracks/${song.duplicateId}`} target="_blank" rel="noreferrer" onClick={e => e.stopPropagation()} className="text-[12px] text-blue-500 hover:underline">atidaryti →</a>
                                     )}
                                     {/* Alias / Ignore action'ai — tik tikriems naujiems singles */}
                                     {!song.duplicate && !song.imported && !song.importing && (
@@ -3605,13 +3605,13 @@ export default function WikipediaImportDiscography({ artistId, artistName, artis
                                         <button
                                           type="button"
                                           onClick={e => { e.stopPropagation(); setLinkAliasFor(song.title); setAliasPickerQuery('') }}
-                                          className="text-[11px] text-blue-500 hover:underline"
+                                          className="text-[12px] text-blue-500 hover:underline"
                                           title="Pažymėti, kad šis Wiki single atitinka esamą DB daina (pvz Angel = Angel in the Snow)"
                                         >🔗 susieti su daina</button>
                                         <button
                                           type="button"
                                           onClick={e => { e.stopPropagation(); ignoreWikiSong(song.title) }}
-                                          className="text-[11px] text-gray-400 hover:text-red-500 hover:underline"
+                                          className="text-[12px] text-gray-400 hover:text-red-500 hover:underline"
                                           title="Paslėpti šį Wiki suggestion'ą ateičiai"
                                         >🚫 ignoruoti</button>
                                       </div>
@@ -3633,9 +3633,9 @@ export default function WikipediaImportDiscography({ artistId, artistName, artis
                           <div className="fixed inset-0 z-[60] flex items-center justify-center bg-black/40 p-4" onClick={() => setLinkAliasFor(null)}>
                             <div className="bg-white rounded-lg shadow-xl w-full max-w-md max-h-[70vh] flex flex-col" onClick={e => e.stopPropagation()}>
                               <div className="px-4 py-3 border-b">
-                                <div className="text-[12px] text-gray-500 mb-1">Wiki single</div>
+                                <div className="text-[13px] text-gray-500 mb-1">Wiki single</div>
                                 <div className="font-medium text-gray-900">{linkAliasFor}</div>
-                                <div className="text-[12px] text-gray-500 mt-2 mb-1">Susieti su esama daina:</div>
+                                <div className="text-[13px] text-gray-500 mt-2 mb-1">Susieti su esama daina:</div>
                                 <input
                                   type="text"
                                   autoFocus
@@ -3647,7 +3647,7 @@ export default function WikipediaImportDiscography({ artistId, artistName, artis
                               </div>
                               <div className="flex-1 overflow-y-auto px-2 py-1">
                                 {matches.length === 0 ? (
-                                  <div className="text-center text-[13px] text-gray-400 py-6">Nieko nerasta</div>
+                                  <div className="text-center text-[14px] text-gray-400 py-6">Nieko nerasta</div>
                                 ) : matches.map(t => (
                                   <button
                                     key={t.id}
@@ -3658,7 +3658,7 @@ export default function WikipediaImportDiscography({ artistId, artistName, artis
                                 ))}
                               </div>
                               <div className="px-4 py-2.5 border-t flex justify-end">
-                                <button type="button" onClick={() => setLinkAliasFor(null)} className="text-[13px] text-gray-500 hover:text-gray-700">Atšaukti</button>
+                                <button type="button" onClick={() => setLinkAliasFor(null)} className="text-[14px] text-gray-500 hover:text-gray-700">Atšaukti</button>
                               </div>
                             </div>
                           </div>
@@ -3675,11 +3675,11 @@ export default function WikipediaImportDiscography({ artistId, artistName, artis
                   {(pendingAlbums.length === 0 && pendingTracks.length === 0) ? (
                     <div className="text-center py-12">
                       <p className="text-sm text-gray-500 font-medium mb-1">Pending nieko nerasta</p>
-                      <p className="text-[12px] text-gray-400">Visi music.lt scrape įrašai jau aktyvuoti arba ištrinti</p>
+                      <p className="text-[13px] text-gray-400">Visi music.lt scrape įrašai jau aktyvuoti arba ištrinti</p>
                     </div>
                   ) : (
                     <>
-                      <div className="rounded-lg bg-amber-50 border border-amber-200 px-3 py-2 text-[13px] text-amber-700 mb-2">
+                      <div className="rounded-lg bg-amber-50 border border-amber-200 px-3 py-2 text-[14px] text-amber-700 mb-2">
                         <strong>Music.lt-only įrašai</strong> — atėjo iš music.lt scrape, bet Wiki canonical sąraše jų nėra. Patvirtinti = aktyvuoti (matomas viešai). Trinti = pašalinti iš DB.
                       </div>
 
@@ -3701,7 +3701,7 @@ export default function WikipediaImportDiscography({ artistId, artistName, artis
                           <>
                             {pendingAlbums.length > 0 && (
                               <div>
-                                <div className="text-[11px] font-semibold text-gray-400 uppercase tracking-wider mb-1 mt-2.5">Albumai · {pendingAlbums.length}</div>
+                                <div className="text-[12px] font-semibold text-gray-400 uppercase tracking-wider mb-1 mt-2.5">Albumai · {pendingAlbums.length}</div>
                                 <div className="space-y-2">
                                   {pendingAlbums.map(p => {
                                     const albumTracks = tracksByAlbum.get(p.id) || []
@@ -3719,14 +3719,14 @@ export default function WikipediaImportDiscography({ artistId, artistName, artis
                                           <div className="flex-1 min-w-0">
                                             <div className="flex items-baseline gap-1.5 flex-wrap">
                                               <span className="text-sm font-medium text-gray-900 truncate">{p.title}</span>
-                                              <span className="text-[11px] text-gray-400">{p.year || '—'}</span>
-                                              {p.legacy_id && <span className="text-[11px] text-amber-500">#{p.legacy_id}</span>}
-                                              {albumTracks.length > 0 && <span className="text-[11px] text-blue-500">{albumTracks.length} dainų</span>}
-                                              {p.importing && <span className="text-[11px] text-violet-400 animate-pulse">vykdoma...</span>}
-                                              {p.imported && <span className="text-[11px] text-emerald-500">✓ aktyvuotas</span>}
-                                              {p.error && <span className="text-[11px] text-red-400" title={p.error}>✗ {p.error}</span>}
+                                              <span className="text-[12px] text-gray-400">{p.year || '—'}</span>
+                                              {p.legacy_id && <span className="text-[12px] text-amber-500">#{p.legacy_id}</span>}
+                                              {albumTracks.length > 0 && <span className="text-[12px] text-blue-500">{albumTracks.length} dainų</span>}
+                                              {p.importing && <span className="text-[12px] text-violet-400 animate-pulse">vykdoma...</span>}
+                                              {p.imported && <span className="text-[12px] text-emerald-500">✓ aktyvuotas</span>}
+                                              {p.error && <span className="text-[12px] text-red-400" title={p.error}>✗ {p.error}</span>}
                                             </div>
-                                            <a href={`/admin/albums/${p.id}`} target="_blank" rel="noreferrer" className="text-[11px] text-blue-500 hover:underline">atidaryti admin →</a>
+                                            <a href={`/admin/albums/${p.id}`} target="_blank" rel="noreferrer" className="text-[12px] text-blue-500 hover:underline">atidaryti admin →</a>
                                           </div>
                                           {/* Type dropdown — leidžia user'iui pakeisti tipą prieš
                                               Patvirtinti, nes music.lt scrape dažnai mis-classifies
@@ -3739,7 +3739,7 @@ export default function WikipediaImportDiscography({ artistId, artistName, artis
                                                 setPendingAlbums(prev => prev.map(x => x.id === p.id ? { ...x, type: newType } : x))
                                               }}
                                               disabled={p.importing}
-                                              className="shrink-0 text-[12px] font-semibold text-gray-900 border border-gray-300 bg-white rounded-md px-2 py-1 min-w-[90px] cursor-pointer hover:border-violet-400 focus:outline-none focus:ring-2 focus:ring-violet-300 disabled:opacity-50"
+                                              className="shrink-0 text-[13px] font-semibold text-gray-900 border border-gray-300 bg-white rounded-md px-2 py-1 min-w-[90px] cursor-pointer hover:border-violet-400 focus:outline-none focus:ring-2 focus:ring-violet-300 disabled:opacity-50"
                                               title="Album type — bus naudojamas aktyvavime"
                                             >
                                               <option value="studio">Studijinis</option>
@@ -3757,11 +3757,11 @@ export default function WikipediaImportDiscography({ artistId, artistName, artis
                                           {!p.imported && !p.deleted && (
                                             <div className="flex gap-1 shrink-0">
                                               <button onClick={() => approvePending('album', p.id)} disabled={p.importing}
-                                                className="px-2 py-1 rounded-md bg-emerald-100 text-emerald-700 text-[12px] font-medium hover:bg-emerald-200 disabled:opacity-50">
+                                                className="px-2 py-1 rounded-md bg-emerald-100 text-emerald-700 text-[13px] font-medium hover:bg-emerald-200 disabled:opacity-50">
                                                 ✓ Patvirtinti
                                               </button>
                                               <button onClick={() => deletePending('album', p.id)} disabled={p.importing}
-                                                className="px-2 py-1 rounded-md bg-red-50 text-red-600 text-[12px] font-medium hover:bg-red-100 disabled:opacity-50">
+                                                className="px-2 py-1 rounded-md bg-red-50 text-red-600 text-[13px] font-medium hover:bg-red-100 disabled:opacity-50">
                                                 ✕ Trinti
                                               </button>
                                             </div>
@@ -3772,13 +3772,13 @@ export default function WikipediaImportDiscography({ artistId, artistName, artis
                                           <div className="border-t border-amber-200/50 bg-white/40 px-3 py-1.5 space-y-0.5">
                                             {albumTracks.map(t => (
                                               <div key={`pt-${t.id}`} className="flex items-center gap-2 py-0.5">
-                                                <span className="text-[12px] text-gray-700 truncate flex-1">{t.title}</span>
-                                                {t.legacy_id && <span className="text-[10px] text-amber-500">#{t.legacy_id}</span>}
-                                                {t.imported && <span className="text-[10px] text-emerald-500">✓</span>}
-                                                {t.importing && <span className="text-[10px] text-violet-400 animate-pulse">...</span>}
+                                                <span className="text-[13px] text-gray-700 truncate flex-1">{t.title}</span>
+                                                {t.legacy_id && <span className="text-[11px] text-amber-500">#{t.legacy_id}</span>}
+                                                {t.imported && <span className="text-[11px] text-emerald-500">✓</span>}
+                                                {t.importing && <span className="text-[11px] text-violet-400 animate-pulse">...</span>}
                                               </div>
                                             ))}
-                                            <div className="text-[10px] text-gray-400 italic pt-0.5">
+                                            <div className="text-[11px] text-gray-400 italic pt-0.5">
                                               ↑ Patvirtinus albumą — visos jo dainos taip pat aktyvuosis (per album_tracks JOIN).
                                             </div>
                                           </div>
@@ -3792,7 +3792,7 @@ export default function WikipediaImportDiscography({ artistId, artistName, artis
 
                             {orphanTracks.length > 0 && (
                               <div>
-                                <div className="text-[11px] font-semibold text-gray-400 uppercase tracking-wider mb-1 mt-3">Singlai / Orphan dainos · {orphanTracks.length}</div>
+                                <div className="text-[12px] font-semibold text-gray-400 uppercase tracking-wider mb-1 mt-3">Singlai / Orphan dainos · {orphanTracks.length}</div>
                                 <div className="space-y-1">
                                   {orphanTracks.map(p => (
                                     <div key={`pt-${p.id}`} className={`flex items-center gap-2 px-3 py-2 rounded-lg border transition-all ${
@@ -3803,23 +3803,23 @@ export default function WikipediaImportDiscography({ artistId, artistName, artis
                                       <div className="flex-1 min-w-0">
                                         <div className="flex items-baseline gap-1.5 flex-wrap">
                                           <span className="text-sm font-medium text-gray-900 truncate">{p.title}</span>
-                                          <span className="text-[11px] text-gray-400">{p.release_year || '—'}</span>
-                                          {p.type && p.type !== 'normal' && <span className="text-[11px] text-violet-400">{p.type}</span>}
-                                          {p.legacy_id && <span className="text-[11px] text-amber-500">#{p.legacy_id}</span>}
-                                          {p.importing && <span className="text-[11px] text-violet-400 animate-pulse">vykdoma...</span>}
-                                          {p.imported && <span className="text-[11px] text-emerald-500">✓ aktyvuota</span>}
-                                          {p.error && <span className="text-[11px] text-red-400" title={p.error}>✗ {p.error}</span>}
+                                          <span className="text-[12px] text-gray-400">{p.release_year || '—'}</span>
+                                          {p.type && p.type !== 'normal' && <span className="text-[12px] text-violet-400">{p.type}</span>}
+                                          {p.legacy_id && <span className="text-[12px] text-amber-500">#{p.legacy_id}</span>}
+                                          {p.importing && <span className="text-[12px] text-violet-400 animate-pulse">vykdoma...</span>}
+                                          {p.imported && <span className="text-[12px] text-emerald-500">✓ aktyvuota</span>}
+                                          {p.error && <span className="text-[12px] text-red-400" title={p.error}>✗ {p.error}</span>}
                                         </div>
-                                        <a href={`/admin/tracks/${p.id}`} target="_blank" rel="noreferrer" className="text-[11px] text-blue-500 hover:underline">atidaryti admin →</a>
+                                        <a href={`/admin/tracks/${p.id}`} target="_blank" rel="noreferrer" className="text-[12px] text-blue-500 hover:underline">atidaryti admin →</a>
                                       </div>
                                       {!p.imported && !p.deleted && (
                                         <div className="flex gap-1 shrink-0">
                                           <button onClick={() => approvePending('track', p.id)} disabled={p.importing}
-                                            className="px-2 py-1 rounded-md bg-emerald-100 text-emerald-700 text-[12px] font-medium hover:bg-emerald-200 disabled:opacity-50">
+                                            className="px-2 py-1 rounded-md bg-emerald-100 text-emerald-700 text-[13px] font-medium hover:bg-emerald-200 disabled:opacity-50">
                                             ✓ Patvirtinti
                                           </button>
                                           <button onClick={() => deletePending('track', p.id)} disabled={p.importing}
-                                            className="px-2 py-1 rounded-md bg-red-50 text-red-600 text-[12px] font-medium hover:bg-red-100 disabled:opacity-50">
+                                            className="px-2 py-1 rounded-md bg-red-50 text-red-600 text-[13px] font-medium hover:bg-red-100 disabled:opacity-50">
                                             ✕ Trinti
                                           </button>
                                         </div>
@@ -3843,11 +3843,11 @@ export default function WikipediaImportDiscography({ artistId, artistName, artis
                   {dbOnlyOrphans.length === 0 ? (
                     <div className="text-center py-12">
                       <p className="text-sm text-gray-500 font-medium mb-1">Visi DB albums turi Wiki match'us</p>
-                      <p className="text-[12px] text-gray-400">Nieko tvarkyti — Wiki canonical sąrašas pilnai atitinka DB</p>
+                      <p className="text-[13px] text-gray-400">Nieko tvarkyti — Wiki canonical sąrašas pilnai atitinka DB</p>
                     </div>
                   ) : (
                     <>
-                      <div className="rounded-lg bg-orange-50 border border-orange-200 px-3 py-2 text-[13px] text-orange-700 mb-2">
+                      <div className="rounded-lg bg-orange-50 border border-orange-200 px-3 py-2 text-[14px] text-orange-700 mb-2">
                         <strong>Tik DB — Wiki neturi</strong> — šie album'ai aktyvūs DB (matomi viešai), bet Wikipedia jų neaprašo savo diskografijoje (gali būti pre-debut demo'os, music.lt scrape klaidos ar pan.). Patikrink ar verta — × ištrina, 🚫 paslepia future Wiki importams.
                       </div>
                       <div className="space-y-1">
@@ -3860,16 +3860,16 @@ export default function WikipediaImportDiscography({ artistId, artistName, artis
                             <div className="flex-1 min-w-0">
                               <div className="flex items-center gap-1.5 flex-wrap">
                                 <span className="text-[14px] font-medium text-gray-900 truncate">{d.title}</span>
-                                <span className="text-[11px] uppercase tracking-wide text-gray-400 font-semibold shrink-0">{d.type}</span>
-                                {d.year && <span className="text-[12px] text-gray-400 shrink-0">{d.year}</span>}
+                                <span className="text-[12px] uppercase tracking-wide text-gray-400 font-semibold shrink-0">{d.type}</span>
+                                {d.year && <span className="text-[13px] text-gray-400 shrink-0">{d.year}</span>}
                               </div>
                               <div className="flex items-center gap-2 mt-0.5">
-                                <a href={`/admin/albums/${d.id}`} target="_blank" rel="noreferrer" className="text-[11px] text-blue-500 hover:underline">
+                                <a href={`/admin/albums/${d.id}`} target="_blank" rel="noreferrer" className="text-[12px] text-blue-500 hover:underline">
                                   DB →
                                 </a>
                                 {d.legacy_id && (
                                   <a href={`https://www.music.lt/lt/albumas/x/${d.legacy_id}/`} target="_blank" rel="noreferrer"
-                                    className="text-[11px] text-orange-500 hover:underline">
+                                    className="text-[12px] text-orange-500 hover:underline">
                                     music.lt ↗
                                   </a>
                                 )}
@@ -3899,7 +3899,7 @@ export default function WikipediaImportDiscography({ artistId, artistName, artis
                                 }
                               }}
                               title="Paslėpti šį album'ą kaip 'sutvarkyta' — future Wiki importai nerodys"
-                              className="shrink-0 px-1.5 py-1 rounded text-[12px] text-gray-400 hover:text-orange-500 hover:bg-orange-100 transition-colors">
+                              className="shrink-0 px-1.5 py-1 rounded text-[13px] text-gray-400 hover:text-orange-500 hover:bg-orange-100 transition-colors">
                               🚫
                             </button>
                             <button type="button"
@@ -3919,7 +3919,7 @@ export default function WikipediaImportDiscography({ artistId, artistName, artis
                                 }
                               }}
                               title="Ištrinti šį album'ą iš DB visam (su jo dainomis, jei nenaudojamos kitur)"
-                              className="shrink-0 px-1.5 py-1 rounded text-[12px] text-gray-400 hover:text-red-500 hover:bg-red-100 transition-colors">
+                              className="shrink-0 px-1.5 py-1 rounded text-[13px] text-gray-400 hover:text-red-500 hover:bg-red-100 transition-colors">
                               ×
                             </button>
                           </div>
@@ -3932,7 +3932,7 @@ export default function WikipediaImportDiscography({ artistId, artistName, artis
 
               {/* Log */}
               {log.length > 0 && (
-                <div ref={logRef} className="bg-gray-950 rounded-xl p-3 font-mono text-[12px] text-emerald-400 max-h-24 overflow-y-auto leading-relaxed">
+                <div ref={logRef} className="bg-gray-950 rounded-xl p-3 font-mono text-[13px] text-emerald-400 max-h-24 overflow-y-auto leading-relaxed">
                   {log.map((l, i) => <div key={i}>{l}</div>)}
                 </div>
               )}

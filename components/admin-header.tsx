@@ -118,21 +118,21 @@ function TaskIndicator() {
         )}
         <span className="truncate font-medium">{shortLabel}</span>
         {progressText && (
-          <span className="text-[11px] font-mono opacity-60 shrink-0">{progressText}</span>
+          <span className="text-[12px] font-mono opacity-60 shrink-0">{progressText}</span>
         )}
         {tasks.length > 1 && (
-          <span className="bg-white/50 rounded px-1 text-[11px] font-bold shrink-0">{tasks.length}</span>
+          <span className="bg-white/50 rounded px-1 text-[12px] font-bold shrink-0">{tasks.length}</span>
         )}
       </button>
 
       {open && (
         <div className="absolute top-full right-0 mt-1.5 w-80 bg-white border border-gray-200 rounded-xl shadow-2xl z-50 overflow-hidden">
           <div className="px-3.5 py-2 border-b border-gray-100 flex items-center justify-between">
-            <span className="text-[12px] font-semibold text-gray-400 uppercase tracking-wider">Procesai</span>
+            <span className="text-[13px] font-semibold text-gray-400 uppercase tracking-wider">Procesai</span>
             {discographyMinimized && (
               <button
                 onClick={() => { window.dispatchEvent(new CustomEvent('discography-reopen')); setDiscographyMinimized(false); setOpen(false) }}
-                className="text-[12px] text-violet-600 font-medium hover:underline">
+                className="text-[13px] text-violet-600 font-medium hover:underline">
                 ↑ Atidaryti langą
               </button>
             )}

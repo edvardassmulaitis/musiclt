@@ -175,14 +175,14 @@ function CommentNode({
                 {comment.is_deleted ? '[Pašalinta]' : (comment.author_name || 'Vartotojas')}
               </span>
               {comment.is_archived && (
-                <span className="text-[11px] px-1.5 py-0.5 rounded font-bold"
+                <span className="text-[12px] px-1.5 py-0.5 rounded font-bold"
                   style={{ background: 'var(--bg-hover)', color: 'var(--text-muted)' }}>
                   Archyvinis
                 </span>
               )}
-              <span className="text-[12px]" style={{ color: 'var(--text-muted)' }}>{timeAgo(comment.created_at)}</span>
+              <span className="text-[13px]" style={{ color: 'var(--text-muted)' }}>{timeAgo(comment.created_at)}</span>
               {comment.edited_at && (
-                <span className="text-[11px] italic" style={{ color: 'var(--text-muted)' }}>(redaguota)</span>
+                <span className="text-[12px] italic" style={{ color: 'var(--text-muted)' }}>(redaguota)</span>
               )}
             </div>
 

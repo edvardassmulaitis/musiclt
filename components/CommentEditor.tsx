@@ -136,7 +136,7 @@ function PromptModal({
             {title}
           </div>
           {hint && (
-            <div className="mt-0.5 text-[12.5px] text-[var(--text-muted)]">
+            <div className="mt-0.5 text-[13.5px] text-[var(--text-muted)]">
               {hint}
             </div>
           )}
@@ -157,13 +157,13 @@ function PromptModal({
             <button
               type="button"
               onClick={onCancel}
-              className="rounded-full border border-[var(--border-subtle)] bg-transparent px-3.5 py-1.5 text-[12.5px] font-bold text-[var(--text-muted)] transition-colors hover:border-[var(--border-strong)] hover:text-[var(--text-primary)]"
+              className="rounded-full border border-[var(--border-subtle)] bg-transparent px-3.5 py-1.5 text-[13.5px] font-bold text-[var(--text-muted)] transition-colors hover:border-[var(--border-strong)] hover:text-[var(--text-primary)]"
             >
               Atšaukti
             </button>
             <button
               type="submit"
-              className="rounded-full bg-[var(--accent-orange)] px-4 py-1.5 text-[12.5px] font-extrabold text-white transition-opacity hover:opacity-90"
+              className="rounded-full bg-[var(--accent-orange)] px-4 py-1.5 text-[13.5px] font-extrabold text-white transition-opacity hover:opacity-90"
             >
               Gerai
             </button>
@@ -402,7 +402,7 @@ const CommentEditor = forwardRef<CommentEditorHandle, Props>(function CommentEdi
           </I>
         </Btn>
 
-        <span className="ml-auto whitespace-nowrap text-[11px] text-[var(--text-faint)]">
+        <span className="ml-auto whitespace-nowrap text-[12px] text-[var(--text-faint)]">
           {onSubmit ? '⌘+Enter siųsti' : ''}
         </span>
       </div>

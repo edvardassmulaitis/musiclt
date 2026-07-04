@@ -128,7 +128,7 @@ export default function AdminSearchStatsPage() {
                   )
                 })}
               </div>
-              <div className="flex justify-between text-[11px] text-[var(--text-muted)] mt-2">
+              <div className="flex justify-between text-[12px] text-[var(--text-muted)] mt-2">
                 <span>{data.daily[0]?.date.slice(5)}</span>
                 <span>Šiandien</span>
               </div>
@@ -184,7 +184,7 @@ export default function AdminSearchStatsPage() {
                   <div key={`${e.type}-${e.id}`} className="flex items-center gap-3 text-sm py-1.5 px-2 rounded hover:bg-[var(--bg-hover)]">
                     <span className="text-[var(--text-muted)] tabular-nums w-6">{i + 1}.</span>
                     <span
-                      className="text-[11px] font-bold uppercase tracking-wider px-2 py-0.5 rounded border w-20 text-center"
+                      className="text-[12px] font-bold uppercase tracking-wider px-2 py-0.5 rounded border w-20 text-center"
                       style={{ color: TYPE_COLOR[e.type] || 'var(--text-secondary)', borderColor: (TYPE_COLOR[e.type] || '#888') + '40' }}
                     >
                       {TYPE_LABEL[e.type] || e.type}
@@ -210,7 +210,7 @@ export default function AdminSearchStatsPage() {
                   <div key={r.id} className="flex items-center gap-3 text-xs py-1.5 px-2 rounded hover:bg-[var(--bg-hover)]">
                     <span className="font-mono text-[var(--text-muted)] w-12 tabular-nums">{relativeTime(r.created_at)}</span>
                     <span
-                      className="text-[11px] font-bold uppercase tracking-wider px-1.5 py-0.5 rounded border w-20 text-center"
+                      className="text-[12px] font-bold uppercase tracking-wider px-1.5 py-0.5 rounded border w-20 text-center"
                       style={{ color: TYPE_COLOR[r.type] || 'var(--text-secondary)', borderColor: (TYPE_COLOR[r.type] || '#888') + '40' }}
                     >
                       {TYPE_LABEL[r.type] || r.type}

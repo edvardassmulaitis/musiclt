@@ -59,7 +59,7 @@ export default async function DiscoveryDetailPage({ params }: Props) {
           <Avatar src={d.author?.avatar_url} name={uname} />
           <div style={{ display: 'flex', flexDirection: 'column', lineHeight: 1.3 }}>
             {uname ? <Link href={`/@${uname}`} style={{ fontSize: 15, fontWeight: 700, color: 'var(--text-primary)', textDecoration: 'none' }}>{uname}</Link> : <span style={{ fontSize: 15, fontWeight: 700 }}>Narys</span>}
-            {when && <span style={{ color: 'var(--text-muted)', fontSize: 13.5 }}>{when}</span>}
+            {when && <span style={{ color: 'var(--text-muted)', fontSize: 14.5 }}>{when}</span>}
           </div>
         </div>
 
@@ -74,7 +74,7 @@ export default async function DiscoveryDetailPage({ params }: Props) {
         <DetailMedia d={d} />
 
         {d.track_slug && (
-          <Link href={`/dainos/${d.track_slug}`} style={{ display: 'inline-flex', alignItems: 'center', gap: 6, fontSize: 13.5, fontWeight: 700, color: 'var(--accent-orange)', textDecoration: 'none', marginBottom: 8 }}>
+          <Link href={`/dainos/${d.track_slug}`} style={{ display: 'inline-flex', alignItems: 'center', gap: 6, fontSize: 14.5, fontWeight: 700, color: 'var(--accent-orange)', textDecoration: 'none', marginBottom: 8 }}>
             ♪ Klausyti music.lt grotuve →
           </Link>
         )}
@@ -83,7 +83,7 @@ export default async function DiscoveryDetailPage({ params }: Props) {
 
         {d.tags.length > 0 && (
           <div style={{ display: 'flex', gap: 7, flexWrap: 'wrap', marginBottom: 14 }}>
-            {d.tags.map(t => <span key={t} style={{ background: 'var(--bg-hover)', color: 'var(--text-muted)', fontSize: 12.5, padding: '3px 10px', borderRadius: 14 }}>{t}</span>)}
+            {d.tags.map(t => <span key={t} style={{ background: 'var(--bg-hover)', color: 'var(--text-muted)', fontSize: 13.5, padding: '3px 10px', borderRadius: 14 }}>{t}</span>)}
           </div>
         )}
 
@@ -107,7 +107,7 @@ export default async function DiscoveryDetailPage({ params }: Props) {
                   <div style={{ minWidth: 0, flex: 1 }}>
                     <div style={{ display: 'flex', alignItems: 'baseline', gap: 8 }}>
                       {rn ? <Link href={`/@${rn}`} style={{ fontSize: 14, fontWeight: 700, color: 'var(--text-primary)', textDecoration: 'none' }}>{rn}</Link> : <span style={{ fontSize: 14, fontWeight: 700 }}>Narys</span>}
-                      {rw && <span style={{ color: 'var(--text-faint)', fontSize: 12.5 }}>{rw}</span>}
+                      {rw && <span style={{ color: 'var(--text-faint)', fontSize: 13.5 }}>{rw}</span>}
                     </div>
                     {r.body && <p style={{ fontSize: 14.5, lineHeight: 1.55, color: 'var(--text-secondary)', margin: '4px 0 0', whiteSpace: 'pre-wrap' }}>{r.body}</p>}
                   </div>

@@ -172,9 +172,9 @@ function WinnersModal({ onClose, onOpenTrack }: { onClose: () => void; onOpenTra
   return (
     <HomeListModal open onClose={onClose} title="Laimėjusios dainos" subtitle="Dienos dainų istorija">
       {list === null ? (
-        <div className="py-8 text-center text-[13px] text-[var(--text-muted)]">Kraunama…</div>
+        <div className="py-8 text-center text-[14px] text-[var(--text-muted)]">Kraunama…</div>
       ) : list.length === 0 ? (
-        <div className="py-8 text-center text-[13px] text-[var(--text-muted)]">Istorijos dar nėra.</div>
+        <div className="py-8 text-center text-[14px] text-[var(--text-muted)]">Istorijos dar nėra.</div>
       ) : (
         <>
         <div className="grid grid-cols-1 gap-2 sm:grid-cols-2">
@@ -191,8 +191,8 @@ function WinnersModal({ onClose, onOpenTrack }: { onClose: () => void; onOpenTra
                 ) : <div className="h-12 w-12 shrink-0 rounded-lg" style={{ background: `hsl(${hue(t.title)},30%,18%)` }} />}
                 <div className="min-w-0 flex-1">
                   <p className="m-0 truncate font-['Outfit',sans-serif] text-[14px] font-extrabold text-[var(--text-primary)] group-hover:text-[var(--accent-orange)]">{sani(t.title)}</p>
-                  <p className="m-0 truncate text-[12.5px] text-[var(--text-muted)]">{t.artists?.name}</p>
-                  <p className="m-0 mt-0.5 text-[11.5px] text-[var(--text-faint)]">{w.date}{meta ? ` · ${meta}` : ''}</p>
+                  <p className="m-0 truncate text-[13.5px] text-[var(--text-muted)]">{t.artists?.name}</p>
+                  <p className="m-0 mt-0.5 text-[12.5px] text-[var(--text-faint)]">{w.date}{meta ? ` · ${meta}` : ''}</p>
                 </div>
               </button>
             )
@@ -201,7 +201,7 @@ function WinnersModal({ onClose, onOpenTrack }: { onClose: () => void; onOpenTra
         {!done && (
           <div className="mt-4 flex justify-center">
             <button type="button" onClick={loadMore} disabled={loadingMore}
-              className="hp-card px-5 py-2 text-[13.5px] font-bold text-[var(--text-secondary)] disabled:opacity-50">
+              className="hp-card px-5 py-2 text-[14.5px] font-bold text-[var(--text-secondary)] disabled:opacity-50">
               {loadingMore ? 'Kraunama…' : 'Rodyti daugiau'}
             </button>
           </div>
@@ -314,17 +314,17 @@ export function DienosDainaHero({ fullPage = false }: { fullPage?: boolean }) {
             <img src={proxyImg(img)} alt="" loading="lazy" className="h-[34px] w-[34px] shrink-0 rounded-[7px] object-cover" />
           ) : <div className="h-[34px] w-[34px] shrink-0 rounded-[7px]" style={{ background: `hsl(${hue(t.title)},30%,18%)` }} />}
           <div className="min-w-0 flex-1">
-            <span className="block truncate text-[13.5px] font-bold text-[var(--text-primary)]">{sani(t.title)}</span>
-            <span className="block truncate text-[12px] text-[var(--text-muted)]">{t.artists?.name}</span>
+            <span className="block truncate text-[14.5px] font-bold text-[var(--text-primary)]">{sani(t.title)}</span>
+            <span className="block truncate text-[13px] text-[var(--text-muted)]">{t.artists?.name}</span>
             {level > 0 && <div className="mt-1"><PopBar level={level} w={9} onDark /></div>}
           </div>
         </button>
-        {n.comment && <span className="hidden shrink-0 truncate text-[12px] italic text-[var(--text-muted)] sm:block sm:max-w-[140px]">{n.comment}</span>}
+        {n.comment && <span className="hidden shrink-0 truncate text-[13px] italic text-[var(--text-muted)] sm:block sm:max-w-[140px]">{n.comment}</span>}
         {n.own ? (
-          <span className="shrink-0 rounded-lg border border-dashed border-[var(--border-strong)] px-2.5 py-1 font-['Outfit',sans-serif] text-[11.5px] font-bold text-[var(--text-muted)]">Tavo</span>
+          <span className="shrink-0 rounded-lg border border-dashed border-[var(--border-strong)] px-2.5 py-1 font-['Outfit',sans-serif] text-[12.5px] font-bold text-[var(--text-muted)]">Tavo</span>
         ) : (
           <button type="button" onClick={() => handleVote(n.id)} disabled={voted || voting !== null}
-            className={`flex shrink-0 items-center gap-1.5 rounded-lg border px-2.5 py-1.5 font-['Outfit',sans-serif] text-[12px] font-extrabold transition-colors ${
+            className={`flex shrink-0 items-center gap-1.5 rounded-lg border px-2.5 py-1.5 font-['Outfit',sans-serif] text-[13px] font-extrabold transition-colors ${
               voted ? 'border-[rgba(249,115,22,0.5)] bg-[rgba(249,115,22,0.16)] text-[var(--accent-orange)]' : 'border-[var(--border-strong)] text-[var(--text-secondary)] hover:border-[var(--accent-orange)] hover:text-[var(--accent-orange)]'
             }`}>
             <Ic d={I.heart} size={11} filled={voted} /> {voting === n.id ? '…' : voted ? 'Balsuota' : 'Balsuok'}
@@ -342,7 +342,7 @@ export function DienosDainaHero({ fullPage = false }: { fullPage?: boolean }) {
     const level = votes > 0 ? Math.max(1, Math.round((votes / ydayMax) * 5)) : 0
     return (
       <button type="button" onClick={() => openTrack(t)} className="flex w-full items-center gap-2.5 rounded-[10px] border border-[var(--border-subtle)] bg-[var(--card-bg)] px-2.5 py-2 text-left transition-colors hover:bg-[var(--card-hover)]">
-        <span className="w-4 shrink-0 text-center font-['Outfit',sans-serif] text-[13px] font-black text-[var(--text-faint)]">{rank}</span>
+        <span className="w-4 shrink-0 text-center font-['Outfit',sans-serif] text-[14px] font-black text-[var(--text-faint)]">{rank}</span>
         {n.proposer && (
           <span className="flex shrink-0 items-center" title={uname(n.proposer)}>
             <Avatar src={n.proposer.avatar_url} name={uname(n.proposer)} size={22} />
@@ -353,11 +353,11 @@ export function DienosDainaHero({ fullPage = false }: { fullPage?: boolean }) {
           <img src={proxyImg(img)} alt="" loading="lazy" className="h-[34px] w-[34px] shrink-0 rounded-[7px] object-cover" />
         ) : <div className="h-[34px] w-[34px] shrink-0 rounded-[7px]" style={{ background: `hsl(${hue(t.title)},30%,18%)` }} />}
         <div className="min-w-0 flex-1">
-          <span className="block truncate text-[13.5px] font-bold text-[var(--text-primary)]">{sani(t.title)}</span>
-          <span className="block truncate text-[12px] text-[var(--text-muted)]">{t.artists?.name}</span>
+          <span className="block truncate text-[14.5px] font-bold text-[var(--text-primary)]">{sani(t.title)}</span>
+          <span className="block truncate text-[13px] text-[var(--text-muted)]">{t.artists?.name}</span>
           {level > 0 && <div className="mt-1"><PopBar level={level} w={9} onDark /></div>}
         </div>
-        <span className="shrink-0 text-[12px] font-bold text-[var(--text-muted)]">{votes} {ptsWord(votes)}</span>
+        <span className="shrink-0 text-[13px] font-bold text-[var(--text-muted)]">{votes} {ptsWord(votes)}</span>
       </button>
     )
   }
@@ -402,9 +402,9 @@ export function DienosDainaHero({ fullPage = false }: { fullPage?: boolean }) {
         {leader ? (
           <>
             {/* „DIENOS DAINA" + countdown — visada VIRŠ #1 vizualo (#1) */}
-            <div className="flex items-center gap-2 font-['Outfit',sans-serif] text-[11.5px] font-extrabold uppercase tracking-[0.16em] text-[var(--accent-orange)]">
+            <div className="flex items-center gap-2 font-['Outfit',sans-serif] text-[12.5px] font-extrabold uppercase tracking-[0.16em] text-[var(--accent-orange)]">
               <span className="h-1.5 w-1.5 animate-pulse rounded-full bg-[var(--accent-orange)]" /> Dienos daina
-              <span className="ml-auto flex items-center gap-1.5 text-[11.5px] font-bold normal-case tracking-normal text-[var(--text-muted)]"><Ic d={I.clock} size={11} /> liko <Countdown /></span>
+              <span className="ml-auto flex items-center gap-1.5 text-[12.5px] font-bold normal-case tracking-normal text-[var(--text-muted)]"><Ic d={I.clock} size={11} /> liko <Countdown /></span>
             </div>
             <div className="mt-3 flex items-center gap-4 sm:gap-5">
               <button type="button" onClick={() => openTrack(leader.tracks!)} className="group relative shrink-0 cursor-pointer border-0 bg-transparent p-0">
@@ -417,14 +417,14 @@ export function DienosDainaHero({ fullPage = false }: { fullPage?: boolean }) {
                     <span className="flex h-12 w-12 items-center justify-center rounded-full bg-[var(--accent-orange)] text-white shadow-[0_8px_24px_rgba(249,115,22,0.5)]"><Ic d={I.play} size={18} filled /></span>
                   </div>
                 </div>
-                <span className="absolute -left-2 -top-2 rounded-[9px] bg-[var(--accent-orange)] px-2 py-1 font-['Outfit',sans-serif] text-[13px] font-black text-white shadow-[0_6px_16px_rgba(249,115,22,0.45)]">#1</span>
+                <span className="absolute -left-2 -top-2 rounded-[9px] bg-[var(--accent-orange)] px-2 py-1 font-['Outfit',sans-serif] text-[14px] font-black text-white shadow-[0_6px_16px_rgba(249,115,22,0.45)]">#1</span>
               </button>
               <div className="min-w-0 flex-1">
                 <h2 className="m-0 line-clamp-2 font-['Outfit',sans-serif] text-[19px] font-black leading-[1.1] tracking-[-0.02em] text-[var(--text-primary)] sm:text-[28px]">{sani(leader.tracks!.title)}</h2>
                 <p className="m-0 mt-0.5 line-clamp-1 text-[14px] font-semibold text-[var(--text-secondary)] sm:text-[14.5px]">{leader.tracks!.artists?.name}</p>
-                {leader.comment && <p className="m-0 mt-2 line-clamp-2 text-[13.5px] italic leading-snug text-[var(--text-secondary)]">„{leader.comment}"</p>}
+                {leader.comment && <p className="m-0 mt-2 line-clamp-2 text-[14.5px] italic leading-snug text-[var(--text-secondary)]">„{leader.comment}"</p>}
                 {leader.proposer && (
-                  <div className="mt-2 flex items-center gap-2 text-[13px] text-[var(--text-muted)]">
+                  <div className="mt-2 flex items-center gap-2 text-[14px] text-[var(--text-muted)]">
                     <Avatar src={leader.proposer.avatar_url} name={uname(leader.proposer)} size={20} />
                     <b className="font-semibold text-[var(--text-primary)]">{uname(leader.proposer)}</b>
                   </div>
@@ -433,7 +433,7 @@ export function DienosDainaHero({ fullPage = false }: { fullPage?: boolean }) {
                   <PopBar level={Math.max(1, Math.round(((leader.weighted_votes || leader.votes || 0) / maxVotes) * 5))} onDark />
                   {!leader.own && (
                     <button type="button" onClick={() => handleVote(leader.id)} disabled={votedIds.has(leader.id) || voting !== null}
-                      className={`flex shrink-0 items-center gap-1.5 rounded-lg border px-3 py-1.5 font-['Outfit',sans-serif] text-[12.5px] font-extrabold transition-colors ${
+                      className={`flex shrink-0 items-center gap-1.5 rounded-lg border px-3 py-1.5 font-['Outfit',sans-serif] text-[13.5px] font-extrabold transition-colors ${
                         votedIds.has(leader.id) ? 'border-[rgba(249,115,22,0.5)] bg-[rgba(249,115,22,0.16)] text-[var(--accent-orange)]' : 'border-[var(--border-strong)] text-[var(--text-secondary)] hover:border-[var(--accent-orange)] hover:text-[var(--accent-orange)]'
                       }`}>
                       <Ic d={I.heart} size={12} filled={votedIds.has(leader.id)} /> {voting === leader.id ? '…' : votedIds.has(leader.id) ? 'Balsuota' : 'Balsuok'}
@@ -445,9 +445,9 @@ export function DienosDainaHero({ fullPage = false }: { fullPage?: boolean }) {
           </>
         ) : (
           <div className="flex w-full flex-col items-start gap-3.5 py-4 sm:py-5">
-            <div className="flex w-full items-center gap-2 font-['Outfit',sans-serif] text-[11.5px] font-extrabold uppercase tracking-[0.16em] text-[var(--accent-orange)]">
+            <div className="flex w-full items-center gap-2 font-['Outfit',sans-serif] text-[12.5px] font-extrabold uppercase tracking-[0.16em] text-[var(--accent-orange)]">
               <span className="h-1.5 w-1.5 animate-pulse rounded-full bg-[var(--accent-orange)]" /> Dienos daina
-              <span className="ml-auto flex items-center gap-1.5 text-[11.5px] font-bold normal-case tracking-normal text-[var(--text-muted)]"><Ic d={I.clock} size={11} /> liko <Countdown /></span>
+              <span className="ml-auto flex items-center gap-1.5 text-[12.5px] font-bold normal-case tracking-normal text-[var(--text-muted)]"><Ic d={I.clock} size={11} /> liko <Countdown /></span>
             </div>
             <p className="m-0 text-[15px] font-bold leading-snug text-[var(--text-primary)]">Šiandien dar nėra pasiūlymų — tavo daina gali būti pirma.</p>
             <button type="button" onClick={() => setSuggestOpen(true)} className="mt-1 cursor-pointer rounded-xl border-0 bg-[var(--accent-orange)] px-5 py-2.5 font-['Outfit',sans-serif] text-[14px] font-extrabold text-white shadow-[0_6px_20px_rgba(249,115,22,0.35)]">+ Pasiūlyti dainą</button>
@@ -459,17 +459,17 @@ export function DienosDainaHero({ fullPage = false }: { fullPage?: boolean }) {
       {(rest.length > 0 || (leader && !alreadyNominated)) && (
         <div className={candSectionCls}>
           <div className="mb-2 flex shrink-0 items-center justify-between px-1">
-            <span className="font-['Outfit',sans-serif] text-[11.5px] font-extrabold uppercase tracking-[0.14em] text-[var(--text-muted)]">Siūlomos dainos</span>
+            <span className="font-['Outfit',sans-serif] text-[12.5px] font-extrabold uppercase tracking-[0.14em] text-[var(--text-muted)]">Siūlomos dainos</span>
             <div className="flex items-center gap-3">
-              {voteErr && <span className="text-[12px] font-bold text-[#f87171]">{voteErr}</span>}
+              {voteErr && <span className="text-[13px] font-bold text-[#f87171]">{voteErr}</span>}
               {!alreadyNominated && (
-                <button type="button" onClick={() => setSuggestOpen(true)} className="cursor-pointer border-0 bg-transparent p-0 font-['Outfit',sans-serif] text-[13px] font-bold text-[var(--accent-orange)] transition-opacity hover:opacity-70">+ Pasiūlyk savo dainą</button>
+                <button type="button" onClick={() => setSuggestOpen(true)} className="cursor-pointer border-0 bg-transparent p-0 font-['Outfit',sans-serif] text-[14px] font-bold text-[var(--accent-orange)] transition-opacity hover:opacity-70">+ Pasiūlyk savo dainą</button>
               )}
             </div>
           </div>
           <div className={candListCls}>
             {rest.map(n => <CandRow key={n.id} n={n} />)}
-            {rest.length === 0 && <p className="m-0 px-1 py-2 text-[13px] text-[var(--text-muted)]">Kol kas vienintelis kandidatas — pasiūlyk alternatyvą!</p>}
+            {rest.length === 0 && <p className="m-0 px-1 py-2 text-[14px] text-[var(--text-muted)]">Kol kas vienintelis kandidatas — pasiūlyk alternatyvą!</p>}
           </div>
         </div>
       )}
@@ -478,13 +478,13 @@ export function DienosDainaHero({ fullPage = false }: { fullPage?: boolean }) {
       {winner?.tracks && (
         <div className="relative shrink-0 border-t border-[var(--border-default)] px-4 pb-3 pt-3 sm:px-5">
           <div className="mb-2 flex items-center justify-between px-1">
-            <span className="font-['Outfit',sans-serif] text-[11.5px] font-extrabold uppercase tracking-[0.14em] text-[var(--text-faint)]">{winnerDayLabel(winner.date)}{fullPage && ydaySorted.length > 0 ? ' · visi dalyviai' : ''}</span>
-            <button type="button" onClick={() => setWinnersOpen(true)} className="shrink-0 cursor-pointer border-0 bg-transparent p-0 font-['Outfit',sans-serif] text-[12.5px] font-bold text-[#fbbf24] transition-opacity hover:opacity-70">Visos →</button>
+            <span className="font-['Outfit',sans-serif] text-[12.5px] font-extrabold uppercase tracking-[0.14em] text-[var(--text-faint)]">{winnerDayLabel(winner.date)}{fullPage && ydaySorted.length > 0 ? ' · visi dalyviai' : ''}</span>
+            <button type="button" onClick={() => setWinnersOpen(true)} className="shrink-0 cursor-pointer border-0 bg-transparent p-0 font-['Outfit',sans-serif] text-[13.5px] font-bold text-[#fbbf24] transition-opacity hover:opacity-70">Visos →</button>
           </div>
           <div className="flex flex-col gap-[5px]">
             {/* laimėtojas */}
             <button type="button" onClick={() => openTrack(winner.tracks!)} className="flex items-center gap-2.5 rounded-[10px] border border-[rgba(251,191,36,0.18)] bg-[rgba(251,191,36,0.06)] px-2.5 py-2 text-left transition-colors hover:bg-[rgba(251,191,36,0.12)]">
-              {fullPage && <span className="w-4 shrink-0 text-center font-['Outfit',sans-serif] text-[13px] font-black text-[#fbbf24]">1</span>}
+              {fullPage && <span className="w-4 shrink-0 text-center font-['Outfit',sans-serif] text-[14px] font-black text-[#fbbf24]">1</span>}
               {winner.proposer && (
                 <span className="flex shrink-0 items-center" title={uname(winner.proposer)}>
                   <Avatar src={winner.proposer.avatar_url} name={uname(winner.proposer)} size={22} />
@@ -496,12 +496,12 @@ export function DienosDainaHero({ fullPage = false }: { fullPage?: boolean }) {
               ) : <div className="h-[34px] w-[34px] shrink-0 rounded-[7px]" style={{ background: `hsl(${hue(winner.tracks.title)},30%,18%)` }} />}
               <div className="min-w-0 flex-1">
                 <div className="flex min-w-0 items-baseline gap-1.5">
-                  <span className="truncate text-[13.5px] font-bold text-[var(--text-primary)]">{sani(winner.tracks.title)}</span>
-                  <span className="truncate text-[12px] text-[var(--text-secondary)]">{winner.tracks.artists?.name}</span>
+                  <span className="truncate text-[14.5px] font-bold text-[var(--text-primary)]">{sani(winner.tracks.title)}</span>
+                  <span className="truncate text-[13px] text-[var(--text-secondary)]">{winner.tracks.artists?.name}</span>
                 </div>
                 <div className="mt-1"><PopBar level={5} w={9} onDark /></div>
               </div>
-              <span className="shrink-0 rounded-full bg-[rgba(251,191,36,0.16)] px-2 py-0.5 text-[10.5px] font-extrabold uppercase tracking-wide text-[#fbbf24]">Laimėjo</span>
+              <span className="shrink-0 rounded-full bg-[rgba(251,191,36,0.16)] px-2 py-0.5 text-[11.5px] font-extrabold uppercase tracking-wide text-[#fbbf24]">Laimėjo</span>
             </button>
             {/* visi kiti tos dienos dalyviai (tik fullPage) */}
             {fullPage && ydaySorted.map((n, i) => <PastRow key={n.id} n={n} rank={i + 2} />)}

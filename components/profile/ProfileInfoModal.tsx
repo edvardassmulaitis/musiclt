@@ -171,7 +171,7 @@ export function ProfileAboutContent({
                   <>
                     <span style={{ color: 'var(--text-faint)' }}>·</span>
                     <span
-                      className="text-[10px] font-bold uppercase tracking-wider rounded-full px-2 py-0.5"
+                      className="text-[11px] font-bold uppercase tracking-wider rounded-full px-2 py-0.5"
                       style={{
                         color: 'var(--text-muted)',
                         background: 'var(--card-bg)',
@@ -211,7 +211,7 @@ export function ProfileAboutContent({
                       className="w-full h-full object-cover"
                     />
                     {p.caption && (
-                      <div className="absolute inset-x-0 bottom-0 px-2 py-1 text-[11px] text-white truncate"
+                      <div className="absolute inset-x-0 bottom-0 px-2 py-1 text-[12px] text-white truncate"
                            style={{ background: 'linear-gradient(0deg, rgba(0,0,0,0.85), transparent)' }}>
                         {p.caption}
                       </div>
@@ -233,7 +233,7 @@ export function ProfileAboutContent({
                 ].filter(([, v]) => v) as [string, string][]).map(([k, v], i) => (
                   <div key={k} className="flex items-baseline gap-3 py-1.5"
                        style={{ borderTop: i > 0 ? '1px dashed var(--border-subtle)' : 'none' }}>
-                    <span className="flex-shrink-0 w-[92px] text-[11px] uppercase tracking-wider font-extrabold"
+                    <span className="flex-shrink-0 w-[92px] text-[12px] uppercase tracking-wider font-extrabold"
                           style={{ color: 'var(--text-muted)', fontFamily: "'Outfit', sans-serif" }}>{k}</span>
                     <span className="text-[14.5px] font-semibold"
                           style={{ color: 'var(--text-primary)', fontFamily: "'Outfit', sans-serif" }}>{v}</span>
@@ -321,7 +321,7 @@ export function ProfileAboutContent({
 function SectionLabel({ children }: { children: React.ReactNode }) {
   return (
     <div
-      className="text-[11px] font-extrabold uppercase tracking-[0.18em]"
+      className="text-[12px] font-extrabold uppercase tracking-[0.18em]"
       style={{ fontFamily: "'Outfit', sans-serif", color: 'var(--accent-orange)' }}
     >
       {children}
@@ -338,7 +338,7 @@ function Pair({ k, v, highlight }: { k: string; v: string; highlight?: boolean }
         border: `1px solid ${highlight ? 'rgba(251,191,36,0.30)' : 'var(--border-subtle)'}`,
       }}
     >
-      <div className="text-[11px] uppercase tracking-wider font-bold mb-0.5"
+      <div className="text-[12px] uppercase tracking-wider font-bold mb-0.5"
            style={{ color: 'var(--text-muted)', fontFamily: "'Outfit', sans-serif" }}>
         {k}
       </div>
@@ -363,7 +363,7 @@ function StatBox({ label, value, compact = false }: { label: string; value: stri
            style={{ color: 'var(--text-primary)', fontFamily: "'Outfit', sans-serif" }}>
         {value}
       </div>
-      <div className={`${compact ? 'text-[10px]' : 'text-[11px]'} uppercase tracking-wider font-bold leading-tight`}
+      <div className={`${compact ? 'text-[11px]' : 'text-[12px]'} uppercase tracking-wider font-bold leading-tight`}
            style={{ color: 'var(--text-muted)', fontFamily: "'Outfit', sans-serif" }}>
         {label}
       </div>

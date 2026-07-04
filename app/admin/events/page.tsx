@@ -120,7 +120,7 @@ export default function AdminEventsPage() {
                 {/* Data */}
                 <div className="w-12 sm:w-14 text-center flex-shrink-0">
                   <p className="text-xs font-bold text-[var(--text-primary)] leading-tight">{new Date(ev.start_date).toLocaleDateString('lt-LT', { month: 'short', day: 'numeric' })}</p>
-                  <p className="text-[11px] text-[var(--text-muted)]">{new Date(ev.start_date).getFullYear()}</p>
+                  <p className="text-[12px] text-[var(--text-muted)]">{new Date(ev.start_date).getFullYear()}</p>
                 </div>
                 {/* Pavadinimas + meta */}
                 <div className="flex-1 min-w-0">
@@ -130,7 +130,7 @@ export default function AdminEventsPage() {
                     {ev.title}
                   </Link>
                   <div className="flex items-center gap-2 mt-0.5">
-                    <span className={`text-[11px] font-bold px-1.5 py-0.5 rounded-full ${SC[ev.status] || 'text-gray-500 bg-gray-100'}`}>{ev.status}</span>
+                    <span className={`text-[12px] font-bold px-1.5 py-0.5 rounded-full ${SC[ev.status] || 'text-gray-500 bg-gray-100'}`}>{ev.status}</span>
                     <span className="text-xs text-[var(--text-muted)] truncate">{ev.city || '—'}</span>
                   </div>
                 </div>
@@ -138,8 +138,8 @@ export default function AdminEventsPage() {
                 <div className="flex items-center gap-0.5 sm:gap-1 flex-shrink-0">
                   <button onClick={() => toggleFeatured(ev.id, ev.is_featured)} title="Featured"
                     className={`w-8 h-8 flex items-center justify-center rounded-lg text-base transition ${ev.is_featured ? 'text-orange-400 bg-orange-50' : 'text-gray-300 hover:text-orange-300 hover:bg-[var(--bg-hover)]'}`}>★</button>
-                  {ev.status === 'upcoming' && <button onClick={() => setEventStatus(ev.id, 'cancelled')} title="Atšaukti" className="hidden sm:inline-flex text-[12px] font-medium px-2 py-1 rounded-lg text-red-500 hover:bg-red-50 transition">Atšaukti</button>}
-                  {ev.status === 'cancelled' && <button onClick={() => setEventStatus(ev.id, 'upcoming')} title="Atkurti" className="hidden sm:inline-flex text-[12px] font-medium px-2 py-1 rounded-lg text-emerald-500 hover:bg-emerald-50 transition">Atkurti</button>}
+                  {ev.status === 'upcoming' && <button onClick={() => setEventStatus(ev.id, 'cancelled')} title="Atšaukti" className="hidden sm:inline-flex text-[13px] font-medium px-2 py-1 rounded-lg text-red-500 hover:bg-red-50 transition">Atšaukti</button>}
+                  {ev.status === 'cancelled' && <button onClick={() => setEventStatus(ev.id, 'upcoming')} title="Atkurti" className="hidden sm:inline-flex text-[13px] font-medium px-2 py-1 rounded-lg text-emerald-500 hover:bg-emerald-50 transition">Atkurti</button>}
                   <Link href={`/admin/events/${ev.id}`} title="Redaguoti" className="w-8 h-8 flex items-center justify-center rounded-lg text-blue-500 hover:text-blue-700 hover:bg-blue-50 transition">✎</Link>
                   <button onClick={() => remove(ev.id)} title="Ištrinti" className="w-8 h-8 flex items-center justify-center rounded-lg text-gray-300 hover:text-red-500 hover:bg-red-50 transition">✕</button>
                 </div>

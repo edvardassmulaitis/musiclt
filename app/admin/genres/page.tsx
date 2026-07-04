@@ -147,7 +147,7 @@ export default function AdminGenresPage() {
                     </span>
                   </div>
                   {!g.cover_image_url && (
-                    <div className="absolute top-2 right-2 text-[11px] font-bold uppercase tracking-wider px-2 py-0.5 rounded-full bg-black/40 text-white">
+                    <div className="absolute top-2 right-2 text-[12px] font-bold uppercase tracking-wider px-2 py-0.5 rounded-full bg-black/40 text-white">
                       No image
                     </div>
                   )}
@@ -225,7 +225,7 @@ export default function AdminGenresPage() {
                   )}
                 </div>
 
-                <p className="mt-2 text-[11px]" style={{ color: 'var(--text-muted)' }}>
+                <p className="mt-2 text-[12px]" style={{ color: 'var(--text-muted)' }}>
                   Failas saugomas Supabase storage — patikima, image neatjungs net jei Unsplash dingtų.
                   Patarimas: 800×500 ar didesnis (16:10), JPG/PNG/WebP iki 5MB.
                 </p>

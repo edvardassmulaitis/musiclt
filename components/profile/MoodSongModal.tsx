@@ -93,7 +93,7 @@ export function MoodSongModal({
 
         <div className="p-5 sm:p-7">
           <p
-            className="text-[11px] font-extrabold uppercase tracking-[0.2em] mb-2"
+            className="text-[12px] font-extrabold uppercase tracking-[0.2em] mb-2"
             style={{ fontFamily: "'Outfit', sans-serif", color: 'var(--accent-orange)' }}
           >
             {username} nuotaikos daina

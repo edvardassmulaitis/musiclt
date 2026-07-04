@@ -44,7 +44,7 @@ class ChatErrorBoundary extends Component<{ children: ReactNode }, { hasError: b
           borderRadius: 16, padding: '20px 14px', textAlign: 'center',
         }}>
           <div style={{ fontSize: 24, marginBottom: 6 }}>💬</div>
-          <div style={{ fontSize: 13, color: 'var(--text-muted)' }}>
+          <div style={{ fontSize: 14, color: 'var(--text-muted)' }}>
             Pokalbių nepavyko užkrauti. <Link href="/pokalbiai" style={{ color: 'var(--accent-link)' }}>Atidaryti rankiniu būdu →</Link>
           </div>
         </div>
@@ -118,7 +118,7 @@ function HomeChatsWidgetInner() {
           }} />
         </div>
         <Link href="/pokalbiai" style={{
-          fontSize: 11, color: 'var(--accent-link)', fontWeight: 700, textDecoration: 'none',
+          fontSize: 12, color: 'var(--accent-link)', fontWeight: 700, textDecoration: 'none',
         }}>Visi →</Link>
       </div>
 
@@ -151,7 +151,7 @@ function HomeChatsWidgetInner() {
             display: 'block', textAlign: 'center', padding: '7px',
             borderRadius: 10, background: 'var(--bg-hover)',
             border: '1px solid var(--border-default)',
-            color: 'var(--accent-link)', fontSize: 12, fontWeight: 700,
+            color: 'var(--accent-link)', fontSize: 13, fontWeight: 700,
             textDecoration: 'none', transition: 'background .15s',
           }}
           onMouseEnter={e => (e.currentTarget.style.background = 'var(--bg-active)')}
@@ -197,12 +197,12 @@ function ConvRow({ c, viewerId, isLast }: { c: ConversationListItem; viewerId: s
         <div style={{ flex: 1, minWidth: 0 }}>
           <div style={{ display: 'flex', gap: 5, alignItems: 'center', marginBottom: 1 }}>
             <span style={{
-              fontSize: 12, fontWeight: unread ? 800 : 700,
+              fontSize: 13, fontWeight: unread ? 800 : 700,
               color: 'var(--accent-link)',
               overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap',
               maxWidth: '70%',
             }}>{name}</span>
-            <span style={{ fontSize: 10, color: unread ? 'var(--accent-orange)' : 'var(--text-faint)' }}>
+            <span style={{ fontSize: 11, color: unread ? 'var(--accent-orange)' : 'var(--text-faint)' }}>
               {formatSidebarTime(c.last_message_at)}
             </span>
             {unread && (
@@ -210,14 +210,14 @@ function ConvRow({ c, viewerId, isLast }: { c: ConversationListItem; viewerId: s
                 marginLeft: 'auto', minWidth: 14, height: 14,
                 padding: '0 4px', borderRadius: 7,
                 background: 'var(--accent-orange)', color: '#fff',
-                fontSize: 10, fontWeight: 800,
+                fontSize: 11, fontWeight: 800,
                 display: 'inline-flex', alignItems: 'center', justifyContent: 'center',
                 lineHeight: 1,
               }}>{c.unread_count > 9 ? '9+' : c.unread_count}</span>
             )}
           </div>
           <p style={{
-            fontSize: 13, margin: 0, lineHeight: 1.4,
+            fontSize: 14, margin: 0, lineHeight: 1.4,
             color: unread ? 'var(--text-primary)' : 'var(--text-muted)',
             fontWeight: unread ? 600 : 400,
             overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap',
@@ -245,7 +245,7 @@ function Avatar({ url, name, group }: { url: string | null; name: string; group:
       width: 24, height: 24, borderRadius: radius, flexShrink: 0,
       background: 'linear-gradient(135deg, #2563eb, var(--accent-orange))',
       display: 'flex', alignItems: 'center', justifyContent: 'center',
-      fontSize: 11, fontWeight: 800, color: '#fff',
+      fontSize: 12, fontWeight: 800, color: '#fff',
       fontFamily: 'Outfit, sans-serif',
     }}>{initial}</div>
   )
@@ -274,10 +274,10 @@ function EmptyState() {
   return (
     <div style={{ padding: '24px 14px', textAlign: 'center' }}>
       <div style={{ fontSize: 24, marginBottom: 6 }}>💬</div>
-      <div style={{ fontSize: 13, fontWeight: 600, color: 'var(--text-secondary)', marginBottom: 4 }}>
+      <div style={{ fontSize: 14, fontWeight: 600, color: 'var(--text-secondary)', marginBottom: 4 }}>
         Pokalbių dar nėra
       </div>
-      <div style={{ fontSize: 12, color: 'var(--text-muted)', lineHeight: 1.4 }}>
+      <div style={{ fontSize: 13, color: 'var(--text-muted)', lineHeight: 1.4 }}>
         Pradėk privačią žinutę su kitu nariu arba sukurk grupę.
       </div>
     </div>
@@ -288,10 +288,10 @@ function SignInCTA() {
   return (
     <div style={{ padding: '24px 14px', textAlign: 'center' }}>
       <div style={{ fontSize: 24, marginBottom: 6 }}>💬</div>
-      <div style={{ fontSize: 13, fontWeight: 700, color: 'var(--text-primary)', marginBottom: 4 }}>
+      <div style={{ fontSize: 14, fontWeight: 700, color: 'var(--text-primary)', marginBottom: 4 }}>
         Privačios žinutės ir grupės
       </div>
-      <div style={{ fontSize: 12, color: 'var(--text-muted)', lineHeight: 1.4 }}>
+      <div style={{ fontSize: 13, color: 'var(--text-muted)', lineHeight: 1.4 }}>
         Prisijunk ir pradėk pokalbį su kitais nariais — DM'ai, grupės, real-time.
       </div>
     </div>

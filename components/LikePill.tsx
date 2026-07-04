@@ -27,7 +27,7 @@ export function LikePill({
   const heartFilled = !!selfLiked
   const sm = size === 'sm'
   const heartPad = sm ? 'px-2.5 py-1' : 'px-3.5 py-2'
-  const countPad = sm ? 'px-2.5 py-1 text-[13px]' : 'px-4 py-2 text-[14px]'
+  const countPad = sm ? 'px-2.5 py-1 text-[14px]' : 'px-4 py-2 text-[14px]'
   const heartSize = sm ? 'h-[14px] w-[14px]' : 'h-[17px] w-[17px]'
   const baseWrap = variant === 'light'
     ? 'border border-white/20 bg-white/10 backdrop-blur-md text-white'

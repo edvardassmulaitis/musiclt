@@ -172,8 +172,8 @@ function LtInput({ initial, placeholder, onSave, saving }: {
         placeholder={placeholder}
         className="w-full px-2 py-1 text-sm border border-[var(--input-border)] rounded focus:outline-none focus:border-blue-400"
       />
-      {saving && <span className="text-[11px] text-[var(--text-faint)]">...</span>}
-      {dirty && !saving && <span className="text-[11px] text-amber-500">●</span>}
+      {saving && <span className="text-[12px] text-[var(--text-faint)]">...</span>}
+      {dirty && !saving && <span className="text-[12px] text-amber-500">●</span>}
     </div>
   )
 }

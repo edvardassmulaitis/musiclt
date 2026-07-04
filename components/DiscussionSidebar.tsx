@@ -51,7 +51,7 @@ function Initials({ name }: { name: string }) {
         background: `hsl(${hue}, 40%, 22%)`,
         color: `hsl(${hue}, 60%, 62%)`,
         display: 'flex', alignItems: 'center', justifyContent: 'center',
-        fontSize: 12, fontWeight: 800, flexShrink: 0,
+        fontSize: 13, fontWeight: 800, flexShrink: 0,
       }}
     >{initials}</div>
   )
@@ -101,7 +101,7 @@ export default function DiscussionSidebar({ discussionId }: { discussionId: numb
     <div className="sticky top-6 flex flex-col gap-3">
       {data.topContributors.length > 0 && (
         <div className="rounded-2xl border border-[var(--border-subtle)] bg-[var(--card-bg)] p-4">
-          <div className="mb-3 text-[11px] font-extrabold uppercase tracking-[0.12em] text-[var(--text-muted)]">
+          <div className="mb-3 text-[12px] font-extrabold uppercase tracking-[0.12em] text-[var(--text-muted)]">
             Aktyviausi nariai
           </div>
           <ul className="space-y-2">
@@ -109,7 +109,7 @@ export default function DiscussionSidebar({ discussionId }: { discussionId: numb
               const name = c.full_name || c.username || 'Vartotojas'
               return (
                 <li key={c.id} className="flex items-center gap-2.5">
-                  <span className="w-3 text-[11px] font-bold text-[var(--text-faint)]">{i + 1}.</span>
+                  <span className="w-3 text-[12px] font-bold text-[var(--text-faint)]">{i + 1}.</span>
                   {c.avatar_url ? (
                     // eslint-disable-next-line @next/next/no-img-element
                     <img src={c.avatar_url} alt="" referrerPolicy="no-referrer"
@@ -119,7 +119,7 @@ export default function DiscussionSidebar({ discussionId }: { discussionId: numb
                   )}
                   <div className="min-w-0 flex-1">
                     <div className="truncate text-xs font-bold text-[var(--text-primary)]">{name}</div>
-                    <div className="text-[11px] text-[var(--text-muted)]">
+                    <div className="text-[12px] text-[var(--text-muted)]">
                       {c.count.toLocaleString()} atsakym{c.count % 10 === 1 && c.count !== 11 ? 'as' : 'ai'}
                     </div>
                   </div>
@@ -133,10 +133,10 @@ export default function DiscussionSidebar({ discussionId }: { discussionId: numb
       {data.mentionedTracks.length > 0 && (
         <div className="rounded-2xl border border-[var(--border-subtle)] bg-[var(--card-bg)] p-4">
           <div className="mb-3 flex items-center justify-between">
-            <div className="text-[11px] font-extrabold uppercase tracking-[0.12em] text-[var(--text-muted)]">
+            <div className="text-[12px] font-extrabold uppercase tracking-[0.12em] text-[var(--text-muted)]">
               Paminėtos dainos
             </div>
-            <div className="text-[11px] text-[var(--text-muted)]">{data.mentionedTracks.length}</div>
+            <div className="text-[12px] text-[var(--text-muted)]">{data.mentionedTracks.length}</div>
           </div>
           <ul className="space-y-2">
             {data.mentionedTracks.map((t) => (
@@ -155,10 +155,10 @@ export default function DiscussionSidebar({ discussionId }: { discussionId: numb
                     )}
                   </div>
                   <div className="min-w-0 flex-1">
-                    <div className="truncate text-[13px] font-semibold text-[var(--text-primary)]">{t.title}</div>
-                    <div className="truncate text-[11px] text-[var(--text-muted)]">{t.artist_name || ''}</div>
+                    <div className="truncate text-[14px] font-semibold text-[var(--text-primary)]">{t.title}</div>
+                    <div className="truncate text-[12px] text-[var(--text-muted)]">{t.artist_name || ''}</div>
                   </div>
-                  <span className="shrink-0 rounded-full bg-[var(--bg-active)] px-1.5 py-0.5 text-[10px] font-bold text-[var(--text-muted)]">
+                  <span className="shrink-0 rounded-full bg-[var(--bg-active)] px-1.5 py-0.5 text-[11px] font-bold text-[var(--text-muted)]">
                     ×{t.mention_count}
                   </span>
                 </Link>
@@ -170,10 +170,10 @@ export default function DiscussionSidebar({ discussionId }: { discussionId: numb
 
       {/* Panašios diskusijos placeholder — ateities feature */}
       <div className="rounded-2xl border border-dashed border-[var(--border-default)] bg-[var(--card-bg)] p-4 text-center">
-        <div className="text-[11px] font-extrabold uppercase tracking-[0.12em] text-[var(--text-muted)]">
+        <div className="text-[12px] font-extrabold uppercase tracking-[0.12em] text-[var(--text-muted)]">
           Panašios diskusijos
         </div>
-        <div className="mt-2 text-[12px] italic text-[var(--text-muted)]">netrukus</div>
+        <div className="mt-2 text-[13px] italic text-[var(--text-muted)]">netrukus</div>
       </div>
     </div>
   )

@@ -263,7 +263,7 @@ function Stat({ label, value, tone }: { label: string; value: number; tone?: 'gr
             : 'text-[var(--text-primary)]'
   return (
     <div className="bg-white border border-[var(--input-border)] rounded-xl p-3">
-      <div className="text-[11px] uppercase tracking-wide text-[var(--text-faint)]">{label}</div>
+      <div className="text-[12px] uppercase tracking-wide text-[var(--text-faint)]">{label}</div>
       <div className={`text-2xl font-bold tabular-nums ${cls}`}>{value.toLocaleString()}</div>
     </div>
   )

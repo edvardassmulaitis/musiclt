@@ -119,7 +119,7 @@ function FlagRow({ chart, onSaved }: { chart: Chart; onSaved: () => void }) {
   return (
     <div className="flex items-center gap-2.5 rounded-lg border border-gray-200 bg-white px-2.5 py-1.5">
       <div className="h-6 w-9 shrink-0 overflow-hidden rounded bg-gray-100">
-        {flagUrl(cc) ? <img src={flagUrl(cc)!} alt="" className="h-full w-full object-cover" /> : <span className="flex h-full w-full items-center justify-center text-[11px] text-gray-300">🌐</span>}
+        {flagUrl(cc) ? <img src={flagUrl(cc)!} alt="" className="h-full w-full object-cover" /> : <span className="flex h-full w-full items-center justify-center text-[12px] text-gray-300">🌐</span>}
       </div>
       <span className="min-w-0 flex-1 truncate text-xs font-medium text-gray-700">{chart.title}</span>
       <select value={cc} onChange={e => save(e.target.value)} disabled={busy}

@@ -10,7 +10,7 @@ import Link from 'next/link'
 type Sub = { substyle_id: number; name: string; slug: string; n: number; genre: string }
 
 const headStyle: React.CSSProperties = {
-  fontFamily: "'Outfit', sans-serif", fontSize: 13, fontWeight: 800,
+  fontFamily: "'Outfit', sans-serif", fontSize: 14, fontWeight: 800,
   textTransform: 'uppercase', letterSpacing: '0.08em',
   color: 'var(--accent-orange)', marginBottom: 9,
 }

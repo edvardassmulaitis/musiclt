@@ -72,7 +72,7 @@ export default async function ReportagePage({ params }: Props) {
     <div className="mx-auto max-w-[1600px] px-4 pb-24 pt-6 sm:px-6 lg:px-8">
       <div className="lg:flex lg:items-start lg:justify-between lg:gap-8">
       <header className="min-w-0 max-w-4xl lg:flex-1">
-        <Link href="/galerija" className="mb-1.5 inline-flex items-center gap-1 font-['Outfit',sans-serif] text-[12px] font-extrabold uppercase tracking-[0.18em] text-[var(--accent-orange)] no-underline transition-opacity hover:opacity-75">
+        <Link href="/galerija" className="mb-1.5 inline-flex items-center gap-1 font-['Outfit',sans-serif] text-[13px] font-extrabold uppercase tracking-[0.18em] text-[var(--accent-orange)] no-underline transition-opacity hover:opacity-75">
           <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><path d="m15 18-6-6 6-6" /></svg>
           Koncertų nuotraukos
         </Link>
@@ -133,8 +133,8 @@ export default async function ReportagePage({ params }: Props) {
                 </>
               ) : (
                 <>
-                  <span className="text-[13px] font-semibold text-[var(--text-primary)] sm:text-[14px]">{a.name}</span>
-                  {roleLabel && <span className="text-[11px] font-bold uppercase tracking-wide text-[var(--text-muted)]">{roleLabel}</span>}
+                  <span className="text-[14px] font-semibold text-[var(--text-primary)] sm:text-[14px]">{a.name}</span>
+                  {roleLabel && <span className="text-[12px] font-bold uppercase tracking-wide text-[var(--text-muted)]">{roleLabel}</span>}
                 </>
               )
               return a.slug ? (
@@ -203,7 +203,7 @@ export default async function ReportagePage({ params }: Props) {
                 </div>
                 <div className="p-2.5">
                   <div className="line-clamp-2 text-[14px] font-bold leading-tight text-[var(--text-primary)]">{cleanTitle(m.title)}</div>
-                  <div className="mt-1 text-[12.5px] text-[var(--text-muted)]">
+                  <div className="mt-1 text-[13.5px] text-[var(--text-muted)]">
                     {[reportagePlaceLine(m), formatEventDate(m.eventDate)].filter(Boolean).join(' · ')}
                   </div>
                 </div>

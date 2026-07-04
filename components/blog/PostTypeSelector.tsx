@@ -37,7 +37,7 @@ export function PostTypeSelector({
         })}
       </div>
       {active && (
-        <p className="text-[11px] mt-2" style={{ color: '#334058' }}>{active.hint}</p>
+        <p className="text-[12px] mt-2" style={{ color: '#334058' }}>{active.hint}</p>
       )}
     </div>
   )

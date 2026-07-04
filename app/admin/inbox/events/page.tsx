@@ -394,10 +394,10 @@ export default function EventInboxPage() {
                               {a.cover_image_url ? (
                                 <img src={a.cover_image_url} alt="" className="w-5 h-5 rounded-full object-cover bg-blue-100" />
                               ) : (
-                                <span className="w-5 h-5 rounded-full bg-blue-200 flex items-center justify-center text-[11px]">🎤</span>
+                                <span className="w-5 h-5 rounded-full bg-blue-200 flex items-center justify-center text-[12px]">🎤</span>
                               )}
                               <span>{a.name}</span>
-                              <span className="text-[11px] text-blue-500 font-normal">❤ {formatLikes(a.legacy_likes)}</span>
+                              <span className="text-[12px] text-blue-500 font-normal">❤ {formatLikes(a.legacy_likes)}</span>
                             </Link>
                           ))}
                           {extraArtistsCount > 0 && (
@@ -470,7 +470,7 @@ export default function EventInboxPage() {
               <div className="min-w-0">
                 <h2 className="text-sm sm:text-base font-bold text-[var(--text-primary)] leading-tight">🎫 Redaguoti renginį</h2>
                 {editing.source_url && (
-                  <a href={editing.source_url} target="_blank" rel="noopener" className="text-[11px] text-[var(--text-muted)] hover:underline truncate block">
+                  <a href={editing.source_url} target="_blank" rel="noopener" className="text-[12px] text-[var(--text-muted)] hover:underline truncate block">
                     {editing.source_portal} ↗
                   </a>
                 )}
@@ -496,7 +496,7 @@ export default function EventInboxPage() {
                           {a.cover_image_url ? (
                             <img src={a.cover_image_url} alt="" className="w-4 h-4 rounded-full object-cover" />
                           ) : (
-                            <span className="w-4 h-4 rounded-full bg-blue-200 flex items-center justify-center text-[10px]">🎤</span>
+                            <span className="w-4 h-4 rounded-full bg-blue-200 flex items-center justify-center text-[11px]">🎤</span>
                           )}
                           <span>{isPrimary ? '★ ' : ''}{a.name}</span>
                         </button>
@@ -508,7 +508,7 @@ export default function EventInboxPage() {
                   {(editing.suggested_artists || []).filter(a => !editArtistIds.includes(a.id)).map(a => (
                     <button key={a.id} type="button" onClick={() => addEditArtist(a.id, a.name, a.cover_image_url)}
                       className="inline-flex items-center gap-1 pl-0.5 pr-1.5 py-0.5 rounded-full text-xs bg-[var(--bg-elevated)] hover:bg-blue-50 text-[var(--text-muted)] hover:text-blue-700 border border-dashed border-[var(--input-border)]">
-                      <span className="w-4 h-4 rounded-full bg-[var(--bg-active)] flex items-center justify-center text-[10px]">🎤</span>
+                      <span className="w-4 h-4 rounded-full bg-[var(--bg-active)] flex items-center justify-center text-[11px]">🎤</span>
                       <span>+ {a.name}</span>
                     </button>
                   ))}
@@ -534,7 +534,7 @@ export default function EventInboxPage() {
                       window.open(`/admin/artists/new?name=${encodeURIComponent(name.trim())}`, '_blank')
                     }}
                     title="Sukurti naują atlikėją DB'oje su Wikipedia importu"
-                    className="inline-flex items-center gap-0.5 px-1.5 py-0.5 rounded-full text-[11px] bg-emerald-50 hover:bg-emerald-100 text-emerald-700 border border-dashed border-emerald-300">
+                    className="inline-flex items-center gap-0.5 px-1.5 py-0.5 rounded-full text-[12px] bg-emerald-50 hover:bg-emerald-100 text-emerald-700 border border-dashed border-emerald-300">
                     + Naujas atlikėjas
                   </button>
                 </div>
@@ -569,7 +569,7 @@ export default function EventInboxPage() {
                     className="w-full px-2 py-2 bg-[var(--bg-elevated)] border border-[var(--input-border)] rounded-lg text-[var(--text-primary)] focus:outline-none focus:border-blue-400 text-sm"
                   />
                   {!editDate && editing.event_date_text && (
-                    <p className="text-[11px] text-amber-600 mt-0.5">Šaltinis: „{editing.event_date_text}"</p>
+                    <p className="text-[12px] text-amber-600 mt-0.5">Šaltinis: „{editing.event_date_text}"</p>
                   )}
                 </div>
                 <div>

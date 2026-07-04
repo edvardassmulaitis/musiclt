@@ -200,14 +200,14 @@ function DiscussionsList({ loading, discussions }: { loading?: boolean; discussi
         <div style={{ fontSize: 14, fontWeight: 600, color: 'var(--text-secondary)', marginBottom: 6 }}>
           Diskusijų dar nėra
         </div>
-        <div style={{ fontSize: 13, color: 'var(--text-muted)', marginBottom: 14, lineHeight: 1.5 }}>
+        <div style={{ fontSize: 14, color: 'var(--text-muted)', marginBottom: 14, lineHeight: 1.5 }}>
           Sukurk arba pakomentuok diskusiją — atsiras čia.
         </div>
         <Link href="/diskusijos"
           style={{
             display: 'inline-block', padding: '8px 14px', borderRadius: 8,
             background: 'var(--accent-link)', color: '#fff',
-            fontSize: 13, fontWeight: 700, textDecoration: 'none',
+            fontSize: 14, fontWeight: 700, textDecoration: 'none',
           }}>
           Visos diskusijos →
         </Link>
@@ -220,7 +220,7 @@ function DiscussionsList({ loading, discussions }: { loading?: boolean; discussi
 function SectionHeader({ label }: { label: string }) {
   return (
     <div style={{
-      padding: '14px 16px 6px', fontSize: 11, fontWeight: 800,
+      padding: '14px 16px 6px', fontSize: 12, fontWeight: 800,
       letterSpacing: '0.1em', textTransform: 'uppercase',
       color: 'var(--text-muted)',
     }}>{label}</div>
@@ -234,7 +234,7 @@ function EmptyState({ onNew }: { onNew: () => void }) {
       <div style={{ fontSize: 14, fontWeight: 600, color: 'var(--text-secondary)', marginBottom: 6 }}>
         Pokalbių dar nėra
       </div>
-      <div style={{ fontSize: 13, color: 'var(--text-muted)', marginBottom: 14, lineHeight: 1.5 }}>
+      <div style={{ fontSize: 14, color: 'var(--text-muted)', marginBottom: 14, lineHeight: 1.5 }}>
         Pradėk privatų pokalbį arba sukurk grupę.
       </div>
       <button
@@ -242,7 +242,7 @@ function EmptyState({ onNew }: { onNew: () => void }) {
         style={{
           padding: '8px 16px', borderRadius: 8, border: 'none',
           background: 'var(--accent-orange)', color: '#fff',
-          fontSize: 13, fontWeight: 700, cursor: 'pointer',
+          fontSize: 14, fontWeight: 700, cursor: 'pointer',
         }}
       >
         Naujas pokalbis
@@ -292,9 +292,9 @@ function ConversationRow({ c, viewerId, active }: { c: ConversationListItem; vie
             overflow: 'hidden', whiteSpace: 'nowrap', textOverflow: 'ellipsis',
           }}>
             {name}
-            {c.notifications_muted && <span style={{ marginLeft: 6, fontSize: 11, color: 'var(--text-muted)' }}>🔕</span>}
+            {c.notifications_muted && <span style={{ marginLeft: 6, fontSize: 12, color: 'var(--text-muted)' }}>🔕</span>}
           </div>
-          <div style={{ fontSize: 11.5, color: c.unread_count > 0 ? 'var(--accent-orange)' : 'var(--text-muted)', flexShrink: 0 }}>
+          <div style={{ fontSize: 12.5, color: c.unread_count > 0 ? 'var(--accent-orange)' : 'var(--text-muted)', flexShrink: 0 }}>
             {time}
           </div>
         </div>
@@ -302,7 +302,7 @@ function ConversationRow({ c, viewerId, active }: { c: ConversationListItem; vie
           display: 'flex', alignItems: 'center', gap: 6,
         }}>
           <div style={{
-            flex: 1, minWidth: 0, fontSize: 13,
+            flex: 1, minWidth: 0, fontSize: 14,
             fontWeight: c.unread_count > 0 ? 600 : 400,
             color: c.unread_count > 0 ? 'var(--text-primary)' : 'var(--text-muted)',
             overflow: 'hidden', whiteSpace: 'nowrap', textOverflow: 'ellipsis',
@@ -313,7 +313,7 @@ function ConversationRow({ c, viewerId, active }: { c: ConversationListItem; vie
             <span style={{
               flexShrink: 0, minWidth: 18, height: 18, padding: '0 5px',
               borderRadius: 9, background: 'var(--accent-orange)',
-              color: '#fff', fontSize: 11, fontWeight: 800,
+              color: '#fff', fontSize: 12, fontWeight: 800,
               display: 'flex', alignItems: 'center', justifyContent: 'center', lineHeight: 1,
             }}>
               {c.unread_count > 99 ? '99+' : c.unread_count}
@@ -356,19 +356,19 @@ function DiscussionRow({ d }: { d: DiscussionItem }) {
           }}>
             {d.title}
           </div>
-          <div style={{ fontSize: 11.5, color: 'var(--text-muted)', flexShrink: 0 }}>
+          <div style={{ fontSize: 12.5, color: 'var(--text-muted)', flexShrink: 0 }}>
             {time}
           </div>
         </div>
         <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
           <div style={{
-            flex: 1, minWidth: 0, fontSize: 13, color: 'var(--text-muted)',
+            flex: 1, minWidth: 0, fontSize: 14, color: 'var(--text-muted)',
             overflow: 'hidden', whiteSpace: 'nowrap', textOverflow: 'ellipsis',
           }}>
             {subtitle}
           </div>
           <span style={{
-            fontSize: 10, fontWeight: 800, padding: '1px 6px', borderRadius: 4,
+            fontSize: 11, fontWeight: 800, padding: '1px 6px', borderRadius: 4,
             background: 'rgba(139, 92, 246, 0.18)',
             color: '#c4b5fd', textTransform: 'uppercase', letterSpacing: '0.05em',
           }}>{involvementBadge}</span>

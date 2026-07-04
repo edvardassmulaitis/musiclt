@@ -66,7 +66,7 @@ export function ImpersonationBanner() {
           border: 'none',
           borderRadius: 6,
           padding: '4px 12px',
-          fontSize: 13,
+          fontSize: 14,
           fontWeight: 700,
           cursor: loading ? 'default' : 'pointer',
           opacity: loading ? 0.6 : 1,

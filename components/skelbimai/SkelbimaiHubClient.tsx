@@ -69,10 +69,10 @@ export function SkelbimaiHubClient({ itemsByType }: { itemsByType: Record<Listin
                 <span style={{ width: 30, height: 30, borderRadius: 8, flexShrink: 0, background: `${meta.accent}1f`, color: meta.accent, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>{TYPE_ICON[t]}</span>
                 <div style={{ minWidth: 0 }}>
                   <h2 className="m-0 font-['Outfit',sans-serif] text-[17px] font-extrabold tracking-[-0.01em] text-[var(--text-primary)] sm:text-[18px]">{meta.label}</h2>
-                  <div style={{ fontSize: 13, color: 'var(--text-muted)', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{meta.subtitle}</div>
+                  <div style={{ fontSize: 14, color: 'var(--text-muted)', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{meta.subtitle}</div>
                 </div>
               </div>
-              <button onClick={() => setModal(t)} className="font-['Outfit',sans-serif] text-[12.5px] font-bold text-[var(--accent-orange)] no-underline transition-opacity hover:opacity-70" style={{ background: 'none', border: 'none', cursor: 'pointer', whiteSpace: 'nowrap' }}>
+              <button onClick={() => setModal(t)} className="font-['Outfit',sans-serif] text-[13.5px] font-bold text-[var(--accent-orange)] no-underline transition-opacity hover:opacity-70" style={{ background: 'none', border: 'none', cursor: 'pointer', whiteSpace: 'nowrap' }}>
                 Visi →
               </button>
             </div>

@@ -28,7 +28,7 @@ export function PhotographerCard({ p }: { p: Photographer }) {
         <div className="truncate font-['Outfit',sans-serif] text-[14px] font-bold text-[var(--text-primary)]">
           {p.name}
         </div>
-        <div className="truncate text-[13px] text-[var(--text-muted)]">
+        <div className="truncate text-[14px] text-[var(--text-muted)]">
           Fotografas
           {p.reportageCount > 0 ? ` · ${ltCount(p.reportageCount, ['reportažas', 'reportažai', 'reportažų'])}` : ''}
         </div>

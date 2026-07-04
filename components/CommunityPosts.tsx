@@ -89,8 +89,8 @@ export function CommunityPosts() {
               </div>
               <div className="flex-1 min-w-0">
                 <div className="flex items-center gap-2 mb-1">
-                  <span className="text-[11px] font-bold px-2 py-0.5 rounded-full" style={{ background: 'rgba(249,115,22,0.12)', color: '#fb923c' }}>Blogas</span>
-                  <span className="text-[11px]" style={{ color: dk ? '#2a3a50' : '#6a85a8' }}>
+                  <span className="text-[12px] font-bold px-2 py-0.5 rounded-full" style={{ background: 'rgba(249,115,22,0.12)', color: '#fb923c' }}>Blogas</span>
+                  <span className="text-[12px]" style={{ color: dk ? '#2a3a50' : '#6a85a8' }}>
                     {post.reading_time_min || 1} min. skaitymo
                   </span>
                 </div>
@@ -98,12 +98,12 @@ export function CommunityPosts() {
                   {post.title}
                 </p>
                 {post.summary && (
-                  <p className="text-[12px] mt-0.5 truncate" style={{ color: dk ? '#3d5878' : '#6a85a8' }}>{post.summary}</p>
+                  <p className="text-[13px] mt-0.5 truncate" style={{ color: dk ? '#3d5878' : '#6a85a8' }}>{post.summary}</p>
                 )}
                 <div className="flex items-center gap-3 mt-1.5">
-                  <span className="text-[12px]" style={{ color: dk ? '#3d5878' : '#6a85a8' }}>{authorName}</span>
-                  {post.like_count > 0 && <span className="text-[11px]" style={{ color: '#2a3a50' }}>♥ {post.like_count}</span>}
-                  {post.comment_count > 0 && <span className="text-[11px]" style={{ color: '#2a3a50' }}>💬 {post.comment_count}</span>}
+                  <span className="text-[13px]" style={{ color: dk ? '#3d5878' : '#6a85a8' }}>{authorName}</span>
+                  {post.like_count > 0 && <span className="text-[12px]" style={{ color: '#2a3a50' }}>♥ {post.like_count}</span>}
+                  {post.comment_count > 0 && <span className="text-[12px]" style={{ color: '#2a3a50' }}>💬 {post.comment_count}</span>}
                 </div>
               </div>
             </Link>

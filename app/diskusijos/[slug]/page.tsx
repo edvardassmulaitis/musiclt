@@ -277,7 +277,7 @@ export default async function DiscussionPage({ params }: Props) {
                   <Link
                     key={tag}
                     href={`/diskusijos?tag=${encodeURIComponent(tag)}`}
-                    className="rounded-full px-2 py-0.5 text-[12px] font-bold transition-colors hover:bg-indigo-500/30"
+                    className="rounded-full px-2 py-0.5 text-[13px] font-bold transition-colors hover:bg-indigo-500/30"
                     style={{ background: 'rgba(99,102,241,0.12)', color: '#a5b4fc', border: '1px solid rgba(99,102,241,0.2)' }}
                   >
                     {tag}
@@ -318,7 +318,7 @@ export default async function DiscussionPage({ params }: Props) {
                 visada turi vieną artist'ą; ateity galim plėsti į m2m). */}
             {discussion.artist && (
               <div className="mb-8 rounded-lg border border-[var(--border-subtle)] bg-[var(--card-bg)] p-4">
-                <div className="mb-2 text-[11px] font-bold uppercase tracking-wider text-[var(--text-muted)]">
+                <div className="mb-2 text-[12px] font-bold uppercase tracking-wider text-[var(--text-muted)]">
                   Susiję atlikėjai
                 </div>
                 <Link

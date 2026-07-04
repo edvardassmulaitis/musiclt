@@ -142,7 +142,7 @@ export default async function ListingDetail({ params }: { params: Promise<{ id: 
                 <img src={proxyImg(listing.artist.cover_image_url, 96)} alt="" style={{ width: 40, height: 40, borderRadius: '50%', objectFit: 'cover' }} />
               )}
               <span style={{ minWidth: 0 }}>
-                <span style={{ display: 'block', fontSize: 13, color: 'var(--text-muted)' }}>Atlikėjas music.lt kataloge</span>
+                <span style={{ display: 'block', fontSize: 14, color: 'var(--text-muted)' }}>Atlikėjas music.lt kataloge</span>
                 <span style={{ display: 'block', fontSize: 15, fontWeight: 700, color: 'var(--accent-link)' }}>{listing.artist.name} →</span>
               </span>
             </Link>
@@ -189,7 +189,7 @@ export default async function ListingDetail({ params }: { params: Promise<{ id: 
                   ) : (
                     <span style={{ fontWeight: 700, color: 'var(--text-primary)' }}>{authorName}</span>
                   )}
-                  <div style={{ fontSize: 13.5, color: 'var(--text-faint)' }}>Įdėta {absoluteDate(listing.created_at)}</div>
+                  <div style={{ fontSize: 14.5, color: 'var(--text-faint)' }}>Įdėta {absoluteDate(listing.created_at)}</div>
                 </div>
               </div>
             </div>

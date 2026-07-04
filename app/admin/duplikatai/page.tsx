@@ -339,7 +339,7 @@ function DedupSection() {
                         <div className="min-w-0 flex-1">
                           <div className="flex items-center gap-2 flex-wrap">
                             <Link href={`/admin/tracks/${m.id}`} target="_blank" rel="noopener noreferrer" className="font-medium text-gray-900 hover:underline truncate">{m.title}</Link>
-                            {isKeep && <span className="text-[11px] font-semibold text-green-700 bg-green-100 px-1.5 py-0.5 rounded">LIEKA</span>}
+                            {isKeep && <span className="text-[12px] font-semibold text-green-700 bg-green-100 px-1.5 py-0.5 rounded">LIEKA</span>}
                           </div>
                           <div className="text-xs text-gray-500 flex items-center gap-2 flex-wrap">
                             {m.artist_slug
@@ -353,7 +353,7 @@ function DedupSection() {
                             <span className="text-gray-400" title="Sukurta">{fmtDate(m.created_at)}</span>
                           </div>
                         </div>
-                        <div className="flex items-center gap-2 text-[12px] text-gray-500 shrink-0">
+                        <div className="flex items-center gap-2 text-[13px] text-gray-500 shrink-0">
                           <span title="Patiktukai (iš senos sistemos)" className="text-rose-500 font-medium">♥ {m.likes}</span>
                           {m.video_views ? <span title="YouTube peržiūros">▶ {fmtViews(m.video_views)}</span> : null}
                           {m.has_spotify && <span title="Spotify" className="text-green-600 font-semibold">S</span>}

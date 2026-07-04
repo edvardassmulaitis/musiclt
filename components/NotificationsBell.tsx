@@ -447,7 +447,7 @@ export function NotificationsBell() {
           <span style={{
             padding: '3px 9px', borderRadius: 10,
             background: 'rgba(249,115,22,0.15)', color: 'var(--accent-orange)',
-            fontSize: 12, fontWeight: 800,
+            fontSize: 13, fontWeight: 800,
           }}>{unread} {unread === 1 ? 'naujas' : 'naujų'}</span>
         )}
         <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
@@ -456,7 +456,7 @@ export function NotificationsBell() {
               onClick={markAllRead}
               style={{
                 border: 'none', background: 'transparent',
-                color: 'var(--accent-link)', fontSize: 13, fontWeight: 600, cursor: 'pointer',
+                color: 'var(--accent-link)', fontSize: 14, fontWeight: 600, cursor: 'pointer',
                 padding: 0,
               }}
             >
@@ -503,7 +503,7 @@ export function NotificationsBell() {
               flex: 1, padding: '12px 14px',
               border: 'none', background: 'transparent',
               cursor: 'pointer',
-              fontSize: 13.5, fontWeight: 700,
+              fontSize: 14.5, fontWeight: 700,
               color: active ? 'var(--text-primary)' : 'var(--text-muted)',
               borderBottom: active ? '2px solid var(--accent-orange)' : '2px solid transparent',
               transition: 'color .12s, border-color .12s',
@@ -515,7 +515,7 @@ export function NotificationsBell() {
               <span style={{
                 minWidth: 16, height: 16, padding: '0 4px',
                 borderRadius: 8, background: 'var(--accent-orange)', color: '#fff',
-                fontSize: 10, fontWeight: 800,
+                fontSize: 11, fontWeight: 800,
                 display: 'inline-flex', alignItems: 'center', justifyContent: 'center',
                 lineHeight: 1,
               }}>
@@ -547,7 +547,7 @@ export function NotificationsBell() {
           <div style={{ fontSize: 14, fontWeight: 600, color: 'var(--text-secondary)', marginBottom: 4 }}>
             Pranešimų dar nėra
           </div>
-          <div style={{ fontSize: 13, color: 'var(--text-muted)', lineHeight: 1.4, marginBottom: 14 }}>
+          <div style={{ fontSize: 14, color: 'var(--text-muted)', lineHeight: 1.4, marginBottom: 14 }}>
             Pradėk komentuoti, mėgti dainas ar sekti atlikėjus —
             kai kažkas atsakys ar reaguos, viskas atsiras čia.
           </div>
@@ -558,7 +558,7 @@ export function NotificationsBell() {
               display: 'inline-block',
               padding: '8px 16px', borderRadius: 999,
               background: 'var(--accent-orange)', color: '#fff',
-              fontSize: 13, fontWeight: 700, textDecoration: 'none',
+              fontSize: 14, fontWeight: 700, textDecoration: 'none',
             }}
           >
             Atrasti atlikėjus
@@ -666,7 +666,7 @@ export function NotificationsBell() {
             </div>
             {n.snippet && (
               <div style={{
-                fontSize: 13, color: 'var(--text-secondary)',
+                fontSize: 14, color: 'var(--text-secondary)',
                 lineHeight: 1.4, marginBottom: 4,
                 overflow: 'hidden', textOverflow: 'ellipsis',
                 display: '-webkit-box', WebkitLineClamp: 3, WebkitBoxOrient: 'vertical',
@@ -675,7 +675,7 @@ export function NotificationsBell() {
               </div>
             )}
             {!isGuest && (
-              <div style={{ fontSize: 12, color: 'var(--text-muted)' }}>
+              <div style={{ fontSize: 13, color: 'var(--text-muted)' }}>
                 {relTime(n.created_at)}
               </div>
             )}
@@ -697,7 +697,7 @@ export function NotificationsBell() {
                   border: 'none',
                   background: 'var(--accent-orange)',
                   color: '#fff',
-                  fontSize: 13, fontWeight: 700,
+                  fontSize: 14, fontWeight: 700,
                   cursor: 'pointer',
                 }}
               >
@@ -753,7 +753,7 @@ export function NotificationsBell() {
           <div style={{ fontSize: 14, fontWeight: 600, color: 'var(--text-secondary)', marginBottom: 4 }}>
             Veiklos kol kas nėra
           </div>
-          <div style={{ fontSize: 13, color: 'var(--text-muted)', lineHeight: 1.4 }}>
+          <div style={{ fontSize: 14, color: 'var(--text-muted)', lineHeight: 1.4 }}>
             Kai kažkas pakomentuos, pamėgs ar paskelbs naujieną — pamatysi čia.
           </div>
         </div>
@@ -849,7 +849,7 @@ export function NotificationsBell() {
               overflow: 'hidden', textOverflow: 'ellipsis',
               display: '-webkit-box', WebkitLineClamp: 2, WebkitBoxOrient: 'vertical',
             }}>{text}</div>
-            <div style={{ fontSize: 12, color: 'var(--text-muted)' }}>{relTime(ev.created_at)}</div>
+            <div style={{ fontSize: 13, color: 'var(--text-muted)' }}>{relTime(ev.created_at)}</div>
           </div>
         </div>
       )
@@ -875,7 +875,7 @@ export function NotificationsBell() {
         href={isAuth ? '/auth/profile/pranesimai' : '/auth/signin'}
         onClick={() => setOpen(false)}
         style={{
-          fontSize: 13, fontWeight: 600,
+          fontSize: 14, fontWeight: 600,
           color: 'var(--text-muted)', textDecoration: 'none',
         }}
       >
@@ -971,7 +971,7 @@ export function NotificationsBell() {
               position: 'absolute', top: 2, right: 2,
               minWidth: 16, height: 16, padding: '0 4px',
               borderRadius: 8, background: 'var(--accent-orange)', color: '#fff',
-              fontSize: 11, fontWeight: 800,
+              fontSize: 12, fontWeight: 800,
               display: 'flex', alignItems: 'center', justifyContent: 'center',
               lineHeight: 1, border: '2px solid var(--bg-body)',
               animation: pulse ? 'nb-pulse 0.5s ease' : undefined,

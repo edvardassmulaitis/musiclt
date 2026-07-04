@@ -24,7 +24,7 @@ export function SiteFooter() {
             { t: 'Informacija', l: [['Naujienos', '/naujienos'], ['Music.lt atlikėjams', '/atlikejams'], ['Naujų atlikėjų radaras', '/nauji-atlikejai'], ['Muzikos stiliai', '/muzikos-stilius'], ['Balsavimai', '/balsavimai']] },
           ].map(col => (
             <div key={col.t}>
-              <h4 className="text-[11px] font-black uppercase tracking-[0.12em] mb-4" style={{ color: 'var(--text-faint)' }}>{col.t}</h4>
+              <h4 className="text-[12px] font-black uppercase tracking-[0.12em] mb-4" style={{ color: 'var(--text-faint)' }}>{col.t}</h4>
               <ul className="space-y-2.5">
                 {col.l.map(([label, href]) => (
                   <li key={label}><a href={href} className="text-sm transition-colors" style={{ color: 'var(--text-muted)' }} onMouseEnter={e => (e.currentTarget.style.color = 'var(--text-primary)')} onMouseLeave={e => (e.currentTarget.style.color = 'var(--text-muted)')}>{label}</a></li>

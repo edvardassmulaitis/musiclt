@@ -140,12 +140,12 @@ export default function MusicSearchPicker({
       {open && q.trim().length >= 2 && (
         <div className="absolute left-0 right-0 z-50 mt-1.5 max-h-[360px] overflow-y-auto rounded-lg border border-[var(--border-default)] bg-[var(--bg-surface)] shadow-[0_18px_40px_-10px_rgba(0,0,0,0.45)]">
           {loading ? (
-            <div className="flex items-center justify-center gap-2.5 px-3 py-5 text-[12px] font-bold uppercase tracking-wider text-[var(--text-faint)]">
+            <div className="flex items-center justify-center gap-2.5 px-3 py-5 text-[13px] font-bold uppercase tracking-wider text-[var(--text-faint)]">
               <EqualizerLoader />
               <span>Ieškoma</span>
             </div>
           ) : filtered.length === 0 ? (
-            <div className="px-3 py-4 text-center text-[13px] text-[var(--text-faint)]">
+            <div className="px-3 py-4 text-center text-[14px] text-[var(--text-faint)]">
               {results.length > 0 ? 'Visi rasti jau pridėti.' : 'Nieko nerasta.'}
             </div>
           ) : (
@@ -178,14 +178,14 @@ export default function MusicSearchPicker({
                       )}
                     </div>
                     <div className="min-w-0 flex-1">
-                      <div className="truncate font-['Outfit',sans-serif] text-[13.5px] font-bold text-[var(--text-primary)]">
+                      <div className="truncate font-['Outfit',sans-serif] text-[14.5px] font-bold text-[var(--text-primary)]">
                         {hit.title}
                       </div>
-                      <div className="truncate text-[11.5px] text-[var(--text-muted)]">
+                      <div className="truncate text-[12.5px] text-[var(--text-muted)]">
                         {hit.artist || TYPE_LABEL[hit.type]}
                       </div>
                     </div>
-                    <span className="shrink-0 rounded-full bg-[var(--bg-elevated)] px-2 py-0.5 font-['Outfit',sans-serif] text-[10px] font-extrabold uppercase tracking-wider text-[var(--text-faint)]">
+                    <span className="shrink-0 rounded-full bg-[var(--bg-elevated)] px-2 py-0.5 font-['Outfit',sans-serif] text-[11px] font-extrabold uppercase tracking-wider text-[var(--text-faint)]">
                       {TYPE_LABEL[hit.type]}
                     </span>
                   </button>

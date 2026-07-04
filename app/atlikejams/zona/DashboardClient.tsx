@@ -76,7 +76,7 @@ export default function DashboardClient({ artist, genres, songs, photos, events,
   const fld = 'flex-1 min-w-0 flex items-center gap-2 rounded-xl border border-[var(--border-default)] bg-[var(--bg-surface)] px-3 py-2.5'
   const inp = 'flex-1 min-w-0 bg-transparent outline-none text-sm text-[var(--text-primary)] placeholder:text-[var(--text-faint)]'
   const addb = 'shrink-0 inline-flex items-center gap-1.5 rounded-xl bg-[#f97316] px-4 text-sm font-bold text-white font-[Outfit,sans-serif] disabled:opacity-60'
-  const gt = "mt-7 mb-3 flex items-center gap-2 text-[13px] font-extrabold uppercase tracking-wider text-[var(--text-faint)] font-[Outfit,sans-serif]"
+  const gt = "mt-7 mb-3 flex items-center gap-2 text-[14px] font-extrabold uppercase tracking-wider text-[var(--text-faint)] font-[Outfit,sans-serif]"
 
   return (
     <div>
@@ -128,9 +128,9 @@ export default function DashboardClient({ artist, genres, songs, photos, events,
 
       {/* GALLERY STRIP */}
       <div className={`${card} mt-3 p-3.5`}>
-        <div className="mb-2.5 flex items-center"><b className="font-[Outfit,sans-serif] text-sm font-bold text-[var(--text-primary)]">Galerija</b><span className="ml-2 text-[12px] text-[var(--text-muted)]">užvesk → hero / profilis · arba įkelk naują</span></div>
+        <div className="mb-2.5 flex items-center"><b className="font-[Outfit,sans-serif] text-sm font-bold text-[var(--text-primary)]">Galerija</b><span className="ml-2 text-[13px] text-[var(--text-muted)]">užvesk → hero / profilis · arba įkelk naują</span></div>
         <div className="flex gap-2.5 overflow-x-auto pb-1">
-          <label className="grid h-[92px] w-[124px] shrink-0 cursor-pointer place-items-center rounded-[10px] border border-dashed border-[var(--border-strong)] text-center text-[12px] text-[var(--text-muted)]" onClick={() => flash(true, 'Nuotraukų įkėlimas — netrukus')}>
+          <label className="grid h-[92px] w-[124px] shrink-0 cursor-pointer place-items-center rounded-[10px] border border-dashed border-[var(--border-strong)] text-center text-[13px] text-[var(--text-muted)]" onClick={() => flash(true, 'Nuotraukų įkėlimas — netrukus')}>
             <span>{I.plus}<br />Įkelti</span>
           </label>
           {photos.map((p) => {
@@ -138,13 +138,13 @@ export default function DashboardClient({ artist, genres, songs, photos, events,
             return (
               <div key={p.id} className="group relative h-[92px] w-[124px] shrink-0 overflow-hidden rounded-[10px] border border-[var(--border-subtle)] bg-[var(--bg-surface)]">
                 <img src={p.url} alt="" className="h-full w-full object-cover" />
-                {(isHero || isProf) && <span className={`absolute left-1.5 top-1.5 rounded-full px-1.5 py-0.5 text-[10px] font-bold text-white ${isHero ? 'bg-[#f97316]' : 'bg-black/60'}`}>{isHero ? 'Hero' : 'Profilis'}</span>}
+                {(isHero || isProf) && <span className={`absolute left-1.5 top-1.5 rounded-full px-1.5 py-0.5 text-[11px] font-bold text-white ${isHero ? 'bg-[#f97316]' : 'bg-black/60'}`}>{isHero ? 'Hero' : 'Profilis'}</span>}
                 <button onClick={() => { if (confirm('Pašalinti nuotrauką?')) photoAct('delete', p.url, p.id) }} title="Pašalinti" className="absolute right-1.5 top-1.5 z-10 grid h-6 w-6 place-items-center rounded-full bg-black/60 text-white opacity-0 transition group-hover:opacity-100">
                   <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round"><path d="M18 6 6 18M6 6l12 12" /></svg>
                 </button>
                 <div className="absolute inset-0 flex flex-col justify-end gap-1 bg-gradient-to-t from-black/85 to-transparent p-1.5 opacity-0 transition group-hover:opacity-100">
-                  <button onClick={() => photoAct('hero', p.url)} className="rounded-md bg-[#f97316] py-1 text-[11px] font-semibold text-white">Hero</button>
-                  <button onClick={() => photoAct('profile', p.url)} className="rounded-md border border-white/20 bg-white/10 py-1 text-[11px] font-semibold text-white">Profilis</button>
+                  <button onClick={() => photoAct('hero', p.url)} className="rounded-md bg-[#f97316] py-1 text-[12px] font-semibold text-white">Hero</button>
+                  <button onClick={() => photoAct('profile', p.url)} className="rounded-md border border-white/20 bg-white/10 py-1 text-[12px] font-semibold text-white">Profilis</button>
                 </div>
               </div>
             )
@@ -156,28 +156,28 @@ export default function DashboardClient({ artist, genres, songs, photos, events,
       {/* SONGS + EVENTS */}
       <div className="grid items-start gap-4 sm:grid-cols-2">
         <div>
-          <div className={gt}>Naujausios dainos <a href={`/atlikejams/zona/muzika?a=${artist.id}`} className="ml-auto text-[13px] font-semibold normal-case tracking-normal text-[var(--accent-link)]">Visa muzika →</a></div>
+          <div className={gt}>Naujausios dainos <a href={`/atlikejams/zona/muzika?a=${artist.id}`} className="ml-auto text-[14px] font-semibold normal-case tracking-normal text-[var(--accent-link)]">Visa muzika →</a></div>
           {songs.length === 0 && <p className="text-sm text-[var(--text-muted)]">Pridėk pirmą dainą iš YouTube ↑</p>}
           {songs.map((s) => (
             <div key={s.id} className={`mb-2 flex items-center gap-3 rounded-xl border p-2.5 ${s.is_pinned ? 'border-[rgba(249,115,22,0.35)] bg-[rgba(249,115,22,0.05)]' : 'border-[var(--border-subtle)] bg-[var(--bg-elevated)]'}`}>
               <button onClick={() => togglePin(s)} title="Prisegti" className={`grid h-7 w-7 shrink-0 place-items-center rounded-md ${s.is_pinned ? 'text-[#f97316]' : 'text-[var(--text-muted)] bg-[var(--bg-hover)]'}`}>{I.pin}</button>
               <div className="h-[34px] w-[54px] shrink-0 overflow-hidden rounded-md bg-[var(--bg-surface)]">{thumb(s.video_url) ? <img src={thumb(s.video_url)!} alt="" className="h-full w-full object-cover" /> : null}</div>
-              <div className="min-w-0 flex-1"><b className="block truncate text-[14px] font-semibold text-[var(--text-primary)]">{s.title}</b><small className="text-[11.5px] text-[var(--text-muted)]">{s.is_pinned ? 'Prisegta · ' : ''}{s.video_uploaded_at ? new Date(s.video_uploaded_at).toLocaleDateString('lt-LT') : (s.release_year || '—')}</small></div>
-              {s.state === 'eligible' && <button onClick={() => suggest(s)} disabled={busy === 's' + s.id} className="inline-flex items-center gap-1.5 rounded-full bg-[#f97316] px-3 py-1.5 text-[11.5px] font-bold text-white font-[Outfit,sans-serif]">{I.trophy} Top 40</button>}
-              {s.state === 'in' && <span className="rounded-full bg-[rgba(34,197,94,.14)] px-3 py-1.5 text-[11.5px] font-bold text-[var(--accent-green)]">Topе · {s.weeks} sav.</span>}
-              {s.state === 'pending' && <span className="rounded-full bg-[rgba(251,191,36,.13)] px-3 py-1.5 text-[11.5px] font-bold text-[#fbbf24]">Pasiūlyta</span>}
-              {s.state === 'wait' && <span className="rounded-full bg-[rgba(251,191,36,.13)] px-3 py-1.5 text-[11.5px] font-bold text-[#fbbf24]">Palauk</span>}
-              {s.state === 'too_old' && <span className="rounded-full border border-[var(--border-subtle)] bg-[var(--bg-hover)] px-3 py-1.5 text-[11.5px] font-bold text-[var(--text-faint)]">Per sena</span>}
+              <div className="min-w-0 flex-1"><b className="block truncate text-[14px] font-semibold text-[var(--text-primary)]">{s.title}</b><small className="text-[12.5px] text-[var(--text-muted)]">{s.is_pinned ? 'Prisegta · ' : ''}{s.video_uploaded_at ? new Date(s.video_uploaded_at).toLocaleDateString('lt-LT') : (s.release_year || '—')}</small></div>
+              {s.state === 'eligible' && <button onClick={() => suggest(s)} disabled={busy === 's' + s.id} className="inline-flex items-center gap-1.5 rounded-full bg-[#f97316] px-3 py-1.5 text-[12.5px] font-bold text-white font-[Outfit,sans-serif]">{I.trophy} Top 40</button>}
+              {s.state === 'in' && <span className="rounded-full bg-[rgba(34,197,94,.14)] px-3 py-1.5 text-[12.5px] font-bold text-[var(--accent-green)]">Topе · {s.weeks} sav.</span>}
+              {s.state === 'pending' && <span className="rounded-full bg-[rgba(251,191,36,.13)] px-3 py-1.5 text-[12.5px] font-bold text-[#fbbf24]">Pasiūlyta</span>}
+              {s.state === 'wait' && <span className="rounded-full bg-[rgba(251,191,36,.13)] px-3 py-1.5 text-[12.5px] font-bold text-[#fbbf24]">Palauk</span>}
+              {s.state === 'too_old' && <span className="rounded-full border border-[var(--border-subtle)] bg-[var(--bg-hover)] px-3 py-1.5 text-[12.5px] font-bold text-[var(--text-faint)]">Per sena</span>}
             </div>
           ))}
-          <p className="mt-1.5 text-[11.5px] text-[var(--text-faint)]">Prisegtos rodomos viršuje, atlikėjo playeryje. Į Top 40 — tik per 3 mėn. įkeltos.</p>
+          <p className="mt-1.5 text-[12.5px] text-[var(--text-faint)]">Prisegtos rodomos viršuje, atlikėjo playeryje. Į Top 40 — tik per 3 mėn. įkeltos.</p>
         </div>
         <div>
-          <div className={gt}>Renginiai <span className="ml-auto inline-flex items-center gap-1 text-[13px] font-semibold normal-case tracking-normal text-[var(--text-faint)]">Pridėti — netrukus</span></div>
+          <div className={gt}>Renginiai <span className="ml-auto inline-flex items-center gap-1 text-[14px] font-semibold normal-case tracking-normal text-[var(--text-faint)]">Pridėti — netrukus</span></div>
           {events.map((e) => { const d = new Date(e.start_date); return (
             <div key={e.id} className="mb-2 flex items-center gap-3 rounded-xl border border-[var(--border-subtle)] bg-[var(--bg-elevated)] p-2.5">
-              <div className="w-[42px] shrink-0 rounded-lg border border-[var(--border-default)] bg-[var(--bg-surface)] py-1 text-center"><b className="block font-[Outfit,sans-serif] text-base font-extrabold leading-none">{d.getDate()}</b><span className="text-[10px] uppercase text-[var(--text-muted)]">{MONTHS[d.getMonth()]}</span></div>
-              <div className="min-w-0 flex-1"><b className="block truncate text-[14px] text-[var(--text-primary)]">{e.venue_name || e.title}</b><small className="text-[11.5px] text-[var(--text-muted)]">{e.city || e.title}</small></div>
+              <div className="w-[42px] shrink-0 rounded-lg border border-[var(--border-default)] bg-[var(--bg-surface)] py-1 text-center"><b className="block font-[Outfit,sans-serif] text-base font-extrabold leading-none">{d.getDate()}</b><span className="text-[11px] uppercase text-[var(--text-muted)]">{MONTHS[d.getMonth()]}</span></div>
+              <div className="min-w-0 flex-1"><b className="block truncate text-[14px] text-[var(--text-primary)]">{e.venue_name || e.title}</b><small className="text-[12.5px] text-[var(--text-muted)]">{e.city || e.title}</small></div>
             </div>
           )})}
           {events.length === 0 && <div className="rounded-xl border border-dashed border-[var(--border-default)] p-4 text-center text-xs text-[var(--text-muted)]">Dar nėra renginių</div>}
@@ -185,7 +185,7 @@ export default function DashboardClient({ artist, genres, songs, photos, events,
       </div>
 
       {/* APPEARANCE */}
-      <div className={gt}>Išvaizda <span className="ml-2 normal-case tracking-normal font-medium text-[12px] text-[var(--text-muted)]">— tavo viešos anketos</span></div>
+      <div className={gt}>Išvaizda <span className="ml-2 normal-case tracking-normal font-medium text-[13px] text-[var(--text-muted)]">— tavo viešos anketos</span></div>
       <div className="grid gap-3.5 sm:grid-cols-3">
         <div className={`${card} p-4`}>
           <h4 className="mb-2.5 font-[Outfit,sans-serif] text-[14px] font-bold text-[var(--text-primary)]">Anketos tema</h4>
@@ -207,7 +207,7 @@ export default function DashboardClient({ artist, genres, songs, photos, events,
           <div className="flex flex-wrap gap-1.5">
             {SECTIONS.map((s) => { const on = !hidden.includes(s.key); return (
               <button key={s.key} onClick={() => { const nh = on ? [...hidden, s.key] : hidden.filter((x) => x !== s.key); setHidden(nh); saveAppearance({ hidden_sections: nh }) }}
-                className={`rounded-full border px-2.5 py-1 text-[12px] font-semibold font-[Outfit,sans-serif] ${on ? 'border-[rgba(249,115,22,0.3)] bg-[rgba(249,115,22,0.13)] text-[#f97316]' : 'border-[var(--border-default)] text-[var(--text-muted)]'}`}>{s.label}</button>
+                className={`rounded-full border px-2.5 py-1 text-[13px] font-semibold font-[Outfit,sans-serif] ${on ? 'border-[rgba(249,115,22,0.3)] bg-[rgba(249,115,22,0.13)] text-[#f97316]' : 'border-[var(--border-default)] text-[var(--text-muted)]'}`}>{s.label}</button>
             )})}
           </div>
         </div>
@@ -223,7 +223,7 @@ export default function DashboardClient({ artist, genres, songs, photos, events,
       </div>
 
       {/* COMPLETENESS */}
-      <div className="mt-4 flex items-center gap-4 rounded-xl border border-[var(--border-subtle)] bg-[var(--bg-elevated)] px-4 py-3 text-[13.5px] text-[var(--text-secondary)]">
+      <div className="mt-4 flex items-center gap-4 rounded-xl border border-[var(--border-subtle)] bg-[var(--bg-elevated)] px-4 py-3 text-[14.5px] text-[var(--text-secondary)]">
         <span className="whitespace-nowrap">Profilis {stats.complete}% užbaigtas</span>
         <div className="h-[7px] flex-1 overflow-hidden rounded-full bg-white/10"><div className="h-full rounded-full" style={{ width: `${stats.complete}%`, background: 'linear-gradient(90deg,#f97316,#fbbf24)' }} /></div>
       </div>
@@ -236,10 +236,10 @@ export default function DashboardClient({ artist, genres, songs, photos, events,
 function Mini({ label, value, sub, spark, accent }: { label: string; value: string; sub?: string; spark?: string; accent?: boolean }) {
   return (
     <div className="min-w-[112px] rounded-2xl border border-[var(--border-subtle)] bg-[var(--bg-elevated)] px-4 py-2.5">
-      <div className="text-[12px] text-[var(--text-muted)]">{label}</div>
+      <div className="text-[13px] text-[var(--text-muted)]">{label}</div>
       <div className={`mt-0.5 font-[Outfit,sans-serif] text-[22px] font-extrabold ${accent ? 'text-[#f97316]' : 'text-[var(--text-primary)]'}`}>{value}</div>
       {spark && <svg width="100" height="18" viewBox="0 0 100 18" className="mt-1"><polyline points="0,14 13,11 26,12 39,8 52,10 65,5 78,6 91,2 100,4" fill="none" stroke={spark} strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" /></svg>}
-      {sub && <div className="mt-1.5 text-[11px] text-[var(--text-muted)]">{sub}</div>}
+      {sub && <div className="mt-1.5 text-[12px] text-[var(--text-muted)]">{sub}</div>}
     </div>
   )
 }
@@ -247,7 +247,7 @@ function Mini({ label, value, sub, spark, accent }: { label: string; value: stri
 function More({ href, title, sub }: { href: string; title: string; sub: string }) {
   return (
     <a href={href} className="flex items-center gap-3 rounded-xl border border-[var(--border-subtle)] bg-[var(--bg-elevated)] px-3.5 py-3 transition hover:border-[rgba(249,115,22,0.35)]">
-      <div><b className="font-[Outfit,sans-serif] text-[14px] font-semibold text-[var(--text-primary)]">{title}</b><span className="block text-[12px] text-[var(--text-muted)]">{sub}</span></div>
+      <div><b className="font-[Outfit,sans-serif] text-[14px] font-semibold text-[var(--text-primary)]">{title}</b><span className="block text-[13px] text-[var(--text-muted)]">{sub}</span></div>
     </a>
   )
 }

@@ -73,7 +73,7 @@ export function PlaceholderPage({
             borderRadius: 999,
             background: `${accent}1a`,
             color: accent,
-            fontSize: 12,
+            fontSize: 13,
             fontWeight: 800,
             textTransform: 'uppercase',
             letterSpacing: '0.1em',
@@ -201,7 +201,7 @@ export function PlaceholderPage({
         >
           <div
             style={{
-              fontSize: 12,
+              fontSize: 13,
               fontWeight: 800,
               textTransform: 'uppercase',
               letterSpacing: '0.1em',

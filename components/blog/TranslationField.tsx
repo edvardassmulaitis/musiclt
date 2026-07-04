@@ -31,7 +31,7 @@ export function TranslationField({
 
   return (
     <div className="mb-6">
-      <label className="text-[11px] font-bold uppercase tracking-wider mb-2 block" style={{ color: 'var(--text-muted)', fontFamily: "'Outfit', sans-serif" }}>
+      <label className="text-[12px] font-bold uppercase tracking-wider mb-2 block" style={{ color: 'var(--text-muted)', fontFamily: "'Outfit', sans-serif" }}>
         Verčiama daina
       </label>
 

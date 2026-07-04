@@ -90,7 +90,7 @@ export function MessageItem({ message, viewerId, grouped, onOpenThread, onToggle
         {!grouped && <ChatAvatar url={author?.avatar_url || null} fallbackName={name} size={36} />}
         {grouped && showToolbar && (
           <div style={{
-            fontSize: 11, color: 'var(--text-muted)', textAlign: 'center', lineHeight: 1, paddingTop: 4,
+            fontSize: 12, color: 'var(--text-muted)', textAlign: 'center', lineHeight: 1, paddingTop: 4,
           }}>
             {formatHM(message.created_at)}
           </div>
@@ -103,9 +103,9 @@ export function MessageItem({ message, viewerId, grouped, onOpenThread, onToggle
         {!grouped && (
           <div style={{ display: 'flex', alignItems: 'baseline', gap: 8, marginBottom: 2 }}>
             <span style={{ fontSize: 14, fontWeight: 700, color: 'var(--text-primary)' }}>{name}</span>
-            <span style={{ fontSize: 12, color: 'var(--text-muted)' }}>{formatHM(message.created_at)}</span>
+            <span style={{ fontSize: 13, color: 'var(--text-muted)' }}>{formatHM(message.created_at)}</span>
             {message.edited_at && (
-              <span style={{ fontSize: 11, color: 'var(--text-faint, var(--text-muted))' }}>(redaguota)</span>
+              <span style={{ fontSize: 12, color: 'var(--text-faint, var(--text-muted))' }}>(redaguota)</span>
             )}
           </div>
         )}
@@ -129,13 +129,13 @@ export function MessageItem({ message, viewerId, grouped, onOpenThread, onToggle
                 if (e.key === 'Enter' && (e.metaKey || e.ctrlKey)) { e.preventDefault(); saveEdit() }
               }}
             />
-            <div style={{ marginTop: 6, display: 'flex', gap: 8, fontSize: 13 }}>
+            <div style={{ marginTop: 6, display: 'flex', gap: 8, fontSize: 14 }}>
               <button onClick={() => { setEditing(false); setEditText(message.body) }}
-                style={{ padding: '5px 10px', borderRadius: 6, background: 'transparent', border: '1px solid var(--border-default)', color: 'var(--text-secondary)', cursor: 'pointer', fontSize: 13 }}>
+                style={{ padding: '5px 10px', borderRadius: 6, background: 'transparent', border: '1px solid var(--border-default)', color: 'var(--text-secondary)', cursor: 'pointer', fontSize: 14 }}>
                 Atšaukti
               </button>
               <button onClick={saveEdit}
-                style={{ padding: '5px 12px', borderRadius: 6, background: 'var(--accent-orange)', border: 'none', color: '#fff', cursor: 'pointer', fontSize: 13, fontWeight: 700 }}>
+                style={{ padding: '5px 12px', borderRadius: 6, background: 'var(--accent-orange)', border: 'none', color: '#fff', cursor: 'pointer', fontSize: 14, fontWeight: 700 }}>
                 Išsaugoti
               </button>
             </div>
@@ -152,7 +152,7 @@ export function MessageItem({ message, viewerId, grouped, onOpenThread, onToggle
                 wordBreak: 'break-word', whiteSpace: 'pre-wrap',
               }}>
                 {linkify(message.body, embeds)}
-                {message.pending && <span style={{ fontSize: 11, marginLeft: 6, color: 'var(--text-muted)' }}>⌛</span>}
+                {message.pending && <span style={{ fontSize: 12, marginLeft: 6, color: 'var(--text-muted)' }}>⌛</span>}
               </div>
             )}
             <MessageEmbeds embeds={embeds} />
@@ -173,12 +173,12 @@ export function MessageItem({ message, viewerId, grouped, onOpenThread, onToggle
                     padding: '2px 8px', borderRadius: 12,
                     background: mine ? 'rgba(249, 115, 22, 0.18)' : 'var(--bg-elevated)',
                     border: `1px solid ${mine ? 'var(--accent-orange)' : 'var(--border-default)'}`,
-                    color: 'var(--text-primary)', fontSize: 13, lineHeight: 1.2,
+                    color: 'var(--text-primary)', fontSize: 14, lineHeight: 1.2,
                     cursor: 'pointer', height: 22,
                   }}
                 >
                   <span style={{ fontSize: 14 }}>{r.emoji}</span>
-                  <span style={{ fontSize: 12, fontWeight: 700 }}>{r.count}</span>
+                  <span style={{ fontSize: 13, fontWeight: 700 }}>{r.count}</span>
                 </button>
               )
             })}
@@ -192,7 +192,7 @@ export function MessageItem({ message, viewerId, grouped, onOpenThread, onToggle
             style={{
               marginTop: 4, padding: '4px 10px', borderRadius: 8,
               background: 'transparent', border: '1px solid var(--border-default)',
-              color: 'var(--accent-link)', fontSize: 13, fontWeight: 600,
+              color: 'var(--accent-link)', fontSize: 14, fontWeight: 600,
               cursor: 'pointer',
               display: 'inline-flex', alignItems: 'center', gap: 6,
             }}

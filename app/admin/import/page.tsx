@@ -320,7 +320,7 @@ export default function AdminImportPage() {
 
         {/* Wiki factors gating informer — score'as = music.lt + YT views tik */}
         {stats && !stats.wiki_factors_enabled && (
-          <div className="mb-3 rounded-lg border border-indigo-200 bg-indigo-50 px-3 py-2 text-[13px] text-indigo-800">
+          <div className="mb-3 rounded-lg border border-indigo-200 bg-indigo-50 px-3 py-2 text-[14px] text-indigo-800">
             ℹ <strong>Wiki score components atjungti globaliai</strong> — score'ai = catalog + reach + popularity tik (Wiki chart/commercial/awards = 0).
             Score pill'iai pažymėti <code className="rounded bg-white px-1">•</code> kol Wiki batch nepritaikytas.
           </div>
@@ -489,7 +489,7 @@ export default function AdminImportPage() {
                             {a.name}
                           </Link>
                           {(a.legacy_likes ?? 0) > 0 && (
-                            <span className="text-[11px] text-[var(--text-faint)] tabular-nums">
+                            <span className="text-[12px] text-[var(--text-faint)] tabular-nums">
                               ♥ {a.legacy_likes!.toLocaleString('lt-LT')}
                               {(a.legacy_discussion_count ?? 0) > 0 && (
                                 <span className="ml-1.5">💬 {a.legacy_discussion_count}</span>
@@ -603,11 +603,11 @@ function HelpToggle() {
             <div className="p-4 space-y-4 text-sm text-[var(--text-secondary)]">
               <section>
                 <h3 className="font-semibold text-[var(--text-primary)] mb-1.5">Real-state vs queue (v2)</h3>
-                <p className="text-[13.5px]">Wiki/Scrape badge'ai dabar = realus DB state'as (tracks/albums source). CLI imported atlikėjai (`import_artist.py`) rodomi kaip done be queue trace'o.</p>
+                <p className="text-[14.5px]">Wiki/Scrape badge'ai dabar = realus DB state'as (tracks/albums source). CLI imported atlikėjai (`import_artist.py`) rodomi kaip done be queue trace'o.</p>
               </section>
               <section>
                 <h3 className="font-semibold text-[var(--text-primary)] mb-1.5">Stats reikšmės</h3>
-                <ul className="space-y-1 text-[13.5px]">
+                <ul className="space-y-1 text-[14.5px]">
                   <li><strong>Iš viso</strong> — visi atlikėjai DB'oje (12k+ iš legacy)</li>
                   <li><strong>Sutvarkyti</strong> — turi wiki + scrape (real DB content). Galima per UI flow arba per CLI</li>
                   <li><strong>Aktyvūs job'ai</strong> — queue (kuria UI „Paleisti Wiki/Scrape" mygtukai)</li>
@@ -615,21 +615,21 @@ function HelpToggle() {
               </section>
               <section>
                 <h3 className="font-semibold text-[var(--text-primary)] mb-1.5">Single atlikėjui — viskas vienu metu</h3>
-                <p className="text-[13.5px] mb-2">Greičiausia kelti naują atlikėją (scrape + Wiki + news + events + lyrics + YT enrich + score):</p>
-                <div className="rounded-lg bg-[var(--bg-elevated)] border border-[var(--border-subtle)] p-2.5 font-mono text-[12px] text-[var(--text-primary)] whitespace-pre-wrap break-all">
+                <p className="text-[14.5px] mb-2">Greičiausia kelti naują atlikėją (scrape + Wiki + news + events + lyrics + YT enrich + score):</p>
+                <div className="rounded-lg bg-[var(--bg-elevated)] border border-[var(--border-subtle)] p-2.5 font-mono text-[13px] text-[var(--text-primary)] whitespace-pre-wrap break-all">
                   {`python3 scraper/import_artist.py <artist_id>`}
                 </div>
               </section>
               <section>
                 <h3 className="font-semibold text-[var(--text-primary)] mb-1.5">Bulk per queue</h3>
-                <p className="text-[13.5px] mb-2">Pažymėk N atlikėjų → „Paleisti Wiki / Scrape" → job queue. Mac worker'is:</p>
-                <div className="rounded-lg bg-[var(--bg-elevated)] border border-[var(--border-subtle)] p-2.5 font-mono text-[12px] text-[var(--text-primary)] whitespace-pre-wrap break-all">
+                <p className="text-[14.5px] mb-2">Pažymėk N atlikėjų → „Paleisti Wiki / Scrape" → job queue. Mac worker'is:</p>
+                <div className="rounded-lg bg-[var(--bg-elevated)] border border-[var(--border-subtle)] p-2.5 font-mono text-[13px] text-[var(--text-primary)] whitespace-pre-wrap break-all">
                   {`bash scraper/run_worker.sh wiki\n# atskiram terminale:\nbash scraper/run_worker.sh scrape`}
                 </div>
               </section>
               <section>
                 <h3 className="font-semibold text-[var(--text-primary)] mb-1.5">Kokybės badges</h3>
-                <ul className="space-y-1 text-[13.5px]">
+                <ul className="space-y-1 text-[14.5px]">
                   <li><strong>Score pill</strong>: 90+ ⭐ aukso, 70+ smaragdo, 50+ mėlyna, 30+ pilka. <code>•</code> = Wiki factors atjungti (score gated).</li>
                   <li><strong>P</strong> = profile foto (cover_image_url). ✓ OK, ⚠ legacy/maža, ○ nėra.</li>
                   <li><strong>H</strong> = hero foto (cover_image_wide_url). ✓ OK, ○ nėra.</li>
@@ -651,14 +651,14 @@ function StatCard({ label, value, sub, highlight }: { label: string; value: numb
       <div className={`text-xl font-bold tabular-nums ${highlight ? 'text-orange-600' : 'text-[var(--text-primary)]'}`}>
         {value.toLocaleString('lt')}
       </div>
-      {sub && <div className="text-[11px] text-[var(--text-muted)] truncate" title={sub}>{sub}</div>}
+      {sub && <div className="text-[12px] text-[var(--text-muted)] truncate" title={sub}>{sub}</div>}
     </div>
   )
 }
 
 function FilterGroupLabel({ children }: { children: React.ReactNode }) {
   return (
-    <span className="text-[11.5px] font-bold uppercase tracking-wider text-[var(--text-faint)] self-center mr-1">
+    <span className="text-[12.5px] font-bold uppercase tracking-wider text-[var(--text-faint)] self-center mr-1">
       {children}
     </span>
   )
@@ -671,7 +671,7 @@ function FilterChip({ current, value, onClick, children }: {
   return (
     <button
       onClick={() => onClick(value)}
-      className={`px-2.5 py-1 text-[12.5px] rounded-full border transition-colors ${
+      className={`px-2.5 py-1 text-[13.5px] rounded-full border transition-colors ${
         active
           ? 'bg-music-blue text-white border-music-blue'
           : 'bg-[var(--bg-elevated)] border-[var(--input-border)] text-[var(--text-primary)] hover:bg-[var(--bg-hover)]'
@@ -688,28 +688,28 @@ function StateBadge({ done, lastStatus, completedAt }: {
 }) {
   // Queue aktyvumas užmuša rezultatą (rodo, kas vyksta dabar)
   if (lastStatus === 'running') {
-    return <span className="inline-flex items-center gap-1 px-2 py-0.5 text-[11px] rounded-full bg-blue-100 text-blue-700">
+    return <span className="inline-flex items-center gap-1 px-2 py-0.5 text-[12px] rounded-full bg-blue-100 text-blue-700">
       <span className="animate-pulse">●</span> vyksta
     </span>
   }
   if (lastStatus === 'pending') {
-    return <span className="px-2 py-0.5 text-[11px] rounded-full bg-yellow-100 text-yellow-700">eile</span>
+    return <span className="px-2 py-0.5 text-[12px] rounded-full bg-yellow-100 text-yellow-700">eile</span>
   }
   if (lastStatus === 'failed' && !done) {
-    return <span className="px-2 py-0.5 text-[11px] rounded-full bg-red-100 text-red-700">klaida</span>
+    return <span className="px-2 py-0.5 text-[12px] rounded-full bg-red-100 text-red-700">klaida</span>
   }
   // Real state'as: ar DB'jeje yra atitinkamų entity'ų
   if (done) {
     if (completedAt) {
       const d = new Date(completedAt)
       const ago = Math.floor((Date.now() - d.getTime()) / (1000 * 60 * 60 * 24))
-      return <span className="px-2 py-0.5 text-[11px] rounded-full bg-green-100 text-green-700" title={d.toISOString()}>
+      return <span className="px-2 py-0.5 text-[12px] rounded-full bg-green-100 text-green-700" title={d.toISOString()}>
         ✓ {ago < 1 ? 'šiandien' : `prieš ${ago}d`}
       </span>
     }
-    return <span className="px-2 py-0.5 text-[11px] rounded-full bg-green-100 text-green-700" title="Real DB state (be queue trace'o, CLI import)">✓</span>
+    return <span className="px-2 py-0.5 text-[12px] rounded-full bg-green-100 text-green-700" title="Real DB state (be queue trace'o, CLI import)">✓</span>
   }
-  return <span className="px-2 py-0.5 text-[11px] rounded-full bg-gray-100 text-gray-500">—</span>
+  return <span className="px-2 py-0.5 text-[12px] rounded-full bg-gray-100 text-gray-500">—</span>
 }
 
 function KindBadge({ row }: { row: ArtistStatus }) {
@@ -721,7 +721,7 @@ function KindBadge({ row }: { row: ArtistStatus }) {
       : 'bg-gray-200 text-gray-700'
   return (
     <span
-      className={`inline-block rounded-full px-1.5 py-0.5 text-[10.5px] font-bold uppercase tracking-wider ${color}`}
+      className={`inline-block rounded-full px-1.5 py-0.5 text-[11.5px] font-bold uppercase tracking-wider ${color}`}
       title={row.country || 'Be šalies'}
     >
       {label}
@@ -741,7 +741,7 @@ function QualityCell({ row, scoreGated }: { row: ArtistStatus; scoreGated: boole
 
 function ScorePill({ score, gated }: { score: number | null; gated: boolean }) {
   if (score == null) {
-    return <span className="rounded bg-gray-100 px-1.5 py-0.5 text-[11px] font-bold text-gray-500">—</span>
+    return <span className="rounded bg-gray-100 px-1.5 py-0.5 text-[12px] font-bold text-gray-500">—</span>
   }
   const color = score >= 90 ? 'bg-yellow-100 text-yellow-800'
     : score >= 70 ? 'bg-emerald-100 text-emerald-800'
@@ -753,7 +753,7 @@ function ScorePill({ score, gated }: { score: number | null; gated: boolean }) {
       title={gated
         ? 'Score: tik music.lt + YT views (Wiki chart/commercial/awards atjungti visiems iki Wiki batch užbaigimo)'
         : 'Score pilnas (Wiki factors enabled)'}
-      className={`rounded px-1.5 py-0.5 text-[11px] font-bold tabular-nums ${color}`}
+      className={`rounded px-1.5 py-0.5 text-[12px] font-bold tabular-nums ${color}`}
     >
       {Math.round(score)}{gated && <span className="ml-0.5 opacity-60">•</span>}
     </span>
@@ -772,12 +772,12 @@ function PhotoBadges({ row }: { row: ArtistStatus }) {
     ? <span title="Hero OK" className="text-emerald-600">✓</span>
     : <span title="Nėra hero" className="text-purple-500">○</span>
   return (
-    <span className="inline-flex items-center gap-1 text-[11px]">
+    <span className="inline-flex items-center gap-1 text-[12px]">
       <span title="Profile foto" className="inline-flex items-center gap-0.5">
-        <span className="font-mono text-[10px] text-[var(--text-faint)]">P</span>{photoIcon}
+        <span className="font-mono text-[11px] text-[var(--text-faint)]">P</span>{photoIcon}
       </span>
       <span title="Hero foto" className="inline-flex items-center gap-0.5">
-        <span className="font-mono text-[10px] text-[var(--text-faint)]">H</span>{heroIcon}
+        <span className="font-mono text-[11px] text-[var(--text-faint)]">H</span>{heroIcon}
       </span>
     </span>
   )
@@ -800,7 +800,7 @@ function CoverageBadge({
 }) {
   if (denom <= 0) {
     return (
-      <span title={`${label}: nėra duomenų`} className="rounded bg-gray-100 px-1.5 py-0.5 text-[11px] font-bold text-gray-400">
+      <span title={`${label}: nėra duomenų`} className="rounded bg-gray-100 px-1.5 py-0.5 text-[12px] font-bold text-gray-400">
         {label} —
       </span>
     )
@@ -812,7 +812,7 @@ function CoverageBadge({
   return (
     <span
       title={`${label}: ${total} / ${denom} = ${pct.toFixed(1)}%`}
-      className={`rounded px-1.5 py-0.5 text-[11px] font-bold tabular-nums ${color}`}
+      className={`rounded px-1.5 py-0.5 text-[12px] font-bold tabular-nums ${color}`}
     >
       {label} {Math.round(pct)}%
     </span>

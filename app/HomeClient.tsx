@@ -212,10 +212,10 @@ function Cover({ src, alt, size = 44, radius = 10, ytId, artistSrc }: { src?: st
 }
 
 function TrendIcon({ t }: { t: string }) {
-  if (t === 'up') return <span className="text-[11px] font-black text-[var(--accent-green)]">▲</span>
-  if (t === 'down') return <span className="text-[11px] font-black text-[var(--accent-red)]">▼</span>
-  if (t === 'new') return <span className="rounded-[3px] bg-[var(--accent-yellow)]/15 px-[5px] py-px text-[9px] font-extrabold tracking-[0.04em] text-[var(--accent-yellow)]">N</span>
-  return <span className="text-[11px] text-[var(--text-faint)]">–</span>
+  if (t === 'up') return <span className="text-[12px] font-black text-[var(--accent-green)]">▲</span>
+  if (t === 'down') return <span className="text-[12px] font-black text-[var(--accent-red)]">▼</span>
+  if (t === 'new') return <span className="rounded-[3px] bg-[var(--accent-yellow)]/15 px-[5px] py-px text-[10px] font-extrabold tracking-[0.04em] text-[var(--accent-yellow)]">N</span>
+  return <span className="text-[12px] text-[var(--text-faint)]">–</span>
 }
 
 function Skel({ w, h, r = 6 }: { w: number | string; h: number; r?: number }) {
@@ -268,11 +268,11 @@ function LoadErrorCard({ onRetry, height = 112 }: { onRetry: () => void; height?
           display: 'inline-block', animation: 'mz-spin 0.8s linear infinite',
         }}
       />
-      <span className="text-[13px] text-[var(--text-muted)]">Atnaujinama…</span>
+      <span className="text-[14px] text-[var(--text-muted)]">Atnaujinama…</span>
       <button
         type="button"
         onClick={onRetry}
-        className="rounded-full bg-[var(--accent-orange)] px-3.5 py-1 font-['Outfit',sans-serif] text-[13px] font-bold text-white transition-opacity hover:opacity-85"
+        className="rounded-full bg-[var(--accent-orange)] px-3.5 py-1 font-['Outfit',sans-serif] text-[14px] font-bold text-white transition-opacity hover:opacity-85"
       >
         Bandyti dar kartą
       </button>
@@ -285,7 +285,7 @@ function LoadErrorCard({ onRetry, height = 112 }: { onRetry: () => void; height?
  *  atitiktų artist page'o tipografiją (`font-['Outfit',sans-serif]` +
  *  `tracking-[-0.01em]` + truputį didesnis font-size 18px). */
 function SectionHead({ label, href, cta = 'Daugiau →', onMore }: { label: React.ReactNode; href?: string; cta?: string; onMore?: () => void }) {
-  const ctaCls = "font-['Outfit',sans-serif] text-[12.5px] font-bold text-[var(--accent-orange)] no-underline transition-opacity hover:opacity-70"
+  const ctaCls = "font-['Outfit',sans-serif] text-[13.5px] font-bold text-[var(--accent-orange)] no-underline transition-opacity hover:opacity-70"
   return (
     <div className="mb-3.5 flex items-center justify-between">
       <h2 className="m-0 font-['Outfit',sans-serif] text-[19px] font-extrabold tracking-[-0.01em] text-[var(--text-primary)] sm:text-[20px]">{label}</h2>
@@ -331,41 +331,41 @@ function DienosDainaWidget() {
       <div className="flex items-center gap-3 border-b border-[var(--border-subtle)] px-4 py-3.5">
         <Cover src={w?.tracks?.cover_url} alt={w?.tracks?.title || 'daina'} size={54} radius={10} />
         <div className="min-w-0 flex-1">
-          <p className="m-0 mb-0.5 text-[11px] font-bold uppercase tracking-[0.08em] text-[var(--text-muted)]">Šiandien pirmauja</p>
+          <p className="m-0 mb-0.5 text-[12px] font-bold uppercase tracking-[0.08em] text-[var(--text-muted)]">Šiandien pirmauja</p>
           <h3 className="m-0 truncate font-['Outfit',sans-serif] text-[15px] font-extrabold leading-tight text-[var(--text-primary)]">
             {sanitizeTitle(w?.tracks?.title || 'Dar nėra')}
           </h3>
-          <p className="m-0 text-[12px] text-[var(--text-muted)]">{w?.tracks?.artists?.name || ''}</p>
+          <p className="m-0 text-[13px] text-[var(--text-muted)]">{w?.tracks?.artists?.name || ''}</p>
         </div>
         <Link
           href="/dienos-daina"
-          className="shrink-0 rounded-[20px] bg-[var(--accent-orange)] px-3.5 py-[7px] text-[12px] font-extrabold text-white no-underline shadow-[0_3px_14px_rgba(249,115,22,0.35)] transition-transform hover:-translate-y-px"
+          className="shrink-0 rounded-[20px] bg-[var(--accent-orange)] px-3.5 py-[7px] text-[13px] font-extrabold text-white no-underline shadow-[0_3px_14px_rgba(249,115,22,0.35)] transition-transform hover:-translate-y-px"
         >
           Balsuoti
         </Link>
       </div>
       <div>
         <div className="flex items-center justify-between px-4 pb-1.5 pt-2">
-          <span className="text-[10px] font-extrabold uppercase tracking-[0.1em] text-[var(--text-faint)]">Rytdienos kandidatai</span>
-          <Link href="/dienos-daina" className="text-[10px] font-bold text-[var(--accent-link)] no-underline">+ Siūlyti</Link>
+          <span className="text-[11px] font-extrabold uppercase tracking-[0.1em] text-[var(--text-faint)]">Rytdienos kandidatai</span>
+          <Link href="/dienos-daina" className="text-[11px] font-bold text-[var(--accent-link)] no-underline">+ Siūlyti</Link>
         </div>
         {noms.length === 0 ? (
-          <div className="px-4 py-3.5 text-center text-[13px] text-[var(--text-muted)]">Kol kas nėra nominacijų</div>
+          <div className="px-4 py-3.5 text-center text-[14px] text-[var(--text-muted)]">Kol kas nėra nominacijų</div>
         ) : noms.slice(0, 5).map((n, i) => (
           <div
             key={n.id}
             className="flex items-center gap-2 border-t border-[var(--border-subtle)] px-4 py-1.5 transition-colors hover:bg-[var(--bg-hover)]"
           >
-            <span className="w-3.5 shrink-0 text-center text-[11px] font-extrabold text-[var(--text-faint)]">{i + 1}</span>
+            <span className="w-3.5 shrink-0 text-center text-[12px] font-extrabold text-[var(--text-faint)]">{i + 1}</span>
             <Cover src={n.tracks?.cover_url} alt={n.tracks?.title || '?'} size={26} radius={6} />
             <div className="min-w-0 flex-1">
-              <p className="m-0 truncate text-[12px] font-bold text-[var(--text-primary)]">{sanitizeTitle(n.tracks?.title || '')}</p>
-              <p className="m-0 text-[11px] text-[var(--text-muted)]">{n.tracks?.artists?.name}</p>
+              <p className="m-0 truncate text-[13px] font-bold text-[var(--text-primary)]">{sanitizeTitle(n.tracks?.title || '')}</p>
+              <p className="m-0 text-[12px] text-[var(--text-muted)]">{n.tracks?.artists?.name}</p>
             </div>
             <button
               onClick={() => voted === null && setVoted(i)}
               disabled={voted !== null}
-              className={`shrink-0 rounded-[10px] border px-2 py-[3px] text-[11px] font-bold transition-all ${
+              className={`shrink-0 rounded-[10px] border px-2 py-[3px] text-[12px] font-bold transition-all ${
                 voted === i
                   ? 'border-[var(--accent-green)]/30 bg-[var(--accent-green)]/10 text-[var(--accent-green)] cursor-default'
                   : voted !== null
@@ -423,12 +423,12 @@ function BoomboxHomeWidget() {
       <div className="mb-1 font-['Outfit','system-ui',sans-serif] text-[22px] font-black tracking-[-0.5px]">
         BOOMBOX
       </div>
-      <div className="mb-3 text-[13px] text-[var(--text-secondary)]">
+      <div className="mb-3 text-[14px] text-[var(--text-secondary)]">
         3 misijos · ~2 min · drop'ai
       </div>
 
       {state.loading ? null : state.hasContent ? (
-        <div className="flex items-center gap-2 text-[13px] text-[var(--text-muted)]">
+        <div className="flex items-center gap-2 text-[14px] text-[var(--text-muted)]">
           {state.completedToday > 0 && (
             <span className="text-[var(--accent-green)]">✓ {state.completedToday}/3</span>
           )}
@@ -438,7 +438,7 @@ function BoomboxHomeWidget() {
           <span className="ml-auto font-semibold text-[var(--accent-orange)]">Pradėti →</span>
         </div>
       ) : (
-        <div className="text-[13px] text-[var(--text-faint)]">Šiandien dar nepublikuota</div>
+        <div className="text-[14px] text-[var(--text-faint)]">Šiandien dar nepublikuota</div>
       )}
     </Link>
   )
@@ -521,7 +521,7 @@ function ZmonesSection() {
         )) : items.length === 0 ? (
           <div className="hp-card flex shrink-0 flex-col justify-center px-4 py-3" style={{ width: 360 }}>
             <p className="m-0 font-['Outfit',sans-serif] text-[14px] font-extrabold text-[var(--text-primary)]">Žmonių zona — netrukus</p>
-            <p className="m-0 mt-1 text-[12.5px] text-[var(--text-muted)]">
+            <p className="m-0 mt-1 text-[13.5px] text-[var(--text-muted)]">
               Čia atsiras autorių blogai, vertimai, kūryba ir aktyviausios diskusijos. Pirmas tampi autoriumi <Link href="/blogai/naujas" className="text-[var(--accent-link)] no-underline">čia</Link>.
             </p>
           </div>
@@ -534,23 +534,23 @@ function ZmonesSection() {
           >
             <div className="mb-1.5 flex items-center gap-1.5">
               {it.badge && (
-                <span className={`rounded px-1.5 py-0.5 font-['Outfit',sans-serif] text-[9.5px] font-extrabold uppercase tracking-[0.06em] ${
+                <span className={`rounded px-1.5 py-0.5 font-['Outfit',sans-serif] text-[10.5px] font-extrabold uppercase tracking-[0.06em] ${
                   it.type === 'blog'
                     ? 'bg-[var(--accent-orange)]/15 text-[var(--accent-orange)]'
                     : 'bg-[var(--accent-link)]/15 text-[var(--accent-link)]'
                 }`}>{it.badge}</span>
               )}
-              <span className="ml-auto text-[10px] text-[var(--text-faint)]">{timeAgo(it.created_at)}</span>
+              <span className="ml-auto text-[11px] text-[var(--text-faint)]">{timeAgo(it.created_at)}</span>
             </div>
             <p className="m-0 line-clamp-2 font-['Outfit',sans-serif] text-[14px] font-extrabold leading-snug text-[var(--text-primary)] transition-colors group-hover:text-[var(--accent-orange)]">
               {it.title}
             </p>
             {it.excerpt && (
-              <p className="m-0 mt-1.5 line-clamp-2 text-[12.5px] text-[var(--text-muted)]">
+              <p className="m-0 mt-1.5 line-clamp-2 text-[13.5px] text-[var(--text-muted)]">
                 {it.excerpt}
               </p>
             )}
-            <p className="m-0 mt-auto pt-2 truncate text-[12px] text-[var(--text-secondary)]">
+            <p className="m-0 mt-auto pt-2 truncate text-[13px] text-[var(--text-secondary)]">
               {it.meta}
             </p>
           </Link>
@@ -588,12 +588,12 @@ function DiscussionsWidget() {
         >
           <div className="mb-1.5 flex items-center gap-1.5">
             {(d.tags || []).slice(0, 1).map(t => (
-              <span key={t} className="rounded bg-[var(--bg-active)] px-1.5 py-0.5 text-[10px] font-extrabold text-[var(--accent-link)]">{t}</span>
+              <span key={t} className="rounded bg-[var(--bg-active)] px-1.5 py-0.5 text-[11px] font-extrabold text-[var(--accent-link)]">{t}</span>
             ))}
-            <span className="ml-auto text-[10px] text-[var(--text-faint)]">{timeAgo(d.created_at)}</span>
+            <span className="ml-auto text-[11px] text-[var(--text-faint)]">{timeAgo(d.created_at)}</span>
           </div>
           <p className="m-0 mb-1.5 line-clamp-2 font-['Outfit',sans-serif] text-[14px] font-bold leading-snug text-[var(--text-primary)]">{d.title}</p>
-          <p className="m-0 text-[11px] text-[var(--text-muted)]">{d.author_name} · {d.comment_count} atsak.</p>
+          <p className="m-0 text-[12px] text-[var(--text-muted)]">{d.author_name} · {d.comment_count} atsak.</p>
         </Link>
       ))}
     </div>
@@ -1315,7 +1315,7 @@ function ChartTabs({ active, onSelect, compact = false }: {
   onSelect: (k: 'lt' | 'world') => void
   compact?: boolean
 }) {
-  const tabPad = compact ? 'py-[7px] text-[12px]' : 'py-[9px] text-[13px]'
+  const tabPad = compact ? 'py-[7px] text-[13px]' : 'py-[9px] text-[14px]'
   return (
     <div className="mb-3 flex">
       <div className="flex flex-1 gap-[3px] rounded-[10px] bg-[var(--bg-hover)] p-[3px]">
@@ -1338,8 +1338,8 @@ function ChartTabs({ active, onSelect, compact = false }: {
 }
 
 function ChartRow({ t, compact = false }: { t: TopEntry; compact?: boolean }) {
-  const titleSize = compact ? 'text-[13.5px]' : 'text-[14px]'
-  const metaSize = compact ? 'text-[11.5px]' : 'text-[12px]'
+  const titleSize = compact ? 'text-[14.5px]' : 'text-[14px]'
+  const metaSize = compact ? 'text-[12.5px]' : 'text-[13px]'
   return (
     <Link
       href={t.slug ? `/muzika/${t.slug}` : '/topai'}
@@ -1373,7 +1373,7 @@ function ChartVoteCTA({ className = '' }: { className?: string }) {
   return (
     <Link
       href="/top40"
-      className={`mt-2.5 flex items-center justify-center rounded-[10px] bg-[var(--accent-orange)] p-2.5 font-['Outfit',sans-serif] text-[13px] font-extrabold text-white no-underline shadow-[0_2px_12px_rgba(249,115,22,0.3)] transition-all hover:-translate-y-px hover:shadow-[0_4px_18px_rgba(249,115,22,0.45)] ${className}`}
+      className={`mt-2.5 flex items-center justify-center rounded-[10px] bg-[var(--accent-orange)] p-2.5 font-['Outfit',sans-serif] text-[14px] font-extrabold text-white no-underline shadow-[0_2px_12px_rgba(249,115,22,0.3)] transition-all hover:-translate-y-px hover:shadow-[0_4px_18px_rgba(249,115,22,0.45)] ${className}`}
     >
       Balsuok
     </Link>
@@ -1413,7 +1413,7 @@ function CommunityDiscussionsCard() {
     <div className="flex h-full flex-col overflow-hidden rounded-2xl border border-[var(--border-default)] bg-[var(--bg-surface)]">
       <div className="flex shrink-0 items-center justify-between border-b border-[var(--border-subtle)] px-4 py-2.5">
         <span className="font-['Outfit',sans-serif] text-[14px] font-extrabold text-[var(--text-primary)]">Diskusijos</span>
-        <Link href="/diskusijos" className="text-[12px] font-bold text-[var(--accent-link)] no-underline">Visos →</Link>
+        <Link href="/diskusijos" className="text-[13px] font-bold text-[var(--accent-link)] no-underline">Visos →</Link>
       </div>
       <div className="flex-1 overflow-y-auto">
         {loading ? Array(4).fill(null).map((_, i) => (
@@ -1421,27 +1421,27 @@ function CommunityDiscussionsCard() {
             <Skel w="80%" h={11} /><div className="mt-2"><Skel w="95%" h={9} /></div>
           </div>
         )) : discs.length === 0 ? (
-          <div className="px-4 py-6 text-center text-[13px] text-[var(--text-muted)]">Diskusijų dar nėra</div>
+          <div className="px-4 py-6 text-center text-[14px] text-[var(--text-muted)]">Diskusijų dar nėra</div>
         ) : discs.map((d, i) => {
           const lc = d.latest_comment
           const hue = strHue(lc?.author || d.author_name || '?')
           return (
             <Link key={d.id} href={`/diskusijos/${d.slug}`} className="block border-b border-[var(--border-subtle)] px-4 py-2.5 no-underline transition-colors hover:bg-[var(--bg-hover)]" style={{ borderBottomWidth: i === discs.length - 1 ? 0 : 1 }}>
-              <p className="m-0 line-clamp-1 font-['Outfit',sans-serif] text-[13.5px] font-bold text-[var(--text-primary)] transition-colors group-hover:text-[var(--accent-orange)]">{d.title}</p>
+              <p className="m-0 line-clamp-1 font-['Outfit',sans-serif] text-[14.5px] font-bold text-[var(--text-primary)] transition-colors group-hover:text-[var(--accent-orange)]">{d.title}</p>
               {lc ? (
                 <div className="mt-1 flex items-start gap-1.5">
                   {lc.avatar ? (
                     // eslint-disable-next-line @next/next/no-img-element
                     <img src={proxyImg(lc.avatar)} alt="" className="mt-px h-[15px] w-[15px] shrink-0 rounded-full object-cover" />
                   ) : (
-                    <span className="mt-px flex h-[15px] w-[15px] shrink-0 items-center justify-center rounded-full text-[9px] font-extrabold" style={{ background: `hsl(${hue},32%,20%)`, color: `hsl(${hue},48%,60%)` }}>{(lc.author || '?').charAt(0).toUpperCase()}</span>
+                    <span className="mt-px flex h-[15px] w-[15px] shrink-0 items-center justify-center rounded-full text-[10px] font-extrabold" style={{ background: `hsl(${hue},32%,20%)`, color: `hsl(${hue},48%,60%)` }}>{(lc.author || '?').charAt(0).toUpperCase()}</span>
                   )}
-                  <p className="m-0 line-clamp-2 text-[12px] leading-snug text-[var(--text-muted)]">
+                  <p className="m-0 line-clamp-2 text-[13px] leading-snug text-[var(--text-muted)]">
                     <span className="font-bold text-[var(--text-secondary)]">{lc.author}:</span> {lc.excerpt}
                   </p>
                 </div>
               ) : (
-                <p className="m-0 mt-0.5 text-[11.5px] text-[var(--text-muted)]">{d.author_name || 'Anonimas'} · {d.comment_count} ats. · {timeAgo(d.created_at)}</p>
+                <p className="m-0 mt-0.5 text-[12.5px] text-[var(--text-muted)]">{d.author_name || 'Anonimas'} · {d.comment_count} ats. · {timeAgo(d.created_at)}</p>
               )}
             </Link>
           )
@@ -1456,7 +1456,7 @@ function CommunityChatCard() {
     <div className="flex h-full flex-col overflow-hidden rounded-2xl border border-[var(--border-default)] bg-[var(--bg-surface)]">
       <div className="flex items-center justify-between border-b border-[var(--border-subtle)] px-4 py-3">
         <span className="font-['Outfit',sans-serif] text-[14px] font-extrabold text-[var(--text-primary)]">Pokalbiai</span>
-        <Link href="/pokalbiai" className="text-[12px] font-bold text-[var(--accent-link)] no-underline">Atidaryti →</Link>
+        <Link href="/pokalbiai" className="text-[13px] font-bold text-[var(--accent-link)] no-underline">Atidaryti →</Link>
       </div>
       <div className="flex-1 overflow-hidden">
         <HomeChatsWidget />
@@ -1501,7 +1501,7 @@ function CommunityUserPostsCard() {
     <div className="flex h-full flex-col overflow-hidden rounded-2xl border border-[var(--border-default)] bg-[var(--bg-surface)]">
       <div className="flex items-center justify-between border-b border-[var(--border-subtle)] px-4 py-3">
         <span className="font-['Outfit',sans-serif] text-[14px] font-extrabold text-[var(--text-primary)]">Vartotojų įrašai</span>
-        <Link href="/blogai" className="text-[12px] font-bold text-[var(--accent-link)] no-underline">Visi →</Link>
+        <Link href="/blogai" className="text-[13px] font-bold text-[var(--accent-link)] no-underline">Visi →</Link>
       </div>
       <div className="flex-1">
         {loading ? Array(3).fill(null).map((_, i) => (
@@ -1510,20 +1510,20 @@ function CommunityUserPostsCard() {
           </div>
         )) : posts.length === 0 ? (
           <div className="px-4 py-6 text-center">
-            <p className="m-0 text-[13px] font-bold text-[var(--text-secondary)]">Pirmas autorius — tu?</p>
-            <p className="m-0 mt-1 text-[12px] text-[var(--text-muted)]">Blogai, vertimai, kūryba — dalinkis su bendruomene.</p>
-            <Link href="/blogai/naujas" className="mt-2 inline-flex rounded-md bg-[var(--accent-orange)] px-3 py-1.5 text-[12px] font-bold text-white no-underline">Pradėti</Link>
+            <p className="m-0 text-[14px] font-bold text-[var(--text-secondary)]">Pirmas autorius — tu?</p>
+            <p className="m-0 mt-1 text-[13px] text-[var(--text-muted)]">Blogai, vertimai, kūryba — dalinkis su bendruomene.</p>
+            <Link href="/blogai/naujas" className="mt-2 inline-flex rounded-md bg-[var(--accent-orange)] px-3 py-1.5 text-[13px] font-bold text-white no-underline">Pradėti</Link>
           </div>
         ) : posts.map((p, i) => (
           <Link key={p.id} href={p.href} className="block border-b border-[var(--border-subtle)] px-4 py-2.5 no-underline transition-colors hover:bg-[var(--bg-hover)]" style={{ borderBottomWidth: i === posts.length - 1 ? 0 : 1 }}>
             <div className="mb-0.5 flex items-center gap-1.5">
-              <span className={`rounded px-1.5 py-px font-['Outfit',sans-serif] text-[9.5px] font-extrabold uppercase tracking-[0.06em] ${
+              <span className={`rounded px-1.5 py-px font-['Outfit',sans-serif] text-[10.5px] font-extrabold uppercase tracking-[0.06em] ${
                 p.type === 'blog' ? 'bg-[var(--accent-orange)]/15 text-[var(--accent-orange)]' : 'bg-[var(--accent-link)]/15 text-[var(--accent-link)]'
               }`}>{p.badge}</span>
-              <span className="text-[10px] text-[var(--text-faint)]">{timeAgo(p.created_at)}</span>
+              <span className="text-[11px] text-[var(--text-faint)]">{timeAgo(p.created_at)}</span>
             </div>
-            <p className="m-0 line-clamp-2 font-['Outfit',sans-serif] text-[13.5px] font-bold text-[var(--text-primary)]">{p.title}</p>
-            <p className="m-0 mt-0.5 truncate text-[11.5px] text-[var(--text-muted)]">{p.meta}</p>
+            <p className="m-0 line-clamp-2 font-['Outfit',sans-serif] text-[14.5px] font-bold text-[var(--text-primary)]">{p.title}</p>
+            <p className="m-0 mt-0.5 truncate text-[12.5px] text-[var(--text-muted)]">{p.meta}</p>
           </Link>
         ))}
       </div>
@@ -1605,10 +1605,10 @@ function IstGroupChips({ groups, max = 99, avatar = 20 }: { groups?: { name: str
           ) : (
             <span className="flex shrink-0 items-center justify-center rounded-full font-['Outfit',sans-serif] font-extrabold" style={{ width: avatar, height: avatar, fontSize: avatar * 0.42, background: `hsl(${strHue(g.name)},32%,24%)`, color: `hsl(${strHue(g.name)},48%,62%)` }}>{(g.name || '?').charAt(0).toUpperCase()}</span>
           )}
-          <span className="min-w-0 truncate text-[12.5px] font-semibold text-[var(--text-secondary)]">{g.name}</span>
+          <span className="min-w-0 truncate text-[13.5px] font-semibold text-[var(--text-secondary)]">{g.name}</span>
         </span>
       ))}
-      {extra > 0 && <span className="text-[11.5px] font-bold text-[var(--text-faint)]" style={{ paddingLeft: avatar + 6 }}>+{extra} grupė(s)</span>}
+      {extra > 0 && <span className="text-[12.5px] font-bold text-[var(--text-faint)]" style={{ paddingLeft: avatar + 6 }}>+{extra} grupė(s)</span>}
     </span>
   )
 }
@@ -1661,7 +1661,7 @@ function IstorijaSection({ onOpenAlbum }: { onOpenAlbum?: (id: number, preview: 
     return (
       <div className="hp-card flex flex-col items-center justify-center p-6 text-center" style={{ minHeight: 130 }}>
         <p className="m-0 font-['Outfit',sans-serif] text-[14px] font-extrabold text-[var(--text-primary)]">Šiandien istorijos kalendoriuje tylu</p>
-        <p className="m-0 mt-1 text-[12.5px] text-[var(--text-muted)]">Nepamiršk — kiekvieną dieną čia atsiras gimtadieniai, jubiliejai ir sukaktys.</p>
+        <p className="m-0 mt-1 text-[13.5px] text-[var(--text-muted)]">Nepamiršk — kiekvieną dieną čia atsiras gimtadieniai, jubiliejai ir sukaktys.</p>
       </div>
     )
   }
@@ -1694,9 +1694,9 @@ function IstorijaSection({ onOpenAlbum }: { onOpenAlbum?: (id: number, preview: 
                 <div className="flex items-center gap-2">
                   <span style={{ width: 3, height: 16, borderRadius: 2, background: accent }} />
                   <h3 className="m-0 font-['Outfit',sans-serif] text-[14.5px] font-extrabold tracking-[-0.01em] text-[var(--text-primary)]">{cfg.label}</h3>
-                  <span className="text-[12px] font-bold text-[var(--text-faint)]">{list.length}</span>
+                  <span className="text-[13px] font-bold text-[var(--text-faint)]">{list.length}</span>
                 </div>
-                <button type="button" onClick={() => setOpenCat(t)} aria-label={`Daugiau: ${cfg.label}`} className="font-['Outfit',sans-serif] text-[12.5px] font-bold text-[var(--accent-orange)] transition-opacity hover:opacity-70">Daugiau →</button>
+                <button type="button" onClick={() => setOpenCat(t)} aria-label={`Daugiau: ${cfg.label}`} className="font-['Outfit',sans-serif] text-[13.5px] font-bold text-[var(--accent-orange)] transition-opacity hover:opacity-70">Daugiau →</button>
               </div>
               <Scroller className="min-w-0" gap={12} ariaLabel={cfg.label}>
                   {list.slice(0, 14).map(it => {
@@ -1726,7 +1726,7 @@ function IstorijaSection({ onOpenAlbum }: { onOpenAlbum?: (id: number, preview: 
                           </div>
                         )}
                         {badge && (
-                          <span className={`absolute bottom-1.5 right-1.5 rounded px-1.5 py-0.5 font-['Outfit',sans-serif] text-[10px] font-bold text-white backdrop-blur-sm ${isJubilee ? 'bg-[var(--accent-orange)] shadow-[0_2px_8px_rgba(249,115,22,0.5)]' : 'bg-black/70'}`}>{badge}</span>
+                          <span className={`absolute bottom-1.5 right-1.5 rounded px-1.5 py-0.5 font-['Outfit',sans-serif] text-[11px] font-bold text-white backdrop-blur-sm ${isJubilee ? 'bg-[var(--accent-orange)] shadow-[0_2px_8px_rgba(249,115,22,0.5)]' : 'bg-black/70'}`}>{badge}</span>
                         )}
                         <div className="pointer-events-none absolute inset-0 bg-gradient-to-t from-[rgba(249,115,22,0.12)] to-transparent opacity-0 transition-opacity duration-300 group-hover:opacity-100" />
                       </div>
@@ -1736,11 +1736,11 @@ function IstorijaSection({ onOpenAlbum }: { onOpenAlbum?: (id: number, preview: 
                       <div className="mt-2 px-0.5">
                         <p className={`m-0 font-['Outfit',sans-serif] text-[14px] font-extrabold leading-snug text-[var(--text-primary)] transition-colors group-hover:text-[var(--accent-orange)] ${it.type === 'album_anniversary' ? 'truncate' : 'line-clamp-2'}`}>{it.title}</p>
                         {it.type === 'album_anniversary' && it.artist && (
-                          <p className="m-0 mt-1 truncate text-[13px] text-[var(--text-muted)]">{it.artist}</p>
+                          <p className="m-0 mt-1 truncate text-[14px] text-[var(--text-muted)]">{it.artist}</p>
                         )}
                         {it.type === 'birthday' && <IstGroupChips groups={it.groups} avatar={20} />}
                         {it.type === 'death_anniversary' && it.subtitle && (
-                          <p className="m-0 mt-1 truncate text-[12.5px] text-[var(--text-muted)]">{it.subtitle}</p>
+                          <p className="m-0 mt-1 truncate text-[13.5px] text-[var(--text-muted)]">{it.subtitle}</p>
                         )}
                       </div>
                     )
@@ -1790,15 +1790,15 @@ function IstorijaSection({ onOpenAlbum }: { onOpenAlbum?: (id: number, preview: 
                     // eslint-disable-next-line @next/next/no-img-element
                     <img src={proxyImg(it.cover)} alt={it.title} loading="lazy" className="h-full w-full object-cover transition-transform duration-500 group-hover:scale-[1.06]" />
                   ) : <div className="flex h-full w-full items-center justify-center text-2xl text-[var(--text-faint)]">💿</div>}
-                  {it.age ? <span className="absolute bottom-1.5 right-1.5 rounded bg-black/70 px-1.5 py-0.5 font-['Outfit',sans-serif] text-[10px] font-bold text-white backdrop-blur-sm">{it.age} m.</span> : null}
+                  {it.age ? <span className="absolute bottom-1.5 right-1.5 rounded bg-black/70 px-1.5 py-0.5 font-['Outfit',sans-serif] text-[11px] font-bold text-white backdrop-blur-sm">{it.age} m.</span> : null}
                 </div>
                 <div className="mt-2 px-0.5">
                   {(it.pop ?? 0) > 0 && <span className="mb-1 flex"><IstPopBar level={it.pop} /></span>}
                   <p className="m-0 truncate font-['Outfit',sans-serif] text-[14px] font-extrabold text-[var(--text-primary)] transition-colors group-hover:text-[var(--accent-orange)]">{it.title}</p>
                   <div className="mt-1 flex items-center gap-2">
-                    <p className="m-0 min-w-0 flex-1 truncate text-[12.5px] text-[var(--text-muted)]">{it.artist}</p>
+                    <p className="m-0 min-w-0 flex-1 truncate text-[13.5px] text-[var(--text-muted)]">{it.artist}</p>
                     {(it.likeCount ?? 0) > 0 && (
-                      <span className="flex shrink-0 items-center gap-0.5 text-[11.5px] font-bold text-[var(--text-muted)]"><span className="text-[var(--accent-orange)]">♥</span>{it.likeCount}</span>
+                      <span className="flex shrink-0 items-center gap-0.5 text-[12.5px] font-bold text-[var(--text-muted)]"><span className="text-[var(--accent-orange)]">♥</span>{it.likeCount}</span>
                     )}
                   </div>
                 </div>
@@ -1822,16 +1822,16 @@ function IstorijaSection({ onOpenAlbum }: { onOpenAlbum?: (id: number, preview: 
                 <div className="min-w-0 flex-1">
                   <p className="m-0 line-clamp-1 font-['Outfit',sans-serif] text-[14px] font-extrabold text-[var(--text-primary)] transition-colors group-hover:text-[var(--accent-orange)]">{it.title}</p>
                   {it.type === 'death_anniversary' && it.subtitle && (
-                    <p className="m-0 mt-0.5 line-clamp-1 text-[12px] text-[var(--text-muted)]">{it.subtitle}</p>
+                    <p className="m-0 mt-0.5 line-clamp-1 text-[13px] text-[var(--text-muted)]">{it.subtitle}</p>
                   )}
                   {it.type === 'birthday' && <IstGroupChips groups={it.groups} avatar={24} />}
                   {/* Amžiaus/„gimimo metinės" badge'as (ne tekstas) — Edvardo
                       prašymu 2026-06-02. */}
                   {it.type === 'birthday' && it.age && (
-                    <span className="mt-1.5 inline-block rounded-full bg-[var(--bg-active)] px-2 py-0.5 text-[11px] font-bold text-[var(--text-faint)]">{it.deceased ? `${it.age} gimimo metinės` : `${it.age} m.`}</span>
+                    <span className="mt-1.5 inline-block rounded-full bg-[var(--bg-active)] px-2 py-0.5 text-[12px] font-bold text-[var(--text-faint)]">{it.deceased ? `${it.age} gimimo metinės` : `${it.age} m.`}</span>
                   )}
                   {it.type === 'death_anniversary' && it.year && (
-                    <span className="mt-1.5 inline-block rounded-full bg-[var(--bg-active)] px-2 py-0.5 text-[11px] font-bold text-[var(--text-faint)]">{it.year} m.</span>
+                    <span className="mt-1.5 inline-block rounded-full bg-[var(--bg-active)] px-2 py-0.5 text-[12px] font-bold text-[var(--text-faint)]">{it.year} m.</span>
                   )}
                 </div>
               </Link>
@@ -1983,7 +1983,7 @@ function HeroV2Card({ slide, dk }: { slide: HeroSlide; dk: boolean }) {
           Renginys, promo ir t.t.). */}
       {slide.chip !== 'NAUJIENA' && (
         <span
-          className="absolute left-3 top-3 z-[2] inline-flex rounded-[7px] px-2.5 py-1 font-['Outfit',sans-serif] text-[11px] font-black uppercase tracking-[0.08em] text-white"
+          className="absolute left-3 top-3 z-[2] inline-flex rounded-[7px] px-2.5 py-1 font-['Outfit',sans-serif] text-[12px] font-black uppercase tracking-[0.08em] text-white"
           style={{ background: slide.chipBg }}
         >
           {slide.chip}
@@ -2011,7 +2011,7 @@ function HeroV2Card({ slide, dk }: { slide: HeroSlide; dk: boolean }) {
             {slide.artist?.name && (
               <span className="font-['Outfit',sans-serif] text-[15px] font-bold leading-none text-white/90">{slide.artist.name}</span>
             )}
-            <span className="inline-flex items-center gap-1 rounded-[6px] bg-white/15 px-2 py-[3px] font-['Outfit',sans-serif] text-[11.5px] font-bold uppercase tracking-[0.06em] text-amber-300">
+            <span className="inline-flex items-center gap-1 rounded-[6px] bg-white/15 px-2 py-[3px] font-['Outfit',sans-serif] text-[12.5px] font-bold uppercase tracking-[0.06em] text-amber-300">
               <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round"><path d="M8 21h8M12 17v4M7 4h10v5a5 5 0 0 1-10 0V4zM5 9a2 2 0 0 1-2-2V5h4M19 9a2 2 0 0 0 2-2V5h-4"/></svg>
               Vakar laimėjo
             </span>
@@ -2109,7 +2109,7 @@ function HeroChartCard({ slide }: { slide: HeroSlide }) {
         {/* Top: TOP chip — vienoda badge forma kaip news kortelėse (KindBadge):
             rounded-[7px], be ikonos/šešėlio, kad visi hero badge'ai atrodytų vienodai. */}
         <span
-          className="inline-flex w-fit items-center rounded-[7px] px-2.5 py-1 font-['Outfit',sans-serif] text-[11px] font-black uppercase tracking-[0.08em] text-white"
+          className="inline-flex w-fit items-center rounded-[7px] px-2.5 py-1 font-['Outfit',sans-serif] text-[12px] font-black uppercase tracking-[0.08em] text-white"
           style={{ background: accent, alignSelf: 'flex-start' }}
         >
           {isLT ? 'LT TOP 30' : 'TOP 40'}
@@ -2121,7 +2121,7 @@ function HeroChartCard({ slide }: { slide: HeroSlide }) {
             švari su mosaic'u dešinėje + chip + Balsuok kairėje. */}
         {valueNames.length > 0 && (
           <div className="flex flex-col gap-1.5" style={{ minWidth: 0 }}>
-            <p className="m-0 text-[12px] font-semibold uppercase tracking-[0.14em] text-white/55">
+            <p className="m-0 text-[13px] font-semibold uppercase tracking-[0.14em] text-white/55">
               {valueLead}
             </p>
             <ul style={{ listStyle: 'none', margin: 0, padding: 0, display: 'flex', flexDirection: 'column', gap: 3 }}>
@@ -2353,7 +2353,7 @@ function ChartBottomSheet({
         {/* Header */}
         <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '4px 18px 12px', gap: 10 }}>
           <div style={{ display: 'flex', flexDirection: 'column', minWidth: 0 }}>
-            <span style={{ fontSize: 11.5, fontWeight: 800, letterSpacing: '0.14em', textTransform: 'uppercase', color: accent, fontFamily: 'Outfit,sans-serif' }}>
+            <span style={{ fontSize: 12.5, fontWeight: 800, letterSpacing: '0.14em', textTransform: 'uppercase', color: accent, fontFamily: 'Outfit,sans-serif' }}>
               Balsuoti · šios savaitės topas
             </span>
             <h2 style={{ margin: '2px 0 0', fontSize: 22, fontWeight: 900, color: '#fff', fontFamily: 'Outfit,sans-serif', letterSpacing: '-0.02em', lineHeight: 1.05 }}>
@@ -2382,19 +2382,19 @@ function ChartBottomSheet({
           border: '1px solid rgba(255,255,255,0.08)',
           display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 10,
         }}>
-          <span style={{ fontSize: 13.5, color: 'rgba(255,255,255,0.85)', fontWeight: 600 }}>
+          <span style={{ fontSize: 14.5, color: 'rgba(255,255,255,0.85)', fontWeight: 600 }}>
             Balsų liko: <span style={{ color: accent, fontWeight: 900 }}>{votesRemaining}</span>
           </span>
           <Link
             href={topType === 'lt_top30' ? '/top30' : '/top40'}
-            style={{ fontSize: 12.5, color: 'rgba(255,255,255,0.65)', textDecoration: 'none', fontWeight: 700 }}
+            style={{ fontSize: 13.5, color: 'rgba(255,255,255,0.65)', textDecoration: 'none', fontWeight: 700 }}
           >
             Visas puslapis →
           </Link>
         </div>
 
         {voteErr && (
-          <div style={{ margin: '0 18px 8px', padding: '8px 12px', borderRadius: 8, background: 'rgba(239,68,68,0.18)', border: '1px solid rgba(239,68,68,0.4)', color: '#fecaca', fontSize: 13, fontWeight: 600 }}>
+          <div style={{ margin: '0 18px 8px', padding: '8px 12px', borderRadius: 8, background: 'rgba(239,68,68,0.18)', border: '1px solid rgba(239,68,68,0.4)', color: '#fecaca', fontSize: 14, fontWeight: 600 }}>
             {voteErr}
           </div>
         )}
@@ -2432,7 +2432,7 @@ function ChartBottomSheet({
                     fontFamily: 'Outfit,sans-serif', lineHeight: 1,
                   }}>{e.position}</div>
                   {trend !== 'same' && (
-                    <div style={{ fontSize: 9.5, fontWeight: 700, color: trend === 'up' ? '#22c55e' : trend === 'down' ? '#ef4444' : accent, marginTop: 2, lineHeight: 1 }}>
+                    <div style={{ fontSize: 10.5, fontWeight: 700, color: trend === 'up' ? '#22c55e' : trend === 'down' ? '#ef4444' : accent, marginTop: 2, lineHeight: 1 }}>
                       {trend === 'up' ? '▲' : trend === 'down' ? '▼' : 'NEW'}
                     </div>
                   )}
@@ -2447,7 +2447,7 @@ function ChartBottomSheet({
                 {/* Title + artist */}
                 <div style={{ flex: 1, minWidth: 0 }}>
                   <p style={{ margin: 0, fontSize: 14.5, fontWeight: 800, color: '#fff', fontFamily: 'Outfit,sans-serif', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis', letterSpacing: '-0.005em' }}>{e.title}</p>
-                  <p style={{ margin: '1px 0 0', fontSize: 12.5, color: 'rgba(255,255,255,0.6)', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{e.artist}</p>
+                  <p style={{ margin: '1px 0 0', fontSize: 13.5, color: 'rgba(255,255,255,0.6)', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{e.artist}</p>
                 </div>
                 {/* Vote button */}
                 <button
@@ -2462,7 +2462,7 @@ function ChartBottomSheet({
                     border: voted ? `1.5px solid ${accent}` : '1.5px solid rgba(255,255,255,0.18)',
                     background: voted ? `${accent}` : 'rgba(255,255,255,0.04)',
                     color: voted ? '#fff' : 'rgba(255,255,255,0.85)',
-                    fontFamily: 'Outfit,sans-serif', fontSize: 12.5, fontWeight: 800,
+                    fontFamily: 'Outfit,sans-serif', fontSize: 13.5, fontWeight: 800,
                     cursor: (voted || pending || votesRemaining <= 0) ? 'default' : 'pointer',
                     opacity: !voted && votesRemaining <= 0 ? 0.4 : 1,
                   }}
@@ -2537,14 +2537,14 @@ function MobileChartSlide({
           // #1 — title + artist (du eilutes)
           <div style={{ position: 'absolute', left: 8, right: 8, bottom: 6 }}>
             <p style={{
-              margin: 0, fontSize: 13.5, fontWeight: 900, color: '#fff',
+              margin: 0, fontSize: 14.5, fontWeight: 900, color: '#fff',
               fontFamily: 'Outfit,sans-serif',
               whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis',
               letterSpacing: '-0.01em', textShadow: '0 1px 4px rgba(0,0,0,0.95)',
               lineHeight: 1.15,
             }}>{t.title}</p>
             <p style={{
-              margin: '1px 0 0', fontSize: 11.5, fontWeight: 600, color: 'rgba(255,255,255,0.85)',
+              margin: '1px 0 0', fontSize: 12.5, fontWeight: 600, color: 'rgba(255,255,255,0.85)',
               fontFamily: 'Outfit,sans-serif',
               whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis',
               textShadow: '0 1px 3px rgba(0,0,0,0.9)',
@@ -2555,7 +2555,7 @@ function MobileChartSlide({
           // #2/#3 — tik artist'o vardas
           <p style={{
             position: 'absolute', left: 5, right: 5, bottom: 4,
-            margin: 0, fontSize: 11.5, fontWeight: 800, color: '#fff',
+            margin: 0, fontSize: 12.5, fontWeight: 800, color: '#fff',
             fontFamily: 'Outfit,sans-serif',
             whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis',
             letterSpacing: '-0.005em', textShadow: '0 1px 4px rgba(0,0,0,0.95)',
@@ -2592,7 +2592,7 @@ function MobileChartSlide({
 
       {/* CHIP — virš kortelės */}
       <div style={{ position: 'relative', zIndex: 2, padding: '10px 12px 8px', display: 'flex', justifyContent: 'flex-start' }}>
-        <span style={{ padding: '4px 10px', borderRadius: 999, fontSize: 11, fontWeight: 900, color: '#fff', background: accent, fontFamily: 'Outfit,sans-serif', letterSpacing: '0.08em', textTransform: 'uppercase', boxShadow: '0 2px 10px rgba(0,0,0,0.4)' }}>
+        <span style={{ padding: '4px 10px', borderRadius: 999, fontSize: 12, fontWeight: 900, color: '#fff', background: accent, fontFamily: 'Outfit,sans-serif', letterSpacing: '0.08em', textTransform: 'uppercase', boxShadow: '0 2px 10px rgba(0,0,0,0.4)' }}>
           {slide.chip}
         </span>
       </div>
@@ -2622,7 +2622,7 @@ function MobileChartSlide({
           display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 6,
           padding: '9px 12px', borderRadius: 10,
           background: accent, color: '#fff',
-          fontFamily: 'Outfit,sans-serif', fontSize: 13, fontWeight: 900,
+          fontFamily: 'Outfit,sans-serif', fontSize: 14, fontWeight: 900,
           letterSpacing: '0.06em', textTransform: 'uppercase',
           boxShadow: `0 4px 14px ${accentShadow}`,
         }}>
@@ -3792,16 +3792,16 @@ export default function HomeClient({ initialLatest, initialHero }: { initialLate
                     <div style={{ position: 'absolute', bottom: 0, left: 0, right: 0, padding: '10px 12px 12px', textAlign: 'left' }}>
                       <p style={{ fontSize: 15, fontWeight: 800, color: '#fff', margin: 0, lineHeight: 1.22, fontFamily: 'Outfit,sans-serif', display: '-webkit-box', WebkitLineClamp: 3, WebkitBoxOrient: 'vertical', overflow: 'hidden', textOverflow: 'ellipsis', letterSpacing: '-0.01em' } as any}>{slide.title}</p>
                       {showExcerpt && (
-                        <p style={{ fontSize: 13, fontWeight: 500, color: 'rgba(255,255,255,0.82)', margin: '5px 0 0', lineHeight: 1.32, display: '-webkit-box', WebkitLineClamp: 2, WebkitBoxOrient: 'vertical', overflow: 'hidden', textOverflow: 'ellipsis' } as any}>{slide.subtitle}</p>
+                        <p style={{ fontSize: 14, fontWeight: 500, color: 'rgba(255,255,255,0.82)', margin: '5px 0 0', lineHeight: 1.32, display: '-webkit-box', WebkitLineClamp: 2, WebkitBoxOrient: 'vertical', overflow: 'hidden', textOverflow: 'ellipsis' } as any}>{slide.subtitle}</p>
                       )}
                       {artistName && (
-                        <p style={{ fontSize: 12.5, fontWeight: 700, color: 'rgba(255,255,255,0.78)', margin: '6px 0 0', lineHeight: 1.2, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{artistName}</p>
+                        <p style={{ fontSize: 13.5, fontWeight: 700, color: 'rgba(255,255,255,0.78)', margin: '6px 0 0', lineHeight: 1.2, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{artistName}</p>
                       )}
                     </div>
                     {/* Top: chip badge — „NAUJIENA" nerodom (kartotųsi), tik prominentiniai */}
                     {slide.chip !== 'NAUJIENA' && (
                       <div style={{ position: 'absolute', top: 10, left: 10, display: 'flex', alignItems: 'center', gap: 4, zIndex: 2 }}>
-                        <span style={{ padding: '4px 9px', borderRadius: 7, fontSize: 10, fontWeight: 900, color: '#fff', background: slide.chipBg, fontFamily: 'Outfit,sans-serif', letterSpacing: '0.06em', textTransform: 'uppercase', backdropFilter: 'blur(4px)' }}>
+                        <span style={{ padding: '4px 9px', borderRadius: 7, fontSize: 11, fontWeight: 900, color: '#fff', background: slide.chipBg, fontFamily: 'Outfit,sans-serif', letterSpacing: '0.06em', textTransform: 'uppercase', backdropFilter: 'blur(4px)' }}>
                           {slide.chip}
                         </span>
                       </div>
@@ -3908,11 +3908,11 @@ export default function HomeClient({ initialLatest, initialHero }: { initialLate
                             <img src={proxyImg(imgSrc)} alt={sanitizeTitle(t.title)} loading="lazy" className="h-full w-full object-cover transition-transform duration-500 group-hover:scale-[1.06]" />
                           ) : (<div className="flex h-full w-full items-center justify-center text-xl text-[var(--text-faint)]">🎵</div>)}
                           <div className="pointer-events-none absolute inset-0 flex items-center justify-center opacity-0 transition-opacity duration-200 group-hover:opacity-100"><span className="flex h-9 w-9 items-center justify-center rounded-full bg-[var(--accent-orange)] shadow-[0_4px_16px_rgba(249,115,22,0.5)]"><svg width="13" height="13" viewBox="0 0 24 24" fill="white"><path d="M8 5v14l11-7z" /></svg></span></div>
-                          {rel && (<span className={`absolute bottom-1.5 right-1.5 rounded px-1.5 py-0.5 font-['Outfit',sans-serif] text-[9.5px] font-bold backdrop-blur-sm ${highlight ? 'bg-[var(--accent-orange)] text-white' : 'bg-black/70 text-white'}`}>{rel}</span>)}
+                          {rel && (<span className={`absolute bottom-1.5 right-1.5 rounded px-1.5 py-0.5 font-['Outfit',sans-serif] text-[10.5px] font-bold backdrop-blur-sm ${highlight ? 'bg-[var(--accent-orange)] text-white' : 'bg-black/70 text-white'}`}>{rel}</span>)}
                           {isFresh24(t.created_at) && <FreshDot />}
                         </div>
                         <p className="m-0 mt-1.5 truncate font-['Outfit',sans-serif] text-[14px] font-extrabold text-[var(--text-primary)] transition-colors group-hover:text-[var(--accent-orange)]">{sanitizeTitle(t.title)}</p>
-                        <p className="m-0 truncate text-[13px] text-[var(--text-muted)]">{t.artists?.name}</p>
+                        <p className="m-0 truncate text-[14px] text-[var(--text-muted)]">{t.artists?.name}</p>
                       </button>
                     )
                   }
@@ -3922,10 +3922,10 @@ export default function HomeClient({ initialLatest, initialHero }: { initialLate
                         <div key={box.lane} className={`rounded-2xl border border-[var(--border-subtle)] bg-[var(--bg-surface)] p-4 border-t-[3px] ${box.lane === 'lt' ? 'border-t-[var(--accent-orange)]' : 'border-t-[var(--accent-blue)]'}`}>
                           <div className="mb-3 flex items-center justify-between">
                             <span className="font-['Outfit',sans-serif] text-[14px] font-extrabold text-[var(--text-primary)]">{box.label}</span>
-                            <button type="button" onClick={() => setListModal(`tracks-${box.lane}`)} className={`font-['Outfit',sans-serif] text-[12.5px] font-bold transition-opacity hover:opacity-70 ${box.lane === 'lt' ? 'text-[var(--accent-orange)]' : 'text-[var(--accent-blue)]'}`}>Daugiau →</button>
+                            <button type="button" onClick={() => setListModal(`tracks-${box.lane}`)} className={`font-['Outfit',sans-serif] text-[13.5px] font-bold transition-opacity hover:opacity-70 ${box.lane === 'lt' ? 'text-[var(--accent-orange)]' : 'text-[var(--accent-blue)]'}`}>Daugiau →</button>
                           </div>
                           <div className="flex gap-3 overflow-x-auto pb-1 [scrollbar-width:none] [&::-webkit-scrollbar]:hidden lg:grid lg:gap-3 lg:overflow-visible lg:pb-0 lg:grid-cols-3">
-                            {tracksStatus === 'loading' && tracks.length === 0 ? Array(6).fill(null).map((_, i) => (<div key={i} className="hp-skel aspect-video w-[160px] shrink-0 rounded-lg lg:w-auto" />)) : box.items.length === 0 ? (<div className="col-span-2 py-6 text-center text-[13px] text-[var(--text-faint)]">{box.lane === 'lt' ? 'Lietuviškų dainų netrukus' : 'Užsienio dainų netrukus'}</div>) : box.items.slice(0, 6).map(songCard)}
+                            {tracksStatus === 'loading' && tracks.length === 0 ? Array(6).fill(null).map((_, i) => (<div key={i} className="hp-skel aspect-video w-[160px] shrink-0 rounded-lg lg:w-auto" />)) : box.items.length === 0 ? (<div className="col-span-2 py-6 text-center text-[14px] text-[var(--text-faint)]">{box.lane === 'lt' ? 'Lietuviškų dainų netrukus' : 'Užsienio dainų netrukus'}</div>) : box.items.slice(0, 6).map(songCard)}
                           </div>
                         </div>
                       ))}
@@ -3963,11 +3963,11 @@ export default function HomeClient({ initialLatest, initialHero }: { initialLate
                             // eslint-disable-next-line @next/next/no-img-element
                             <img src={proxyImg(a.cover_image_url || a.artists?.cover_image_url || '')} alt={sanitizeTitle(a.title)} loading="lazy" className="h-full w-full object-cover transition-transform duration-500 group-hover:scale-[1.06]" />
                           ) : (<div className="flex h-full w-full items-center justify-center text-xl text-[var(--text-faint)]">💿</div>)}
-                          {label && (<span className={`absolute bottom-1 right-1 rounded px-1.5 py-0.5 font-['Outfit',sans-serif] text-[9.5px] font-bold backdrop-blur-sm ${highlight ? 'bg-[var(--accent-orange)] text-white' : 'bg-black/70 text-white'}`}>{label}</span>)}
+                          {label && (<span className={`absolute bottom-1 right-1 rounded px-1.5 py-0.5 font-['Outfit',sans-serif] text-[10.5px] font-bold backdrop-blur-sm ${highlight ? 'bg-[var(--accent-orange)] text-white' : 'bg-black/70 text-white'}`}>{label}</span>)}
                           {isFresh24(a.created_at) && <FreshDot />}
                         </div>
-                        <p className="m-0 mt-1.5 truncate font-['Outfit',sans-serif] text-[13px] font-extrabold text-[var(--text-primary)] transition-colors group-hover:text-[var(--accent-orange)]">{sanitizeTitle(a.title)}</p>
-                        <p className="m-0 truncate text-[11.5px] text-[var(--text-muted)]">{a.artists?.name}</p>
+                        <p className="m-0 mt-1.5 truncate font-['Outfit',sans-serif] text-[14px] font-extrabold text-[var(--text-primary)] transition-colors group-hover:text-[var(--accent-orange)]">{sanitizeTitle(a.title)}</p>
+                        <p className="m-0 truncate text-[12.5px] text-[var(--text-muted)]">{a.artists?.name}</p>
                       </button>
                     )
                   }
@@ -3977,10 +3977,10 @@ export default function HomeClient({ initialLatest, initialHero }: { initialLate
                         <div key={box.lane} className={`rounded-2xl border border-[var(--border-subtle)] bg-[var(--bg-surface)] p-4 border-t-[3px] ${box.lane === 'lt' ? 'border-t-[var(--accent-orange)]' : 'border-t-[var(--accent-blue)]'}`}>
                           <div className="mb-3 flex items-center justify-between">
                             <span className="font-['Outfit',sans-serif] text-[14px] font-extrabold text-[var(--text-primary)]">{box.label}</span>
-                            <button type="button" onClick={() => setListModal(`albums-${box.lane}`)} className={`font-['Outfit',sans-serif] text-[12.5px] font-bold transition-opacity hover:opacity-70 ${box.lane === 'lt' ? 'text-[var(--accent-orange)]' : 'text-[var(--accent-blue)]'}`}>Daugiau →</button>
+                            <button type="button" onClick={() => setListModal(`albums-${box.lane}`)} className={`font-['Outfit',sans-serif] text-[13.5px] font-bold transition-opacity hover:opacity-70 ${box.lane === 'lt' ? 'text-[var(--accent-orange)]' : 'text-[var(--accent-blue)]'}`}>Daugiau →</button>
                           </div>
                           <div className="flex gap-3 overflow-x-auto pb-1 [scrollbar-width:none] [&::-webkit-scrollbar]:hidden lg:grid lg:gap-3 lg:overflow-visible lg:pb-0 lg:grid-cols-3">
-                            {tracksStatus === 'loading' && albums.length === 0 ? Array(6).fill(null).map((_, i) => (<div key={i} className="hp-skel aspect-square w-[120px] shrink-0 rounded-lg lg:w-auto" />)) : box.items.length === 0 ? (<div className="col-span-3 py-6 text-center text-[13px] text-[var(--text-faint)]">{box.lane === 'lt' ? 'Lietuviškų albumų netrukus' : 'Užsienio albumų netrukus'}</div>) : box.items.slice(0, 6).map(albCard)}
+                            {tracksStatus === 'loading' && albums.length === 0 ? Array(6).fill(null).map((_, i) => (<div key={i} className="hp-skel aspect-square w-[120px] shrink-0 rounded-lg lg:w-auto" />)) : box.items.length === 0 ? (<div className="col-span-3 py-6 text-center text-[14px] text-[var(--text-faint)]">{box.lane === 'lt' ? 'Lietuviškų albumų netrukus' : 'Užsienio albumų netrukus'}</div>) : box.items.slice(0, 6).map(albCard)}
                           </div>
                         </div>
                       ))}
@@ -4028,7 +4028,7 @@ export default function HomeClient({ initialLatest, initialHero }: { initialLate
                             )}
                             <div className="pointer-events-none absolute inset-0 bg-gradient-to-t from-[rgba(249,115,22,0.12)] to-transparent opacity-0 transition-opacity duration-300 group-hover:opacity-100" />
                             {label && (
-                              <span className={`absolute bottom-1.5 right-1.5 rounded px-1.5 py-0.5 font-['Outfit',sans-serif] text-[10px] font-bold backdrop-blur-sm ${
+                              <span className={`absolute bottom-1.5 right-1.5 rounded px-1.5 py-0.5 font-['Outfit',sans-serif] text-[11px] font-bold backdrop-blur-sm ${
                                 highlight ? 'bg-[var(--accent-orange)] text-white' : 'bg-black/70 text-white'
                               }`}>
                                 {label}
@@ -4040,7 +4040,7 @@ export default function HomeClient({ initialLatest, initialHero }: { initialLate
                             <p className="m-0 truncate font-['Outfit',sans-serif] text-[14.5px] font-extrabold text-[var(--text-primary)] transition-colors group-hover:text-[var(--accent-orange)]">
                               {sanitizeTitle(a.title)}
                             </p>
-                            <p className="m-0 mt-1 truncate text-[13px] text-[var(--text-muted)]">
+                            <p className="m-0 mt-1 truncate text-[14px] text-[var(--text-muted)]">
                               {a.artists?.name}
                             </p>
                           </div>
@@ -4084,7 +4084,7 @@ export default function HomeClient({ initialLatest, initialHero }: { initialLate
             <div className="rounded-2xl border border-[var(--border-subtle)] bg-[var(--bg-surface)] p-4 sm:p-5">
               <div className="mb-4 flex items-center justify-between">
                 <h2 className="m-0 font-['Outfit',sans-serif] text-[18px] font-extrabold tracking-[-0.01em] text-[var(--text-primary)]">Koncertai</h2>
-                <Link href="/koncertai" className="font-['Outfit',sans-serif] text-[13px] font-bold text-[var(--accent-orange)] no-underline transition-opacity hover:opacity-70">Daugiau →</Link>
+                <Link href="/koncertai" className="font-['Outfit',sans-serif] text-[14px] font-bold text-[var(--accent-orange)] no-underline transition-opacity hover:opacity-70">Daugiau →</Link>
               </div>
               <div className="flex gap-3 overflow-x-auto pb-1 [scrollbar-width:none] [&::-webkit-scrollbar]:hidden lg:grid lg:grid-cols-5 lg:gap-4 lg:overflow-x-visible lg:pb-0">
                 {filtEvt.length === 0 ? Array(10).fill(null).map((_, i) => (
@@ -4144,15 +4144,15 @@ export default function HomeClient({ initialLatest, initialHero }: { initialLate
                           {dayNum && (
                             <span className="absolute left-2 top-2 flex flex-col items-center rounded-lg bg-white px-2 py-1 leading-none shadow-[0_3px_10px_rgba(0,0,0,0.3)]">
                               <b className="font-['Outfit',sans-serif] text-[15px] font-black text-[#10203a]">{dayNum}</b>
-                              <i className="mt-0.5 not-italic text-[9px] font-extrabold uppercase tracking-[0.04em] text-[var(--accent-orange)]">{monthLbl}</i>
+                              <i className="mt-0.5 not-italic text-[10px] font-extrabold uppercase tracking-[0.04em] text-[var(--accent-orange)]">{monthLbl}</i>
                             </span>
                           )}
                         </div>
                         {isFresh24(ev.created_at) && <FreshDot right={8} top={8} />}
                         <div className={capCls}>
-                          {city && <p className="m-0 truncate font-['Outfit',sans-serif] text-[10px] font-bold uppercase tracking-[0.05em] text-[var(--text-muted)]">{city}</p>}
-                          <h3 className="m-0 mt-0.5 flex items-start gap-1 font-['Outfit',sans-serif] text-[13.5px] font-black leading-tight text-[var(--text-primary)]">
-                            {flag && <span className="shrink-0 text-[13px] leading-tight">{flag}</span>}
+                          {city && <p className="m-0 truncate font-['Outfit',sans-serif] text-[11px] font-bold uppercase tracking-[0.05em] text-[var(--text-muted)]">{city}</p>}
+                          <h3 className="m-0 mt-0.5 flex items-start gap-1 font-['Outfit',sans-serif] text-[14.5px] font-black leading-tight text-[var(--text-primary)]">
+                            {flag && <span className="shrink-0 text-[14px] leading-tight">{flag}</span>}
                             <span className="line-clamp-2">{title}</span>
                           </h3>
                         </div>
@@ -4171,9 +4171,9 @@ export default function HomeClient({ initialLatest, initialHero }: { initialLate
                           </div>
                         </div>
                         <div className={capCls}>
-                          <p className="m-0 font-['Outfit',sans-serif] text-[10px] font-bold uppercase tracking-[0.05em] text-[var(--text-muted)]">Užsienis</p>
-                          <h3 className="m-0 mt-0.5 font-['Outfit',sans-serif] text-[13.5px] font-black leading-tight text-[var(--text-primary)]">Koncertai, verti kelionės</h3>
-                          <p className="m-0 mt-1 font-['Outfit',sans-serif] text-[11.5px] font-bold text-[var(--accent-orange)]">Daugiau →</p>
+                          <p className="m-0 font-['Outfit',sans-serif] text-[11px] font-bold uppercase tracking-[0.05em] text-[var(--text-muted)]">Užsienis</p>
+                          <h3 className="m-0 mt-0.5 font-['Outfit',sans-serif] text-[14.5px] font-black leading-tight text-[var(--text-primary)]">Koncertai, verti kelionės</h3>
+                          <p className="m-0 mt-1 font-['Outfit',sans-serif] text-[12.5px] font-bold text-[var(--accent-orange)]">Daugiau →</p>
                         </div>
                       </Link>
                     )
@@ -4228,7 +4228,7 @@ export default function HomeClient({ initialLatest, initialHero }: { initialLate
                     >
                       <Cover src={a.cover_image_url} alt={a.name} size={72} radius={36} />
                     </div>
-                    <p className="m-0 truncate font-['Outfit',sans-serif] text-[12.5px] font-bold text-[var(--text-secondary)] transition-colors group-hover:text-[var(--accent-orange)]">
+                    <p className="m-0 truncate font-['Outfit',sans-serif] text-[13.5px] font-bold text-[var(--text-secondary)] transition-colors group-hover:text-[var(--accent-orange)]">
                       {a.name}
                     </p>
                   </Link>
@@ -4332,7 +4332,7 @@ export default function HomeClient({ initialLatest, initialHero }: { initialLate
                     </div>
                     <div className="flex min-w-0 flex-1 flex-col justify-center px-3 py-2.5">
                       <p className="m-0 line-clamp-3 font-['Outfit',sans-serif] text-[14px] font-extrabold leading-snug text-[var(--text-primary)]">{sanitizeTitle(n.title)}</p>
-                      {n.artist?.name && <p className="m-0 mt-1 truncate text-[12px] text-[var(--text-muted)]">{n.artist.name}</p>}
+                      {n.artist?.name && <p className="m-0 mt-1 truncate text-[13px] text-[var(--text-muted)]">{n.artist.name}</p>}
                     </div>
                   </Link>
                 ))}

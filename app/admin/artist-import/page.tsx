@@ -64,7 +64,7 @@ function Pill({ text, color }: { text: string; color: 'green' | 'blue' | 'orange
     gray: 'bg-[var(--bg-elevated)] text-[var(--text-muted)] border-[var(--input-border)]',
     red: 'bg-red-100 text-red-700 border-red-200',
   }
-  return <span className={`shrink-0 rounded-full border px-2 py-0.5 text-[11.5px] font-bold ${colors[color]}`}>{text}</span>
+  return <span className={`shrink-0 rounded-full border px-2 py-0.5 text-[12.5px] font-bold ${colors[color]}`}>{text}</span>
 }
 
 /** Atžymimas elementas — varnelė (default checked). Disabled = negalima taikyti (pvz. nepalaikoma). */
@@ -89,7 +89,7 @@ function Section({
         <h3 className="text-sm font-bold text-[var(--text-primary)]">{title}</h3>
         {count !== undefined && <span className="text-xs text-[var(--text-muted)]">({count})</span>}
         {(onAll || onNone) && (
-          <div className="ml-auto flex items-center gap-2 text-[12px]">
+          <div className="ml-auto flex items-center gap-2 text-[13px]">
             {onAll && <button onClick={onAll} className="text-blue-600 hover:underline">Visi</button>}
             {onAll && onNone && <span className="text-[var(--text-faint)]">·</span>}
             {onNone && <button onClick={onNone} className="text-[var(--text-muted)] hover:underline">Nieko</button>}
@@ -130,13 +130,13 @@ function InfoModal({ onClose }: { onClose: () => void }) {
           <p className="text-[14px] text-[var(--text-secondary)]">
             Nukopijuok žemiau esantį sisteminį promptą ir įdėk jį į GPT, Claude ar kitą LLM. Tada tiesiog parašyk vieną iš formatų:
           </p>
-          <ul className="space-y-1.5 text-[13.5px] text-[var(--text-secondary)]">
-            <li><code className="rounded bg-[var(--bg-elevated)] px-1.5 py-0.5 font-mono text-[12.5px]">Atlikėjas</code> — pilnas atlikėjo / grupės importas.</li>
-            <li><code className="rounded bg-[var(--bg-elevated)] px-1.5 py-0.5 font-mono text-[12.5px]">Atlikėjas - Albumas</code> — tik albumo duomenys, aprašymas ir tracklistas.</li>
-            <li><code className="rounded bg-[var(--bg-elevated)] px-1.5 py-0.5 font-mono text-[12.5px]">Atlikėjas - Albumas, tik aprašymas</code> — tik trumpas albumo aprašymas.</li>
-            <li><code className="rounded bg-[var(--bg-elevated)] px-1.5 py-0.5 font-mono text-[12.5px]">Atlikėjas, tik kontaktai</code> — tik kontaktai (booking / vadyba / label).</li>
+          <ul className="space-y-1.5 text-[14.5px] text-[var(--text-secondary)]">
+            <li><code className="rounded bg-[var(--bg-elevated)] px-1.5 py-0.5 font-mono text-[13.5px]">Atlikėjas</code> — pilnas atlikėjo / grupės importas.</li>
+            <li><code className="rounded bg-[var(--bg-elevated)] px-1.5 py-0.5 font-mono text-[13.5px]">Atlikėjas - Albumas</code> — tik albumo duomenys, aprašymas ir tracklistas.</li>
+            <li><code className="rounded bg-[var(--bg-elevated)] px-1.5 py-0.5 font-mono text-[13.5px]">Atlikėjas - Albumas, tik aprašymas</code> — tik trumpas albumo aprašymas.</li>
+            <li><code className="rounded bg-[var(--bg-elevated)] px-1.5 py-0.5 font-mono text-[13.5px]">Atlikėjas, tik kontaktai</code> — tik kontaktai (booking / vadyba / label).</li>
           </ul>
-          <p className="text-[13.5px] text-[var(--text-muted)]">
+          <p className="text-[14.5px] text-[var(--text-muted)]">
             Gautą JSON įklijuok į importo lauką, paspausk „Peržiūrėti", atžymėk ko nenori keisti ir paspausk „Taikyti".
           </p>
 
@@ -150,7 +150,7 @@ function InfoModal({ onClose }: { onClose: () => void }) {
                 {copied ? '✓ Nukopijuota' : 'Kopijuoti promptą'}
               </button>
             </div>
-            <pre className="max-h-[40vh] overflow-auto whitespace-pre-wrap px-3 py-3 font-mono text-[12px] leading-relaxed text-[var(--text-primary)]">{ARTIST_IMPORT_PROMPT}</pre>
+            <pre className="max-h-[40vh] overflow-auto whitespace-pre-wrap px-3 py-3 font-mono text-[13px] leading-relaxed text-[var(--text-primary)]">{ARTIST_IMPORT_PROMPT}</pre>
           </div>
         </div>
       </div>
@@ -255,7 +255,7 @@ export default function ArtistImportPage() {
             Info ir promptas
           </button>
         </div>
-        <p className="mt-1 text-[13.5px] text-[var(--text-muted)]">
+        <p className="mt-1 text-[14.5px] text-[var(--text-muted)]">
           Įklijuok GPT / LLM sugeneruotą JSON — pilną atlikėją, albumą arba vien albumo aprašymą (<code className="font-mono">{`{ artist, album, description }`}</code>). Peržiūra parodo pakeitimus; gali atžymėti, ko nenori keisti, prieš išsaugant.
         </p>
 
@@ -336,7 +336,7 @@ export default function ArtistImportPage() {
         {/* Preview */}
         {preview && (
           <div className="mt-5">
-            <p className="mb-3 text-[13px] text-[var(--text-muted)]">
+            <p className="mb-3 text-[14px] text-[var(--text-muted)]">
               Pažymėti elementai bus taikomi. Atžymėk, ko nenori keisti esamoje informacijoje.
             </p>
 
@@ -550,7 +550,7 @@ export default function ArtistImportPage() {
                     </div>
                   ))}
                 </div>
-                <p className="mt-2 text-[12px] text-[var(--text-faint)]">Paveikslėliai neaplikuojami automatiškai — įkelk cover'į rankiniu būdu atlikėjo redagavime.</p>
+                <p className="mt-2 text-[13px] text-[var(--text-faint)]">Paveikslėliai neaplikuojami automatiškai — įkelk cover'į rankiniu būdu atlikėjo redagavime.</p>
               </Section>
             )}
 

@@ -212,7 +212,7 @@ export default function LikesModal({
                     display: 'inline-flex', alignItems: 'center', gap: 8,
                     padding: '8px 14px', borderRadius: 100,
                     background: 'var(--accent-orange)', color: '#fff',
-                    fontFamily: 'Outfit,sans-serif', fontSize: 13, fontWeight: 800,
+                    fontFamily: 'Outfit,sans-serif', fontSize: 14, fontWeight: 800,
                     textDecoration: 'none', flexShrink: 0,
                     boxShadow: '0 4px 14px rgba(249,115,22,0.3)',
                   }}
@@ -301,7 +301,7 @@ export default function LikesModal({
                 ))}
               </div>
               {shown < sortedUsers.length && (
-                <div style={{ padding: '14px 0 2px', textAlign: 'center', color: 'var(--text-muted)', fontSize: 12 }}>
+                <div style={{ padding: '14px 0 2px', textAlign: 'center', color: 'var(--text-muted)', fontSize: 13 }}>
                   Rodoma {shown.toLocaleString('lt-LT')} iš {sortedUsers.length.toLocaleString('lt-LT')} · scrollink žemyn
                 </div>
               )}
@@ -416,7 +416,7 @@ function EqualizerLoader() {
           />
         ))}
       </div>
-      <div style={{ fontSize: 12, color: 'var(--text-faint)' }}>Kraunama…</div>
+      <div style={{ fontSize: 13, color: 'var(--text-faint)' }}>Kraunama…</div>
       <style jsx>{`
         @keyframes eqBar {
           0%   { transform: scaleY(0.18); }

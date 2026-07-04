@@ -322,12 +322,12 @@ export default function AdminUsersPage() {
                           <div className="text-sm font-medium text-[var(--text-primary)] flex items-center gap-2">
                             {user.full_name || user.username || '—'}
                             {real && (
-                              <span className="text-[11px] px-1.5 py-0.5 rounded-full bg-green-500/15 text-green-600 border border-green-500/20">
+                              <span className="text-[12px] px-1.5 py-0.5 rounded-full bg-green-500/15 text-green-600 border border-green-500/20">
                                 registruotas
                               </span>
                             )}
                             {user.deactivated_at && (
-                              <span className="text-[11px] px-1.5 py-0.5 rounded-full bg-red-500/15 text-red-500 border border-red-500/20">
+                              <span className="text-[12px] px-1.5 py-0.5 rounded-full bg-red-500/15 text-red-500 border border-red-500/20">
                                 paslėptas
                               </span>
                             )}

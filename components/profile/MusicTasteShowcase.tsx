@@ -73,10 +73,10 @@ export function MusicTasteShowcase({ favoriteStyles, musicMeter }: Props) {
 
             {/* Eyebrow + meta */}
             <div className="flex items-center justify-between mb-6 sm:mb-10">
-              <div className="text-[11px] sm:text-[12px] font-extrabold uppercase tracking-[0.22em] text-[#f97316]" style={{ fontFamily: "'Outfit', sans-serif" }}>
+              <div className="text-[12px] sm:text-[13px] font-extrabold uppercase tracking-[0.22em] text-[#f97316]" style={{ fontFamily: "'Outfit', sans-serif" }}>
                 Muzikinis skonis
               </div>
-              <div className="text-[11px] sm:text-[12px] text-[#5e7290] font-bold uppercase tracking-wider" style={{ fontFamily: "'Outfit', sans-serif" }}>
+              <div className="text-[12px] sm:text-[13px] text-[#5e7290] font-bold uppercase tracking-wider" style={{ fontFamily: "'Outfit', sans-serif" }}>
                 {favoriteStyles.length} stiliai
               </div>
             </div>
@@ -126,10 +126,10 @@ export function MusicTasteShowcase({ favoriteStyles, musicMeter }: Props) {
                 <div className="flex justify-between gap-1.5 sm:gap-3 mt-3">
                   {sortedMeter.map((s) => (
                     <div key={s.legacy_id} className="flex-1 min-w-0 text-center">
-                      <div className="text-[11px] sm:text-xs font-extrabold text-[#dde8f8] truncate" style={{ fontFamily: "'Outfit', sans-serif" }}>
+                      <div className="text-[12px] sm:text-xs font-extrabold text-[#dde8f8] truncate" style={{ fontFamily: "'Outfit', sans-serif" }}>
                         {s.name}
                       </div>
-                      <div className="text-[11px] sm:text-[12px] text-[#5e7290] font-mono mt-0.5">{(s.percent || 0).toFixed(0)}%</div>
+                      <div className="text-[12px] sm:text-[13px] text-[#5e7290] font-mono mt-0.5">{(s.percent || 0).toFixed(0)}%</div>
                     </div>
                   ))}
                 </div>
@@ -139,7 +139,7 @@ export function MusicTasteShowcase({ favoriteStyles, musicMeter }: Props) {
             {/* Pagrindiniai stiliai — expandable chips */}
             {favoriteStyles && favoriteStyles.length > 0 && (
               <div>
-                <div className="text-[11px] font-extrabold uppercase tracking-wider text-[#5e7290] mb-3" style={{ fontFamily: "'Outfit', sans-serif" }}>
+                <div className="text-[12px] font-extrabold uppercase tracking-wider text-[#5e7290] mb-3" style={{ fontFamily: "'Outfit', sans-serif" }}>
                   Mėgstamiausi stiliai
                 </div>
                 <div className="flex flex-wrap gap-2">
