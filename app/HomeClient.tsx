@@ -24,7 +24,7 @@ type Artist = { id: number; slug: string; name: string; cover_image_url: string 
 type EventArtist = { artists?: { id: number; name: string; slug: string; cover_image_url?: string | null; country?: string | null } | null; artist_id?: number; sort_order?: number; is_headliner?: boolean }
 type Event = { id: number; slug: string; title: string; event_date?: string; start_date?: string; end_date?: string; venue_custom?: string | null; venue_name?: string | null; venue_id?: number | null; image_small_url?: string | null; cover_image_url?: string | null; image_url?: string | null; city?: string | null; address?: string | null; created_at?: string; is_festival?: boolean; ticket_url?: string | null; price_from?: number | null; venues?: { name: string; city: string } | null; event_artists?: EventArtist[] | null }
 type NewsItem = { id: number; slug: string; title: string; image_small_url: string | null; image_title_url?: string | null; published_at: string; type: string | null; excerpt?: string | null; songs?: { youtube_url?: string | null; title?: string | null; artist_name?: string | null; cover_url?: string | null }[]; artist: { name: string; slug: string; cover_image_url?: string | null } | null }
-type TopEntry = { pos: number; track_id: number; title: string; artist: string; cover_url: string | null; artist_image: string | null; trend: string; wks?: number; slug?: string; artist_slug?: string; videoId?: string | null }
+type TopEntry = { pos: number; track_id: number; title: string; artist: string; cover_url: string | null; artist_image: string | null; trend: string; prevPos?: number | null; wks?: number; slug?: string; artist_slug?: string; videoId?: string | null }
 type Discussion = { id: number; slug: string; title: string; author_name: string | null; comment_count: number; created_at: string; tags: string[] }
 // Dienos daina tipai — sekcija ekstrahuota į components/DienosDainaSection.tsx,
 // bet DienosDainaWidget (šoninis mini-widget) vis dar naudoja Nomination.
@@ -48,6 +48,8 @@ type HeroSlide = {
   authorAvatar?: string | null
   likeable?: boolean                // ar rodyti ♥ (news kol kas)
   fresh24?: boolean                 // pridėtas/paskelbtas DB per pask. 24h → žalias taškas
+  songs?: { videoId: string; title: string; artist?: string | null }[]  // news su KELIOM dainom → mini-playlist
+  lineup?: { name: string; slug: string; image?: string | null }[]      // event — pilnas lineup (avatarai + nuorodos)
 }
 
 /* ────────────────────────────── Helpers ────────────────────────────── */
@@ -631,14 +633,49 @@ function cleanBlogHtml(html?: string | null): string {
   return s.trim()
 }
 
+/** YouTube IFrame Player API loader — modulio lygio, script'as injektuojamas
+ *  VIENĄ kartą, visi kvietėjai gauna tą patį promise. Reikalingas „vieno tap'o"
+ *  grojimui: iš anksto sukurtas cued grotuvas + playVideo() SINCHRONIŠKAI
+ *  paspaudimo handler'yje išlaiko user activation (iOS Safari įsk.). */
+let ytApiPromise: Promise<any> | null = null
+function loadYT(): Promise<any> {
+  if (typeof window === 'undefined') return Promise.reject(new Error('ssr'))
+  const w = window as any
+  if (w.YT && w.YT.Player) return Promise.resolve(w.YT)
+  if (ytApiPromise) return ytApiPromise
+  ytApiPromise = new Promise((resolve, reject) => {
+    const prev = w.onYouTubeIframeAPIReady
+    w.onYouTubeIframeAPIReady = () => { try { prev?.() } catch {}; resolve(w.YT) }
+    const s = document.createElement('script')
+    s.src = 'https://www.youtube.com/iframe_api'
+    s.async = true
+    s.onerror = () => { ytApiPromise = null; reject(new Error('yt-api-load')) }
+    document.head.appendChild(s)
+    // Saugiklis: jei API per 8s neatsiliepė — atmetam (kvietėjas naudos fallback
+    // <iframe> kelią); vėlesnis bandymas galės kurti promise iš naujo.
+    setTimeout(() => { if (!(w.YT && w.YT.Player)) { ytApiPromise = null; reject(new Error('yt-api-timeout')) } }, 8000)
+  })
+  return ytApiPromise
+}
+
 /** Viena istorija reader'yje. Pati valdo savo VERTIKALŲ scroll'ą (pauzina
  *  auto-advance kai nuscrollinta žemyn — „skaitymo režimas"), video iframe'o
  *  mount'ą (tik aktyvi kortelė groja), news pilno body lazy-fetch'ą, ♥ ir
  *  apatinę veiksmų juostą. */
+/** Pozicijos pokyčio ženkliukas topo eilutėje: ▲n pakilo / ▼n nukrito / = ta
+ *  pati vieta / N — naujokas. Duomenys iš /api/top/entries (prev_position, is_new). */
+function TrendBadge({ prev, pos, isNew }: { prev?: number | null; pos: number; isNew?: boolean }) {
+  if (isNew) return <i className="rdr-trend new">N</i>
+  if (typeof prev !== 'number' || prev === pos) return <i className="rdr-trend same">=</i>
+  return prev > pos
+    ? <i className="rdr-trend up">▲{prev - pos}</i>
+    : <i className="rdr-trend down">▼{pos - prev}</i>
+}
+
 /** Inline topas reader'yje — visas sąrašas, balsavimas KAIP regular topo psl.
  *  („+" mygtukas, daug kartų iki 10/daina, votes_per_track), grojimas per
  *  bendrą viršutinį sticky grotuvą (onPlay). */
-function ChartVoteList({ topType, accent, onPlay }: { topType: 'lt_top30' | 'top40'; accent: string; onPlay: (videoId: string) => void }) {
+function ChartVoteList({ topType, accent, onPlay }: { topType: 'lt_top30' | 'top40'; accent: string; onPlay: (videoId: string, meta?: { title?: string | null; artist?: string | null; cover?: string | null }) => void }) {
   const WEEKLY = 10
   const [entries, setEntries] = useState<any[]>([])
   const [weekId, setWeekId] = useState<number | null>(null)
@@ -661,6 +698,8 @@ function ChartVoteList({ topType, accent, onPlay }: { topType: 'lt_top30' | 'top
           artist: e.tracks?.artists?.name || '',
           cover: e.tracks?.cover_url || e.tracks?.artists?.cover_image_url || null,
           videoId: extractYouTubeId(e.tracks?.video_url || null),
+          prev: typeof e.prev_position === 'number' ? e.prev_position : null,
+          isNew: !!e.is_new,
         })))
         if (d.week?.id) fetch(`/api/top/vote?week_id=${d.week.id}`).then(r => r.json()).then(v => { if (!c) setCounts(v.votes_per_track || {}) }).catch(() => {})
       })
@@ -690,8 +729,8 @@ function ChartVoteList({ topType, accent, onPlay }: { topType: 'lt_top30' | 'top
         const maxed = n >= WEEKLY
         return (
           <div key={e.track_id} className="rdr-chart-row">
-            <span className="rdr-chart-pos">{e.pos}</span>
-            <button className="rdr-cvl-cover" onClick={() => e.videoId && onPlay(e.videoId)} disabled={!e.videoId} aria-label="Groti">
+            <span className="rdr-chart-pos">{e.pos}<TrendBadge prev={e.prev} pos={e.pos} isNew={e.isNew} /></span>
+            <button className="rdr-cvl-cover" onClick={() => e.videoId && onPlay(e.videoId, { title: e.title, artist: e.artist, cover: e.cover })} disabled={!e.videoId} aria-label="Groti">
               {e.cover ? <img src={proxyImg(e.cover)} alt="" /> : <span className="rdr-chart-ph" />}
               {e.videoId && <span className="rdr-cvl-play"><svg width="13" height="13" viewBox="0 0 24 24" fill="#fff"><path d="M8 5v14l11-7z" /></svg></span>}
             </button>
@@ -711,7 +750,7 @@ function ChartVoteList({ topType, accent, onPlay }: { topType: 'lt_top30' | 'top
 
 /** Šiandienos dienos dainos kandidatai — balsavimas (1×/daina) + popbar
  *  (lyderis VISADA max) + siūlymas. Grojimas per bendrą viršutinį grotuvą. */
-function DailyCandidates({ onPlay }: { onPlay: (videoId: string) => void }) {
+function DailyCandidates({ onPlay }: { onPlay: (videoId: string, meta?: { title?: string | null; artist?: string | null; cover?: string | null }) => void }) {
   const [noms, setNoms] = useState<any[]>([])
   const [voted, setVoted] = useState<Set<number>>(new Set())
   const [voting, setVoting] = useState<number | null>(null)
@@ -751,7 +790,7 @@ function DailyCandidates({ onPlay }: { onPlay: (videoId: string) => void }) {
         return (
           <div key={n.id} className={`rdr-dc-row${idx === 0 ? ' lead' : ''}`}>
             <span className="rdr-dc-rank">{idx + 1}</span>
-            <button className="rdr-cvl-cover" onClick={() => vid && onPlay(vid)} disabled={!vid} aria-label="Groti">
+            <button className="rdr-cvl-cover" onClick={() => vid && onPlay(vid, { title: sanitizeTitle(t.title || ''), artist: t.artists?.name || null, cover: img })} disabled={!vid} aria-label="Groti">
               {img ? <img src={proxyImg(img)} alt="" /> : <span className="rdr-chart-ph" />}
               {vid && <span className="rdr-cvl-play"><svg width="13" height="13" viewBox="0 0 24 24" fill="#fff"><path d="M8 5v14l11-7z" /></svg></span>}
             </button>
@@ -788,7 +827,20 @@ function ReaderSlide({ slide, active, seen, dk, scrollTopSignal, onScrolledChang
   const scrollRef = useRef<HTMLDivElement>(null)
   const [videoOn, setVideoOn] = useState(false)
   const [curVideoId, setCurVideoId] = useState<string | null>(slide.videoId || null)
-  const [playToken, setPlayToken] = useState(0)
+  const [playToken, setPlayToken] = useState(0)          // tik fallback <iframe> keliui
+  const [fallbackOn, setFallbackOn] = useState(false)    // YT API neužsikrovė → senas autoplay iframe
+  const [playingUi, setPlayingUi] = useState(false)      // realus grotuvo state (chip ▶/eq animacijai)
+  const [playerLive, setPlayerLive] = useState(false)    // grotuvas sukurtas (media konteinerio mount'ui)
+  // „Dabar groja" chip'o metaduomenys — keičiasi renkantis dainą iš playlist'o/topo.
+  const [npMeta, setNpMeta] = useState<{ title: string | null; artist: string | null; cover: string | null }>({
+    title: slide.songTitle || null, artist: slide.songArtist || null, cover: slide.songCover || slide.bgImg || null,
+  })
+  // YT IFrame API grotuvas — kuriamas TIK aktyviai kortelei, naikinamas unmount'e.
+  const playerRef = useRef<any>(null)
+  const playerReadyRef = useRef(false)
+  const loadedIdRef = useRef<string | null>(null)
+  const ytFailedRef = useRef(false)
+  const ytHostRef = useRef<HTMLDivElement>(null)
   const [body, setBody] = useState<string | null>(
     slide.body || (slide.newsId ? newsBodyCache.get(slide.newsId) || null : null)
   )
@@ -806,13 +858,57 @@ function ReaderSlide({ slide, active, seen, dk, scrollTopSignal, onScrolledChang
   const isBlog = slide.type === 'blog'
   const hasVideo = !!slide.videoId
 
-  /* Išeinant iš kortelės — sustabdom video, grįžtam į viršų. JOKIO auto-play. */
+  // Ref'ai grotuvo event'ams (onStateChange nesikabina iš naujo kas render).
+  const activeRef = useRef(active); activeRef.current = active
+  const onPlayingChangeRef = useRef(onPlayingChange); onPlayingChangeRef.current = onPlayingChange
+
+  /* Aktyvi kortelė su muzika — IŠ ANKSTO sukuriam PASLĖPTĄ cued YT grotuvą
+   * (posteris lieka viršuje). Tap'as tada tik atskleidžia + playVideo() tame
+   * pačiame geste → groja iš PIRMO palietimo (iOS įsk.). Neaktyvi — stopVideo
+   * ir paslepiam. Grotuvas kuriamas TIK aktyviai kortelei (perf). */
   useEffect(() => {
-    // NEresetinam videoOn/curVideoId — kortelę palikus grotuvas lieka „įjungtas",
-    // tad grįžus iškart matomas NATIVE YouTube grotuvas (su veikiančiu ▶), o ne
-    // mūsų custom mygtukas (kuris Safari'je būdavo nepatikimas). Tik scroll į viršų.
-    if (!active && scrollRef.current) scrollRef.current.scrollTop = 0
+    if (active) {
+      if (playerRef.current || ytFailedRef.current) return
+      // Grotuvas reikalingas ir chart/daily kortelėms (grojimas iš sąrašo eilučių),
+      // net jei pati kortelė neturi videoId (daily) — kuriam tuščią, loadVideoById gestu.
+      if (!(slide.videoId || slide.type === 'chart_lt' || slide.type === 'chart_world' || slide.type === 'daily')) return
+      let cancelled = false
+      loadYT().then((YT) => {
+        if (cancelled || playerRef.current || !ytHostRef.current) return
+        try {
+          playerRef.current = new YT.Player(ytHostRef.current, {
+            width: '100%', height: '100%',
+            videoId: slide.videoId || undefined,
+            playerVars: { playsinline: 1, rel: 0, modestbranding: 1 },
+            events: {
+              onReady: () => { playerReadyRef.current = true },
+              onStateChange: (ev: any) => {
+                const st = ev?.data
+                if (st === 1) { setPlayingUi(true); if (activeRef.current) onPlayingChangeRef.current(true) }
+                else if (st === 2 || st === 0) { setPlayingUi(false); if (activeRef.current) onPlayingChangeRef.current(false) }
+              },
+            },
+          })
+          loadedIdRef.current = slide.videoId || null
+          setPlayerLive(true)
+        } catch { ytFailedRef.current = true }
+      }).catch(() => { ytFailedRef.current = true })
+      return () => { cancelled = true }
+    } else {
+      // Išeinant iš kortelės — stop + paslepiam grotuvą, grįžtam į viršų. JOKIO auto-play.
+      try { playerRef.current?.stopVideo?.() } catch {}
+      setVideoOn(false)
+      setFallbackOn(false)
+      setPlayingUi(false)
+      if (scrollRef.current) scrollRef.current.scrollTop = 0
+    }
   }, [active]) // eslint-disable-line
+
+  /* Unmount — grotuvo instancija sunaikinama (perf: gyvi tik idx±1 slide'ai). */
+  useEffect(() => () => {
+    try { playerRef.current?.destroy?.() } catch {}
+    playerRef.current = null
+  }, [])
   /* „Į viršų" rodyklė (reels) — tėvas didina signalą, aktyvi kortelė nuslenka į
    *  viršų ir auto-slide vėl pradeda eiti (scrolled → false). */
   useEffect(() => {
@@ -869,15 +965,44 @@ function ReaderSlide({ slide, active, seen, dk, scrollTopSignal, onScrolledChang
     onScrolledChange(top > 4)
   }
 
-  /* Bendras grotuvo paleidimas. SVARBU: iframe'ą kuriam SINCHRONIŠKAI paspaudimo
-   *  handler'yje (ne per React render), kad išliktų „user activation" ir YouTube
-   *  AUTOMATIŠKAI grotų SU GARSU (ypač iOS — React deferred render praranda gestą). */
-  const play = (vid?: string) => {
+  /* Bendras grotuvo paleidimas. SVARBU: playVideo()/loadVideoById() kviečiami
+   *  SINCHRONIŠKAI paspaudimo handler'yje ant IŠ ANKSTO sukurto YT grotuvo —
+   *  išlieka „user activation" ir groja SU GARSU iš pirmo tap'o (iOS įsk.).
+   *  Fallback: jei YT API neužsikrovė — senas autoplay <iframe> kelias. */
+  const play = (vid?: string, meta?: { title?: string | null; artist?: string | null; cover?: string | null }) => {
     const id = vid || slide.videoId
     if (!id) return
     setCurVideoId(id)
+    if (meta) setNpMeta(m => ({ title: meta.title ?? m.title, artist: meta.artist ?? m.artist, cover: meta.cover ?? m.cover }))
+    const p = playerRef.current
+    if (p && playerReadyRef.current && !ytFailedRef.current) {
+      try {
+        if (loadedIdRef.current !== id) { p.loadVideoById(id); loadedIdRef.current = id }
+        p.playVideo()
+        setFallbackOn(false)
+        setVideoOn(true)
+        return
+      } catch {}
+    }
+    // Fallback — šviežias native <iframe> su autoplay (kaip iki YT API integracijos).
+    setFallbackOn(true)
     setVideoOn(true)
-    setPlayToken(t => t + 1)   // šviežias native <iframe> kas paleidimą → groja patikimai (ir Safari, ir grįžus po braukimo)
+    setPlayToken(t => t + 1)
+  }
+
+  /* Chip ▶/⏸ — pauzė/grojimas per API grotuvą; fallback atveju — stop/play. */
+  const togglePlay = () => {
+    const p = playerRef.current
+    if (p && playerReadyRef.current && !fallbackOn) {
+      if (videoOn) {
+        try { if (p.getPlayerState?.() === 1) p.pauseVideo(); else p.playVideo() } catch {}
+        return
+      }
+      play(curVideoId || undefined)
+      return
+    }
+    if (fallbackOn && videoOn) { setFallbackOn(false); setVideoOn(false) }
+    else play(curVideoId || undefined)
   }
 
   const toggleLike = async () => {
@@ -909,21 +1034,26 @@ function ReaderSlide({ slide, active, seen, dk, scrollTopSignal, onScrolledChang
           dešiniam kampe. Scrollinant grojantis video lieka sticky (minimizuojasi). ── */}
       {/* Grotuvo konteineris — visada kai kortelė aktyvi (iframe įdedamas imperatyviai
           paspaudimo metu). Paslėptas kol negroja. */}
-      {(hasVideo || videoOn) ? (
-        <div className={`rdr-media rdr-media-video${tallPoster && !videoOn ? ' rdr-media-tall' : ''}`}>
-          {/* Native YouTube <iframe> — šviežias kas paleidimą (key=playToken).
-              Paprasčiausia ir patikimiausia (Safari įsk.): groja kas kartą, grįžus
-              po braukimo irgi, o autoplay neuždegus — native ▶ visada po ranka. */}
-          {videoOn && active && curVideoId ? (
+      {(hasVideo || videoOn || (isDaily && (active || playerLive))) ? (
+        <div className={`rdr-media rdr-media-video${tallPoster && !videoOn ? ' rdr-media-tall' : ''}${isDaily && !videoOn ? ' rdr-media-collapsed' : ''}`}>
+          {/* YT IFrame API grotuvo lizdas — sukuriamas PASLĖPTAS/cued kai kortelė
+              aktyvi (posteris viršuje). Tap'as atskleidžia + playVideo() tame
+              pačiame geste → vieno palietimo grojimas (iOS įsk.). */}
+          <div className={`rdr-ytwrap${videoOn && !fallbackOn ? ' on' : ''}`}>
+            <div ref={ytHostRef} />
+          </div>
+          {/* Fallback: YT API neužsikrovė — senas autoplay <iframe> (šviežias kas paleidimą). */}
+          {fallbackOn && videoOn && active && curVideoId ? (
             <iframe
-              key={playToken}
+              key={`${curVideoId}-${playToken}`}
               className="rdr-ytslot"
               src={`https://www.youtube.com/embed/${curVideoId}?autoplay=1&playsinline=1&rel=0&modestbranding=1`}
               allow="autoplay; encrypted-media; picture-in-picture; fullscreen"
               allowFullScreen
               title="grotuvas"
             />
-          ) : (
+          ) : null}
+          {!videoOn && (
             <div className="rdr-poster-layer">
               {slide.bgImg
                 ? <><span className="rdr-poster-bg" style={{ backgroundImage: `url(${proxyImg(slide.bgImg)})` }} /><img className="rdr-poster-img" src={proxyImg(slide.bgImg)} alt="" draggable={false} /></>
@@ -943,15 +1073,6 @@ function ReaderSlide({ slide, active, seen, dk, scrollTopSignal, onScrolledChang
           <div className="rdr-media-fade" />
         </div>
       ) : null}
-
-      {/* ── „Groja" juostelė (tik kai yra konkreti daina) ── */}
-      {hasVideo && (slide.songTitle || slide.songArtist) && !isChart && !isDaily && (
-        <div className="rdr-np">
-          <svg width="12" height="12" viewBox="0 0 24 24" fill="var(--accent-orange)"><path d="M8 5v14l11-7z" /></svg>
-          <span className="rdr-np-t">{slide.songTitle || 'Klausyk'}</span>
-          {slide.songArtist && <span className="rdr-np-a">· {slide.songArtist}</span>}
-        </div>
-      )}
 
       {/* ── Tekstinė dalis ── */}
       <div className="rdr-content">
@@ -974,7 +1095,7 @@ function ReaderSlide({ slide, active, seen, dk, scrollTopSignal, onScrolledChang
             <div className="rdr-chart">
               {slide.chartTops.map(t => (
                 <div key={t.pos} className="rdr-chart-row">
-                  <span className="rdr-chart-pos">{t.pos}</span>
+                  <span className="rdr-chart-pos">{t.pos}<TrendBadge prev={t.prevPos} pos={t.pos} isNew={t.trend === 'new'} /></span>
                   {t.cover_url || t.artist_image
                     ? <img src={proxyImg(t.cover_url || t.artist_image!)} alt="" />
                     : <span className="rdr-chart-ph" />}
@@ -1012,6 +1133,23 @@ function ReaderSlide({ slide, active, seen, dk, scrollTopSignal, onScrolledChang
           <p className="rdr-excerpt">{slide.excerpt || slide.subtitle}</p>
         ) : null}
 
+        {/* Renginio lineup'as — avatarai + vardai, kiekvienas → atlikėjo puslapis. */}
+        {slide.lineup && slide.lineup.length > 0 && (
+          <div className="rdr-lineup">
+            <span className="rdr-lineup-head">Lineup</span>
+            <div className="rdr-lineup-row">
+              {slide.lineup.map(a => (
+                <Link key={a.slug} href={`/atlikejai/${a.slug}`} onClick={onNavLink} className="rdr-lineup-item">
+                  {a.image
+                    ? <img src={proxyImg(a.image)} alt="" />
+                    : <span className="rdr-lineup-ph">{a.name[0]}</span>}
+                  <span>{a.name}</span>
+                </Link>
+              ))}
+            </div>
+          </div>
+        )}
+
         {showArtistRow && (
           <Link href={`/atlikejai/${slide.artist!.slug}`} className="rdr-artist rdr-artist-foot" onClick={onNavLink}>
             {slide.artist!.image
@@ -1034,41 +1172,72 @@ function ReaderSlide({ slide, active, seen, dk, scrollTopSignal, onScrolledChang
         <div style={{ height: 92 }} />
       </div>
 
-      {/* ── Apatinė veiksmų juosta (sticky). Koncertų įrašams jos NĖRA —
-          title yra aktyvi nuoroda. ── */}
+      {/* ── Apatinė zona (sticky): mini-playlist (news su keliom dainom) +
+          vieninga veiksmų juosta — KAIRĖJE „dabar groja" chip'as (kai kortelė
+          turi muziką), toliau pirminis CTA, ♥ (news), Bilietai. Koncertų
+          įrašams jos NĖRA — title yra aktyvi nuoroda. ── */}
       {!isRecording && (
-        <div className="rdr-actions" onClick={(e) => e.stopPropagation()}>
-          {slide.likeable && slide.newsId && (
-            <button className={`rdr-like${liked ? ' on' : ''}`} onClick={toggleLike} aria-label="Patinka">
-              <svg width="20" height="20" viewBox="0 0 24 24" fill={liked ? '#f43f5e' : 'none'} stroke={liked ? '#f43f5e' : 'currentColor'} strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M20.8 4.6a5.5 5.5 0 0 0-7.8 0L12 5.6l-1-1a5.5 5.5 0 1 0-7.8 7.8l1 1L12 21l7.8-7.6 1-1a5.5 5.5 0 0 0 0-7.8z" /></svg>
-            </button>
+        <div className="rdr-bottom" onClick={(e) => e.stopPropagation()}>
+          {slide.songs && slide.songs.length > 1 && (
+            <div className="rdr-playlist">
+              {slide.songs.map(s => (
+                <button
+                  key={s.videoId}
+                  className={`rdr-pl-pill${curVideoId === s.videoId && videoOn ? ' on' : ''}`}
+                  onClick={() => play(s.videoId, { title: s.title, artist: s.artist || null })}
+                >
+                  {curVideoId === s.videoId && videoOn && playingUi
+                    ? <span className="rdr-eq"><span /><span /><span /></span>
+                    : <svg width="11" height="11" viewBox="0 0 24 24" fill="currentColor"><path d="M8 5v14l11-7z" /></svg>}
+                  <span>{s.title}</span>
+                </button>
+              ))}
+            </div>
           )}
-          {playInPlace ? (
-            /* daily_winner: „Klausyti" GROJA čia pat (ne naviguoja); šalia — subtili
-               nuoroda į dienos dainos puslapį. */
-            <>
-              <button className="rdr-cta" onClick={() => play()}
-                style={{ background: '#f59e0b', border: 'none', cursor: 'pointer' }}>
-                {videoOn ? 'Groja' : 'Klausyti'}
-                <svg width="14" height="14" viewBox="0 0 24 24" fill="currentColor"><path d="M8 5v14l11-7z" /></svg>
+          <div className="rdr-actions">
+            {(hasVideo || !!curVideoId) && (
+              /* „Dabar groja" chip'as — visas tap'inamas: play/pause. Grojant — EQ animacija. */
+              <button className="rdr-chip-np" onClick={togglePlay} aria-label={playingUi ? 'Pauzė' : 'Groti'}>
+                {npMeta.cover
+                  ? <img src={proxyImg(npMeta.cover)} alt="" />
+                  : <span className="rdr-chip-np-ph" />}
+                <span className="rdr-chip-np-txt">
+                  <b>{npMeta.title || 'Klausyk'}</b>
+                  {npMeta.artist && <i>{npMeta.artist}</i>}
+                </span>
+                {playingUi
+                  ? <span className="rdr-eq"><span /><span /><span /></span>
+                  : videoOn && !fallbackOn
+                    ? <svg width="15" height="15" viewBox="0 0 24 24" fill="var(--accent-orange)"><path d="M6 4h4v16H6zM14 4h4v16h-4z" /></svg>
+                    : <svg width="15" height="15" viewBox="0 0 24 24" fill="var(--accent-orange)"><path d="M8 5v14l11-7z" /></svg>}
               </button>
-              <Link href={slide.href} onClick={onNavLink} className="rdr-ticket" style={{ textDecoration: 'none' }}>
+            )}
+            {slide.likeable && slide.newsId && (
+              <button className={`rdr-like${liked ? ' on' : ''}`} onClick={toggleLike} aria-label="Patinka">
+                <svg width="20" height="20" viewBox="0 0 24 24" fill={liked ? '#f43f5e' : 'none'} stroke={liked ? '#f43f5e' : 'currentColor'} strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M20.8 4.6a5.5 5.5 0 0 0-7.8 0L12 5.6l-1-1a5.5 5.5 0 1 0-7.8 7.8l1 1L12 21l7.8-7.6 1-1a5.5 5.5 0 0 0 0-7.8z" /></svg>
+              </button>
+            )}
+            {playInPlace ? (
+              /* daily_winner: grojimas „čia pat" per chip'ą/naują grotuvą; CTA —
+                 subtili nuoroda į dienos dainos puslapį. */
+              <Link href={slide.href} onClick={onNavLink} className="rdr-cta subtle">
                 Dienos daina
+                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.4" strokeLinecap="round" strokeLinejoin="round"><path d="M5 12h14M12 5l7 7-7 7" /></svg>
               </Link>
-            </>
-          ) : (
-          <Link href={slide.href} onClick={onNavLink} className={`rdr-cta${isNews ? ' subtle' : ''}`}
-            style={isNews ? undefined : { background: seen ? 'rgba(255,255,255,0.18)' : (isChart ? (slide.type === 'chart_lt' ? 'var(--accent-orange)' : '#3b82f6') : isDaily ? '#f59e0b' : 'var(--accent-orange)') }}>
-            {(isNews ? 'Pilna versija ir komentarai' : slide.ctaLabel) || (isChart ? 'Visas topas' : isDaily ? 'Dienos daina' : 'Skaityti')}
-            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.4" strokeLinecap="round" strokeLinejoin="round"><path d="M5 12h14M12 5l7 7-7 7" /></svg>
-          </Link>
-          )}
-          {slide.ticketUrl && (
-            <a href={slide.ticketUrl} target="_blank" rel="noopener noreferrer" className="rdr-ticket">
-              <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M3 7v3a2 2 0 0 1 0 4v3a1 1 0 0 0 1 1h16a1 1 0 0 0 1-1v-3a2 2 0 0 1 0-4V7a1 1 0 0 0-1-1H4a1 1 0 0 0-1 1z" /></svg>
-              Bilietai
-            </a>
-          )}
+            ) : (
+            <Link href={slide.href} onClick={onNavLink} className={`rdr-cta${isNews ? ' subtle' : ''}`}
+              style={isNews ? undefined : { background: seen ? 'rgba(255,255,255,0.18)' : (isChart ? (slide.type === 'chart_lt' ? 'var(--accent-orange)' : '#3b82f6') : isDaily ? '#f59e0b' : 'var(--accent-orange)') }}>
+              {(isNews ? 'Pilna versija ir komentarai' : slide.ctaLabel) || (isChart ? 'Visas topas' : isDaily ? 'Dienos daina' : 'Skaityti')}
+              <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.4" strokeLinecap="round" strokeLinejoin="round"><path d="M5 12h14M12 5l7 7-7 7" /></svg>
+            </Link>
+            )}
+            {slide.ticketUrl && (
+              <a href={slide.ticketUrl} target="_blank" rel="noopener noreferrer" className="rdr-ticket">
+                <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M3 7v3a2 2 0 0 1 0 4v3a1 1 0 0 0 1 1h16a1 1 0 0 0 1-1v-3a2 2 0 0 1 0-4V7a1 1 0 0 0-1-1H4a1 1 0 0 0-1 1z" /></svg>
+                Bilietai
+              </a>
+            )}
+          </div>
         </div>
       )}
     </div>
@@ -1182,7 +1351,7 @@ function ReelsOverlay({ slides, initialIdx, seenSlides, onSeen, onClose, onChart
   }
   const onTouchStart = (e: React.TouchEvent) => {
     const t = e.target as HTMLElement
-    ignoreGesture.current = !!(t && t.closest && t.closest('button, a, iframe, input, textarea, .rdr-actions'))
+    ignoreGesture.current = !!(t && t.closest && t.closest('button, a, iframe, input, textarea, .rdr-bottom'))
     touchStartX.current = e.touches[0].clientX
     touchStartY.current = e.touches[0].clientY
     gestureDir.current = null
@@ -2921,7 +3090,7 @@ export default function HomeClient({ initialLatest, initialHero }: { initialLate
   const parseTop = (entries: any[]): TopEntry[] => entries.slice(0, 7).map(e => {
     const prev = e.prev_position; const cur = e.position
     const trend = e.is_new ? 'new' : !prev ? 'same' : cur < prev ? 'up' : cur > prev ? 'down' : 'same'
-    return { pos: e.position, track_id: e.track_id, title: sanitizeTitle(e.tracks?.title || ''), artist: e.tracks?.artists?.name || '', cover_url: e.tracks?.cover_url || null, artist_image: e.tracks?.artists?.cover_image_url || null, trend, wks: e.weeks_in_top, slug: e.tracks?.slug, artist_slug: e.tracks?.artists?.slug, videoId: extractYouTubeId(e.tracks?.video_url || null) }
+    return { pos: e.position, track_id: e.track_id, title: sanitizeTitle(e.tracks?.title || ''), artist: e.tracks?.artists?.name || '', cover_url: e.tracks?.cover_url || null, artist_image: e.tracks?.artists?.cover_image_url || null, trend, prevPos: typeof prev === 'number' ? prev : null, wks: e.weeks_in_top, slug: e.tracks?.slug, artist_slug: e.tracks?.artists?.slug, videoId: extractYouTubeId(e.tracks?.video_url || null) }
   })
 
   useEffect(() => {
@@ -2996,6 +3165,9 @@ export default function HomeClient({ initialLatest, initialHero }: { initialLate
         href: '/top30',
         videoId: ltTop[0]?.videoId || null,
         bgImg: ytThumb(ltTop[0]?.videoId) || ltTop[0]?.cover_url || ltTop[0]?.artist_image || null,
+        songTitle: ltTop[0]?.title || null,
+        songArtist: ltTop[0]?.artist || null,
+        songCover: ltTop[0]?.cover_url || ltTop[0]?.artist_image || null,
         chartTops: ltTop.slice(0, 5),
       } as any })
     }
@@ -3007,6 +3179,9 @@ export default function HomeClient({ initialLatest, initialHero }: { initialLate
         href: '/top40',
         videoId: worldTop[0]?.videoId || null,
         bgImg: ytThumb(worldTop[0]?.videoId) || worldTop[0]?.cover_url || worldTop[0]?.artist_image || null,
+        songTitle: worldTop[0]?.title || null,
+        songArtist: worldTop[0]?.artist || null,
+        songCover: worldTop[0]?.cover_url || worldTop[0]?.artist_image || null,
         chartTops: worldTop.slice(0, 5),
       } as any })
     }
@@ -3019,6 +3194,14 @@ export default function HomeClient({ initialLatest, initialHero }: { initialLate
       const typeLT = n.type === 'review' ? 'Recenzija' : n.type === 'interview' ? 'Interviu' : n.type === 'report' ? 'Reportažas' : 'Naujiena'
       const songs = newsSongs[n.id] || []
       const song = songs.find((s: any) => s.youtube_url)
+      // VISOS straipsnio dainos (ne tik pirma) → mini-playlist reader'yje.
+      const songList = songs
+        .map((s: any) => ({
+          videoId: extractYouTubeId(s.youtube_url || null),
+          title: sanitizeTitle(s.title || '') || s.artist_name || 'Daina',
+          artist: s.artist_name || null,
+        }))
+        .filter((s: any): s is { videoId: string; title: string; artist: string | null } => !!s.videoId)
       dated.push({ sortMs: ms(n.published_at), slide: {
         type: 'news', chip: typeLT.toUpperCase(), chipBg: '#1d4ed8',
         title: sanitizeTitle(n.title),
@@ -3032,6 +3215,7 @@ export default function HomeClient({ initialLatest, initialHero }: { initialLate
         bgImg: n.image_title_url || n.image_small_url,
         href: `/news/${n.slug}`,
         videoId: extractYouTubeId(song?.youtube_url || null),
+        songs: songList.length ? songList : undefined,
         songTitle: song?.title || null,
         songArtist: song?.artist_name || n.artist?.name || null,
         songCover: null,
@@ -3172,12 +3356,19 @@ export default function HomeClient({ initialLatest, initialHero }: { initialLate
       const cd = c.date ? new Date(c.date) : null
       const ds = cd && !isNaN(cd.getTime()) ? `${cd.getFullYear()} m. ${MONTHS_FULL_LT[cd.getMonth()]} ${cd.getDate()} d.` : ''
       const where = dest ? [dest.city, dest.country].filter(Boolean).join(', ') : ''
+      // Kelionės kontekstas iš krypties (dest): skrydis (oro uostas, vežėjas,
+      // kaina „nuo") arba kelionė automobiliu (valandos, iš kur).
+      const travel = dest
+        ? (dest.reach === 'flight'
+            ? ['Skrydis' + (dest.fromAirport ? ` iš ${dest.fromAirport}` : ''), dest.carrier || '', dest.priceFrom ? `nuo ${dest.priceFrom} €` : ''].filter(Boolean).join(', ')
+            : (dest.driveHours ? `~${dest.driveHours} val. automobiliu${dest.driveFrom ? ` iš ${dest.driveFrom}` : ''}` : ''))
+        : ''
       slides.push({
         type: 'verta', chip: 'VERTA KELIONĖS', chipBg: '#0891b2',
         title: c.isFestival ? (c.festivalName || c.artist) : c.artist,
         subtitle: [where, ds].filter(Boolean).join(' · '),
-        excerpt: c.why || '',
-        metaLine: [where, ds].filter(Boolean).join(' · '),
+        excerpt: c.why || '',   // „kodėl verta" — PILNAS tekstas
+        metaLine: [where, ds, travel].filter(Boolean).join(' · '),
         bgImg: c.image || null,
         href: `/verta-keliones#vk-${c.id}`,
         ticketUrl: c.ticketUrl || null,
@@ -3212,14 +3403,23 @@ export default function HomeClient({ initialLatest, initialHero }: { initialLate
           ? artistList.slice(0, 3).join(', ') + (artistList.length > 3 ? ` +${artistList.length - 3}` : '')
           : sanitizeTitle(ev.title)
       const firstArtist = (ev.event_artists || []).find(ea => ea.artists?.cover_image_url)
-      const evMeta = [city, dateStr].filter(Boolean).join(' · ')
+      // Vietos pavadinimas (venue) — pilnesnė metaLine: vieta · miestas · data.
+      const venueName = ev.venues?.name || ev.venue_name || ev.venue_custom || ''
+      const evMeta = [venueName, city, dateStr].filter(Boolean).join(' · ')
+      // Aprašymas PILNAS (be trumpinimo) — reader'yje vietos užtenka.
       const evDesc = (ev as any).description ? sanitizeTitle((ev as any).description) : ''
+      // Pilnas lineup'as (max 6) — avatarų eilutė su nuorodom į atlikėjų puslapius.
+      const lineup = (ev.event_artists || [])
+        .filter(ea => ea.artists?.name && ea.artists?.slug)
+        .slice(0, 6)
+        .map(ea => ({ name: ea.artists!.name, slug: ea.artists!.slug, image: ea.artists!.cover_image_url || null }))
       slides.push({
         type: 'event', chip: 'RENGINYS', chipBg: '#047857',
         title: artistText,  // ARTISTS as primary text (atlikėjas nerodomas dar kartą žemiau)
-        subtitle: evMeta,  // miestas · data
+        subtitle: evMeta,  // vieta · miestas · data
         metaLine: evMeta,
         excerpt: evDesc,
+        lineup: lineup.length ? lineup : undefined,
         ticketUrl: ev.ticket_url || null,
         ctaLabel: 'Apie renginį',
         fresh24: isFresh24(ev.created_at),
@@ -3403,7 +3603,14 @@ export default function HomeClient({ initialLatest, initialHero }: { initialLate
         .rdr-vclose{position:absolute;top:3px;right:3px;width:22px;height:22px;border-radius:50%;background:rgba(0,0,0,0.65);border:none;color:#fff;font-size:11px;line-height:1;cursor:pointer;z-index:2;display:flex;align-items:center;justify-content:center}
 
         /* YT IFrame slotas (pre-created player) + posteris (contain + blur fonas) */
-        .rdr-ytslot{position:absolute;inset:0;width:100%;height:100%;border:0;display:block;background:#000}
+        .rdr-ytslot{position:absolute;inset:0;width:100%;height:100%;border:0;display:block;background:#000;z-index:1}
+        /* YT IFrame API grotuvo apvalkalas — grotuvas gyvena DOM'e paslėptas
+           (visibility, NE display:none — kad playVideo() gestu veiktų iOS) */
+        .rdr-ytwrap{position:absolute;inset:0;z-index:1;visibility:hidden;background:#000}
+        .rdr-ytwrap.on{visibility:visible}
+        .rdr-ytwrap iframe{width:100%;height:100%;border:0;display:block}
+        /* daily kortelės grotuvas iki paleidimo — sulankstytas (0 aukščio) */
+        .rdr-media-collapsed{aspect-ratio:auto;height:0;min-height:0}
         /* Video kortelės media — 16/10, NORMALUS srautas (NE sticky → scrollinasi su tekstu) */
         .rdr-media-video{aspect-ratio:16/10;max-height:none}
         .rdr-media-tall{aspect-ratio:4/5;max-height:60vh}
@@ -3428,10 +3635,12 @@ export default function HomeClient({ initialLatest, initialHero }: { initialLate
         .hp-reels.light .rdr-artist{background:var(--bg-hover)}
         .hp-reels.light .rdr-artist span{color:var(--text-primary)}
         .hp-reels.light .rdr-author{color:var(--text-muted)}
-        .hp-reels.light .rdr-np{background:rgba(249,115,22,0.10);border-bottom-color:var(--border-default)}
-        .hp-reels.light .rdr-np-t{color:var(--text-primary)}
-        .hp-reels.light .rdr-np-a{color:var(--text-muted)}
-        .hp-reels.light .rdr-actions{background:linear-gradient(to top,var(--bg-body) 62%,transparent)}
+        .hp-reels.light .rdr-bottom{background:linear-gradient(to top,var(--bg-body) 62%,transparent)}
+        .hp-reels.light .rdr-chip-np{background:var(--bg-hover);border-color:var(--border-default)}
+        .hp-reels.light .rdr-chip-np-txt b{color:var(--text-primary)}
+        .hp-reels.light .rdr-chip-np-txt i{color:var(--text-muted)}
+        .hp-reels.light .rdr-pl-pill{background:var(--bg-hover);border-color:var(--border-default);color:var(--text-primary)}
+        .hp-reels.light .rdr-pl-pill.on{background:var(--accent-orange);border-color:var(--accent-orange);color:#fff}
         .hp-reels.light .rdr-media-fade{display:none}
         .hp-reels.light .rdr-like{background:var(--bg-hover);border-color:var(--border-default);color:var(--text-primary)}
         .hp-reels.light .rdr-cta.subtle{background:var(--bg-hover);border-color:var(--border-default);color:var(--text-primary)}
@@ -3439,11 +3648,6 @@ export default function HomeClient({ initialLatest, initialHero }: { initialLate
         .hp-reels.light .rdr-uptop{background:var(--bg-elevated);border-color:var(--border-default);color:var(--text-primary)}
         .hp-reels.light .rdr-chart-info b,.hp-reels.light .rdr-top-title{color:var(--text-primary)}
         .hp-reels.light .rdr-toplist .rdr-top-comment,.hp-reels.light .rdr-chart-info i,.hp-reels.light .rdr-top-artist{color:var(--text-muted)}
-
-        /* „Groja" juostelė */
-        .rdr-np{display:flex;align-items:center;gap:6px;padding:9px 20px;background:rgba(249,115,22,0.10);border-bottom:1px solid rgba(255,255,255,0.06);font-family:'Outfit',sans-serif}
-        .rdr-np-t{font-size:12px;font-weight:800;color:#fff;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
-        .rdr-np-a{font-size:11px;color:rgba(255,255,255,0.55);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
 
         /* Turinys */
         .rdr-content{padding:16px 20px 0}
@@ -3457,6 +3661,16 @@ export default function HomeClient({ initialLatest, initialHero }: { initialLate
         .rdr-artist-ph{width:30px;height:30px;border-radius:50%;background:var(--accent-orange);display:flex;align-items:center;justify-content:center;color:#fff;font-weight:800;font-size:13px;text-transform:uppercase}
         .rdr-artist span{font-size:13px;font-weight:700;color:#fff}
         .rdr-excerpt{font-size:15.5px;line-height:1.62;color:rgba(255,255,255,0.82);margin:0}
+        /* Renginio lineup'as — avatarų eilutė (wrap'inasi) */
+        .rdr-lineup{margin:18px 0 0}
+        .rdr-lineup-head{display:block;font-family:'Outfit',sans-serif;font-size:11px;font-weight:800;letter-spacing:0.04em;color:rgba(255,255,255,0.55);text-transform:uppercase}
+        .rdr-lineup-row{display:flex;flex-wrap:wrap;gap:8px;margin-top:9px}
+        .rdr-lineup-item{display:inline-flex;align-items:center;gap:7px;padding:4px 12px 4px 4px;border-radius:999px;background:rgba(255,255,255,0.07);border:1px solid rgba(255,255,255,0.10);text-decoration:none}
+        .rdr-lineup-item img,.rdr-lineup-ph{width:28px;height:28px;border-radius:50%;object-fit:cover;flex-shrink:0;background:var(--accent-orange);display:flex;align-items:center;justify-content:center;color:#fff;font-weight:800;font-size:12px;text-transform:uppercase}
+        .rdr-lineup-item span:last-child{font-size:12.5px;font-weight:700;color:#fff;white-space:nowrap}
+        .hp-reels.light .rdr-lineup-head{color:var(--text-muted)}
+        .hp-reels.light .rdr-lineup-item{background:var(--bg-hover);border-color:var(--border-default)}
+        .hp-reels.light .rdr-lineup-item span:last-child{color:var(--text-primary)}
         .rdr-html{font-size:15.5px;line-height:1.66;color:rgba(255,255,255,0.82)}
         .rdr-html p{margin:0 0 14px}
         .rdr-html a{color:#fb923c;text-decoration:underline}
@@ -3489,7 +3703,14 @@ export default function HomeClient({ initialLatest, initialHero }: { initialLate
         /* Chart sąrašas */
         .rdr-chart{display:flex;flex-direction:column;gap:8px;margin:4px 0 16px}
         .rdr-chart-row{display:flex;align-items:center;gap:10px}
-        .rdr-chart-pos{width:20px;text-align:center;font-family:'Outfit',sans-serif;font-weight:900;font-size:15px;color:var(--accent-orange);flex-shrink:0}
+        .rdr-chart-pos{display:flex;flex-direction:column;align-items:center;justify-content:center;gap:1px;width:22px;text-align:center;font-family:'Outfit',sans-serif;font-weight:900;font-size:15px;color:var(--accent-orange);flex-shrink:0;line-height:1}
+        /* Pozicijos pokytis: ▲n / ▼n / = / N (naujokas) */
+        .rdr-trend{font-style:normal;font-size:9px;font-weight:800;letter-spacing:0;line-height:1}
+        .rdr-trend.up{color:#22c55e}
+        .rdr-trend.down{color:#ef4444}
+        .rdr-trend.same{color:rgba(255,255,255,0.35)}
+        .rdr-trend.new{color:#fb923c}
+        .hp-reels.light .rdr-trend.same{color:var(--text-muted)}
         .rdr-chart-row img,.rdr-chart-ph{width:42px;height:42px;border-radius:8px;object-fit:cover;flex-shrink:0;background:#1a1a1a}
         .rdr-chart-info{display:flex;flex-direction:column;min-width:0;flex:1}
         .rdr-chart-info b{font-size:13.5px;font-weight:700;color:#fff;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
@@ -3534,8 +3755,31 @@ export default function HomeClient({ initialLatest, initialHero }: { initialLate
         .rdr-dc-empty{display:flex;flex-direction:column;gap:12px;padding:8px 0}
         .rdr-dc-empty p{font-size:15px;font-weight:600;color:rgba(255,255,255,0.85);margin:0}
 
-        /* Apatinė veiksmų juosta (sticky) */
-        .rdr-actions{position:sticky;bottom:0;left:0;right:0;display:flex;align-items:center;gap:10px;padding:12px 16px calc(14px + env(safe-area-inset-bottom));background:linear-gradient(to top,#000 62%,transparent);z-index:5}
+        /* Apatinė zona (sticky): mini-playlist + vieninga veiksmų juosta */
+        .rdr-bottom{position:sticky;bottom:0;left:0;right:0;background:linear-gradient(to top,#000 62%,transparent);z-index:5}
+        .rdr-actions{display:flex;align-items:center;gap:10px;padding:12px 16px calc(14px + env(safe-area-inset-bottom))}
+        /* „Dabar groja" chip'as (kairysis) — mini viršelis + pavadinimas + ▶/EQ */
+        .rdr-chip-np{display:flex;align-items:center;gap:8px;min-width:0;max-width:46%;flex-shrink:1;padding:6px 10px 6px 6px;border-radius:12px;background:rgba(255,255,255,0.10);border:1px solid rgba(255,255,255,0.16);cursor:pointer;text-align:left}
+        .rdr-chip-np:active{transform:scale(0.97)}
+        .rdr-chip-np img,.rdr-chip-np-ph{width:32px;height:32px;border-radius:8px;object-fit:cover;flex-shrink:0;background:#1a1a1a;display:block}
+        .rdr-chip-np-txt{display:flex;flex-direction:column;min-width:0}
+        .rdr-chip-np-txt b{font-family:'Outfit',sans-serif;font-size:12px;font-weight:800;color:#fff;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+        .rdr-chip-np-txt i{font-size:10.5px;font-style:normal;color:rgba(255,255,255,0.55);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+        .rdr-chip-np svg{flex-shrink:0}
+        /* 3 juostelių equalizer'is — rodomas kai groja */
+        .rdr-eq{display:flex;align-items:flex-end;gap:2px;width:13px;height:13px;flex-shrink:0}
+        .rdr-eq span{flex:1;border-radius:1.5px;background:var(--accent-orange);transform-origin:bottom;animation:rdr-eqb .9s ease-in-out infinite}
+        .rdr-eq span:nth-child(1){height:100%;animation-delay:-.45s}
+        .rdr-eq span:nth-child(2){height:100%;animation-delay:-.15s}
+        .rdr-eq span:nth-child(3){height:100%;animation-delay:-.3s}
+        @keyframes rdr-eqb{0%,100%{transform:scaleY(0.35)}50%{transform:scaleY(1)}}
+        /* Mini-playlist (news su keliom dainom) — horizontaliai scrollinamos piliulės */
+        .rdr-playlist{display:flex;gap:8px;overflow-x:auto;padding:8px 16px 2px;scrollbar-width:none}
+        .rdr-playlist::-webkit-scrollbar{display:none}
+        .rdr-pl-pill{display:flex;align-items:center;gap:6px;flex-shrink:0;max-width:220px;padding:7px 12px;border-radius:999px;background:rgba(255,255,255,0.10);border:1px solid rgba(255,255,255,0.16);color:#fff;font-family:'Outfit',sans-serif;font-size:12px;font-weight:700;cursor:pointer;white-space:nowrap}
+        .rdr-pl-pill span{overflow:hidden;text-overflow:ellipsis}
+        .rdr-pl-pill.on{background:var(--accent-orange);border-color:var(--accent-orange)}
+        .rdr-pl-pill.on .rdr-eq span{background:#fff}
         .rdr-like{width:48px;height:48px;flex-shrink:0;border-radius:14px;background:rgba(255,255,255,0.10);border:1px solid rgba(255,255,255,0.14);color:#fff;display:flex;align-items:center;justify-content:center;cursor:pointer;transition:background .2s}
         .rdr-like.on{background:rgba(244,63,94,0.16);border-color:rgba(244,63,94,0.4)}
         .rdr-cta{flex:1;display:flex;align-items:center;justify-content:center;gap:7px;padding:14px 20px;border-radius:14px;border:none;cursor:pointer;color:#fff;font-family:'Outfit',sans-serif;font-size:14.5px;font-weight:800;letter-spacing:-0.01em;text-decoration:none}
@@ -3549,7 +3793,7 @@ export default function HomeClient({ initialLatest, initialHero }: { initialLate
         .rdr-uptop:active{transform:translateX(-50%) scale(0.9)}
         .rdr-nav{position:fixed;top:50%;transform:translateY(-50%);z-index:308;width:40px;height:40px;border-radius:50%;background:rgba(0,0,0,0.4);border:1px solid rgba(255,255,255,0.15);color:#fff;font-size:24px;line-height:1;cursor:pointer;display:none;align-items:center;justify-content:center;backdrop-filter:blur(6px)}
         .rdr-nav-l{left:12px}.rdr-nav-r{right:12px}
-        @media(min-width:900px){.rdr-nav{display:flex}.rdr-media,.rdr-np,.rdr-content,.rdr-actions{max-width:560px;margin-left:auto;margin-right:auto}}
+        @media(min-width:900px){.rdr-nav{display:flex}.rdr-media,.rdr-content,.rdr-bottom{max-width:560px;margin-left:auto;margin-right:auto}}
 
         /* ── Hero cinematic ── */
         .hp-hero{position:relative;overflow:hidden;min-height:420px;display:flex;background:var(--bg-body)}
