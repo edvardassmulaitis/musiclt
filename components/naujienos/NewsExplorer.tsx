@@ -209,7 +209,7 @@ const NX_CSS = `
   background:var(--bg-surface); border:1px solid var(--border-default,rgba(255,255,255,0.1)); border-radius:14px;
   box-shadow:0 14px 40px rgba(0,0,0,0.32); }
 .ev-pop-list { display:flex; flex-direction:column; gap:2px; max-height:300px; overflow-y:auto; }
-.ev-opt { display:flex; align-items:center; gap:8px; text-align:left; width:100%; padding:8px 10px; border-radius:9px; font-size:13px;
+.ev-opt { display:flex; align-items:center; gap:8px; text-align:left; width:100%; padding:8px 10px; border-radius:9px; font-size:14px;
   font-weight:600; font-family:'Outfit',sans-serif; cursor:pointer; background:transparent; border:none; color:var(--text-secondary); transition:all .12s; }
 .ev-opt:hover { background:var(--bg-hover); color:var(--text-primary); }
 .ev-opt.on { color:var(--accent-orange); }

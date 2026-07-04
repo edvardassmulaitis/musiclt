@@ -222,7 +222,7 @@ export default async function GhostUserPage({ params }: Props) {
             {user.is_claimed ? (
               <div
                 style={{
-                  fontSize: 13,
+                  fontSize: 14,
                   fontWeight: 700,
                   color: 'var(--text-muted)',
                   padding: '6px 12px',
@@ -378,7 +378,7 @@ export default async function GhostUserPage({ params }: Props) {
                   )}
                 </div>
                 <div style={{ padding: '8px 10px' }}>
-                  <div style={{ fontSize: 13, fontWeight: 700, color: 'var(--text-primary)', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
+                  <div style={{ fontSize: 14, fontWeight: 700, color: 'var(--text-primary)', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
                     {a.title}
                   </div>
                   <div style={{ fontSize: 12, color: 'var(--text-muted)', marginTop: 1, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
@@ -431,7 +431,7 @@ export default async function GhostUserPage({ params }: Props) {
                     </div>
                   )}
                 </div>
-                <span style={{ fontSize: 13, color: 'var(--accent-orange)', fontWeight: 700, fontFamily: 'Outfit,sans-serif', flexShrink: 0 }}>→</span>
+                <span style={{ fontSize: 14, color: 'var(--accent-orange)', fontWeight: 700, fontFamily: 'Outfit,sans-serif', flexShrink: 0 }}>→</span>
               </Link>
             ))}
           </div>
@@ -469,7 +469,7 @@ function StatTile({ label, value }: { label: string; value: number }) {
       </div>
       <div
         style={{
-          fontSize: 11,
+          fontSize: 12,
           fontWeight: 800,
           textTransform: 'uppercase',
           letterSpacing: '.1em',

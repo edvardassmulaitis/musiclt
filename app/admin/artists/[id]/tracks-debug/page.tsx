@@ -310,7 +310,7 @@ export default async function TracksDebugPage({ params }: Props) {
           {pendingTracks.length > 0 && (
             <div className="text-[var(--text-secondary)] mb-1">
               <strong className="text-amber-600">{pendingTracks.length}</strong> dainos su <code className="rounded bg-amber-500/15 px-1 text-amber-600">legacy_scrape_pending</code> — music.lt scrape rado, bet Wiki canonical sąraše nėra.
-              <span className="text-[var(--text-muted)] text-[13px] ml-2">Aktyvuoti per <Link href="/admin/pending" className="text-blue-500 hover:underline">/admin/pending</Link> arba priskirti albumui per <Link href={`/admin/artists/${id}/orphans`} className="text-blue-500 hover:underline">orphan tracks</Link>.</span>
+              <span className="text-[var(--text-muted)] text-[14px] ml-2">Aktyvuoti per <Link href="/admin/pending" className="text-blue-500 hover:underline">/admin/pending</Link> arba priskirti albumui per <Link href={`/admin/artists/${id}/orphans`} className="text-blue-500 hover:underline">orphan tracks</Link>.</span>
             </div>
           )}
           {unassignedTracks.length > 0 && (
@@ -410,8 +410,8 @@ export default async function TracksDebugPage({ params }: Props) {
       </div>
 
       <div className="overflow-x-auto rounded-lg border border-[var(--border-default)]">
-        <table className="w-full text-[14.5px]">
-          <thead className="sticky top-0 bg-[var(--bg-elevated)] text-left text-[13px] uppercase tracking-wider text-[var(--text-faint)]">
+        <table className="w-full text-[14px]">
+          <thead className="sticky top-0 bg-[var(--bg-elevated)] text-left text-[14px] uppercase tracking-wider text-[var(--text-faint)]">
             <tr>
               <th className="px-3 py-2.5">#</th>
               <th className="px-3 py-2.5">Track</th>
@@ -459,7 +459,7 @@ export default async function TracksDebugPage({ params }: Props) {
                       {t.title}
                     </Link>
                   </td>
-                  <td className="px-3 py-2 text-[13px] text-[var(--text-muted)] max-w-[180px] truncate" title={t.album_titles}>
+                  <td className="px-3 py-2 text-[14px] text-[var(--text-muted)] max-w-[180px] truncate" title={t.album_titles}>
                     {t.album_titles || '—'}
                   </td>
                   <td className="px-3 py-2 text-right tabular-nums">
@@ -501,9 +501,9 @@ export default async function TracksDebugPage({ params }: Props) {
                   </td>
                   <td className="px-3 py-2 text-center" title={t.spotify_id ? `spotify_id=${t.spotify_id}` : 'null'}>
                     {hasSpotify ? (
-                      <a href={`https://open.spotify.com/track/${t.spotify_id}`} target="_blank" rel="noreferrer" className="inline-flex items-center justify-center w-5 h-5 rounded bg-emerald-500/15 text-emerald-400 text-[13px] font-bold hover:bg-emerald-500/30">✓</a>
+                      <a href={`https://open.spotify.com/track/${t.spotify_id}`} target="_blank" rel="noreferrer" className="inline-flex items-center justify-center w-5 h-5 rounded bg-emerald-500/15 text-emerald-400 text-[14px] font-bold hover:bg-emerald-500/30">✓</a>
                     ) : (
-                      <span className="text-[var(--text-faint)] text-[13px]">×</span>
+                      <span className="text-[var(--text-faint)] text-[14px]">×</span>
                     )}
                   </td>
                   <td className="px-3 py-2 text-center text-[12px] tabular-nums" title={hasLyrics ? `${t.lyrics?.length || 0} chars` : 'no lyrics'}>

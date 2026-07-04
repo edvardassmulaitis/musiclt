@@ -165,7 +165,7 @@ const CSS = `
 .vkd-wrap { max-width:1100px; margin:0 auto; padding:18px var(--page-pad-x,24px) 60px; font-family:'DM Sans',system-ui,sans-serif; }
 @media(max-width:640px){ .vkd-wrap { padding-left:var(--page-pad-x-sm,16px); padding-right:var(--page-pad-x-sm,16px); } }
 
-.vkd-crumb { display:flex; align-items:center; gap:7px; font-family:'Outfit',sans-serif; font-size:12.5px; font-weight:600; color:var(--text-faint); margin-bottom:14px; }
+.vkd-crumb { display:flex; align-items:center; gap:7px; font-family:'Outfit',sans-serif; font-size:12px; font-weight:600; color:var(--text-faint); margin-bottom:14px; }
 .vkd-crumb a { color:var(--text-muted); }
 .vkd-crumb a:hover { color:var(--accent-orange); }
 .vkd-crumb b { color:var(--text-secondary); font-weight:700; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; max-width:60vw; }
@@ -175,18 +175,18 @@ const CSS = `
 .vkd-hero-grad { position:absolute; inset:0; background:linear-gradient(180deg, rgba(8,12,18,0.15) 0%, rgba(8,12,18,0.5) 46%, rgba(8,12,18,0.95) 100%); }
 .vkd-hero-inner { position:relative; z-index:2; display:flex; flex-direction:column; align-items:flex-start; justify-content:flex-end; gap:11px; min-height:280px; padding:28px clamp(20px,4vw,42px); }
 .vkd-tags { display:flex; flex-wrap:wrap; gap:6px; }
-.vkd-tag { font-family:'Outfit',sans-serif; font-weight:800; font-size:10.5px; letter-spacing:.04em; padding:5px 11px; border-radius:100px; }
+.vkd-tag { font-family:'Outfit',sans-serif; font-weight:800; font-size:12px; letter-spacing:.04em; padding:5px 11px; border-radius:100px; }
 .vkd-tag.fest { background:#67e8f9; color:#0c2a44; }
 .vkd-tag.reach { background:rgba(255,255,255,0.16); color:#dbe7f5; backdrop-filter:blur(4px); }
 .vkd-tag.ok { background:rgba(34,197,94,0.18); color:#4ade80; border:1px solid rgba(34,197,94,0.3); }
 .vkd-title { font-family:'Outfit',sans-serif; font-weight:900; font-size:clamp(28px,5vw,48px); line-height:1.02; letter-spacing:-.02em; color:#fff; text-shadow:0 3px 24px rgba(0,0,0,.5); }
-.vkd-fest-name { font-family:'Outfit',sans-serif; font-weight:700; font-size:15px; color:#dbe7f5; }
+.vkd-fest-name { font-family:'Outfit',sans-serif; font-weight:700; font-size:16px; color:#dbe7f5; }
 .vkd-meta { display:flex; flex-wrap:wrap; gap:16px; }
-.vkd-meta span { display:inline-flex; align-items:center; gap:7px; font-family:'Outfit',sans-serif; font-size:13.5px; font-weight:700; color:#dbe7f5; }
+.vkd-meta span { display:inline-flex; align-items:center; gap:7px; font-family:'Outfit',sans-serif; font-size:14px; font-weight:700; color:#dbe7f5; }
 .vkd-meta svg { opacity:.85; flex-shrink:0; }
 .vkd-cta { display:flex; align-items:center; flex-wrap:wrap; gap:14px; margin-top:4px; }
-.vkd-cost { font-family:'Outfit',sans-serif; font-weight:900; font-size:18px; color:#fff; padding:7px 14px; border-radius:100px; background:rgba(249,115,22,0.92); box-shadow:0 4px 16px rgba(249,115,22,0.35); }
-.vkd-ticket { display:inline-flex; align-items:center; gap:7px; font-family:'Outfit',sans-serif; font-weight:800; font-size:13.5px; padding:11px 22px; border-radius:12px; background:linear-gradient(135deg,var(--accent-orange),#ea580c); color:#fff; box-shadow:0 8px 28px rgba(249,115,22,0.3); transition:transform .15s; }
+.vkd-cost { font-family:'Outfit',sans-serif; font-weight:900; font-size:20px; color:#fff; padding:7px 14px; border-radius:100px; background:rgba(249,115,22,0.92); box-shadow:0 4px 16px rgba(249,115,22,0.35); }
+.vkd-ticket { display:inline-flex; align-items:center; gap:7px; font-family:'Outfit',sans-serif; font-weight:800; font-size:14px; padding:11px 22px; border-radius:12px; background:linear-gradient(135deg,var(--accent-orange),#ea580c); color:#fff; box-shadow:0 8px 28px rgba(249,115,22,0.3); transition:transform .15s; }
 .vkd-ticket:hover { transform:scale(1.03); }
 .vkd-ticket.full { width:100%; justify-content:center; margin-top:14px; }
 
@@ -194,10 +194,10 @@ const CSS = `
 @media(max-width:900px){ .vkd-cols { grid-template-columns:1fr; } }
 
 .vkd-block { margin-bottom:30px; }
-.vkd-h2 { font-family:'Outfit',sans-serif; font-weight:800; font-size:19px; color:var(--text-primary); margin-bottom:12px; }
-.vkd-desc { font-size:15px; line-height:1.7; color:var(--text-secondary); max-width:640px; }
+.vkd-h2 { font-family:'Outfit',sans-serif; font-weight:800; font-size:20px; color:var(--text-primary); margin-bottom:12px; }
+.vkd-desc { font-size:16px; line-height:1.7; color:var(--text-secondary); max-width:640px; }
 
-.vkd-play { display:inline-flex; align-items:center; gap:9px; font-family:'Outfit',sans-serif; font-weight:800; font-size:13.5px; padding:11px 18px; border-radius:12px; cursor:pointer;
+.vkd-play { display:inline-flex; align-items:center; gap:9px; font-family:'Outfit',sans-serif; font-weight:800; font-size:14px; padding:11px 18px; border-radius:12px; cursor:pointer;
   background:var(--bg-surface); border:1px solid var(--border-default,rgba(255,255,255,0.1)); color:var(--text-primary); transition:all .15s; }
 .vkd-play:hover { border-color:rgba(249,115,22,0.5); color:var(--accent-orange); }
 .vkd-play svg { color:var(--accent-orange); }
@@ -210,12 +210,12 @@ const CSS = `
 .vkd-rel-card { display:flex; gap:11px; padding:9px; border-radius:13px; background:var(--bg-surface); border:1px solid var(--border-default,rgba(255,255,255,0.07)); transition:all .15s; }
 .vkd-rel-card:hover { border-color:rgba(249,115,22,0.45); transform:translateY(-2px); }
 .vkd-rel-thumb { flex-shrink:0; width:60px; height:60px; border-radius:10px; background-size:cover; background-position:center; display:flex; align-items:center; justify-content:center; padding:4px; overflow:hidden; }
-.vkd-rel-thumb span { font-family:'Outfit',sans-serif; font-weight:800; font-size:10px; color:#fff; text-align:center; line-height:1.1; overflow:hidden; display:-webkit-box; -webkit-line-clamp:3; -webkit-box-orient:vertical; }
+.vkd-rel-thumb span { font-family:'Outfit',sans-serif; font-weight:800; font-size:12px; color:#fff; text-align:center; line-height:1.1; overflow:hidden; display:-webkit-box; -webkit-line-clamp:3; -webkit-box-orient:vertical; }
 .vkd-rel-body { display:flex; flex-direction:column; gap:2px; min-width:0; justify-content:center; }
 .vkd-rel-name { font-family:'Outfit',sans-serif; font-weight:800; font-size:14px; color:var(--text-primary); overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
 .vkd-rel-card:hover .vkd-rel-name { color:var(--accent-orange); }
-.vkd-rel-when { font-family:'Outfit',sans-serif; font-weight:700; font-size:11.5px; color:var(--accent-orange); }
-.vkd-rel-place { font-size:11.5px; color:var(--text-muted); overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
+.vkd-rel-when { font-family:'Outfit',sans-serif; font-weight:700; font-size:12px; color:var(--accent-orange); }
+.vkd-rel-place { font-size:12px; color:var(--text-muted); overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
 
 /* Šoninė */
 .vkd-side { position:sticky; top:80px; }
@@ -223,12 +223,12 @@ const CSS = `
 .vkd-info { padding:18px; border-radius:16px; background:var(--bg-surface); border:1px solid var(--border-default,rgba(255,255,255,0.07)); }
 .vkd-info-list { display:flex; flex-direction:column; gap:11px; }
 .vkd-info-list div { display:flex; flex-direction:column; gap:2px; }
-.vkd-info-list dt { font-family:'Outfit',sans-serif; font-size:10px; font-weight:800; text-transform:uppercase; letter-spacing:.08em; color:var(--text-faint); }
-.vkd-info-list dd { font-size:13.5px; font-weight:600; color:var(--text-secondary); line-height:1.35; }
+.vkd-info-list dt { font-family:'Outfit',sans-serif; font-size:12px; font-weight:800; text-transform:uppercase; letter-spacing:.08em; color:var(--text-faint); }
+.vkd-info-list dd { font-size:14px; font-weight:600; color:var(--text-secondary); line-height:1.35; }
 .vkd-cost-dd { color:var(--accent-orange)!important; font-weight:800!important; }
 .vkd-link { color:var(--accent-link); font-weight:700; }
 
 .vkd-back { margin-top:28px; }
-.vkd-back a { font-family:'Outfit',sans-serif; font-size:13px; font-weight:700; color:var(--text-muted); }
+.vkd-back a { font-family:'Outfit',sans-serif; font-size:14px; font-weight:700; color:var(--text-muted); }
 .vkd-back a:hover { color:var(--accent-orange); }
 `

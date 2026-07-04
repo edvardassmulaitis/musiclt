@@ -62,7 +62,7 @@ export function GroupPlayModal({ artistId, artistName, onClose }: { artistId: nu
               <ChartYtPlayer videoId={curVid} playing={playing} posterUrl={poster} title={current?.title} onActivate={() => setPlaying(true)} />
             </div>
             {current && (
-              <p className="m-0 mt-2.5 px-0.5 text-[14.5px] font-bold text-[var(--text-primary)]">
+              <p className="m-0 mt-2.5 px-0.5 text-[14px] font-bold text-[var(--text-primary)]">
                 {current.title}
                 {current.artists?.name && <span className="ml-1.5 font-medium text-[var(--text-muted)]">· {current.artists.name}</span>}
               </p>
@@ -80,7 +80,7 @@ export function GroupPlayModal({ artistId, artistName, onClose }: { artistId: nu
                     // eslint-disable-next-line @next/next/no-img-element
                     <img src={proxyImg(t.cover_url)} alt="" loading="lazy" className="h-9 w-9 shrink-0 rounded-md object-cover" />
                   ) : <div className="h-9 w-9 shrink-0 rounded-md bg-[var(--cover-placeholder)]" />}
-                  <span className="min-w-0 flex-1 truncate text-[14.5px] font-semibold text-[var(--text-primary)]">{t.title}</span>
+                  <span className="min-w-0 flex-1 truncate text-[14px] font-semibold text-[var(--text-primary)]">{t.title}</span>
                   <svg width="15" height="15" viewBox="0 0 24 24" fill="currentColor" className={`shrink-0 ${active ? 'text-[var(--accent-orange)]' : 'text-[var(--text-faint)]'}`}><polygon points="6 4 20 12 6 20 6 4" /></svg>
                 </button>
               )

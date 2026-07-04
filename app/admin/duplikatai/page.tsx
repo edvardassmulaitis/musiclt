@@ -353,7 +353,7 @@ function DedupSection() {
                             <span className="text-gray-400" title="Sukurta">{fmtDate(m.created_at)}</span>
                           </div>
                         </div>
-                        <div className="flex items-center gap-2 text-[13px] text-gray-500 shrink-0">
+                        <div className="flex items-center gap-2 text-[14px] text-gray-500 shrink-0">
                           <span title="Patiktukai (iš senos sistemos)" className="text-rose-500 font-medium">♥ {m.likes}</span>
                           {m.video_views ? <span title="YouTube peržiūros">▶ {fmtViews(m.video_views)}</span> : null}
                           {m.has_spotify && <span title="Spotify" className="text-green-600 font-semibold">S</span>}

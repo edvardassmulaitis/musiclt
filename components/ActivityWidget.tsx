@@ -77,10 +77,10 @@ function Row({ e, inModal = false }: { e: Ev; inModal?: boolean }) {
         // eslint-disable-next-line @next/next/no-img-element
         <img src={proxyImg(e.actor_avatar)} alt="" className={`mt-0.5 ${av} shrink-0 rounded-full object-cover`} />
       ) : (
-        <div className={`mt-0.5 flex ${av} shrink-0 items-center justify-center rounded-full text-[13px] font-extrabold`} style={{ background: `hsl(${strHue(name)},32%,20%)`, color: `hsl(${strHue(name)},48%,58%)` }}>{name.charAt(0).toUpperCase()}</div>
+        <div className={`mt-0.5 flex ${av} shrink-0 items-center justify-center rounded-full text-[14px] font-extrabold`} style={{ background: `hsl(${strHue(name)},32%,20%)`, color: `hsl(${strHue(name)},48%,58%)` }}>{name.charAt(0).toUpperCase()}</div>
       )}
       <div className="min-w-0 flex-1">
-        <p className={`m-0 leading-snug text-[var(--text-secondary)] ${inModal ? 'text-[14.5px]' : 'text-[14px]'}`}>
+        <p className={`m-0 leading-snug text-[var(--text-secondary)] ${inModal ? 'text-[14px]' : 'text-[14px]'}`}>
           <span className="font-extrabold text-[var(--text-primary)]">{name}</span> {verb}
           {isTopVote ? (
             <> <Link href={topUrl} className="font-bold text-[var(--accent-link)] no-underline hover:underline">{topLabel}</Link></>
@@ -90,7 +90,7 @@ function Row({ e, inModal = false }: { e: Ev; inModal?: boolean }) {
               : <> <span className="font-bold text-[var(--text-primary)]">{dashFix(e.entity_title)}</span></>
           ) : null}
         </p>
-        <p className="m-0 mt-0.5 text-[11.5px] text-[var(--text-faint)]">{timeAgoShort(e.created_at)}</p>
+        <p className="m-0 mt-0.5 text-[12px] text-[var(--text-faint)]">{timeAgoShort(e.created_at)}</p>
       </div>
       {e.entity_image && !isTopVote && (
         // eslint-disable-next-line @next/next/no-img-element
@@ -173,10 +173,10 @@ export function ActivityCard({ e }: { e: Ev }) {
           // eslint-disable-next-line @next/next/no-img-element
           <img src={proxyImg(e.actor_avatar)} alt="" className="h-6 w-6 shrink-0 rounded-full object-cover" />
         ) : (
-          <span className="flex h-6 w-6 shrink-0 items-center justify-center rounded-full text-[13px] font-extrabold" style={{ background: `hsl(${strHue(name)},32%,20%)`, color: `hsl(${strHue(name)},48%,58%)` }}>{name.charAt(0).toUpperCase()}</span>
+          <span className="flex h-6 w-6 shrink-0 items-center justify-center rounded-full text-[14px] font-extrabold" style={{ background: `hsl(${strHue(name)},32%,20%)`, color: `hsl(${strHue(name)},48%,58%)` }}>{name.charAt(0).toUpperCase()}</span>
         )}
         <div className="min-w-0 flex-1">
-          <p className="m-0 truncate text-[13.5px] font-bold text-[var(--text-secondary)]">{name}</p>
+          <p className="m-0 truncate text-[14px] font-bold text-[var(--text-secondary)]">{name}</p>
           <p className="m-0 text-[12px] text-[var(--text-faint)]">{timeAgoShort(e.created_at)}</p>
         </div>
         {img && (
@@ -184,7 +184,7 @@ export function ActivityCard({ e }: { e: Ev }) {
           <img src={proxyImg(img)} alt="" loading="lazy" className="h-7 w-7 shrink-0 rounded-md object-cover" />
         )}
       </div>
-      <p className="m-0 mt-2 line-clamp-3 text-[14.5px] leading-snug text-[var(--text-muted)]">
+      <p className="m-0 mt-2 line-clamp-3 text-[14px] leading-snug text-[var(--text-muted)]">
         {verb}{entityTitle ? <> <span className="font-extrabold text-[var(--text-primary)] transition-colors group-hover:text-[#22c55e]">{dashFix(entityTitle)}</span></> : null}
       </p>
     </>
@@ -213,9 +213,9 @@ export function ActivityWidget() {
       </div>
       <div className="flex-1 overflow-y-auto py-1" style={{ minHeight: 0 }}>
         {loading ? (
-          <div className="px-3 py-6 text-center text-[13px] text-[var(--text-faint)]">Kraunama…</div>
+          <div className="px-3 py-6 text-center text-[14px] text-[var(--text-faint)]">Kraunama…</div>
         ) : events.length === 0 ? (
-          <div className="px-3 py-6 text-center text-[13px] text-[var(--text-muted)]">Dar nėra aktyvumo.</div>
+          <div className="px-3 py-6 text-center text-[14px] text-[var(--text-muted)]">Dar nėra aktyvumo.</div>
         ) : events.slice(0, 20).map(e => <Row key={e.id} e={e} />)}
       </div>
       {modalOpen && <ActivityModal events={events} onClose={() => setModalOpen(false)} />}

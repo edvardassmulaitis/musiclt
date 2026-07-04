@@ -75,7 +75,7 @@ export default function MusicSearchModal({ open, onClose, attached, onAdd, onRem
 
         {attached.length > 0 && (
           <div className="border-t border-[var(--border-subtle)] pt-3">
-            <div className="mb-2 font-['Outfit',sans-serif] text-[12.5px] font-extrabold uppercase tracking-[0.16em] text-[var(--text-faint)]">
+            <div className="mb-2 font-['Outfit',sans-serif] text-[12px] font-extrabold uppercase tracking-[0.16em] text-[var(--text-faint)]">
               Pridėta ({attached.length})
             </div>
             <AttachmentChips items={attached} onRemove={onRemove} />

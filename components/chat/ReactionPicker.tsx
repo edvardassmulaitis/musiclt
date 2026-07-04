@@ -46,7 +46,7 @@ export function ReactionPicker({ onSelect, compact }: Props) {
       {GROUPS.map((g, i) => (
         <div key={g.label} style={{ marginTop: i === 0 ? 0 : 10 }}>
           <div style={{
-            fontSize: 11, fontWeight: 800, color: 'var(--text-muted)',
+            fontSize: 12, fontWeight: 800, color: 'var(--text-muted)',
             letterSpacing: '0.08em', textTransform: 'uppercase',
             padding: '4px 6px 4px',
           }}>
@@ -70,7 +70,7 @@ function Grid({ emojis, onSelect }: { emojis: string[]; onSelect: (e: string) =>
             width: 28, height: 28, borderRadius: 6, border: 'none',
             background: 'transparent', cursor: 'pointer',
             display: 'flex', alignItems: 'center', justifyContent: 'center',
-            fontSize: 17, transition: 'background .1s, transform .1s',
+            fontSize: 16, transition: 'background .1s, transform .1s',
           }}
           onMouseEnter={ev => { ev.currentTarget.style.background = 'var(--bg-hover)'; ev.currentTarget.style.transform = 'scale(1.15)' }}
           onMouseLeave={ev => { ev.currentTarget.style.background = 'transparent'; ev.currentTarget.style.transform = 'scale(1)' }}

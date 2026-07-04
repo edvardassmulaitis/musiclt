@@ -89,7 +89,7 @@ export default function RankingInfoModal({ kind }: { kind: 'alltime' | 'trending
             }}
           >
             <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', gap: 12 }}>
-              <h3 style={{ fontSize: 17, fontWeight: 800, margin: 0, lineHeight: 1.3 }}>{d.title}</h3>
+              <h3 style={{ fontSize: 16, fontWeight: 800, margin: 0, lineHeight: 1.3 }}>{d.title}</h3>
               <button onClick={() => setOpen(false)} aria-label="Uždaryti"
                 style={{ background: 'transparent', border: 'none', fontSize: 22, lineHeight: 1, cursor: 'pointer', color: 'var(--text-muted,#a1a1aa)', flex: '0 0 auto' }}>×</button>
             </div>
@@ -102,7 +102,7 @@ export default function RankingInfoModal({ kind }: { kind: 'alltime' | 'trending
                   <div key={p.label} style={{ display: 'flex', alignItems: 'flex-start', gap: 9 }}>
                     <span style={{ width: 11, height: 11, borderRadius: 3, background: p.color, flex: '0 0 auto', marginTop: 3 }} />
                     <div style={{ minWidth: 0 }}>
-                      <div style={{ fontSize: 14.5, fontWeight: 700, lineHeight: 1.25 }}>{p.label}</div>
+                      <div style={{ fontSize: 14, fontWeight: 700, lineHeight: 1.25 }}>{p.label}</div>
                       <div style={{ fontSize: 14, color: 'var(--text-muted, #a1a1aa)', lineHeight: 1.3 }}>{p.hint}</div>
                     </div>
                   </div>
@@ -110,7 +110,7 @@ export default function RankingInfoModal({ kind }: { kind: 'alltime' | 'trending
               </div>
             </div>
 
-            <p style={{ fontSize: 13.5, color: 'var(--text-faint, #71717a)', margin: '18px 0 0', lineHeight: 1.5, borderTop: '1px solid var(--modal-border, rgba(255,255,255,.1))', paddingTop: 11 }}>
+            <p style={{ fontSize: 14, color: 'var(--text-faint, #71717a)', margin: '18px 0 0', lineHeight: 1.5, borderTop: '1px solid var(--modal-border, rgba(255,255,255,.1))', paddingTop: 11 }}>
               Atnaujinama automatiškai.
             </p>
           </div>

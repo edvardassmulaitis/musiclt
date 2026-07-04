@@ -450,16 +450,16 @@ export default function KoncertuIrasaiAdminClient({ initialRecordings }: { initi
                 <button
                   onClick={() => patchItem(it.id, { is_featured: !it.is_featured })}
                   title="★ Featured — rodyti homepage feed'e (1 LT + 1 užsienio)"
-                  className={`rounded px-2 py-1 text-[13px] font-bold ${it.is_featured ? 'bg-amber-500 text-white' : 'bg-[var(--bg-elevated)] text-[var(--text-muted)]'}`}
+                  className={`rounded px-2 py-1 text-[14px] font-bold ${it.is_featured ? 'bg-amber-500 text-white' : 'bg-[var(--bg-elevated)] text-[var(--text-muted)]'}`}
                 >★</button>
                 <button
                   onClick={() => patchItem(it.id, { is_published: !it.is_published })}
                   title="Publikuota"
-                  className={`rounded px-2 py-1 text-[13px] font-bold ${it.is_published ? 'bg-green-600 text-white' : 'bg-[var(--bg-elevated)] text-[var(--text-muted)]'}`}
+                  className={`rounded px-2 py-1 text-[14px] font-bold ${it.is_published ? 'bg-green-600 text-white' : 'bg-[var(--bg-elevated)] text-[var(--text-muted)]'}`}
                 >{it.is_published ? 'Live' : 'Off'}</button>
-                <button onClick={() => startEdit(it)} title="Redaguoti" className="rounded bg-[var(--bg-elevated)] px-2 py-1 text-[13px] font-bold text-[var(--text-muted)]">✎</button>
-                <a href={`/koncertu-irasai/${it.slug}`} target="_blank" rel="noopener noreferrer" className="rounded bg-[var(--bg-elevated)] px-2 py-1 text-[13px] font-bold text-[var(--text-muted)]">↗</a>
-                <button onClick={() => deleteItem(it.id)} title="Ištrinti" className="rounded bg-red-500/10 px-2 py-1 text-[13px] font-bold text-red-500">✕</button>
+                <button onClick={() => startEdit(it)} title="Redaguoti" className="rounded bg-[var(--bg-elevated)] px-2 py-1 text-[14px] font-bold text-[var(--text-muted)]">✎</button>
+                <a href={`/koncertu-irasai/${it.slug}`} target="_blank" rel="noopener noreferrer" className="rounded bg-[var(--bg-elevated)] px-2 py-1 text-[14px] font-bold text-[var(--text-muted)]">↗</a>
+                <button onClick={() => deleteItem(it.id)} title="Ištrinti" className="rounded bg-red-500/10 px-2 py-1 text-[14px] font-bold text-red-500">✕</button>
               </div>
             </div>
           )

@@ -70,7 +70,7 @@ export function ListingActions({ listingId, authorId, isAuthed, isOwner, initial
 
   const btnBase: React.CSSProperties = {
     display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 8,
-    padding: '12px 16px', fontSize: 15, fontWeight: 700, borderRadius: 10,
+    padding: '12px 16px', fontSize: 16, fontWeight: 700, borderRadius: 10,
     cursor: 'pointer', border: '1px solid var(--border-default)',
     background: 'var(--bg-elevated)', color: 'var(--text-primary)',
   }

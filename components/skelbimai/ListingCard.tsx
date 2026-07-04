@@ -76,18 +76,18 @@ export function ListingCard({ listing }: { listing: Listing }) {
           </div>
         )}
         {sub && (
-          <span className="absolute left-2 top-2 rounded px-1.5 py-0.5 font-['Outfit',sans-serif] text-[11px] font-extrabold uppercase tracking-[0.05em] text-white backdrop-blur-sm" style={{ background: accent }}>
+          <span className="absolute left-2 top-2 rounded px-1.5 py-0.5 font-['Outfit',sans-serif] text-[12px] font-extrabold uppercase tracking-[0.05em] text-white backdrop-blur-sm" style={{ background: accent }}>
             {sub}
           </span>
         )}
         {listing.is_promoted && (
-          <span className="absolute right-2 top-2 rounded px-1.5 py-0.5 font-['Outfit',sans-serif] text-[11px] font-extrabold uppercase tracking-[0.05em] text-white" style={{ background: 'rgba(249,115,22,0.92)' }}>★</span>
+          <span className="absolute right-2 top-2 rounded px-1.5 py-0.5 font-['Outfit',sans-serif] text-[12px] font-extrabold uppercase tracking-[0.05em] text-white" style={{ background: 'rgba(249,115,22,0.92)' }}>★</span>
         )}
       </div>
 
       {/* Turinys */}
       <div className="flex flex-1 flex-col p-3">
-        <p className="m-0 line-clamp-2 font-['Outfit',sans-serif] text-[14.5px] font-extrabold leading-snug text-[var(--text-primary)] transition-colors group-hover:text-[var(--accent-orange)]">{listing.title}</p>
+        <p className="m-0 line-clamp-2 font-['Outfit',sans-serif] text-[14px] font-extrabold leading-snug text-[var(--text-primary)] transition-colors group-hover:text-[var(--accent-orange)]">{listing.title}</p>
         {price && <p className="m-0 mt-1.5 font-['Outfit',sans-serif] text-[14px] font-extrabold text-[var(--accent-green)]">{price}</p>}
 
         <div className="mt-auto flex items-center gap-2 pt-2.5">
@@ -95,12 +95,12 @@ export function ListingCard({ listing }: { listing: Listing }) {
             <>
               {/* eslint-disable-next-line @next/next/no-img-element */}
               <img src={proxyImg(artist.cover_image_url, 48)} alt="" className="h-[20px] w-[20px] flex-shrink-0 rounded-full object-cover" />
-              <span className="min-w-0 flex-1 truncate text-[13px] font-semibold text-[var(--text-secondary)]">{artist.name}</span>
+              <span className="min-w-0 flex-1 truncate text-[14px] font-semibold text-[var(--text-secondary)]">{artist.name}</span>
             </>
           ) : (
-            <span className="min-w-0 flex-1 truncate text-[13px] text-[var(--text-muted)]">{bottomLeft}</span>
+            <span className="min-w-0 flex-1 truncate text-[14px] text-[var(--text-muted)]">{bottomLeft}</span>
           )}
-          <span className="shrink-0 text-[11.5px] text-[var(--text-faint)]">{rightLabel}</span>
+          <span className="shrink-0 text-[12px] text-[var(--text-faint)]">{rightLabel}</span>
         </div>
       </div>
 

@@ -548,7 +548,7 @@ function AbroadCard({ c, d }: { c: Concert; d?: Destination }) {
  * mz-fchip pill'ai, tile tinklelis). CSS kintamieji iš globals.css.
  * ──────────────────────────────────────────────────────────────── */
 const EV_CSS = `
-.ev-vk-note { font-size:13px; color:var(--text-muted); margin:0 0 16px; line-height:1.5; }
+.ev-vk-note { font-size:14px; color:var(--text-muted); margin:0 0 16px; line-height:1.5; }
 .ev-vk-link { color:var(--accent-orange); font-weight:700; white-space:nowrap; }
 .ev-grid-vk { margin-top:2px; }
 .ev-wrap { max-width:var(--page-max); margin:0 auto; padding:var(--page-pad-top) var(--page-pad-x) var(--page-pad-bottom); font-family:'DM Sans',system-ui,sans-serif; }
@@ -589,7 +589,7 @@ const EV_CSS = `
 }
 
 /* Chip (= mz-fchip) */
-.ev-chip { display:inline-flex; align-items:center; gap:6px; padding:6px 13px; border-radius:100px; font-size:12.5px; font-weight:600;
+.ev-chip { display:inline-flex; align-items:center; gap:6px; padding:6px 13px; border-radius:100px; font-size:12px; font-weight:600;
   font-family:'Outfit',sans-serif; background:var(--bg-hover); border:1px solid var(--border-default,rgba(255,255,255,0.08));
   color:var(--text-secondary); transition:all .15s; white-space:nowrap; cursor:pointer; line-height:1.3; }
 .ev-chip:hover { color:var(--text-primary); border-color:rgba(249,115,22,0.4); }
@@ -605,7 +605,7 @@ const EV_CSS = `
 .ev-pop { position:absolute; top:calc(100% + 8px); left:0; z-index:50; padding:13px;
   background:var(--bg-surface); border:1px solid var(--border-default,rgba(255,255,255,0.1)); border-radius:14px;
   box-shadow:0 14px 40px rgba(0,0,0,0.32); }
-.ev-pop-lbl { font-size:10px; font-weight:800; text-transform:uppercase; letter-spacing:.06em; color:var(--text-faint); margin:0 0 8px; font-family:'Outfit',sans-serif; }
+.ev-pop-lbl { font-size:12px; font-weight:800; text-transform:uppercase; letter-spacing:.06em; color:var(--text-faint); margin:0 0 8px; font-family:'Outfit',sans-serif; }
 .ev-pop-lbl:not(:first-child){ margin-top:13px; }
 .ev-pop-presets { display:flex; flex-wrap:wrap; gap:6px; }
 .ev-pop-list { display:flex; flex-direction:column; gap:2px; max-height:260px; overflow-y:auto; }
@@ -613,13 +613,13 @@ const EV_CSS = `
   background:var(--bg-hover); border:1px solid transparent; color:var(--text-secondary); transition:all .15s; }
 .ev-mini:hover { color:var(--text-primary); }
 .ev-mini.on { background:var(--accent-orange); color:#fff; }
-.ev-opt { display:flex; align-items:center; gap:8px; text-align:left; width:100%; padding:8px 10px; border-radius:9px; font-size:13px;
+.ev-opt { display:flex; align-items:center; gap:8px; text-align:left; width:100%; padding:8px 10px; border-radius:9px; font-size:14px;
   font-weight:600; font-family:'Outfit',sans-serif; cursor:pointer; background:transparent; border:none; color:var(--text-secondary); transition:all .12s; }
 .ev-opt:hover { background:var(--bg-hover); color:var(--text-primary); }
 .ev-opt.on { color:var(--accent-orange); }
 .ev-opt-sep { border-top:1px solid var(--border-default,rgba(255,255,255,0.08)); margin-top:5px; padding-top:11px; }
-.ev-check { width:16px; height:16px; border-radius:5px; border:1.5px solid; display:flex; align-items:center; justify-content:center; font-size:10px; color:#fff; flex-shrink:0; }
-.ev-search { width:100%; height:34px; border-radius:9px; padding:0 11px; font-size:13px; margin-bottom:8px;
+.ev-check { width:16px; height:16px; border-radius:5px; border:1.5px solid; display:flex; align-items:center; justify-content:center; font-size:12px; color:#fff; flex-shrink:0; }
+.ev-search { width:100%; height:34px; border-radius:9px; padding:0 11px; font-size:14px; margin-bottom:8px;
   background:var(--bg-hover); border:1px solid var(--border-default,rgba(255,255,255,0.1)); color:var(--text-primary); outline:none; }
 .ev-pop-clear { margin-top:9px; width:100%; padding:7px; border-radius:9px; font-size:12px; font-weight:700; font-family:'Outfit',sans-serif;
   cursor:pointer; background:var(--bg-hover); border:none; color:var(--text-secondary); }
@@ -630,8 +630,8 @@ const EV_CSS = `
 /* Archyvo juosta */
 .ev-arch-banner { display:flex; flex-wrap:wrap; align-items:center; justify-content:space-between; gap:10px; padding:11px 15px;
   border-radius:12px; margin-bottom:20px; background:var(--bg-hover); border:1px solid var(--border-default,rgba(255,255,255,0.08)); }
-.ev-arch-banner span { font-family:'Outfit',sans-serif; font-size:13px; font-weight:700; color:var(--text-secondary); }
-.ev-arch-banner button { padding:7px 15px; border-radius:100px; font-family:'Outfit',sans-serif; font-size:12.5px; font-weight:700;
+.ev-arch-banner span { font-family:'Outfit',sans-serif; font-size:14px; font-weight:700; color:var(--text-secondary); }
+.ev-arch-banner button { padding:7px 15px; border-radius:100px; font-family:'Outfit',sans-serif; font-size:12px; font-weight:700;
   cursor:pointer; background:var(--accent-orange); color:#fff; border:none; }
 
 /* Mėnesių grupės */
@@ -659,25 +659,25 @@ const EV_CSS = `
   display:-webkit-box; -webkit-line-clamp:4; -webkit-box-orient:vertical; overflow:hidden; }
 
 .ev-card-tags { position:absolute; top:9px; right:9px; z-index:2; display:flex; flex-direction:column; gap:4px; align-items:flex-end; }
-.ev-tag { font-family:'Outfit',sans-serif; font-weight:800; font-size:9px; letter-spacing:.04em; padding:3px 7px; border-radius:100px; color:#fff; box-shadow:0 2px 8px rgba(0,0,0,.25); }
+.ev-tag { font-family:'Outfit',sans-serif; font-weight:800; font-size:12px; letter-spacing:.04em; padding:3px 7px; border-radius:100px; color:#fff; box-shadow:0 2px 8px rgba(0,0,0,.25); }
 .ev-tag.fest { background:#06b6d4; }
 .ev-tag.star { background:var(--accent-orange); }
 .ev-tag.cancel { background:#ef4444; }
 
 /* Info po plakatu */
 .ev-card-body { padding:11px 13px 13px; display:flex; flex-direction:column; gap:3px; }
-.ev-card-when { font-family:'Outfit',sans-serif; font-weight:700; font-size:11.5px; color:var(--accent-orange); }
-.ev-card-title { font-family:'Outfit',sans-serif; font-weight:800; font-size:14.5px; line-height:1.2; color:var(--text-primary);
+.ev-card-when { font-family:'Outfit',sans-serif; font-weight:700; font-size:12px; color:var(--accent-orange); }
+.ev-card-title { font-family:'Outfit',sans-serif; font-weight:800; font-size:14px; line-height:1.2; color:var(--text-primary);
   display:-webkit-box; -webkit-line-clamp:2; -webkit-box-orient:vertical; overflow:hidden; margin-top:1px; }
 .ev-card:hover .ev-card-title { color:var(--accent-orange); }
 .ev-card-where { font-size:12px; color:var(--text-secondary); overflow:hidden; text-overflow:ellipsis; white-space:nowrap; margin-top:2px; }
 .ev-card-artist { display:flex; align-items:center; gap:6px; margin-top:5px; }
 .ev-card-artist-img, .ev-card-artist-ph { width:20px; height:20px; border-radius:50%; object-fit:cover; flex-shrink:0; background:var(--bg-hover); }
-.ev-card-artist-ph { display:flex; align-items:center; justify-content:center; font-family:'Outfit',sans-serif; font-size:10px; font-weight:800; color:var(--text-muted); }
-.ev-card-artist-name { font-size:11.5px; font-weight:600; color:var(--text-muted); overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
+.ev-card-artist-ph { display:flex; align-items:center; justify-content:center; font-family:'Outfit',sans-serif; font-size:12px; font-weight:800; color:var(--text-muted); }
+.ev-card-artist-name { font-size:12px; font-weight:600; color:var(--text-muted); overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
 
 /* Archyvo įėjimas */
-.ev-archive-toggle { display:block; margin:34px auto 0; padding:10px 20px; border-radius:100px; font-size:13px; font-weight:700;
+.ev-archive-toggle { display:block; margin:34px auto 0; padding:10px 20px; border-radius:100px; font-size:14px; font-weight:700;
   font-family:'Outfit',sans-serif; cursor:pointer; background:var(--bg-hover); border:1px solid var(--border-default,rgba(255,255,255,0.08));
   color:var(--text-secondary); transition:all .15s; }
 .ev-archive-toggle:hover { color:var(--text-primary); border-color:rgba(249,115,22,0.4); }
@@ -686,6 +686,6 @@ const EV_CSS = `
 .ev-empty { max-width:520px; margin:60px auto; text-align:center; }
 .ev-empty-ic { font-size:46px; opacity:.5; display:flex; justify-content:center; }
 .ev-empty-ic svg { width:46px; height:46px; }
-.ev-empty h3 { font-family:'Outfit',sans-serif; font-weight:800; font-size:19px; margin:8px 0 4px; color:var(--text-primary); }
-.ev-empty p { color:var(--text-muted); font-size:13px; }
+.ev-empty h3 { font-family:'Outfit',sans-serif; font-weight:800; font-size:20px; margin:8px 0 4px; color:var(--text-primary); }
+.ev-empty p { color:var(--text-muted); font-size:14px; }
 `

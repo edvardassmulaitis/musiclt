@@ -318,7 +318,7 @@ export default function SettingsPage() {
               const active = section === item.key
               return (
                 <button key={item.key} type="button" onClick={() => setSection(item.key)}
-                  className="flex items-center gap-2.5 rounded-xl px-3.5 py-2.5 text-[14.5px] font-bold transition whitespace-nowrap shrink-0 lg:w-full"
+                  className="flex items-center gap-2.5 rounded-xl px-3.5 py-2.5 text-[14px] font-bold transition whitespace-nowrap shrink-0 lg:w-full"
                   style={{
                     background: active ? 'rgba(249,115,22,0.12)' : 'transparent',
                     border: `1px solid ${active ? 'rgba(249,115,22,0.30)' : 'transparent'}`,
@@ -442,7 +442,7 @@ export default function SettingsPage() {
                     </div>
                   ))}
                   <button type="button" onClick={() => photoInput.current?.click()} disabled={uploading === 'photo'}
-                    className="aspect-square rounded-lg flex items-center justify-center text-[13px] font-bold transition hover:opacity-85 disabled:opacity-60"
+                    className="aspect-square rounded-lg flex items-center justify-center text-[14px] font-bold transition hover:opacity-85 disabled:opacity-60"
                     style={{ background: 'var(--card-bg)', border: '1px dashed var(--border-default)', color: 'var(--accent-orange)' }}>
                     {uploading === 'photo' ? '…' : '+ Įkelti'}
                   </button>
@@ -453,9 +453,9 @@ export default function SettingsPage() {
               {profileErr && <p className="text-[14px] font-semibold mt-4" style={{ color: '#ef4444' }}>{profileErr}</p>}
 
               <div className="flex items-center justify-end gap-3 mt-6 pt-4" style={{ borderTop: '1px solid var(--border-subtle)' }}>
-                {savedProfile && <span className="inline-flex items-center gap-1 text-[14.5px] font-bold" style={{ color: '#34d399' }}><IcCheck className="h-3.5 w-3.5" /> Išsaugota</span>}
+                {savedProfile && <span className="inline-flex items-center gap-1 text-[14px] font-bold" style={{ color: '#34d399' }}><IcCheck className="h-3.5 w-3.5" /> Išsaugota</span>}
                 <button type="button" onClick={saveProfile} disabled={savingProfile || !!uploading}
-                  className="px-5 py-2.5 rounded-xl text-[14.5px] font-extrabold transition hover:opacity-90 disabled:opacity-60"
+                  className="px-5 py-2.5 rounded-xl text-[14px] font-extrabold transition hover:opacity-90 disabled:opacity-60"
                   style={{ background: 'var(--accent-orange)', color: '#fff' }}>
                   {savingProfile ? 'Saugoma…' : 'Išsaugoti pakeitimus'}
                 </button>
@@ -466,7 +466,7 @@ export default function SettingsPage() {
           {section === 'rodinys' && (
             <Card>
               <CardHead title="Profilio išdėstymas" sub="Ką lankytojai mato pirma, atvėrę tavo viešą profilį."
-                right={savedTab ? <span className="inline-flex items-center gap-1 text-[13.5px] font-bold" style={{ color: '#34d399' }}><IcCheck className="h-3.5 w-3.5" /> Išsaugota</span> : null} />
+                right={savedTab ? <span className="inline-flex items-center gap-1 text-[14px] font-bold" style={{ color: '#34d399' }}><IcCheck className="h-3.5 w-3.5" /> Išsaugota</span> : null} />
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-2.5">
                 {DEFAULT_VIEW_OPTIONS.map(opt => {
                   const active = defaultTab === opt.key
@@ -475,10 +475,10 @@ export default function SettingsPage() {
                       className="text-left rounded-xl p-3.5 transition"
                       style={{ background: active ? 'rgba(249,115,22,0.10)' : 'var(--bg-elevated)', border: `1px solid ${active ? 'var(--accent-orange)' : 'var(--border-default)'}` }}>
                       <div className="flex items-center justify-between gap-2">
-                        <span className="text-[14.5px] font-bold" style={{ color: active ? 'var(--accent-orange)' : 'var(--text-primary)' }}>{opt.label}</span>
+                        <span className="text-[14px] font-bold" style={{ color: active ? 'var(--accent-orange)' : 'var(--text-primary)' }}>{opt.label}</span>
                         <span className="flex h-4 w-4 items-center justify-center rounded-full shrink-0" style={{ border: `1.5px solid ${active ? 'var(--accent-orange)' : 'var(--border-default)'}`, background: active ? 'var(--accent-orange)' : 'transparent' }}>{active && <IcCheck className="h-2.5 w-2.5" />}</span>
                       </div>
-                      <div className="text-[13.5px] mt-1 leading-snug" style={{ color: 'var(--text-muted)' }}>{opt.sub}</div>
+                      <div className="text-[14px] mt-1 leading-snug" style={{ color: 'var(--text-muted)' }}>{opt.sub}</div>
                     </button>
                   )
                 })}
@@ -514,11 +514,11 @@ export default function SettingsPage() {
             <>
               <Card>
                 <CardHead title="Paskyra" sub="Prisijungimo informacija ir valdymas." />
-                <div className="flex items-center justify-between text-[14.5px] py-2">
+                <div className="flex items-center justify-between text-[14px] py-2">
                   <span style={{ color: 'var(--text-muted)' }}>El. paštas</span>
                   <span className="truncate ml-3">{user.email}</span>
                 </div>
-                <div className="flex items-center justify-between text-[14.5px] py-2" style={{ borderTop: '1px solid var(--border-subtle)' }}>
+                <div className="flex items-center justify-between text-[14px] py-2" style={{ borderTop: '1px solid var(--border-subtle)' }}>
                   <span style={{ color: 'var(--text-muted)' }}>Rolė</span>
                   <span className="ml-3 font-bold" style={{ color: isAdmin ? 'var(--accent-orange)' : 'var(--text-primary)' }}>{roleLabel}</span>
                 </div>
@@ -535,13 +535,13 @@ export default function SettingsPage() {
                     </button>
                   ) : (
                     <div className="rounded-xl p-4" style={{ background: 'rgba(244,63,94,0.06)', border: '1px solid rgba(244,63,94,0.25)' }}>
-                      <div className="text-[14.5px] font-bold" style={{ color: '#f43f5e' }}>Deaktyvuoti anketą?</div>
-                      <ul className="text-[14.5px] mt-2 leading-relaxed list-disc pl-4" style={{ color: 'var(--text-secondary)' }}>
+                      <div className="text-[14px] font-bold" style={{ color: '#f43f5e' }}>Deaktyvuoti anketą?</div>
+                      <ul className="text-[14px] mt-2 leading-relaxed list-disc pl-4" style={{ color: 'var(--text-secondary)' }}>
                         <li>Tavo viešas profilis taps nematomas (puslapis grąžins „nerasta“).</li>
                         <li>Būsi paslėptas iš bendruomenės ir narių sąrašų.</li>
                         <li>Duomenys NEbus ištrinti — bet kada gali vėl aktyvuoti.</li>
                       </ul>
-                      <label className="flex items-center gap-2 mt-3 text-[14.5px] cursor-pointer" style={{ color: 'var(--text-primary)' }}>
+                      <label className="flex items-center gap-2 mt-3 text-[14px] cursor-pointer" style={{ color: 'var(--text-primary)' }}>
                         <input type="checkbox" checked={deactAck} onChange={e => setDeactAck(e.target.checked)} />
                         Suprantu ir noriu deaktyvuoti savo anketą.
                       </label>
@@ -557,7 +557,7 @@ export default function SettingsPage() {
                   )
                 ) : (
                   <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 rounded-xl p-4" style={{ background: 'var(--bg-elevated)', border: '1px solid var(--border-default)' }}>
-                    <div className="text-[14.5px]" style={{ color: 'var(--text-muted)' }}>Anketa deaktyvuota. Profilis ir įrašai paslėpti nuo kitų.</div>
+                    <div className="text-[14px]" style={{ color: 'var(--text-muted)' }}>Anketa deaktyvuota. Profilis ir įrašai paslėpti nuo kitų.</div>
                     <button type="button" disabled={deactBusy} onClick={() => setAnketaActive(true)}
                       className="shrink-0 rounded-xl px-4 py-2 text-[14px] font-extrabold transition hover:opacity-90 disabled:opacity-60"
                       style={{ background: 'var(--accent-orange)', color: '#fff' }}>{deactBusy ? 'Vykdoma…' : 'Vėl aktyvuoti'}</button>
@@ -593,18 +593,18 @@ function CardHead({ title, sub, right }: { title: string; sub?: string; right?: 
   return (
     <div className="mb-5">
       <div className="flex items-center justify-between gap-3">
-        <h2 className="text-[17px] sm:text-[18px] font-black tracking-tight">{title}</h2>
+        <h2 className="text-[16px] sm:text-[20px] font-black tracking-tight">{title}</h2>
         {right}
       </div>
-      {sub && <p className="text-[14.5px] mt-1 leading-snug" style={{ color: 'var(--text-muted)' }}>{sub}</p>}
+      {sub && <p className="text-[14px] mt-1 leading-snug" style={{ color: 'var(--text-muted)' }}>{sub}</p>}
     </div>
   )
 }
 function Label({ children }: { children: ReactNode }) {
-  return <span className="block text-[13px] font-extrabold uppercase tracking-wider mb-1.5" style={{ color: 'var(--text-muted)' }}>{children}</span>
+  return <span className="block text-[14px] font-extrabold uppercase tracking-wider mb-1.5" style={{ color: 'var(--text-muted)' }}>{children}</span>
 }
 function Hint({ children }: { children: ReactNode }) {
-  return <span className="block text-[13px] mt-1 truncate" style={{ color: 'var(--text-faint)' }}>{children}</span>
+  return <span className="block text-[14px] mt-1 truncate" style={{ color: 'var(--text-faint)' }}>{children}</span>
 }
 function Inp({ value, onChange, placeholder, maxLength }: { value: string; onChange: (v: string) => void; placeholder?: string; maxLength?: number }) {
   return <input className="w-full px-3 py-2 rounded-lg text-sm outline-none" style={fieldStyle} value={value} maxLength={maxLength} placeholder={placeholder} onChange={e => onChange(e.target.value)} />
@@ -659,7 +659,7 @@ function NotificationsBody({ prefs, savingPref, toggleNotif, masterNotif, pushSt
                 : pushStatus === 'not-configured' ? 'Push paslauga dar neaktyvuota svetainėje.'
                 : 'Įjunk, kad gautum pranešimus net kai music.lt skirtukas uždarytas.'}
             </div>
-            {pushError && <div className="text-[13px] mt-1" style={{ color: '#ef4444' }}>{pushError}</div>}
+            {pushError && <div className="text-[14px] mt-1" style={{ color: '#ef4444' }}>{pushError}</div>}
           </div>
           {(pushStatus === 'subscribed' || pushStatus === 'unsubscribed') && <Toggle checked={pushStatus === 'subscribed'} onChange={togglePush} disabled={pushBusy} size="lg" />}
         </div>
@@ -675,12 +675,12 @@ function NotificationsBody({ prefs, savingPref, toggleNotif, masterNotif, pushSt
 
       {(['reactions', 'comments', 'community', 'system'] as const).map(g => grouped[g] && (
         <div key={g}>
-          <div className="text-[13px] font-extrabold uppercase tracking-wider mb-2 px-1" style={{ color: 'var(--text-muted)' }}>{GROUP_LABEL[g]}</div>
+          <div className="text-[14px] font-extrabold uppercase tracking-wider mb-2 px-1" style={{ color: 'var(--text-muted)' }}>{GROUP_LABEL[g]}</div>
           <div className="rounded-xl overflow-hidden" style={{ background: 'var(--bg-elevated)', border: '1px solid var(--border-default)' }}>
             {grouped[g].map((t, i) => (
               <div key={t.type} className="px-4 py-3.5 flex items-center justify-between gap-4" style={{ borderTop: i === 0 ? 'none' : '1px solid var(--border-subtle)' }}>
                 <div className="flex-1 min-w-0">
-                  <div className="text-[14.5px] font-semibold" style={{ color: 'var(--text-primary)' }}>{t.label}</div>
+                  <div className="text-[14px] font-semibold" style={{ color: 'var(--text-primary)' }}>{t.label}</div>
                   <div className="text-[14px] mt-0.5 leading-snug" style={{ color: 'var(--text-muted)' }}>{t.desc}</div>
                 </div>
                 <Toggle checked={prefs[t.type] !== false} onChange={() => toggleNotif(t.type)} disabled={savingPref === t.type} />

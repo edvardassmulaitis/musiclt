@@ -111,7 +111,7 @@ export function EditPostForm({ editId }: { editId: string }) {
     <div className={`${wide ? 'max-w-4xl' : 'max-w-2xl'} mx-auto px-4 py-6`}>
       <div className="flex items-center justify-between mb-6">
         <Link href="/blogas/mano" className="text-xs hover:opacity-80 transition" style={{ color: 'var(--text-muted)' }}>← Mano įrašai</Link>
-        <span className="text-[13px] font-bold uppercase tracking-wider" style={{ color: 'var(--text-faint)', fontFamily: "'Outfit', sans-serif" }}>
+        <span className="text-[14px] font-bold uppercase tracking-wider" style={{ color: 'var(--text-faint)', fontFamily: "'Outfit', sans-serif" }}>
           Redaguoji · {TYPE_LABEL[postType] || postType}
         </span>
       </div>

@@ -496,7 +496,7 @@ export default function EventInboxPage() {
                           {a.cover_image_url ? (
                             <img src={a.cover_image_url} alt="" className="w-4 h-4 rounded-full object-cover" />
                           ) : (
-                            <span className="w-4 h-4 rounded-full bg-blue-200 flex items-center justify-center text-[11px]">🎤</span>
+                            <span className="w-4 h-4 rounded-full bg-blue-200 flex items-center justify-center text-[12px]">🎤</span>
                           )}
                           <span>{isPrimary ? '★ ' : ''}{a.name}</span>
                         </button>
@@ -508,7 +508,7 @@ export default function EventInboxPage() {
                   {(editing.suggested_artists || []).filter(a => !editArtistIds.includes(a.id)).map(a => (
                     <button key={a.id} type="button" onClick={() => addEditArtist(a.id, a.name, a.cover_image_url)}
                       className="inline-flex items-center gap-1 pl-0.5 pr-1.5 py-0.5 rounded-full text-xs bg-[var(--bg-elevated)] hover:bg-blue-50 text-[var(--text-muted)] hover:text-blue-700 border border-dashed border-[var(--input-border)]">
-                      <span className="w-4 h-4 rounded-full bg-[var(--bg-active)] flex items-center justify-center text-[11px]">🎤</span>
+                      <span className="w-4 h-4 rounded-full bg-[var(--bg-active)] flex items-center justify-center text-[12px]">🎤</span>
                       <span>+ {a.name}</span>
                     </button>
                   ))}

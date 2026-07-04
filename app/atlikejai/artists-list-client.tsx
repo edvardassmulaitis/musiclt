@@ -96,7 +96,7 @@ export default function ArtistsListClient({ artists, genres }: { artists: Artist
         .al-logo { font-family:var(--font-display); font-size:22px; font-weight:900; letter-spacing:-.03em; text-decoration:none; flex-shrink:0; }
         .al-logo-m { color:#f2f4f8; } .al-logo-d { color:#fb923c; }
         .al-search-h { flex:1; display:flex; align-items:center; border-radius:100px; background:rgba(255,255,255,0.05); border:1px solid rgba(255,255,255,0.08); max-width:480px; }
-        .al-search-h input { flex:1; height:36px; padding:0 16px; font-size:13px; background:transparent; border:none; outline:none; color:var(--text2); font-family:var(--font-body); }
+        .al-search-h input { flex:1; height:36px; padding:0 16px; font-size:14px; background:transparent; border:none; outline:none; color:var(--text2); font-family:var(--font-body); }
         .al-search-h input::placeholder { color:var(--text4); }
         .al-nav { display:flex; gap:2px; margin-left:auto; }
         .al-nav a { padding:6px 14px; font-size:12px; font-weight:600; color:var(--text3); border-radius:6px; text-decoration:none; transition:all .15s; font-family:var(--font-display); }
@@ -111,12 +111,12 @@ export default function ArtistsListClient({ artists, genres }: { artists: Artist
 
         /* Filters */
         .al-filters { max-width:1400px; margin:0 auto; padding:0 24px 24px; display:flex; flex-wrap:wrap; gap:8px; align-items:center; }
-        .al-filter-input { height:38px; padding:0 16px; border-radius:10px; font-size:13px; background:rgba(255,255,255,0.05); border:1px solid var(--border); color:var(--text2); font-family:var(--font-body); outline:none; min-width:200px; flex:1; max-width:320px; }
+        .al-filter-input { height:38px; padding:0 16px; border-radius:10px; font-size:14px; background:rgba(255,255,255,0.05); border:1px solid var(--border); color:var(--text2); font-family:var(--font-body); outline:none; min-width:200px; flex:1; max-width:320px; }
         .al-filter-input:focus { border-color:rgba(59,130,246,0.5); }
         .al-filter-input::placeholder { color:var(--text4); }
         .al-filter-select { height:38px; padding:0 12px; border-radius:10px; font-size:12px; font-weight:600; background:rgba(255,255,255,0.05); border:1px solid var(--border); color:var(--text2); font-family:var(--font-display); outline:none; cursor:pointer; appearance:none; padding-right:28px; background-image:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='10' height='6' viewBox='0 0 10 6'%3E%3Cpath d='M1 1l4 4 4-4' fill='none' stroke='%236a7a94' stroke-width='1.5'/%3E%3C/svg%3E"); background-repeat:no-repeat; background-position:right 10px center; }
         .al-filter-select:focus { border-color:rgba(59,130,246,0.5); }
-        .al-clear { padding:6px 14px; border-radius:8px; font-size:11px; font-weight:700; background:rgba(249,115,22,0.1); border:1px solid rgba(249,115,22,0.2); color:var(--orange); cursor:pointer; font-family:var(--font-display); transition:all .2s; }
+        .al-clear { padding:6px 14px; border-radius:8px; font-size:12px; font-weight:700; background:rgba(249,115,22,0.1); border:1px solid rgba(249,115,22,0.2); color:var(--orange); cursor:pointer; font-family:var(--font-display); transition:all .2s; }
         .al-clear:hover { background:rgba(249,115,22,0.2); }
         .al-count { font-size:12px; color:var(--text4); font-weight:600; margin-left:auto; }
 
@@ -132,14 +132,14 @@ export default function ArtistsListClient({ artists, genres }: { artists: Artist
         .al-card-verified { position:absolute; top:8px; right:8px; width:20px; height:20px; border-radius:50%; background:var(--blue); display:flex; align-items:center; justify-content:center; }
         .al-card-info { padding:12px 14px; }
         .al-card-name { font-family:var(--font-display); font-size:14px; font-weight:700; color:var(--text); white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
-        .al-card-sub { font-size:11px; color:var(--text4); margin-top:3px; display:flex; align-items:center; gap:6px; }
-        .al-card-genre { font-size:10px; color:var(--text3); margin-top:4px; white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
+        .al-card-sub { font-size:12px; color:var(--text4); margin-top:3px; display:flex; align-items:center; gap:6px; }
+        .al-card-genre { font-size:12px; color:var(--text3); margin-top:4px; white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
 
         /* Empty state */
         .al-empty { max-width:1400px; margin:0 auto; padding:80px 24px; text-align:center; }
         .al-empty-icon { font-size:48px; margin-bottom:16px; opacity:.3; }
         .al-empty h3 { font-family:var(--font-display); font-size:20px; font-weight:800; color:var(--text2); margin-bottom:6px; }
-        .al-empty p { font-size:13px; color:var(--text4); }
+        .al-empty p { font-size:14px; color:var(--text4); }
 
         @media(max-width:768px) {
           .al-search-h, .al-nav { display:none; }

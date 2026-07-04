@@ -195,18 +195,18 @@ const styles = `
   .cfv-row.is-active { background: color-mix(in srgb, var(--c) 10%, transparent); }
   .cfv-row:hover { background: color-mix(in srgb, var(--c) 6%, transparent); }
   .cfv-rowmain { flex: 1; min-width: 0; display: flex; align-items: center; gap: 13px; padding: 9px 8px; background: none; border: 0; cursor: pointer; text-align: left; color: inherit; font: inherit; }
-  .cfv-pos { width: 30px; flex-shrink: 0; text-align: center; font-family: 'Outfit', sans-serif; font-size: 17px; font-weight: 800; color: var(--text-muted); font-variant-numeric: tabular-nums; }
+  .cfv-pos { width: 30px; flex-shrink: 0; text-align: center; font-family: 'Outfit', sans-serif; font-size: 16px; font-weight: 800; color: var(--text-muted); font-variant-numeric: tabular-nums; }
   .cfv-cover { position: relative; width: 56px; height: 56px; flex-shrink: 0; border-radius: 10px; overflow: hidden; background: var(--bg-elevated); }
   .cfv-cover img { width: 100%; height: 100%; object-fit: cover; }
-  .cfv-ph { width: 100%; height: 100%; display: flex; align-items: center; justify-content: center; color: var(--text-muted); font-size: 18px; }
+  .cfv-ph { width: 100%; height: 100%; display: flex; align-items: center; justify-content: center; color: var(--text-muted); font-size: 20px; }
   .cfv-play { position: absolute; inset: 0; display: flex; align-items: center; justify-content: center; background: rgba(0,0,0,0.42); color: #fff; font-size: 16px; opacity: 0; transition: opacity .14s; }
   .cfv-rowmain:hover .cfv-play { opacity: 1; }
   .cfv-info { min-width: 0; flex: 1; display: flex; flex-direction: column; gap: 3px; }
-  .cfv-song { font-size: 15px; font-weight: 700; color: var(--text-primary); line-height: 1.25; }
-  .cfv-artist { font-size: 13px; color: var(--text-muted); }
+  .cfv-song { font-size: 16px; font-weight: 700; color: var(--text-primary); line-height: 1.25; }
+  .cfv-artist { font-size: 14px; color: var(--text-muted); }
   .cfv-srcs { display: flex; flex-wrap: wrap; gap: 4px; margin-top: 3px; }
-  .cfv-srcbadge { font-size: 9px; font-weight: 700; color: var(--text-muted); background: var(--bg-elevated); border: 1px solid var(--border-subtle); padding: 1px 6px; border-radius: 999px; }
-  .cfv-trend { flex-shrink: 0; font-size: 11px; font-weight: 800; width: 30px; text-align: center; }
+  .cfv-srcbadge { font-size: 12px; font-weight: 700; color: var(--text-muted); background: var(--bg-elevated); border: 1px solid var(--border-subtle); padding: 1px 6px; border-radius: 999px; }
+  .cfv-trend { flex-shrink: 0; font-size: 12px; font-weight: 800; width: 30px; text-align: center; }
   .cfv-trend.is-up { color: #16a34a; } .cfv-trend.is-down { color: #dc2626; }
   .cfv-trend.is-same { color: var(--text-muted); }
   /* NEW → žalias taškas (consistent su radaro feature). */
@@ -228,7 +228,7 @@ const styles = `
   .cfv-pflag { width: 26px; height: 18px; flex-shrink: 0; border-radius: 4px; background-size: cover; background-position: center; box-shadow: 0 0 0 1px var(--border-subtle); display: inline-block; }
   .cfv-pflag-globe { display: inline-flex; align-items: center; justify-content: center; background: var(--bg-elevated); color: var(--text-muted); }
   .cfv-phead-txt { flex: 1; min-width: 0; display: flex; flex-direction: column; gap: 1px; }
-  .cfv-now { font-size: 11.5px; font-weight: 600; color: var(--accent-orange); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+  .cfv-now { font-size: 12px; font-weight: 600; color: var(--accent-orange); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
   .cfv-h1 { margin: 0; flex: 1; min-width: 0; font-family: 'Outfit', sans-serif; font-size: 16px; font-weight: 800; letter-spacing: -0.015em; line-height: 1.2; color: var(--text-primary); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
   .cfv-albumhead .cfv-pflag { width: 34px; height: 23px; }
   .cfv-albumhead .cfv-h1 { flex: 0 1 auto; }
@@ -238,8 +238,8 @@ const styles = `
 
   /* Šaltiniai */
   .cfv-sources { margin-top: 28px; padding-top: 20px; border-top: 1px solid var(--border-subtle); }
-  .cfv-sources-title { margin: 0 0 12px; font-family: 'Outfit', sans-serif; font-size: 15px; font-weight: 800; color: var(--text-secondary); }
+  .cfv-sources-title { margin: 0 0 12px; font-family: 'Outfit', sans-serif; font-size: 16px; font-weight: 800; color: var(--text-secondary); }
   .cfv-sources-grid { display: flex; flex-wrap: wrap; gap: 8px; }
-  .cfv-source-link { font-size: 12.5px; font-weight: 700; color: var(--c); text-decoration: none; padding: 7px 12px; border: 1px solid var(--border-subtle); border-radius: 10px; }
+  .cfv-source-link { font-size: 12px; font-weight: 700; color: var(--c); text-decoration: none; padding: 7px 12px; border: 1px solid var(--border-subtle); border-radius: 10px; }
   .cfv-source-link:hover { background: color-mix(in srgb, var(--c) 8%, transparent); border-color: var(--c); }
 `

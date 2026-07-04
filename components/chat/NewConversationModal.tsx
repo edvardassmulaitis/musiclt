@@ -106,7 +106,7 @@ export function NewConversationModal({ onClose }: Props) {
   return (
     <Modal onClose={onClose}>
       <div style={{ padding: 18 }}>
-        <div style={{ fontSize: 17, fontWeight: 800, color: 'var(--text-primary)', marginBottom: 12 }}>
+        <div style={{ fontSize: 16, fontWeight: 800, color: 'var(--text-primary)', marginBottom: 12 }}>
           {mode === 'dm' ? 'Naujas pokalbis' : 'Nauja grupė'}
         </div>
 
@@ -307,7 +307,7 @@ export function NewConversationModal({ onClose }: Props) {
                       {u.full_name || u.username || 'Vartotojas'}
                     </div>
                     {u.username && u.full_name && (
-                      <div style={{ fontSize: 13, color: 'var(--text-muted)' }}>@{u.username}</div>
+                      <div style={{ fontSize: 14, color: 'var(--text-muted)' }}>@{u.username}</div>
                     )}
                   </div>
                   {sel && (

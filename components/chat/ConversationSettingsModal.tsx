@@ -87,7 +87,7 @@ export function ConversationSettingsModal({ conversation, viewerId, onClose, onU
   return (
     <Modal onClose={onClose}>
       <div style={{ padding: 18, overflow: 'auto' }}>
-        <div style={{ fontSize: 17, fontWeight: 800, color: 'var(--text-primary)', marginBottom: 12 }}>
+        <div style={{ fontSize: 16, fontWeight: 800, color: 'var(--text-primary)', marginBottom: 12 }}>
           {isGroup ? 'Grupės nustatymai' : 'Pokalbio info'}
         </div>
 
@@ -198,13 +198,13 @@ export function ConversationSettingsModal({ conversation, viewerId, onClose, onU
                   <div style={{ fontSize: 14, fontWeight: 700, color: 'var(--text-primary)' }}>
                     {p.profile?.full_name || p.profile?.username || 'Vartotojas'}
                     {p.user_id === viewerId && <span style={{ marginLeft: 6, fontSize: 12, color: 'var(--text-muted)' }}>(tu)</span>}
-                    {p.role === 'admin' && <span style={{ marginLeft: 6, fontSize: 11, padding: '1px 5px', borderRadius: 4, background: 'rgba(249,115,22,0.18)', color: 'var(--accent-orange)', fontWeight: 800 }}>ADMIN</span>}
+                    {p.role === 'admin' && <span style={{ marginLeft: 6, fontSize: 12, padding: '1px 5px', borderRadius: 4, background: 'rgba(249,115,22,0.18)', color: 'var(--accent-orange)', fontWeight: 800 }}>ADMIN</span>}
                   </div>
-                  {p.profile?.username && <div style={{ fontSize: 13, color: 'var(--text-muted)' }}>@{p.profile.username}</div>}
+                  {p.profile?.username && <div style={{ fontSize: 14, color: 'var(--text-muted)' }}>@{p.profile.username}</div>}
                 </div>
                 {isGroup && isAdmin && p.user_id !== viewerId && (
                   <button onClick={() => removeMember(p.user_id)}
-                    style={{ padding: '4px 8px', fontSize: 13, color: 'var(--text-muted)', background: 'transparent', border: '1px solid var(--border-default)', borderRadius: 6, cursor: 'pointer' }}>
+                    style={{ padding: '4px 8px', fontSize: 14, color: 'var(--text-muted)', background: 'transparent', border: '1px solid var(--border-default)', borderRadius: 6, cursor: 'pointer' }}>
                     Pašalinti
                   </button>
                 )}
@@ -233,7 +233,7 @@ export function ConversationSettingsModal({ conversation, viewerId, onClose, onU
 
 function Label({ children }: { children: React.ReactNode }) {
   return (
-    <div style={{ fontSize: 13, fontWeight: 700, color: 'var(--text-muted)', textTransform: 'uppercase', letterSpacing: '0.08em', marginBottom: 4, marginTop: 8 }}>
+    <div style={{ fontSize: 14, fontWeight: 700, color: 'var(--text-muted)', textTransform: 'uppercase', letterSpacing: '0.08em', marginBottom: 4, marginTop: 8 }}>
       {children}
     </div>
   )

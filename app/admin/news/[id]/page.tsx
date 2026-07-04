@@ -340,8 +340,8 @@ function PhotoPanel({
           <div className="flex flex-col gap-1">
             {embeds.map((e, i) => (
               <div key={`${e.url}-${i}`} className="flex items-center gap-2 bg-gray-50 rounded-lg px-2 py-1.5">
-                <span className="shrink-0 text-[11px] font-black uppercase px-1.5 py-0.5 rounded bg-blue-100 text-blue-700">{e.type || 'embed'}</span>
-                <span className="flex-1 min-w-0 truncate text-[13px] text-gray-600">{e.title || e.url}</span>
+                <span className="shrink-0 text-[12px] font-black uppercase px-1.5 py-0.5 rounded bg-blue-100 text-blue-700">{e.type || 'embed'}</span>
+                <span className="flex-1 min-w-0 truncate text-[14px] text-gray-600">{e.title || e.url}</span>
                 <button onClick={() => onEmbedsChange(embeds.filter((_, j) => j !== i))}
                   className="shrink-0 w-6 h-6 rounded-full hover:bg-red-500 hover:text-white flex items-center justify-center text-xs text-gray-500 transition-all">🗑</button>
               </div>
@@ -399,7 +399,7 @@ function PhotoPanel({
                     <img src={photo.url} alt="" className="w-full h-full object-cover" />
                   </div>
                   {heroUrl === photo.url && (
-                    <div className="absolute top-1 left-1 bg-orange-500 text-white text-[11px] font-black px-1.5 py-0.5 rounded-full">HERO</div>
+                    <div className="absolute top-1 left-1 bg-orange-500 text-white text-[12px] font-black px-1.5 py-0.5 rounded-full">HERO</div>
                   )}
                   <div className="absolute inset-0 bg-black/0 group-hover:bg-black/40 rounded-lg transition-all flex items-center justify-center gap-1 opacity-0 group-hover:opacity-100">
                     <button onClick={() => onHeroChange(photo.url)}
@@ -550,7 +550,7 @@ export default function EditNews() {
             </nav>
             {!isNew && publicUrl && (
               <a href={publicUrl} target="_blank" rel="noopener"
-                className="flex items-center gap-1 text-[13px] text-blue-400 hover:text-blue-600 transition-colors w-fit">
+                className="flex items-center gap-1 text-[14px] text-blue-400 hover:text-blue-600 transition-colors w-fit">
                 <svg viewBox="0 0 24 24" className="w-3 h-3 fill-none stroke-current stroke-2 shrink-0"><path d="M18 13v6a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h6"/><polyline points="15 3 21 3 21 9"/><line x1="10" y1="14" x2="21" y2="3"/></svg>
                 <span className="font-mono truncate max-w-[400px]">music.lt{publicUrl}</span>
               </a>

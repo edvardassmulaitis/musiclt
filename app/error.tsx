@@ -56,7 +56,7 @@ export default function HomeError({ reset }: { error: Error & { digest?: string 
         alignItems: 'center', justifyContent: 'center', gap: 16, padding: 24, textAlign: 'center',
       }}
     >
-      <p style={{ margin: 0, fontFamily: "'Outfit',sans-serif", fontWeight: 800, fontSize: 18, color: 'var(--text-primary,#fff)' }}>
+      <p style={{ margin: 0, fontFamily: "'Outfit',sans-serif", fontWeight: 800, fontSize: 20, color: 'var(--text-primary,#fff)' }}>
         Nepavyko užkrauti pagrindinio puslapio
       </p>
       <p style={{ margin: 0, fontSize: 14, color: 'var(--text-muted,#9aa)', maxWidth: 360 }}>

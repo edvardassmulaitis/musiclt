@@ -283,7 +283,7 @@ function LedHorizontal({
             </div>
             <span
               className="font-mono tabular-nums flex-shrink-0"
-              style={{ fontSize: '13px', color: isSelected ? b.hex : 'var(--text-muted)', width: '34px', textAlign: 'right' }}
+              style={{ fontSize: '14px', color: isSelected ? b.hex : 'var(--text-muted)', width: '34px', textAlign: 'right' }}
             >
               {b.percent.toFixed(0)}%
             </span>

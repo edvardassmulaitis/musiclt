@@ -63,7 +63,7 @@ export default function ContactsDbPage() {
           <span className="font-semibold text-[var(--text-secondary)]">Vadybininkų bazė</span>
         </nav>
         <h1 className="font-['Outfit',sans-serif] text-2xl font-extrabold text-[var(--text-primary)]">Vadybininkų bazė</h1>
-        <p className="mt-1 text-[14.5px] text-[var(--text-muted)]">
+        <p className="mt-1 text-[14px] text-[var(--text-muted)]">
           Visi atlikėjų kontaktai — vadyba, booking, label, press. {(contacts as any[]).length} įrašai, {withEmail} su el. paštu.
         </p>
 
@@ -103,7 +103,7 @@ export default function ContactsDbPage() {
                     <div className="flex flex-wrap items-center gap-2">
                       <span className="font-semibold text-[var(--text-primary)]">{c.name || '(be pavadinimo)'}</span>
                       <TypePill type={c.type} />
-                      <span className="text-[13px] text-[var(--text-faint)]">{c.confidence}</span>
+                      <span className="text-[14px] text-[var(--text-faint)]">{c.confidence}</span>
                     </div>
                     <div className="mt-1 flex flex-wrap gap-x-4 gap-y-0.5 text-xs text-[var(--text-muted)]">
                       {c.email && <a href={`mailto:${c.email}`} className="text-music-blue hover:underline">✉ {c.email}</a>}

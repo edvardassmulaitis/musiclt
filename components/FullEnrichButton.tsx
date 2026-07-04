@@ -98,11 +98,11 @@ export default function FullEnrichButton({ artistId, onDone, compact }: { artist
         {label}
       </button>
       {p.phase === 'done' && (
-        <span className="text-[13px] text-[var(--text-muted)]">
+        <span className="text-[14px] text-[var(--text-muted)]">
           YouTube: {p.ytFoundNew} nauji video, {p.ytViews} peržiūrų atnaujinta · Tekstai: {p.lyricsFound} rasta iš {p.lyricsTotal}
         </span>
       )}
-      {p.phase === 'error' && <span className="text-[13px] text-red-500">{p.error}</span>}
+      {p.phase === 'error' && <span className="text-[14px] text-red-500">{p.error}</span>}
     </div>
   )
 }

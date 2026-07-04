@@ -559,7 +559,7 @@ function EditorInner() {
           .tp-ico { color: var(--accent-orange); margin-bottom: 4px; }
           .tp-ico :global(svg) { width: 24px; height: 24px; }
           .tp-label { font-family: 'Outfit', sans-serif; font-weight: 800; font-size: 16px; color: var(--text-primary); }
-          .tp-desc { font-size: 12.5px; color: var(--text-muted); line-height: 1.35; }
+          .tp-desc { font-size: 12px; color: var(--text-muted); line-height: 1.35; }
         `}</style>
       </WizardChrome>
     )
@@ -616,7 +616,7 @@ function EditorInner() {
         .wz-textarea {
           width: 100%; border-radius: 12px; padding: 12px 14px; resize: vertical;
           background: var(--bg-elevated); border: 1px solid var(--border-subtle);
-          color: var(--text-primary); font-size: 15px; outline: none; font-family: inherit;
+          color: var(--text-primary); font-size: 16px; outline: none; font-family: inherit;
         }
         .wz-textarea:focus { border-color: var(--accent-orange); }
       `}</style>
@@ -702,13 +702,13 @@ function TrackReviewList({
         .trl-cover { width: 38px; height: 38px; border-radius: 8px; object-fit: cover; flex-shrink: 0; }
         .trl-cover-ph { display: flex; align-items: center; justify-content: center; background: var(--cover-placeholder); font-size: 16px; }
         .trl-meta { flex: 1; min-width: 0; display: flex; align-items: center; gap: 8px; }
-        .trl-num { font-family: 'Outfit', sans-serif; font-weight: 800; color: var(--text-faint); font-size: 13px; }
+        .trl-num { font-family: 'Outfit', sans-serif; font-weight: 800; color: var(--text-faint); font-size: 14px; }
         .trl-title { font-family: 'Outfit', sans-serif; font-weight: 700; font-size: 14px; color: var(--text-primary); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
-        .trl-badge { flex-shrink: 0; background: var(--accent-orange); color: #fff; border-radius: 8px; padding: 2px 8px; font-weight: 800; font-size: 13px; font-family: 'Outfit', sans-serif; }
+        .trl-badge { flex-shrink: 0; background: var(--accent-orange); color: #fff; border-radius: 8px; padding: 2px 8px; font-weight: 800; font-size: 14px; font-family: 'Outfit', sans-serif; }
         .trl-comment {
           width: 100%; margin-top: 10px; border-radius: 9px; padding: 8px 11px;
           background: var(--bg-body); border: 1px solid var(--border-subtle); color: var(--text-secondary);
-          font-size: 13px; outline: none;
+          font-size: 14px; outline: none;
         }
         .trl-comment:focus { border-color: var(--accent-orange); }
       `}</style>

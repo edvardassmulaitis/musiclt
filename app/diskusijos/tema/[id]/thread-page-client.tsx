@@ -196,7 +196,7 @@ function AttachmentCard({ a, resolved }: { a: MusicAttachment; resolved?: { slug
         <div style={{ width: 32, height: 32, borderRadius: 5, background: `${tint}22`, flexShrink: 0 }} />
       )}
       <div style={{ minWidth: 0, flex: 1 }}>
-        <div style={{ fontSize: 11, color: tint, fontWeight: 800, letterSpacing: '.06em', textTransform: 'uppercase', fontFamily: 'Outfit,sans-serif' }}>
+        <div style={{ fontSize: 12, color: tint, fontWeight: 800, letterSpacing: '.06em', textTransform: 'uppercase', fontFamily: 'Outfit,sans-serif' }}>
           {kindLabel}
           {typeof a.fav_count === 'number' && a.fav_count > 0 && <> · ♥ {a.fav_count}</>}
           {!href && <span style={{ marginLeft: 6, color: 'var(--text-faint)', fontWeight: 600 }}>· archyvas</span>}
@@ -334,7 +334,7 @@ export default function ThreadPageClient({
               >
                 {p.author_username ?? 'nežinomas'}
               </Link>
-              <span title={fullDate(p.created_at)} style={{ fontSize: 13, color: 'var(--text-muted)', fontWeight: 600 }}>
+              <span title={fullDate(p.created_at)} style={{ fontSize: 14, color: 'var(--text-muted)', fontWeight: 600 }}>
                 · {timeAgo(p.created_at)}
               </span>
             </div>
@@ -357,7 +357,7 @@ export default function ThreadPageClient({
             {/* Action row */}
             <div style={{
               display: 'flex', alignItems: 'center', gap: 10, marginTop: 6,
-              fontSize: 13, fontWeight: 700, fontFamily: 'Outfit,sans-serif',
+              fontSize: 14, fontWeight: 700, fontFamily: 'Outfit,sans-serif',
               color: 'var(--text-muted)',
             }}>
               <button
@@ -368,7 +368,7 @@ export default function ThreadPageClient({
                   border: 'none', background: 'transparent',
                   color: (p.like_count ?? 0) > 0 ? 'var(--accent-orange)' : 'var(--text-faint)',
                   cursor: (p.like_count ?? 0) > 0 ? 'pointer' : 'default', padding: 0,
-                  fontWeight: 700, fontSize: 13,
+                  fontWeight: 700, fontSize: 14,
                 }}
               >
                 ♥ {p.like_count ?? 0}
@@ -380,7 +380,7 @@ export default function ThreadPageClient({
                     border: 'none', background: 'transparent',
                     color: replyTo === p.legacy_id ? 'var(--accent-orange)' : 'var(--text-muted)',
                     cursor: 'pointer', padding: 0,
-                    fontWeight: 700, fontSize: 13, fontFamily: 'Outfit,sans-serif',
+                    fontWeight: 700, fontSize: 14, fontFamily: 'Outfit,sans-serif',
                   }}
                 >
                   Atsakyti
@@ -393,7 +393,7 @@ export default function ThreadPageClient({
                   border: 'none', background: 'transparent',
                   color: copiedId === p.legacy_id ? '#22c55e' : 'var(--text-muted)',
                   cursor: 'pointer', padding: 0,
-                  fontWeight: 700, fontSize: 13, fontFamily: 'Outfit,sans-serif',
+                  fontWeight: 700, fontSize: 14, fontFamily: 'Outfit,sans-serif',
                 }}
               >
                 {copiedId === p.legacy_id ? '✓ nukopijuota' : 'Nuoroda'}
@@ -480,7 +480,7 @@ export default function ThreadPageClient({
               <Link
                 href={`/atlikejai/${artist.slug}`}
                 style={{
-                  fontSize: 13, fontWeight: 700, letterSpacing: '.05em',
+                  fontSize: 14, fontWeight: 700, letterSpacing: '.05em',
                   color: 'var(--text-muted)', textDecoration: 'none',
                   fontFamily: 'Outfit,sans-serif',
                 }}
@@ -549,7 +549,7 @@ export default function ThreadPageClient({
             display: 'flex', justifyContent: 'space-between', alignItems: 'center',
             marginTop: 16, marginBottom: 4, fontFamily: 'Outfit,sans-serif',
           }}>
-            <div style={{ fontSize: 13, color: 'var(--text-muted)', fontWeight: 700, letterSpacing: '.08em', textTransform: 'uppercase' }}>
+            <div style={{ fontSize: 14, color: 'var(--text-muted)', fontWeight: 700, letterSpacing: '.08em', textTransform: 'uppercase' }}>
               {posts.length} {plural(posts.length, ['komentaras', 'komentarai', 'komentarų'])}
             </div>
             <div style={{ display: 'flex', gap: 0, border: '1px solid var(--border-subtle)', borderRadius: 100, overflow: 'hidden' }}>
@@ -633,7 +633,7 @@ function AdminInfoModal({ thread, onClose }: { thread: ThreadRow; onClose: () =>
         <div style={{ fontSize: 12, fontWeight: 800, letterSpacing: '.1em', color: 'var(--accent-orange)', textTransform: 'uppercase', marginBottom: 4 }}>
           Admin info
         </div>
-        <div style={{ fontSize: 18, fontWeight: 800, color: 'var(--text-primary)', marginBottom: 14 }}>
+        <div style={{ fontSize: 20, fontWeight: 800, color: 'var(--text-primary)', marginBottom: 14 }}>
           music.lt #{thread.legacy_id}
         </div>
         <Row label="Rūšis" value={thread.kind ?? '—'} />
@@ -877,10 +877,10 @@ function ReplyComposer({
                       display: 'inline-flex', alignItems: 'center', gap: 6,
                       padding: '3px 4px 3px 8px', borderRadius: 100,
                       background: 'var(--card-bg)', border: '1px solid var(--border-subtle)',
-                      fontSize: 13, fontWeight: 600, color: 'var(--text-primary)',
+                      fontSize: 14, fontWeight: 600, color: 'var(--text-primary)',
                     }}
                   >
-                    <span style={{ color: a.type === 'daina' ? '#3b82f6' : a.type === 'albumas' ? 'var(--accent-orange)' : '#a855f7', fontWeight: 800, fontSize: 11, textTransform: 'uppercase', letterSpacing: '.05em' }}>
+                    <span style={{ color: a.type === 'daina' ? '#3b82f6' : a.type === 'albumas' ? 'var(--accent-orange)' : '#a855f7', fontWeight: 800, fontSize: 12, textTransform: 'uppercase', letterSpacing: '.05em' }}>
                       {a.type === 'daina' ? 'Daina' : a.type === 'albumas' ? 'Albumas' : 'Atlikėjas'}
                     </span>
                     <span style={{ maxWidth: 180, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{a.title}</span>
@@ -905,7 +905,7 @@ function ReplyComposer({
                   display: 'inline-flex', alignItems: 'center', gap: 5,
                   padding: '5px 10px', borderRadius: 100,
                   background: 'var(--card-bg)', border: '1px solid var(--border-subtle)',
-                  color: 'var(--text-secondary)', fontSize: 13, fontWeight: 700,
+                  color: 'var(--text-secondary)', fontSize: 14, fontWeight: 700,
                   cursor: 'pointer', fontFamily: 'Outfit,sans-serif',
                 }}
               >
@@ -934,9 +934,9 @@ function ReplyComposer({
                     }}
                   />
                   <div style={{ maxHeight: 260, overflowY: 'auto' }}>
-                    {searching && <div style={{ padding: '10px 14px', fontSize: 13, color: 'var(--text-muted)' }}>Ieškau…</div>}
+                    {searching && <div style={{ padding: '10px 14px', fontSize: 14, color: 'var(--text-muted)' }}>Ieškau…</div>}
                     {!searching && hits.length === 0 && searchTerm.length >= 2 && (
-                      <div style={{ padding: '10px 14px', fontSize: 13, color: 'var(--text-muted)' }}>Nieko nerasta</div>
+                      <div style={{ padding: '10px 14px', fontSize: 14, color: 'var(--text-muted)' }}>Nieko nerasta</div>
                     )}
                     {hits.map((h) => (
                       <button
@@ -956,7 +956,7 @@ function ReplyComposer({
                           <div style={{ width: 28, height: 28, borderRadius: 4, background: 'var(--card-bg)', flexShrink: 0 }} />
                         )}
                         <div style={{ minWidth: 0, flex: 1 }}>
-                          <div style={{ fontSize: 11, color: h.type === 'daina' ? '#3b82f6' : h.type === 'albumas' ? 'var(--accent-orange)' : '#a855f7', fontWeight: 800, textTransform: 'uppercase', letterSpacing: '.06em' }}>
+                          <div style={{ fontSize: 12, color: h.type === 'daina' ? '#3b82f6' : h.type === 'albumas' ? 'var(--accent-orange)' : '#a855f7', fontWeight: 800, textTransform: 'uppercase', letterSpacing: '.06em' }}>
                             {h.type === 'daina' ? 'Daina' : h.type === 'albumas' ? 'Albumas' : 'Atlikėjas'}
                           </div>
                           <div style={{ fontSize: 14, fontWeight: 700, color: 'var(--text-primary)', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{h.title}</div>
@@ -968,7 +968,7 @@ function ReplyComposer({
                 </div>
               )}
               <div style={{ flex: 1 }} />
-              {error && <span style={{ fontSize: 13, color: '#ef4444', fontWeight: 600 }}>{error}</span>}
+              {error && <span style={{ fontSize: 14, color: '#ef4444', fontWeight: 600 }}>{error}</span>}
               <button
                 onClick={submit}
                 disabled={sending}

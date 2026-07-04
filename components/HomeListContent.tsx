@@ -189,7 +189,7 @@ export function HomeListContent({ type, lane = 'lt', onOpenTrack, onOpenAlbum, o
   }, [activeCity])
 
   const chipCls = (active: boolean) =>
-    `shrink-0 whitespace-nowrap rounded-full border px-2.5 py-1 font-['Outfit',sans-serif] text-[13.5px] font-bold transition-colors ${
+    `shrink-0 whitespace-nowrap rounded-full border px-2.5 py-1 font-['Outfit',sans-serif] text-[14px] font-bold transition-colors ${
       active
         ? 'border-[var(--accent-orange)] bg-[var(--accent-orange)]/12 text-[var(--accent-orange)]'
         : 'border-[var(--border-default)] text-[var(--text-muted)] hover:border-[var(--border-strong)]'
@@ -220,7 +220,7 @@ export function HomeListContent({ type, lane = 'lt', onOpenTrack, onOpenAlbum, o
           <button
             type="button"
             onClick={() => setGenresExpanded(v => !v)}
-            className="shrink-0 whitespace-nowrap rounded-full px-2.5 py-1 font-['Outfit',sans-serif] text-[13.5px] font-bold text-[var(--accent-orange)] transition-opacity hover:opacity-70"
+            className="shrink-0 whitespace-nowrap rounded-full px-2.5 py-1 font-['Outfit',sans-serif] text-[14px] font-bold text-[var(--accent-orange)] transition-opacity hover:opacity-70"
           >
             {genresExpanded ? 'Mažiau' : `+${overflow} daugiau`}
           </button>
@@ -246,7 +246,7 @@ export function HomeListContent({ type, lane = 'lt', onOpenTrack, onOpenAlbum, o
           </div>
           {renderGenres()}
           {!loading && total > 0 && (
-            <span className="shrink-0 font-['Outfit',sans-serif] text-[13.5px] font-bold text-[var(--text-faint)] sm:ml-auto">Iš viso: {total}</span>
+            <span className="shrink-0 font-['Outfit',sans-serif] text-[14px] font-bold text-[var(--text-faint)] sm:ml-auto">Iš viso: {total}</span>
           )}
         </div>
       ) : (
@@ -255,7 +255,7 @@ export function HomeListContent({ type, lane = 'lt', onOpenTrack, onOpenAlbum, o
             {([['all', 'Visi laikai'], ['week', 'Šią savaitę'], ['month', 'Šį mėnesį'], ['later', 'Vėliau']] as const).map(([k, l]) => (
               <button key={k} type="button" onClick={() => setActiveDate(k)} className={chipCls(activeDate === k)}>{l}</button>
             ))}
-            {!loading && <span className="ml-auto hidden shrink-0 font-['Outfit',sans-serif] text-[13.5px] font-bold text-[var(--text-faint)] sm:inline">Rasta: {shown.length}</span>}
+            {!loading && <span className="ml-auto hidden shrink-0 font-['Outfit',sans-serif] text-[14px] font-bold text-[var(--text-faint)] sm:inline">Rasta: {shown.length}</span>}
           </div>
           {cities.length > 0 && (
             <div className="flex min-w-0 items-center gap-1.5">
@@ -270,7 +270,7 @@ export function HomeListContent({ type, lane = 'lt', onOpenTrack, onOpenAlbum, o
                   value={activeVenue}
                   onChange={e => setActiveVenue(e.target.value)}
                   title="Filtruoti pagal vietą"
-                  className={`shrink-0 max-w-[180px] truncate rounded-full border px-2.5 py-1 font-['Outfit',sans-serif] text-[13.5px] font-bold transition-colors ${activeVenue ? 'border-[var(--accent-orange)] bg-[var(--accent-orange)]/12 text-[var(--accent-orange)]' : 'border-[var(--border-default)] bg-[var(--bg-surface)] text-[var(--text-muted)]'}`}
+                  className={`shrink-0 max-w-[180px] truncate rounded-full border px-2.5 py-1 font-['Outfit',sans-serif] text-[14px] font-bold transition-colors ${activeVenue ? 'border-[var(--accent-orange)] bg-[var(--accent-orange)]/12 text-[var(--accent-orange)]' : 'border-[var(--border-default)] bg-[var(--bg-surface)] text-[var(--text-muted)]'}`}
                 >
                   <option value="">Visos vietos</option>
                   {venueOptions.map(v => <option key={v.name} value={v.name}>{v.name} ({v.count})</option>)}
@@ -327,12 +327,12 @@ export function HomeListContent({ type, lane = 'lt', onOpenTrack, onOpenAlbum, o
                     </div>
                     <div className="mt-2 px-0.5">
                       {validDate && (
-                        <p className="m-0 mb-0.5 font-['Outfit',sans-serif] text-[13px] font-extrabold uppercase tracking-[0.03em] text-[var(--accent-orange)]">
+                        <p className="m-0 mb-0.5 font-['Outfit',sans-serif] text-[14px] font-extrabold uppercase tracking-[0.03em] text-[var(--accent-orange)]">
                           {d!.getDate()} {MONTHS_LT[d!.getMonth()]}. {d!.getFullYear()}
                         </p>
                       )}
                       <p className="m-0 line-clamp-2 font-['Outfit',sans-serif] text-[14px] font-extrabold leading-snug text-[var(--text-primary)] transition-colors group-hover:text-[var(--accent-orange)]">{label}</p>
-                      {venue && <p className="m-0 mt-1 truncate text-[13.5px] text-[var(--text-muted)]">{venue}</p>}
+                      {venue && <p className="m-0 mt-1 truncate text-[14px] text-[var(--text-muted)]">{venue}</p>}
                     </div>
                   </Link>
                 )
@@ -349,17 +349,17 @@ export function HomeListContent({ type, lane = 'lt', onOpenTrack, onOpenAlbum, o
               const pop = it.pop || 0
               const metaRow = (
                 <div className="mt-1 flex items-center gap-2">
-                  <p className="m-0 min-w-0 flex-1 truncate text-[13.5px] text-[var(--text-muted)]">{artistName}</p>
+                  <p className="m-0 min-w-0 flex-1 truncate text-[14px] text-[var(--text-muted)]">{artistName}</p>
                   <PopBar level={pop} />
                   {likes > 0 && (
-                    <span className="flex shrink-0 items-center gap-0.5 text-[12.5px] font-bold text-[var(--text-muted)]">
+                    <span className="flex shrink-0 items-center gap-0.5 text-[12px] font-bold text-[var(--text-muted)]">
                       <span className="text-[var(--accent-orange)]">♥</span>{likes}
                     </span>
                   )}
                 </div>
               )
               const dateBadge = rel.label ? (
-                <span className={`absolute bottom-1.5 right-1.5 rounded px-1.5 py-0.5 font-['Outfit',sans-serif] text-[11px] font-bold backdrop-blur-sm ${rel.hot ? 'bg-[var(--accent-orange)] text-white' : 'bg-black/70 text-white'}`}>{rel.label}</span>
+                <span className={`absolute bottom-1.5 right-1.5 rounded px-1.5 py-0.5 font-['Outfit',sans-serif] text-[12px] font-bold backdrop-blur-sm ${rel.hot ? 'bg-[var(--accent-orange)] text-white' : 'bg-black/70 text-white'}`}>{rel.label}</span>
               ) : null
 
               if (isAlbumLike) {
@@ -384,9 +384,9 @@ export function HomeListContent({ type, lane = 'lt', onOpenTrack, onOpenAlbum, o
                       {pop > 0 && <span className="mb-1 flex"><PopBar level={pop} /></span>}
                       <p className="m-0 truncate font-['Outfit',sans-serif] text-[14px] font-extrabold text-[var(--text-primary)] transition-colors group-hover:text-[var(--accent-orange)]">{title}</p>
                       <div className="mt-1 flex items-center gap-2">
-                        <p className="m-0 min-w-0 flex-1 truncate text-[13.5px] text-[var(--text-muted)]">{artistName}</p>
+                        <p className="m-0 min-w-0 flex-1 truncate text-[14px] text-[var(--text-muted)]">{artistName}</p>
                         {likes > 0 && (
-                          <span className="flex shrink-0 items-center gap-0.5 text-[12.5px] font-bold text-[var(--text-muted)]">
+                          <span className="flex shrink-0 items-center gap-0.5 text-[12px] font-bold text-[var(--text-muted)]">
                             <span className="text-[var(--accent-orange)]">♥</span>{likes}
                           </span>
                         )}

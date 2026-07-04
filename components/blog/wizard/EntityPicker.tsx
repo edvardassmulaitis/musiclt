@@ -162,7 +162,7 @@ export function EntityPicker({
       <style jsx>{`
         .ep-filters { display: flex; gap: 6px; margin-bottom: 12px; flex-wrap: wrap; }
         .ep-chip {
-          padding: 7px 14px; border-radius: 999px; font-size: 13px; font-weight: 700;
+          padding: 7px 14px; border-radius: 999px; font-size: 14px; font-weight: 700;
           font-family: 'Outfit', sans-serif; cursor: pointer;
           background: var(--bg-elevated); border: 1px solid var(--border-subtle); color: var(--text-secondary);
           -webkit-tap-highlight-color: transparent;
@@ -186,10 +186,10 @@ export function EntityPicker({
         }
         .ep-list { margin-top: 8px; display: flex; flex-direction: column; }
         .ep-section {
-          font-size: 11px; font-weight: 800; text-transform: uppercase; letter-spacing: .08em;
+          font-size: 12px; font-weight: 800; text-transform: uppercase; letter-spacing: .08em;
           color: var(--text-faint); font-family: 'Outfit', sans-serif; margin: 8px 2px 6px;
         }
-        .ep-hint { padding: 18px 4px; font-size: 13px; color: var(--text-faint); text-align: center; }
+        .ep-hint { padding: 18px 4px; font-size: 14px; color: var(--text-faint); text-align: center; }
       `}</style>
     </div>
   )
@@ -227,12 +227,12 @@ function Row({ hit, onPick }: { hit: AttachmentHit; onPick: (h: AttachmentHit) =
         .epr-glyph { font-size: 20px; opacity: .5; }
         .epr-text { flex: 1; min-width: 0; display: flex; flex-direction: column; gap: 2px; }
         .epr-title {
-          font-family: 'Outfit', sans-serif; font-weight: 700; font-size: 15px; color: var(--text-primary);
+          font-family: 'Outfit', sans-serif; font-weight: 700; font-size: 16px; color: var(--text-primary);
           overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
         }
-        .epr-sub { font-size: 12.5px; color: var(--text-muted); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+        .epr-sub { font-size: 12px; color: var(--text-muted); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
         .epr-badge {
-          flex-shrink: 0; font-size: 10px; font-weight: 800; text-transform: uppercase; letter-spacing: .04em;
+          flex-shrink: 0; font-size: 12px; font-weight: 800; text-transform: uppercase; letter-spacing: .04em;
           font-family: 'Outfit', sans-serif; color: var(--text-faint);
           background: var(--bg-elevated); border-radius: 999px; padding: 4px 9px;
         }
@@ -275,14 +275,14 @@ export function SelectedEntityCard({
         .sec-glyph { font-size: 26px; opacity: .5; }
         .sec-text { flex: 1; min-width: 0; display: flex; flex-direction: column; gap: 2px; }
         .sec-kind {
-          font-size: 10px; font-weight: 800; text-transform: uppercase; letter-spacing: .08em;
+          font-size: 12px; font-weight: 800; text-transform: uppercase; letter-spacing: .08em;
           color: var(--accent-orange); font-family: 'Outfit', sans-serif;
         }
         .sec-title {
-          font-family: 'Outfit', sans-serif; font-weight: 800; font-size: 17px; color: var(--text-primary);
+          font-family: 'Outfit', sans-serif; font-weight: 800; font-size: 16px; color: var(--text-primary);
           overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
         }
-        .sec-sub { font-size: 13px; color: var(--text-muted); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+        .sec-sub { font-size: 14px; color: var(--text-muted); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
         .sec-clear {
           flex-shrink: 0; align-self: flex-start; font-size: 12px; font-weight: 700;
           color: var(--text-secondary); background: var(--bg-hover); border: none;

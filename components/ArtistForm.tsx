@@ -626,7 +626,7 @@ function HeroPositionPicker({ imageUrl, position, onChange }: {
         <div className="absolute inset-0 bg-black/0 group-hover:bg-black/30 transition-colors flex items-center justify-center">
           <span className="text-white text-[12px] font-medium opacity-0 group-hover:opacity-100 transition-opacity">Keisti poziciją</span>
         </div>
-        <div className="absolute bottom-1 right-1 bg-black/60 text-white text-[11px] font-mono px-1 py-0.5 rounded">
+        <div className="absolute bottom-1 right-1 bg-black/60 text-white text-[12px] font-mono px-1 py-0.5 rounded">
           {parsed.x},{parsed.y}%{parsed.zoom > 1 ? ` ${parsed.zoom}x` : ''}
         </div>
       </button>
@@ -692,7 +692,7 @@ function CropModal({ imageUrl, position, onChange, onClose }: {
         <div className="px-4 py-3 border-b flex items-center justify-between">
           <div>
             <h3 className="text-sm font-semibold text-gray-800">Nuotraukos pozicija</h3>
-            <p className="text-[13px] text-gray-400">Tempk nuotrauką ir naudok scroll zoom'ui</p>
+            <p className="text-[14px] text-gray-400">Tempk nuotrauką ir naudok scroll zoom'ui</p>
           </div>
           <button type="button" onClick={onClose} className="text-gray-400 hover:text-gray-600 text-lg">✕</button>
         </div>
@@ -717,13 +717,13 @@ function CropModal({ imageUrl, position, onChange, onClose }: {
           </div>
         </div>
         <div className="px-4 py-3 border-t flex items-center gap-3">
-          <span className="text-[13px] text-gray-400">Zoom</span>
+          <span className="text-[14px] text-gray-400">Zoom</span>
           <input type="range" min="1" max="3" step="0.1" value={zoom}
             onChange={e => { const z = parseFloat(e.target.value); setZoom(z); emit(xPct, yPct, z) }}
             className="flex-1 h-1.5 accent-blue-500" />
           <span className="text-xs font-mono text-gray-500 w-8 text-right">{zoom}x</span>
           <button type="button" onClick={() => { setXPct(50); setYPct(20); setZoom(1); emit(50, 20, 1) }}
-            className="text-[13px] text-gray-400 hover:text-gray-600 ml-2">Reset</button>
+            className="text-[14px] text-gray-400 hover:text-gray-600 ml-2">Reset</button>
         </div>
       </div>
     </div>
@@ -1483,7 +1483,7 @@ function InlineGallery({ photos, onChange, artistName, artistId, onSetAvatar, cu
                   className={`w-full h-full object-cover group-hover:opacity-85 transition-opacity ${p.is_active === false ? 'opacity-50 grayscale' : ''}`} />
                 {p.is_active === false && (
                   <div className="absolute inset-x-0 top-1/2 -translate-y-1/2 text-center pointer-events-none">
-                    <span className="bg-amber-500/90 text-white text-[11px] font-bold uppercase px-1.5 py-0.5 rounded">neaktyvi</span>
+                    <span className="bg-amber-500/90 text-white text-[12px] font-bold uppercase px-1.5 py-0.5 rounded">neaktyvi</span>
                   </div>
                 )}
               </div>
@@ -1491,7 +1491,7 @@ function InlineGallery({ photos, onChange, artistName, artistId, onSetAvatar, cu
                 className="absolute top-0.5 right-0.5 w-4 h-4 bg-black/60 hover:bg-red-500 text-white rounded-full text-xs flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity leading-none">×</button>
               <button type="button" onClick={e => { e.stopPropagation(); toggleActive(i) }}
                 title={p.is_active === false ? 'Aktyvuoti — bus rodoma viešai' : 'Pažymėti kaip neaktyvią — nebus rodoma viešai'}
-                className={`absolute top-0.5 right-5 w-4 h-4 rounded-full text-[10px] font-bold flex items-center justify-center transition-all ${p.is_active === false ? 'bg-amber-400 hover:bg-amber-500 text-white opacity-100' : 'bg-black/50 hover:bg-amber-500 text-white opacity-0 group-hover:opacity-100'}`}>
+                className={`absolute top-0.5 right-5 w-4 h-4 rounded-full text-[12px] font-bold flex items-center justify-center transition-all ${p.is_active === false ? 'bg-amber-400 hover:bg-amber-500 text-white opacity-100' : 'bg-black/50 hover:bg-amber-500 text-white opacity-0 group-hover:opacity-100'}`}>
                 {p.is_active === false ? '✓' : '✕'}
               </button>
               {onSetAvatar && (
@@ -1504,7 +1504,7 @@ function InlineGallery({ photos, onChange, artistName, artistId, onSetAvatar, cu
               {onSetHero && (
                 <button type="button" onClick={e => { e.stopPropagation(); onSetHero(p.url) }}
                   title="Naudoti kaip hero nuotrauką (didelė viršuje viešame puslapyje)"
-                  className={`absolute top-0.5 left-6 w-5 h-5 rounded text-[11px] font-bold flex items-center justify-center transition-all ${currentHero === p.url ? 'bg-purple-500 text-white opacity-100' : 'bg-black/50 hover:bg-purple-500 text-white opacity-0 group-hover:opacity-100'}`}>
+                  className={`absolute top-0.5 left-6 w-5 h-5 rounded text-[12px] font-bold flex items-center justify-center transition-all ${currentHero === p.url ? 'bg-purple-500 text-white opacity-100' : 'bg-black/50 hover:bg-purple-500 text-white opacity-0 group-hover:opacity-100'}`}>
                   H
                 </button>
               )}
@@ -1514,7 +1514,7 @@ function InlineGallery({ photos, onChange, artistName, artistId, onSetAvatar, cu
                 </div>
               )}
               <button type="button" onClick={e => { e.stopPropagation(); setEditMetaIdx(editMetaIdx === i ? null : i) }}
-                className="absolute bottom-0.5 right-0.5 w-5 h-5 bg-black/50 hover:bg-blue-500 text-white rounded text-[11px] font-bold flex items-center justify-center opacity-0 group-hover:opacity-100 transition-all">©</button>
+                className="absolute bottom-0.5 right-0.5 w-5 h-5 bg-black/50 hover:bg-blue-500 text-white rounded text-[12px] font-bold flex items-center justify-center opacity-0 group-hover:opacity-100 transition-all">©</button>
             </div>
           ))}
         </div>

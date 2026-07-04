@@ -29,7 +29,7 @@ function truncateHtml(html: string, maxChars: number): { excerpt: string; isLong
   return { excerpt: excerpt.replace(/[\s,;:–—-]+$/, ''), isLong: true }
 }
 
-const proseCls = 'text-[14.5px] leading-[1.7] text-[var(--text-secondary)] [&_a]:text-[var(--accent-orange)] [&_a]:no-underline hover:[&_a]:underline [&_p]:mb-3 [&_strong]:text-[var(--text-primary)]'
+const proseCls = 'text-[14px] leading-[1.7] text-[var(--text-secondary)] [&_a]:text-[var(--accent-orange)] [&_a]:no-underline hover:[&_a]:underline [&_p]:mb-3 [&_strong]:text-[var(--text-primary)]'
 
 export default function ReportageIntro({ html }: { html: string }) {
   const [open, setOpen] = useState(false)

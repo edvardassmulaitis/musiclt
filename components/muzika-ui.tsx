@@ -189,8 +189,8 @@ export const muzikaStyles = `
 .mz-sec:first-of-type { margin-top:30px; }
 .mz-shead { display:flex; align-items:flex-end; justify-content:space-between; gap:16px; margin-bottom:16px; }
 .mz-shead h2 { font-family:'Outfit',sans-serif; font-weight:800; letter-spacing:-.02em; font-size:var(--section-title-size); line-height:1.1; }
-.mz-shead p { color:var(--text-muted); font-size:13px; margin-top:4px; }
-.mz-shead-all { flex-shrink:0; font-family:'Outfit',sans-serif; font-weight:700; font-size:13px; color:var(--accent-link); white-space:nowrap; padding-bottom:3px; }
+.mz-shead p { color:var(--text-muted); font-size:14px; margin-top:4px; }
+.mz-shead-all { flex-shrink:0; font-family:'Outfit',sans-serif; font-weight:700; font-size:14px; color:var(--accent-link); white-space:nowrap; padding-bottom:3px; }
 .mz-shead-all:hover { color:var(--accent-orange); }
 
 .mz-subhead { font-family:'Outfit',sans-serif; font-weight:700; font-size:12px; text-transform:uppercase; letter-spacing:.07em; color:var(--text-faint); margin:18px 0 12px; display:flex; align-items:center; gap:8px; }
@@ -206,8 +206,8 @@ export const muzikaStyles = `
 .mz-tile-cap { display:flex; align-items:center; justify-content:space-between; gap:6px; margin-top:9px; padding:0 1px; }
 .mz-tile-name { font-family:'Outfit',sans-serif; font-weight:700; color:var(--text-primary); font-size:var(--card-title-size); line-height:1.2; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; min-width:0; }
 .mz-tile:hover .mz-tile-name { color:var(--accent-orange); }
-.mz-tile-flag { font-size:13px; line-height:1; flex-shrink:0; }
-.mz-tile-rank { position:absolute; top:8px; left:8px; font-family:'Outfit',sans-serif; font-weight:900; font-size:13px; color:#fff; background:var(--accent-orange); padding:2px 8px; border-radius:100px; box-shadow:0 2px 8px rgba(0,0,0,.3); }
+.mz-tile-flag { font-size:14px; line-height:1; flex-shrink:0; }
+.mz-tile-rank { position:absolute; top:8px; left:8px; font-family:'Outfit',sans-serif; font-weight:900; font-size:14px; color:#fff; background:var(--accent-orange); padding:2px 8px; border-radius:100px; box-shadow:0 2px 8px rgba(0,0,0,.3); }
 .mz-tile-verified { position:absolute; top:8px; right:8px; width:20px; height:20px; border-radius:50%; background:#3b82f6; display:flex; align-items:center; justify-content:center; box-shadow:0 2px 8px rgba(0,0,0,.3); }
 
 /* Album cards — tas pats šablonas kaip atlikėjų (kvadratas + meta po juo) */
@@ -226,21 +226,21 @@ export const muzikaStyles = `
 @media(max-width:760px){ .mz-tlist { grid-template-columns:1fr; } }
 .mz-trow { display:flex; align-items:center; gap:12px; padding:7px 10px; border-radius:10px; transition:background .15s; }
 .mz-trow:hover { background:var(--bg-hover); }
-.mz-trow-rank { width:20px; text-align:center; font-family:'Outfit',sans-serif; font-weight:800; font-size:13px; color:var(--text-faint); flex-shrink:0; }
+.mz-trow-rank { width:20px; text-align:center; font-family:'Outfit',sans-serif; font-weight:800; font-size:14px; color:var(--text-faint); flex-shrink:0; }
 .mz-trow-cover { width:40px; height:40px; border-radius:7px; overflow:hidden; background:var(--bg-elevated); flex-shrink:0; display:flex; align-items:center; justify-content:center; }
 .mz-trow-cover img { width:100%; height:100%; object-fit:cover; }
 .mz-trow-noimg { font-size:16px; color:rgba(255,255,255,0.15); }
 .mz-trow-txt { flex:1; min-width:0; display:flex; flex-direction:column; }
-.mz-trow-title { font-family:'Outfit',sans-serif; font-weight:600; font-size:13.5px; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
+.mz-trow-title { font-family:'Outfit',sans-serif; font-weight:600; font-size:14px; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
 .mz-trow:hover .mz-trow-title { color:var(--accent-orange); }
 .mz-trow-artist { font-size:12px; color:var(--text-muted); overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
-.mz-trow-views { font-size:11.5px; color:var(--text-faint); font-weight:600; flex-shrink:0; }
+.mz-trow-views { font-size:12px; color:var(--text-faint); font-weight:600; flex-shrink:0; }
 
 /* Pills (genres / countries) */
 .mz-pills { display:flex; flex-wrap:wrap; gap:8px; }
 .mz-pill { display:inline-flex; align-items:center; gap:8px; padding:8px 15px; border-radius:100px; background:var(--bg-hover); border:1px solid var(--border-default,rgba(255,255,255,0.08)); transition:all .15s; }
-.mz-pill span { font-family:'Outfit',sans-serif; font-weight:600; font-size:13.5px; color:var(--text-secondary); }
-.mz-pill em { font-style:normal; font-size:11.5px; color:var(--text-faint); font-weight:600; }
+.mz-pill span { font-family:'Outfit',sans-serif; font-weight:600; font-size:14px; color:var(--text-secondary); }
+.mz-pill em { font-style:normal; font-size:12px; color:var(--text-faint); font-weight:600; }
 .mz-pill:hover { border-color:rgba(249,115,22,0.45); }
 .mz-pill:hover span { color:var(--text-primary); }
 
@@ -249,17 +249,17 @@ export const muzikaStyles = `
 .mz-coll { display:block; padding:18px 18px 16px; border-radius:14px; background:linear-gradient(135deg, rgba(249,115,22,0.10), rgba(249,115,22,0.02)); border:1px solid var(--border-default,rgba(255,255,255,0.08)); transition:all .18s; }
 .mz-coll:hover { border-color:rgba(249,115,22,0.4); transform:translateY(-2px); }
 .mz-coll-name { font-family:'Outfit',sans-serif; font-weight:800; font-size:16px; }
-.mz-coll-desc { font-size:12.5px; color:var(--text-muted); margin-top:5px; line-height:1.4; }
+.mz-coll-desc { font-size:12px; color:var(--text-muted); margin-top:5px; line-height:1.4; }
 
 /* SEO footer link cloud */
 .mz-seo { margin:54px auto 90px; padding:28px 24px 0; border-top:1px solid var(--border-default,rgba(255,255,255,0.07)); }
 .mz-seo-grid { display:grid; grid-template-columns:repeat(auto-fit,minmax(220px,1fr)); gap:28px; }
 .mz-seo h3 { font-family:'Outfit',sans-serif; font-size:12px; text-transform:uppercase; letter-spacing:.07em; color:var(--text-faint); margin-bottom:12px; }
 .mz-seo ul { list-style:none; display:flex; flex-direction:column; gap:8px; padding:0; margin:0; }
-.mz-seo li a { font-size:13.5px; color:var(--text-secondary); display:flex; justify-content:space-between; gap:12px; }
+.mz-seo li a { font-size:14px; color:var(--text-secondary); display:flex; justify-content:space-between; gap:12px; }
 .mz-seo li a:hover { color:var(--accent-orange); }
 .mz-seo li em { font-style:normal; color:var(--text-faint); font-size:12px; }
-.mz-prose { max-width:780px; margin-top:24px; color:var(--text-muted); font-size:13.5px; line-height:1.65; }
+.mz-prose { max-width:780px; margin-top:24px; color:var(--text-muted); font-size:14px; line-height:1.65; }
 .mz-prose a { color:var(--accent-link); }
 .mz-prose a:hover { color:var(--accent-orange); }
 
@@ -267,39 +267,39 @@ export const muzikaStyles = `
 .mz-fbar { display:flex; flex-direction:column; gap:9px; margin-bottom:18px; }
 .mz-frow { display:flex; flex-wrap:wrap; gap:7px; align-items:center; }
 @media(max-width:680px){ .mz-frow { flex-wrap:nowrap; overflow-x:auto; scrollbar-width:none; } .mz-frow::-webkit-scrollbar{ display:none; } .mz-flbl { position:sticky; left:0; } }
-.mz-flbl { font-size:11px; font-weight:700; text-transform:uppercase; letter-spacing:.06em; color:var(--text-faint); min-width:58px; font-family:'Outfit',sans-serif; }
-.mz-count { font-size:13px; color:var(--text-muted); margin:2px 0 16px; }
+.mz-flbl { font-size:12px; font-weight:700; text-transform:uppercase; letter-spacing:.06em; color:var(--text-faint); min-width:58px; font-family:'Outfit',sans-serif; }
+.mz-count { font-size:14px; color:var(--text-muted); margin:2px 0 16px; }
 
 /* Pagination */
 .mz-pager { display:flex; flex-wrap:wrap; gap:6px; justify-content:center; align-items:center; margin:32px 0; }
-.mz-pg { min-width:38px; height:38px; padding:0 12px; display:inline-flex; align-items:center; justify-content:center; border-radius:9px; font-size:13px; font-weight:700; font-family:'Outfit',sans-serif; background:var(--bg-hover); border:1px solid var(--border-default,rgba(255,255,255,0.08)); color:var(--text-secondary); transition:all .15s; }
+.mz-pg { min-width:38px; height:38px; padding:0 12px; display:inline-flex; align-items:center; justify-content:center; border-radius:9px; font-size:14px; font-weight:700; font-family:'Outfit',sans-serif; background:var(--bg-hover); border:1px solid var(--border-default,rgba(255,255,255,0.08)); color:var(--text-secondary); transition:all .15s; }
 .mz-pg:hover { color:var(--text-primary); border-color:rgba(249,115,22,0.4); }
 .mz-pg-cur { background:var(--accent-orange); border-color:var(--accent-orange); color:#fff; }
 .mz-pg-dots { color:var(--text-faint); padding:0 2px; }
 
 .mz-empty { max-width:560px; margin:50px auto; text-align:center; }
 .mz-empty-ic { font-size:42px; opacity:.4; }
-.mz-empty h3 { font-family:'Outfit',sans-serif; font-weight:800; font-size:19px; margin:10px 0 4px; }
-.mz-empty p { color:var(--text-muted); font-size:13px; }
+.mz-empty h3 { font-family:'Outfit',sans-serif; font-weight:800; font-size:20px; margin:10px 0 4px; }
+.mz-empty p { color:var(--text-muted); font-size:14px; }
 
 @media(max-width:768px){
   .mz-tile-grid { grid-template-columns:repeat(auto-fill,minmax(112px,1fr)); gap:9px; }
   .mz-acard-grid { grid-template-columns:repeat(auto-fill,minmax(108px,1fr)); gap:12px; }
-  .mz-tile-name { font-size:13px; }
+  .mz-tile-name { font-size:14px; }
 }
 /* Hub filtrų juosta — viena kompaktiška eilutė (/koncertai stilius) */
 .mz-hubfbar-spacer { margin-left:auto; }
 .mz-pop { position:absolute; top:calc(100% + 8px); left:0; z-index:50; padding:11px; background:var(--bg-surface,var(--bg-elevated)); border:1px solid var(--border-default,rgba(255,255,255,0.1)); border-radius:14px; box-shadow:0 14px 40px rgba(0,0,0,0.32); }
 .mz-pop-list { display:flex; flex-direction:column; gap:2px; max-height:320px; overflow-y:auto; }
-.mz-opt { display:flex; align-items:center; gap:8px; text-align:left; width:100%; padding:8px 10px; border-radius:9px; font-size:13px; font-weight:600; font-family:'Outfit',sans-serif; cursor:pointer; background:transparent; border:none; color:var(--text-secondary); transition:all .12s; white-space:nowrap; }
+.mz-opt { display:flex; align-items:center; gap:8px; text-align:left; width:100%; padding:8px 10px; border-radius:9px; font-size:14px; font-weight:600; font-family:'Outfit',sans-serif; cursor:pointer; background:transparent; border:none; color:var(--text-secondary); transition:all .12s; white-space:nowrap; }
 .mz-opt:hover { background:var(--bg-hover); color:var(--text-primary); }
 
 /* Žanrų kortelės (brand spalvos per --gc / --gcr) */
 .mz-gcards { display:grid; grid-template-columns:repeat(auto-fill,minmax(150px,1fr)); gap:10px; }
 .mz-gcard { display:flex; align-items:center; justify-content:space-between; gap:8px; padding:16px 16px; border-radius:13px; background:linear-gradient(135deg, rgba(var(--gcr),0.20), rgba(var(--gcr),0.05)); border:1px solid rgba(var(--gcr),0.30); transition:all .18s; }
 .mz-gcard:hover { border-color:var(--gc); transform:translateY(-2px); }
-.mz-gcard-name { font-family:'Outfit',sans-serif; font-weight:800; font-size:14.5px; color:var(--text-primary); }
-.mz-gcard-n { font-size:11.5px; font-weight:700; color:var(--text-faint); }
+.mz-gcard-name { font-family:'Outfit',sans-serif; font-weight:800; font-size:14px; color:var(--text-primary); }
+.mz-gcard-n { font-size:12px; font-weight:700; color:var(--text-faint); }
 
 /* Kolekcijų nuorodos (2 stulpeliai) */
 .mz-coll-cols { display:grid; grid-template-columns:1fr 1fr; gap:30px; }
@@ -308,8 +308,8 @@ export const muzikaStyles = `
 .mz-coll-list-row { flex-direction:row; flex-wrap:wrap; }
 .mz-collrow { display:inline-flex; align-items:center; gap:10px; padding:10px 14px; border-radius:11px; background:var(--bg-hover); border:1px solid var(--border-default,rgba(255,255,255,0.07)); transition:all .15s; }
 .mz-collrow:hover { border-color:rgba(249,115,22,0.4); transform:translateX(2px); }
-.mz-collrow-emoji { font-size:17px; line-height:1; }
-.mz-collrow-name { font-family:'Outfit',sans-serif; font-weight:700; font-size:13.5px; color:var(--text-secondary); }
+.mz-collrow-emoji { font-size:16px; line-height:1; }
+.mz-collrow-name { font-family:'Outfit',sans-serif; font-weight:700; font-size:14px; color:var(--text-secondary); }
 .mz-collrow:hover .mz-collrow-name { color:var(--text-primary); }
 
 /* Teminių rinkinių vitrina — tankios eilutės dviejuose stulpeliuose */

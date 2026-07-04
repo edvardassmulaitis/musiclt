@@ -269,7 +269,7 @@ function renderDropdownContent(p: {
               style={{
                 flex: 1, padding: '12px 14px',
                 border: 'none', background: 'transparent', cursor: 'pointer',
-                fontSize: 14.5, fontWeight: 700,
+                fontSize: 14, fontWeight: 700,
                 color: active ? 'var(--text-primary)' : 'var(--text-muted)',
                 borderBottom: active ? '2px solid var(--accent-orange)' : '2px solid transparent',
                 transition: 'color .12s, border-color .12s',
@@ -281,7 +281,7 @@ function renderDropdownContent(p: {
                 <span style={{
                   minWidth: 16, height: 16, padding: '0 4px', borderRadius: 8,
                   background: 'var(--accent-orange)', color: '#fff',
-                  fontSize: 11, fontWeight: 800,
+                  fontSize: 12, fontWeight: 800,
                   display: 'inline-flex', alignItems: 'center', justifyContent: 'center',
                   lineHeight: 1,
                 }}>
@@ -385,7 +385,7 @@ function ShoutRow({ m }: { m: ShoutMsg }) {
         </div>
         <p
           style={{
-            fontSize: 14.5, color: 'var(--text-secondary)',
+            fontSize: 14, color: 'var(--text-secondary)',
             margin: 0, lineHeight: 1.4,
             overflow: 'hidden',
             display: '-webkit-box', WebkitLineClamp: 2, WebkitBoxOrient: 'vertical',
@@ -445,7 +445,7 @@ function ConversationRow({ c, viewerId, onClick }: { c: ConversationListItem; vi
               color: 'var(--text-primary)',
               overflow: 'hidden', whiteSpace: 'nowrap', textOverflow: 'ellipsis',
             }}>{name}</div>
-            <div style={{ fontSize: 12.5, color: isUnread ? 'var(--accent-orange)' : 'var(--text-muted)' }}>
+            <div style={{ fontSize: 12, color: isUnread ? 'var(--accent-orange)' : 'var(--text-muted)' }}>
               {formatSidebarTime(c.last_message_at)}
             </div>
           </div>

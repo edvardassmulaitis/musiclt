@@ -94,7 +94,7 @@ export default async function GenresPage() {
                     border: `1px solid rgba(${gc.rgb}, 0.35)`,
                     background: `linear-gradient(135deg, rgba(${gc.rgb}, 0.28), rgba(${gc.rgb}, 0.05))`,
                   }}>
-                    <span style={{ fontFamily: "'Outfit', sans-serif", fontWeight: 800, fontSize: 17, color: 'var(--text-primary)', letterSpacing: '-0.01em' }}>
+                    <span style={{ fontFamily: "'Outfit', sans-serif", fontWeight: 800, fontSize: 16, color: 'var(--text-primary)', letterSpacing: '-0.01em' }}>
                       {g.name.replace(/\s*muzika$/i, '')}
                     </span>
                     <span style={{ fontSize: 14, color: 'var(--text-muted)' }}>

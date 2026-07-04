@@ -136,11 +136,11 @@ function NewDiscussionModal({ onClose, onCreated }: { onClose: () => void; onCre
             placeholder="Parašyk diskusijos turinį…" rows={6} style={{ fontSize: 16 }}
             className="w-full resize-none rounded-xl border border-[var(--border-default)] bg-[var(--bg-hover)] px-4 py-3 text-[var(--text-primary)] outline-none placeholder:text-[var(--text-faint)] focus:border-[var(--accent-orange)]" />
           <div>
-            <p className="m-0 mb-2 font-['Outfit',sans-serif] text-[13px] font-extrabold uppercase tracking-[0.08em] text-[var(--text-muted)]">Kategorija</p>
+            <p className="m-0 mb-2 font-['Outfit',sans-serif] text-[14px] font-extrabold uppercase tracking-[0.08em] text-[var(--text-muted)]">Kategorija</p>
             <div className="flex flex-wrap gap-2">
               {ALL_CATEGORIES.map(c => (
                 <button key={c} type="button" onClick={() => setCat(c)}
-                  className={`inline-flex shrink-0 items-center gap-1.5 whitespace-nowrap rounded-full border px-3 py-1.5 font-['Outfit',sans-serif] text-[14.5px] font-bold transition-colors ${
+                  className={`inline-flex shrink-0 items-center gap-1.5 whitespace-nowrap rounded-full border px-3 py-1.5 font-['Outfit',sans-serif] text-[14px] font-bold transition-colors ${
                     cat === c
                       ? 'border-[var(--accent-orange)] bg-[var(--accent-orange)] text-white'
                       : 'border-[var(--border-default)] bg-[var(--card-bg)] text-[var(--text-secondary)] hover:border-[var(--border-strong)] hover:text-[var(--text-primary)]'
@@ -185,8 +185,8 @@ function DiscussionRow({ d }: { d: Discussion }) {
 
       {/* Turinys */}
       <div className="flex min-w-0 flex-1 flex-col gap-1 px-3.5 py-2">
-        <div className="flex flex-wrap items-center gap-x-2 gap-y-1 text-[13px] text-[var(--text-muted)]">
-          <span className="inline-flex items-center gap-1 rounded-md bg-[rgba(139,92,246,0.13)] px-1.5 py-0.5 font-['Outfit',sans-serif] text-[12.5px] font-bold text-[#a78bfa]">
+        <div className="flex flex-wrap items-center gap-x-2 gap-y-1 text-[14px] text-[var(--text-muted)]">
+          <span className="inline-flex items-center gap-1 rounded-md bg-[rgba(139,92,246,0.13)] px-1.5 py-0.5 font-['Outfit',sans-serif] text-[12px] font-bold text-[#a78bfa]">
             <CatIcon name={cat} size={12} />{cat}
           </span>
           {d.is_pinned && <span className="rounded-md bg-[rgba(249,115,22,0.15)] px-1.5 py-0.5 font-['Outfit',sans-serif] text-[12px] font-extrabold uppercase tracking-[0.05em] text-[var(--accent-orange)]">Prisegta</span>}
@@ -198,8 +198,8 @@ function DiscussionRow({ d }: { d: Discussion }) {
           <span className="text-[var(--text-faint)]">· {timeAgo(activityDate)}</span>
         </div>
 
-        <h3 className="m-0 line-clamp-2 font-['Outfit',sans-serif] text-[15px] font-bold leading-snug text-[var(--text-primary)] transition-colors group-hover:text-[var(--accent-orange)]">{title}</h3>
-        {excerpt && <p className="m-0 line-clamp-1 text-[14.5px] leading-relaxed text-[var(--text-muted)]">{excerpt}</p>}
+        <h3 className="m-0 line-clamp-2 font-['Outfit',sans-serif] text-[16px] font-bold leading-snug text-[var(--text-primary)] transition-colors group-hover:text-[var(--accent-orange)]">{title}</h3>
+        {excerpt && <p className="m-0 line-clamp-1 text-[14px] leading-relaxed text-[var(--text-muted)]">{excerpt}</p>}
 
         <div className="mt-0.5 flex items-center gap-1.5 text-[14px] font-bold text-[var(--text-muted)]">
           <CommentIcon />
@@ -271,7 +271,7 @@ export default function DiskusijosPage() {
             {session ? (
               <button onClick={() => setShowNew(true)}
                 className="inline-flex w-full items-center justify-center gap-1.5 cursor-pointer rounded-lg border-0 bg-[var(--accent-orange)] py-2 font-['Outfit',sans-serif] text-[14px] font-bold text-white transition-opacity hover:opacity-90">
-                <span className="text-[15px] leading-none">+</span> Nauja diskusija
+                <span className="text-[16px] leading-none">+</span> Nauja diskusija
               </button>
             ) : (
               <Link href="/auth/signin"
@@ -281,13 +281,13 @@ export default function DiskusijosPage() {
             )}
 
             <div className="overflow-hidden rounded-xl border border-[var(--border-default)] bg-[var(--bg-surface)]">
-              <p className="m-0 border-b border-[var(--border-subtle)] px-3.5 py-2.5 font-['Outfit',sans-serif] text-[12.5px] font-extrabold uppercase tracking-[0.09em] text-[var(--text-muted)]">Kategorijos</p>
+              <p className="m-0 border-b border-[var(--border-subtle)] px-3.5 py-2.5 font-['Outfit',sans-serif] text-[12px] font-extrabold uppercase tracking-[0.09em] text-[var(--text-muted)]">Kategorijos</p>
               <button onClick={() => setActiveTag(null)}
                 className={`flex w-full cursor-pointer items-center justify-between border-0 px-3.5 py-[7px] text-left text-[14px] font-semibold transition-colors ${
                   !activeTag ? 'bg-[rgba(249,115,22,0.1)] text-[var(--accent-orange)]' : 'bg-transparent text-[var(--text-secondary)] hover:bg-[var(--bg-hover)]'
                 }`}>
                 <span className="flex items-center gap-2.5"><CatIcon name="Visos diskusijos" size={15} /> Visos diskusijos</span>
-                <span className="text-[13px] font-bold text-[var(--text-faint)]">{total}</span>
+                <span className="text-[14px] font-bold text-[var(--text-faint)]">{total}</span>
               </button>
               {categories.map(c => (
                 <button key={c.key} onClick={() => setActiveTag(c.key)}
@@ -295,7 +295,7 @@ export default function DiskusijosPage() {
                     activeTag === c.key ? 'bg-[rgba(249,115,22,0.1)] text-[var(--accent-orange)]' : 'bg-transparent text-[var(--text-secondary)] hover:bg-[var(--bg-hover)]'
                   }`}>
                   <span className="flex min-w-0 items-center gap-2.5"><CatIcon name={c.key} size={15} /><span className="truncate">{c.key}</span></span>
-                  <span className="shrink-0 text-[13px] font-bold text-[var(--text-faint)]">{c.count}</span>
+                  <span className="shrink-0 text-[14px] font-bold text-[var(--text-faint)]">{c.count}</span>
                 </button>
               ))}
             </div>
@@ -307,12 +307,12 @@ export default function DiskusijosPage() {
           {/* Mobile: kategorijų chip'ai */}
           <div className="mb-3 flex gap-2 overflow-x-auto pb-1 lg:hidden" style={{ scrollbarWidth: 'none' }}>
             <button onClick={() => setActiveTag(null)}
-              className={`shrink-0 whitespace-nowrap rounded-full border px-3 py-1.5 font-['Outfit',sans-serif] text-[14.5px] font-bold ${!activeTag ? 'border-[var(--accent-orange)] bg-[var(--accent-orange)] text-white' : 'border-[var(--border-default)] bg-[var(--card-bg)] text-[var(--text-secondary)]'}`}>
+              className={`shrink-0 whitespace-nowrap rounded-full border px-3 py-1.5 font-['Outfit',sans-serif] text-[14px] font-bold ${!activeTag ? 'border-[var(--accent-orange)] bg-[var(--accent-orange)] text-white' : 'border-[var(--border-default)] bg-[var(--card-bg)] text-[var(--text-secondary)]'}`}>
               Visos
             </button>
             {categories.map(c => (
               <button key={c.key} onClick={() => setActiveTag(c.key)}
-                className={`inline-flex shrink-0 items-center gap-1.5 whitespace-nowrap rounded-full border px-3 py-1.5 font-['Outfit',sans-serif] text-[14.5px] font-bold ${activeTag === c.key ? 'border-[var(--accent-orange)] bg-[var(--accent-orange)] text-white' : 'border-[var(--border-default)] bg-[var(--card-bg)] text-[var(--text-secondary)]'}`}>
+                className={`inline-flex shrink-0 items-center gap-1.5 whitespace-nowrap rounded-full border px-3 py-1.5 font-['Outfit',sans-serif] text-[14px] font-bold ${activeTag === c.key ? 'border-[var(--accent-orange)] bg-[var(--accent-orange)] text-white' : 'border-[var(--border-default)] bg-[var(--card-bg)] text-[var(--text-secondary)]'}`}>
                 <CatIcon name={c.key} size={13} /> {c.key}
               </button>
             ))}
@@ -323,7 +323,7 @@ export default function DiskusijosPage() {
             <div className="inline-flex items-center gap-0.5 rounded-lg border border-[var(--border-default)] bg-[var(--bg-surface)] p-0.5">
               {SORTS.map(([k, l]) => (
                 <button key={k} onClick={() => setSort(k)}
-                  className={`cursor-pointer rounded-md border-0 px-3 py-1.5 font-['Outfit',sans-serif] text-[14.5px] font-bold transition-colors ${
+                  className={`cursor-pointer rounded-md border-0 px-3 py-1.5 font-['Outfit',sans-serif] text-[14px] font-bold transition-colors ${
                     sort === k ? 'bg-[var(--accent-orange)] text-white' : 'bg-transparent text-[var(--text-secondary)] hover:bg-[var(--bg-hover)]'
                   }`}>{l}</button>
               ))}
@@ -332,11 +332,11 @@ export default function DiskusijosPage() {
             <div className="lg:hidden">
               {session ? (
                 <button onClick={() => setShowNew(true)}
-                  className="inline-flex items-center gap-1 cursor-pointer rounded-lg border-0 bg-[var(--accent-orange)] px-3 py-1.5 font-['Outfit',sans-serif] text-[14.5px] font-bold text-white">
-                  <span className="text-[15px] leading-none">+</span> Nauja
+                  className="inline-flex items-center gap-1 cursor-pointer rounded-lg border-0 bg-[var(--accent-orange)] px-3 py-1.5 font-['Outfit',sans-serif] text-[14px] font-bold text-white">
+                  <span className="text-[16px] leading-none">+</span> Nauja
                 </button>
               ) : (
-                <Link href="/auth/signin" className="rounded-lg border border-[var(--border-default)] bg-[var(--card-bg)] px-3 py-1.5 font-['Outfit',sans-serif] text-[14.5px] font-bold text-[var(--text-secondary)] no-underline">Prisijunk</Link>
+                <Link href="/auth/signin" className="rounded-lg border border-[var(--border-default)] bg-[var(--card-bg)] px-3 py-1.5 font-['Outfit',sans-serif] text-[14px] font-bold text-[var(--text-secondary)] no-underline">Prisijunk</Link>
               )}
             </div>
           </div>
@@ -347,7 +347,7 @@ export default function DiskusijosPage() {
             </div>
           ) : discussions.length === 0 ? (
             <div className="rounded-2xl border border-dashed border-[var(--border-default)] py-16 text-center">
-              <p className="m-0 font-['Outfit',sans-serif] text-[17px] font-extrabold text-[var(--text-primary)]">Diskusijų nėra</p>
+              <p className="m-0 font-['Outfit',sans-serif] text-[16px] font-extrabold text-[var(--text-primary)]">Diskusijų nėra</p>
               <p className="m-0 mt-1 text-[14px] text-[var(--text-muted)]">{activeTag ? 'Šioje kategorijoje dar tuščia.' : 'Būk pirmas — sukurk diskusijos temą!'}</p>
             </div>
           ) : (

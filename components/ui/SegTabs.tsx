@@ -29,7 +29,7 @@ export function SegTabs({
         }
         .segtab {
           flex: 1; padding: 11px 10px; border: none; background: transparent; cursor: pointer;
-          font-family: inherit; font-size: 13px; font-weight: 700; letter-spacing: -0.01em;
+          font-family: inherit; font-size: 14px; font-weight: 700; letter-spacing: -0.01em;
           color: var(--text-muted); border-bottom: 2px solid transparent;
           transition: color .12s, border-color .12s; text-decoration: none;
           display: flex; align-items: center; justify-content: center; gap: 6px;
@@ -40,7 +40,7 @@ export function SegTabs({
         .segtab:hover:not(.active) { color: var(--text-secondary); }
         .segtab-badge {
           flex-shrink: 0; min-width: 16px; height: 16px; padding: 0 4px; border-radius: 8px;
-          background: var(--accent-orange); color: #fff; font-size: 9px; font-weight: 800;
+          background: var(--accent-orange); color: #fff; font-size: 12px; font-weight: 800;
           display: inline-flex; align-items: center; justify-content: center; line-height: 1;
         }
       `}</style>

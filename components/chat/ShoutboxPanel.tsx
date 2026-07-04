@@ -147,8 +147,8 @@ export function ShoutboxPanel({ viewerId }: { viewerId: string }) {
             </div>
             <div style={{ flex: 1, minWidth: 0 }}>
               <div style={{ display: 'flex', alignItems: 'baseline', gap: 6 }}>
-                <span style={{ fontSize: 14.5, fontWeight: 700, color: 'var(--text-primary)' }}>{m.author_name || 'Narys'}</span>
-                <span style={{ fontSize: 12.5, color: 'var(--text-faint)' }}>{timeShort(m.created_at)}</span>
+                <span style={{ fontSize: 14, fontWeight: 700, color: 'var(--text-primary)' }}>{m.author_name || 'Narys'}</span>
+                <span style={{ fontSize: 12, color: 'var(--text-faint)' }}>{timeShort(m.created_at)}</span>
               </div>
               <div style={{ fontSize: 14, color: 'var(--text-secondary)', wordBreak: 'break-word', lineHeight: 1.4 }}>{m.body}</div>
             </div>

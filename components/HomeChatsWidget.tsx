@@ -151,7 +151,7 @@ function HomeChatsWidgetInner() {
             display: 'block', textAlign: 'center', padding: '7px',
             borderRadius: 10, background: 'var(--bg-hover)',
             border: '1px solid var(--border-default)',
-            color: 'var(--accent-link)', fontSize: 13, fontWeight: 700,
+            color: 'var(--accent-link)', fontSize: 14, fontWeight: 700,
             textDecoration: 'none', transition: 'background .15s',
           }}
           onMouseEnter={e => (e.currentTarget.style.background = 'var(--bg-active)')}
@@ -197,12 +197,12 @@ function ConvRow({ c, viewerId, isLast }: { c: ConversationListItem; viewerId: s
         <div style={{ flex: 1, minWidth: 0 }}>
           <div style={{ display: 'flex', gap: 5, alignItems: 'center', marginBottom: 1 }}>
             <span style={{
-              fontSize: 13, fontWeight: unread ? 800 : 700,
+              fontSize: 14, fontWeight: unread ? 800 : 700,
               color: 'var(--accent-link)',
               overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap',
               maxWidth: '70%',
             }}>{name}</span>
-            <span style={{ fontSize: 11, color: unread ? 'var(--accent-orange)' : 'var(--text-faint)' }}>
+            <span style={{ fontSize: 12, color: unread ? 'var(--accent-orange)' : 'var(--text-faint)' }}>
               {formatSidebarTime(c.last_message_at)}
             </span>
             {unread && (
@@ -210,7 +210,7 @@ function ConvRow({ c, viewerId, isLast }: { c: ConversationListItem; viewerId: s
                 marginLeft: 'auto', minWidth: 14, height: 14,
                 padding: '0 4px', borderRadius: 7,
                 background: 'var(--accent-orange)', color: '#fff',
-                fontSize: 11, fontWeight: 800,
+                fontSize: 12, fontWeight: 800,
                 display: 'inline-flex', alignItems: 'center', justifyContent: 'center',
                 lineHeight: 1,
               }}>{c.unread_count > 9 ? '9+' : c.unread_count}</span>
@@ -277,7 +277,7 @@ function EmptyState() {
       <div style={{ fontSize: 14, fontWeight: 600, color: 'var(--text-secondary)', marginBottom: 4 }}>
         Pokalbių dar nėra
       </div>
-      <div style={{ fontSize: 13, color: 'var(--text-muted)', lineHeight: 1.4 }}>
+      <div style={{ fontSize: 14, color: 'var(--text-muted)', lineHeight: 1.4 }}>
         Pradėk privačią žinutę su kitu nariu arba sukurk grupę.
       </div>
     </div>
@@ -291,7 +291,7 @@ function SignInCTA() {
       <div style={{ fontSize: 14, fontWeight: 700, color: 'var(--text-primary)', marginBottom: 4 }}>
         Privačios žinutės ir grupės
       </div>
-      <div style={{ fontSize: 13, color: 'var(--text-muted)', lineHeight: 1.4 }}>
+      <div style={{ fontSize: 14, color: 'var(--text-muted)', lineHeight: 1.4 }}>
         Prisijunk ir pradėk pokalbį su kitais nariais — DM'ai, grupės, real-time.
       </div>
     </div>

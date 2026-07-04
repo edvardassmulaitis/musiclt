@@ -28,7 +28,7 @@ function CoverBox({ coverUrl, emoji }: { coverUrl?: string | null; emoji?: strin
     )
   }
   return (
-    <div className="pc-cover" style={{ background: 'linear-gradient(135deg,#3a2f7a,#6d4bd1)', display: 'grid', placeItems: 'center', fontSize: 19, color: '#fff' }}>
+    <div className="pc-cover" style={{ background: 'linear-gradient(135deg,#3a2f7a,#6d4bd1)', display: 'grid', placeItems: 'center', fontSize: 20, color: '#fff' }}>
       {emoji ?? '🎵'}
     </div>
   )
@@ -84,12 +84,12 @@ export default function HotStrip() {
   return (
     <section>
       <div className="mb-3.5 flex items-center justify-between">
-        <h2 className="m-0 font-['Outfit',sans-serif] text-[17px] font-extrabold tracking-[-0.01em] text-[var(--text-primary)] sm:text-[18px]">
+        <h2 className="m-0 font-['Outfit',sans-serif] text-[16px] font-extrabold tracking-[-0.01em] text-[var(--text-primary)] sm:text-[20px]">
           Karšta dabar
         </h2>
         <Link
           href="/bendruomene"
-          className="font-['Outfit',sans-serif] text-[13.5px] font-bold text-[var(--accent-orange)] no-underline transition-opacity hover:opacity-70"
+          className="font-['Outfit',sans-serif] text-[14px] font-bold text-[var(--accent-orange)] no-underline transition-opacity hover:opacity-70"
         >
           Atrasti →
         </Link>

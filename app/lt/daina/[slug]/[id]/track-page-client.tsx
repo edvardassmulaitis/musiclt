@@ -373,7 +373,7 @@ export default function TrackPageClient({
   const headStyle: React.CSSProperties = {
     display: 'flex', alignItems: 'center', justifyContent: 'space-between',
     padding: '10px 14px', borderBottom: '1px solid var(--card-border-subtle)',
-    fontSize: 13, fontWeight: 700, color: 'var(--head-text)',
+    fontSize: 14, fontWeight: 700, color: 'var(--head-text)',
     fontFamily: 'Outfit,sans-serif', textTransform: 'uppercase', letterSpacing: '.08em',
   }
 
@@ -407,7 +407,7 @@ export default function TrackPageClient({
       <div style={cardStyle}>
         <div style={headStyle}>
           <span>✦ AI interpretacija</span>
-          {!aiText && <span style={{ fontSize: 11, fontWeight: 400, color: 'var(--text-faint)', textTransform: 'none', letterSpacing: 0 }}>beta</span>}
+          {!aiText && <span style={{ fontSize: 12, fontWeight: 400, color: 'var(--text-faint)', textTransform: 'none', letterSpacing: 0 }}>beta</span>}
         </div>
         <div style={{ padding: 14 }}>
           {!aiText && !aiLoad && !aiErr && (
@@ -452,7 +452,7 @@ export default function TrackPageClient({
     const vis = showAllV ? versions : versions.slice(0, 4)
     return (
       <div style={cardStyle}>
-        <div style={headStyle}>Versijos ir remixai <span style={{ fontSize: 11, fontWeight: 400, color: 'var(--text-faint)', textTransform: 'none', letterSpacing: 0 }}>{versions.length}</span></div>
+        <div style={headStyle}>Versijos ir remixai <span style={{ fontSize: 12, fontWeight: 400, color: 'var(--text-faint)', textTransform: 'none', letterSpacing: 0 }}>{versions.length}</span></div>
         {vis.map((v, i) => (
           <Link key={v.id} href={`/dainos/${artist.slug}-${v.slug}-${v.id}`}
             style={{ display: 'flex', alignItems: 'center', gap: 10, padding: '9px 14px', borderBottom: i < vis.length - 1 ? '1px solid var(--card-border-subtle)' : 'none', textDecoration: 'none' }}
@@ -470,7 +470,7 @@ export default function TrackPageClient({
         ))}
         {versions.length > 4 && (
           <button onClick={() => setShowAllV(x => !x)}
-            style={{ width: '100%', padding: 9, background: 'transparent', border: 'none', borderTop: '1px solid var(--card-border-subtle)', cursor: 'pointer', fontSize: 13, fontWeight: 700, color: 'var(--text-muted)', fontFamily: 'Outfit,sans-serif' }}>
+            style={{ width: '100%', padding: 9, background: 'transparent', border: 'none', borderTop: '1px solid var(--card-border-subtle)', cursor: 'pointer', fontSize: 14, fontWeight: 700, color: 'var(--text-muted)', fontFamily: 'Outfit,sans-serif' }}>
             {showAllV ? '↑ Mažiau' : `Visos ${versions.length} versijos ↓`}
           </button>
         )}
@@ -552,22 +552,22 @@ export default function TrackPageClient({
         <div className="min-w-0 flex-1">
           {/* Kicker removed — date shown in meta area, was redundant */}
           <div className="flex flex-wrap items-baseline gap-2">
-            <h1 className="truncate font-['Outfit',sans-serif] text-[16px] font-extrabold leading-tight text-[var(--text-primary)] sm:text-[17px]">
+            <h1 className="truncate font-['Outfit',sans-serif] text-[16px] font-extrabold leading-tight text-[var(--text-primary)] sm:text-[16px]">
               {track.title}
             </h1>
             {track.is_new && (
-              <span className="inline-flex items-center rounded-full border border-[rgba(249,115,22,0.3)] bg-[rgba(249,115,22,0.18)] px-2 py-0.5 font-['Outfit',sans-serif] text-[11px] font-extrabold uppercase tracking-wider text-[var(--accent-orange)]">
+              <span className="inline-flex items-center rounded-full border border-[rgba(249,115,22,0.3)] bg-[rgba(249,115,22,0.18)] px-2 py-0.5 font-['Outfit',sans-serif] text-[12px] font-extrabold uppercase tracking-wider text-[var(--accent-orange)]">
                 NEW
               </span>
             )}
           </div>
-          <div className="mt-0.5 truncate text-[14px] sm:text-[14.5px]">
+          <div className="mt-0.5 truncate text-[14px] sm:text-[14px]">
             {artistLine}
           </div>
           {/* Data PO atlikėjo (albumas perkeltas žemiau, kairėje — nebesikartoja). */}
-          <div className="mt-1 flex flex-wrap items-center gap-1.5 text-[13px] text-[var(--text-muted)]">
+          <div className="mt-1 flex flex-wrap items-center gap-1.5 text-[14px] text-[var(--text-muted)]">
             {dateStr && (
-              <span className="font-['Outfit',sans-serif] text-[13px] font-bold text-[var(--text-secondary)]">
+              <span className="font-['Outfit',sans-serif] text-[14px] font-bold text-[var(--text-secondary)]">
                 {dateStr}
               </span>
             )}
@@ -616,7 +616,7 @@ export default function TrackPageClient({
                   <rect x="1" y="5" width="15" height="14" rx="2" ry="2" />
                 </svg>
               </div>
-              <div className="font-['Outfit',sans-serif] text-[13px] font-extrabold uppercase tracking-[0.18em] text-[var(--text-muted)]">
+              <div className="font-['Outfit',sans-serif] text-[14px] font-extrabold uppercase tracking-[0.18em] text-[var(--text-muted)]">
                 Vaizdo įrašo nėra
               </div>
             </div>
@@ -658,7 +658,7 @@ export default function TrackPageClient({
                   {/* Dainos aprašymas, jei įdėtas. */}
                   {desc && (
                     <div className="rounded-xl border border-[var(--border-subtle)] bg-[var(--card-bg)] p-4">
-                      <div className="mb-2 font-['Outfit',sans-serif] text-[13px] font-extrabold uppercase tracking-[0.18em] text-[var(--text-muted)]">
+                      <div className="mb-2 font-['Outfit',sans-serif] text-[14px] font-extrabold uppercase tracking-[0.18em] text-[var(--text-muted)]">
                         Apie dainą
                       </div>
                       <p className="whitespace-pre-line font-['Outfit',sans-serif] text-[14px] leading-[1.7] text-[var(--text-secondary)]">
@@ -681,10 +681,10 @@ export default function TrackPageClient({
                           )}
                         </span>
                         <div className="min-w-0 flex-1">
-                          <div className="font-['Outfit',sans-serif] text-[11.5px] font-extrabold uppercase tracking-[0.14em] text-[var(--text-muted)]">Iš albumo</div>
+                          <div className="font-['Outfit',sans-serif] text-[12px] font-extrabold uppercase tracking-[0.14em] text-[var(--text-muted)]">Iš albumo</div>
                           <div className="truncate font-['Outfit',sans-serif] text-[14px] font-extrabold leading-tight text-[var(--text-primary)] group-hover:text-[var(--accent-orange)]">{primaryAlbum.title}</div>
                           {primaryAlbum.year && (
-                            <div className="text-[13.5px] font-semibold text-[var(--text-muted)]">{primaryAlbum.year} m.</div>
+                            <div className="text-[14px] font-semibold text-[var(--text-muted)]">{primaryAlbum.year} m.</div>
                           )}
                         </div>
                         {albums.length > 1 && (
@@ -696,7 +696,7 @@ export default function TrackPageClient({
                       </Link>
                       {albumTopTracks.length > 0 && (
                         <div className="border-t border-[var(--border-subtle)] px-3 pb-2 pt-1.5">
-                          <div className="pb-1 font-['Outfit',sans-serif] text-[11px] font-extrabold uppercase tracking-[0.14em] text-[var(--text-faint)]">Iš to paties albumo</div>
+                          <div className="pb-1 font-['Outfit',sans-serif] text-[12px] font-extrabold uppercase tracking-[0.14em] text-[var(--text-faint)]">Iš to paties albumo</div>
                           <div className="flex gap-2 overflow-x-auto pb-0.5 [scrollbar-width:thin]">
                             {albumTopTracks.map(MiniCard)}
                           </div>
@@ -720,7 +720,7 @@ export default function TrackPageClient({
                           )}
                         </span>
                         <div className="min-w-0 flex-1">
-                          <div className="font-['Outfit',sans-serif] text-[11.5px] font-extrabold uppercase tracking-[0.14em] text-[var(--text-muted)]">Atlikėjas</div>
+                          <div className="font-['Outfit',sans-serif] text-[12px] font-extrabold uppercase tracking-[0.14em] text-[var(--text-muted)]">Atlikėjas</div>
                           <div className="truncate font-['Outfit',sans-serif] text-[14px] font-extrabold leading-tight text-[var(--text-primary)] group-hover:text-[var(--accent-orange)]">{artist.name}</div>
                           {artistBio && (
                             <p className="mt-1 line-clamp-3 whitespace-pre-line text-[14px] leading-[1.5] text-[var(--text-secondary)]">{artistBio}</p>
@@ -729,7 +729,7 @@ export default function TrackPageClient({
                       </Link>
                       {artistTopTracks.length > 0 && (
                         <div className="border-t border-[var(--border-subtle)] px-3 pb-2 pt-1.5">
-                          <div className="pb-1 font-['Outfit',sans-serif] text-[11px] font-extrabold uppercase tracking-[0.14em] text-[var(--text-faint)]">Populiariausios {artist.name}</div>
+                          <div className="pb-1 font-['Outfit',sans-serif] text-[12px] font-extrabold uppercase tracking-[0.14em] text-[var(--text-faint)]">Populiariausios {artist.name}</div>
                           <div className="flex gap-2 overflow-x-auto pb-0.5 [scrollbar-width:thin]">
                             {artistTopTracks.map(MiniCard)}
                           </div>
@@ -823,7 +823,7 @@ export default function TrackPageClient({
                       type="button"
                       onClick={nominateDienosDaina}
                       disabled={menuBusy}
-                      className="flex w-full items-center gap-2.5 px-3.5 py-2.5 text-left font-['Outfit',sans-serif] text-[14.5px] font-bold text-[var(--text-primary)] transition-colors hover:bg-[var(--bg-hover)] disabled:opacity-50"
+                      className="flex w-full items-center gap-2.5 px-3.5 py-2.5 text-left font-['Outfit',sans-serif] text-[14px] font-bold text-[var(--text-primary)] transition-colors hover:bg-[var(--bg-hover)] disabled:opacity-50"
                     >
                       <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="shrink-0 text-[var(--accent-orange)]">
                         <circle cx="12" cy="12" r="4" /><path d="M12 2v2M12 20v2M4.93 4.93l1.41 1.41M17.66 17.66l1.41 1.41M2 12h2M20 12h2M6.34 17.66l-1.41 1.41M19.07 4.93l-1.41 1.41" />
@@ -834,7 +834,7 @@ export default function TrackPageClient({
                       type="button"
                       onClick={makeMoodSong}
                       disabled={menuBusy}
-                      className="flex w-full items-center gap-2.5 px-3.5 py-2.5 text-left font-['Outfit',sans-serif] text-[14.5px] font-bold text-[var(--text-primary)] transition-colors hover:bg-[var(--bg-hover)] disabled:opacity-50"
+                      className="flex w-full items-center gap-2.5 px-3.5 py-2.5 text-left font-['Outfit',sans-serif] text-[14px] font-bold text-[var(--text-primary)] transition-colors hover:bg-[var(--bg-hover)] disabled:opacity-50"
                     >
                       <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="shrink-0 text-[var(--text-muted)]">
                         <path d="M17 2l4 4-4 4" /><path d="M3 11V9a4 4 0 0 1 4-4h14M7 22l-4-4 4-4M21 13v2a4 4 0 0 1-4 4H3" />
@@ -864,11 +864,11 @@ export default function TrackPageClient({
             mobileTab === 'lyrics' ? 'block' : 'hidden',
           ].join(' ')}>
             <div className="mb-4 flex items-baseline gap-2">
-              <div className="font-['Outfit',sans-serif] text-[13px] font-extrabold uppercase tracking-[0.18em] text-[var(--text-muted)]">
+              <div className="font-['Outfit',sans-serif] text-[14px] font-extrabold uppercase tracking-[0.18em] text-[var(--text-muted)]">
                 Dainos tekstas
               </div>
               {hasLyrics && (
-                <span className="font-['Outfit',sans-serif] text-[11px] font-extrabold uppercase tracking-wider text-[var(--accent-orange)]">
+                <span className="font-['Outfit',sans-serif] text-[12px] font-extrabold uppercase tracking-wider text-[var(--accent-orange)]">
                   pažymėk → reaguok
                 </span>
               )}
@@ -907,7 +907,7 @@ export default function TrackPageClient({
               </div>
             ) : isLoggedIn ? (
               <div>
-                <p className="mb-2 text-[14.5px] leading-[1.5] text-[var(--text-muted)]">
+                <p className="mb-2 text-[14px] leading-[1.5] text-[var(--text-muted)]">
                   Šios dainos teksto dar nėra. Žinai jį? Pasiūlyk — administratorius peržiūrės ir paskelbs.
                 </p>
                 <textarea
@@ -917,7 +917,7 @@ export default function TrackPageClient({
                   placeholder="Įrašyk dainos tekstą…"
                   className="w-full resize-y rounded-xl border border-[var(--border-subtle)] bg-[var(--bg-elevated)] px-3 py-2.5 text-[14px] leading-[1.6] text-[var(--text-primary)] outline-none focus:border-[var(--accent-orange)]"
                 />
-                {lyricsErr && <div className="mt-1 text-[13px] font-semibold text-red-500">{lyricsErr}</div>}
+                {lyricsErr && <div className="mt-1 text-[14px] font-semibold text-red-500">{lyricsErr}</div>}
                 <button
                   type="button"
                   onClick={submitLyrics}
@@ -962,7 +962,7 @@ export default function TrackPageClient({
       {relatedTracks.length > 0 && (
         <section className="border-t border-[var(--border-subtle)] bg-[var(--bg-surface)]">
           <div className="mx-auto w-full max-w-[1400px] px-4 py-5 sm:px-5">
-            <div className="mb-3 font-['Outfit',sans-serif] text-[13px] font-extrabold uppercase tracking-[0.18em] text-[var(--text-muted)]">
+            <div className="mb-3 font-['Outfit',sans-serif] text-[14px] font-extrabold uppercase tracking-[0.18em] text-[var(--text-muted)]">
               Susijusi muzika
             </div>
             <div className="flex gap-3 overflow-x-auto pb-2 [scrollbar-width:thin]">
@@ -980,8 +980,8 @@ export default function TrackPageClient({
                       )}
                     </div>
                     <div className="px-1 pb-0.5">
-                      <div className="truncate font-['Outfit',sans-serif] text-[14.5px] font-extrabold leading-tight text-[var(--text-primary)] group-hover:text-[var(--accent-orange)]">{t.title}</div>
-                      <div className="truncate font-['Outfit',sans-serif] text-[12.5px] font-semibold text-[var(--text-faint)]">{t.artistName}</div>
+                      <div className="truncate font-['Outfit',sans-serif] text-[14px] font-extrabold leading-tight text-[var(--text-primary)] group-hover:text-[var(--accent-orange)]">{t.title}</div>
+                      <div className="truncate font-['Outfit',sans-serif] text-[12px] font-semibold text-[var(--text-faint)]">{t.artistName}</div>
                     </div>
                   </Link>
                 )
@@ -1004,9 +1004,9 @@ export default function TrackPageClient({
             <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '14px 18px', borderBottom: '1px solid var(--border-subtle)' }}>
               <div style={{ fontFamily: 'Outfit,sans-serif', fontSize: 14, fontWeight: 800 }}>
                 Dainą mėgstantys nariai
-                {likersModalUsers && <span style={{ marginLeft: 8, color: 'var(--text-muted)', fontSize: 13 }}>({likersModalUsers.length})</span>}
+                {likersModalUsers && <span style={{ marginLeft: 8, color: 'var(--text-muted)', fontSize: 14 }}>({likersModalUsers.length})</span>}
               </div>
-              <button onClick={() => setLikersModalEntity(null)} style={{ background: 'none', border: 'none', color: 'var(--text-muted)', fontSize: 18, cursor: 'pointer' }}>✕</button>
+              <button onClick={() => setLikersModalEntity(null)} style={{ background: 'none', border: 'none', color: 'var(--text-muted)', fontSize: 20, cursor: 'pointer' }}>✕</button>
             </div>
             <div style={{ padding: '12px 18px' }}>
               {likersModalUsers === null ? (

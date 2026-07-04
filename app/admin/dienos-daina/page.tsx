@@ -208,7 +208,7 @@ export default function AdminDienesDaina() {
                                   <span className="mt-1 inline-flex items-center gap-1 rounded-full bg-blue-50 py-0.5 pl-0.5 pr-2">
                                     {n.proposer.avatar_url
                                       ? <img src={n.proposer.avatar_url} alt="" className="h-4 w-4 rounded-full object-cover" />
-                                      : <span className="flex h-4 w-4 items-center justify-center rounded-full text-[10px] font-extrabold text-white" style={{ background: `hsl(${strHue(pn)},45%,55%)` }}>{pn.charAt(0).toUpperCase()}</span>}
+                                      : <span className="flex h-4 w-4 items-center justify-center rounded-full text-[12px] font-extrabold text-white" style={{ background: `hsl(${strHue(pn)},45%,55%)` }}>{pn.charAt(0).toUpperCase()}</span>}
                                     <span className="text-[12px] font-medium text-blue-700">Pasiūlė {pn}</span>
                                   </span>
                                 )
@@ -223,7 +223,7 @@ export default function AdminDienesDaina() {
                           </div>
 
                           {/* Formulė: kaip susidaro svert. balsas */}
-                          <p className="mt-1.5 text-[13px] text-gray-500">
+                          <p className="mt-1.5 text-[14px] text-gray-500">
                             <span className="font-semibold text-gray-700">{internal.length}</span> narių×3
                             {' '}+{' '}
                             <span className="font-semibold text-gray-700">{external.length}</span> svečių×1
@@ -242,8 +242,8 @@ export default function AdminDienesDaina() {
                                   <span key={k} className="inline-flex items-center gap-1 rounded-full bg-gray-100 py-0.5 pl-0.5 pr-1.5">
                                     {v.avatar_url
                                       ? <img src={v.avatar_url} alt="" className="h-4 w-4 rounded-full object-cover" />
-                                      : <span className="flex h-4 w-4 items-center justify-center rounded-full text-[10px] font-extrabold text-white" style={{ background: `hsl(${strHue(nm)},45%,55%)` }}>{nm.charAt(0).toUpperCase()}</span>}
-                                    <span className="text-[13px] font-medium text-gray-700">{nm}</span>
+                                      : <span className="flex h-4 w-4 items-center justify-center rounded-full text-[12px] font-extrabold text-white" style={{ background: `hsl(${strHue(nm)},45%,55%)` }}>{nm.charAt(0).toUpperCase()}</span>}
+                                    <span className="text-[14px] font-medium text-gray-700">{nm}</span>
                                     <button type="button" onClick={() => deleteVotes(n.id, `user_id=${v.user_id}`, `Ištrinti nario „${nm}" balsą už šią dainą?`)} title="Ištrinti šio nario balsą" className="ml-0.5 flex h-3.5 w-3.5 items-center justify-center rounded-full text-gray-400 transition-colors hover:bg-red-100 hover:text-red-500">×</button>
                                   </span>
                                 )
@@ -270,7 +270,7 @@ export default function AdminDienesDaina() {
                           )}
 
                           {n.comment && <p className="mt-2 text-xs italic text-gray-500">„{n.comment}"</p>}
-                          <p className="mt-1 text-[13px] text-gray-400">
+                          <p className="mt-1 text-[14px] text-gray-400">
                             {new Date(n.created_at).toLocaleTimeString('lt-LT', { hour: '2-digit', minute: '2-digit' })}
                           </p>
                         </div>

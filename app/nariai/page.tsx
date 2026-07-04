@@ -39,11 +39,11 @@ function MemberCard({ m }: { m: Member }) {
           {m.isNew && <span title="Naujas narys" className="absolute -bottom-0.5 -right-0.5 h-3 w-3 rounded-full border-2 border-[var(--card-bg)] bg-[#22c55e]" />}
         </div>
         <div className="min-w-0 flex-1">
-          <p className="m-0 truncate font-['Outfit',sans-serif] text-[14.5px] font-extrabold text-[var(--text-primary)] group-hover:text-[var(--accent-orange)]">{m.username}</p>
+          <p className="m-0 truncate font-['Outfit',sans-serif] text-[14px] font-extrabold text-[var(--text-primary)] group-hover:text-[var(--accent-orange)]">{m.username}</p>
           {m.isNew ? (
-            <p className="m-0 text-[11.5px] font-bold uppercase tracking-[0.08em] text-[#22c55e]">naujas narys</p>
+            <p className="m-0 text-[12px] font-bold uppercase tracking-[0.08em] text-[#22c55e]">naujas narys</p>
           ) : m.headline ? (
-            <p className="m-0 truncate text-[12.5px] text-[var(--text-muted)]">{m.headline}</p>
+            <p className="m-0 truncate text-[12px] text-[var(--text-muted)]">{m.headline}</p>
           ) : null}
         </div>
       </div>
@@ -55,7 +55,7 @@ function MemberCard({ m }: { m: Member }) {
                 // eslint-disable-next-line @next/next/no-img-element
                 <img src={proxyImg(a.image)} alt={a.name} loading="lazy" className="absolute inset-0 h-full w-full object-cover" />
               ) : (
-                <span className="flex h-full w-full items-center justify-center text-[18px] font-extrabold" style={{ background: `hsl(${hue(a.name)},32%,22%)`, color: `hsl(${hue(a.name)},52%,64%)` }}>{a.name.charAt(0).toUpperCase()}</span>
+                <span className="flex h-full w-full items-center justify-center text-[20px] font-extrabold" style={{ background: `hsl(${hue(a.name)},32%,22%)`, color: `hsl(${hue(a.name)},52%,64%)` }}>{a.name.charAt(0).toUpperCase()}</span>
               )}
             </span>
           ))}

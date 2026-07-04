@@ -70,24 +70,24 @@ export default function MissingForm() {
       )}
 
       <style jsx>{`
-        .mf-chip{display:inline-flex;align-items:center;gap:6px;background:var(--bg-hover);border:1px dashed var(--border-default);color:var(--text-secondary);border-radius:100px;padding:7px 13px;font-size:12.5px;font-weight:600;font-family:'Outfit',sans-serif;cursor:pointer;white-space:nowrap}
+        .mf-chip{display:inline-flex;align-items:center;gap:6px;background:var(--bg-hover);border:1px dashed var(--border-default);color:var(--text-secondary);border-radius:100px;padding:7px 13px;font-size:12px;font-weight:600;font-family:'Outfit',sans-serif;cursor:pointer;white-space:nowrap}
         .mf-chip:hover{border-color:var(--accent-orange);color:var(--text-primary)}
         .mf-overlay{position:fixed;inset:0;z-index:200;background:rgba(0,0,0,.5);display:flex;align-items:center;justify-content:center;padding:20px}
         .mf-modal{background:var(--bg-surface);border:1px solid var(--border-default);border-radius:16px;padding:20px;width:100%;max-width:460px;box-shadow:0 20px 60px rgba(0,0,0,.4)}
         .mf-mhead{display:flex;justify-content:space-between;align-items:center;margin-bottom:4px}
-        .mf-mhead strong{font-family:'Outfit',sans-serif;font-size:17px}
+        .mf-mhead strong{font-family:'Outfit',sans-serif;font-size:16px}
         .mf-x{background:none;border:none;color:var(--text-muted);font-size:16px;cursor:pointer;padding:4px}
-        .mf-sub{color:var(--text-muted);font-size:13px;margin:2px 0 14px}
-        .mf-done{background:rgba(34,197,94,.12);border:1px solid rgba(34,197,94,.3);color:var(--accent-green);border-radius:12px;padding:14px 16px;font-size:13.5px;font-weight:600;margin-top:8px}
+        .mf-sub{color:var(--text-muted);font-size:14px;margin:2px 0 14px}
+        .mf-done{background:rgba(34,197,94,.12);border:1px solid rgba(34,197,94,.3);color:var(--accent-green);border-radius:12px;padding:14px 16px;font-size:14px;font-weight:600;margin-top:8px}
         .mf-row{display:flex;gap:8px;margin-bottom:8px}
-        select,input,textarea{background:var(--bg-hover);border:1px solid var(--border-default);border-radius:9px;color:var(--text-primary);font-size:13px;padding:9px 11px;outline:none;font-family:inherit}
+        select,input,textarea{background:var(--bg-hover);border:1px solid var(--border-default);border-radius:9px;color:var(--text-primary);font-size:14px;padding:9px 11px;outline:none;font-family:inherit}
         select{flex-shrink:0}
         input{flex:1;min-width:0}
         textarea{width:100%;resize:vertical}
-        .mf-err{color:var(--accent-red);font-size:12.5px;margin:6px 0}
+        .mf-err{color:var(--accent-red);font-size:12px;margin:6px 0}
         .mf-actions{display:flex;justify-content:flex-end;gap:8px;margin-top:12px}
-        .mf-cancel{background:transparent;border:none;color:var(--text-muted);font-size:12.5px;font-weight:600;cursor:pointer;padding:8px 12px}
-        .mf-send{background:var(--accent-orange);border:none;color:#fff;border-radius:9px;padding:9px 20px;font-size:13px;font-weight:700;font-family:'Outfit',sans-serif;cursor:pointer}
+        .mf-cancel{background:transparent;border:none;color:var(--text-muted);font-size:12px;font-weight:600;cursor:pointer;padding:8px 12px}
+        .mf-send{background:var(--accent-orange);border:none;color:#fff;border-radius:9px;padding:9px 20px;font-size:14px;font-weight:700;font-family:'Outfit',sans-serif;cursor:pointer}
         .mf-send:disabled{opacity:.6}
       `}</style>
     </>

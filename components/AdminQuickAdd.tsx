@@ -119,7 +119,7 @@ export default function AdminQuickAdd({ bare = false }: { bare?: boolean } = {})
         <h2 className="font-['Outfit',sans-serif] text-sm font-extrabold uppercase tracking-[0.12em] text-[var(--text-secondary)]">
           Greitas pridėjimas
         </h2>
-        <span className="text-[13px] text-[var(--text-faint)]">— {hint}</span>
+        <span className="text-[14px] text-[var(--text-faint)]">— {hint}</span>
       </div>
 
       {/* URL įvestis (rodome kol nėra preview/result) */}
@@ -185,7 +185,7 @@ export default function AdminQuickAdd({ bare = false }: { bare?: boolean } = {})
 function Field({ label, children }: { label: string; children: React.ReactNode }) {
   return (
     <label className="flex flex-col gap-1">
-      <span className="text-[13px] font-semibold uppercase tracking-wide text-[var(--text-muted)]">{label}</span>
+      <span className="text-[14px] font-semibold uppercase tracking-wide text-[var(--text-muted)]">{label}</span>
       {children}
     </label>
   )
@@ -196,7 +196,7 @@ function Field({ label, children }: { label: string; children: React.ReactNode }
 function FieldBox({ label, children }: { label: string; children: React.ReactNode }) {
   return (
     <div className="flex flex-col gap-1">
-      <span className="text-[13px] font-semibold uppercase tracking-wide text-[var(--text-muted)]">{label}</span>
+      <span className="text-[14px] font-semibold uppercase tracking-wide text-[var(--text-muted)]">{label}</span>
       {children}
     </div>
   )
@@ -266,7 +266,7 @@ function ArtistPicker({ value, onChange }: { value: ArtistRef; onChange: (v: Art
   if (selected) {
     return (
       <div className="flex items-center gap-2 rounded-lg border border-[var(--input-border)] bg-[var(--bg-elevated)] px-3 py-2">
-        <span className="flex h-5 w-5 shrink-0 items-center justify-center rounded-full bg-green-100 text-[13px] text-green-700">✓</span>
+        <span className="flex h-5 w-5 shrink-0 items-center justify-center rounded-full bg-green-100 text-[14px] text-green-700">✓</span>
         <span className="truncate text-[14px] font-medium text-[var(--text-primary)]">{value.name}</span>
         <button type="button" onClick={clear} className="ml-auto shrink-0 text-[14px] font-medium text-music-blue hover:underline">
           keisti
@@ -286,7 +286,7 @@ function ArtistPicker({ value, onChange }: { value: ArtistRef; onChange: (v: Art
         onFocus={() => setOpen(true)}
         placeholder="Ieškok kataloge arba įvesk naują…"
       />
-      {value.name.trim() && <p className="mt-1 text-[13px] text-orange-600">Naujas atlikėjas — bus sukurtas</p>}
+      {value.name.trim() && <p className="mt-1 text-[14px] text-orange-600">Naujas atlikėjas — bus sukurtas</p>}
       {open && value.name.trim().length >= 2 && (
         <div className="absolute z-20 mt-1 max-h-64 w-full overflow-auto rounded-lg border border-[var(--border-subtle)] bg-[var(--bg-surface)] shadow-lg">
           {loading && <div className="px-3 py-2 text-[14px] text-[var(--text-muted)]">Ieškoma…</div>}
@@ -296,7 +296,7 @@ function ArtistPicker({ value, onChange }: { value: ArtistRef; onChange: (v: Art
               className="flex w-full items-center gap-2 px-3 py-2 text-left text-[14px] text-[var(--text-primary)] hover:bg-[var(--bg-hover)]"
             >
               <span className="font-medium">{h.name}</span>
-              {h.country && <span className="text-[13px] text-[var(--text-faint)]">{h.country}</span>}
+              {h.country && <span className="text-[14px] text-[var(--text-faint)]">{h.country}</span>}
             </button>
           ))}
           {!loading && hits.length === 0 && (
@@ -374,7 +374,7 @@ function FeaturingPicker({ value, onChange }: { value: ArtistRef[]; onChange: (v
               className="flex w-full items-center gap-2 px-3 py-2 text-left text-[14px] text-[var(--text-primary)] hover:bg-[var(--bg-hover)]"
             >
               <span className="font-medium">{h.name}</span>
-              {h.country && <span className="text-[13px] text-[var(--text-faint)]">{h.country}</span>}
+              {h.country && <span className="text-[14px] text-[var(--text-faint)]">{h.country}</span>}
             </button>
           ))}
           {!loading && !exactHit && text.trim() && (
@@ -469,7 +469,7 @@ function Chip({ children, tone = 'default' }: { children: React.ReactNode; tone?
     tone === 'ok' ? 'bg-green-100 text-green-700 border-green-200'
     : tone === 'warn' ? 'bg-orange-100 text-orange-700 border-orange-200'
     : 'bg-[var(--bg-elevated)] text-[var(--text-muted)] border-[var(--border-subtle)]'
-  return <span className={`rounded-full border px-2 py-0.5 text-[13px] font-medium ${cls}`}>{children}</span>
+  return <span className={`rounded-full border px-2 py-0.5 text-[14px] font-medium ${cls}`}>{children}</span>
 }
 
 function ResultCard({ result }: { result: any }) {

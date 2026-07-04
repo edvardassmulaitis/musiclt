@@ -969,7 +969,7 @@ const searchCss = `
   flex: 1;
   background: transparent;
   border: none; outline: none;
-  font-size: 19px; font-weight: 500;
+  font-size: 20px; font-weight: 500;
   color: var(--text-primary, #fff);
   font-family: inherit;
   letter-spacing: -0.005em;
@@ -997,7 +997,7 @@ const searchCss = `
 .ms-close-x svg { width: 16px; height: 16px; }
 .ms-kbd {
   display: inline-block;
-  font-family: 'SF Mono', monospace; font-size: 10px; font-weight: 600;
+  font-family: 'SF Mono', monospace; font-size: 12px; font-weight: 600;
   padding: 2px 6px;
   background: var(--bg-hover, rgba(255,255,255,0.06));
   border: 1px solid var(--border-default, rgba(255,255,255,0.08));
@@ -1039,7 +1039,7 @@ const searchCss = `
 }
 .ms-chip-num {
   display: inline-block;
-  font-size: 10px; font-weight: 700;
+  font-size: 12px; font-weight: 700;
   padding: 1px 6px;
   background: rgba(255,255,255,0.08);
   border-radius: 8px;
@@ -1063,7 +1063,7 @@ const searchCss = `
   display: flex; align-items: center;
   gap: 7px;
   padding: 8px 14px 4px;
-  font-size: 11px; font-weight: 700;
+  font-size: 12px; font-weight: 700;
   text-transform: uppercase;
   letter-spacing: 0.08em;
   color: var(--text-muted, #888);
@@ -1075,7 +1075,7 @@ const searchCss = `
   background: rgba(255,255,255,0.05);
   padding: 1px 7px;
   border-radius: 10px;
-  font-size: 10px; font-weight: 700;
+  font-size: 12px; font-weight: 700;
   color: var(--text-muted, #888);
   font-variant-numeric: tabular-nums;
 }
@@ -1135,7 +1135,7 @@ const searchCss = `
 .ms-row-fallback {
   width: 100%; height: 100%;
   display: flex; align-items: center; justify-content: center;
-  font-size: 18px;
+  font-size: 20px;
 }
 .ms-row-text { flex: 1; min-width: 0; }
 .ms-row-title {
@@ -1152,7 +1152,7 @@ const searchCss = `
 }
 .ms-row-badge {
   display: inline-flex; align-items: center; gap: 4px;
-  font-size: 9.5px; font-weight: 700;
+  font-size: 12px; font-weight: 700;
   text-transform: uppercase;
   letter-spacing: 0.06em;
   padding: 3px 8px;
@@ -1203,12 +1203,12 @@ const searchCss = `
 }
 .ms-grid-text { flex: 1; min-width: 0; text-align: left; }
 .ms-grid-title {
-  font-size: 13px; font-weight: 600;
+  font-size: 14px; font-weight: 600;
   color: var(--text-primary, #fff);
   white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
 }
 .ms-grid-sub {
-  font-size: 11px; font-weight: 500;
+  font-size: 12px; font-weight: 500;
   color: var(--text-muted, #888);
   margin-top: 1px;
   white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
@@ -1249,7 +1249,7 @@ const searchCss = `
 }
 .ms-trend-badge {
   display: inline-flex; align-items: center; gap: 4px;
-  font-size: 9.5px; font-weight: 700;
+  font-size: 12px; font-weight: 700;
   text-transform: uppercase; letter-spacing: 0.05em;
   padding: 3px 7px; border: 1px solid; border-radius: 4px;
   flex-shrink: 0; opacity: 0.85;
@@ -1260,7 +1260,7 @@ const searchCss = `
 .ms-empty-block { margin-bottom: 22px; }
 .ms-empty-title {
   display: inline-flex; align-items: center; gap: 6px;
-  font-size: 11px; font-weight: 700;
+  font-size: 12px; font-weight: 700;
   text-transform: uppercase;
   letter-spacing: 0.08em;
   color: var(--text-muted, #888);
@@ -1274,7 +1274,7 @@ const searchCss = `
   border: 1px solid var(--border-default, rgba(255,255,255,0.08));
   background: var(--bg-hover, rgba(255,255,255,0.03));
   border-radius: 16px;
-  font-size: 12.5px; font-weight: 500;
+  font-size: 12px; font-weight: 500;
   color: var(--text-secondary, #bbb);
   cursor: pointer;
   transition: background .12s, color .12s, border-color .12s;
@@ -1299,7 +1299,7 @@ const searchCss = `
   gap: 14px;
 }
 .ms-loader-text {
-  font-size: 13px; font-weight: 500;
+  font-size: 14px; font-weight: 500;
   color: var(--text-muted, #888);
   letter-spacing: -0.005em;
 }
@@ -1324,7 +1324,7 @@ const searchCss = `
   color: var(--text-primary, #fff);
   margin-bottom: 4px;
 }
-.ms-noresults-hint { font-size: 13px; color: var(--text-muted, #888); }
+.ms-noresults-hint { font-size: 14px; color: var(--text-muted, #888); }
 
 /* ── Footer ── */
 .ms-footer {
@@ -1332,7 +1332,7 @@ const searchCss = `
   padding: 10px 18px;
   border-top: 1px solid var(--border-default, rgba(255,255,255,0.06));
   background: var(--bg-deep, rgba(0,0,0,0.15));
-  font-size: 11px;
+  font-size: 12px;
   color: var(--text-muted, #888);
   flex-shrink: 0;
   gap: 12px;
@@ -1383,7 +1383,7 @@ const searchCss = `
   .ms-items.as-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 5px; }
   .ms-grid-img-wrap { width: 38px; height: 38px; }
   .ms-grid-item { padding: 6px 7px; gap: 8px; }
-  .ms-grid-title { font-size: 12.5px; }
+  .ms-grid-title { font-size: 12px; }
   /* Trending: badge'as užima vietą siaurame ekrane — slepiam. */
   .ms-trend-badge { display: none; }
 }

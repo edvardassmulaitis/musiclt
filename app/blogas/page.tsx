@@ -86,7 +86,7 @@ function Avatar({ src, name, size = 20 }: { src?: string | null; name?: string |
 function Badge({ kind }: { kind: string }) {
   const m = KIND_META[kind] || KIND_META.irasas
   return (
-    <span className="absolute left-3 top-3 z-[2] rounded-[7px] px-2 py-1 font-['Outfit',sans-serif] text-[11.5px] font-extrabold uppercase tracking-[0.08em] text-white" style={{ background: m.color }}>{m.label}</span>
+    <span className="absolute left-3 top-3 z-[2] rounded-[7px] px-2 py-1 font-['Outfit',sans-serif] text-[12px] font-extrabold uppercase tracking-[0.08em] text-white" style={{ background: m.color }}>{m.label}</span>
   )
 }
 
@@ -95,9 +95,9 @@ function Meta({ p }: { p: FeedPost }) {
   return (
     <div className="mt-auto flex items-center gap-2 border-t border-[var(--border-subtle)] px-3.5 py-2.5">
       <Avatar src={p.author?.avatar_url} name={uname(p.author)} />
-      <span className="min-w-0 truncate text-[13.5px] font-semibold text-[var(--text-secondary)]">{uname(p.author)}</span>
+      <span className="min-w-0 truncate text-[14px] font-semibold text-[var(--text-secondary)]">{uname(p.author)}</span>
       {ago && <span className="shrink-0 text-[12px] text-[var(--text-faint)]">{ago}</span>}
-      <span className="ml-auto flex shrink-0 items-center gap-2.5 text-[13px] text-[var(--text-muted)]">
+      <span className="ml-auto flex shrink-0 items-center gap-2.5 text-[14px] text-[var(--text-muted)]">
         {(p.like_count ?? 0) > 0 && <span>♥ {p.like_count}</span>}
         {(p.comment_count ?? 0) > 0 && <span>💬 {p.comment_count}</span>}
       </span>
@@ -112,10 +112,10 @@ function PostCard({ p }: { p: FeedPost }) {
     return (
       <Link href={feedHref(p)} className="group relative flex flex-col overflow-hidden rounded-2xl border border-[var(--border-default)] bg-[var(--bg-surface)] no-underline transition-all hover:-translate-y-1 hover:border-[rgba(245,158,11,0.5)] sm:min-h-[340px]">
         <div className="flex px-3.5 pt-3.5">
-          <span className="inline-flex self-start rounded-[7px] px-2 py-1 font-['Outfit',sans-serif] text-[11.5px] font-extrabold uppercase tracking-[0.08em] text-white" style={{ background: '#f59e0b' }}>Topas</span>
+          <span className="inline-flex self-start rounded-[7px] px-2 py-1 font-['Outfit',sans-serif] text-[12px] font-extrabold uppercase tracking-[0.08em] text-white" style={{ background: '#f59e0b' }}>Topas</span>
         </div>
         <div className="flex flex-1 flex-col px-3.5 pb-1 pt-2.5">
-          <h3 className="m-0 line-clamp-2 font-['Outfit',sans-serif] text-[15px] font-extrabold leading-snug text-[var(--text-primary)] group-hover:text-[var(--accent-orange)]">{sani(p.title)}</h3>
+          <h3 className="m-0 line-clamp-2 font-['Outfit',sans-serif] text-[16px] font-extrabold leading-snug text-[var(--text-primary)] group-hover:text-[var(--accent-orange)]">{sani(p.title)}</h3>
           <div className="mt-2 flex flex-col">
             {entries.map(e => (
               <div key={e.rank} className="flex items-center gap-2.5 border-b border-[var(--border-subtle)] py-[6px] last:border-b-0">
@@ -144,11 +144,11 @@ function PostCard({ p }: { p: FeedPost }) {
           // eslint-disable-next-line @next/next/no-img-element
           <img src={proxyImg(p.cover)} alt="" loading="lazy" className="h-full w-full object-cover transition-transform duration-500 group-hover:scale-[1.04]" />
         ) : <div className="h-full w-full" style={{ background: `linear-gradient(135deg, hsl(${hue(p.title)},34%,22%), hsl(${(hue(p.title) + 40) % 360},30%,12%))` }} />}
-        {p.rating != null && <span className="absolute right-2 top-2 rounded-md bg-black/75 px-1.5 py-0.5 text-[13.5px] font-black text-amber-300">★ {p.rating}</span>}
+        {p.rating != null && <span className="absolute right-2 top-2 rounded-md bg-black/75 px-1.5 py-0.5 text-[14px] font-black text-amber-300">★ {p.rating}</span>}
       </div>
       <div className="flex flex-1 flex-col px-3.5 pb-2 pt-3">
-        <h3 className="m-0 line-clamp-2 font-['Outfit',sans-serif] text-[15px] font-extrabold leading-snug text-[var(--text-primary)] group-hover:text-[var(--accent-orange)]">{sani(p.title) || '(be pavadinimo)'}</h3>
-        {p.excerpt && <p className="m-0 mt-1.5 line-clamp-4 text-[14.5px] leading-relaxed text-[var(--text-secondary)]">{p.excerpt}</p>}
+        <h3 className="m-0 line-clamp-2 font-['Outfit',sans-serif] text-[16px] font-extrabold leading-snug text-[var(--text-primary)] group-hover:text-[var(--accent-orange)]">{sani(p.title) || '(be pavadinimo)'}</h3>
+        {p.excerpt && <p className="m-0 mt-1.5 line-clamp-4 text-[14px] leading-relaxed text-[var(--text-secondary)]">{p.excerpt}</p>}
       </div>
       <Meta p={p} />
     </Link>
@@ -156,7 +156,7 @@ function PostCard({ p }: { p: FeedPost }) {
 }
 
 const pill = (active: boolean, color?: string) =>
-  `flex shrink-0 cursor-pointer items-center gap-1.5 whitespace-nowrap rounded-full border px-3.5 py-1.5 font-['Outfit',sans-serif] text-[14.5px] font-bold transition-colors ${
+  `flex shrink-0 cursor-pointer items-center gap-1.5 whitespace-nowrap rounded-full border px-3.5 py-1.5 font-['Outfit',sans-serif] text-[14px] font-bold transition-colors ${
     active ? 'border-transparent text-white' : 'border-[var(--border-default)] bg-[var(--card-bg)] text-[var(--text-secondary)] hover:border-[var(--border-strong)] hover:text-[var(--text-primary)]'
   }`
 
@@ -243,7 +243,7 @@ export default function BlogIndexPage() {
           </button>
         ))}
         <span className="ml-auto" />
-        <Link href="/blogas/mano" className="shrink-0 rounded-full border border-[var(--border-default)] bg-[var(--card-bg)] px-3.5 py-1.5 font-['Outfit',sans-serif] text-[14.5px] font-bold text-[var(--text-secondary)] no-underline hover:border-[var(--border-strong)]">Mano įrašai</Link>
+        <Link href="/blogas/mano" className="shrink-0 rounded-full border border-[var(--border-default)] bg-[var(--card-bg)] px-3.5 py-1.5 font-['Outfit',sans-serif] text-[14px] font-bold text-[var(--text-secondary)] no-underline hover:border-[var(--border-strong)]">Mano įrašai</Link>
         <Link href="/blogas/rasyti" className="shrink-0 rounded-xl bg-[var(--accent-orange)] px-4 py-2 font-['Outfit',sans-serif] text-[14px] font-extrabold text-white no-underline shadow-[0_4px_16px_rgba(249,115,22,0.3)] transition-transform hover:-translate-y-px">+ Rašyti</Link>
       </div>
 
@@ -253,7 +253,7 @@ export default function BlogIndexPage() {
         </div>
       ) : visible.length === 0 ? (
         <div className="rounded-2xl border border-dashed border-[var(--border-default)] py-16 text-center">
-          <p className="m-0 text-[14.5px] text-[var(--text-muted)]">Šio filtro įrašų dar nėra.</p>
+          <p className="m-0 text-[14px] text-[var(--text-muted)]">Šio filtro įrašų dar nėra.</p>
           <Link href="/blogas/rasyti" className="mt-2 inline-block font-['Outfit',sans-serif] text-[14px] font-bold text-[var(--accent-orange)] no-underline">Parašyk pirmąjį →</Link>
         </div>
       ) : (

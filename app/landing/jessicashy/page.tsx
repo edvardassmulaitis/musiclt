@@ -268,8 +268,8 @@ const css = `
   border-bottom:1px solid transparent;transform:translateY(-100%);
   transition:transform .45s cubic-bezier(.2,.8,.2,1),border-color .45s;}
 .jsl-bar--on{transform:translateY(0);border-color:var(--line);}
-.jsl-bar-name{font-family:'Outfit',sans-serif;font-weight:800;letter-spacing:.08em;font-size:15px;}
-.jsl-bar-cta{font-size:13px;font-weight:700;padding:8px 16px;border-radius:999px;
+.jsl-bar-name{font-family:'Outfit',sans-serif;font-weight:800;letter-spacing:.08em;font-size:16px;}
+.jsl-bar-cta{font-size:14px;font-weight:700;padding:8px 16px;border-radius:999px;
   background:linear-gradient(90deg,var(--p1),var(--p2));color:#fff;}
 
 /* ---------- Hero ---------- */
@@ -306,14 +306,14 @@ const css = `
 .jsl-tagline em{font-style:italic;color:var(--p3);}
 .jsl-cta-row{display:flex;gap:12px;margin-top:30px;flex-wrap:wrap;}
 .jsl-btn{display:inline-flex;align-items:center;gap:8px;padding:15px 28px;border-radius:999px;
-  font-weight:700;font-size:15px;transition:transform .25s,box-shadow .25s,background .25s;}
+  font-weight:700;font-size:16px;transition:transform .25s,box-shadow .25s,background .25s;}
 .jsl-btn--p{background:linear-gradient(90deg,var(--p1),var(--p2));color:#fff;
   box-shadow:0 10px 34px -8px rgba(255,45,126,.6);}
 .jsl-btn--p:hover{transform:translateY(-2px);box-shadow:0 16px 40px -8px rgba(255,45,126,.75);}
 .jsl-btn--g{border:1px solid var(--line);background:rgba(255,255,255,.05);color:#fff;backdrop-filter:blur(8px);}
 .jsl-btn--g:hover{background:rgba(255,255,255,.12);transform:translateY(-2px);}
 .jsl-scroll{position:absolute;left:50%;bottom:26px;transform:translateX(-50%);z-index:3;
-  display:flex;flex-direction:column;align-items:center;gap:8px;font-size:10px;letter-spacing:.22em;
+  display:flex;flex-direction:column;align-items:center;gap:8px;font-size:12px;letter-spacing:.22em;
   text-transform:uppercase;color:var(--mut);}
 .jsl-scroll i{width:1px;height:34px;background:linear-gradient(var(--mut),transparent);animation:jslDrop 1.8s ease-in-out infinite;}
 @keyframes jslDrop{0%{transform:scaleY(.2);transform-origin:top;opacity:.3}50%{transform:scaleY(1);opacity:1}100%{transform:scaleY(.2);transform-origin:bottom;opacity:.3}}
@@ -348,7 +348,7 @@ const css = `
 .jsl-stat:hover{border-color:rgba(255,45,126,.4);transform:translateY(-3px);}
 .jsl-stat-n{font-family:'Outfit',sans-serif;font-weight:900;font-size:clamp(30px,9vw,46px);
   background:linear-gradient(92deg,var(--p1),var(--p3));-webkit-background-clip:text;background-clip:text;color:transparent;line-height:1;}
-.jsl-stat-l{margin-top:10px;font-size:13px;color:var(--mut);line-height:1.35;}
+.jsl-stat-l{margin-top:10px;font-size:14px;color:var(--mut);line-height:1.35;}
 
 /* ---------- Discography ---------- */
 .jsl-disco{display:flex;gap:16px;overflow-x:auto;padding:6px 2px 18px;scroll-snap-type:x mandatory;
@@ -361,7 +361,7 @@ const css = `
 .jsl-album-art img{width:100%;height:100%;object-fit:cover;display:block;transition:transform .6s ease;}
 .jsl-album:hover .jsl-album-art img{transform:scale(1.08);}
 .jsl-album-play{position:absolute;right:12px;bottom:12px;width:44px;height:44px;border-radius:50%;
-  display:grid;place-items:center;font-size:15px;color:#fff;
+  display:grid;place-items:center;font-size:16px;color:#fff;
   background:linear-gradient(90deg,var(--p1),var(--p2));box-shadow:0 8px 22px -6px rgba(255,45,126,.7);
   opacity:0;transform:translateY(8px) scale(.9);transition:.4s;}
 .jsl-album:hover .jsl-album-play{opacity:1;transform:none;}
@@ -373,7 +373,7 @@ const css = `
 .jsl-tracks{list-style:none;margin:0;padding:0;}
 .jsl-track{display:grid;grid-template-columns:auto 1fr auto;align-items:center;gap:12px 14px;
   padding:16px 4px;border-bottom:1px solid var(--line);transition:opacity .6s ease,transform .6s ease;transition-delay:var(--d);}
-.jsl-track-n{font-family:'Outfit',sans-serif;font-weight:800;font-size:15px;color:var(--p2);width:26px;}
+.jsl-track-n{font-family:'Outfit',sans-serif;font-weight:800;font-size:16px;color:var(--p2);width:26px;}
 .jsl-track-t{font-weight:600;font-size:clamp(16px,4.5vw,19px);}
 .jsl-track-p{font-size:12px;color:var(--mut);font-variant-numeric:tabular-nums;}
 .jsl-track-bar{grid-column:1/-1;height:4px;border-radius:999px;background:rgba(255,255,255,.08);overflow:hidden;}
@@ -394,8 +394,8 @@ const css = `
 .jsl-tour-m{font-size:12px;color:var(--mut);text-transform:uppercase;letter-spacing:.08em;}
 .jsl-tour-info{flex:1;display:flex;flex-direction:column;}
 .jsl-tour-venue{font-weight:700;font-size:16px;}
-.jsl-tour-city{font-size:13px;color:var(--mut);}
-.jsl-tour-btn{padding:11px 20px;border-radius:999px;font-weight:700;font-size:13px;
+.jsl-tour-city{font-size:14px;color:var(--mut);}
+.jsl-tour-btn{padding:11px 20px;border-radius:999px;font-weight:700;font-size:14px;
   border:1px solid var(--line);background:rgba(255,255,255,.05);transition:.25s;}
 .jsl-tour-btn:hover{background:linear-gradient(90deg,var(--p1),var(--p2));border-color:transparent;color:#fff;}
 

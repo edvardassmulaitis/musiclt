@@ -411,12 +411,12 @@ export function TrackInfoModal({
         <div className="flex items-center justify-between border-b border-[var(--border-subtle)] px-4 py-3">
           <div className="font-['Outfit',sans-serif] text-[14px] font-extrabold">
             Dainą mėgstantys nariai
-            {likersUsers && <span className="ml-2 text-[13px] text-[var(--text-muted)]">({likersUsers.length})</span>}
+            {likersUsers && <span className="ml-2 text-[14px] text-[var(--text-muted)]">({likersUsers.length})</span>}
           </div>
           <button
             onClick={() => setLikersOpen(false)}
             aria-label="Uždaryti"
-            className="text-[18px] text-[var(--text-muted)]"
+            className="text-[20px] text-[var(--text-muted)]"
           >✕</button>
         </div>
         <div className="px-4 py-3">
@@ -537,7 +537,7 @@ export function TrackInfoModal({
             </div>
             {/* Data PO atlikėjo (kaip albumuose) + trukmė. */}
             {(dateLabel || dur) && (
-              <div className="mt-0.5 flex flex-wrap items-center gap-1.5 text-[13px] text-[var(--text-muted)]">
+              <div className="mt-0.5 flex flex-wrap items-center gap-1.5 text-[14px] text-[var(--text-muted)]">
                 {dateLabel && (
                   <span className="font-['Outfit',sans-serif] font-semibold text-[var(--text-secondary)]">{dateLabel}</span>
                 )}
@@ -671,10 +671,10 @@ export function TrackInfoModal({
                         )}
                       </span>
                       <div className="min-w-0 flex-1">
-                        <div className="font-['Outfit',sans-serif] text-[11px] font-extrabold uppercase tracking-[0.14em] text-[var(--text-muted)]">Iš albumo</div>
+                        <div className="font-['Outfit',sans-serif] text-[12px] font-extrabold uppercase tracking-[0.14em] text-[var(--text-muted)]">Iš albumo</div>
                         <div className="truncate font-['Outfit',sans-serif] text-[14px] font-extrabold leading-tight text-[var(--text-primary)] group-hover:text-[var(--accent-orange)]">{primaryAlbum.title}</div>
                         {primaryAlbum.year && (
-                          <div className="text-[13px] font-semibold text-[var(--text-muted)]">{primaryAlbum.year} m.</div>
+                          <div className="text-[14px] font-semibold text-[var(--text-muted)]">{primaryAlbum.year} m.</div>
                         )}
                       </div>
                       <svg viewBox="0 0 24 24" width={14} height={14} fill="none" stroke="currentColor" strokeWidth={2.2} strokeLinecap="round" strokeLinejoin="round" className="shrink-0 text-[var(--text-faint)] transition-colors group-hover:text-[var(--accent-orange)]">
@@ -706,8 +706,8 @@ export function TrackInfoModal({
                                 )}
                               </span>
                               <span className="min-w-0 flex-1">
-                                <span className="block truncate font-['Outfit',sans-serif] text-[13px] font-extrabold leading-tight text-[var(--text-primary)]">{t.title}</span>
-                                <span className="block truncate font-['Outfit',sans-serif] text-[11.5px] font-semibold text-[var(--text-faint)]">{t.artistName}</span>
+                                <span className="block truncate font-['Outfit',sans-serif] text-[14px] font-extrabold leading-tight text-[var(--text-primary)]">{t.title}</span>
+                                <span className="block truncate font-['Outfit',sans-serif] text-[12px] font-semibold text-[var(--text-faint)]">{t.artistName}</span>
                               </span>
                             </Link>
                           )
@@ -784,7 +784,7 @@ export function TrackInfoModal({
                         type="button"
                         onClick={nominateDienosDaina}
                         disabled={menuBusy}
-                        className="flex w-full items-center gap-2.5 px-3.5 py-2.5 text-left font-['Outfit',sans-serif] text-[14.5px] font-bold text-[var(--text-primary)] transition-colors hover:bg-[var(--card-hover)] disabled:opacity-50"
+                        className="flex w-full items-center gap-2.5 px-3.5 py-2.5 text-left font-['Outfit',sans-serif] text-[14px] font-bold text-[var(--text-primary)] transition-colors hover:bg-[var(--card-hover)] disabled:opacity-50"
                       >
                         <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="shrink-0 text-[var(--accent-orange)]">
                           <circle cx="12" cy="12" r="4" /><path d="M12 2v2M12 20v2M4.93 4.93l1.41 1.41M17.66 17.66l1.41 1.41M2 12h2M20 12h2M6.34 17.66l-1.41 1.41M19.07 4.93l-1.41 1.41" />
@@ -795,7 +795,7 @@ export function TrackInfoModal({
                         type="button"
                         onClick={makeMoodSong}
                         disabled={menuBusy}
-                        className="flex w-full items-center gap-2.5 px-3.5 py-2.5 text-left font-['Outfit',sans-serif] text-[14.5px] font-bold text-[var(--text-primary)] transition-colors hover:bg-[var(--card-hover)] disabled:opacity-50"
+                        className="flex w-full items-center gap-2.5 px-3.5 py-2.5 text-left font-['Outfit',sans-serif] text-[14px] font-bold text-[var(--text-primary)] transition-colors hover:bg-[var(--card-hover)] disabled:opacity-50"
                       >
                         <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="shrink-0 text-[var(--text-muted)]">
                           <path d="M17 2l4 4-4 4" /><path d="M3 11V9a4 4 0 0 1 4-4h14M7 22l-4-4 4-4M21 13v2a4 4 0 0 1-4 4H3" />
@@ -821,10 +821,10 @@ export function TrackInfoModal({
                 {lyricsText ? (
                   <>
                     <div className="mb-4 flex items-baseline gap-2">
-                      <div className="font-['Outfit',sans-serif] text-[13px] font-extrabold uppercase tracking-[0.18em] text-[var(--text-muted)]">
+                      <div className="font-['Outfit',sans-serif] text-[14px] font-extrabold uppercase tracking-[0.18em] text-[var(--text-muted)]">
                         Dainos tekstas
                       </div>
-                      <span className="font-['Outfit',sans-serif] text-[11px] font-extrabold uppercase tracking-wider text-[var(--accent-orange)]">
+                      <span className="font-['Outfit',sans-serif] text-[12px] font-extrabold uppercase tracking-wider text-[var(--accent-orange)]">
                         pažymėk → reaguok
                       </span>
                     </div>
@@ -837,10 +837,10 @@ export function TrackInfoModal({
                   </div>
                 ) : isLoggedIn ? (
                   <div>
-                    <div className="mb-3 font-['Outfit',sans-serif] text-[13px] font-extrabold uppercase tracking-[0.18em] text-[var(--text-muted)]">
+                    <div className="mb-3 font-['Outfit',sans-serif] text-[14px] font-extrabold uppercase tracking-[0.18em] text-[var(--text-muted)]">
                       Dainos tekstas
                     </div>
-                    <p className="mb-2 text-[14.5px] leading-[1.5] text-[var(--text-muted)]">
+                    <p className="mb-2 text-[14px] leading-[1.5] text-[var(--text-muted)]">
                       Šios dainos teksto dar nėra. Žinai jį? Pasiūlyk — administratorius peržiūrės ir paskelbs.
                     </p>
                     <textarea
@@ -850,7 +850,7 @@ export function TrackInfoModal({
                       placeholder="Įrašyk dainos tekstą…"
                       className="w-full resize-y rounded-xl border border-[var(--border-subtle)] bg-[var(--bg-elevated)] px-3 py-2.5 text-[14px] leading-[1.6] text-[var(--text-primary)] outline-none focus:border-[var(--accent-orange)]"
                     />
-                    {lyricsErr && <div className="mt-1 text-[13px] font-semibold text-red-500">{lyricsErr}</div>}
+                    {lyricsErr && <div className="mt-1 text-[14px] font-semibold text-red-500">{lyricsErr}</div>}
                     <button
                       type="button"
                       onClick={submitLyrics}
@@ -891,10 +891,10 @@ export function TrackInfoModal({
                                   referrerPolicy="no-referrer" className="h-full w-full object-cover" />
                               )}
                             </span>
-                            <span className="block truncate px-1 pt-1 text-left font-['Outfit',sans-serif] text-[12.5px] font-extrabold text-[var(--text-primary)]">
+                            <span className="block truncate px-1 pt-1 text-left font-['Outfit',sans-serif] text-[12px] font-extrabold text-[var(--text-primary)]">
                               {t.title}
                             </span>
-                            <span className="block truncate px-1 pb-0.5 text-left font-['Outfit',sans-serif] text-[11px] font-semibold text-[var(--text-faint)]">
+                            <span className="block truncate px-1 pb-0.5 text-left font-['Outfit',sans-serif] text-[12px] font-semibold text-[var(--text-faint)]">
                               {t.artistName}
                             </span>
                           </Link>

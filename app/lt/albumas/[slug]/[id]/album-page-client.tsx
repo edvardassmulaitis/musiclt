@@ -229,7 +229,7 @@ export default function AlbumPageClient({
   const Tracklist = (
     <div>
       <div className="mb-3 flex items-baseline gap-2">
-        <div className="font-['Outfit',sans-serif] text-[13px] font-extrabold uppercase tracking-[0.18em] text-[var(--text-muted)]">
+        <div className="font-['Outfit',sans-serif] text-[14px] font-extrabold uppercase tracking-[0.18em] text-[var(--text-muted)]">
           Dainos
         </div>
         {tracks.length > 0 && (
@@ -369,7 +369,7 @@ export default function AlbumPageClient({
             {/* Kicker — tik „Greitai" žyma. Tipas pašalintas, data perkelta žemiau. */}
             {album.is_upcoming && (
               <div className="mb-1 flex flex-wrap items-center gap-1.5">
-                <span className="rounded-md border border-[rgba(249,115,22,0.3)] bg-[rgba(249,115,22,0.15)] px-1.5 py-0.5 font-['Outfit',sans-serif] text-[11px] font-bold uppercase tracking-[0.08em] text-[var(--accent-orange)]">
+                <span className="rounded-md border border-[rgba(249,115,22,0.3)] bg-[rgba(249,115,22,0.15)] px-1.5 py-0.5 font-['Outfit',sans-serif] text-[12px] font-bold uppercase tracking-[0.08em] text-[var(--accent-orange)]">
                   Greitai
                 </span>
               </div>
@@ -385,7 +385,7 @@ export default function AlbumPageClient({
             {/* Data — po atlikėjo pavadinimo. Tik mobile (desktop'e data rodoma chip'e
                 kairiajame stulpelyje). */}
             {dateStr && (
-              <div className="mt-0.5 text-[13px] font-semibold text-[var(--text-muted)] md:hidden">
+              <div className="mt-0.5 text-[14px] font-semibold text-[var(--text-muted)] md:hidden">
                 {dateStr}
               </div>
             )}
@@ -459,17 +459,17 @@ export default function AlbumPageClient({
             <div className="hidden md:flex flex-col px-4 py-3">
               <div className="flex flex-wrap gap-1.5 mb-3">
                 {dateStr && (
-                  <span className="inline-flex items-center rounded-full border border-[var(--border-subtle)] bg-[var(--card-bg)] px-2.5 py-1 font-['Outfit',sans-serif] text-[12.5px] font-extrabold leading-tight text-[var(--text-primary)]">
+                  <span className="inline-flex items-center rounded-full border border-[var(--border-subtle)] bg-[var(--card-bg)] px-2.5 py-1 font-['Outfit',sans-serif] text-[12px] font-extrabold leading-tight text-[var(--text-primary)]">
                     {dateStr}
                   </span>
                 )}
                 {tracks.length > 0 && (
-                  <span className="inline-flex items-center rounded-full border border-[var(--border-subtle)] bg-[var(--card-bg)] px-2.5 py-1 font-['Outfit',sans-serif] text-[12.5px] font-bold leading-tight text-[var(--text-muted)]">
+                  <span className="inline-flex items-center rounded-full border border-[var(--border-subtle)] bg-[var(--card-bg)] px-2.5 py-1 font-['Outfit',sans-serif] text-[12px] font-bold leading-tight text-[var(--text-muted)]">
                     {tracks.length} dain{tracks.length % 10 === 1 && tracks.length % 100 !== 11 ? 'a' : (tracks.length % 10 >= 2 && tracks.length % 10 <= 9 && (tracks.length % 100 < 11 || tracks.length % 100 > 19) ? 'os' : 'ų')}
                   </span>
                 )}
                 {album.is_upcoming && (
-                  <span className="inline-flex items-center rounded-full border border-[rgba(249,115,22,0.3)] bg-[rgba(249,115,22,0.18)] px-2 py-0.5 font-['Outfit',sans-serif] text-[11px] font-extrabold uppercase tracking-wider text-[var(--accent-orange)]">
+                  <span className="inline-flex items-center rounded-full border border-[rgba(249,115,22,0.3)] bg-[rgba(249,115,22,0.18)] px-2 py-0.5 font-['Outfit',sans-serif] text-[12px] font-extrabold uppercase tracking-wider text-[var(--accent-orange)]">
                     Greitai
                   </span>
                 )}
@@ -561,7 +561,7 @@ export default function AlbumPageClient({
           {otherAlbums.length > 0 && (
             <div>
               <div className="mb-3 flex items-baseline justify-between">
-                <div className="font-['Outfit',sans-serif] text-[13px] font-extrabold uppercase tracking-[0.18em] text-[var(--text-muted)]">
+                <div className="font-['Outfit',sans-serif] text-[14px] font-extrabold uppercase tracking-[0.18em] text-[var(--text-muted)]">
                   Daugiau {artist.name}
                 </div>
                 <Link
@@ -586,7 +586,7 @@ export default function AlbumPageClient({
           )}
           {similarAlbums.length > 0 && (
             <div>
-              <div className="mb-3 font-['Outfit',sans-serif] text-[13px] font-extrabold uppercase tracking-[0.18em] text-[var(--text-muted)]">
+              <div className="mb-3 font-['Outfit',sans-serif] text-[14px] font-extrabold uppercase tracking-[0.18em] text-[var(--text-muted)]">
                 Panaši muzika
               </div>
               <div className="grid grid-cols-3 gap-2.5 sm:grid-cols-4 lg:grid-cols-6">
@@ -639,7 +639,7 @@ function AlbumThumbCard({ href, cover, title, subtitle }: { href: string; cover:
         )}
       </div>
       <div className="min-w-0">
-        <div className="line-clamp-2 font-['Outfit',sans-serif] text-[13.5px] font-bold leading-tight text-[var(--text-primary)] group-hover:text-[var(--accent-orange)]">
+        <div className="line-clamp-2 font-['Outfit',sans-serif] text-[14px] font-bold leading-tight text-[var(--text-primary)] group-hover:text-[var(--accent-orange)]">
           {title}
         </div>
         {subtitle && (

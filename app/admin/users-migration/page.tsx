@@ -172,7 +172,7 @@ function SummaryCard({ label, value }: { label: string; value: string }) {
   return (
     <div className="p-3 rounded-xl"
          style={{ background: 'var(--card-bg)', border: '1px solid var(--border-subtle)' }}>
-      <div className="text-[13px] uppercase tracking-wider" style={{ color: 'var(--text-muted)' }}>{label}</div>
+      <div className="text-[14px] uppercase tracking-wider" style={{ color: 'var(--text-muted)' }}>{label}</div>
       <div className="text-xl font-extrabold tabular-nums mt-0.5" style={{ color: 'var(--text-primary)' }}>{value}</div>
     </div>
   )
@@ -222,7 +222,7 @@ function UserRow({ row: r, idx }: { row: Row; idx: number }) {
               <div className="text-[12px] truncate" style={{ color: 'var(--text-muted)' }}>{r.full_name}</div>
             )}
           </div>
-          {r.is_claimed && <span className="text-[11px] px-1 rounded font-bold"
+          {r.is_claimed && <span className="text-[12px] px-1 rounded font-bold"
                                   style={{ background: 'rgba(34,197,94,0.15)', color: '#16a34a' }}>✓</span>}
         </Link>
       </td>
@@ -253,7 +253,7 @@ function UserRow({ row: r, idx }: { row: Row; idx: number }) {
       <PhaseCell count={r.daily_picks_count} />
       <PhaseCell count={r.comments_count} />
       <td className="px-3 py-2 text-center">
-        <span className="text-[13px] font-bold tabular-nums">
+        <span className="text-[14px] font-bold tabular-nums">
           <span style={{ color: r.phases_touched >= 5 ? '#16a34a' : r.phases_touched >= 2 ? '#d97706' : '#dc2626' }}>
             {r.phases_touched}
           </span>

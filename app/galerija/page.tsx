@@ -35,7 +35,7 @@ export default async function GalleryPage() {
 
       {reportages.length === 0 ? (
         <div className="rounded-2xl border border-dashed border-[var(--border-default)] p-12 text-center">
-          <div className="text-[15px] font-semibold text-[var(--text-primary)]">Reportažų dar nėra</div>
+          <div className="text-[16px] font-semibold text-[var(--text-primary)]">Reportažų dar nėra</div>
           <p className="mx-auto mt-1.5 max-w-sm text-[14px] text-[var(--text-muted)]">
             Netrukus čia atsiras koncertų foto reportažai. Tuo tarpu užsuk į{' '}
             <Link href="/koncertai" className="text-[var(--accent-orange)] hover:underline">koncertus</Link>.
@@ -62,7 +62,7 @@ export default async function GalleryPage() {
                 )}
               </div>
               <div className="flex flex-col justify-center p-6 sm:p-8">
-                <div className="mb-2 font-['Outfit',sans-serif] text-[13px] font-extrabold uppercase tracking-[0.18em] text-[var(--accent-orange)]">
+                <div className="mb-2 font-['Outfit',sans-serif] text-[14px] font-extrabold uppercase tracking-[0.18em] text-[var(--accent-orange)]">
                   Koncerto nuotraukos
                 </div>
                 <h2 className="font-['Outfit',sans-serif] text-[22px] font-black leading-tight tracking-[-0.01em] text-[var(--text-primary)] sm:text-[26px]">
@@ -98,7 +98,7 @@ export default async function GalleryPage() {
       {/* Fotografų direktorija */}
       {photographers.length > 0 && (
         <section className="mt-2">
-          <h2 className="mb-3 font-['Outfit',sans-serif] text-[19px] font-black tracking-[-0.01em] text-[var(--text-primary)]">
+          <h2 className="mb-3 font-['Outfit',sans-serif] text-[20px] font-black tracking-[-0.01em] text-[var(--text-primary)]">
             Mūsų fotografai
           </h2>
           <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-3">

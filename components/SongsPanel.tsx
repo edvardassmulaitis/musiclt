@@ -197,7 +197,7 @@ export function SongsPanel({ newsId, isNew }: { newsId: string | number; isNew: 
                   <div className="text-[12px] text-gray-400 truncate">{s.artist_name || '—'}</div>
                 </div>
                 {s.song_id && (
-                  <span className="text-[11px] font-bold text-blue-400 bg-blue-50 px-1.5 py-0.5 rounded shrink-0">DB</span>
+                  <span className="text-[12px] font-bold text-blue-400 bg-blue-50 px-1.5 py-0.5 rounded shrink-0">DB</span>
                 )}
                 <button onClick={() => setSongs(p => p.filter((_, j) => j !== i))}
                   className="w-6 h-6 flex items-center justify-center text-gray-300 hover:text-red-400 transition-colors shrink-0 text-sm">✕</button>

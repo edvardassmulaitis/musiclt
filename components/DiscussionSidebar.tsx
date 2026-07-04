@@ -51,7 +51,7 @@ function Initials({ name }: { name: string }) {
         background: `hsl(${hue}, 40%, 22%)`,
         color: `hsl(${hue}, 60%, 62%)`,
         display: 'flex', alignItems: 'center', justifyContent: 'center',
-        fontSize: 13, fontWeight: 800, flexShrink: 0,
+        fontSize: 14, fontWeight: 800, flexShrink: 0,
       }}
     >{initials}</div>
   )
@@ -158,7 +158,7 @@ export default function DiscussionSidebar({ discussionId }: { discussionId: numb
                     <div className="truncate text-[14px] font-semibold text-[var(--text-primary)]">{t.title}</div>
                     <div className="truncate text-[12px] text-[var(--text-muted)]">{t.artist_name || ''}</div>
                   </div>
-                  <span className="shrink-0 rounded-full bg-[var(--bg-active)] px-1.5 py-0.5 text-[11px] font-bold text-[var(--text-muted)]">
+                  <span className="shrink-0 rounded-full bg-[var(--bg-active)] px-1.5 py-0.5 text-[12px] font-bold text-[var(--text-muted)]">
                     ×{t.mention_count}
                   </span>
                 </Link>
@@ -173,7 +173,7 @@ export default function DiscussionSidebar({ discussionId }: { discussionId: numb
         <div className="text-[12px] font-extrabold uppercase tracking-[0.12em] text-[var(--text-muted)]">
           Panašios diskusijos
         </div>
-        <div className="mt-2 text-[13px] italic text-[var(--text-muted)]">netrukus</div>
+        <div className="mt-2 text-[14px] italic text-[var(--text-muted)]">netrukus</div>
       </div>
     </div>
   )

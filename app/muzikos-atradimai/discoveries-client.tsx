@@ -219,8 +219,8 @@ function ArtistDiscoveriesModal({ src, items, likedSet, onClose }: {
           <div className="min-w-0 flex-1">
             <div className="font-['Outfit',sans-serif] text-[12px] font-extrabold uppercase tracking-[0.15em] text-[var(--text-muted)]">Muzikos atradimai · {items.length}</div>
             {src.artist_slug
-              ? <Link href={`/atlikejai/${src.artist_slug}`} className="block truncate font-['Outfit',sans-serif] text-[17px] font-extrabold text-[var(--text-primary)] no-underline hover:text-[var(--accent-orange)]">{nm}</Link>
-              : <div className="truncate font-['Outfit',sans-serif] text-[17px] font-extrabold text-[var(--text-primary)]">{nm}</div>}
+              ? <Link href={`/atlikejai/${src.artist_slug}`} className="block truncate font-['Outfit',sans-serif] text-[16px] font-extrabold text-[var(--text-primary)] no-underline hover:text-[var(--accent-orange)]">{nm}</Link>
+              : <div className="truncate font-['Outfit',sans-serif] text-[16px] font-extrabold text-[var(--text-primary)]">{nm}</div>}
           </div>
           {src.artist_styles.length > 0 && (
             <div className="hidden flex-wrap justify-end gap-1.5 sm:flex">
@@ -246,7 +246,7 @@ function ArtistDiscoveriesModal({ src, items, likedSet, onClose }: {
                     <Avatar src={d.author?.avatar_url} name={uname} size={28} />
                     <div className="flex min-w-0 flex-1 items-baseline gap-2">
                       {uname ? <Link href={`/@${uname}`} className="ma-nm">{uname}</Link> : <span className="ma-nm">Narys</span>}
-                      {when && <span className="text-[13px] text-[var(--text-muted)]">{when}</span>}
+                      {when && <span className="text-[14px] text-[var(--text-muted)]">{when}</span>}
                     </div>
                     <CardLike commentId={d.comment_id} count={d.like_count} liked={d.comment_id ? likedSet.has(d.comment_id) : false} />
                   </div>
@@ -455,17 +455,17 @@ export default function DiscoveriesClient({ items, facets }: { items: Discovery[
       <style jsx>{`
         /* Filtrų juosta — Renginių (ev-fbar) stilius */
         .ma-search-wrap{display:flex;align-items:center;gap:8px;background:var(--bg-hover);border:1px solid var(--border-default);border-radius:100px;padding:6px 13px;color:var(--text-muted);flex:1;min-width:180px;max-width:320px}
-        .ma-search-wrap input{background:none;border:none;color:var(--text-primary);outline:none;width:100%;font-size:13px}
+        .ma-search-wrap input{background:none;border:none;color:var(--text-primary);outline:none;width:100%;font-size:14px}
         :global(.ma-popwrap){position:relative;display:inline-flex}
         :global(.ma-chip-lbl){overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
         :global(.ma-pop){position:absolute;top:calc(100% + 8px);left:0;z-index:60;width:240px;padding:12px;background:var(--bg-surface);border:1px solid var(--border-default,rgba(255,255,255,0.1));border-radius:14px;box-shadow:0 14px 40px rgba(0,0,0,.32)}
-        :global(.ma-pop-search){width:100%;height:34px;border-radius:9px;padding:0 11px;font-size:13px;margin-bottom:8px;background:var(--bg-hover);border:1px solid var(--border-default);color:var(--text-primary);outline:none}
+        :global(.ma-pop-search){width:100%;height:34px;border-radius:9px;padding:0 11px;font-size:14px;margin-bottom:8px;background:var(--bg-hover);border:1px solid var(--border-default);color:var(--text-primary);outline:none}
         :global(.ma-pop-list){display:flex;flex-direction:column;gap:2px;max-height:260px;overflow-y:auto}
-        :global(.ma-opt){text-align:left;padding:8px 10px;border-radius:9px;font-size:13px;font-weight:600;font-family:'Outfit',sans-serif;cursor:pointer;background:transparent;border:none;color:var(--text-secondary);transition:all .12s}
+        :global(.ma-opt){text-align:left;padding:8px 10px;border-radius:9px;font-size:14px;font-weight:600;font-family:'Outfit',sans-serif;cursor:pointer;background:transparent;border:none;color:var(--text-secondary);transition:all .12s}
         :global(.ma-opt:hover){background:var(--bg-hover);color:var(--text-primary)}
         :global(.ma-opt.on){color:var(--accent-orange)}
-        :global(.ma-pop-empty){color:var(--text-muted);font-size:12.5px;padding:8px 10px}
-        .ma-foot{display:flex;align-items:center;justify-content:center;gap:10px;flex-wrap:wrap;margin-top:40px;padding-top:24px;border-top:1px solid var(--border-subtle);color:var(--text-muted);font-size:13px}
+        :global(.ma-pop-empty){color:var(--text-muted);font-size:12px;padding:8px 10px}
+        .ma-foot{display:flex;align-items:center;justify-content:center;gap:10px;flex-wrap:wrap;margin-top:40px;padding-top:24px;border-top:1px solid var(--border-subtle);color:var(--text-muted);font-size:14px}
 
         /* ── Eilutės (forumo stilius) ── */
         .ma-list{display:flex;flex-direction:column;gap:14px}
@@ -478,9 +478,9 @@ export default function DiscoveriesClient({ items, facets }: { items: Discovery[
         :global(.ma-av){border-radius:50%;object-fit:cover;flex-shrink:0}
         :global(.ma-av-ph){display:flex;align-items:center;justify-content:center;font-weight:800;border-radius:50%;flex-shrink:0}
         .ma-who{display:flex;align-items:baseline;gap:8px;line-height:1.25;min-width:0;flex:1}
-        :global(.ma-nm){font-size:13.5px;font-weight:700;color:var(--text-primary);text-decoration:none;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+        :global(.ma-nm){font-size:14px;font-weight:700;color:var(--text-primary);text-decoration:none;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
         :global(.ma-nm:hover){color:var(--accent-orange)}
-        .ma-dt{color:var(--text-muted);font-size:11.5px;flex-shrink:0}
+        .ma-dt{color:var(--text-muted);font-size:12px;flex-shrink:0}
         .ma-hide{display:inline-flex;align-items:center;justify-content:center;width:30px;height:30px;border-radius:50%;background:transparent;border:1px solid var(--border-subtle);color:var(--text-faint);cursor:pointer;flex-shrink:0}
         .ma-hide:hover{color:var(--accent-red,#ef4444);border-color:var(--accent-red,#ef4444)}
         :global(.ma-yt){position:relative;display:block;width:100%;border:none;padding:0;border-radius:10px;overflow:hidden;aspect-ratio:16/9;background:#000;cursor:pointer}
@@ -489,17 +489,17 @@ export default function DiscoveriesClient({ items, facets }: { items: Discovery[
         :global(.ma-play){position:absolute;inset:0;display:flex;align-items:center;justify-content:center;filter:drop-shadow(0 2px 8px rgba(0,0,0,.6))}
         :global(.ma-frame){width:100%;border:none;border-radius:10px;aspect-ratio:16/9}
         :global(.ma-sp){width:100%;border:none;border-radius:12px}
-        .ma-title{font-family:'Outfit',sans-serif;font-size:15px;font-weight:800;letter-spacing:-.01em;margin-bottom:6px;line-height:1.3}
+        .ma-title{font-family:'Outfit',sans-serif;font-size:16px;font-weight:800;letter-spacing:-.01em;margin-bottom:6px;line-height:1.3}
         :global(.ma-art){color:var(--text-primary);text-decoration:none}
         .ma-sep{color:var(--text-faint)}
         .ma-tk{color:var(--text-secondary);font-weight:700}
         :global(a.ma-tk-link){color:var(--text-secondary);text-decoration:none}
         :global(a.ma-tk-link:hover){color:var(--accent-orange)}
-        :global(.ma-narr){font-size:13.5px;line-height:1.65;color:var(--text-secondary);margin:0;white-space:pre-wrap;word-break:break-word}
+        :global(.ma-narr){font-size:14px;line-height:1.65;color:var(--text-secondary);margin:0;white-space:pre-wrap;word-break:break-word}
         :global(.ma-narr.ma-clamp){display:-webkit-box;-webkit-line-clamp:8;-webkit-box-orient:vertical;overflow:hidden}
         :global(.ma-readmore){margin-top:7px;padding:0;background:none;border:none;color:var(--accent-orange);font-size:12px;font-weight:700;font-family:'Outfit',sans-serif;cursor:pointer;display:block}
         .ma-tags{display:flex;gap:6px;flex-wrap:wrap;margin-top:10px}
-        .ma-tag{background:var(--bg-hover);color:var(--text-muted);font-size:11px;padding:3px 9px;border-radius:12px;border:none;cursor:pointer;font-family:'Outfit',sans-serif}
+        .ma-tag{background:var(--bg-hover);color:var(--text-muted);font-size:12px;padding:3px 9px;border-radius:12px;border:none;cursor:pointer;font-family:'Outfit',sans-serif}
         .ma-tag:hover{color:var(--accent-orange)}
 
         /* ── Atlikėjo panelė dešinėje ── */
@@ -510,8 +510,8 @@ export default function DiscoveriesClient({ items, facets }: { items: Discovery[
         :global(.ma-aside-nm){font-family:'Outfit',sans-serif;font-size:14px;font-weight:800;color:var(--text-primary);line-height:1.25;word-break:break-word}
         :global(.ma-aside-link:hover .ma-aside-nm){color:var(--accent-orange)}
         :global(.ma-aside-styles){display:flex;gap:5px;flex-wrap:wrap}
-        :global(.ma-style){background:var(--bg-hover);border:1px solid var(--border-subtle);color:var(--text-muted);font-size:10.5px;font-weight:700;font-family:'Outfit',sans-serif;padding:3px 8px;border-radius:100px;white-space:nowrap}
-        :global(.ma-aside-more){margin-top:auto;padding:5px 10px;border-radius:100px;background:rgba(249,115,22,0.1);border:1px solid rgba(249,115,22,0.3);color:var(--accent-orange);font-size:11px;font-weight:700;font-family:'Outfit',sans-serif;cursor:pointer;white-space:nowrap}
+        :global(.ma-style){background:var(--bg-hover);border:1px solid var(--border-subtle);color:var(--text-muted);font-size:12px;font-weight:700;font-family:'Outfit',sans-serif;padding:3px 8px;border-radius:100px;white-space:nowrap}
+        :global(.ma-aside-more){margin-top:auto;padding:5px 10px;border-radius:100px;background:rgba(249,115,22,0.1);border:1px solid rgba(249,115,22,0.3);color:var(--accent-orange);font-size:12px;font-weight:700;font-family:'Outfit',sans-serif;cursor:pointer;white-space:nowrap}
         :global(.ma-aside-more:hover){background:rgba(249,115,22,0.18)}
 
         /* Mobile: media per visą plotį, atlikėjas — horizontali juosta apačioje */
@@ -521,14 +521,14 @@ export default function DiscoveriesClient({ items, facets }: { items: Discovery[
           :global(.ma-aside){width:100%;flex-direction:row;align-items:center;border-left:none;border-top:1px solid var(--border-subtle);padding-left:0;padding-top:12px;gap:10px}
           :global(.ma-aside-link){flex-direction:row;align-items:center;gap:10px;flex:1}
           :global(.ma-aside-img){width:38px;height:38px;border-radius:10px}
-          :global(.ma-aside-ph){font-size:15px}
+          :global(.ma-aside-ph){font-size:16px}
           :global(.ma-aside-more){margin-top:0;margin-left:auto}
         }
 
         .ma-more{display:flex;justify-content:center;margin-top:24px}
-        .ma-more button{padding:10px 22px;border-radius:100px;font-size:13px;font-weight:700;font-family:'Outfit',sans-serif;background:var(--bg-hover);border:1px solid var(--border-default);color:var(--text-primary);cursor:pointer}
+        .ma-more button{padding:10px 22px;border-radius:100px;font-size:14px;font-weight:700;font-family:'Outfit',sans-serif;background:var(--bg-hover);border:1px solid var(--border-default);color:var(--text-primary);cursor:pointer}
         .ma-more button:hover{border-color:var(--accent-orange)}
-        .ma-empty{text-align:center;color:var(--text-muted);padding:54px 0;font-size:15px}
+        .ma-empty{text-align:center;color:var(--text-muted);padding:54px 0;font-size:16px}
       `}</style>
     </div>
   )

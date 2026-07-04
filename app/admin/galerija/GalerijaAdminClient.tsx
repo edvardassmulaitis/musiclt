@@ -207,7 +207,7 @@ function ReportageEditor({ id, photographers, venues, onClose, onSaved }: {
             <div className="mb-2 space-y-1.5">
               {d.artists.map((a, idx) => (
                 <div key={a.artist_id} className="flex items-center gap-2 rounded-lg border border-[var(--border-default)] bg-[var(--bg-elevated)] px-2.5 py-1.5">
-                  <span className="text-[13px] font-bold text-[var(--text-muted)]">{idx + 1}.</span>
+                  <span className="text-[14px] font-bold text-[var(--text-muted)]">{idx + 1}.</span>
                   <span className="min-w-0 flex-1 truncate text-sm font-semibold text-[var(--text-primary)]">{a.name}</span>
                   <select className="rounded border border-[var(--input-border)] bg-[var(--input-bg)] px-1.5 py-1 text-[14px] text-[var(--input-text)]"
                     value={a.role}
@@ -321,11 +321,11 @@ function EventLink({ reportageId, d, setD }: { reportageId: number | null; d: an
       className="flex w-full items-center gap-2 rounded-lg border border-[var(--border-default)] bg-[var(--bg-elevated)] px-2.5 py-1.5 text-left hover:border-[#ec4899]/60">
       <span className="min-w-0 flex-1">
         <span className="block truncate text-[14px] font-semibold text-[var(--text-primary)]">{e.title}</span>
-        <span className="block truncate text-[13px] text-[var(--text-muted)]">
+        <span className="block truncate text-[14px] text-[var(--text-muted)]">
           {[e.start_date ? e.start_date.slice(0, 10) : null, e.city, e.lineup.slice(0, 3).map((a) => a.name).join(', ')].filter(Boolean).join(' · ')}
         </span>
       </span>
-      <span className="flex-none text-[13px] font-bold text-[#ec4899]">Susieti →</span>
+      <span className="flex-none text-[14px] font-bold text-[#ec4899]">Susieti →</span>
     </button>
   )
 
@@ -342,7 +342,7 @@ function EventLink({ reportageId, d, setD }: { reportageId: number | null; d: an
         <>
           {suggest.length > 0 && (
             <div className="mb-2 space-y-1.5">
-              <div className="text-[13px] font-bold uppercase tracking-wide text-[var(--text-muted)]">Pasiūlymai</div>
+              <div className="text-[14px] font-bold uppercase tracking-wide text-[var(--text-muted)]">Pasiūlymai</div>
               {suggest.map((e) => <Row key={e.id} e={e} />)}
             </div>
           )}
@@ -552,7 +552,7 @@ function PhotoManager({ reportageId, photos, lineup, flickrUrl, setFlickrUrl, on
           })}
         </div>
       )}
-      {!progress && !importing && <p className="mt-2 text-[13px] text-[var(--text-muted)]">Flickr nuotraukos re-host'inamos į mūsų serverį (durable). Spausk nuotrauką → pažymėti → priskirti atlikėjui ar tagui (pvz. „Žiūrovai"). Pirma tampa viršeliu.</p>}
+      {!progress && !importing && <p className="mt-2 text-[14px] text-[var(--text-muted)]">Flickr nuotraukos re-host'inamos į mūsų serverį (durable). Spausk nuotrauką → pažymėti → priskirti atlikėjui ar tagui (pvz. „Žiūrovai"). Pirma tampa viršeliu.</p>}
     </div>
   )
 }

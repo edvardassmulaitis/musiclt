@@ -175,7 +175,7 @@ export function QuickCreate() {
         }
         .qc-grab { width: 38px; height: 4px; border-radius: 2px; background: var(--border-strong); margin: 2px auto 12px; }
         .qc-head { display: flex; align-items: center; justify-content: space-between; margin-bottom: 6px; }
-        .qc-title { font-size: 17px; font-weight: 800; color: var(--text-primary); letter-spacing: -0.01em; }
+        .qc-title { font-size: 16px; font-weight: 800; color: var(--text-primary); letter-spacing: -0.01em; }
         .qc-close {
           width: 32px; height: 32px; border-radius: 8px; border: none; cursor: pointer;
           background: var(--bg-hover); color: var(--text-secondary);
@@ -186,14 +186,14 @@ export function QuickCreate() {
           display: flex; align-items: center; gap: 10px; flex-wrap: wrap;
           background: var(--bg-hover); border: 1px solid var(--border-subtle);
           border-radius: 12px; padding: 10px 12px; margin: 8px 0 4px;
-          font-size: 13px; color: var(--text-secondary);
+          font-size: 14px; color: var(--text-secondary);
         }
         .qc-banner button {
-          margin-left: auto; border: none; cursor: pointer; font-weight: 700; font-size: 13px;
+          margin-left: auto; border: none; cursor: pointer; font-weight: 700; font-size: 14px;
           background: var(--accent-orange); color: #fff; padding: 7px 14px; border-radius: 8px;
         }
         .qc-group-label {
-          font-size: 11px; font-weight: 700; letter-spacing: 0.06em; text-transform: uppercase;
+          font-size: 12px; font-weight: 700; letter-spacing: 0.06em; text-transform: uppercase;
           color: var(--text-muted); margin: 15px 6px 4px;
         }
         /* Vienas stulpelis — skaitosi iš viršaus į apačią, identiškai mobile. */
@@ -216,7 +216,7 @@ export function QuickCreate() {
         .qc-row-arrow { width: 17px; height: 17px; flex-shrink: 0; color: var(--text-muted); opacity: .45; transition: opacity .13s, transform .13s; }
         .qc-row:hover .qc-row-arrow { opacity: .9; transform: translateX(2px); }
         .qc-row-done-tag {
-          font-size: 11px; font-weight: 700; color: #4ade80; flex-shrink: 0;
+          font-size: 12px; font-weight: 700; color: #4ade80; flex-shrink: 0;
           background: rgba(34,197,94,0.12); padding: 3px 9px; border-radius: 999px;
         }
         @media (min-width: 720px) {

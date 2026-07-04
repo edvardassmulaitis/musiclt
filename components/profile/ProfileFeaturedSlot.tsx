@@ -101,7 +101,7 @@ function TabButton({ active, onClick, children }: { active: boolean; onClick: ()
   return (
     <button
       onClick={onClick}
-      className={`flex-1 px-3 py-3 text-[13px] uppercase tracking-wider font-bold transition relative ${
+      className={`flex-1 px-3 py-3 text-[14px] uppercase tracking-wider font-bold transition relative ${
         active ? 'text-white' : 'text-[#5e7290] hover:text-[#b0bdd4]'
       }`}
       style={{ fontFamily: "'Outfit', sans-serif" }}
@@ -174,7 +174,7 @@ function MusicMeterEqualizer({ meter }: { meter: MeterEntry[] }) {
       <div className="flex justify-between gap-1 px-1 mb-3">
         {sorted.map((s) => (
           <div key={s.legacy_id} className="flex-1 min-w-0 text-center">
-            <div className="text-[11px] font-bold text-[#dde8f8] truncate" style={{ fontFamily: "'Outfit', sans-serif" }}>{s.name}</div>
+            <div className="text-[12px] font-bold text-[#dde8f8] truncate" style={{ fontFamily: "'Outfit', sans-serif" }}>{s.name}</div>
             <div className="text-[12px] text-[#5e7290] font-mono">{(s.percent || 0).toFixed(0)}%</div>
           </div>
         ))}

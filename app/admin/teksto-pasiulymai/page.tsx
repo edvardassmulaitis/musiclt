@@ -114,21 +114,21 @@ export default function AdminLyricsSuggestions() {
             <div key={it.id} className="rounded-xl border border-[var(--border-subtle)] bg-[var(--card-bg)] p-4">
               <div className="mb-2 flex flex-wrap items-baseline gap-x-2 gap-y-1">
                 {it.track_href ? (
-                  <Link href={it.track_href} target="_blank" rel="noopener" className="font-['Outfit',sans-serif] text-[15px] font-extrabold text-[var(--text-primary)] no-underline hover:text-[var(--accent-orange)]">
+                  <Link href={it.track_href} target="_blank" rel="noopener" className="font-['Outfit',sans-serif] text-[16px] font-extrabold text-[var(--text-primary)] no-underline hover:text-[var(--accent-orange)]">
                     {it.track_title}
                   </Link>
                 ) : (
-                  <span className="font-['Outfit',sans-serif] text-[15px] font-extrabold text-[var(--text-primary)]">{it.track_title}</span>
+                  <span className="font-['Outfit',sans-serif] text-[16px] font-extrabold text-[var(--text-primary)]">{it.track_title}</span>
                 )}
                 {it.artist_name && <span className="text-[14px] text-[var(--text-muted)]">— {it.artist_name}</span>}
                 {it.track_has_lyrics && (
                   <span className="rounded-full bg-[rgba(234,179,8,0.15)] px-2 py-0.5 text-[12px] font-bold text-[#b45309]">jau turi tekstą — pakeis</span>
                 )}
               </div>
-              <div className="mb-2 text-[13px] text-[var(--text-faint)]">
+              <div className="mb-2 text-[14px] text-[var(--text-faint)]">
                 {it.suggested_by_username ? `@${it.suggested_by_username}` : 'nežinomas'} · {fmt(it.created_at)}
               </div>
-              <pre className="mb-3 max-h-[320px] overflow-auto whitespace-pre-wrap rounded-lg bg-[var(--bg-elevated)] p-3 font-['DM_Sans',sans-serif] text-[14.5px] leading-[1.6] text-[var(--text-secondary)]">
+              <pre className="mb-3 max-h-[320px] overflow-auto whitespace-pre-wrap rounded-lg bg-[var(--bg-elevated)] p-3 font-['DM_Sans',sans-serif] text-[14px] leading-[1.6] text-[var(--text-secondary)]">
                 {it.lyrics}
               </pre>
               {tab === 'pending' && (

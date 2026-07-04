@@ -339,7 +339,7 @@ export function VoiceRecorder({
           <button
             type="button"
             onClick={reset}
-            className="text-[13px] font-bold transition hover:opacity-80"
+            className="text-[14px] font-bold transition hover:opacity-80"
             style={{ color: '#6889a8' }}
           >
             Atšaukti

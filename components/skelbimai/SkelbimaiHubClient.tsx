@@ -35,7 +35,7 @@ export function SkelbimaiHubClient({ itemsByType }: { itemsByType: Record<Listin
       {/* Hero */}
       <div style={{ marginBottom: 26 }}>
         <h1 className="font-['Outfit',sans-serif] text-3xl font-black tracking-[-0.02em] text-[var(--text-primary)] sm:text-4xl">Skelbimai</h1>
-        <p style={{ fontSize: 15, color: 'var(--text-secondary)', margin: '6px 0 0', maxWidth: 620, lineHeight: 1.5 }}>
+        <p style={{ fontSize: 16, color: 'var(--text-secondary)', margin: '6px 0 0', maxWidth: 620, lineHeight: 1.5 }}>
           Nemokama muzikos bendruomenės lenta — įrašai, instrumentai, paslaugos ir muzikantai. Susitark tiesiogiai per žinutes.
         </p>
 
@@ -44,7 +44,7 @@ export function SkelbimaiHubClient({ itemsByType }: { itemsByType: Record<Listin
             <input
               type="search" value={q} onChange={e => setQ(e.target.value)} onFocus={openAll} placeholder="Ieškok skelbimų…"
               style={{
-                flex: 1, padding: '11px 15px', fontSize: 15, borderRadius: 10,
+                flex: 1, padding: '11px 15px', fontSize: 16, borderRadius: 10,
                 background: 'var(--bg-elevated)', border: '1px solid var(--border-default)',
                 color: 'var(--text-primary)', outline: 'none',
               }}
@@ -68,11 +68,11 @@ export function SkelbimaiHubClient({ itemsByType }: { itemsByType: Record<Listin
               <div style={{ display: 'flex', alignItems: 'center', gap: 10, minWidth: 0 }}>
                 <span style={{ width: 30, height: 30, borderRadius: 8, flexShrink: 0, background: `${meta.accent}1f`, color: meta.accent, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>{TYPE_ICON[t]}</span>
                 <div style={{ minWidth: 0 }}>
-                  <h2 className="m-0 font-['Outfit',sans-serif] text-[17px] font-extrabold tracking-[-0.01em] text-[var(--text-primary)] sm:text-[18px]">{meta.label}</h2>
+                  <h2 className="m-0 font-['Outfit',sans-serif] text-[16px] font-extrabold tracking-[-0.01em] text-[var(--text-primary)] sm:text-[20px]">{meta.label}</h2>
                   <div style={{ fontSize: 14, color: 'var(--text-muted)', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{meta.subtitle}</div>
                 </div>
               </div>
-              <button onClick={() => setModal(t)} className="font-['Outfit',sans-serif] text-[13.5px] font-bold text-[var(--accent-orange)] no-underline transition-opacity hover:opacity-70" style={{ background: 'none', border: 'none', cursor: 'pointer', whiteSpace: 'nowrap' }}>
+              <button onClick={() => setModal(t)} className="font-['Outfit',sans-serif] text-[14px] font-bold text-[var(--accent-orange)] no-underline transition-opacity hover:opacity-70" style={{ background: 'none', border: 'none', cursor: 'pointer', whiteSpace: 'nowrap' }}>
                 Visi →
               </button>
             </div>
@@ -99,7 +99,7 @@ export function SkelbimaiHubClient({ itemsByType }: { itemsByType: Record<Listin
       })}
 
       {/* Greitos nuorodos */}
-      <div style={{ display: 'flex', gap: 16, marginTop: 8, flexWrap: 'wrap', fontSize: 14.5 }}>
+      <div style={{ display: 'flex', gap: 16, marginTop: 8, flexWrap: 'wrap', fontSize: 14 }}>
         <Link href="/skelbimai/mano" style={{ color: 'var(--accent-link)', textDecoration: 'none' }}>Mano skelbimai</Link>
         <Link href="/skelbimai/issaugoti" style={{ color: 'var(--accent-link)', textDecoration: 'none' }}>Įsiminti</Link>
       </div>
@@ -129,10 +129,10 @@ export function SkelbimaiHubClient({ itemsByType }: { itemsByType: Record<Listin
 }
 
 const btnOrange: React.CSSProperties = {
-  padding: '11px 18px', fontSize: 15, fontWeight: 700, borderRadius: 10,
+  padding: '11px 18px', fontSize: 16, fontWeight: 700, borderRadius: 10,
   background: 'var(--accent-orange)', color: '#fff', border: 'none', cursor: 'pointer', whiteSpace: 'nowrap',
 }
 const btnBlue: React.CSSProperties = {
-  padding: '11px 18px', fontSize: 15, fontWeight: 700, borderRadius: 10,
+  padding: '11px 18px', fontSize: 16, fontWeight: 700, borderRadius: 10,
   background: 'var(--accent-orange)', color: '#fff', border: 'none', cursor: 'pointer', whiteSpace: 'nowrap',
 }

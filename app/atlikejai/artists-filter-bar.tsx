@@ -274,16 +274,16 @@ const afbStyles = `
 .afb-pop-country { width:300px; }
 .afb-pop-style { width:320px; }
 .afb-pop-search { display:flex; align-items:center; gap:8px; padding:10px 12px; border-bottom:1px solid var(--border-default,rgba(255,255,255,0.07)); color:var(--text-faint); }
-.afb-pop-search input { flex:1; border:none; background:transparent; outline:none; color:var(--text-primary); font-size:13px; font-family:'DM Sans',sans-serif; }
+.afb-pop-search input { flex:1; border:none; background:transparent; outline:none; color:var(--text-primary); font-size:14px; font-family:'DM Sans',sans-serif; }
 .afb-pop-search input::placeholder { color:var(--text-faint); }
 .afb-pop-list { max-height:360px; overflow-y:auto; padding:6px; }
-.afb-opt { display:flex; align-items:center; gap:9px; padding:8px 10px; border-radius:9px; font-size:13px; font-weight:600; color:var(--text-secondary); cursor:pointer; transition:background .12s,color .12s; }
+.afb-opt { display:flex; align-items:center; gap:9px; padding:8px 10px; border-radius:9px; font-size:14px; font-weight:600; color:var(--text-secondary); cursor:pointer; transition:background .12s,color .12s; }
 .afb-opt:hover { background:var(--bg-hover); color:var(--text-primary); }
 .afb-opt.on { background:rgba(249,115,22,0.14); color:var(--accent-orange); }
 .afb-opt-name { flex:1; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
-.afb-opt-n { font-size:11.5px; font-weight:600; color:var(--text-faint); }
+.afb-opt-n { font-size:12px; font-weight:600; color:var(--text-faint); }
 .afb-pop-div { height:1px; background:var(--border-default,rgba(255,255,255,0.08)); margin:6px 4px; }
-.afb-pop-empty { padding:18px; text-align:center; color:var(--text-faint); font-size:12.5px; }
+.afb-pop-empty { padding:18px; text-align:center; color:var(--text-faint); font-size:12px; }
 
 /* Stiliaus grupė: pagrindinis stilius (bold) + išskleidžiamas sub-stilių sąrašas */
 .afb-grp { margin-bottom:1px; }
@@ -294,7 +294,7 @@ const afbStyles = `
 .afb-exp { flex-shrink:0; width:30px; height:30px; display:flex; align-items:center; justify-content:center; border:none; background:transparent; color:var(--text-faint); cursor:pointer; border-radius:8px; transition:background .12s,transform .15s; }
 .afb-exp:hover { background:var(--bg-hover); color:var(--text-secondary); }
 .afb-exp.open { transform:rotate(180deg); }
-.afb-opt-sub { margin-left:10px; padding-left:16px; font-weight:500; font-size:12.5px; border-left:1px solid var(--border-default,rgba(255,255,255,0.08)); border-radius:0 8px 8px 0; }
+.afb-opt-sub { margin-left:10px; padding-left:16px; font-weight:500; font-size:12px; border-left:1px solid var(--border-default,rgba(255,255,255,0.08)); border-radius:0 8px 8px 0; }
 
 
 @media(max-width:680px){

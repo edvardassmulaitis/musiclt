@@ -86,7 +86,7 @@ export function ProfileEditModal({ profile, onClose }: { profile: any; onClose: 
 
   const field = 'w-full px-3 py-2 rounded-lg text-sm'
   const fieldStyle: React.CSSProperties = { fontFamily: "'Outfit', sans-serif", background: 'var(--card-bg)', border: '1px solid var(--border-default)', color: 'var(--text-primary)' }
-  const label = 'block text-[13px] font-extrabold uppercase tracking-wider mb-1.5'
+  const label = 'block text-[14px] font-extrabold uppercase tracking-wider mb-1.5'
   const labelStyle: React.CSSProperties = { color: 'var(--text-muted)', fontFamily: "'Outfit', sans-serif" }
   const cityKnown = !city || CITY_OPTIONS.includes(city)
 
@@ -170,7 +170,7 @@ export function ProfileEditModal({ profile, onClose }: { profile: any; onClose: 
                 </div>
               ))}
               <button type="button" onClick={() => photoInput.current?.click()} disabled={uploading === 'photo'}
-                      className="aspect-square rounded-lg flex flex-col items-center justify-center text-[13px] font-bold transition hover:opacity-85 disabled:opacity-60"
+                      className="aspect-square rounded-lg flex flex-col items-center justify-center text-[14px] font-bold transition hover:opacity-85 disabled:opacity-60"
                       style={{ background: 'var(--card-bg)', border: '1px dashed var(--border-default)', color: 'var(--accent-orange)', fontFamily: "'Outfit', sans-serif" }}>
                 {uploading === 'photo' ? '…' : '+ Įkelti'}
               </button>

@@ -359,7 +359,7 @@ export default async function AlbumsDebugPage({ params }: Props) {
       {/* PopBar formula explanation */}
       <div className="mb-4 rounded-lg border border-[var(--border-default)] bg-[var(--bg-surface)] p-4 text-[14px]">
         <div className="mb-1.5 font-extrabold uppercase tracking-wide text-[var(--text-primary)]">PopBar formulė (album lygis):</div>
-        <pre className="overflow-x-auto rounded bg-[var(--bg-elevated)] p-2 text-[13px] leading-relaxed text-[var(--text-secondary)]"><code>{`composite =
+        <pre className="overflow-x-auto rounded bg-[var(--bg-elevated)] p-2 text-[14px] leading-relaxed text-[var(--text-secondary)]"><code>{`composite =
     log10(agg_views + 1) × 30        // YouTube reach (dominant)
   + log10(track_likes_sum + 1) × 10  // fan response across tracks
   + album_likes × 5                  // direct album likes
@@ -371,8 +371,8 @@ PopBar = percentile(composite) per artist, 5 kvintiliai
       </div>
 
       <div className="overflow-x-auto rounded-lg border border-[var(--border-default)]">
-        <table className="w-full text-[14.5px]">
-          <thead className="sticky top-0 bg-[var(--bg-elevated)] text-left text-[13px] uppercase tracking-wider text-[var(--text-faint)]">
+        <table className="w-full text-[14px]">
+          <thead className="sticky top-0 bg-[var(--bg-elevated)] text-left text-[14px] uppercase tracking-wider text-[var(--text-faint)]">
             <tr>
               <th className="px-3 py-2.5">#</th>
               <th className="px-3 py-2.5">Album</th>
@@ -428,15 +428,15 @@ PopBar = percentile(composite) per artist, 5 kvintiliai
                       ))}
                     </span>
                   </td>
-                  <td className="px-2 py-2 text-right tabular-nums text-[12.5px] text-[var(--text-secondary)]">
+                  <td className="px-2 py-2 text-right tabular-nums text-[12px] text-[var(--text-secondary)]">
                     {a.composite.toFixed(1)}
                   </td>
-                  <td className="px-2 py-2 text-right tabular-nums text-[12.5px] text-[var(--text-muted)]" title={`${a.agg_views.toLocaleString('lt-LT')} views`}>
+                  <td className="px-2 py-2 text-right tabular-nums text-[12px] text-[var(--text-muted)]" title={`${a.agg_views.toLocaleString('lt-LT')} views`}>
                     {a.agg_views >= 1_000_000 ? `${(a.agg_views / 1_000_000).toFixed(1)}M` : a.agg_views >= 1_000 ? `${(a.agg_views / 1_000).toFixed(1)}k` : (a.agg_views || '—')}
                   </td>
-                  <td className="px-2 py-2 text-right tabular-nums text-[12.5px] text-[var(--text-muted)]">{a.track_score_sum || '—'}</td>
-                  <td className="px-2 py-2 text-right tabular-nums text-[12.5px] text-[var(--text-muted)]">{a.track_likes_sum || '—'}</td>
-                  <td className="px-2 py-2 text-right tabular-nums text-[12.5px] text-[var(--text-muted)]">{a.score ?? '—'}</td>
+                  <td className="px-2 py-2 text-right tabular-nums text-[12px] text-[var(--text-muted)]">{a.track_score_sum || '—'}</td>
+                  <td className="px-2 py-2 text-right tabular-nums text-[12px] text-[var(--text-muted)]">{a.track_likes_sum || '—'}</td>
+                  <td className="px-2 py-2 text-right tabular-nums text-[12px] text-[var(--text-muted)]">{a.score ?? '—'}</td>
                   <td className="px-3 py-2 text-right tabular-nums">{a.track_count || '—'}</td>
                   <td className="px-3 py-2 text-right tabular-nums">{a.singles_count || '—'}</td>
                   <td className="px-3 py-2 text-right tabular-nums">{a.lyrics_count || '—'}</td>
@@ -447,14 +447,14 @@ PopBar = percentile(composite) per artist, 5 kvintiliai
                       // eslint-disable-next-line @next/next/no-img-element
                       <img src={a.cover_image_url || ''} alt="" className="inline-block w-6 h-6 rounded object-cover" />
                     ) : (
-                      <span className="text-[var(--text-faint)] text-[13px]">×</span>
+                      <span className="text-[var(--text-faint)] text-[14px]">×</span>
                     )}
                   </td>
                   <td className="px-3 py-2 text-center" title={a.spotify_id ? `spotify_id=${a.spotify_id}` : 'null'}>
                     {hasSpotify ? (
-                      <a href={`https://open.spotify.com/album/${a.spotify_id}`} target="_blank" rel="noreferrer" className="inline-flex items-center justify-center w-5 h-5 rounded bg-emerald-500/15 text-emerald-400 text-[13px] font-bold hover:bg-emerald-500/30">✓</a>
+                      <a href={`https://open.spotify.com/album/${a.spotify_id}`} target="_blank" rel="noreferrer" className="inline-flex items-center justify-center w-5 h-5 rounded bg-emerald-500/15 text-emerald-400 text-[14px] font-bold hover:bg-emerald-500/30">✓</a>
                     ) : (
-                      <span className="text-[var(--text-faint)] text-[13px]">×</span>
+                      <span className="text-[var(--text-faint)] text-[14px]">×</span>
                     )}
                   </td>
                   <td className="px-3 py-2 text-center text-[12px] tabular-nums" title={a.legacy_id ? `music.lt legacy_id=${a.legacy_id}` : 'no music.lt mapping'}>

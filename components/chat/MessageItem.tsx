@@ -103,7 +103,7 @@ export function MessageItem({ message, viewerId, grouped, onOpenThread, onToggle
         {!grouped && (
           <div style={{ display: 'flex', alignItems: 'baseline', gap: 8, marginBottom: 2 }}>
             <span style={{ fontSize: 14, fontWeight: 700, color: 'var(--text-primary)' }}>{name}</span>
-            <span style={{ fontSize: 13, color: 'var(--text-muted)' }}>{formatHM(message.created_at)}</span>
+            <span style={{ fontSize: 14, color: 'var(--text-muted)' }}>{formatHM(message.created_at)}</span>
             {message.edited_at && (
               <span style={{ fontSize: 12, color: 'var(--text-faint, var(--text-muted))' }}>(redaguota)</span>
             )}
@@ -178,7 +178,7 @@ export function MessageItem({ message, viewerId, grouped, onOpenThread, onToggle
                   }}
                 >
                   <span style={{ fontSize: 14 }}>{r.emoji}</span>
-                  <span style={{ fontSize: 13, fontWeight: 700 }}>{r.count}</span>
+                  <span style={{ fontSize: 14, fontWeight: 700 }}>{r.count}</span>
                 </button>
               )
             })}

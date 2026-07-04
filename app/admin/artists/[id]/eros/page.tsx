@@ -222,7 +222,7 @@ export default function ErosAdminPage({ params }: { params: Promise<{ id: string
         <h1 className="text-2xl font-black text-[var(--text-primary)]">
           Eros — {artistName}
         </h1>
-        <span className="rounded-full bg-[var(--bg-elevated)] px-2 py-0.5 text-[13px] font-bold text-[var(--text-muted)]">
+        <span className="rounded-full bg-[var(--bg-elevated)] px-2 py-0.5 text-[14px] font-bold text-[var(--text-muted)]">
           {eras.length} eras
         </span>
       </div>
@@ -286,7 +286,7 @@ export default function ErosAdminPage({ params }: { params: Promise<{ id: string
           >
             <div className="mb-4 flex items-center justify-between">
               <h2 className="text-lg font-extrabold text-[var(--text-primary)]">Pridėti erą</h2>
-              <button onClick={() => setShowAddModal(false)} aria-label="Uždaryti" className="text-[18px] text-[var(--text-muted)]">✕</button>
+              <button onClick={() => setShowAddModal(false)} aria-label="Uždaryti" className="text-[20px] text-[var(--text-muted)]">✕</button>
             </div>
             <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
               <label className="sm:col-span-2">
@@ -356,9 +356,9 @@ export default function ErosAdminPage({ params }: { params: Promise<{ id: string
           >
             <div className="mb-4 flex items-center justify-between">
               <h2 className="text-lg font-extrabold text-[var(--text-primary)]">✨ Generuoti eras su Claude AI</h2>
-              <button onClick={() => !aiLoading && setShowAIModal(false)} aria-label="Uždaryti" className="text-[18px] text-[var(--text-muted)]" disabled={aiLoading}>✕</button>
+              <button onClick={() => !aiLoading && setShowAIModal(false)} aria-label="Uždaryti" className="text-[20px] text-[var(--text-muted)]" disabled={aiLoading}>✕</button>
             </div>
-            <p className="mb-3 text-[14.5px] text-[var(--text-secondary)]">
+            <p className="mb-3 text-[14px] text-[var(--text-secondary)]">
               Claude AI iš savo žinių sukurs atlikėjo karjeros laikotarpius su LT pavadinimais ir aprašymais. Atlikėjo vardas paimtas iš DB — gali jį pakeisti, jei reikia.
             </p>
             <label className="block">
@@ -373,7 +373,7 @@ export default function ErosAdminPage({ params }: { params: Promise<{ id: string
               />
             </label>
             {aiError && (
-              <div className="mt-3 max-h-[200px] overflow-auto rounded border border-red-500/30 bg-red-500/5 p-2 text-[13px] text-red-500">
+              <div className="mt-3 max-h-[200px] overflow-auto rounded border border-red-500/30 bg-red-500/5 p-2 text-[14px] text-red-500">
                 <pre className="whitespace-pre-wrap break-words font-mono">{aiError}</pre>
               </div>
             )}
@@ -385,13 +385,13 @@ export default function ErosAdminPage({ params }: { params: Promise<{ id: string
                     <div key={i} className="rounded bg-[var(--bg-elevated)] p-2 text-[14px]">
                       <div className="flex items-baseline gap-2">
                         <strong>{e.title}</strong>
-                        <span className="text-[13px] text-[var(--text-muted)]">{e.year_start}{e.year_end ? `–${e.year_end}` : '–dabar'}</span>
+                        <span className="text-[14px] text-[var(--text-muted)]">{e.year_start}{e.year_end ? `–${e.year_end}` : '–dabar'}</span>
                       </div>
                       {e.description && <div className="mt-1 text-[var(--text-secondary)]">{e.description}</div>}
                     </div>
                   ))}
                 </div>
-                <p className="mt-2 text-[13px] italic text-[var(--text-faint)]">
+                <p className="mt-2 text-[14px] italic text-[var(--text-faint)]">
                   ⚠ Pritaikius šituos rezultatus, esami eras bus pakeisti naujais (bet dar reikės paspausti „Išsaugoti" lentos lygyje).
                 </p>
               </div>
@@ -526,10 +526,10 @@ export default function ErosAdminPage({ params }: { params: Promise<{ id: string
               {(() => {
                 const inEra = albums.filter(a => a.year && a.year >= e.year_start && (e.year_end === null || a.year <= e.year_end))
                 if (inEra.length === 0) return (
-                  <div className="mt-2 text-[13px] italic text-[var(--text-faint)]">Šioj erai albumų nėra (year_start={e.year_start} / year_end={e.year_end ?? '∞'})</div>
+                  <div className="mt-2 text-[14px] italic text-[var(--text-faint)]">Šioj erai albumų nėra (year_start={e.year_start} / year_end={e.year_end ?? '∞'})</div>
                 )
                 return (
-                  <div className="mt-2 text-[13px] text-[var(--text-muted)]">
+                  <div className="mt-2 text-[14px] text-[var(--text-muted)]">
                     <strong>{inEra.length} albumai:</strong> {inEra.slice(0, 6).map(a => `${a.title} (${a.year})`).join(', ')}{inEra.length > 6 ? ` … +${inEra.length - 6}` : ''}
                   </div>
                 )

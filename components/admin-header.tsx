@@ -128,11 +128,11 @@ function TaskIndicator() {
       {open && (
         <div className="absolute top-full right-0 mt-1.5 w-80 bg-white border border-gray-200 rounded-xl shadow-2xl z-50 overflow-hidden">
           <div className="px-3.5 py-2 border-b border-gray-100 flex items-center justify-between">
-            <span className="text-[13px] font-semibold text-gray-400 uppercase tracking-wider">Procesai</span>
+            <span className="text-[14px] font-semibold text-gray-400 uppercase tracking-wider">Procesai</span>
             {discographyMinimized && (
               <button
                 onClick={() => { window.dispatchEvent(new CustomEvent('discography-reopen')); setDiscographyMinimized(false); setOpen(false) }}
-                className="text-[13px] text-violet-600 font-medium hover:underline">
+                className="text-[14px] text-violet-600 font-medium hover:underline">
                 ↑ Atidaryti langą
               </button>
             )}

@@ -60,11 +60,11 @@ export function NewListingForm({ initialType }: Props) {
   const [error, setError] = useState<string | null>(null)
 
   const inputStyle: React.CSSProperties = {
-    width: '100%', padding: '11px 14px', fontSize: 15, borderRadius: 10,
+    width: '100%', padding: '11px 14px', fontSize: 16, borderRadius: 10,
     background: 'var(--bg-elevated)', border: '1px solid var(--border-default)',
     color: 'var(--text-primary)', outline: 'none',
   }
-  const labelStyle: React.CSSProperties = { display: 'block', fontSize: 14.5, fontWeight: 700, color: 'var(--text-secondary)', marginBottom: 6 }
+  const labelStyle: React.CSSProperties = { display: 'block', fontSize: 14, fontWeight: 700, color: 'var(--text-secondary)', marginBottom: 6 }
 
   async function handleFiles(files: FileList | null) {
     if (!files || !files.length) return
@@ -148,7 +148,7 @@ export function NewListingForm({ initialType }: Props) {
         {['Tipas', 'Detalės', 'Nuotraukos', 'Peržiūra'].map((lbl, i) => (
           <div key={lbl} style={{ flex: 1, textAlign: 'center' }}>
             <div style={{ height: 4, borderRadius: 2, background: i <= step ? 'var(--accent-orange)' : 'var(--border-default)', marginBottom: 6 }} />
-            <span style={{ fontSize: 13.5, color: i <= step ? 'var(--text-secondary)' : 'var(--text-faint)', fontWeight: i === step ? 700 : 500 }}>{lbl}</span>
+            <span style={{ fontSize: 14, color: i <= step ? 'var(--text-secondary)' : 'var(--text-faint)', fontWeight: i === step ? 700 : 500 }}>{lbl}</span>
           </div>
         ))}
       </div>
@@ -160,7 +160,7 @@ export function NewListingForm({ initialType }: Props) {
       {/* 0: tipas */}
       {step === 0 && (
         <div style={{ display: 'grid', gap: 10 }}>
-          <h2 style={{ fontSize: 18, fontWeight: 800, color: 'var(--text-primary)', margin: '0 0 4px' }}>Ką nori įdėti?</h2>
+          <h2 style={{ fontSize: 20, fontWeight: 800, color: 'var(--text-primary)', margin: '0 0 4px' }}>Ką nori įdėti?</h2>
           {(['ploksteles', 'instrumentai', 'paslaugos', 'rysiai', 'kita'] as ListingType[]).map(t => {
             const m = LISTING_TYPES[t]
             return (
@@ -178,7 +178,7 @@ export function NewListingForm({ initialType }: Props) {
                 }}>{TYPE_ICON[t]}</span>
                 <span style={{ minWidth: 0 }}>
                   <strong style={{ fontSize: 16, color: 'var(--text-primary)', display: 'block' }}>{m.label}</strong>
-                  <span style={{ fontSize: 14.5, color: 'var(--text-muted)' }}>{m.subtitle}</span>
+                  <span style={{ fontSize: 14, color: 'var(--text-muted)' }}>{m.subtitle}</span>
                 </span>
                 <svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="var(--text-faint)" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" style={{ marginLeft: 'auto', flexShrink: 0 }}><polyline points="9 18 15 12 9 6" /></svg>
               </button>
@@ -190,7 +190,7 @@ export function NewListingForm({ initialType }: Props) {
       {/* 1: detalės */}
       {step === 1 && type && meta && (
         <div style={{ display: 'grid', gap: 16 }}>
-          <h2 style={{ fontSize: 18, fontWeight: 800, color: 'var(--text-primary)', margin: 0 }}>{meta.label}: detalės</h2>
+          <h2 style={{ fontSize: 20, fontWeight: 800, color: 'var(--text-primary)', margin: 0 }}>{meta.label}: detalės</h2>
 
           <div>
             <label style={labelStyle}>Pavadinimas *</label>
@@ -359,7 +359,7 @@ export function NewListingForm({ initialType }: Props) {
               {!isFree && (
                 <div style={{ display: 'flex', gap: 8, alignItems: 'center' }}>
                   <input type="number" min="0" value={price} onChange={e => setPrice(e.target.value)} placeholder="25" style={{ ...inputStyle, flex: 1 }} />
-                  <span style={{ fontSize: 15, color: 'var(--text-muted)' }}>€</span>
+                  <span style={{ fontSize: 16, color: 'var(--text-muted)' }}>€</span>
                 </div>
               )}
             </div>
@@ -389,7 +389,7 @@ export function NewListingForm({ initialType }: Props) {
       {/* 2: nuotraukos */}
       {step === 2 && (
         <div style={{ display: 'grid', gap: 16 }}>
-          <h2 style={{ fontSize: 18, fontWeight: 800, color: 'var(--text-primary)', margin: 0 }}>Nuotraukos (neprivaloma)</h2>
+          <h2 style={{ fontSize: 20, fontWeight: 800, color: 'var(--text-primary)', margin: 0 }}>Nuotraukos (neprivaloma)</h2>
           <div style={{ display: 'flex', gap: 10, flexWrap: 'wrap' }}>
             {photos.map((p, i) => (
               <div key={i} style={{ position: 'relative' }}>
@@ -422,14 +422,14 @@ export function NewListingForm({ initialType }: Props) {
       {/* 3: peržiūra */}
       {step === 3 && type && meta && (
         <div style={{ display: 'grid', gap: 16 }}>
-          <h2 style={{ fontSize: 18, fontWeight: 800, color: 'var(--text-primary)', margin: 0 }}>Peržiūra</h2>
+          <h2 style={{ fontSize: 20, fontWeight: 800, color: 'var(--text-primary)', margin: 0 }}>Peržiūra</h2>
           <div style={{ border: '1px solid var(--border-subtle)', borderRadius: 12, padding: 16 }}>
             <div style={{ fontSize: 14, fontWeight: 700, color: 'var(--accent-link)', marginBottom: 6 }}>{meta.label}</div>
-            <h3 style={{ fontSize: 18, fontWeight: 800, color: 'var(--text-primary)', margin: '0 0 8px' }}>{title}</h3>
+            <h3 style={{ fontSize: 20, fontWeight: 800, color: 'var(--text-primary)', margin: '0 0 8px' }}>{title}</h3>
             {!isFree && price && type === 'paslaugos' && <div style={{ fontWeight: 800, color: 'var(--accent-green)', marginBottom: 8 }}>{price} €/{priceUnit === 'val' ? 'val.' : priceUnit}</div>}
             {!isFree && price && SALE_TYPES.includes(type) && <div style={{ fontWeight: 800, color: 'var(--accent-green)', marginBottom: 8 }}>{price} €</div>}
             {isFree && <div style={{ fontWeight: 800, color: 'var(--accent-green)', marginBottom: 8 }}>Nemokama</div>}
-            {description && <p style={{ fontSize: 14.5, color: 'var(--text-secondary)', whiteSpace: 'pre-wrap', margin: '0 0 8px' }}>{description}</p>}
+            {description && <p style={{ fontSize: 14, color: 'var(--text-secondary)', whiteSpace: 'pre-wrap', margin: '0 0 8px' }}>{description}</p>}
             <div style={{ fontSize: 14, color: 'var(--text-muted)' }}>{[city, genre].filter(Boolean).join(' · ')}</div>
             {photos.length > 0 && (
               <div style={{ display: 'flex', gap: 6, marginTop: 10, flexWrap: 'wrap' }}>
@@ -452,10 +452,10 @@ export function NewListingForm({ initialType }: Props) {
 }
 
 const btnPrimary: React.CSSProperties = {
-  flex: 1, padding: '12px', fontSize: 15, fontWeight: 700, borderRadius: 10,
+  flex: 1, padding: '12px', fontSize: 16, fontWeight: 700, borderRadius: 10,
   background: 'var(--accent-orange)', color: '#fff', border: 'none', cursor: 'pointer',
 }
 const btnGhost: React.CSSProperties = {
-  padding: '12px 20px', fontSize: 15, fontWeight: 700, borderRadius: 10,
+  padding: '12px 20px', fontSize: 16, fontWeight: 700, borderRadius: 10,
   background: 'var(--bg-elevated)', color: 'var(--text-primary)', border: '1px solid var(--border-default)', cursor: 'pointer',
 }

@@ -237,8 +237,8 @@ function StatsCard({ trackId }: { trackId: number }) {
         <div className="min-w-0">
           <div className="flex items-baseline gap-1.5">
             <span className="text-[12px] uppercase tracking-wide font-semibold text-[var(--text-muted)]">YT Views</span>
-            {v.embeddable === false && <span className="text-[11px] text-red-600 bg-red-50 border border-red-100 px-1 rounded">embed off</span>}
-            {v.embeddable === true && <span className="text-[11px] text-green-700 bg-green-50 border border-green-100 px-1 rounded">embed ok</span>}
+            {v.embeddable === false && <span className="text-[12px] text-red-600 bg-red-50 border border-red-100 px-1 rounded">embed off</span>}
+            {v.embeddable === true && <span className="text-[12px] text-green-700 bg-green-50 border border-green-100 px-1 rounded">embed ok</span>}
           </div>
           <div className="text-lg font-bold text-[var(--text-primary)] tabular-nums leading-tight" title={v.current?.toString() || ''}>
             {v.current != null ? v.current.toLocaleString('lt-LT') : '—'}
@@ -319,7 +319,7 @@ function StatsCard({ trackId }: { trackId: number }) {
             <div className="flex items-baseline gap-2">
               <span className="text-[12px] uppercase tracking-wide font-semibold text-[var(--text-muted)]">🏆 Top chart'ai</span>
               {hasChart && cp.weeks_at_1 > 0 && (
-                <span className="text-[11px] bg-yellow-100 text-yellow-800 border border-yellow-200 px-1 rounded">{cp.weeks_at_1} sav. #1</span>
+                <span className="text-[12px] bg-yellow-100 text-yellow-800 border border-yellow-200 px-1 rounded">{cp.weeks_at_1} sav. #1</span>
               )}
               <span className="ml-auto text-[12px] text-[var(--text-faint)]">score {cp.chart_score} / 100</span>
             </div>
@@ -354,14 +354,14 @@ function StatsCard({ trackId }: { trackId: number }) {
           <div key={i} className="px-2 py-2 text-center" title={tip}>
             <div className="text-base leading-none">{icon}</div>
             <div className="text-sm font-bold text-[var(--text-primary)] tabular-nums mt-0.5">{fmtN(n)}</div>
-            <div className="text-[11px] text-[var(--text-faint)] uppercase tracking-wide leading-tight">{label}</div>
+            <div className="text-[12px] text-[var(--text-faint)] uppercase tracking-wide leading-tight">{label}</div>
           </div>
         ))}
       </div>
 
       {/* Source link → music.lt */}
       {data.sourceUrl && (
-        <div className="px-3 py-1.5 border-b border-[var(--border-subtle)] flex items-center gap-2 text-[13px]">
+        <div className="px-3 py-1.5 border-b border-[var(--border-subtle)] flex items-center gap-2 text-[14px]">
           <span className="text-[var(--text-faint)]">Senoje svetainėje:</span>
           <a
             href={data.sourceUrl}

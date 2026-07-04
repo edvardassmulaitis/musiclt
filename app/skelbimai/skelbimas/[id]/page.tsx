@@ -113,7 +113,7 @@ export default async function ListingDetail({ params }: { params: Promise<{ id: 
           {price && <div style={{ fontSize: 24, fontWeight: 900, color: 'var(--accent-green)', marginBottom: 16 }}>{price}</div>}
 
           {listing.description && (
-            <div style={{ fontSize: 15.5, lineHeight: 1.65, color: 'var(--text-secondary)', whiteSpace: 'pre-wrap', marginBottom: 24 }}>
+            <div style={{ fontSize: 16, lineHeight: 1.65, color: 'var(--text-secondary)', whiteSpace: 'pre-wrap', marginBottom: 24 }}>
               {listing.description}
             </div>
           )}
@@ -143,7 +143,7 @@ export default async function ListingDetail({ params }: { params: Promise<{ id: 
               )}
               <span style={{ minWidth: 0 }}>
                 <span style={{ display: 'block', fontSize: 14, color: 'var(--text-muted)' }}>Atlikėjas music.lt kataloge</span>
-                <span style={{ display: 'block', fontSize: 15, fontWeight: 700, color: 'var(--accent-link)' }}>{listing.artist.name} →</span>
+                <span style={{ display: 'block', fontSize: 16, fontWeight: 700, color: 'var(--accent-link)' }}>{listing.artist.name} →</span>
               </span>
             </Link>
           )}
@@ -189,7 +189,7 @@ export default async function ListingDetail({ params }: { params: Promise<{ id: 
                   ) : (
                     <span style={{ fontWeight: 700, color: 'var(--text-primary)' }}>{authorName}</span>
                   )}
-                  <div style={{ fontSize: 14.5, color: 'var(--text-faint)' }}>Įdėta {absoluteDate(listing.created_at)}</div>
+                  <div style={{ fontSize: 14, color: 'var(--text-faint)' }}>Įdėta {absoluteDate(listing.created_at)}</div>
                 </div>
               </div>
             </div>
@@ -200,7 +200,7 @@ export default async function ListingDetail({ params }: { params: Promise<{ id: 
       {/* Kiti autoriaus skelbimai */}
       {others.length > 0 && (
         <section style={{ marginTop: 40 }}>
-          <h2 style={{ fontSize: 18, fontWeight: 800, color: 'var(--text-primary)', margin: '0 0 14px' }}>Kiti šio autoriaus skelbimai</h2>
+          <h2 style={{ fontSize: 20, fontWeight: 800, color: 'var(--text-primary)', margin: '0 0 14px' }}>Kiti šio autoriaus skelbimai</h2>
           <div style={{ display: 'grid', gap: 14, gridTemplateColumns: 'repeat(auto-fill, minmax(180px, 1fr))' }}>
             {others.map(l => <ListingCard key={l.id} listing={l} />)}
           </div>

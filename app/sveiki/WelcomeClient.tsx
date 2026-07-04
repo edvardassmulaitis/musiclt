@@ -97,7 +97,7 @@ export default function WelcomeClient({
         {likedArtists.length > 0 ? (
           <section style={{ marginBottom: 36 }}>
             <div style={{ display: 'flex', alignItems: 'baseline', justifyContent: 'space-between', marginBottom: 16 }}>
-              <h2 style={{ fontFamily: 'Outfit,sans-serif', fontSize: 18, fontWeight: 800, margin: 0, color: 'var(--text-primary)' }}>Tavo mėgstami atlikėjai</h2>
+              <h2 style={{ fontFamily: 'Outfit,sans-serif', fontSize: 20, fontWeight: 800, margin: 0, color: 'var(--text-primary)' }}>Tavo mėgstami atlikėjai</h2>
               <Link href="/mano-muzika" style={{ fontSize: 14, fontWeight: 700, color: 'var(--accent-orange)', textDecoration: 'none' }}>Visa mano muzika {Ic.arrow}</Link>
             </div>
             <div style={{ display: 'flex', gap: 18, overflowX: 'auto', paddingBottom: 4 }}>
@@ -129,7 +129,7 @@ export default function WelcomeClient({
 
         {/* ═══ NAUJI FEATURE'AI ═══ */}
         <section style={{ marginBottom: 36 }}>
-          <h2 style={{ fontFamily: 'Outfit,sans-serif', fontSize: 18, fontWeight: 800, margin: '0 0 16px', color: 'var(--text-primary)' }}>Nauja music.lt — tau pritaikyta</h2>
+          <h2 style={{ fontFamily: 'Outfit,sans-serif', fontSize: 20, fontWeight: 800, margin: '0 0 16px', color: 'var(--text-primary)' }}>Nauja music.lt — tau pritaikyta</h2>
           <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(220px, 1fr))', gap: 14 }}>
             {features.map((f) => (
               <Link key={f.href} href={f.href} style={{ display: 'flex', flexDirection: 'column', gap: 9, padding: '20px 18px', borderRadius: 16, border: '1px solid rgba(249,115,22,.28)', background: 'var(--card-bg)', textDecoration: 'none' }}>
@@ -143,7 +143,7 @@ export default function WelcomeClient({
 
         {/* ═══ PAGRINDINĖS DALYS ═══ */}
         <section>
-          <h2 style={{ fontFamily: 'Outfit,sans-serif', fontSize: 18, fontWeight: 800, margin: '0 0 16px', color: 'var(--text-primary)' }}>Atrask music.lt</h2>
+          <h2 style={{ fontFamily: 'Outfit,sans-serif', fontSize: 20, fontWeight: 800, margin: '0 0 16px', color: 'var(--text-primary)' }}>Atrask music.lt</h2>
           <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(120px, 1fr))', gap: 10 }}>
             {sections.map((s) => (
               <Link key={s.href} href={s.href} style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 8, padding: '16px 10px', borderRadius: 12, border: '1px solid var(--border-default)', background: 'var(--card-bg)', textDecoration: 'none' }}>
@@ -156,7 +156,7 @@ export default function WelcomeClient({
 
         {/* ═══ CTA ═══ */}
         <div style={{ textAlign: 'center', marginTop: 40 }}>
-          <Link href="/" style={{ display: 'inline-flex', alignItems: 'center', gap: 8, padding: '14px 36px', borderRadius: 999, background: 'var(--accent-orange)', color: '#fff', fontFamily: 'Outfit,sans-serif', fontSize: 15, fontWeight: 800, textDecoration: 'none', boxShadow: '0 8px 26px rgba(249,115,22,.3)' }}>
+          <Link href="/" style={{ display: 'inline-flex', alignItems: 'center', gap: 8, padding: '14px 36px', borderRadius: 999, background: 'var(--accent-orange)', color: '#fff', fontFamily: 'Outfit,sans-serif', fontSize: 16, fontWeight: 800, textDecoration: 'none', boxShadow: '0 8px 26px rgba(249,115,22,.3)' }}>
             Eiti į svetainę {Ic.arrow}
           </Link>
         </div>

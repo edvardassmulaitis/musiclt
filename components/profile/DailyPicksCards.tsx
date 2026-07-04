@@ -112,7 +112,7 @@ export function DailyPickCard({ pick }: { pick: Pick }) {
         <div className="absolute top-1.5 left-1.5 px-1.5 py-0.5 rounded-md backdrop-blur-sm flex items-baseline gap-1"
              style={{ background: 'rgba(0,0,0,0.55)' }}>
           <span className="text-[14px] font-black leading-none text-white" style={{ fontFamily: "'Outfit', sans-serif" }}>{day}</span>
-          <span className="text-[10.5px] uppercase tracking-wider text-white/75 font-bold">{monthShort} {String(year).slice(2)}</span>
+          <span className="text-[12px] uppercase tracking-wider text-white/75 font-bold">{monthShort} {String(year).slice(2)}</span>
         </div>
 
         {/* Likes — top-right */}
@@ -134,18 +134,18 @@ export function DailyPickCard({ pick }: { pick: Pick }) {
             <p className="m-0 truncate font-['Outfit',sans-serif] text-[14px] font-extrabold text-[var(--text-primary)] transition-colors group-hover:text-[var(--accent-orange)]">
               {sanitizeTitle(track!.title)}
             </p>
-            <p className="m-0 mt-0.5 truncate text-[13.5px] text-[var(--text-muted)]">{artist?.name || 'Atlikėjas'}</p>
+            <p className="m-0 mt-0.5 truncate text-[14px] text-[var(--text-muted)]">{artist?.name || 'Atlikėjas'}</p>
           </>
         ) : (
           <>
             <p className="m-0 font-['Outfit',sans-serif] text-[12px] font-extrabold uppercase tracking-wider text-[var(--text-faint)]">
               Laukia importavimo
             </p>
-            <p className="m-0 mt-0.5 text-[13px] font-mono text-[var(--text-muted)]">music.lt #{pick.legacy_track_id}</p>
+            <p className="m-0 mt-0.5 text-[14px] font-mono text-[var(--text-muted)]">music.lt #{pick.legacy_track_id}</p>
           </>
         )}
         {pick.comment && (
-          <p className="m-0 mt-1 line-clamp-2 text-[12.5px] italic leading-snug text-[var(--text-muted)]" title={pick.comment}>
+          <p className="m-0 mt-1 line-clamp-2 text-[12px] italic leading-snug text-[var(--text-muted)]" title={pick.comment}>
             „{pick.comment}"
           </p>
         )}

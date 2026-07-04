@@ -9,7 +9,7 @@ import Link from 'next/link'
 type State = 'idle' | 'sending' | 'done' | 'error'
 
 const lbl: React.CSSProperties = {
-  display: 'block', fontFamily: "'Outfit',sans-serif", fontSize: 14.5, fontWeight: 700,
+  display: 'block', fontFamily: "'Outfit',sans-serif", fontSize: 14, fontWeight: 700,
   color: 'var(--text-secondary)', marginBottom: 6,
 }
 const field: React.CSSProperties = {
@@ -58,7 +58,7 @@ export default function RadarSubmitForm() {
         padding: '26px 24px', textAlign: 'center',
       }}>
         <div style={{ fontSize: 34, marginBottom: 6 }}>✅</div>
-        <h2 style={{ fontFamily: "'Outfit',sans-serif", fontWeight: 800, fontSize: 19, color: 'var(--text-primary)' }}>Ačiū! Gavome.</h2>
+        <h2 style={{ fontFamily: "'Outfit',sans-serif", fontWeight: 800, fontSize: 20, color: 'var(--text-primary)' }}>Ačiū! Gavome.</h2>
         <p style={{ color: 'var(--text-muted)', fontSize: 14, marginTop: 8, lineHeight: 1.55 }}>
           Peržiūrėsime pasiūlymą ir, jei tinka, įtrauksime į radarą. Tinkamiems parašysime el. paštu.
         </p>
@@ -113,10 +113,10 @@ export default function RadarSubmitForm() {
         <textarea id="message" name="message" rows={2} maxLength={1000} style={{ ...field, resize: 'vertical' }} placeholder="Pvz. ką tik išleidau singlą…" />
       </div>
 
-      {err && <div style={{ borderRadius: 10, background: 'rgba(248,113,113,0.12)', color: 'var(--accent-red)', padding: '10px 12px', fontSize: 14.5 }}>{err}</div>}
+      {err && <div style={{ borderRadius: 10, background: 'rgba(248,113,113,0.12)', color: 'var(--accent-red)', padding: '10px 12px', fontSize: 14 }}>{err}</div>}
 
       <button type="submit" disabled={state === 'sending'} style={{
-        fontFamily: "'Outfit',sans-serif", fontWeight: 700, fontSize: 15, color: '#fff',
+        fontFamily: "'Outfit',sans-serif", fontWeight: 700, fontSize: 16, color: '#fff',
         background: 'linear-gradient(92deg,var(--accent-orange),#fb923c)', border: 0,
         padding: '13px 22px', borderRadius: 12, cursor: state === 'sending' ? 'default' : 'pointer',
         opacity: state === 'sending' ? 0.6 : 1, alignSelf: 'flex-start',
@@ -124,7 +124,7 @@ export default function RadarSubmitForm() {
         {state === 'sending' ? 'Siunčiama…' : 'Pateikti radarui'}
       </button>
 
-      <p style={{ fontSize: 13.5, color: 'var(--text-faint)', lineHeight: 1.5 }}>
+      <p style={{ fontSize: 14, color: 'var(--text-faint)', lineHeight: 1.5 }}>
         Pateikdami sutinkate, kad su jumis susisieksime nurodytu el. paštu. Pateikimai peržiūrimi rankiniu būdu.
       </p>
     </form>

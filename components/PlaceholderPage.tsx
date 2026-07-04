@@ -73,7 +73,7 @@ export function PlaceholderPage({
             borderRadius: 999,
             background: `${accent}1a`,
             color: accent,
-            fontSize: 13,
+            fontSize: 14,
             fontWeight: 800,
             textTransform: 'uppercase',
             letterSpacing: '0.1em',
@@ -107,7 +107,7 @@ export function PlaceholderPage({
 
         <p
           style={{
-            fontSize: 17,
+            fontSize: 16,
             lineHeight: 1.5,
             color: 'var(--text-secondary)',
             maxWidth: 580,
@@ -168,7 +168,7 @@ export function PlaceholderPage({
               )}
               <div
                 style={{
-                  fontSize: 15,
+                  fontSize: 16,
                   fontWeight: 700,
                   color: 'var(--text-primary)',
                   marginBottom: 6,
@@ -201,7 +201,7 @@ export function PlaceholderPage({
         >
           <div
             style={{
-              fontSize: 13,
+              fontSize: 14,
               fontWeight: 800,
               textTransform: 'uppercase',
               letterSpacing: '0.1em',

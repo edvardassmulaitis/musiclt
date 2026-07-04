@@ -447,7 +447,7 @@ export function NotificationsBell() {
           <span style={{
             padding: '3px 9px', borderRadius: 10,
             background: 'rgba(249,115,22,0.15)', color: 'var(--accent-orange)',
-            fontSize: 13, fontWeight: 800,
+            fontSize: 14, fontWeight: 800,
           }}>{unread} {unread === 1 ? 'naujas' : 'naujų'}</span>
         )}
         <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
@@ -503,7 +503,7 @@ export function NotificationsBell() {
               flex: 1, padding: '12px 14px',
               border: 'none', background: 'transparent',
               cursor: 'pointer',
-              fontSize: 14.5, fontWeight: 700,
+              fontSize: 14, fontWeight: 700,
               color: active ? 'var(--text-primary)' : 'var(--text-muted)',
               borderBottom: active ? '2px solid var(--accent-orange)' : '2px solid transparent',
               transition: 'color .12s, border-color .12s',
@@ -515,7 +515,7 @@ export function NotificationsBell() {
               <span style={{
                 minWidth: 16, height: 16, padding: '0 4px',
                 borderRadius: 8, background: 'var(--accent-orange)', color: '#fff',
-                fontSize: 11, fontWeight: 800,
+                fontSize: 12, fontWeight: 800,
                 display: 'inline-flex', alignItems: 'center', justifyContent: 'center',
                 lineHeight: 1,
               }}>
@@ -659,7 +659,7 @@ export function NotificationsBell() {
           {/* Body */}
           <div style={{ flex: 1, minWidth: 0 }}>
             <div style={{
-              fontSize: 14.5, fontWeight: unreadRow ? 700 : 500,
+              fontSize: 14, fontWeight: unreadRow ? 700 : 500,
               color: 'var(--text-primary)', lineHeight: 1.35, marginBottom: 2,
             }}>
               {defaultTitle(n)}
@@ -675,7 +675,7 @@ export function NotificationsBell() {
               </div>
             )}
             {!isGuest && (
-              <div style={{ fontSize: 13, color: 'var(--text-muted)' }}>
+              <div style={{ fontSize: 14, color: 'var(--text-muted)' }}>
                 {relTime(n.created_at)}
               </div>
             )}
@@ -849,7 +849,7 @@ export function NotificationsBell() {
               overflow: 'hidden', textOverflow: 'ellipsis',
               display: '-webkit-box', WebkitLineClamp: 2, WebkitBoxOrient: 'vertical',
             }}>{text}</div>
-            <div style={{ fontSize: 13, color: 'var(--text-muted)' }}>{relTime(ev.created_at)}</div>
+            <div style={{ fontSize: 14, color: 'var(--text-muted)' }}>{relTime(ev.created_at)}</div>
           </div>
         </div>
       )

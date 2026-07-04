@@ -171,7 +171,7 @@ export function ProfileAboutContent({
                   <>
                     <span style={{ color: 'var(--text-faint)' }}>·</span>
                     <span
-                      className="text-[11px] font-bold uppercase tracking-wider rounded-full px-2 py-0.5"
+                      className="text-[12px] font-bold uppercase tracking-wider rounded-full px-2 py-0.5"
                       style={{
                         color: 'var(--text-muted)',
                         background: 'var(--card-bg)',
@@ -235,7 +235,7 @@ export function ProfileAboutContent({
                        style={{ borderTop: i > 0 ? '1px dashed var(--border-subtle)' : 'none' }}>
                     <span className="flex-shrink-0 w-[92px] text-[12px] uppercase tracking-wider font-extrabold"
                           style={{ color: 'var(--text-muted)', fontFamily: "'Outfit', sans-serif" }}>{k}</span>
-                    <span className="text-[14.5px] font-semibold"
+                    <span className="text-[14px] font-semibold"
                           style={{ color: 'var(--text-primary)', fontFamily: "'Outfit', sans-serif" }}>{v}</span>
                   </div>
                 ))}
@@ -359,11 +359,11 @@ function StatBox({ label, value, compact = false }: { label: string; value: stri
         border: '1px solid var(--border-subtle)',
       }}
     >
-      <div className={`${compact ? 'text-[15px] mb-0.5' : 'text-lg mb-1'} font-black leading-none`}
+      <div className={`${compact ? 'text-[16px] mb-0.5' : 'text-lg mb-1'} font-black leading-none`}
            style={{ color: 'var(--text-primary)', fontFamily: "'Outfit', sans-serif" }}>
         {value}
       </div>
-      <div className={`${compact ? 'text-[11px]' : 'text-[12px]'} uppercase tracking-wider font-bold leading-tight`}
+      <div className={`${compact ? 'text-[12px]' : 'text-[12px]'} uppercase tracking-wider font-bold leading-tight`}
            style={{ color: 'var(--text-muted)', fontFamily: "'Outfit', sans-serif" }}>
         {label}
       </div>

@@ -669,19 +669,19 @@ export default function TopChartView({
           box-shadow: 0 14px 32px rgba(0,0,0,0.18);
           z-index: 20;
         }
-        .tcv-info-popover h4 { margin: 0 0 6px; font-size: 13px; font-weight: 800; color: var(--text-primary); letter-spacing: -0.01em; }
-        .tcv-info-popover p { margin: 0 0 10px; font-size: 11px; color: var(--text-muted); line-height: 1.45; }
+        .tcv-info-popover h4 { margin: 0 0 6px; font-size: 14px; font-weight: 800; color: var(--text-primary); letter-spacing: -0.01em; }
+        .tcv-info-popover p { margin: 0 0 10px; font-size: 12px; color: var(--text-muted); line-height: 1.45; }
         .tcv-info-popover ul { margin: 0 0 10px; padding-left: 16px; }
-        .tcv-info-popover li { font-size: 11px; color: var(--text-secondary); line-height: 1.5; margin-bottom: 4px; }
+        .tcv-info-popover li { font-size: 12px; color: var(--text-secondary); line-height: 1.5; margin-bottom: 4px; }
         .tcv-info-popover li strong { color: var(--text-primary); }
         .tcv-info-countdown {
           display: flex; flex-direction: column; gap: 2px;
           background: ${accent.rgb}; border: 1px solid ${accent.hex}33;
           border-radius: 8px; padding: 8px 10px; margin: 0 0 10px;
         }
-        .tcv-info-countdown-label { font-size: 9px; font-weight: 700; letter-spacing: 0.06em; text-transform: uppercase; color: var(--text-muted); }
+        .tcv-info-countdown-label { font-size: 12px; font-weight: 700; letter-spacing: 0.06em; text-transform: uppercase; color: var(--text-muted); }
         .tcv-info-countdown-value { font-size: 14px; font-weight: 800; color: ${accent.hex}; font-variant-numeric: tabular-nums; }
-        .tcv-info-sibling { display: inline-block; font-size: 11px; font-weight: 700; color: ${accent.hex}; text-decoration: none; padding-top: 6px; border-top: 1px solid var(--border-subtle); width: 100%; }
+        .tcv-info-sibling { display: inline-block; font-size: 12px; font-weight: 700; color: ${accent.hex}; text-decoration: none; padding-top: 6px; border-top: 1px solid var(--border-subtle); width: 100%; }
 
         /* Status bar */
         .tcv-status {
@@ -697,7 +697,7 @@ export default function TopChartView({
           display: inline-flex; align-items: center; gap: 5px;
           padding: 4px 10px; border-radius: 999px;
           background: ${accent.rgb}; color: ${accent.hex};
-          font-size: 11px; font-weight: 700;
+          font-size: 12px; font-weight: 700;
           border: 1px solid ${accent.rgb};
         }
         .tcv-votes-left { font-size: 12px; }
@@ -719,7 +719,7 @@ export default function TopChartView({
         }
         .tcv-fallback-note svg { flex-shrink: 0; color: ${accent.hex}; }
         .tcv-fallback-note strong { color: var(--text-primary); font-weight: 700; }
-        .tcv-back-link { display: inline-block; margin-bottom: 12px; font-size: 13px; font-weight: 600; color: var(--text-muted); text-decoration: none; transition: color 0.15s; }
+        .tcv-back-link { display: inline-block; margin-bottom: 12px; font-size: 14px; font-weight: 600; color: var(--text-muted); text-decoration: none; transition: color 0.15s; }
         .tcv-back-link:hover { color: var(--text-primary); }
 
         /* Body — mobile-first flex column. Mobile order: player → list → newcomers */
@@ -770,7 +770,7 @@ export default function TopChartView({
           /* Hero: row layout — title on left, action icons on right */
           .tcv-hero { flex-direction: row; align-items: center; justify-content: space-between; gap: 10px; margin-bottom: 10px; flex-wrap: nowrap; }
           .tcv-hero-left { flex: 1 1 auto; min-width: 0; }
-          .tcv-badge { font-size: 9px; padding: 3px 7px; }
+          .tcv-badge { font-size: 12px; padding: 3px 7px; }
           .tcv-title { font-size: 22px; line-height: 1; }
           .tcv-sub { display: none; }
           .tcv-hero-right { flex: 0 0 auto; flex-direction: row; align-items: center; gap: 6px; }
@@ -778,14 +778,14 @@ export default function TopChartView({
           .tcv-suggest-btn { padding: 7px 9px; }
           .tcv-suggest-label { display: none; }
           /* Sibling link: tiny */
-          .tcv-sibling-link { font-size: 10px; padding: 5px 8px; white-space: nowrap; }
+          .tcv-sibling-link { font-size: 12px; padding: 5px 8px; white-space: nowrap; }
 
           /* Status bar: tight, single row, no divider lines */
           .tcv-status { padding: 7px 10px; gap: 8px; flex-wrap: wrap; margin-bottom: 10px; }
           .tcv-status-divider { display: none; }
-          .tcv-status-item { font-size: 11px; gap: 4px; }
-          .tcv-countdown-pill { padding: 3px 7px; font-size: 10px; }
-          .tcv-guest-bar { padding: 7px 10px; font-size: 11px; margin-bottom: 10px; }
+          .tcv-status-item { font-size: 12px; gap: 4px; }
+          .tcv-countdown-pill { padding: 3px 7px; font-size: 12px; }
+          .tcv-guest-bar { padding: 7px 10px; font-size: 12px; margin-bottom: 10px; }
 
           /* MOBILE: flatten right-col, naudojam order'ius kad surikiuoti DOM:
              player → list → newcomers → iškritę → siūlyk → archyvas. Player
@@ -827,31 +827,31 @@ export default function TopChartView({
           .tcv-newcomer-row { padding: 5px 6px; gap: 8px; }
           .tcv-newcomer-cover { width: 30px; height: 30px; border-radius: 6px; }
           .tcv-newcomer-title { font-size: 12px; }
-          .tcv-newcomer-artist { font-size: 10px; }
+          .tcv-newcomer-artist { font-size: 12px; }
 
           /* Pagrindinė lentelė: tight rows */
           .tcv-list { border-radius: 12px; }
           .tcv-row { gap: 7px; padding: 7px 9px; }
           .tcv-cover { width: 32px; height: 32px; border-radius: 6px; }
-          .tcv-pos { width: 20px; font-size: 13px; }
-          .tcv-pos.top { font-size: 15px; }
+          .tcv-pos { width: 20px; font-size: 14px; }
+          .tcv-pos.top { font-size: 16px; }
           .tcv-trend { width: 22px; }
-          .tcv-up, .tcv-down { font-size: 10px; }
+          .tcv-up, .tcv-down { font-size: 12px; }
           .tcv-new { width: 7px; height: 7px; }
           .tcv-track-title { font-size: 12px; }
-          .tcv-artist { font-size: 10px; }
+          .tcv-artist { font-size: 12px; }
           .tcv-weeks-progress { gap: 1px; }
           .tcv-week-dot { width: 3px; height: 2px; border-radius: 1px; }
           .tcv-spotify-icon { display: none; }
-          .tcv-vote-btn { padding: 5px 8px; font-size: 11px; gap: 4px; }
+          .tcv-vote-btn { padding: 5px 8px; font-size: 12px; gap: 4px; }
           .tcv-vote-label { display: none; }
-          .tcv-vote-mine { font-size: 10px; }
+          .tcv-vote-mine { font-size: 12px; }
 
           /* Below-top dashed wrap'as compact */
           .tcv-list-below { padding: 4px; }
           .tcv-section-header { gap: 8px; }
-          .tcv-section-label { font-size: 10px; }
-          .tcv-section-hint { font-size: 10px; }
+          .tcv-section-label { font-size: 12px; }
+          .tcv-section-hint { font-size: 12px; }
         }
 
         /* ───────── ULTRA SMALL (< 400px) — telpa visus iPhone'us ───────── */
@@ -886,7 +886,7 @@ export default function TopChartView({
           width: 32px; flex-shrink: 0; gap: 1px;
         }
         .tcv-pos {
-          font-weight: 900; font-size: 17px; color: var(--text-muted);
+          font-weight: 900; font-size: 16px; color: var(--text-muted);
           font-variant-numeric: tabular-nums; line-height: 1;
         }
         .tcv-pos.top { color: ${accent.hex}; font-size: 20px; }
@@ -895,9 +895,9 @@ export default function TopChartView({
         }
         /* NEW → žalias taškas (consistent su radaro feature). */
         .tcv-new { display: inline-block; width: 8px; height: 8px; padding: 0; border-radius: 50%; background: var(--accent-green); box-shadow: 0 0 0 3px color-mix(in srgb, var(--accent-green) 22%, transparent); }
-        .tcv-up { font-size: 11px; font-weight: 800; color: #10b981; }
-        .tcv-down { font-size: 11px; font-weight: 800; color: #ef4444; }
-        .tcv-same { font-size: 13px; color: var(--text-muted); }
+        .tcv-up { font-size: 12px; font-weight: 800; color: #10b981; }
+        .tcv-down { font-size: 12px; font-weight: 800; color: #ef4444; }
+        .tcv-same { font-size: 14px; color: var(--text-muted); }
 
         .tcv-cover {
           width: 44px; height: 44px; border-radius: 8px; overflow: hidden;
@@ -909,7 +909,7 @@ export default function TopChartView({
 
         .tcv-info { flex: 1; min-width: 0; display: flex; flex-direction: column; gap: 2px; }
         /* Artist FIRST (mažas, mute), Title SECOND (didelis), Progress THIRD */
-        .tcv-row-artist { font-size: 11px; color: var(--text-muted); font-weight: 500; text-decoration: none; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; line-height: 1.2; }
+        .tcv-row-artist { font-size: 12px; color: var(--text-muted); font-weight: 500; text-decoration: none; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; line-height: 1.2; }
         .tcv-row-artist:hover { color: ${accent.hex}; }
         .tcv-row-title { margin: 0; font-size: 14px; font-weight: 700; color: var(--text-primary); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; line-height: 1.25; }
 
@@ -948,11 +948,11 @@ export default function TopChartView({
         }
         .tcv-vote-btn.disabled { opacity: 0.4; cursor: not-allowed; }
         .tcv-vote-count {
-          font-weight: 900; font-size: 13px; min-width: 12px; text-align: center;
+          font-weight: 900; font-size: 14px; min-width: 12px; text-align: center;
           font-variant-numeric: tabular-nums;
         }
         .tcv-vote-mine {
-          font-weight: 800; font-size: 11px; min-width: 10px; text-align: center;
+          font-weight: 800; font-size: 12px; min-width: 10px; text-align: center;
           font-variant-numeric: tabular-nums; opacity: 0.85;
         }
         .tcv-vote-btn.boosting {
@@ -966,7 +966,7 @@ export default function TopChartView({
         }
         .tcv-vote-btn.maxed { opacity: 0.5; cursor: not-allowed; }
         .tcv-vote-btn.maxed:hover { background: var(--bg-elevated); border-color: var(--border-subtle); color: var(--text-secondary); }
-        .tcv-vote-err { position: absolute; bottom: calc(100% + 6px); right: 0; padding: 5px 10px; background: #fee2e2; color: #991b1b; font-size: 11px; border-radius: 6px; white-space: nowrap; z-index: 10; }
+        .tcv-vote-err { position: absolute; bottom: calc(100% + 6px); right: 0; padding: 5px 10px; background: #fee2e2; color: #991b1b; font-size: 12px; border-radius: 6px; white-space: nowrap; z-index: 10; }
         .tcv-vote-burst {
           position: absolute; bottom: 100%; left: 50%; transform: translateX(-50%);
           font-size: 14px; font-weight: 900; pointer-events: none;
@@ -980,7 +980,7 @@ export default function TopChartView({
         }
         .tcv-spinner { width: 11px; height: 11px; border: 1.5px solid currentColor; border-top-color: transparent; border-radius: 50%; animation: tcv-spin 0.6s linear infinite; }
         @keyframes tcv-spin { to { transform: rotate(360deg) } }
-        .tcv-vote-label { display: inline; font-size: 11px; }
+        .tcv-vote-label { display: inline; font-size: 12px; }
         @media (max-width: 520px) { .tcv-vote-label { display: none; } .tcv-votes-cell { display: none; } }
 
         /* tcv-sticky deprecated kaip standalone sticky — sticky'ina visa
@@ -1008,7 +1008,7 @@ export default function TopChartView({
           flex-shrink: 0; display: inline-flex; align-items: center; gap: 6px;
           padding: 7px 14px; border-radius: 999px; border: none; cursor: pointer;
           background: ${accent.hex}; color: #fff;
-          font-family: 'Outfit', sans-serif; font-size: 13px; font-weight: 800;
+          font-family: 'Outfit', sans-serif; font-size: 14px; font-weight: 800;
           box-shadow: 0 4px 12px ${accent.rgb}; transition: transform 0.12s, filter 0.15s;
         }
         .tcv-vote-cta:hover { transform: translateY(-1px); filter: brightness(1.06); }
@@ -1016,7 +1016,7 @@ export default function TopChartView({
 
         /* Apatinis info pranešimas + taisyklių countdown */
         .tcv-fallback-bottom { margin: 22px 0 0; }
-        .tcv-rules-countdown { margin: -8px 0 16px; font-size: 13px; color: var(--text-secondary); }
+        .tcv-rules-countdown { margin: -8px 0 16px; font-size: 14px; color: var(--text-secondary); }
         .tcv-rules-countdown strong { color: ${accent.hex}; font-variant-numeric: tabular-nums; }
 
         /* Player kortelė: švarus header'is (vėliava + title + veiksmai) VIRŠ
@@ -1028,18 +1028,18 @@ export default function TopChartView({
         .tcv-pflag-globe { display: inline-flex; align-items: center; justify-content: center; background: var(--bg-elevated); color: var(--text-muted); }
         .tcv-phead-txt { flex: 1; min-width: 0; display: flex; flex-direction: column; gap: 1px; }
         .tcv-h1 { margin: 0; min-width: 0; font-family: 'Outfit', sans-serif; font-size: 16px; font-weight: 800; letter-spacing: -0.015em; line-height: 1.2; color: var(--text-primary); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
-        .tcv-now { font-size: 11.5px; font-weight: 600; color: ${accent.hex}; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+        .tcv-now { font-size: 12px; font-weight: 600; color: ${accent.hex}; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
         .tcv-phead-actions { display: flex; align-items: center; gap: 6px; flex-shrink: 0; }
 
         .tcv-player-info { padding: 16px 18px; }
         .tcv-player-pos { display: flex; align-items: center; gap: 10px; margin-bottom: 6px; }
         .tcv-pos-num { font-size: 14px; font-weight: 900; }
-        .tcv-player-title { margin: 0 0 4px; font-size: 18px; font-weight: 800; letter-spacing: -0.015em; line-height: 1.2; color: var(--text-primary); }
-        .tcv-player-artist { font-size: 13px; color: var(--text-secondary); text-decoration: none; font-weight: 600; display: block; margin-bottom: 12px; }
+        .tcv-player-title { margin: 0 0 4px; font-size: 20px; font-weight: 800; letter-spacing: -0.015em; line-height: 1.2; color: var(--text-primary); }
+        .tcv-player-artist { font-size: 14px; color: var(--text-secondary); text-decoration: none; font-weight: 600; display: block; margin-bottom: 12px; }
         .tcv-player-artist:hover { color: ${accent.hex}; }
         .tcv-player-meta { display: flex; gap: 8px; flex-wrap: wrap; margin-bottom: 14px; }
         .tcv-player-meta span {
-          font-size: 11px; color: var(--text-secondary);
+          font-size: 12px; color: var(--text-secondary);
           background: var(--bg-elevated); padding: 4px 9px; border-radius: 6px;
           border: 1px solid var(--border-subtle); font-weight: 600;
         }
@@ -1059,10 +1059,10 @@ export default function TopChartView({
           border-radius: 14px;
         }
         .tcv-empty-title { font-size: 22px; font-weight: 800; color: var(--text-secondary); margin: 0 0 8px; letter-spacing: -0.015em; }
-        .tcv-empty-sub { font-size: 13px; color: var(--text-muted); margin: 0 0 18px; }
+        .tcv-empty-sub { font-size: 14px; color: var(--text-muted); margin: 0 0 18px; }
         .tcv-btn-primary {
           padding: 10px 22px; background: ${accent.hex}; color: #fff; border: none;
-          border-radius: 10px; font-weight: 700; font-size: 13px; cursor: pointer;
+          border-radius: 10px; font-weight: 700; font-size: 14px; cursor: pointer;
           transition: filter 0.15s;
         }
         .tcv-btn-primary:hover { filter: brightness(1.06); }
@@ -1071,7 +1071,7 @@ export default function TopChartView({
         .tcv-modal-bg { position: fixed; inset: 0; z-index: 50; display: flex; align-items: center; justify-content: center; padding: 16px; background: rgba(0,0,0,0.5); backdrop-filter: blur(8px); }
         .tcv-modal { width: 100%; max-width: 460px; border-radius: 18px; background: var(--bg-surface); border: 1px solid var(--border-subtle); overflow: hidden; box-shadow: 0 30px 80px rgba(0,0,0,0.25); }
         .tcv-modal-head { display: flex; align-items: center; justify-content: space-between; padding: 16px 20px; border-bottom: 1px solid var(--border-subtle); font-size: 16px; font-weight: 800; color: var(--text-primary); }
-        .tcv-modal-close { background: none; border: none; color: var(--text-muted); cursor: pointer; font-size: 18px; padding: 2px 6px; border-radius: 6px; }
+        .tcv-modal-close { background: none; border: none; color: var(--text-muted); cursor: pointer; font-size: 20px; padding: 2px 6px; border-radius: 6px; }
         .tcv-modal-close:hover { background: var(--bg-hover); color: var(--text-primary); }
         .tcv-modal-body { padding: 18px; display: flex; flex-direction: column; gap: 14px; }
         .tcv-modal-error {
@@ -1083,8 +1083,8 @@ export default function TopChartView({
           font-size: 12px; font-weight: 600; line-height: 1.4;
         }
         .tcv-modal-sent { padding: 36px 20px; text-align: center; }
-        .tcv-sent-title { font-size: 18px; font-weight: 800; color: var(--text-primary); margin: 0 0 6px; }
-        .tcv-sent-sub { font-size: 13px; color: var(--text-muted); margin: 0 0 20px; }
+        .tcv-sent-title { font-size: 20px; font-weight: 800; color: var(--text-primary); margin: 0 0 6px; }
+        .tcv-sent-sub { font-size: 14px; color: var(--text-muted); margin: 0 0 20px; }
 
         .tcv-mode-tabs { display: flex; gap: 6px; }
         .tcv-mode-tab { padding: 6px 14px; border-radius: 999px; font-size: 12px; font-weight: 700; cursor: pointer; border: 1px solid var(--border-subtle); background: var(--bg-elevated); color: var(--text-muted); transition: all 0.15s; }
@@ -1121,14 +1121,14 @@ export default function TopChartView({
           padding: 0 4px; margin-top: 8px;
         }
         .tcv-section-label {
-          font-size: 11px; font-weight: 800; letter-spacing: 0.06em; text-transform: uppercase;
+          font-size: 12px; font-weight: 800; letter-spacing: 0.06em; text-transform: uppercase;
           color: var(--text-muted);
         }
-        .tcv-section-hint { font-size: 11px; color: var(--text-muted); margin: 0; }
+        .tcv-section-hint { font-size: 12px; color: var(--text-muted); margin: 0; }
 
         .tcv-empty-inline {
           padding: 32px 16px; text-align: center; color: var(--text-muted);
-          font-size: 13px;
+          font-size: 14px;
         }
 
         /* Newcomers panel — pominapintai, su vote mygtukais (švelnesnis stilius) */
@@ -1146,10 +1146,10 @@ export default function TopChartView({
         }
         .tcv-newcomers-head { display: flex; align-items: baseline; gap: 8px; margin-bottom: 10px; flex-wrap: wrap; }
         .tcv-newcomers-title {
-          font-size: 13px; font-weight: 800; letter-spacing: 0.04em; text-transform: uppercase;
+          font-size: 14px; font-weight: 800; letter-spacing: 0.04em; text-transform: uppercase;
           color: ${accent.hex};
         }
-        .tcv-newcomers-sub { font-size: 11px; color: var(--text-muted); }
+        .tcv-newcomers-sub { font-size: 12px; color: var(--text-muted); }
         .tcv-newcomers-list { display: flex; flex-direction: column; gap: 4px; }
         .tcv-newcomer-row {
           display: flex; align-items: center; gap: 10px;
@@ -1166,10 +1166,10 @@ export default function TopChartView({
         }
         .tcv-newcomer-cover img { width: 100%; height: 100%; object-fit: cover; }
         .tcv-newcomer-info { flex: 1; min-width: 0; }
-        .tcv-newcomer-title { margin: 0; font-size: 13px; font-weight: 700; color: var(--text-primary); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
-        .tcv-newcomer-artist { margin: 1px 0 0; font-size: 11px; color: var(--text-muted); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+        .tcv-newcomer-title { margin: 0; font-size: 14px; font-weight: 700; color: var(--text-primary); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+        .tcv-newcomer-artist { margin: 1px 0 0; font-size: 12px; color: var(--text-muted); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
         .tcv-newcomer-counter {
-          font-size: 9px; font-weight: 800; letter-spacing: 0.04em;
+          font-size: 12px; font-weight: 800; letter-spacing: 0.04em;
           padding: 2px 6px; border-radius: 5px;
           background: var(--bg-elevated); color: var(--text-muted);
           border: 1px solid var(--border-subtle); flex-shrink: 0;
@@ -1183,8 +1183,8 @@ export default function TopChartView({
           border-radius: 14px; padding: 14px;
         }
         .tcv-side-head { display: flex; align-items: baseline; gap: 8px; margin-bottom: 10px; flex-wrap: wrap; }
-        .tcv-side-title { font-size: 13px; font-weight: 800; letter-spacing: 0.04em; text-transform: uppercase; color: var(--text-secondary); }
-        .tcv-side-sub { font-size: 11px; color: var(--text-muted); }
+        .tcv-side-title { font-size: 14px; font-weight: 800; letter-spacing: 0.04em; text-transform: uppercase; color: var(--text-secondary); }
+        .tcv-side-sub { font-size: 12px; color: var(--text-muted); }
         .tcv-side-list { display: flex; flex-direction: column; gap: 4px; }
         .tcv-belowtop-panel .tcv-newcomer-row { opacity: 0.85; }
         .tcv-belowtop-panel .tcv-newcomer-title { color: var(--text-secondary); }
@@ -1210,13 +1210,13 @@ export default function TopChartView({
         }
         .tcv-side-cta-icon-muted { background: var(--bg-elevated); color: var(--text-muted); }
         .tcv-side-cta-text { flex: 1; min-width: 0; display: flex; flex-direction: column; gap: 1px; }
-        .tcv-side-cta-text strong { font-size: 13px; font-weight: 800; color: var(--text-primary); }
-        .tcv-side-cta-text span { font-size: 11px; color: var(--text-muted); line-height: 1.35; }
+        .tcv-side-cta-text strong { font-size: 14px; font-weight: 800; color: var(--text-primary); }
+        .tcv-side-cta-text span { font-size: 12px; color: var(--text-muted); line-height: 1.35; }
         .tcv-side-cta-arrow { color: var(--text-muted); flex-shrink: 0; }
 
         /* Topo taisyklės sekcija — page bottom */
         .tcv-rules { margin-top: 32px; padding-top: 24px; border-top: 1px solid var(--border-subtle); }
-        .tcv-rules-title { margin: 0 0 16px; font-size: 18px; font-weight: 800; color: var(--text-primary); letter-spacing: -0.02em; }
+        .tcv-rules-title { margin: 0 0 16px; font-size: 20px; font-weight: 800; color: var(--text-primary); letter-spacing: -0.02em; }
         .tcv-rules-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(240px, 1fr)); gap: 12px; }
         .tcv-rule-card {
           display: flex; gap: 12px; padding: 14px;
@@ -1226,14 +1226,14 @@ export default function TopChartView({
         }
         .tcv-rule-num {
           flex-shrink: 0; width: 28px; height: 28px; border-radius: 8px;
-          color: white; font-weight: 800; font-size: 13px;
+          color: white; font-weight: 800; font-size: 14px;
           display: flex; align-items: center; justify-content: center;
         }
-        .tcv-rule-card h3 { margin: 0 0 4px; font-size: 13px; font-weight: 800; color: var(--text-primary); }
+        .tcv-rule-card h3 { margin: 0 0 4px; font-size: 14px; font-weight: 800; color: var(--text-primary); }
         .tcv-rule-card p { margin: 0; font-size: 12px; color: var(--text-muted); line-height: 1.5; }
         .tcv-rule-card p strong { color: var(--text-primary); font-weight: 700; }
         .tcv-info-link-hint {
-          margin: 0; font-size: 10px; color: var(--text-muted);
+          margin: 0; font-size: 12px; color: var(--text-muted);
           font-style: italic; line-height: 1.4;
         }
 
@@ -1245,7 +1245,7 @@ export default function TopChartView({
         }
         .tcv-suggestions-head {
           display: flex; align-items: center; gap: 7px;
-          font-size: 11px; font-weight: 800; letter-spacing: 0.05em; text-transform: uppercase;
+          font-size: 12px; font-weight: 800; letter-spacing: 0.05em; text-transform: uppercase;
           color: var(--text-muted); margin-bottom: 10px;
         }
         .tcv-suggestions-head svg { color: ${accent.hex}; }
@@ -1262,23 +1262,23 @@ export default function TopChartView({
         }
         .tcv-suggestion-info { flex: 1; min-width: 0; }
         .tcv-suggestion-title { margin: 0; font-size: 12px; font-weight: 700; color: var(--text-primary); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
-        .tcv-suggestion-artist { margin: 1px 0 0; font-size: 10px; color: var(--text-muted); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+        .tcv-suggestion-artist { margin: 1px 0 0; font-size: 12px; color: var(--text-muted); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
         .tcv-suggestion-counter {
-          font-size: 9px; font-weight: 800; padding: 2px 5px; border-radius: 4px;
+          font-size: 12px; font-weight: 800; padding: 2px 5px; border-radius: 4px;
           background: var(--bg-elevated); color: var(--text-muted);
           border: 1px solid var(--border-subtle); flex-shrink: 0;
           font-variant-numeric: tabular-nums;
         }
-        .tcv-suggestions-more { margin: 8px 0 0; font-size: 10px; color: var(--text-muted); text-align: center; }
+        .tcv-suggestions-more { margin: 8px 0 0; font-size: 12px; color: var(--text-muted); text-align: center; }
 
         .tcv-results { margin-top: 8px; display: flex; flex-direction: column; gap: 4px; }
         .tcv-result-row { display: flex; align-items: center; gap: 10px; padding: 8px 10px; background: var(--bg-elevated); border: 1px solid var(--border-subtle); border-radius: 10px; cursor: pointer; transition: background 0.15s; width: 100%; }
         .tcv-result-row:hover { background: var(--bg-hover); }
         .tcv-result-cover { width: 32px; height: 32px; border-radius: 6px; background: var(--bg-surface); display: flex; align-items: center; justify-content: center; font-size: 12px; flex-shrink: 0; overflow: hidden; color: var(--text-muted); }
         .tcv-result-cover img { width: 100%; height: 100%; object-fit: cover; }
-        .tcv-result-title { font-size: 13px; font-weight: 700; color: var(--text-primary); margin: 0 0 1px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
-        .tcv-result-artist { font-size: 11px; color: var(--text-muted); margin: 0; }
-        .tcv-result-cta { font-size: 11px; font-weight: 800; color: ${accent.hex}; flex-shrink: 0; }
+        .tcv-result-title { font-size: 14px; font-weight: 700; color: var(--text-primary); margin: 0 0 1px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+        .tcv-result-artist { font-size: 12px; color: var(--text-muted); margin: 0; }
+        .tcv-result-cta { font-size: 12px; font-weight: 800; color: ${accent.hex}; flex-shrink: 0; }
         .tcv-manual { display: flex; flex-direction: column; gap: 8px; }
       `}</style>
 

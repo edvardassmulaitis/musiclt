@@ -427,7 +427,7 @@ function ReportBlock({ report, completedAt }: { report: any; completedAt: string
           <summary className="px-3 py-2 text-xs font-semibold text-[var(--text-muted)] cursor-pointer">
             Raw scraper output (last lines)
           </summary>
-          <pre className="px-3 pb-3 text-[13px] font-mono whitespace-pre-wrap break-words text-[var(--text-secondary)]">
+          <pre className="px-3 pb-3 text-[14px] font-mono whitespace-pre-wrap break-words text-[var(--text-secondary)]">
             {report.last_lines}
           </pre>
         </details>
@@ -453,7 +453,7 @@ function YtEnrichCard({ data }: { data: any }) {
           {data.status ? `HTTP ${data.status}: ` : ''}{data.body || data.exception || 'unknown'}
         </div>
         {data.status === 401 && (
-          <div className="mt-2 text-[13px] text-red-700 bg-red-100 px-2 py-1 rounded">
+          <div className="mt-2 text-[14px] text-red-700 bg-red-100 px-2 py-1 rounded">
             Tikriausiai INTERNAL_API_SECRET nesutampa tarp Vercel ir Mac worker'io. Patikrink Vercel env vars.
           </div>
         )}

@@ -238,7 +238,7 @@ export default function AdminEventEditPage() {
               <label className={labelCls}>
                 Vieta {isAbroad ? '' : '*'}
                 {venueId && (
-                  <span className="ml-2 inline-flex items-center gap-1 px-1.5 py-0.5 text-[11px] font-black uppercase rounded-full bg-emerald-50 text-emerald-700 border border-emerald-200">
+                  <span className="ml-2 inline-flex items-center gap-1 px-1.5 py-0.5 text-[12px] font-black uppercase rounded-full bg-emerald-50 text-emerald-700 border border-emerald-200">
                     🔗 Susieta
                   </span>
                 )}
@@ -348,7 +348,7 @@ export default function AdminEventEditPage() {
                   className="w-full rounded-lg px-3 py-2 text-sm border border-orange-200 bg-[var(--bg-surface)] focus:outline-none focus:border-orange-300 text-[var(--text-primary)] resize-y"
                   placeholder="Pvz. vienintelis turo koncertas regione, pigus skrydis iš VNO..." />
               </div>
-              <p className="text-[13px] text-orange-700/80">Vieta nebūtina — užsienio koncertams pildoma laisvu tekstu. Festivaliui pridėk grojančius atlikėjus žemiau.</p>
+              <p className="text-[14px] text-orange-700/80">Vieta nebūtina — užsienio koncertams pildoma laisvu tekstu. Festivaliui pridėk grojančius atlikėjus žemiau.</p>
             </div>
           )}
 
@@ -412,7 +412,7 @@ export default function AdminEventEditPage() {
                       className="text-gray-300 hover:text-red-500 text-xs transition flex-shrink-0 w-6 h-6 flex items-center justify-center">✕</button>
                   </div>
                 ))}
-                <p className="text-[13px] text-[var(--text-muted)] pt-1">Tempk ⠿ kad pertvarkytum eiliškumą — pirmi atlikėjai ir headlineriai naudojami homepage collage.</p>
+                <p className="text-[14px] text-[var(--text-muted)] pt-1">Tempk ⠿ kad pertvarkytum eiliškumą — pirmi atlikėjai ir headlineriai naudojami homepage collage.</p>
               </div>
             ) : (
               <p className="text-xs text-[var(--text-muted)]">Atlikėjų dar nėra. Ieškok ir pridėk — headlinerius pažymėk žvaigždute.</p>
@@ -485,7 +485,7 @@ function VenueRow({ v, highlighted, onPick }: {
     >
       <div className="font-semibold text-[var(--text-primary)] flex items-center gap-1">
         {v.name}
-        {highlighted && <span className="text-[11px] text-emerald-600 font-bold">✓ pasirinkta</span>}
+        {highlighted && <span className="text-[12px] text-emerald-600 font-bold">✓ pasirinkta</span>}
       </div>
       {(v.city || v.address) && (
         <div className="text-[var(--text-muted)] text-[12px]">

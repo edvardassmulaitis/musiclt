@@ -50,7 +50,7 @@ export function ReviewTargetField({
               <img src={proxyImg(target.display.image_url)} alt="" className="w-10 h-10 rounded object-cover" />
             )}
             <div className="flex-1 min-w-0">
-              <p className="text-[11px] font-bold uppercase tracking-wider" style={{ color: 'var(--text-muted)' }}>
+              <p className="text-[12px] font-bold uppercase tracking-wider" style={{ color: 'var(--text-muted)' }}>
                 {target.display.type === 'grupe' ? 'Atlikėjas' : target.display.type === 'albumas' ? 'Albumas' : 'Daina'}
               </p>
               <p className="text-sm font-semibold truncate" style={{ color: 'var(--text-primary)' }}>

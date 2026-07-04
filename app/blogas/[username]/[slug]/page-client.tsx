@@ -195,11 +195,11 @@ export default function BlogPostPageClient(props: Props) {
         .bp-hero-inner { max-width:55%; animation:bp-in .6s ease-out both; }
         @keyframes bp-in { from { opacity:0; transform:translateY(8px) } to { opacity:1; transform:translateY(0) } }
 
-        .bp-chip { display:inline-block; font-family:'Outfit',sans-serif; font-size:10px; font-weight:900; letter-spacing:.08em;
+        .bp-chip { display:inline-block; font-family:'Outfit',sans-serif; font-size:12px; font-weight:900; letter-spacing:.08em;
                    text-transform:uppercase; color:var(--accent-orange); padding:4px 12px; border-radius:20px;
                    background:rgba(249,115,22,0.14); border:1px solid rgba(249,115,22,0.3); }
         .bp-rating { display:inline-flex; align-items:center; gap:4px; background:var(--bg-hover); border-radius:6px;
-                     padding:3px 8px; font-family:'Outfit',sans-serif; font-size:11px; font-weight:900; color:var(--text-primary); margin-left:8px; }
+                     padding:3px 8px; font-family:'Outfit',sans-serif; font-size:12px; font-weight:900; color:var(--text-primary); margin-left:8px; }
         .bp-h1 { font-family:'Outfit',sans-serif; font-size:clamp(1.6rem,2.6vw,2.4rem); font-weight:900; line-height:1.08;
                  letter-spacing:-.03em; color:var(--text-primary); margin:10px 0 0; }
 
@@ -208,13 +208,13 @@ export default function BlogPostPageClient(props: Props) {
         .bp-bar { max-width:1400px; margin:0 auto; padding:13px 32px; display:flex; align-items:center; gap:12px 18px; flex-wrap:wrap; }
         .bp-bar-author { display:inline-flex; align-items:center; gap:11px; text-decoration:none; color:inherit; }
         .bp-bar-av { width:42px; height:42px; border-radius:50%; overflow:hidden; flex-shrink:0; display:flex;
-                     align-items:center; justify-content:center; font-family:'Outfit',sans-serif; font-size:15px; font-weight:900; color:#fff; }
+                     align-items:center; justify-content:center; font-family:'Outfit',sans-serif; font-size:16px; font-weight:900; color:#fff; }
         .bp-bar-av img { width:100%; height:100%; object-fit:cover; }
         .bp-bar-author-text { display:flex; flex-direction:column; gap:5px; }
         .bp-bar-name { font-family:'Outfit',sans-serif; font-size:14px; font-weight:800; color:var(--text-primary);
                        letter-spacing:-.01em; line-height:1; transition:color .15s; }
         .bp-bar-author:hover .bp-bar-name { color:var(--accent-orange); }
-        .bp-bar-meta { font-size:12.5px; color:var(--text-muted); display:flex; align-items:center; gap:7px; white-space:nowrap; }
+        .bp-bar-meta { font-size:12px; color:var(--text-muted); display:flex; align-items:center; gap:7px; white-space:nowrap; }
         .bp-bar-dot { color:var(--text-faint); }
         .bp-bar-actions { display:flex; align-items:center; gap:8px; flex-wrap:wrap; }
         .bp-bar-related { display:flex; align-items:center; gap:8px; margin-left:auto; max-width:100%; overflow-x:auto;
@@ -230,10 +230,10 @@ export default function BlogPostPageClient(props: Props) {
         .bp-bar-pill-thumb.sq { border-radius:7px; }
         .bp-bar-pill-fallback { width:30px; height:30px; flex-shrink:0; display:flex; align-items:center; justify-content:center;
                                 font-family:'Outfit',sans-serif; font-size:12px; font-weight:900; background:var(--bg-hover); color:var(--text-muted); }
-        .bp-bar-pill-name { font-family:'Outfit',sans-serif; font-size:13px; font-weight:700; color:var(--text-primary);
+        .bp-bar-pill-name { font-family:'Outfit',sans-serif; font-size:14px; font-weight:700; color:var(--text-primary);
                             white-space:nowrap; max-width:170px; overflow:hidden; text-overflow:ellipsis; }
         .bp-bar-play { display:inline-flex; align-items:center; gap:7px; padding:8px 14px; border-radius:100px; border:none; cursor:pointer;
-                       font-family:'Outfit',sans-serif; font-size:13px; font-weight:800; color:#fff; background:var(--accent-orange);
+                       font-family:'Outfit',sans-serif; font-size:14px; font-weight:800; color:#fff; background:var(--accent-orange);
                        box-shadow:0 6px 18px rgba(249,115,22,0.32); transition:transform .15s, box-shadow .15s; }
         .bp-bar-play:hover { transform:translateY(-1px); box-shadow:0 9px 24px rgba(249,115,22,0.4); }
 
@@ -263,7 +263,7 @@ export default function BlogPostPageClient(props: Props) {
         /* ── TAGS ── */
         .bp-tags { display:flex; flex-wrap:wrap; gap:6px; }
         .bp-tag { padding:5px 11px; border-radius:14px; background:var(--card-bg); border:1px solid var(--border-subtle);
-                  color:var(--text-muted); font-size:11.5px; font-weight:700; text-decoration:none; transition:background .15s; font-family:'Outfit',sans-serif; }
+                  color:var(--text-muted); font-size:12px; font-weight:700; text-decoration:none; transition:background .15s; font-family:'Outfit',sans-serif; }
         .bp-tag:hover { background:var(--bg-hover); color:var(--text-primary); }
 
         /* ── LIKE pill (FollowPill-style) ── */
@@ -271,14 +271,14 @@ export default function BlogPostPageClient(props: Props) {
                    background:var(--card-bg); transition:border-color .15s, background-color .15s; }
         .bp-pill.is-on { border-color:var(--accent-orange); background:var(--accent-orange); box-shadow:0 6px 18px rgba(249,115,22,0.35); }
         .bp-pill-side { display:inline-flex; align-items:center; gap:6px; padding:8px 14px; cursor:pointer; background:none; border:none;
-                       color:var(--text-secondary); font-family:'Outfit',sans-serif; font-size:13px; font-weight:800; transition:background .15s; }
+                       color:var(--text-secondary); font-family:'Outfit',sans-serif; font-size:14px; font-weight:800; transition:background .15s; }
         .bp-pill.is-on .bp-pill-side { color:#fff; }
         .bp-pill-side:hover { background:var(--bg-hover); }
         .bp-pill.is-on .bp-pill-side:hover { background:rgba(0,0,0,0.08); }
         .bp-pill-side[disabled] { cursor:not-allowed; opacity:0.7; }
         .bp-pill-icon { padding:8px 11px; }
         .bp-pill-count { display:inline-flex; align-items:center; padding:8px 14px; border-left:1px solid var(--border-default);
-                         font-family:'Outfit',sans-serif; font-size:13px; font-weight:800; font-variant-numeric:tabular-nums; }
+                         font-family:'Outfit',sans-serif; font-size:14px; font-weight:800; font-variant-numeric:tabular-nums; }
         .bp-pill.is-on .bp-pill-count { border-color:rgba(255,255,255,0.3); color:#fff; }
         .bp-pill-count.is-link { cursor:pointer; background:none; border:none; border-left:1px solid var(--border-default);
                                  color:var(--text-secondary); transition:background .15s; }
@@ -634,7 +634,7 @@ function PlayerCard({ tracks, levelOf, active, setActive, playing, setPlaying }:
                         ))}
                       </span>
                     )}
-                    {t.artist_name && <span className="mt-0.5 truncate text-[12.5px] text-[var(--text-muted)]">{t.artist_name}</span>}
+                    {t.artist_name && <span className="mt-0.5 truncate text-[12px] text-[var(--text-muted)]">{t.artist_name}</span>}
                   </div>
 
                   {href && (
@@ -707,7 +707,7 @@ function MobileStickyPlayer({ tracks, active, setActive, playing, setPlaying, on
         }
         <div className="min-w-0 flex-1">
           <p className="truncate font-['Outfit',sans-serif] text-[14px] font-extrabold text-[var(--text-primary)]">{cur?.title || 'Takelis'}</p>
-          {cur?.artist_name && <p className="truncate text-[13px] text-[var(--text-muted)]">{cur.artist_name}</p>}
+          {cur?.artist_name && <p className="truncate text-[14px] text-[var(--text-muted)]">{cur.artist_name}</p>}
         </div>
 
         <button type="button" onClick={() => setPlaying(!playing)} aria-label={playing ? 'Pristabdyti' : 'Leisti'}
@@ -869,13 +869,13 @@ function EnrichedProse({ html }: { html: string }) {
               : <div style={{ width: 56, height: 56, borderRadius: 9, background: 'var(--card-bg)', flexShrink: 0 }} />}
             <div style={{ minWidth: 0, flex: 1 }}>
               <div style={{ fontFamily: "'Outfit',sans-serif", fontWeight: 800, fontSize: 14, color: 'var(--text-primary)', lineHeight: 1.2, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{hover.data.title}</div>
-              {hover.data.subtitle && <div style={{ fontSize: 13.5, color: 'var(--text-muted)', marginTop: 2 }}>{hover.data.subtitle}</div>}
+              {hover.data.subtitle && <div style={{ fontSize: 14, color: 'var(--text-muted)', marginTop: 2 }}>{hover.data.subtitle}</div>}
               {hover.data.genres.length > 0 && (
                 <div style={{ display: 'flex', flexWrap: 'wrap', gap: 4, marginTop: 6 }}>
-                  {hover.data.genres.slice(0, 3).map((g, i) => <span key={i} style={{ fontSize: 11.5, color: 'var(--text-secondary)', background: 'var(--card-bg)', borderRadius: 100, padding: '1px 7px' }}>{g}</span>)}
+                  {hover.data.genres.slice(0, 3).map((g, i) => <span key={i} style={{ fontSize: 12, color: 'var(--text-secondary)', background: 'var(--card-bg)', borderRadius: 100, padding: '1px 7px' }}>{g}</span>)}
                 </div>
               )}
-              <div style={{ fontSize: 13, color: 'var(--accent-orange)', marginTop: 6, fontWeight: 600 }}>♥ {hover.data.metric.toLocaleString('lt-LT')} {hover.data.metric_label}</div>
+              <div style={{ fontSize: 14, color: 'var(--accent-orange)', marginTop: 6, fontWeight: 600 }}>♥ {hover.data.metric.toLocaleString('lt-LT')} {hover.data.metric_label}</div>
             </div>
           </div>
         </div>
@@ -970,7 +970,7 @@ function ReviewTrackList({ items }: { items: any[] }) {
               ? <img src={proxyImg(item.image_url)} alt="" style={{ width: 40, height: 40, borderRadius: 8, objectFit: 'cover', flexShrink: 0 }} />
               : <span style={{ width: 40, height: 40, borderRadius: 8, background: 'var(--card-bg)', flexShrink: 0 }} />}
             <div style={{ flex: 1, minWidth: 0 }}>
-              <p style={{ fontFamily: "'Outfit', sans-serif", fontWeight: 700, fontSize: 15, color: 'var(--text-primary)', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{item.title}</p>
+              <p style={{ fontFamily: "'Outfit', sans-serif", fontWeight: 700, fontSize: 16, color: 'var(--text-primary)', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{item.title}</p>
               {item.comment && <p style={{ fontSize: 14, color: 'var(--text-secondary)', marginTop: 2 }}>{item.comment}</p>}
             </div>
             {item.rating !== null && item.rating !== undefined && (
@@ -1012,12 +1012,12 @@ function TargetEntityCard({ target, postType }: { target: any; postType: BlogPos
       }
       <div style={{ flex: 1, minWidth: 0 }}>
         <p style={{ fontFamily: "'Outfit',sans-serif", fontSize: 12, fontWeight: 900, letterSpacing: '.14em', textTransform: 'uppercase', color: 'var(--accent-orange)', margin: 0 }}>{entity.kind}</p>
-        <p style={{ fontFamily: "'Outfit',sans-serif", fontSize: 15, fontWeight: 800, color: 'var(--text-primary)', margin: '2px 0 0', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{entity.name}</p>
+        <p style={{ fontFamily: "'Outfit',sans-serif", fontSize: 16, fontWeight: 800, color: 'var(--text-primary)', margin: '2px 0 0', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{entity.name}</p>
         {entity.subname && (
           <p style={{ fontSize: 14, color: 'var(--text-muted)', margin: '2px 0 0', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{entity.subname}</p>
         )}
       </div>
-      <span style={{ color: 'var(--text-muted)', fontSize: 18, flexShrink: 0 }}>→</span>
+      <span style={{ color: 'var(--text-muted)', fontSize: 20, flexShrink: 0 }}>→</span>
     </Link>
   )
 }

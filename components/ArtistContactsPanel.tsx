@@ -32,7 +32,7 @@ export function TypePill({ type }: { type: string }) {
   const cls = isPotential
     ? 'bg-orange-50 text-orange-700 border-orange-200'
     : (TYPE_COLORS[type] || 'bg-[var(--bg-elevated)] text-[var(--text-muted)] border-[var(--input-border)]')
-  return <span className={`shrink-0 rounded-full border px-2 py-0.5 text-[12.5px] font-semibold ${cls}`}>{type}</span>
+  return <span className={`shrink-0 rounded-full border px-2 py-0.5 text-[12px] font-semibold ${cls}`}>{type}</span>
 }
 
 export default function ArtistContactsPanel({ artistId }: { artistId: string }) {
@@ -122,8 +122,8 @@ export default function ArtistContactsPanel({ artistId }: { artistId: string }) 
                   <div className="flex flex-wrap items-center gap-2">
                     <span className="font-semibold text-[var(--text-primary)]">{c.name || '(be pavadinimo)'}</span>
                     <TypePill type={c.type} />
-                    <span className="text-[13px] text-[var(--text-faint)]">{c.confidence}</span>
-                    {c.source === 'json_import' && <span className="text-[13px] text-[var(--text-faint)]">· import</span>}
+                    <span className="text-[14px] text-[var(--text-faint)]">{c.confidence}</span>
+                    {c.source === 'json_import' && <span className="text-[14px] text-[var(--text-faint)]">· import</span>}
                   </div>
                   <div className="mt-1 flex flex-wrap gap-x-4 gap-y-0.5 text-xs text-[var(--text-muted)]">
                     {c.email && <a href={`mailto:${c.email}`} className="text-music-blue hover:underline">✉ {c.email}</a>}

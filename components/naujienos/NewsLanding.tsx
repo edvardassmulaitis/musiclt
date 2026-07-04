@@ -43,7 +43,7 @@ export default async function NewsLanding(props: LandingProps) {
       <script type="application/ld+json" dangerouslySetInnerHTML={{ __html: jsonLdScript(breadcrumbLd) }} />
 
       <div className="mx-auto flex flex-col gap-5 px-4 py-7 sm:px-6" style={{ maxWidth: 1320 }}>
-        <nav aria-label="Breadcrumb" className="flex items-center gap-1.5 text-[14.5px] text-[var(--text-faint)]">
+        <nav aria-label="Breadcrumb" className="flex items-center gap-1.5 text-[14px] text-[var(--text-faint)]">
           <Link href="/" className="hover:text-[var(--text-secondary)]">Pradžia</Link>
           <span>›</span>
           <Link href="/naujienos" className="hover:text-[var(--text-secondary)]">Naujienos</Link>
@@ -53,7 +53,7 @@ export default async function NewsLanding(props: LandingProps) {
 
         <header className="flex flex-col gap-1.5">
           <h1 className="text-3xl font-black text-[var(--text-primary)] sm:text-4xl">{h1}</h1>
-          <p className="max-w-3xl text-[15px] leading-relaxed text-[var(--text-muted)]">{intro}</p>
+          <p className="max-w-3xl text-[16px] leading-relaxed text-[var(--text-muted)]">{intro}</p>
         </header>
 
         <NewsExplorer

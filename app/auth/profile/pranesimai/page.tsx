@@ -221,7 +221,7 @@ export default function NotificationPreferencesPage() {
                       : 'Įjunk, kad gautum pranešimus net kai music.lt skirtukas uždarytas.'}
               </div>
               {pushError && (
-                <div style={{ fontSize: 13, color: '#ef4444', marginTop: 4 }}>
+                <div style={{ fontSize: 14, color: '#ef4444', marginTop: 4 }}>
                   {pushError}
                 </div>
               )}
@@ -269,7 +269,7 @@ export default function NotificationPreferencesPage() {
           grouped[g] && (
             <div key={g} style={{ marginBottom: 18 }}>
               <div style={{
-                fontSize: 13, fontWeight: 800, textTransform: 'uppercase',
+                fontSize: 14, fontWeight: 800, textTransform: 'uppercase',
                 letterSpacing: '0.08em', color: 'var(--text-muted)',
                 margin: '0 4px 8px',
               }}>
@@ -289,7 +289,7 @@ export default function NotificationPreferencesPage() {
                       borderTop: i === 0 ? 'none' : '1px solid var(--border-subtle)',
                     }}>
                       <div style={{ flex: 1, minWidth: 0 }}>
-                        <div style={{ fontWeight: 600, fontSize: 14.5, color: 'var(--text-primary)', marginBottom: 2 }}>
+                        <div style={{ fontWeight: 600, fontSize: 14, color: 'var(--text-primary)', marginBottom: 2 }}>
                           {t.label}
                         </div>
                         <div style={{ fontSize: 14, color: 'var(--text-muted)', lineHeight: 1.4 }}>

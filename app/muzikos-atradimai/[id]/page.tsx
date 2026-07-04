@@ -58,8 +58,8 @@ export default async function DiscoveryDetailPage({ params }: Props) {
         <div style={{ display: 'flex', alignItems: 'center', gap: 11 }}>
           <Avatar src={d.author?.avatar_url} name={uname} />
           <div style={{ display: 'flex', flexDirection: 'column', lineHeight: 1.3 }}>
-            {uname ? <Link href={`/@${uname}`} style={{ fontSize: 15, fontWeight: 700, color: 'var(--text-primary)', textDecoration: 'none' }}>{uname}</Link> : <span style={{ fontSize: 15, fontWeight: 700 }}>Narys</span>}
-            {when && <span style={{ color: 'var(--text-muted)', fontSize: 14.5 }}>{when}</span>}
+            {uname ? <Link href={`/@${uname}`} style={{ fontSize: 16, fontWeight: 700, color: 'var(--text-primary)', textDecoration: 'none' }}>{uname}</Link> : <span style={{ fontSize: 16, fontWeight: 700 }}>Narys</span>}
+            {when && <span style={{ color: 'var(--text-muted)', fontSize: 14 }}>{when}</span>}
           </div>
         </div>
 
@@ -74,16 +74,16 @@ export default async function DiscoveryDetailPage({ params }: Props) {
         <DetailMedia d={d} />
 
         {d.track_slug && (
-          <Link href={`/dainos/${d.track_slug}`} style={{ display: 'inline-flex', alignItems: 'center', gap: 6, fontSize: 14.5, fontWeight: 700, color: 'var(--accent-orange)', textDecoration: 'none', marginBottom: 8 }}>
+          <Link href={`/dainos/${d.track_slug}`} style={{ display: 'inline-flex', alignItems: 'center', gap: 6, fontSize: 14, fontWeight: 700, color: 'var(--accent-orange)', textDecoration: 'none', marginBottom: 8 }}>
             ♪ Klausyti music.lt grotuve →
           </Link>
         )}
 
-        {d.body && <p style={{ fontSize: 15, lineHeight: 1.65, color: 'var(--text-primary)', whiteSpace: 'pre-wrap', margin: '12px 0 16px' }}>{d.body}</p>}
+        {d.body && <p style={{ fontSize: 16, lineHeight: 1.65, color: 'var(--text-primary)', whiteSpace: 'pre-wrap', margin: '12px 0 16px' }}>{d.body}</p>}
 
         {d.tags.length > 0 && (
           <div style={{ display: 'flex', gap: 7, flexWrap: 'wrap', marginBottom: 14 }}>
-            {d.tags.map(t => <span key={t} style={{ background: 'var(--bg-hover)', color: 'var(--text-muted)', fontSize: 13.5, padding: '3px 10px', borderRadius: 14 }}>{t}</span>)}
+            {d.tags.map(t => <span key={t} style={{ background: 'var(--bg-hover)', color: 'var(--text-muted)', fontSize: 14, padding: '3px 10px', borderRadius: 14 }}>{t}</span>)}
           </div>
         )}
 
@@ -95,7 +95,7 @@ export default async function DiscoveryDetailPage({ params }: Props) {
           Atsakymai{replies.length > 0 ? ` (${replies.length})` : ''}
         </h2>
         {replies.length === 0 ? (
-          <p style={{ color: 'var(--text-muted)', fontSize: 14.5 }}>Atsakymų dar nėra.</p>
+          <p style={{ color: 'var(--text-muted)', fontSize: 14 }}>Atsakymų dar nėra.</p>
         ) : (
           <div style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
             {replies.map(r => {
@@ -107,9 +107,9 @@ export default async function DiscoveryDetailPage({ params }: Props) {
                   <div style={{ minWidth: 0, flex: 1 }}>
                     <div style={{ display: 'flex', alignItems: 'baseline', gap: 8 }}>
                       {rn ? <Link href={`/@${rn}`} style={{ fontSize: 14, fontWeight: 700, color: 'var(--text-primary)', textDecoration: 'none' }}>{rn}</Link> : <span style={{ fontSize: 14, fontWeight: 700 }}>Narys</span>}
-                      {rw && <span style={{ color: 'var(--text-faint)', fontSize: 13.5 }}>{rw}</span>}
+                      {rw && <span style={{ color: 'var(--text-faint)', fontSize: 14 }}>{rw}</span>}
                     </div>
-                    {r.body && <p style={{ fontSize: 14.5, lineHeight: 1.55, color: 'var(--text-secondary)', margin: '4px 0 0', whiteSpace: 'pre-wrap' }}>{r.body}</p>}
+                    {r.body && <p style={{ fontSize: 14, lineHeight: 1.55, color: 'var(--text-secondary)', margin: '4px 0 0', whiteSpace: 'pre-wrap' }}>{r.body}</p>}
                   </div>
                 </div>
               )

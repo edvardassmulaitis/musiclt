@@ -416,7 +416,7 @@ function AdminTopInner() {
                   ↻ Atnaujinti
                 </button>
               </div>
-              <p className="text-[13px] text-[var(--text-muted)] mb-3">
+              <p className="text-[14px] text-[var(--text-muted)] mb-3">
                 Kandidatai iš naujų dainų srauto ir external topų. Patvirtinti pateks į kitą savaitę; praleisti — nebebus siūlomi.
               </p>
               {loadingAuto ? (
@@ -639,7 +639,7 @@ function AdminTopInner() {
                                   <p className="text-xs text-gray-400 truncate">{e.tracks?.artists?.name ?? '—'}</p>
                                 </div>
                                 {e.is_new && (
-                                  <span className="text-[11px] font-extrabold tracking-wider px-1.5 py-0.5 rounded bg-amber-50 text-amber-600 border border-amber-200 flex-shrink-0">
+                                  <span className="text-[12px] font-extrabold tracking-wider px-1.5 py-0.5 rounded bg-amber-50 text-amber-600 border border-amber-200 flex-shrink-0">
                                     NEW
                                   </span>
                                 )}
@@ -649,7 +649,7 @@ function AdminTopInner() {
                           <td className="px-3 py-2.5 text-center">
                             <span
                               title={isLast ? 'Paskutinė savaitė tope (12/12)' : isWarning ? `Liko ${weeksLeft} savaitė(s) iki išėjimo` : `Šitos dainos savaičių tope: ${e.weeks_in_top || 0} iš 12`}
-                              className={`text-[13px] font-bold tabular-nums px-1.5 py-0.5 rounded ${
+                              className={`text-[14px] font-bold tabular-nums px-1.5 py-0.5 rounded ${
                                 isLast ? 'bg-red-50 text-red-600 border border-red-200' :
                                 isWarning ? 'bg-orange-50 text-orange-600 border border-orange-200' :
                                 'bg-gray-50 text-gray-500 border border-gray-200'

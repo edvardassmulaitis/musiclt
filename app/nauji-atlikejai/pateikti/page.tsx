@@ -28,7 +28,7 @@ export default function RadarSubmitPage() {
       }}>
         Pasiūlyk atlikėją radarui
       </h1>
-      <p style={{ color: 'var(--text-muted)', fontSize: 14.5, lineHeight: 1.55, margin: '10px 0 26px', maxWidth: 560 }}>
+      <p style={{ color: 'var(--text-muted)', fontSize: 14, lineHeight: 1.55, margin: '10px 0 26px', maxWidth: 560 }}>
         Esi naujas ar mažai žinomas kūrėjas — iš Lietuvos ar iš užsienio — arba pažįsti tokį?
         Pristatyk jį čia. Peržiūrėsime ir įtrauksime tinkamus į <Link href="/nauji-atlikejai" style={{ color: 'var(--accent-link)' }}>radarą</Link>.
         Prisijungti nebūtina.

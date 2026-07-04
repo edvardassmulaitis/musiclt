@@ -302,7 +302,7 @@ function MusicPlayer({ songs }: { songs: SongEntry[] }) {
                   <span className={['w-full truncate font-["Outfit",sans-serif] text-[14px] font-bold leading-tight', isActive ? 'text-[var(--accent-orange)]' : 'text-[var(--text-primary)]'].join(' ')}>
                     {s.title}
                   </span>
-                  {s.artist_name && <span className="w-full truncate text-[13px] text-[var(--text-muted)]">{s.artist_name}</span>}
+                  {s.artist_name && <span className="w-full truncate text-[14px] text-[var(--text-muted)]">{s.artist_name}</span>}
                 </div>
                 {s.song_id ? (
                   <button
@@ -505,24 +505,24 @@ export default function NewsArticleClient({
         .na-actbar { display:flex; flex-wrap:wrap; gap:9px; margin-bottom:16px; }
         /* Meta po pavadinimu: data kairėje, susiję atlikėjai dešinėje */
         .na-meta { display:flex; align-items:center; flex-wrap:wrap; gap:12px; }
-        .na-date { font-size:12.5px; color:rgba(255,255,255,0.55); font-weight:600; font-family:'Outfit',sans-serif; }
+        .na-date { font-size:12px; color:rgba(255,255,255,0.55); font-weight:600; font-family:'Outfit',sans-serif; }
         .na-meta-sep { width:3px; height:3px; border-radius:50%; background:rgba(255,255,255,0.3); }
         .na-artbar { display:flex; flex-wrap:wrap; gap:8px; align-items:center; }
 
         .na-artpill { display:inline-flex; align-items:center; gap:7px; background:rgba(255,255,255,0.09); backdrop-filter:blur(8px); border:1px solid rgba(255,255,255,0.14); border-radius:100px; padding:4px 13px 4px 4px; text-decoration:none; transition:background .2s,border-color .2s; }
         .na-artpill:hover { background:rgba(255,255,255,0.16); border-color:rgba(255,255,255,0.28); }
         .na-artpill img { width:24px; height:24px; border-radius:50%; object-fit:cover; }
-        .na-artpill-av { width:24px; height:24px; border-radius:50%; background:rgba(249,115,22,0.85); display:flex; align-items:center; justify-content:center; font-size:10px; font-weight:900; color:#fff; }
-        .na-artpill span { font-size:12.5px; font-weight:700; color:#fff; }
+        .na-artpill-av { width:24px; height:24px; border-radius:50%; background:rgba(249,115,22,0.85); display:flex; align-items:center; justify-content:center; font-size:12px; font-weight:900; color:#fff; }
+        .na-artpill span { font-size:12px; font-weight:700; color:#fff; }
 
-        .na-act { display:inline-flex; align-items:center; gap:7px; padding:7px 15px; border-radius:100px; background:rgba(255,255,255,0.08); border:1px solid rgba(255,255,255,0.16); color:rgba(255,255,255,0.92); font-size:12.5px; font-weight:800; font-family:'Outfit',sans-serif; cursor:pointer; transition:all .18s; backdrop-filter:blur(8px); }
+        .na-act { display:inline-flex; align-items:center; gap:7px; padding:7px 15px; border-radius:100px; background:rgba(255,255,255,0.08); border:1px solid rgba(255,255,255,0.16); color:rgba(255,255,255,0.92); font-size:12px; font-weight:800; font-family:'Outfit',sans-serif; cursor:pointer; transition:all .18s; backdrop-filter:blur(8px); }
         .na-act:hover { background:rgba(255,255,255,0.15); border-color:rgba(255,255,255,0.3); }
         .na-act-liked { color:var(--accent-orange); background:rgba(249,115,22,0.14); border-color:rgba(249,115,22,0.4); }
         .na-act-count { margin-left:3px; padding-left:8px; border-left:1px solid rgba(255,255,255,0.22); font-weight:800; cursor:pointer; }
 
         /* Foto kreditas — © ženkliukas, hover atskleidžia šaltinį */
         .na-credit { position:absolute; z-index:4; bottom:10px; right:10px; }
-        .na-credit-btn { display:inline-flex; align-items:center; gap:0; height:26px; padding:0 6px; border-radius:100px; background:rgba(0,0,0,0.5); backdrop-filter:blur(6px); border:1px solid rgba(255,255,255,0.2); color:rgba(255,255,255,0.85); font-size:11px; font-weight:700; font-family:'Outfit',sans-serif; text-decoration:none; cursor:pointer; transition:background .2s,border-color .2s; white-space:nowrap; }
+        .na-credit-btn { display:inline-flex; align-items:center; gap:0; height:26px; padding:0 6px; border-radius:100px; background:rgba(0,0,0,0.5); backdrop-filter:blur(6px); border:1px solid rgba(255,255,255,0.2); color:rgba(255,255,255,0.85); font-size:12px; font-weight:700; font-family:'Outfit',sans-serif; text-decoration:none; cursor:pointer; transition:background .2s,border-color .2s; white-space:nowrap; }
         .na-credit-btn:hover { background:rgba(0,0,0,0.78); border-color:rgba(255,255,255,0.36); color:#fff; }
         .na-credit-label { max-width:0; opacity:0; overflow:hidden; transition:max-width .3s ease,opacity .2s,margin .2s; }
         .na-credit:hover .na-credit-label, .na-credit.is-open .na-credit-label { max-width:220px; opacity:1; margin-left:6px; }
@@ -555,7 +555,7 @@ export default function NewsArticleClient({
         .pg-wrap { margin-top:48px; }
         .pg-divider { display:flex; align-items:center; gap:12px; margin-bottom:14px; }
         .pg-divider-line { flex:1; height:1px; background:var(--border-default); }
-        .pg-divider-label { font-size:10px; font-weight:800; letter-spacing:.14em; text-transform:uppercase; color:var(--text-muted); white-space:nowrap; font-family:'Outfit',sans-serif; }
+        .pg-divider-label { font-size:12px; font-weight:800; letter-spacing:.14em; text-transform:uppercase; color:var(--text-muted); white-space:nowrap; font-family:'Outfit',sans-serif; }
         /* Vienas foto — blur fill + contain (pilnas kadras) */
         .pg-solo { position:relative; border-radius:14px; overflow:hidden; background:#0a0f1a; aspect-ratio:16/10; max-height:560px; cursor:zoom-in; }
         .pg-solo-blur { position:absolute; inset:0; background-size:cover; background-position:center; filter:blur(34px) brightness(0.55) saturate(1.1); transform:scale(1.2); }
@@ -571,17 +571,17 @@ export default function NewsArticleClient({
         .pg-cell:hover img { transform:scale(1.05); }
         .pg-more { position:absolute; inset:0; background:rgba(8,13,20,.75); backdrop-filter:blur(4px); display:flex; flex-direction:column; align-items:center; justify-content:center; gap:2px; cursor:pointer; }
         .pg-more span { font-size:26px; font-weight:900; color:#fff; }
-        .pg-more small { font-size:10px; font-weight:600; color:rgba(255,255,255,.5); letter-spacing:.08em; text-transform:uppercase; }
+        .pg-more small { font-size:12px; font-weight:600; color:rgba(255,255,255,.5); letter-spacing:.08em; text-transform:uppercase; }
 
         /* ── Lightbox ── */
         .lb { position:fixed; inset:0; z-index:1000; background:rgba(0,0,0,.96); backdrop-filter:blur(12px); display:flex; align-items:center; justify-content:center; }
         .lb-inner { max-width:88vw; max-height:88vh; display:flex; flex-direction:column; align-items:center; }
         .lb-inner img { max-width:100%; max-height:80vh; object-fit:contain; border-radius:8px; }
         .lb-cap { font-size:12px; color:rgba(255,255,255,.4); margin-top:10px; text-align:center; }
-        .lb-close { position:absolute; top:18px; right:22px; width:40px; height:40px; border-radius:50%; background:rgba(255,255,255,.1); border:none; color:rgba(255,255,255,.7); font-size:17px; cursor:pointer; display:flex; align-items:center; justify-content:center; }
+        .lb-close { position:absolute; top:18px; right:22px; width:40px; height:40px; border-radius:50%; background:rgba(255,255,255,.1); border:none; color:rgba(255,255,255,.7); font-size:16px; cursor:pointer; display:flex; align-items:center; justify-content:center; }
         .lb-prev,.lb-next { position:absolute; top:50%; transform:translateY(-50%); width:52px; height:52px; border-radius:50%; background:rgba(255,255,255,.08); border:none; color:rgba(255,255,255,.7); font-size:34px; cursor:pointer; display:flex; align-items:center; justify-content:center; }
         .lb-prev { left:14px; } .lb-next { right:14px; }
-        .lb-counter { position:absolute; bottom:18px; left:50%; transform:translateX(-50%); font-size:11px; font-weight:600; color:rgba(255,255,255,.28); }
+        .lb-counter { position:absolute; bottom:18px; left:50%; transform:translateX(-50%); font-size:12px; font-weight:600; color:rgba(255,255,255,.28); }
 
         /* ── Comments spacing ── */
         .na-comments { margin-top:44px; }

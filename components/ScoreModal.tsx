@@ -215,27 +215,27 @@ export default function ScoreModal({ artistId, onClose }: { artistId: string; on
             <div className="grid grid-cols-3 gap-2 mb-5 px-2">
               <div className="text-center bg-[var(--bg-elevated)] rounded-lg py-2"
                 title={extra.page_views == null ? 'Page view skaitiklis dar neaktyvus (migracija neaplikuota arba 0)' : 'Unique sessions per 30min — atlikėjo puslapio peržiūros'}>
-                <div className="text-[18px] leading-none">👁</div>
+                <div className="text-[20px] leading-none">👁</div>
                 <div className="text-sm font-bold text-[var(--text-primary)] tabular-nums mt-1">
                   {extra.page_views == null ? '—' : extra.page_views.toLocaleString('lt-LT')}
                 </div>
-                <div className="text-[11px] text-[var(--text-faint)] uppercase tracking-wide">peržiūrų</div>
+                <div className="text-[12px] text-[var(--text-faint)] uppercase tracking-wide">peržiūrų</div>
               </div>
               <div className="text-center bg-[var(--bg-elevated)] rounded-lg py-2"
                 title="Bendras albumų skaičius diskografijoje">
-                <div className="text-[18px] leading-none">💿</div>
+                <div className="text-[20px] leading-none">💿</div>
                 <div className="text-sm font-bold text-[var(--text-primary)] tabular-nums mt-1">
                   {extra.album_count ?? '—'}
                 </div>
-                <div className="text-[11px] text-[var(--text-faint)] uppercase tracking-wide">albumai</div>
+                <div className="text-[12px] text-[var(--text-faint)] uppercase tracking-wide">albumai</div>
               </div>
               <div className="text-center bg-[var(--bg-elevated)] rounded-lg py-2"
                 title="Bendras dainų skaičius (visi albumai + singles)">
-                <div className="text-[18px] leading-none">🎵</div>
+                <div className="text-[20px] leading-none">🎵</div>
                 <div className="text-sm font-bold text-[var(--text-primary)] tabular-nums mt-1">
                   {extra.track_count ?? '—'}
                 </div>
-                <div className="text-[11px] text-[var(--text-faint)] uppercase tracking-wide">dainos</div>
+                <div className="text-[12px] text-[var(--text-faint)] uppercase tracking-wide">dainos</div>
               </div>
             </div>
 

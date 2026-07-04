@@ -370,14 +370,14 @@ function ExistingTrackPicker({ artistId, currentTrackIds, onPick, onClose }: {
         <div className="flex items-center justify-between px-4 py-3 border-b border-[var(--border-subtle)]">
           <div>
             <div className="font-bold text-[var(--text-primary)]">Pridėti esamą dainą</div>
-            <div className="text-[13px] text-[var(--text-muted)]">Artist'o tracks dar nepriskirti prie šio albumo</div>
+            <div className="text-[14px] text-[var(--text-muted)]">Artist'o tracks dar nepriskirti prie šio albumo</div>
           </div>
           <button onClick={onClose} className="text-[var(--text-muted)] hover:text-[var(--text-primary)] text-xl">×</button>
         </div>
         <div className="px-4 py-2 border-b border-[var(--border-subtle)] flex flex-col sm:flex-row gap-2 items-stretch sm:items-center">
           <input type="text" autoFocus placeholder="Ieškoti..." value={search} onChange={e => setSearch(e.target.value)}
             className="flex-1 px-3 py-2 rounded-lg border border-[var(--input-border)] bg-[var(--bg-elevated)] text-sm" />
-          <label className="flex items-center gap-2 text-[13px] text-[var(--text-secondary)] cursor-pointer select-none">
+          <label className="flex items-center gap-2 text-[14px] text-[var(--text-secondary)] cursor-pointer select-none">
             <input type="checkbox" checked={filterOrphans} onChange={e => setFilterOrphans(e.target.checked)} />
             Tik orphan (be albumo)
           </label>
@@ -405,7 +405,7 @@ function ExistingTrackPicker({ artistId, currentTrackIds, onPick, onClose }: {
             ))
           )}
         </div>
-        <div className="px-4 py-2 border-t border-[var(--border-subtle)] text-[13px] text-[var(--text-muted)]">
+        <div className="px-4 py-2 border-t border-[var(--border-subtle)] text-[14px] text-[var(--text-muted)]">
           {loading ? '' : `${filtered.length} iš ${tracks.length - currentSet.size}`}
         </div>
       </div>

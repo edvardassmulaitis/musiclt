@@ -214,7 +214,7 @@ function Cover({ src, alt, size = 44, radius = 10, ytId, artistSrc }: { src?: st
 function TrendIcon({ t }: { t: string }) {
   if (t === 'up') return <span className="text-[12px] font-black text-[var(--accent-green)]">▲</span>
   if (t === 'down') return <span className="text-[12px] font-black text-[var(--accent-red)]">▼</span>
-  if (t === 'new') return <span className="rounded-[3px] bg-[var(--accent-yellow)]/15 px-[5px] py-px text-[10px] font-extrabold tracking-[0.04em] text-[var(--accent-yellow)]">N</span>
+  if (t === 'new') return <span className="rounded-[3px] bg-[var(--accent-yellow)]/15 px-[5px] py-px text-[12px] font-extrabold tracking-[0.04em] text-[var(--accent-yellow)]">N</span>
   return <span className="text-[12px] text-[var(--text-faint)]">–</span>
 }
 
@@ -285,10 +285,10 @@ function LoadErrorCard({ onRetry, height = 112 }: { onRetry: () => void; height?
  *  atitiktų artist page'o tipografiją (`font-['Outfit',sans-serif]` +
  *  `tracking-[-0.01em]` + truputį didesnis font-size 18px). */
 function SectionHead({ label, href, cta = 'Daugiau →', onMore }: { label: React.ReactNode; href?: string; cta?: string; onMore?: () => void }) {
-  const ctaCls = "font-['Outfit',sans-serif] text-[13.5px] font-bold text-[var(--accent-orange)] no-underline transition-opacity hover:opacity-70"
+  const ctaCls = "font-['Outfit',sans-serif] text-[14px] font-bold text-[var(--accent-orange)] no-underline transition-opacity hover:opacity-70"
   return (
     <div className="mb-3.5 flex items-center justify-between">
-      <h2 className="m-0 font-['Outfit',sans-serif] text-[19px] font-extrabold tracking-[-0.01em] text-[var(--text-primary)] sm:text-[20px]">{label}</h2>
+      <h2 className="m-0 font-['Outfit',sans-serif] text-[20px] font-extrabold tracking-[-0.01em] text-[var(--text-primary)] sm:text-[20px]">{label}</h2>
       {onMore ? (
         <button type="button" onClick={onMore} className={ctaCls}>{cta}</button>
       ) : href ? (
@@ -332,22 +332,22 @@ function DienosDainaWidget() {
         <Cover src={w?.tracks?.cover_url} alt={w?.tracks?.title || 'daina'} size={54} radius={10} />
         <div className="min-w-0 flex-1">
           <p className="m-0 mb-0.5 text-[12px] font-bold uppercase tracking-[0.08em] text-[var(--text-muted)]">Šiandien pirmauja</p>
-          <h3 className="m-0 truncate font-['Outfit',sans-serif] text-[15px] font-extrabold leading-tight text-[var(--text-primary)]">
+          <h3 className="m-0 truncate font-['Outfit',sans-serif] text-[16px] font-extrabold leading-tight text-[var(--text-primary)]">
             {sanitizeTitle(w?.tracks?.title || 'Dar nėra')}
           </h3>
-          <p className="m-0 text-[13px] text-[var(--text-muted)]">{w?.tracks?.artists?.name || ''}</p>
+          <p className="m-0 text-[14px] text-[var(--text-muted)]">{w?.tracks?.artists?.name || ''}</p>
         </div>
         <Link
           href="/dienos-daina"
-          className="shrink-0 rounded-[20px] bg-[var(--accent-orange)] px-3.5 py-[7px] text-[13px] font-extrabold text-white no-underline shadow-[0_3px_14px_rgba(249,115,22,0.35)] transition-transform hover:-translate-y-px"
+          className="shrink-0 rounded-[20px] bg-[var(--accent-orange)] px-3.5 py-[7px] text-[14px] font-extrabold text-white no-underline shadow-[0_3px_14px_rgba(249,115,22,0.35)] transition-transform hover:-translate-y-px"
         >
           Balsuoti
         </Link>
       </div>
       <div>
         <div className="flex items-center justify-between px-4 pb-1.5 pt-2">
-          <span className="text-[11px] font-extrabold uppercase tracking-[0.1em] text-[var(--text-faint)]">Rytdienos kandidatai</span>
-          <Link href="/dienos-daina" className="text-[11px] font-bold text-[var(--accent-link)] no-underline">+ Siūlyti</Link>
+          <span className="text-[12px] font-extrabold uppercase tracking-[0.1em] text-[var(--text-faint)]">Rytdienos kandidatai</span>
+          <Link href="/dienos-daina" className="text-[12px] font-bold text-[var(--accent-link)] no-underline">+ Siūlyti</Link>
         </div>
         {noms.length === 0 ? (
           <div className="px-4 py-3.5 text-center text-[14px] text-[var(--text-muted)]">Kol kas nėra nominacijų</div>
@@ -359,7 +359,7 @@ function DienosDainaWidget() {
             <span className="w-3.5 shrink-0 text-center text-[12px] font-extrabold text-[var(--text-faint)]">{i + 1}</span>
             <Cover src={n.tracks?.cover_url} alt={n.tracks?.title || '?'} size={26} radius={6} />
             <div className="min-w-0 flex-1">
-              <p className="m-0 truncate text-[13px] font-bold text-[var(--text-primary)]">{sanitizeTitle(n.tracks?.title || '')}</p>
+              <p className="m-0 truncate text-[14px] font-bold text-[var(--text-primary)]">{sanitizeTitle(n.tracks?.title || '')}</p>
               <p className="m-0 text-[12px] text-[var(--text-muted)]">{n.tracks?.artists?.name}</p>
             </div>
             <button
@@ -521,7 +521,7 @@ function ZmonesSection() {
         )) : items.length === 0 ? (
           <div className="hp-card flex shrink-0 flex-col justify-center px-4 py-3" style={{ width: 360 }}>
             <p className="m-0 font-['Outfit',sans-serif] text-[14px] font-extrabold text-[var(--text-primary)]">Žmonių zona — netrukus</p>
-            <p className="m-0 mt-1 text-[13.5px] text-[var(--text-muted)]">
+            <p className="m-0 mt-1 text-[14px] text-[var(--text-muted)]">
               Čia atsiras autorių blogai, vertimai, kūryba ir aktyviausios diskusijos. Pirmas tampi autoriumi <Link href="/blogai/naujas" className="text-[var(--accent-link)] no-underline">čia</Link>.
             </p>
           </div>
@@ -534,23 +534,23 @@ function ZmonesSection() {
           >
             <div className="mb-1.5 flex items-center gap-1.5">
               {it.badge && (
-                <span className={`rounded px-1.5 py-0.5 font-['Outfit',sans-serif] text-[10.5px] font-extrabold uppercase tracking-[0.06em] ${
+                <span className={`rounded px-1.5 py-0.5 font-['Outfit',sans-serif] text-[12px] font-extrabold uppercase tracking-[0.06em] ${
                   it.type === 'blog'
                     ? 'bg-[var(--accent-orange)]/15 text-[var(--accent-orange)]'
                     : 'bg-[var(--accent-link)]/15 text-[var(--accent-link)]'
                 }`}>{it.badge}</span>
               )}
-              <span className="ml-auto text-[11px] text-[var(--text-faint)]">{timeAgo(it.created_at)}</span>
+              <span className="ml-auto text-[12px] text-[var(--text-faint)]">{timeAgo(it.created_at)}</span>
             </div>
             <p className="m-0 line-clamp-2 font-['Outfit',sans-serif] text-[14px] font-extrabold leading-snug text-[var(--text-primary)] transition-colors group-hover:text-[var(--accent-orange)]">
               {it.title}
             </p>
             {it.excerpt && (
-              <p className="m-0 mt-1.5 line-clamp-2 text-[13.5px] text-[var(--text-muted)]">
+              <p className="m-0 mt-1.5 line-clamp-2 text-[14px] text-[var(--text-muted)]">
                 {it.excerpt}
               </p>
             )}
-            <p className="m-0 mt-auto pt-2 truncate text-[13px] text-[var(--text-secondary)]">
+            <p className="m-0 mt-auto pt-2 truncate text-[14px] text-[var(--text-secondary)]">
               {it.meta}
             </p>
           </Link>
@@ -588,9 +588,9 @@ function DiscussionsWidget() {
         >
           <div className="mb-1.5 flex items-center gap-1.5">
             {(d.tags || []).slice(0, 1).map(t => (
-              <span key={t} className="rounded bg-[var(--bg-active)] px-1.5 py-0.5 text-[11px] font-extrabold text-[var(--accent-link)]">{t}</span>
+              <span key={t} className="rounded bg-[var(--bg-active)] px-1.5 py-0.5 text-[12px] font-extrabold text-[var(--accent-link)]">{t}</span>
             ))}
-            <span className="ml-auto text-[11px] text-[var(--text-faint)]">{timeAgo(d.created_at)}</span>
+            <span className="ml-auto text-[12px] text-[var(--text-faint)]">{timeAgo(d.created_at)}</span>
           </div>
           <p className="m-0 mb-1.5 line-clamp-2 font-['Outfit',sans-serif] text-[14px] font-bold leading-snug text-[var(--text-primary)]">{d.title}</p>
           <p className="m-0 text-[12px] text-[var(--text-muted)]">{d.author_name} · {d.comment_count} atsak.</p>
@@ -1315,7 +1315,7 @@ function ChartTabs({ active, onSelect, compact = false }: {
   onSelect: (k: 'lt' | 'world') => void
   compact?: boolean
 }) {
-  const tabPad = compact ? 'py-[7px] text-[13px]' : 'py-[9px] text-[14px]'
+  const tabPad = compact ? 'py-[7px] text-[14px]' : 'py-[9px] text-[14px]'
   return (
     <div className="mb-3 flex">
       <div className="flex flex-1 gap-[3px] rounded-[10px] bg-[var(--bg-hover)] p-[3px]">
@@ -1338,8 +1338,8 @@ function ChartTabs({ active, onSelect, compact = false }: {
 }
 
 function ChartRow({ t, compact = false }: { t: TopEntry; compact?: boolean }) {
-  const titleSize = compact ? 'text-[14.5px]' : 'text-[14px]'
-  const metaSize = compact ? 'text-[12.5px]' : 'text-[13px]'
+  const titleSize = compact ? 'text-[14px]' : 'text-[14px]'
+  const metaSize = compact ? 'text-[12px]' : 'text-[14px]'
   return (
     <Link
       href={t.slug ? `/muzika/${t.slug}` : '/topai'}
@@ -1413,7 +1413,7 @@ function CommunityDiscussionsCard() {
     <div className="flex h-full flex-col overflow-hidden rounded-2xl border border-[var(--border-default)] bg-[var(--bg-surface)]">
       <div className="flex shrink-0 items-center justify-between border-b border-[var(--border-subtle)] px-4 py-2.5">
         <span className="font-['Outfit',sans-serif] text-[14px] font-extrabold text-[var(--text-primary)]">Diskusijos</span>
-        <Link href="/diskusijos" className="text-[13px] font-bold text-[var(--accent-link)] no-underline">Visos →</Link>
+        <Link href="/diskusijos" className="text-[14px] font-bold text-[var(--accent-link)] no-underline">Visos →</Link>
       </div>
       <div className="flex-1 overflow-y-auto">
         {loading ? Array(4).fill(null).map((_, i) => (
@@ -1427,21 +1427,21 @@ function CommunityDiscussionsCard() {
           const hue = strHue(lc?.author || d.author_name || '?')
           return (
             <Link key={d.id} href={`/diskusijos/${d.slug}`} className="block border-b border-[var(--border-subtle)] px-4 py-2.5 no-underline transition-colors hover:bg-[var(--bg-hover)]" style={{ borderBottomWidth: i === discs.length - 1 ? 0 : 1 }}>
-              <p className="m-0 line-clamp-1 font-['Outfit',sans-serif] text-[14.5px] font-bold text-[var(--text-primary)] transition-colors group-hover:text-[var(--accent-orange)]">{d.title}</p>
+              <p className="m-0 line-clamp-1 font-['Outfit',sans-serif] text-[14px] font-bold text-[var(--text-primary)] transition-colors group-hover:text-[var(--accent-orange)]">{d.title}</p>
               {lc ? (
                 <div className="mt-1 flex items-start gap-1.5">
                   {lc.avatar ? (
                     // eslint-disable-next-line @next/next/no-img-element
                     <img src={proxyImg(lc.avatar)} alt="" className="mt-px h-[15px] w-[15px] shrink-0 rounded-full object-cover" />
                   ) : (
-                    <span className="mt-px flex h-[15px] w-[15px] shrink-0 items-center justify-center rounded-full text-[10px] font-extrabold" style={{ background: `hsl(${hue},32%,20%)`, color: `hsl(${hue},48%,60%)` }}>{(lc.author || '?').charAt(0).toUpperCase()}</span>
+                    <span className="mt-px flex h-[15px] w-[15px] shrink-0 items-center justify-center rounded-full text-[12px] font-extrabold" style={{ background: `hsl(${hue},32%,20%)`, color: `hsl(${hue},48%,60%)` }}>{(lc.author || '?').charAt(0).toUpperCase()}</span>
                   )}
-                  <p className="m-0 line-clamp-2 text-[13px] leading-snug text-[var(--text-muted)]">
+                  <p className="m-0 line-clamp-2 text-[14px] leading-snug text-[var(--text-muted)]">
                     <span className="font-bold text-[var(--text-secondary)]">{lc.author}:</span> {lc.excerpt}
                   </p>
                 </div>
               ) : (
-                <p className="m-0 mt-0.5 text-[12.5px] text-[var(--text-muted)]">{d.author_name || 'Anonimas'} · {d.comment_count} ats. · {timeAgo(d.created_at)}</p>
+                <p className="m-0 mt-0.5 text-[12px] text-[var(--text-muted)]">{d.author_name || 'Anonimas'} · {d.comment_count} ats. · {timeAgo(d.created_at)}</p>
               )}
             </Link>
           )
@@ -1456,7 +1456,7 @@ function CommunityChatCard() {
     <div className="flex h-full flex-col overflow-hidden rounded-2xl border border-[var(--border-default)] bg-[var(--bg-surface)]">
       <div className="flex items-center justify-between border-b border-[var(--border-subtle)] px-4 py-3">
         <span className="font-['Outfit',sans-serif] text-[14px] font-extrabold text-[var(--text-primary)]">Pokalbiai</span>
-        <Link href="/pokalbiai" className="text-[13px] font-bold text-[var(--accent-link)] no-underline">Atidaryti →</Link>
+        <Link href="/pokalbiai" className="text-[14px] font-bold text-[var(--accent-link)] no-underline">Atidaryti →</Link>
       </div>
       <div className="flex-1 overflow-hidden">
         <HomeChatsWidget />
@@ -1501,7 +1501,7 @@ function CommunityUserPostsCard() {
     <div className="flex h-full flex-col overflow-hidden rounded-2xl border border-[var(--border-default)] bg-[var(--bg-surface)]">
       <div className="flex items-center justify-between border-b border-[var(--border-subtle)] px-4 py-3">
         <span className="font-['Outfit',sans-serif] text-[14px] font-extrabold text-[var(--text-primary)]">Vartotojų įrašai</span>
-        <Link href="/blogai" className="text-[13px] font-bold text-[var(--accent-link)] no-underline">Visi →</Link>
+        <Link href="/blogai" className="text-[14px] font-bold text-[var(--accent-link)] no-underline">Visi →</Link>
       </div>
       <div className="flex-1">
         {loading ? Array(3).fill(null).map((_, i) => (
@@ -1511,19 +1511,19 @@ function CommunityUserPostsCard() {
         )) : posts.length === 0 ? (
           <div className="px-4 py-6 text-center">
             <p className="m-0 text-[14px] font-bold text-[var(--text-secondary)]">Pirmas autorius — tu?</p>
-            <p className="m-0 mt-1 text-[13px] text-[var(--text-muted)]">Blogai, vertimai, kūryba — dalinkis su bendruomene.</p>
-            <Link href="/blogai/naujas" className="mt-2 inline-flex rounded-md bg-[var(--accent-orange)] px-3 py-1.5 text-[13px] font-bold text-white no-underline">Pradėti</Link>
+            <p className="m-0 mt-1 text-[14px] text-[var(--text-muted)]">Blogai, vertimai, kūryba — dalinkis su bendruomene.</p>
+            <Link href="/blogai/naujas" className="mt-2 inline-flex rounded-md bg-[var(--accent-orange)] px-3 py-1.5 text-[14px] font-bold text-white no-underline">Pradėti</Link>
           </div>
         ) : posts.map((p, i) => (
           <Link key={p.id} href={p.href} className="block border-b border-[var(--border-subtle)] px-4 py-2.5 no-underline transition-colors hover:bg-[var(--bg-hover)]" style={{ borderBottomWidth: i === posts.length - 1 ? 0 : 1 }}>
             <div className="mb-0.5 flex items-center gap-1.5">
-              <span className={`rounded px-1.5 py-px font-['Outfit',sans-serif] text-[10.5px] font-extrabold uppercase tracking-[0.06em] ${
+              <span className={`rounded px-1.5 py-px font-['Outfit',sans-serif] text-[12px] font-extrabold uppercase tracking-[0.06em] ${
                 p.type === 'blog' ? 'bg-[var(--accent-orange)]/15 text-[var(--accent-orange)]' : 'bg-[var(--accent-link)]/15 text-[var(--accent-link)]'
               }`}>{p.badge}</span>
-              <span className="text-[11px] text-[var(--text-faint)]">{timeAgo(p.created_at)}</span>
+              <span className="text-[12px] text-[var(--text-faint)]">{timeAgo(p.created_at)}</span>
             </div>
-            <p className="m-0 line-clamp-2 font-['Outfit',sans-serif] text-[14.5px] font-bold text-[var(--text-primary)]">{p.title}</p>
-            <p className="m-0 mt-0.5 truncate text-[12.5px] text-[var(--text-muted)]">{p.meta}</p>
+            <p className="m-0 line-clamp-2 font-['Outfit',sans-serif] text-[14px] font-bold text-[var(--text-primary)]">{p.title}</p>
+            <p className="m-0 mt-0.5 truncate text-[12px] text-[var(--text-muted)]">{p.meta}</p>
           </Link>
         ))}
       </div>
@@ -1605,10 +1605,10 @@ function IstGroupChips({ groups, max = 99, avatar = 20 }: { groups?: { name: str
           ) : (
             <span className="flex shrink-0 items-center justify-center rounded-full font-['Outfit',sans-serif] font-extrabold" style={{ width: avatar, height: avatar, fontSize: avatar * 0.42, background: `hsl(${strHue(g.name)},32%,24%)`, color: `hsl(${strHue(g.name)},48%,62%)` }}>{(g.name || '?').charAt(0).toUpperCase()}</span>
           )}
-          <span className="min-w-0 truncate text-[13.5px] font-semibold text-[var(--text-secondary)]">{g.name}</span>
+          <span className="min-w-0 truncate text-[14px] font-semibold text-[var(--text-secondary)]">{g.name}</span>
         </span>
       ))}
-      {extra > 0 && <span className="text-[12.5px] font-bold text-[var(--text-faint)]" style={{ paddingLeft: avatar + 6 }}>+{extra} grupė(s)</span>}
+      {extra > 0 && <span className="text-[12px] font-bold text-[var(--text-faint)]" style={{ paddingLeft: avatar + 6 }}>+{extra} grupė(s)</span>}
     </span>
   )
 }
@@ -1661,7 +1661,7 @@ function IstorijaSection({ onOpenAlbum }: { onOpenAlbum?: (id: number, preview: 
     return (
       <div className="hp-card flex flex-col items-center justify-center p-6 text-center" style={{ minHeight: 130 }}>
         <p className="m-0 font-['Outfit',sans-serif] text-[14px] font-extrabold text-[var(--text-primary)]">Šiandien istorijos kalendoriuje tylu</p>
-        <p className="m-0 mt-1 text-[13.5px] text-[var(--text-muted)]">Nepamiršk — kiekvieną dieną čia atsiras gimtadieniai, jubiliejai ir sukaktys.</p>
+        <p className="m-0 mt-1 text-[14px] text-[var(--text-muted)]">Nepamiršk — kiekvieną dieną čia atsiras gimtadieniai, jubiliejai ir sukaktys.</p>
       </div>
     )
   }
@@ -1693,10 +1693,10 @@ function IstorijaSection({ onOpenAlbum }: { onOpenAlbum?: (id: number, preview: 
               <div className="mb-2.5 flex items-center justify-between gap-2">
                 <div className="flex items-center gap-2">
                   <span style={{ width: 3, height: 16, borderRadius: 2, background: accent }} />
-                  <h3 className="m-0 font-['Outfit',sans-serif] text-[14.5px] font-extrabold tracking-[-0.01em] text-[var(--text-primary)]">{cfg.label}</h3>
-                  <span className="text-[13px] font-bold text-[var(--text-faint)]">{list.length}</span>
+                  <h3 className="m-0 font-['Outfit',sans-serif] text-[14px] font-extrabold tracking-[-0.01em] text-[var(--text-primary)]">{cfg.label}</h3>
+                  <span className="text-[14px] font-bold text-[var(--text-faint)]">{list.length}</span>
                 </div>
-                <button type="button" onClick={() => setOpenCat(t)} aria-label={`Daugiau: ${cfg.label}`} className="font-['Outfit',sans-serif] text-[13.5px] font-bold text-[var(--accent-orange)] transition-opacity hover:opacity-70">Daugiau →</button>
+                <button type="button" onClick={() => setOpenCat(t)} aria-label={`Daugiau: ${cfg.label}`} className="font-['Outfit',sans-serif] text-[14px] font-bold text-[var(--accent-orange)] transition-opacity hover:opacity-70">Daugiau →</button>
               </div>
               <Scroller className="min-w-0" gap={12} ariaLabel={cfg.label}>
                   {list.slice(0, 14).map(it => {
@@ -1726,7 +1726,7 @@ function IstorijaSection({ onOpenAlbum }: { onOpenAlbum?: (id: number, preview: 
                           </div>
                         )}
                         {badge && (
-                          <span className={`absolute bottom-1.5 right-1.5 rounded px-1.5 py-0.5 font-['Outfit',sans-serif] text-[11px] font-bold text-white backdrop-blur-sm ${isJubilee ? 'bg-[var(--accent-orange)] shadow-[0_2px_8px_rgba(249,115,22,0.5)]' : 'bg-black/70'}`}>{badge}</span>
+                          <span className={`absolute bottom-1.5 right-1.5 rounded px-1.5 py-0.5 font-['Outfit',sans-serif] text-[12px] font-bold text-white backdrop-blur-sm ${isJubilee ? 'bg-[var(--accent-orange)] shadow-[0_2px_8px_rgba(249,115,22,0.5)]' : 'bg-black/70'}`}>{badge}</span>
                         )}
                         <div className="pointer-events-none absolute inset-0 bg-gradient-to-t from-[rgba(249,115,22,0.12)] to-transparent opacity-0 transition-opacity duration-300 group-hover:opacity-100" />
                       </div>
@@ -1740,7 +1740,7 @@ function IstorijaSection({ onOpenAlbum }: { onOpenAlbum?: (id: number, preview: 
                         )}
                         {it.type === 'birthday' && <IstGroupChips groups={it.groups} avatar={20} />}
                         {it.type === 'death_anniversary' && it.subtitle && (
-                          <p className="m-0 mt-1 truncate text-[13.5px] text-[var(--text-muted)]">{it.subtitle}</p>
+                          <p className="m-0 mt-1 truncate text-[14px] text-[var(--text-muted)]">{it.subtitle}</p>
                         )}
                       </div>
                     )
@@ -1790,15 +1790,15 @@ function IstorijaSection({ onOpenAlbum }: { onOpenAlbum?: (id: number, preview: 
                     // eslint-disable-next-line @next/next/no-img-element
                     <img src={proxyImg(it.cover)} alt={it.title} loading="lazy" className="h-full w-full object-cover transition-transform duration-500 group-hover:scale-[1.06]" />
                   ) : <div className="flex h-full w-full items-center justify-center text-2xl text-[var(--text-faint)]">💿</div>}
-                  {it.age ? <span className="absolute bottom-1.5 right-1.5 rounded bg-black/70 px-1.5 py-0.5 font-['Outfit',sans-serif] text-[11px] font-bold text-white backdrop-blur-sm">{it.age} m.</span> : null}
+                  {it.age ? <span className="absolute bottom-1.5 right-1.5 rounded bg-black/70 px-1.5 py-0.5 font-['Outfit',sans-serif] text-[12px] font-bold text-white backdrop-blur-sm">{it.age} m.</span> : null}
                 </div>
                 <div className="mt-2 px-0.5">
                   {(it.pop ?? 0) > 0 && <span className="mb-1 flex"><IstPopBar level={it.pop} /></span>}
                   <p className="m-0 truncate font-['Outfit',sans-serif] text-[14px] font-extrabold text-[var(--text-primary)] transition-colors group-hover:text-[var(--accent-orange)]">{it.title}</p>
                   <div className="mt-1 flex items-center gap-2">
-                    <p className="m-0 min-w-0 flex-1 truncate text-[13.5px] text-[var(--text-muted)]">{it.artist}</p>
+                    <p className="m-0 min-w-0 flex-1 truncate text-[14px] text-[var(--text-muted)]">{it.artist}</p>
                     {(it.likeCount ?? 0) > 0 && (
-                      <span className="flex shrink-0 items-center gap-0.5 text-[12.5px] font-bold text-[var(--text-muted)]"><span className="text-[var(--accent-orange)]">♥</span>{it.likeCount}</span>
+                      <span className="flex shrink-0 items-center gap-0.5 text-[12px] font-bold text-[var(--text-muted)]"><span className="text-[var(--accent-orange)]">♥</span>{it.likeCount}</span>
                     )}
                   </div>
                 </div>
@@ -1822,7 +1822,7 @@ function IstorijaSection({ onOpenAlbum }: { onOpenAlbum?: (id: number, preview: 
                 <div className="min-w-0 flex-1">
                   <p className="m-0 line-clamp-1 font-['Outfit',sans-serif] text-[14px] font-extrabold text-[var(--text-primary)] transition-colors group-hover:text-[var(--accent-orange)]">{it.title}</p>
                   {it.type === 'death_anniversary' && it.subtitle && (
-                    <p className="m-0 mt-0.5 line-clamp-1 text-[13px] text-[var(--text-muted)]">{it.subtitle}</p>
+                    <p className="m-0 mt-0.5 line-clamp-1 text-[14px] text-[var(--text-muted)]">{it.subtitle}</p>
                   )}
                   {it.type === 'birthday' && <IstGroupChips groups={it.groups} avatar={24} />}
                   {/* Amžiaus/„gimimo metinės" badge'as (ne tekstas) — Edvardo
@@ -1911,7 +1911,7 @@ function HeroV2Slider({ slides, dk }: { slides: HeroSlide[]; dk: boolean }) {
                 <span className="flex h-12 w-12 items-center justify-center rounded-full border border-[var(--border-strong)] text-[var(--text-muted)] transition-colors group-hover:border-[var(--accent-orange)] group-hover:text-[var(--accent-orange)]">
                   <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round"><path d="M5 12h14M12 5l7 7-7 7" /></svg>
                 </span>
-                <span className="font-['Outfit',sans-serif] text-[15px] font-extrabold text-[var(--text-primary)] transition-colors group-hover:text-[var(--accent-orange)]">Daugiau naujienų</span>
+                <span className="font-['Outfit',sans-serif] text-[16px] font-extrabold text-[var(--text-primary)] transition-colors group-hover:text-[var(--accent-orange)]">Daugiau naujienų</span>
               </Link>
             </div>
           </div>
@@ -2000,7 +2000,7 @@ function HeroV2Card({ slide, dk }: { slide: HeroSlide; dk: boolean }) {
         </h3>
         {/* Renginiams po pavadinimu — miestas · data (naujienoms subtitle slepiam). */}
         {slide.type === 'event' && slide.subtitle && (
-          <p className="m-0 mt-2 flex items-center gap-1.5 font-['Outfit',sans-serif] text-[14.5px] font-semibold text-white/85">
+          <p className="m-0 mt-2 flex items-center gap-1.5 font-['Outfit',sans-serif] text-[14px] font-semibold text-white/85">
             <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><rect x="3" y="5" width="18" height="16" rx="2"/><path d="M16 3v4M8 3v4M3 11h18"/></svg>
             {slide.subtitle}
           </p>
@@ -2009,9 +2009,9 @@ function HeroV2Card({ slide, dk }: { slide: HeroSlide; dk: boolean }) {
         {slide.type === 'daily_winner' && (
           <div className="m-0 mt-2 flex flex-wrap items-center gap-x-2 gap-y-1.5">
             {slide.artist?.name && (
-              <span className="font-['Outfit',sans-serif] text-[15px] font-bold leading-none text-white/90">{slide.artist.name}</span>
+              <span className="font-['Outfit',sans-serif] text-[16px] font-bold leading-none text-white/90">{slide.artist.name}</span>
             )}
-            <span className="inline-flex items-center gap-1 rounded-[6px] bg-white/15 px-2 py-[3px] font-['Outfit',sans-serif] text-[12.5px] font-bold uppercase tracking-[0.06em] text-amber-300">
+            <span className="inline-flex items-center gap-1 rounded-[6px] bg-white/15 px-2 py-[3px] font-['Outfit',sans-serif] text-[12px] font-bold uppercase tracking-[0.06em] text-amber-300">
               <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round"><path d="M8 21h8M12 17v4M7 4h10v5a5 5 0 0 1-10 0V4zM5 9a2 2 0 0 1-2-2V5h4M19 9a2 2 0 0 0 2-2V5h-4"/></svg>
               Vakar laimėjo
             </span>
@@ -2121,7 +2121,7 @@ function HeroChartCard({ slide }: { slide: HeroSlide }) {
             švari su mosaic'u dešinėje + chip + Balsuok kairėje. */}
         {valueNames.length > 0 && (
           <div className="flex flex-col gap-1.5" style={{ minWidth: 0 }}>
-            <p className="m-0 text-[13px] font-semibold uppercase tracking-[0.14em] text-white/55">
+            <p className="m-0 text-[14px] font-semibold uppercase tracking-[0.14em] text-white/55">
               {valueLead}
             </p>
             <ul style={{ listStyle: 'none', margin: 0, padding: 0, display: 'flex', flexDirection: 'column', gap: 3 }}>
@@ -2130,7 +2130,7 @@ function HeroChartCard({ slide }: { slide: HeroSlide }) {
                   key={i}
                   style={{
                     fontFamily: 'Outfit,sans-serif',
-                    fontSize: 14.5, fontWeight: 600, color: 'rgba(255,255,255,0.78)',
+                    fontSize: 14, fontWeight: 600, color: 'rgba(255,255,255,0.78)',
                     lineHeight: 1.3, letterSpacing: '-0.005em',
                     display: 'flex', alignItems: 'center', gap: 8,
                     minWidth: 0,
@@ -2353,7 +2353,7 @@ function ChartBottomSheet({
         {/* Header */}
         <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '4px 18px 12px', gap: 10 }}>
           <div style={{ display: 'flex', flexDirection: 'column', minWidth: 0 }}>
-            <span style={{ fontSize: 12.5, fontWeight: 800, letterSpacing: '0.14em', textTransform: 'uppercase', color: accent, fontFamily: 'Outfit,sans-serif' }}>
+            <span style={{ fontSize: 12, fontWeight: 800, letterSpacing: '0.14em', textTransform: 'uppercase', color: accent, fontFamily: 'Outfit,sans-serif' }}>
               Balsuoti · šios savaitės topas
             </span>
             <h2 style={{ margin: '2px 0 0', fontSize: 22, fontWeight: 900, color: '#fff', fontFamily: 'Outfit,sans-serif', letterSpacing: '-0.02em', lineHeight: 1.05 }}>
@@ -2382,12 +2382,12 @@ function ChartBottomSheet({
           border: '1px solid rgba(255,255,255,0.08)',
           display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 10,
         }}>
-          <span style={{ fontSize: 14.5, color: 'rgba(255,255,255,0.85)', fontWeight: 600 }}>
+          <span style={{ fontSize: 14, color: 'rgba(255,255,255,0.85)', fontWeight: 600 }}>
             Balsų liko: <span style={{ color: accent, fontWeight: 900 }}>{votesRemaining}</span>
           </span>
           <Link
             href={topType === 'lt_top30' ? '/top30' : '/top40'}
-            style={{ fontSize: 13.5, color: 'rgba(255,255,255,0.65)', textDecoration: 'none', fontWeight: 700 }}
+            style={{ fontSize: 14, color: 'rgba(255,255,255,0.65)', textDecoration: 'none', fontWeight: 700 }}
           >
             Visas puslapis →
           </Link>
@@ -2432,7 +2432,7 @@ function ChartBottomSheet({
                     fontFamily: 'Outfit,sans-serif', lineHeight: 1,
                   }}>{e.position}</div>
                   {trend !== 'same' && (
-                    <div style={{ fontSize: 10.5, fontWeight: 700, color: trend === 'up' ? '#22c55e' : trend === 'down' ? '#ef4444' : accent, marginTop: 2, lineHeight: 1 }}>
+                    <div style={{ fontSize: 12, fontWeight: 700, color: trend === 'up' ? '#22c55e' : trend === 'down' ? '#ef4444' : accent, marginTop: 2, lineHeight: 1 }}>
                       {trend === 'up' ? '▲' : trend === 'down' ? '▼' : 'NEW'}
                     </div>
                   )}
@@ -2446,8 +2446,8 @@ function ChartBottomSheet({
                 </div>
                 {/* Title + artist */}
                 <div style={{ flex: 1, minWidth: 0 }}>
-                  <p style={{ margin: 0, fontSize: 14.5, fontWeight: 800, color: '#fff', fontFamily: 'Outfit,sans-serif', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis', letterSpacing: '-0.005em' }}>{e.title}</p>
-                  <p style={{ margin: '1px 0 0', fontSize: 13.5, color: 'rgba(255,255,255,0.6)', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{e.artist}</p>
+                  <p style={{ margin: 0, fontSize: 14, fontWeight: 800, color: '#fff', fontFamily: 'Outfit,sans-serif', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis', letterSpacing: '-0.005em' }}>{e.title}</p>
+                  <p style={{ margin: '1px 0 0', fontSize: 14, color: 'rgba(255,255,255,0.6)', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{e.artist}</p>
                 </div>
                 {/* Vote button */}
                 <button
@@ -2462,7 +2462,7 @@ function ChartBottomSheet({
                     border: voted ? `1.5px solid ${accent}` : '1.5px solid rgba(255,255,255,0.18)',
                     background: voted ? `${accent}` : 'rgba(255,255,255,0.04)',
                     color: voted ? '#fff' : 'rgba(255,255,255,0.85)',
-                    fontFamily: 'Outfit,sans-serif', fontSize: 13.5, fontWeight: 800,
+                    fontFamily: 'Outfit,sans-serif', fontSize: 14, fontWeight: 800,
                     cursor: (voted || pending || votesRemaining <= 0) ? 'default' : 'pointer',
                     opacity: !voted && votesRemaining <= 0 ? 0.4 : 1,
                   }}
@@ -2537,14 +2537,14 @@ function MobileChartSlide({
           // #1 — title + artist (du eilutes)
           <div style={{ position: 'absolute', left: 8, right: 8, bottom: 6 }}>
             <p style={{
-              margin: 0, fontSize: 14.5, fontWeight: 900, color: '#fff',
+              margin: 0, fontSize: 14, fontWeight: 900, color: '#fff',
               fontFamily: 'Outfit,sans-serif',
               whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis',
               letterSpacing: '-0.01em', textShadow: '0 1px 4px rgba(0,0,0,0.95)',
               lineHeight: 1.15,
             }}>{t.title}</p>
             <p style={{
-              margin: '1px 0 0', fontSize: 12.5, fontWeight: 600, color: 'rgba(255,255,255,0.85)',
+              margin: '1px 0 0', fontSize: 12, fontWeight: 600, color: 'rgba(255,255,255,0.85)',
               fontFamily: 'Outfit,sans-serif',
               whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis',
               textShadow: '0 1px 3px rgba(0,0,0,0.9)',
@@ -2555,7 +2555,7 @@ function MobileChartSlide({
           // #2/#3 — tik artist'o vardas
           <p style={{
             position: 'absolute', left: 5, right: 5, bottom: 4,
-            margin: 0, fontSize: 12.5, fontWeight: 800, color: '#fff',
+            margin: 0, fontSize: 12, fontWeight: 800, color: '#fff',
             fontFamily: 'Outfit,sans-serif',
             whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis',
             letterSpacing: '-0.005em', textShadow: '0 1px 4px rgba(0,0,0,0.95)',
@@ -3408,7 +3408,7 @@ export default function HomeClient({ initialLatest, initialHero }: { initialLate
         .hp-scroll-arrow-l{left:-8px}
         .hp-scroll-arrow-r{right:-8px}
         @media (pointer: coarse){.hp-scroll-arrow{display:none}}
-        .hp-pill{cursor:pointer;padding:5px 13px;border-radius:18px;font-size:11px;font-weight:700;border:1px solid var(--border-default);color:var(--text-muted);background:transparent;transition:all .15s;white-space:nowrap;font-family:'DM Sans',sans-serif}
+        .hp-pill{cursor:pointer;padding:5px 13px;border-radius:18px;font-size:12px;font-weight:700;border:1px solid var(--border-default);color:var(--text-muted);background:transparent;transition:all .15s;white-space:nowrap;font-family:'DM Sans',sans-serif}
         .hp-pill.hp-act{background:var(--homepage-pill-active);border-color:${dk ? 'rgba(29,78,216,.32)' : 'rgba(29,78,216,.2)'};color:var(--accent-blue)}
         .hp-pill:hover{color:${dk ? '#b8d0e8' : '#1a2a40'};border-color:var(--border-strong)}
         .hp-tr{transition:background .1s}
@@ -3442,7 +3442,7 @@ export default function HomeClient({ initialLatest, initialHero }: { initialLate
         .rdr-poster-img{position:absolute;inset:0;width:100%;height:100%;object-fit:contain;z-index:1}
         /* Antraštės galvutė: badge + data vienoj eilutėj (kompaktiška) */
         .rdr-head{display:flex;align-items:center;gap:8px;flex-wrap:wrap;margin-bottom:10px}
-        .rdr-date{font-size:13px;font-weight:600;color:rgba(255,255,255,0.62);font-family:'Outfit',sans-serif}
+        .rdr-date{font-size:14px;font-weight:600;color:rgba(255,255,255,0.62);font-family:'Outfit',sans-serif}
 
         /* ── Šviesi tema (light mode) — reels neturi būti juodas ── */
         .hp-reels.light,.hp-reels.light .hp-reels-slide,.hp-reels.light .rdr-slide{background:var(--bg-body)}
@@ -3466,23 +3466,23 @@ export default function HomeClient({ initialLatest, initialHero }: { initialLate
         /* Turinys — footer'is yra PASKUTINIS elementas; apačioje tik nedidelis
            tarpas + safe-area, kad kortelė baigtųsi švariai (be tuščio scroll'o). */
         .rdr-content{padding:16px 20px calc(16px + env(safe-area-inset-bottom))}
-        .rdr-chip{display:inline-block;padding:4px 12px;border-radius:16px;font-size:11px;font-weight:900;color:#fff;font-family:'Outfit',sans-serif;letter-spacing:0.08em;text-transform:uppercase}
+        .rdr-chip{display:inline-block;padding:4px 12px;border-radius:16px;font-size:12px;font-weight:900;color:#fff;font-family:'Outfit',sans-serif;letter-spacing:0.08em;text-transform:uppercase}
         .rdr-title{font-family:'Outfit',sans-serif;font-size:25px;font-weight:900;color:#eef1f6;line-height:1.16;letter-spacing:-0.02em;margin:0 0 8px;display:block}
         a.rdr-title-link{text-decoration:none}
         a.rdr-title-link:active{opacity:0.7}
-        .rdr-meta{font-size:13.5px;font-weight:600;color:rgba(255,255,255,0.64);margin:0 0 12px}
-        .rdr-excerpt{font-size:16.5px;line-height:1.62;color:rgba(255,255,255,0.88);margin:0}
+        .rdr-meta{font-size:14px;font-weight:600;color:rgba(255,255,255,0.64);margin:0 0 12px}
+        .rdr-excerpt{font-size:16px;line-height:1.62;color:rgba(255,255,255,0.88);margin:0}
         /* Lineup „pill'ės" — naudojamos footer'io konteksto eilutėje */
         .rdr-lineup-item{display:inline-flex;align-items:center;gap:7px;padding:4px 12px 4px 4px;border-radius:999px;background:rgba(255,255,255,0.07);border:1px solid rgba(255,255,255,0.10);text-decoration:none;flex-shrink:0}
         .rdr-lineup-item img,.rdr-lineup-ph{width:28px;height:28px;border-radius:50%;object-fit:cover;flex-shrink:0;background:var(--accent-orange);display:flex;align-items:center;justify-content:center;color:#fff;font-weight:800;font-size:12px;text-transform:uppercase}
-        .rdr-lineup-item span:last-child{font-size:13.5px;font-weight:700;color:#eef1f6;white-space:nowrap}
+        .rdr-lineup-item span:last-child{font-size:14px;font-weight:700;color:#eef1f6;white-space:nowrap}
         .hp-reels.light .rdr-lineup-item{background:var(--bg-hover);border-color:var(--border-default)}
         .hp-reels.light .rdr-lineup-item span:last-child{color:var(--text-primary)}
-        .rdr-html{font-size:16.5px;line-height:1.66;color:rgba(255,255,255,0.88)}
+        .rdr-html{font-size:16px;line-height:1.66;color:rgba(255,255,255,0.88)}
         .rdr-html p{margin:0 0 14px}
         .rdr-html a{color:#fb923c;text-decoration:underline}
         .rdr-html .news-source{display:none}
-        .rdr-html h2,.rdr-html h3{font-family:'Outfit',sans-serif;color:#eef1f6;font-size:19.5px;margin:20px 0 8px;line-height:1.2}
+        .rdr-html h2,.rdr-html h3{font-family:'Outfit',sans-serif;color:#eef1f6;font-size:20px;margin:20px 0 8px;line-height:1.2}
         .rdr-html img{max-width:100%;height:auto;border-radius:12px;margin:12px 0;display:block}
         .rdr-html iframe{max-width:100%;border-radius:12px;margin:12px 0}
         .rdr-html ul,.rdr-html ol{padding-left:20px;margin:0 0 14px}
@@ -3490,15 +3490,15 @@ export default function HomeClient({ initialLatest, initialHero }: { initialLate
         .rdr-toplist-wrap .rdr-html{margin-bottom:14px}
         .rdr-toplist{display:flex;flex-direction:column;gap:15px;margin:4px 0}
         .rdr-top-item{display:flex;gap:11px;align-items:flex-start}
-        .rdr-top-rank{flex-shrink:0;width:26px;height:26px;border-radius:8px;background:rgba(249,115,22,0.22);color:#fb923c;font-family:'Outfit',sans-serif;font-weight:900;font-size:13px;display:flex;align-items:center;justify-content:center;margin-top:1px}
+        .rdr-top-rank{flex-shrink:0;width:26px;height:26px;border-radius:8px;background:rgba(249,115,22,0.22);color:#fb923c;font-family:'Outfit',sans-serif;font-weight:900;font-size:14px;display:flex;align-items:center;justify-content:center;margin-top:1px}
         .rdr-top-cover{flex-shrink:0;width:56px;height:56px;border-radius:10px;object-fit:cover;display:block}
         .rdr-top-ph{background:rgba(255,255,255,0.08)}
         .rdr-top-info{min-width:0;flex:1}
-        .rdr-top-title{margin:0;font-family:'Outfit',sans-serif;font-weight:800;font-size:15.5px;color:#eef1f6;line-height:1.25}
+        .rdr-top-title{margin:0;font-family:'Outfit',sans-serif;font-weight:800;font-size:16px;color:#eef1f6;line-height:1.25}
         .rdr-top-artist{font-weight:600;color:rgba(255,255,255,0.72)}
         .rdr-top-comment{margin:5px 0 0;font-size:14px;line-height:1.5;color:rgba(255,255,255,0.8)}
         .rdr-outro{margin-top:20px}
-        .rdr-outro a{display:flex;align-items:center;gap:9px;color:#fff;text-decoration:none;margin:0 0 9px;font-size:13.5px}
+        .rdr-outro a{display:flex;align-items:center;gap:9px;color:#fff;text-decoration:none;margin:0 0 9px;font-size:14px}
         .rdr-outro .bp-enrich-thumb{width:38px;height:38px;border-radius:8px;object-fit:cover;margin:0;flex-shrink:0}
         .rdr-author{font-size:14px;font-weight:700;color:rgba(255,255,255,0.72);margin:14px 0 0}
         .rdr-load{display:flex;flex-direction:column;gap:10px;margin-top:4px}
@@ -3509,9 +3509,9 @@ export default function HomeClient({ initialLatest, initialHero }: { initialLate
         /* Chart sąrašas */
         .rdr-chart{display:flex;flex-direction:column;gap:8px;margin:4px 0 16px}
         .rdr-chart-row{display:flex;align-items:center;gap:10px}
-        .rdr-chart-pos{display:flex;flex-direction:column;align-items:center;justify-content:center;gap:1px;width:22px;text-align:center;font-family:'Outfit',sans-serif;font-weight:900;font-size:15px;color:var(--accent-orange);flex-shrink:0;line-height:1}
+        .rdr-chart-pos{display:flex;flex-direction:column;align-items:center;justify-content:center;gap:1px;width:22px;text-align:center;font-family:'Outfit',sans-serif;font-weight:900;font-size:16px;color:var(--accent-orange);flex-shrink:0;line-height:1}
         /* Pozicijos pokytis: ▲n / ▼n / = / N (naujokas) */
-        .rdr-trend{font-style:normal;font-size:9px;font-weight:800;letter-spacing:0;line-height:1}
+        .rdr-trend{font-style:normal;font-size:12px;font-weight:800;letter-spacing:0;line-height:1}
         .rdr-trend.up{color:#22c55e}
         .rdr-trend.down{color:#ef4444}
         .rdr-trend.same{color:rgba(255,255,255,0.35)}
@@ -3519,12 +3519,12 @@ export default function HomeClient({ initialLatest, initialHero }: { initialLate
         .hp-reels.light .rdr-trend.same{color:var(--text-muted)}
         .rdr-chart-row img,.rdr-chart-ph{width:42px;height:42px;border-radius:8px;object-fit:cover;flex-shrink:0;background:#1a1a1a}
         .rdr-chart-info{display:flex;flex-direction:column;min-width:0;flex:1}
-        .rdr-chart-info b{font-size:14.5px;font-weight:700;color:#eef1f6;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
-        .rdr-chart-info i{font-size:12.5px;font-style:normal;color:rgba(255,255,255,0.64);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+        .rdr-chart-info b{font-size:14px;font-weight:700;color:#eef1f6;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+        .rdr-chart-info i{font-size:12px;font-style:normal;color:rgba(255,255,255,0.64);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
 
         /* Inline topas (balsavimas + grojimas) */
         .rdr-cvl{display:flex;flex-direction:column;gap:9px;margin:4px 0 12px}
-        .rdr-cvl-head{font-family:'Outfit',sans-serif;font-size:11px;font-weight:800;letter-spacing:0.04em;color:rgba(255,255,255,0.55);text-transform:uppercase}
+        .rdr-cvl-head{font-family:'Outfit',sans-serif;font-size:12px;font-weight:800;letter-spacing:0.04em;color:rgba(255,255,255,0.55);text-transform:uppercase}
         .rdr-cvl-cover{position:relative;width:42px;height:42px;border-radius:8px;overflow:hidden;flex-shrink:0;border:none;padding:0;background:#1a1a1a;cursor:pointer}
         .rdr-cvl-cover img{width:100%;height:100%;object-fit:cover;display:block}
         .rdr-cvl-cover:disabled{cursor:default}
@@ -3533,7 +3533,7 @@ export default function HomeClient({ initialLatest, initialHero }: { initialLate
         .rdr-cvl-vote.voted{background:var(--accent-orange);color:#fff}
         .rdr-cvl-vote:disabled{opacity:0.5}
         .rdr-cvl-vote:active:not(:disabled){transform:scale(0.9)}
-        .rdr-cvl-mine{font-size:15px;font-weight:900}
+        .rdr-cvl-mine{font-size:16px;font-weight:900}
 
         /* ── „Muzika" sekcija — standartiniai YouTube embed'ai po tekstu (16/9,
            užapvalinti). Grojimą paleidžia pats YouTube — jokio custom UI.
@@ -3550,8 +3550,8 @@ export default function HomeClient({ initialLatest, initialHero }: { initialLate
         .rdr-dc-row.lead{background:rgba(245,158,11,0.13);border:1px solid rgba(245,158,11,0.3)}
         .rdr-dc-rank{width:18px;text-align:center;font-family:'Outfit',sans-serif;font-weight:900;font-size:14px;color:#f59e0b;flex-shrink:0}
         .rdr-dc-info{display:flex;flex-direction:column;min-width:0;flex:1;gap:3px}
-        .rdr-dc-info b{font-size:13.5px;font-weight:700;color:#fff;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
-        .rdr-dc-info i{font-size:11.5px;font-style:normal;color:rgba(255,255,255,0.5);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+        .rdr-dc-info b{font-size:14px;font-weight:700;color:#fff;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+        .rdr-dc-info i{font-size:12px;font-style:normal;color:rgba(255,255,255,0.5);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
         .rdr-dc-bar{display:flex;gap:3px;margin-top:1px}
         .rdr-dc-bar span{width:13px;height:3px;border-radius:2px;background:rgba(255,255,255,0.18)}
         .rdr-dc-bar span.on{background:#f59e0b}
@@ -3559,9 +3559,9 @@ export default function HomeClient({ initialLatest, initialHero }: { initialLate
         .rdr-dc-vote:disabled{cursor:default}
         .rdr-dc-vote.on{background:rgba(245,158,11,0.06)}
         .rdr-dc-vote:active:not(:disabled){transform:scale(0.92)}
-        .rdr-dc-suggest{display:block;text-align:center;margin-top:4px;padding:12px;border-radius:12px;background:#f59e0b;color:#fff;font-family:'Outfit',sans-serif;font-size:13.5px;font-weight:800;text-decoration:none}
+        .rdr-dc-suggest{display:block;text-align:center;margin-top:4px;padding:12px;border-radius:12px;background:#f59e0b;color:#fff;font-family:'Outfit',sans-serif;font-size:14px;font-weight:800;text-decoration:none}
         .rdr-dc-empty{display:flex;flex-direction:column;gap:12px;padding:8px 0}
-        .rdr-dc-empty p{font-size:15px;font-weight:600;color:rgba(255,255,255,0.85);margin:0}
+        .rdr-dc-empty p{font-size:16px;font-weight:600;color:rgba(255,255,255,0.85);margin:0}
 
         /* ── Vieningas kortelės pabaigos blokas (footer) — vienas konteineris:
            konteksto eilutė (atlikėjas/lineup + ♥), skirtukas, veiksmų eilutė
@@ -3569,20 +3569,20 @@ export default function HomeClient({ initialLatest, initialHero }: { initialLate
         .rdr-foot{margin:20px 0 0;border-radius:18px;background:rgba(255,255,255,0.06);border:1px solid rgba(255,255,255,0.10);overflow:hidden}
         .rdr-foot-ctx{display:flex;align-items:center;gap:10px;min-height:44px;padding:6px 10px}
         .rdr-foot-artist{display:inline-flex;align-items:center;gap:8px;text-decoration:none;min-width:0;flex:1}
-        .rdr-foot-artist img,.rdr-foot-ph{width:30px;height:30px;border-radius:50%;object-fit:cover;flex-shrink:0;background:var(--accent-orange);display:flex;align-items:center;justify-content:center;color:#fff;font-weight:800;font-size:13px;text-transform:uppercase}
+        .rdr-foot-artist img,.rdr-foot-ph{width:30px;height:30px;border-radius:50%;object-fit:cover;flex-shrink:0;background:var(--accent-orange);display:flex;align-items:center;justify-content:center;color:#fff;font-weight:800;font-size:14px;text-transform:uppercase}
         .rdr-foot-artist span{font-size:14px;font-weight:700;color:#eef1f6;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
         .rdr-foot-lineup{display:flex;align-items:center;gap:6px;overflow-x:auto;scrollbar-width:none;min-width:0;flex:1}
         .rdr-foot-lineup::-webkit-scrollbar{display:none}
         .rdr-foot-div{height:1px;background:rgba(255,255,255,0.08)}
         .rdr-foot-actions{display:flex;gap:8px;padding:10px}
-        .rdr-foot-cta{flex:1;display:flex;align-items:center;justify-content:center;gap:7px;height:48px;border-radius:12px;background:var(--accent-orange);color:#fff;font-family:'Outfit',sans-serif;font-size:15.5px;font-weight:800;letter-spacing:-0.01em;text-decoration:none;min-width:0}
+        .rdr-foot-cta{flex:1;display:flex;align-items:center;justify-content:center;gap:7px;height:48px;border-radius:12px;background:var(--accent-orange);color:#fff;font-family:'Outfit',sans-serif;font-size:16px;font-weight:800;letter-spacing:-0.01em;text-decoration:none;min-width:0}
         .rdr-foot-cta:active{opacity:0.85}
-        .rdr-foot-ticket{flex:1;display:flex;align-items:center;justify-content:center;gap:6px;height:48px;border-radius:12px;background:transparent;border:1px solid rgba(255,255,255,0.25);color:#fff;font-family:'Outfit',sans-serif;font-size:14.5px;font-weight:800;text-decoration:none;min-width:0}
+        .rdr-foot-ticket{flex:1;display:flex;align-items:center;justify-content:center;gap:6px;height:48px;border-radius:12px;background:transparent;border:1px solid rgba(255,255,255,0.25);color:#fff;font-family:'Outfit',sans-serif;font-size:14px;font-weight:800;text-decoration:none;min-width:0}
 
         /* Progreso juostelės + kontrolės */
         .rdr-bars{position:fixed;top:12px;left:14px;right:54px;z-index:312;display:flex;gap:4px;align-items:center;pointer-events:none}
         .rdr-bar{flex:1;height:3px;border-radius:2px;background:rgba(255,255,255,0.22);overflow:hidden}
-        .rdr-close{position:fixed;top:9px;right:14px;z-index:312;width:36px;height:36px;border-radius:50%;background:rgba(0,0,0,0.5);border:1px solid rgba(255,255,255,0.2);color:#fff;font-size:15px;cursor:pointer;display:flex;align-items:center;justify-content:center;backdrop-filter:blur(8px)}
+        .rdr-close{position:fixed;top:9px;right:14px;z-index:312;width:36px;height:36px;border-radius:50%;background:rgba(0,0,0,0.5);border:1px solid rgba(255,255,255,0.2);color:#fff;font-size:16px;cursor:pointer;display:flex;align-items:center;justify-content:center;backdrop-filter:blur(8px)}
         .rdr-uptop{position:fixed;top:22px;left:50%;transform:translateX(-50%);z-index:312;display:flex;align-items:center;justify-content:center;width:34px;height:34px;padding:0;color:#fff;background:rgba(0,0,0,0.5);border:1px solid rgba(255,255,255,0.2);border-radius:50%;cursor:pointer;-webkit-backdrop-filter:blur(6px);backdrop-filter:blur(6px)}
         .rdr-uptop:active{transform:translateX(-50%) scale(0.9)}
         .rdr-nav{position:fixed;top:50%;transform:translateY(-50%);z-index:308;width:40px;height:40px;border-radius:50%;background:rgba(0,0,0,0.4);border:1px solid rgba(255,255,255,0.15);color:#fff;font-size:24px;line-height:1;cursor:pointer;display:none;align-items:center;justify-content:center;backdrop-filter:blur(6px)}
@@ -3613,7 +3613,7 @@ export default function HomeClient({ initialLatest, initialHero }: { initialLate
           .hp-hero-title{font-size:24px!important;line-height:1.1!important;display:-webkit-box!important;-webkit-line-clamp:3;-webkit-box-orient:vertical;overflow:hidden}
           .hp-hero-right{display:none!important}
           .hp-hero-title{font-size:24px!important;line-height:1.1!important}
-          .hp-hero-excerpt{font-size:13px!important;margin-bottom:12px!important;-webkit-line-clamp:2!important;display:-webkit-box!important;-webkit-box-orient:vertical!important;overflow:hidden!important;max-height:42px}
+          .hp-hero-excerpt{font-size:14px!important;margin-bottom:12px!important;-webkit-line-clamp:2!important;display:-webkit-box!important;-webkit-box-orient:vertical!important;overflow:hidden!important;max-height:42px}
           .hp-hero-dots{display:none!important}
           .hp-hero-vidcard{width:100%!important}
           .hp-disc-grid{grid-template-columns:1fr!important}
@@ -3624,8 +3624,8 @@ export default function HomeClient({ initialLatest, initialHero }: { initialLate
           .hp-hero{height:360px}
           .hp-hero-left{padding:0 0 18px!important}
           .hp-hero-spacer{min-height:130px}
-          .hp-hero-title{font-size:21px!important;-webkit-line-clamp:2}
-          .hp-hero-title{font-size:21px!important}
+          .hp-hero-title{font-size:20px!important;-webkit-line-clamp:2}
+          .hp-hero-title{font-size:20px!important}
           .hp-hero-excerpt{-webkit-line-clamp:2}
         }
 
@@ -3790,18 +3790,18 @@ export default function HomeClient({ initialLatest, initialHero }: { initialLate
                     <div style={{ position: 'absolute', inset: 0, background: 'linear-gradient(to top, rgba(0,0,0,0.95) 0%, rgba(0,0,0,0.55) 35%, rgba(0,0,0,0.10) 60%, rgba(0,0,0,0) 75%)' }} />
                     {/* Bottom: title + excerpt + artist */}
                     <div style={{ position: 'absolute', bottom: 0, left: 0, right: 0, padding: '10px 12px 12px', textAlign: 'left' }}>
-                      <p style={{ fontSize: 15, fontWeight: 800, color: '#fff', margin: 0, lineHeight: 1.22, fontFamily: 'Outfit,sans-serif', display: '-webkit-box', WebkitLineClamp: 3, WebkitBoxOrient: 'vertical', overflow: 'hidden', textOverflow: 'ellipsis', letterSpacing: '-0.01em' } as any}>{slide.title}</p>
+                      <p style={{ fontSize: 16, fontWeight: 800, color: '#fff', margin: 0, lineHeight: 1.22, fontFamily: 'Outfit,sans-serif', display: '-webkit-box', WebkitLineClamp: 3, WebkitBoxOrient: 'vertical', overflow: 'hidden', textOverflow: 'ellipsis', letterSpacing: '-0.01em' } as any}>{slide.title}</p>
                       {showExcerpt && (
                         <p style={{ fontSize: 14, fontWeight: 500, color: 'rgba(255,255,255,0.82)', margin: '5px 0 0', lineHeight: 1.32, display: '-webkit-box', WebkitLineClamp: 2, WebkitBoxOrient: 'vertical', overflow: 'hidden', textOverflow: 'ellipsis' } as any}>{slide.subtitle}</p>
                       )}
                       {artistName && (
-                        <p style={{ fontSize: 13.5, fontWeight: 700, color: 'rgba(255,255,255,0.78)', margin: '6px 0 0', lineHeight: 1.2, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{artistName}</p>
+                        <p style={{ fontSize: 14, fontWeight: 700, color: 'rgba(255,255,255,0.78)', margin: '6px 0 0', lineHeight: 1.2, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{artistName}</p>
                       )}
                     </div>
                     {/* Top: chip badge — „NAUJIENA" nerodom (kartotųsi), tik prominentiniai */}
                     {slide.chip !== 'NAUJIENA' && (
                       <div style={{ position: 'absolute', top: 10, left: 10, display: 'flex', alignItems: 'center', gap: 4, zIndex: 2 }}>
-                        <span style={{ padding: '4px 9px', borderRadius: 7, fontSize: 11, fontWeight: 900, color: '#fff', background: slide.chipBg, fontFamily: 'Outfit,sans-serif', letterSpacing: '0.06em', textTransform: 'uppercase', backdropFilter: 'blur(4px)' }}>
+                        <span style={{ padding: '4px 9px', borderRadius: 7, fontSize: 12, fontWeight: 900, color: '#fff', background: slide.chipBg, fontFamily: 'Outfit,sans-serif', letterSpacing: '0.06em', textTransform: 'uppercase', backdropFilter: 'blur(4px)' }}>
                           {slide.chip}
                         </span>
                       </div>
@@ -3908,7 +3908,7 @@ export default function HomeClient({ initialLatest, initialHero }: { initialLate
                             <img src={proxyImg(imgSrc)} alt={sanitizeTitle(t.title)} loading="lazy" className="h-full w-full object-cover transition-transform duration-500 group-hover:scale-[1.06]" />
                           ) : (<div className="flex h-full w-full items-center justify-center text-xl text-[var(--text-faint)]">🎵</div>)}
                           <div className="pointer-events-none absolute inset-0 flex items-center justify-center opacity-0 transition-opacity duration-200 group-hover:opacity-100"><span className="flex h-9 w-9 items-center justify-center rounded-full bg-[var(--accent-orange)] shadow-[0_4px_16px_rgba(249,115,22,0.5)]"><svg width="13" height="13" viewBox="0 0 24 24" fill="white"><path d="M8 5v14l11-7z" /></svg></span></div>
-                          {rel && (<span className={`absolute bottom-1.5 right-1.5 rounded px-1.5 py-0.5 font-['Outfit',sans-serif] text-[10.5px] font-bold backdrop-blur-sm ${highlight ? 'bg-[var(--accent-orange)] text-white' : 'bg-black/70 text-white'}`}>{rel}</span>)}
+                          {rel && (<span className={`absolute bottom-1.5 right-1.5 rounded px-1.5 py-0.5 font-['Outfit',sans-serif] text-[12px] font-bold backdrop-blur-sm ${highlight ? 'bg-[var(--accent-orange)] text-white' : 'bg-black/70 text-white'}`}>{rel}</span>)}
                           {isFresh24(t.created_at) && <FreshDot />}
                         </div>
                         <p className="m-0 mt-1.5 truncate font-['Outfit',sans-serif] text-[14px] font-extrabold text-[var(--text-primary)] transition-colors group-hover:text-[var(--accent-orange)]">{sanitizeTitle(t.title)}</p>
@@ -3922,7 +3922,7 @@ export default function HomeClient({ initialLatest, initialHero }: { initialLate
                         <div key={box.lane} className={`rounded-2xl border border-[var(--border-subtle)] bg-[var(--bg-surface)] p-4 border-t-[3px] ${box.lane === 'lt' ? 'border-t-[var(--accent-orange)]' : 'border-t-[var(--accent-blue)]'}`}>
                           <div className="mb-3 flex items-center justify-between">
                             <span className="font-['Outfit',sans-serif] text-[14px] font-extrabold text-[var(--text-primary)]">{box.label}</span>
-                            <button type="button" onClick={() => setListModal(`tracks-${box.lane}`)} className={`font-['Outfit',sans-serif] text-[13.5px] font-bold transition-opacity hover:opacity-70 ${box.lane === 'lt' ? 'text-[var(--accent-orange)]' : 'text-[var(--accent-blue)]'}`}>Daugiau →</button>
+                            <button type="button" onClick={() => setListModal(`tracks-${box.lane}`)} className={`font-['Outfit',sans-serif] text-[14px] font-bold transition-opacity hover:opacity-70 ${box.lane === 'lt' ? 'text-[var(--accent-orange)]' : 'text-[var(--accent-blue)]'}`}>Daugiau →</button>
                           </div>
                           <div className="flex gap-3 overflow-x-auto pb-1 [scrollbar-width:none] [&::-webkit-scrollbar]:hidden lg:grid lg:gap-3 lg:overflow-visible lg:pb-0 lg:grid-cols-3">
                             {tracksStatus === 'loading' && tracks.length === 0 ? Array(6).fill(null).map((_, i) => (<div key={i} className="hp-skel aspect-video w-[160px] shrink-0 rounded-lg lg:w-auto" />)) : box.items.length === 0 ? (<div className="col-span-2 py-6 text-center text-[14px] text-[var(--text-faint)]">{box.lane === 'lt' ? 'Lietuviškų dainų netrukus' : 'Užsienio dainų netrukus'}</div>) : box.items.slice(0, 6).map(songCard)}
@@ -3963,11 +3963,11 @@ export default function HomeClient({ initialLatest, initialHero }: { initialLate
                             // eslint-disable-next-line @next/next/no-img-element
                             <img src={proxyImg(a.cover_image_url || a.artists?.cover_image_url || '')} alt={sanitizeTitle(a.title)} loading="lazy" className="h-full w-full object-cover transition-transform duration-500 group-hover:scale-[1.06]" />
                           ) : (<div className="flex h-full w-full items-center justify-center text-xl text-[var(--text-faint)]">💿</div>)}
-                          {label && (<span className={`absolute bottom-1 right-1 rounded px-1.5 py-0.5 font-['Outfit',sans-serif] text-[10.5px] font-bold backdrop-blur-sm ${highlight ? 'bg-[var(--accent-orange)] text-white' : 'bg-black/70 text-white'}`}>{label}</span>)}
+                          {label && (<span className={`absolute bottom-1 right-1 rounded px-1.5 py-0.5 font-['Outfit',sans-serif] text-[12px] font-bold backdrop-blur-sm ${highlight ? 'bg-[var(--accent-orange)] text-white' : 'bg-black/70 text-white'}`}>{label}</span>)}
                           {isFresh24(a.created_at) && <FreshDot />}
                         </div>
                         <p className="m-0 mt-1.5 truncate font-['Outfit',sans-serif] text-[14px] font-extrabold text-[var(--text-primary)] transition-colors group-hover:text-[var(--accent-orange)]">{sanitizeTitle(a.title)}</p>
-                        <p className="m-0 truncate text-[12.5px] text-[var(--text-muted)]">{a.artists?.name}</p>
+                        <p className="m-0 truncate text-[12px] text-[var(--text-muted)]">{a.artists?.name}</p>
                       </button>
                     )
                   }
@@ -3977,7 +3977,7 @@ export default function HomeClient({ initialLatest, initialHero }: { initialLate
                         <div key={box.lane} className={`rounded-2xl border border-[var(--border-subtle)] bg-[var(--bg-surface)] p-4 border-t-[3px] ${box.lane === 'lt' ? 'border-t-[var(--accent-orange)]' : 'border-t-[var(--accent-blue)]'}`}>
                           <div className="mb-3 flex items-center justify-between">
                             <span className="font-['Outfit',sans-serif] text-[14px] font-extrabold text-[var(--text-primary)]">{box.label}</span>
-                            <button type="button" onClick={() => setListModal(`albums-${box.lane}`)} className={`font-['Outfit',sans-serif] text-[13.5px] font-bold transition-opacity hover:opacity-70 ${box.lane === 'lt' ? 'text-[var(--accent-orange)]' : 'text-[var(--accent-blue)]'}`}>Daugiau →</button>
+                            <button type="button" onClick={() => setListModal(`albums-${box.lane}`)} className={`font-['Outfit',sans-serif] text-[14px] font-bold transition-opacity hover:opacity-70 ${box.lane === 'lt' ? 'text-[var(--accent-orange)]' : 'text-[var(--accent-blue)]'}`}>Daugiau →</button>
                           </div>
                           <div className="flex gap-3 overflow-x-auto pb-1 [scrollbar-width:none] [&::-webkit-scrollbar]:hidden lg:grid lg:gap-3 lg:overflow-visible lg:pb-0 lg:grid-cols-3">
                             {tracksStatus === 'loading' && albums.length === 0 ? Array(6).fill(null).map((_, i) => (<div key={i} className="hp-skel aspect-square w-[120px] shrink-0 rounded-lg lg:w-auto" />)) : box.items.length === 0 ? (<div className="col-span-3 py-6 text-center text-[14px] text-[var(--text-faint)]">{box.lane === 'lt' ? 'Lietuviškų albumų netrukus' : 'Užsienio albumų netrukus'}</div>) : box.items.slice(0, 6).map(albCard)}
@@ -4028,7 +4028,7 @@ export default function HomeClient({ initialLatest, initialHero }: { initialLate
                             )}
                             <div className="pointer-events-none absolute inset-0 bg-gradient-to-t from-[rgba(249,115,22,0.12)] to-transparent opacity-0 transition-opacity duration-300 group-hover:opacity-100" />
                             {label && (
-                              <span className={`absolute bottom-1.5 right-1.5 rounded px-1.5 py-0.5 font-['Outfit',sans-serif] text-[11px] font-bold backdrop-blur-sm ${
+                              <span className={`absolute bottom-1.5 right-1.5 rounded px-1.5 py-0.5 font-['Outfit',sans-serif] text-[12px] font-bold backdrop-blur-sm ${
                                 highlight ? 'bg-[var(--accent-orange)] text-white' : 'bg-black/70 text-white'
                               }`}>
                                 {label}
@@ -4037,7 +4037,7 @@ export default function HomeClient({ initialLatest, initialHero }: { initialLate
                             {isFresh24((a as any).created_at) && <FreshDot />}
                           </div>
                           <div className="mt-2 px-0.5">
-                            <p className="m-0 truncate font-['Outfit',sans-serif] text-[14.5px] font-extrabold text-[var(--text-primary)] transition-colors group-hover:text-[var(--accent-orange)]">
+                            <p className="m-0 truncate font-['Outfit',sans-serif] text-[14px] font-extrabold text-[var(--text-primary)] transition-colors group-hover:text-[var(--accent-orange)]">
                               {sanitizeTitle(a.title)}
                             </p>
                             <p className="m-0 mt-1 truncate text-[14px] text-[var(--text-muted)]">
@@ -4083,7 +4083,7 @@ export default function HomeClient({ initialLatest, initialHero }: { initialLate
                 featured praeina). Užsienis = TIK verified (kaip /verta-keliones). 2026-06-26. */}
             <div className="rounded-2xl border border-[var(--border-subtle)] bg-[var(--bg-surface)] p-4 sm:p-5">
               <div className="mb-4 flex items-center justify-between">
-                <h2 className="m-0 font-['Outfit',sans-serif] text-[18px] font-extrabold tracking-[-0.01em] text-[var(--text-primary)]">Koncertai</h2>
+                <h2 className="m-0 font-['Outfit',sans-serif] text-[20px] font-extrabold tracking-[-0.01em] text-[var(--text-primary)]">Koncertai</h2>
                 <Link href="/koncertai" className="font-['Outfit',sans-serif] text-[14px] font-bold text-[var(--accent-orange)] no-underline transition-opacity hover:opacity-70">Daugiau →</Link>
               </div>
               <div className="flex gap-3 overflow-x-auto pb-1 [scrollbar-width:none] [&::-webkit-scrollbar]:hidden lg:grid lg:grid-cols-5 lg:gap-4 lg:overflow-x-visible lg:pb-0">
@@ -4143,15 +4143,15 @@ export default function HomeClient({ initialLatest, initialHero }: { initialLate
                           )}
                           {dayNum && (
                             <span className="absolute left-2 top-2 flex flex-col items-center rounded-lg bg-white px-2 py-1 leading-none shadow-[0_3px_10px_rgba(0,0,0,0.3)]">
-                              <b className="font-['Outfit',sans-serif] text-[15px] font-black text-[#10203a]">{dayNum}</b>
-                              <i className="mt-0.5 not-italic text-[10px] font-extrabold uppercase tracking-[0.04em] text-[var(--accent-orange)]">{monthLbl}</i>
+                              <b className="font-['Outfit',sans-serif] text-[16px] font-black text-[#10203a]">{dayNum}</b>
+                              <i className="mt-0.5 not-italic text-[12px] font-extrabold uppercase tracking-[0.04em] text-[var(--accent-orange)]">{monthLbl}</i>
                             </span>
                           )}
                         </div>
                         {isFresh24(ev.created_at) && <FreshDot right={8} top={8} />}
                         <div className={capCls}>
-                          {city && <p className="m-0 truncate font-['Outfit',sans-serif] text-[11px] font-bold uppercase tracking-[0.05em] text-[var(--text-muted)]">{city}</p>}
-                          <h3 className="m-0 mt-0.5 flex items-start gap-1 font-['Outfit',sans-serif] text-[14.5px] font-black leading-tight text-[var(--text-primary)]">
+                          {city && <p className="m-0 truncate font-['Outfit',sans-serif] text-[12px] font-bold uppercase tracking-[0.05em] text-[var(--text-muted)]">{city}</p>}
+                          <h3 className="m-0 mt-0.5 flex items-start gap-1 font-['Outfit',sans-serif] text-[14px] font-black leading-tight text-[var(--text-primary)]">
                             {flag && <span className="shrink-0 text-[14px] leading-tight">{flag}</span>}
                             <span className="line-clamp-2">{title}</span>
                           </h3>
@@ -4171,9 +4171,9 @@ export default function HomeClient({ initialLatest, initialHero }: { initialLate
                           </div>
                         </div>
                         <div className={capCls}>
-                          <p className="m-0 font-['Outfit',sans-serif] text-[11px] font-bold uppercase tracking-[0.05em] text-[var(--text-muted)]">Užsienis</p>
-                          <h3 className="m-0 mt-0.5 font-['Outfit',sans-serif] text-[14.5px] font-black leading-tight text-[var(--text-primary)]">Koncertai, verti kelionės</h3>
-                          <p className="m-0 mt-1 font-['Outfit',sans-serif] text-[12.5px] font-bold text-[var(--accent-orange)]">Daugiau →</p>
+                          <p className="m-0 font-['Outfit',sans-serif] text-[12px] font-bold uppercase tracking-[0.05em] text-[var(--text-muted)]">Užsienis</p>
+                          <h3 className="m-0 mt-0.5 font-['Outfit',sans-serif] text-[14px] font-black leading-tight text-[var(--text-primary)]">Koncertai, verti kelionės</h3>
+                          <p className="m-0 mt-1 font-['Outfit',sans-serif] text-[12px] font-bold text-[var(--accent-orange)]">Daugiau →</p>
                         </div>
                       </Link>
                     )
@@ -4228,7 +4228,7 @@ export default function HomeClient({ initialLatest, initialHero }: { initialLate
                     >
                       <Cover src={a.cover_image_url} alt={a.name} size={72} radius={36} />
                     </div>
-                    <p className="m-0 truncate font-['Outfit',sans-serif] text-[13.5px] font-bold text-[var(--text-secondary)] transition-colors group-hover:text-[var(--accent-orange)]">
+                    <p className="m-0 truncate font-['Outfit',sans-serif] text-[14px] font-bold text-[var(--text-secondary)] transition-colors group-hover:text-[var(--accent-orange)]">
                       {a.name}
                     </p>
                   </Link>
@@ -4243,7 +4243,7 @@ export default function HomeClient({ initialLatest, initialHero }: { initialLate
               <div style={{ position: 'absolute', inset: 0, background: 'radial-gradient(ellipse at 0% 50%,rgba(29,78,216,.06) 0%,transparent 55%)', pointerEvents: 'none' }} />
               <div style={{ width: 52, height: 52, borderRadius: 14, flexShrink: 0, background: dk ? 'rgba(29,78,216,.15)' : 'rgba(29,78,216,.1)', border: `1px solid ${dk ? 'rgba(29,78,216,.22)' : 'rgba(29,78,216,.15)'}`, display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 24 }}>🎤</div>
               <div style={{ flex: 1, minWidth: 0 }}>
-                <h3 style={{ fontFamily: 'Outfit,sans-serif', fontSize: 19, fontWeight: 900, color: 'var(--text-primary)', margin: '0 0 4px' }}>Atlikėjams</h3>
+                <h3 style={{ fontFamily: 'Outfit,sans-serif', fontSize: 20, fontWeight: 900, color: 'var(--text-primary)', margin: '0 0 4px' }}>Atlikėjams</h3>
                 <p style={{ fontSize: 14, color: 'var(--text-muted)', margin: 0, lineHeight: 1.55, maxWidth: 480 }}>Sukurk arba perimk savo profilį Music.lt platformoje. Skelk naujienas, renginius ir naują muziką tiesiai savo gerbėjams — nemokamai.</p>
               </div>
               <Link href="/atlikejai" className="hp-ctabtn"
@@ -4332,7 +4332,7 @@ export default function HomeClient({ initialLatest, initialHero }: { initialLate
                     </div>
                     <div className="flex min-w-0 flex-1 flex-col justify-center px-3 py-2.5">
                       <p className="m-0 line-clamp-3 font-['Outfit',sans-serif] text-[14px] font-extrabold leading-snug text-[var(--text-primary)]">{sanitizeTitle(n.title)}</p>
-                      {n.artist?.name && <p className="m-0 mt-1 truncate text-[13px] text-[var(--text-muted)]">{n.artist.name}</p>}
+                      {n.artist?.name && <p className="m-0 mt-1 truncate text-[14px] text-[var(--text-muted)]">{n.artist.name}</p>}
                     </div>
                   </Link>
                 ))}

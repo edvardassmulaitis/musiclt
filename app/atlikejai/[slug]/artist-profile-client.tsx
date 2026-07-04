@@ -446,7 +446,7 @@ function SectionTitle({ label, count }: { label: string; count?: number }) {
         {label}
       </h2>
       {typeof count === 'number' && (
-        <span className="font-['Outfit',sans-serif] text-[15px] font-bold text-[var(--text-faint)] sm:text-[16px]">{count}</span>
+        <span className="font-['Outfit',sans-serif] text-[16px] font-bold text-[var(--text-faint)] sm:text-[16px]">{count}</span>
       )}
     </div>
   )
@@ -996,7 +996,7 @@ function PlayerCard({
           Order: Visos | Singlai | Naujausios. Visos/Naujausios feminine
           plural (matches „dainos"), Singlai masculine (atskira reikšmė). */}
       <div className="flex justify-center border-b border-[var(--border-default)] bg-[var(--bg-surface)] px-3 py-2">
-        <div className="inline-flex overflow-hidden rounded-full border border-[var(--border-default)] bg-[var(--card-bg)] font-['Outfit',sans-serif] text-[13.5px] font-bold">
+        <div className="inline-flex overflow-hidden rounded-full border border-[var(--border-default)] bg-[var(--card-bg)] font-['Outfit',sans-serif] text-[14px] font-bold">
           <button
             onClick={() => setFilter('all')}
             className={[
@@ -1052,7 +1052,7 @@ function PlayerCard({
         {list.length === 0 ? (
           <div className="flex min-h-[160px] flex-col items-center justify-center gap-1 px-6 py-8 text-center">
             <div className="font-['Outfit',sans-serif] text-[14px] font-extrabold uppercase tracking-wider text-[var(--text-muted)]">Nieko</div>
-            <div className="text-[13px] text-[var(--text-faint)]">
+            <div className="text-[14px] text-[var(--text-faint)]">
               {filter === 'new' ? 'Per 2 metus naujų nebuvo' : filter === 'singles' ? 'Singlų nėra' : 'Dainų nėra'}
             </div>
           </div>
@@ -1139,7 +1139,7 @@ function PlayerCard({
                             if (!yr) return null
                             return (
                               <span
-                                className="shrink-0 rounded bg-[rgba(34,197,94,0.16)] px-1.5 py-0.5 font-['Outfit',sans-serif] text-[11.5px] font-extrabold tabular-nums tracking-wider text-[var(--accent-green)]"
+                                className="shrink-0 rounded bg-[rgba(34,197,94,0.16)] px-1.5 py-0.5 font-['Outfit',sans-serif] text-[12px] font-extrabold tabular-nums tracking-wider text-[var(--accent-green)]"
                                 title={`Išleista ${yr}`}
                               >
                                 {yr}
@@ -1502,7 +1502,7 @@ function FilterChipMini({ active, onClick, children }: {
     <button
       onClick={onClick}
       className={[
-        'inline-flex items-center gap-1 rounded-full border px-2.5 py-1 font-["Outfit",sans-serif] text-[13px] font-bold transition-all',
+        'inline-flex items-center gap-1 rounded-full border px-2.5 py-1 font-["Outfit",sans-serif] text-[14px] font-bold transition-all',
         active
           ? 'border-[var(--accent-orange)] bg-[var(--accent-orange)] text-white shadow-[0_2px_8px_rgba(249,115,22,0.25)]'
           : 'border-[var(--border-default)] bg-[var(--card-bg)] text-[var(--text-secondary)] hover:border-[var(--border-strong)] hover:bg-[var(--bg-hover)]',
@@ -1862,7 +1862,7 @@ function Hero({
                     {genres[0] && <span>{genres[0].name}</span>}
                     {genres[0] && primaryRank && primaryRank.rank > 0 && (
                       <span
-                        className="inline-flex items-center rounded-full bg-[var(--accent-orange)] px-1.5 py-0.5 font-['Outfit',sans-serif] text-[12.5px] font-black tabular-nums text-white"
+                        className="inline-flex items-center rounded-full bg-[var(--accent-orange)] px-1.5 py-0.5 font-['Outfit',sans-serif] text-[12px] font-black tabular-nums text-white"
                       >
                         #{primaryRank.rank}
                       </span>
@@ -1875,7 +1875,7 @@ function Hero({
                     key={s.name}
                     onClick={() => onOpenTopArtists?.({ genre: s.name })}
                     title={`Top atlikėjai: ${s.name}`}
-                    className="aphchip inline-flex shrink-0 items-center rounded-full border border-[var(--border-subtle)] bg-transparent px-2.5 py-1 font-['Outfit',sans-serif] text-[13px] font-medium text-[var(--text-muted)] transition-colors hover:border-[var(--text-muted)] hover:text-[var(--text-primary)] lg:border-white/15 lg:text-white/65 lg:backdrop-blur-md lg:hover:border-white/40 lg:hover:bg-white/10 lg:hover:text-white/95"
+                    className="aphchip inline-flex shrink-0 items-center rounded-full border border-[var(--border-subtle)] bg-transparent px-2.5 py-1 font-['Outfit',sans-serif] text-[14px] font-medium text-[var(--text-muted)] transition-colors hover:border-[var(--text-muted)] hover:text-[var(--text-primary)] lg:border-white/15 lg:text-white/65 lg:backdrop-blur-md lg:hover:border-white/40 lg:hover:bg-white/10 lg:hover:text-white/95"
                   >
                     {s.name}
                   </button>
@@ -1914,7 +1914,7 @@ function Hero({
                 <button
                   type="button"
                   onClick={onOpenEventsModal}
-                  className="flex items-center justify-center gap-2 rounded-xl border border-dashed border-[rgba(249,115,22,0.4)] bg-[rgba(249,115,22,0.06)] px-3 py-2 text-[13px] font-extrabold text-[var(--accent-orange)] transition-all hover:border-[rgba(249,115,22,0.7)] hover:bg-[rgba(249,115,22,0.10)]"
+                  className="flex items-center justify-center gap-2 rounded-xl border border-dashed border-[rgba(249,115,22,0.4)] bg-[rgba(249,115,22,0.06)] px-3 py-2 text-[14px] font-extrabold text-[var(--accent-orange)] transition-all hover:border-[rgba(249,115,22,0.7)] hover:bg-[rgba(249,115,22,0.10)]"
                 >
                   Žiūrėti visus +{overflow}
                 </button>
@@ -2155,7 +2155,7 @@ function TopArtistsModal({
                           )}
                         </span>
                         {a.country && (
-                          <span className="font-['Outfit',sans-serif] text-[13.5px] font-medium text-[var(--text-muted)]">
+                          <span className="font-['Outfit',sans-serif] text-[14px] font-medium text-[var(--text-muted)]">
                             {flagFor(a.country) || '🌍'} {a.country}
                           </span>
                         )}
@@ -2410,19 +2410,19 @@ function BioFactsInline({
     <div className="mt-5 flex flex-col gap-2 sm:flex-row sm:flex-wrap sm:gap-x-8 sm:gap-y-2">
       {showActive && (
         <div className="flex items-baseline gap-2">
-          <span className="font-['Outfit',sans-serif] text-[13px] font-bold uppercase tracking-[0.15em] text-[var(--text-muted)]">Veikla</span>
+          <span className="font-['Outfit',sans-serif] text-[14px] font-bold uppercase tracking-[0.15em] text-[var(--text-muted)]">Veikla</span>
           <span className="font-['Outfit',sans-serif] text-[14px] font-bold text-[var(--text-primary)]">{yearsActiveRange}</span>
           {yearsActiveTail && (
-            <span className="font-medium text-[14.5px] text-[var(--text-muted)]">({yearsActiveTail})</span>
+            <span className="font-medium text-[14px] text-[var(--text-muted)]">({yearsActiveTail})</span>
           )}
         </div>
       )}
       {birthInfo && (
         <div className="flex items-baseline gap-2">
-          <span className="font-['Outfit',sans-serif] text-[13px] font-bold uppercase tracking-[0.15em] text-[var(--text-muted)]">Gimė</span>
+          <span className="font-['Outfit',sans-serif] text-[14px] font-bold uppercase tracking-[0.15em] text-[var(--text-muted)]">Gimė</span>
           <span className="font-['Outfit',sans-serif] text-[14px] font-bold text-[var(--text-primary)]">{birthInfo.date}</span>
           {birthInfo.ageTail && (
-            <span className="font-medium text-[14.5px] text-[var(--text-muted)]">({birthInfo.ageTail})</span>
+            <span className="font-medium text-[14px] text-[var(--text-muted)]">({birthInfo.ageTail})</span>
           )}
           {birthInfo.zodiac && (
             onOpenTopArtists ? (
@@ -2449,10 +2449,10 @@ function BioFactsInline({
       )}
       {deathInfo && (
         <div className="flex items-baseline gap-2">
-          <span className="font-['Outfit',sans-serif] text-[13px] font-bold uppercase tracking-[0.15em] text-[var(--text-muted)]">Mirė</span>
+          <span className="font-['Outfit',sans-serif] text-[14px] font-bold uppercase tracking-[0.15em] text-[var(--text-muted)]">Mirė</span>
           <span className="font-['Outfit',sans-serif] text-[14px] font-bold text-[var(--text-primary)]">{deathInfo.date}</span>
           {deathInfo.livedTail && (
-            <span className="font-medium text-[14.5px] text-[var(--text-muted)]">({deathInfo.livedTail})</span>
+            <span className="font-medium text-[14px] text-[var(--text-muted)]">({deathInfo.livedTail})</span>
           )}
         </div>
       )}
@@ -2631,7 +2631,7 @@ function SideInfo({
                 <span className="flex h-6 w-6 shrink-0 items-center justify-center">
                   <svg viewBox="0 0 24 24" fill={p.c || 'currentColor'} width="14" height="14" className={p.c ? '' : 'text-[var(--text-primary)]'}><path d={p.d} /></svg>
                 </span>
-                <span className="font-['Outfit',sans-serif] text-[14.5px] font-bold tracking-tight">{p.l}</span>
+                <span className="font-['Outfit',sans-serif] text-[14px] font-bold tracking-tight">{p.l}</span>
               </a>
             )
           })}
@@ -2649,7 +2649,7 @@ function SideInfo({
                 <span className="flex h-6 w-6 shrink-0 items-center justify-center text-[var(--text-muted)]">
                   <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><circle cx="12" cy="12" r="10" /><path d="M2 12h20M12 2a15 15 0 0 1 0 20M12 2a15 15 0 0 0 0 20" /></svg>
                 </span>
-                <span className="font-['Outfit',sans-serif] text-[14.5px] font-bold tracking-tight">Svetainė</span>
+                <span className="font-['Outfit',sans-serif] text-[14px] font-bold tracking-tight">Svetainė</span>
               </a>
             )
           })()}
@@ -2693,7 +2693,7 @@ function SideInfo({
               type="button"
               onClick={onOpenSocialModal}
               title="Visi linkai"
-              className="flex h-9 shrink-0 items-center gap-1 rounded-full border border-dashed border-[var(--border-default)] bg-transparent px-2.5 font-['Outfit',sans-serif] text-[13px] font-extrabold text-[var(--text-secondary)] transition-colors hover:border-[var(--accent-orange)] hover:bg-[rgba(249,115,22,0.08)] hover:text-[var(--accent-orange)]"
+              className="flex h-9 shrink-0 items-center gap-1 rounded-full border border-dashed border-[var(--border-default)] bg-transparent px-2.5 font-['Outfit',sans-serif] text-[14px] font-extrabold text-[var(--text-secondary)] transition-colors hover:border-[var(--accent-orange)] hover:bg-[rgba(249,115,22,0.08)] hover:text-[var(--accent-orange)]"
             >
               +{overflowCount + (website ? 1 : 0)}
             </button>
@@ -2761,7 +2761,7 @@ function BioPreview({ html, onOpen, maxChars = 700 }: { html: string; onOpen: ()
     }
   }
   return (
-    <div className="text-[15px] leading-[1.72] text-[var(--text-secondary)] [&_a]:text-[var(--accent-orange)] [&_a]:no-underline hover:[&_a]:underline [&_strong]:text-[var(--text-primary)] [&_b]:text-[var(--text-primary)]">
+    <div className="text-[16px] leading-[1.72] text-[var(--text-secondary)] [&_a]:text-[var(--accent-orange)] [&_a]:no-underline hover:[&_a]:underline [&_strong]:text-[var(--text-primary)] [&_b]:text-[var(--text-primary)]">
       <span dangerouslySetInnerHTML={{ __html: excerpt }} />
       {isLong && '…'}
       {isLong && (
@@ -2804,14 +2804,14 @@ function MembersInline({ members }: { members: Member[] }) {
     <>
       <div className="mt-5">
         <div className="mb-2 flex items-baseline justify-between">
-          <div className="font-['Outfit',sans-serif] text-[13px] font-bold uppercase tracking-[0.15em] text-[var(--text-muted)]">
+          <div className="font-['Outfit',sans-serif] text-[14px] font-bold uppercase tracking-[0.15em] text-[var(--text-muted)]">
             Nariai
           </div>
           {showAllTrigger && (
             <button
               type="button"
               onClick={() => setModalOpen(true)}
-              className="font-['Outfit',sans-serif] text-[13px] font-bold uppercase tracking-[0.1em] text-[var(--accent-orange)] transition-colors hover:text-[color-mix(in_srgb,var(--accent-orange)_80%,#fff)]"
+              className="font-['Outfit',sans-serif] text-[14px] font-bold uppercase tracking-[0.1em] text-[var(--accent-orange)] transition-colors hover:text-[color-mix(in_srgb,var(--accent-orange)_80%,#fff)]"
             >
               Visi ({total}) →
             </button>
@@ -2881,7 +2881,7 @@ function MemberCard({ m, variant }: { m: Member; variant: 'prominent' | 'compact
         />
       ) : (
         <div className={`flex shrink-0 items-center justify-center rounded-full bg-[var(--cover-placeholder)] font-['Outfit',sans-serif] font-black text-[var(--text-faint)] ${
-          isProm ? 'h-11 w-11 text-[15px]' : 'h-9 w-9 text-[14px]'
+          isProm ? 'h-11 w-11 text-[16px]' : 'h-9 w-9 text-[14px]'
         }`}>
           {m.name[0]}
         </div>
@@ -2894,7 +2894,7 @@ function MemberCard({ m, variant }: { m: Member; variant: 'prominent' | 'compact
         </div>
         {m.member_from && (
           <div className={`mt-0.5 truncate tabular-nums font-semibold text-[var(--text-muted)] ${
-            isProm ? 'text-[12.5px]' : 'text-[12px]'
+            isProm ? 'text-[12px]' : 'text-[12px]'
           }`}>
             {m.member_from}–{m.member_until || 'dabar'}
           </div>
@@ -2967,7 +2967,7 @@ function MembersModal({ current, former, onClose }: {
 
         {current.length > 0 && (
           <section>
-            <h3 className="mb-3 font-['Outfit',sans-serif] text-[13px] font-bold uppercase tracking-[0.15em] text-[var(--text-muted)]">
+            <h3 className="mb-3 font-['Outfit',sans-serif] text-[14px] font-bold uppercase tracking-[0.15em] text-[var(--text-muted)]">
               Esami nariai ({current.length})
             </h3>
             <div className="grid grid-cols-2 gap-3 sm:grid-cols-3 lg:grid-cols-4">
@@ -2978,7 +2978,7 @@ function MembersModal({ current, former, onClose }: {
 
         {former.length > 0 && (
           <section className={current.length > 0 ? 'mt-7' : ''}>
-            <h3 className="mb-3 font-['Outfit',sans-serif] text-[13px] font-bold uppercase tracking-[0.15em] text-[var(--text-muted)]">
+            <h3 className="mb-3 font-['Outfit',sans-serif] text-[14px] font-bold uppercase tracking-[0.15em] text-[var(--text-muted)]">
               Buvę nariai ({former.length})
             </h3>
             <div className="grid grid-cols-2 gap-3 sm:grid-cols-3 lg:grid-cols-4">
@@ -3015,7 +3015,7 @@ function MemberModalCard({ m }: { m: Member }) {
           {m.name}
         </div>
         {m.member_from && (
-          <div className="mt-0.5 text-[13px] font-semibold tabular-nums text-[var(--text-muted)]">
+          <div className="mt-0.5 text-[14px] font-semibold tabular-nums text-[var(--text-muted)]">
             {m.member_from}–{m.member_until || 'dabar'}
           </div>
         )}
@@ -3117,8 +3117,8 @@ function SocialLinksModal({
                       <svg viewBox="0 0 24 24" fill={p.c || 'currentColor'} width="16" height="16" className={p.c ? '' : 'text-[var(--text-primary)]'}><path d={p.d} /></svg>
                     </span>
                     <div className="min-w-0 flex-1">
-                      <div className="font-['Outfit',sans-serif] text-[14.5px] font-bold text-[var(--text-primary)]">{p.l}</div>
-                      <div className="truncate font-['DM_Sans',sans-serif] text-[13.5px] text-[var(--text-muted)]">{domain}</div>
+                      <div className="font-['Outfit',sans-serif] text-[14px] font-bold text-[var(--text-primary)]">{p.l}</div>
+                      <div className="truncate font-['DM_Sans',sans-serif] text-[14px] text-[var(--text-muted)]">{domain}</div>
                     </div>
                     <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" className="shrink-0 text-[var(--text-faint)]" aria-hidden>
                       <path d="M7 17L17 7M9 7h8v8" />
@@ -3137,8 +3137,8 @@ function SocialLinksModal({
                     <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><circle cx="12" cy="12" r="10" /><path d="M2 12h20M12 2a15 15 0 0 1 0 20M12 2a15 15 0 0 0 0 20" /></svg>
                   </span>
                   <div className="min-w-0 flex-1">
-                    <div className="font-['Outfit',sans-serif] text-[14.5px] font-bold text-[var(--text-primary)]">Oficiali svetainė</div>
-                    <div className="truncate font-['DM_Sans',sans-serif] text-[13.5px] text-[var(--text-muted)]">{websiteDomain}</div>
+                    <div className="font-['Outfit',sans-serif] text-[14px] font-bold text-[var(--text-primary)]">Oficiali svetainė</div>
+                    <div className="truncate font-['DM_Sans',sans-serif] text-[14px] text-[var(--text-muted)]">{websiteDomain}</div>
                   </div>
                   <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" className="shrink-0 text-[var(--text-faint)]" aria-hidden>
                     <path d="M7 17L17 7M9 7h8v8" />
@@ -3166,7 +3166,7 @@ function MemberOfInline({ groups }: { groups: Member[] }) {
   return (
     <div className="mt-5">
       <div className="mb-2 flex items-baseline justify-between">
-        <div className="font-['Outfit',sans-serif] text-[13px] font-bold uppercase tracking-[0.15em] text-[var(--text-muted)]">
+        <div className="font-['Outfit',sans-serif] text-[14px] font-bold uppercase tracking-[0.15em] text-[var(--text-muted)]">
           Grupės
         </div>
       </div>
@@ -3394,7 +3394,7 @@ function Lightbox({
         const d = new Date(photos[index].taken_at!)
         if (isNaN(d.getTime())) return null
         return (
-          <div className="absolute left-4 top-4 rounded-md bg-black/70 px-2.5 py-1 font-['Outfit',sans-serif] text-[13px] font-bold text-white backdrop-blur-sm">
+          <div className="absolute left-4 top-4 rounded-md bg-black/70 px-2.5 py-1 font-['Outfit',sans-serif] text-[14px] font-bold text-white backdrop-blur-sm">
             {d.getFullYear()}
           </div>
         )
@@ -3550,7 +3550,7 @@ function EventVerticalCard({ e, href, hasCover, setCoverFailed, d, venue }: {
         )}
       </div>
       <div className="flex shrink-0 flex-col gap-1.5 px-3.5 py-3">
-        <div className="font-['Outfit',sans-serif] text-[13px] font-extrabold uppercase tracking-[0.08em] text-[var(--accent-orange)]">
+        <div className="font-['Outfit',sans-serif] text-[14px] font-extrabold uppercase tracking-[0.08em] text-[var(--accent-orange)]">
           {formatLtDate(d)}
         </div>
         <div className="line-clamp-2 font-['Outfit',sans-serif] text-[14px] font-bold leading-snug text-[var(--text-primary)]">{e.title}</div>
@@ -3582,7 +3582,7 @@ function EventCard({ e, variant = 'upcoming', onOpen }: { e: any; variant?: 'upc
         className="flex items-center gap-3 rounded-xl border border-[var(--border-subtle)] bg-[var(--bg-surface)] p-3 no-underline transition-all hover:border-[var(--border-strong)] hover:bg-[var(--bg-hover)]"
       >
         <div className="flex min-w-[64px] flex-col items-center justify-center rounded-lg bg-[var(--card-bg)] px-2 py-1.5 text-center">
-          <span className="font-['Outfit',sans-serif] text-[11px] font-bold leading-tight text-[var(--text-muted)]">{d.getFullYear()}</span>
+          <span className="font-['Outfit',sans-serif] text-[12px] font-bold leading-tight text-[var(--text-muted)]">{d.getFullYear()}</span>
           <span className="font-['Outfit',sans-serif] text-[12px] font-bold capitalize leading-tight text-[var(--text-muted)]">{monthShort}</span>
           <span className="font-['Outfit',sans-serif] text-[20px] font-black leading-none text-[var(--text-primary)]">{d.getDate()}</span>
         </div>
@@ -3590,7 +3590,7 @@ function EventCard({ e, variant = 'upcoming', onOpen }: { e: any; variant?: 'upc
           <div className="truncate text-[14px] font-bold leading-tight text-[var(--text-primary)]">{e.title}</div>
           {venue && <div className="mt-0.5 truncate text-[14px] text-[var(--text-muted)]">{venue}</div>}
           {(ac > 0 || cc > 0) && (
-            <div className="mt-1 flex items-center gap-3 text-[13px] text-[var(--text-muted)]">
+            <div className="mt-1 flex items-center gap-3 text-[14px] text-[var(--text-muted)]">
               {ac > 0 && (
                 <span className="inline-flex items-center gap-1" title="Eis (dalyviai)">
                   <svg width="11" height="11" viewBox="0 0 24 24" fill="currentColor">
@@ -3632,7 +3632,7 @@ function EventCard({ e, variant = 'upcoming', onOpen }: { e: any; variant?: 'upc
         <div className="flex min-w-[62px] flex-col items-center justify-center rounded-xl bg-[rgba(249,115,22,0.15)] px-2 py-2 text-center">
           <span className="font-['Outfit',sans-serif] text-[12px] font-extrabold uppercase leading-tight text-[var(--accent-orange)]">{monthShort}</span>
           <span className="font-['Outfit',sans-serif] text-[26px] font-black leading-none text-[var(--text-primary)]">{d.getDate()}</span>
-          <span className="mt-0.5 font-['Outfit',sans-serif] text-[11px] font-bold text-[var(--text-muted)]">{d.getFullYear()}</span>
+          <span className="mt-0.5 font-['Outfit',sans-serif] text-[12px] font-bold text-[var(--text-muted)]">{d.getFullYear()}</span>
         </div>
         <div className="flex min-w-0 flex-1 flex-col justify-center">
           <div className="font-['Outfit',sans-serif] text-[12px] font-extrabold uppercase tracking-[0.12em] text-[var(--accent-orange)]">
@@ -3697,10 +3697,10 @@ function EventCard({ e, variant = 'upcoming', onOpen }: { e: any; variant?: 'upc
       {/* Right: date + title + venue. Extra vertical padding keeps the card
           from feeling squashed while still remaining compact. */}
       <div className="flex min-w-0 flex-1 flex-col justify-center gap-1.5 px-4 py-4 sm:px-5">
-        <div className="font-['Outfit',sans-serif] text-[13px] font-extrabold uppercase tracking-[0.08em] text-[var(--accent-orange)]">
+        <div className="font-['Outfit',sans-serif] text-[14px] font-extrabold uppercase tracking-[0.08em] text-[var(--accent-orange)]">
           {formatLtDate(d)}
         </div>
-        <div className="line-clamp-2 font-['Outfit',sans-serif] text-[14px] font-bold leading-snug text-[var(--text-primary)] sm:text-[15px]">
+        <div className="line-clamp-2 font-['Outfit',sans-serif] text-[14px] font-bold leading-snug text-[var(--text-primary)] sm:text-[16px]">
           {e.title}
         </div>
         {venue && (
@@ -3731,10 +3731,10 @@ function MoreEventsTile({ count, onClick }: { count: number; onClick: () => void
         </svg>
       </span>
       <span className="text-left">
-        <span className="block font-['Outfit',sans-serif] text-[15px] font-extrabold text-[var(--accent-orange)]">
+        <span className="block font-['Outfit',sans-serif] text-[16px] font-extrabold text-[var(--accent-orange)]">
           +{count}
         </span>
-        <span className="block text-[13px] uppercase tracking-[0.12em] text-[var(--text-muted)]">
+        <span className="block text-[14px] uppercase tracking-[0.12em] text-[var(--text-muted)]">
           daugiau renginių
         </span>
       </span>
@@ -3770,7 +3770,7 @@ function EventsModal({
             <div className="font-['Outfit',sans-serif] text-[12px] font-extrabold uppercase tracking-[0.2em] text-[var(--text-muted)]">
               Artimiausi renginiai
             </div>
-            <div className="mt-0.5 font-['Outfit',sans-serif] text-[17px] font-extrabold text-[var(--text-primary)]">
+            <div className="mt-0.5 font-['Outfit',sans-serif] text-[16px] font-extrabold text-[var(--text-primary)]">
               {events.length} renginiai
             </div>
           </div>
@@ -3833,10 +3833,10 @@ function EventBigCard({ e, onOpen }: { e: any; onOpen?: (e: any) => void }) {
         </div>
       )}
       <div className="p-4">
-        <div className="font-['Outfit',sans-serif] text-[13px] font-extrabold uppercase tracking-[0.1em] text-[var(--accent-orange)]">
+        <div className="font-['Outfit',sans-serif] text-[14px] font-extrabold uppercase tracking-[0.1em] text-[var(--accent-orange)]">
           {longDate}
         </div>
-        <div className="mt-1 line-clamp-2 font-['Outfit',sans-serif] text-[15px] font-bold leading-snug text-[var(--text-primary)] sm:text-[16px]">{e.title}</div>
+        <div className="mt-1 line-clamp-2 font-['Outfit',sans-serif] text-[16px] font-bold leading-snug text-[var(--text-primary)] sm:text-[16px]">{e.title}</div>
         {venue && <div className="mt-1 flex items-center gap-1 text-[14px] text-[var(--text-secondary)] sm:text-[14px]"><svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="inline-block shrink-0 text-[var(--text-faint)]" aria-hidden><path d="M21 10c0 7-9 13-9 13s-9-6-9-13a9 9 0 0 1 18 0z"/><circle cx="12" cy="10" r="3"/></svg><span className="truncate">{venue}</span></div>}
       </div>
     </Link>
@@ -3970,7 +3970,7 @@ function YTFacade({ track }: { track: Track }) {
               <svg width="14" height="14" viewBox="0 0 24 24" fill="#fff" aria-hidden><path d="M8 5v14l11-7z" /></svg>
             </span>
           </span>
-          <span className="absolute inset-x-0 bottom-0 truncate bg-gradient-to-t from-black/85 to-transparent px-2 pb-1.5 pt-3 text-left font-['Outfit',sans-serif] text-[13px] font-semibold text-white">
+          <span className="absolute inset-x-0 bottom-0 truncate bg-gradient-to-t from-black/85 to-transparent px-2 pb-1.5 pt-3 text-left font-['Outfit',sans-serif] text-[14px] font-semibold text-white">
             {track.title}
           </span>
         </button>
@@ -4000,10 +4000,10 @@ function SpotlightAlbumRow({ album, artistSlug, topTracks, topVideoTracks = [], 
   return (
     <div className="mb-6 overflow-hidden rounded-2xl border border-[var(--border-default)] bg-gradient-to-r from-[rgba(249,115,22,0.08)] via-[var(--bg-surface)] to-[var(--bg-surface)] p-3 sm:mb-8 sm:p-5">
       <div className="mb-2 flex items-center gap-2">
-        <span className="inline-flex h-5 items-center rounded-full bg-[var(--accent-green)] px-2 font-['Outfit',sans-serif] text-[11.5px] font-extrabold uppercase tracking-[0.15em] text-white">
+        <span className="inline-flex h-5 items-center rounded-full bg-[var(--accent-green)] px-2 font-['Outfit',sans-serif] text-[12px] font-extrabold uppercase tracking-[0.15em] text-white">
           Naujausias
         </span>
-        <span className="font-['Outfit',sans-serif] text-[12.5px] font-bold uppercase tracking-[0.15em] text-[var(--text-muted)]">
+        <span className="font-['Outfit',sans-serif] text-[12px] font-bold uppercase tracking-[0.15em] text-[var(--text-muted)]">
           {type}
         </span>
       </div>
@@ -4117,7 +4117,7 @@ function AlbumGroupBox({ title, subtitle, description, rangeLabel, count, childr
     <div className="rounded-xl border border-[var(--border-subtle)] bg-[var(--bg-surface)] p-3 sm:p-4">
       <div className="mb-3 flex items-baseline justify-between gap-3">
         <div className="flex min-w-0 items-baseline gap-2">
-          <h3 className="truncate font-['Outfit',sans-serif] text-[14px] font-extrabold text-[var(--text-primary)] sm:text-[15px]">
+          <h3 className="truncate font-['Outfit',sans-serif] text-[14px] font-extrabold text-[var(--text-primary)] sm:text-[16px]">
             {title}
           </h3>
           {subtitle && (
@@ -4126,12 +4126,12 @@ function AlbumGroupBox({ title, subtitle, description, rangeLabel, count, childr
             </span>
           )}
           {rangeLabel && (
-            <span className="shrink-0 font-['Outfit',sans-serif] text-[13px] font-bold text-[var(--text-muted)]">
+            <span className="shrink-0 font-['Outfit',sans-serif] text-[14px] font-bold text-[var(--text-muted)]">
               · {rangeLabel}
             </span>
           )}
         </div>
-        <span className="shrink-0 font-['Outfit',sans-serif] text-[12.5px] font-bold uppercase tracking-wider text-[var(--text-muted)]">
+        <span className="shrink-0 font-['Outfit',sans-serif] text-[12px] font-bold uppercase tracking-wider text-[var(--text-muted)]">
           {count} {count === 1 ? 'albumas' : count < 10 ? 'albumai' : 'albumų'}
         </span>
       </div>
@@ -4227,18 +4227,18 @@ function AlbumCard({ a, popularity, artistSlug, maxPop, onOpen, topTracks, weigh
           <div className="pointer-events-none absolute inset-0 bg-gradient-to-t from-[rgba(249,115,22,0.12)] to-transparent opacity-0 transition-opacity duration-300 group-hover:opacity-100" />
         </div>
         {type !== 'Studijinis' && (
-          <span className="absolute left-1.5 top-1.5 rounded bg-black/70 px-1.5 py-0.5 font-['Outfit',sans-serif] text-[10px] font-extrabold uppercase tracking-wider text-white backdrop-blur-sm">
+          <span className="absolute left-1.5 top-1.5 rounded bg-black/70 px-1.5 py-0.5 font-['Outfit',sans-serif] text-[12px] font-extrabold uppercase tracking-wider text-white backdrop-blur-sm">
             {type}
           </span>
         )}
         {a.year && (
-          <span className="absolute bottom-1.5 right-1.5 rounded bg-black/70 px-1.5 py-0.5 font-['Outfit',sans-serif] text-[11px] font-bold text-white backdrop-blur-sm">
+          <span className="absolute bottom-1.5 right-1.5 rounded bg-black/70 px-1.5 py-0.5 font-['Outfit',sans-serif] text-[12px] font-bold text-white backdrop-blur-sm">
             {a.year}
           </span>
         )}
       </div>
       <div className="mt-1.5 px-0.5">
-        <div className="truncate font-['Outfit',sans-serif] text-[13px] font-bold text-[var(--text-primary)] sm:text-[14px]">{a.title}</div>
+        <div className="truncate font-['Outfit',sans-serif] text-[14px] font-bold text-[var(--text-primary)] sm:text-[14px]">{a.title}</div>
         {albumPop > 0 && <PopBar level={albumPop} />}
         {/* Top tracks strip — 2–3 dainos su video peak views. Kiekvienas
             track pavadinimas yra `<a href>` (SEO + middle-click new tab) +
@@ -4251,7 +4251,7 @@ function AlbumCard({ a, popularity, artistSlug, maxPop, onOpen, topTracks, weigh
             separator'ių — kortelė tampa skaitytelnesnė. */}
         {topTracks && topTracks.length > 0 && (
           <div
-            className="mt-1 hidden flex-col gap-0.5 font-['Outfit',sans-serif] text-[13px] font-medium leading-snug text-[var(--text-secondary)] sm:flex sm:text-[13.5px]"
+            className="mt-1 hidden flex-col gap-0.5 font-['Outfit',sans-serif] text-[14px] font-medium leading-snug text-[var(--text-secondary)] sm:flex sm:text-[14px]"
             onClick={(e) => e.stopPropagation()}
           >
             {topTracks.slice(0, 3).map((t) => (
@@ -4422,7 +4422,7 @@ function DiscussionRow({ t, onOpen }: { t: LegacyThread; isLast?: boolean; onOpe
       {/* Title — fixed 2-line block (min-h reserves space) so visually
           all cards align even when title is single-line. */}
       <div
-        className="font-['Outfit',sans-serif] text-[14.5px] font-bold leading-snug text-[var(--text-primary)] line-clamp-2"
+        className="font-['Outfit',sans-serif] text-[14px] font-bold leading-snug text-[var(--text-primary)] line-clamp-2"
         style={{ minHeight: '2.6em' }}
       >
         {title}
@@ -4435,7 +4435,7 @@ function DiscussionRow({ t, onOpen }: { t: LegacyThread; isLast?: boolean; onOpe
       <div className="flex flex-1 flex-col gap-2">
         {recent.length === 0 ? (
           pc === 0
-            ? <div className="text-[13.5px] leading-tight text-[var(--text-faint)]">Dar nekomentuota</div>
+            ? <div className="text-[14px] leading-tight text-[var(--text-faint)]">Dar nekomentuota</div>
             : null
         ) : (
           recent.map((p, i) => {
@@ -4445,10 +4445,10 @@ function DiscussionRow({ t, onOpen }: { t: LegacyThread; isLast?: boolean; onOpe
               <div key={i} className="flex items-start gap-2 border-t border-[var(--border-subtle)] pt-2 first:border-t-0 first:pt-0">
                 <UserAvatar name={author} avatarUrl={p.author_avatar_url} size={20} />
                 <div className="min-w-0 flex-1">
-                  <div className="truncate font-['Outfit',sans-serif] text-[12.5px] font-bold text-[var(--text-secondary)]">
+                  <div className="truncate font-['Outfit',sans-serif] text-[12px] font-bold text-[var(--text-secondary)]">
                     {author}
                   </div>
-                  <div className="line-clamp-2 text-[13.5px] leading-snug text-[var(--text-muted)]">
+                  <div className="line-clamp-2 text-[14px] leading-snug text-[var(--text-muted)]">
                     {text}
                   </div>
                 </div>
@@ -4462,7 +4462,7 @@ function DiscussionRow({ t, onOpen }: { t: LegacyThread; isLast?: boolean; onOpe
           aiškus call to action į pilną diskusiją. */}
       {pc > 0 && (
         <div className="border-t border-[var(--border-subtle)] pt-2">
-          <span className="font-['Outfit',sans-serif] text-[13.5px] font-extrabold text-[var(--accent-orange)] group-hover:underline">
+          <span className="font-['Outfit',sans-serif] text-[14px] font-extrabold text-[var(--accent-orange)] group-hover:underline">
             {pc} {pc === 1 ? 'komentaras' : (pc < 10 ? 'komentarai' : 'komentarų')} →
           </span>
         </div>
@@ -4659,7 +4659,7 @@ function DiscussionThreadModal({
       type="button"
       onClick={() => setSort(k)}
       className={[
-        'rounded-full px-3 py-1 font-["Outfit",sans-serif] text-[13px] font-extrabold transition-colors',
+        'rounded-full px-3 py-1 font-["Outfit",sans-serif] text-[14px] font-extrabold transition-colors',
         sort === k
           ? 'bg-[var(--accent-orange)] text-white'
           : 'border border-[var(--border-subtle)] bg-transparent text-[var(--text-muted)] hover:border-[var(--border-strong)] hover:text-[var(--text-primary)]',
@@ -4816,7 +4816,7 @@ function DiscussionsModal({
             <div className="font-['Outfit',sans-serif] text-[12px] font-extrabold uppercase tracking-[0.2em] text-[var(--text-muted)]">
               Diskusijos
             </div>
-            <div className="mt-0.5 font-['Outfit',sans-serif] text-[17px] font-extrabold text-[var(--text-primary)]">
+            <div className="mt-0.5 font-['Outfit',sans-serif] text-[16px] font-extrabold text-[var(--text-primary)]">
               {threads.length} {threads.length === 1 ? 'tema' : 'temos'}
             </div>
           </div>
@@ -4913,7 +4913,7 @@ function DiscoveryLike({ commentId, count, liked }: { commentId: number | null; 
       type="button"
       onClick={toggle}
       disabled={pending || !commentId}
-      className="inline-flex shrink-0 items-center gap-1.5 rounded-full border border-[var(--border-subtle)] bg-[var(--bg-hover)] px-2.5 py-1 font-['Outfit',sans-serif] text-[13.5px] font-bold transition-colors"
+      className="inline-flex shrink-0 items-center gap-1.5 rounded-full border border-[var(--border-subtle)] bg-[var(--bg-hover)] px-2.5 py-1 font-['Outfit',sans-serif] text-[14px] font-bold transition-colors"
       style={{ color: self ? 'var(--accent-orange)' : 'var(--text-muted)', cursor: commentId ? 'pointer' : 'default' }}
     >
       <svg width="12" height="12" viewBox="0 0 24 24" fill={self ? 'currentColor' : 'none'} stroke="currentColor" strokeWidth="2"><path d="M20.8 4.6a5.5 5.5 0 0 0-7.8 0L12 5.6l-1-1a5.5 5.5 0 0 0-7.8 7.8l1 1L12 21.2l7.8-7.8 1-1a5.5 5.5 0 0 0 0-7.8z"/></svg>
@@ -4942,21 +4942,21 @@ function DiscoveryFullCard({ d, liked }: { d: DiscoveryItem; liked: boolean }) {
         <UserAvatar name={uname || 'Narys'} avatarUrl={d.author?.avatar_url} size={26} />
         <div className="flex min-w-0 flex-1 items-baseline gap-2 leading-tight">
           {uname
-            ? <Link href={`/@${uname}`} className="truncate text-[14.5px] font-bold text-[var(--text-primary)] no-underline hover:text-[var(--accent-orange)]">{uname}</Link>
-            : <span className="text-[14.5px] font-bold text-[var(--text-primary)]">Narys</span>}
-          {when && <span className="shrink-0 text-[12.5px] text-[var(--text-muted)]">{when}</span>}
+            ? <Link href={`/@${uname}`} className="truncate text-[14px] font-bold text-[var(--text-primary)] no-underline hover:text-[var(--accent-orange)]">{uname}</Link>
+            : <span className="text-[14px] font-bold text-[var(--text-primary)]">Narys</span>}
+          {when && <span className="shrink-0 text-[12px] text-[var(--text-muted)]">{when}</span>}
         </div>
       </div>
       {d.embed_id && <div className="px-3.5"><DiscoveryEmbed d={d} /></div>}
       <div className="flex-1 px-3.5 pb-3.5 pt-2.5">
         {d.track_name && (
-          <div className="mb-1 font-['Outfit',sans-serif] text-[14.5px] font-extrabold text-[var(--text-primary)]">
+          <div className="mb-1 font-['Outfit',sans-serif] text-[14px] font-extrabold text-[var(--text-primary)]">
             {d.track_slug
               ? <Link href={`/dainos/${d.track_slug}`} className="no-underline hover:text-[var(--accent-orange)]" style={{ color: 'inherit' }}>{d.track_name} ♪</Link>
               : <>{d.track_name}</>}
           </div>
         )}
-        {d.body && <p className="m-0 whitespace-pre-wrap break-words text-[14.5px] leading-relaxed text-[var(--text-secondary)]">{d.body}</p>}
+        {d.body && <p className="m-0 whitespace-pre-wrap break-words text-[14px] leading-relaxed text-[var(--text-secondary)]">{d.body}</p>}
       </div>
     </article>
   )
@@ -6088,7 +6088,7 @@ export default function ArtistProfileClient({
                 <div className="min-w-0">
                   {hasBio && (
                     <>
-                      <h2 className="mb-3 font-['Outfit',sans-serif] text-[18px] font-black tracking-[-0.01em] text-[var(--text-primary)] sm:text-[20px]">
+                      <h2 className="mb-3 font-['Outfit',sans-serif] text-[20px] font-black tracking-[-0.01em] text-[var(--text-primary)] sm:text-[20px]">
                         {bioHeader}
                       </h2>
                       {/* maxChars 700 → mobile per ilga (~10 eilučių),
@@ -6113,14 +6113,14 @@ export default function ArtistProfileClient({
                       sąrašo. */}
                   {solo && displayRoles.length > 0 && (
                     <div className="mt-5">
-                      <div className="mb-2 font-['Outfit',sans-serif] text-[13px] font-bold uppercase tracking-[0.15em] text-[var(--text-muted)]">
+                      <div className="mb-2 font-['Outfit',sans-serif] text-[14px] font-bold uppercase tracking-[0.15em] text-[var(--text-muted)]">
                         Veiklos sritys
                       </div>
                       <div className="flex flex-wrap items-center gap-1.5">
                         {displayRoles.map(r => (
                           <span
                             key={r}
-                            className="inline-flex items-center rounded-full border border-[var(--border-subtle)] bg-[var(--card-bg)] px-2.5 py-1 font-['Outfit',sans-serif] text-[13.5px] font-bold text-[var(--text-secondary)]"
+                            className="inline-flex items-center rounded-full border border-[var(--border-subtle)] bg-[var(--card-bg)] px-2.5 py-1 font-['Outfit',sans-serif] text-[14px] font-bold text-[var(--text-secondary)]"
                           >{r}</span>
                         ))}
                       </div>
@@ -6145,7 +6145,7 @@ export default function ArtistProfileClient({
                     if (!hasMobileSocials) return null
                     return (
                       <div className="mt-5 lg:hidden">
-                        <div className="mb-2 font-['Outfit',sans-serif] text-[13px] font-bold uppercase tracking-[0.15em] text-[var(--text-muted)]">
+                        <div className="mb-2 font-['Outfit',sans-serif] text-[14px] font-bold uppercase tracking-[0.15em] text-[var(--text-muted)]">
                           Daugiau
                         </div>
                         <div className="flex flex-col gap-2.5">
@@ -6414,7 +6414,7 @@ export default function ArtistProfileClient({
                 return (
                   <div className={visibleAlbums.length > 0 ? 'mt-6' : ''}>
                     {visibleAlbums.length > 0 && (
-                      <div className="mb-2.5 font-['Outfit',sans-serif] text-[13px] font-extrabold uppercase tracking-[0.15em] text-[var(--text-muted)]">
+                      <div className="mb-2.5 font-['Outfit',sans-serif] text-[14px] font-extrabold uppercase tracking-[0.15em] text-[var(--text-muted)]">
                         Kitos dainos
                       </div>
                     )}
@@ -6432,7 +6432,7 @@ export default function ArtistProfileClient({
                         <button
                           type="button"
                           onClick={() => setOrphanModalOpen(true)}
-                          className="flex items-center justify-center rounded-xl border border-[rgba(249,115,22,0.35)] bg-[rgba(249,115,22,0.12)] p-2 font-['Outfit',sans-serif] text-[14.5px] font-extrabold tracking-tight text-[var(--accent-orange)] transition-colors hover:border-[var(--accent-orange)] hover:bg-[rgba(249,115,22,0.22)]"
+                          className="flex items-center justify-center rounded-xl border border-[rgba(249,115,22,0.35)] bg-[rgba(249,115,22,0.12)] p-2 font-['Outfit',sans-serif] text-[14px] font-extrabold tracking-tight text-[var(--accent-orange)] transition-colors hover:border-[var(--accent-orange)] hover:bg-[rgba(249,115,22,0.22)]"
                           aria-label={`Atidaryti visas dainas (${orphanTracks.length})`}
                         >
                           +{extraOrphans} daugiau
@@ -6489,7 +6489,7 @@ export default function ArtistProfileClient({
                 {overflow > 0 && (
                   <button
                     onClick={() => setDiscussionsModalOpen(true)}
-                    className="ml-2 inline-flex items-center gap-1.5 rounded-full border border-[var(--border-default)] bg-[var(--bg-surface)] px-3 py-1.5 text-[13px] font-bold text-[var(--text-muted)] transition-colors hover:border-[var(--border-strong)] hover:text-[var(--text-primary)]"
+                    className="ml-2 inline-flex items-center gap-1.5 rounded-full border border-[var(--border-default)] bg-[var(--bg-surface)] px-3 py-1.5 text-[14px] font-bold text-[var(--text-muted)] transition-colors hover:border-[var(--border-strong)] hover:text-[var(--text-primary)]"
                   >
                     Žiūrėti visas (+{overflow})
                   </button>
@@ -6503,7 +6503,7 @@ export default function ArtistProfileClient({
               {mainDiscussion && mainDiscussion.comment_count > 0 && mainDiscussion.topComments.length > 0 ? (
                 <div className="mb-4 rounded-2xl border border-[var(--border-default)] bg-[var(--bg-surface)] p-4 sm:p-5">
                   <div className="mb-3 flex items-center justify-between">
-                    <div className="font-['Outfit',sans-serif] text-[13px] font-extrabold uppercase tracking-[0.18em] text-[var(--text-muted)]">
+                    <div className="font-['Outfit',sans-serif] text-[14px] font-extrabold uppercase tracking-[0.18em] text-[var(--text-muted)]">
                       Komentarai · {mainDiscussion.comment_count.toLocaleString('lt-LT')}
                     </div>
                   </div>
@@ -6523,16 +6523,16 @@ export default function ArtistProfileClient({
                             {c.author_username || 'Vartotojas'}
                           </div>
                           {c.created_at && (
-                            <div className="text-[13px] text-[var(--text-faint)]">{relativeLt(c.created_at)}</div>
+                            <div className="text-[14px] text-[var(--text-faint)]">{relativeLt(c.created_at)}</div>
                           )}
                           {c.like_count > 0 && (
-                            <div className="ml-auto inline-flex items-center gap-1 text-[13px] font-bold text-[var(--text-muted)]">
+                            <div className="ml-auto inline-flex items-center gap-1 text-[14px] font-bold text-[var(--text-muted)]">
                               <svg viewBox="0 0 24 24" width="12" height="12" fill="currentColor" aria-hidden><path d="M20.84 4.61a5.5 5.5 0 0 0-7.78 0L12 5.67l-1.06-1.06a5.5 5.5 0 0 0-7.78 7.78l1.06 1.06L12 21.23l7.78-7.78 1.06-1.06a5.5 5.5 0 0 0 0-7.78z" /></svg>
                               {c.like_count}
                             </div>
                           )}
                         </div>
-                        <div className="whitespace-pre-wrap break-words font-['Outfit',sans-serif] text-[14.5px] leading-relaxed text-[var(--text-secondary)] line-clamp-4">
+                        <div className="whitespace-pre-wrap break-words font-['Outfit',sans-serif] text-[14px] leading-relaxed text-[var(--text-secondary)] line-clamp-4">
                           {c.body}
                         </div>
                       </div>
@@ -6550,7 +6550,7 @@ export default function ArtistProfileClient({
                         post_count: mainDiscussion.comment_count,
                         canonical_slug: mainDiscussion.slug,
                       } as LegacyThread)}
-                      className="group inline-flex items-center gap-1.5 rounded-full px-3 py-1.5 font-['Outfit',sans-serif] text-[14.5px] font-bold text-[var(--accent-orange)] transition-colors hover:bg-[rgba(249,115,22,0.1)]"
+                      className="group inline-flex items-center gap-1.5 rounded-full px-3 py-1.5 font-['Outfit',sans-serif] text-[14px] font-bold text-[var(--accent-orange)] transition-colors hover:bg-[rgba(249,115,22,0.1)]"
                     >
                       Visi {mainDiscussion.comment_count.toLocaleString('lt-LT')} komentarai
                       <svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" strokeWidth="2.4" strokeLinecap="round" strokeLinejoin="round" className="transition-transform group-hover:translate-x-0.5" aria-hidden><path d="M5 12h14M13 6l6 6-6 6" /></svg>
@@ -6576,7 +6576,7 @@ export default function ArtistProfileClient({
                 <>
                   {/* Antraštė kitoms temoms — kad atskirtų nuo viršuje esančio
                       inline komentaro bloko. */}
-                  <div className="mb-3 mt-2 font-['Outfit',sans-serif] text-[13px] font-extrabold uppercase tracking-[0.15em] text-[var(--text-muted)]">
+                  <div className="mb-3 mt-2 font-['Outfit',sans-serif] text-[14px] font-extrabold uppercase tracking-[0.15em] text-[var(--text-muted)]">
                     Kitos temos
                   </div>
                   <div className="grid auto-rows-fr grid-cols-1 gap-3 sm:grid-cols-2">

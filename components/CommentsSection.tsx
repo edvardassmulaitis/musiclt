@@ -180,7 +180,7 @@ function CommentNode({
                   Archyvinis
                 </span>
               )}
-              <span className="text-[13px]" style={{ color: 'var(--text-muted)' }}>{timeAgo(comment.created_at)}</span>
+              <span className="text-[14px]" style={{ color: 'var(--text-muted)' }}>{timeAgo(comment.created_at)}</span>
               {comment.edited_at && (
                 <span className="text-[12px] italic" style={{ color: 'var(--text-muted)' }}>(redaguota)</span>
               )}

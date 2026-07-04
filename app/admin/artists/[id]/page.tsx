@@ -443,7 +443,7 @@ function SingleRow({ track, onDelete }: { track: any; onDelete: () => void }) {
             </span>
           )}
         </div>
-        {track.albums_list?.[0] && <div className="text-[13px] text-[var(--text-muted)] truncate">{track.albums_list[0].title}</div>}
+        {track.albums_list?.[0] && <div className="text-[14px] text-[var(--text-muted)] truncate">{track.albums_list[0].title}</div>}
       </div>
       {confirmDelete ? (
         <div className="flex items-center gap-1 shrink-0">
@@ -588,7 +588,7 @@ function DiscographyPanel({ artistId, artistName, artistType, refreshKey, onImpo
           <div className="shrink-0 flex items-center gap-0.5 px-3 py-1.5 border-b border-[var(--border-subtle)] bg-[var(--bg-elevated)]/30 overflow-x-auto">
             {tabs.map(t => (
               <button key={t.id} onClick={() => setActiveTab(t.id)}
-                className={`shrink-0 px-2 py-1 rounded-md text-[13px] font-medium transition-colors ${
+                className={`shrink-0 px-2 py-1 rounded-md text-[14px] font-medium transition-colors ${
                   activeTab === t.id
                     ? 'bg-blue-600 text-white'
                     : 'text-[var(--text-muted)] hover:bg-[var(--bg-hover)] hover:text-[var(--text-secondary)]'
@@ -832,7 +832,7 @@ function ScrapeCommandFullRow({ artistId, artistName, onOpenChange }: { artistId
                 Uždaryti
               </button>
             </div>
-            <p className="text-[13px] text-[var(--text-muted)]">
+            <p className="text-[14px] text-[var(--text-muted)]">
               Trunka 5–15 min priklausomai nuo content kiekio. Po to admin'e nieko spausti nereikia — duomenys + YT enrich automatiškai.
             </p>
           </div>
@@ -1085,7 +1085,7 @@ function YtEnrichResults({ summary }: { summary: YtEnrichSummary }) {
                 <div className="font-medium text-[var(--text-primary)] truncate">{d.trackTitle || `#${d.trackId}`}</div>
                 <div className="text-xs text-[var(--text-muted)] truncate">→ {d.videoTitle} <span className="text-[var(--text-faint)]">· {d.videoChannel}</span></div>
                 {(d.warnings || []).map((w, i) => (
-                  <div key={i} className="text-[13px] text-amber-700 truncate">⚠ {w}</div>
+                  <div key={i} className="text-[14px] text-amber-700 truncate">⚠ {w}</div>
                 ))}
               </div>
               {d.matchScore !== undefined && d.matchScore !== null && <span className="text-xs tabular-nums text-green-700 shrink-0">score {d.matchScore}</span>}
@@ -1098,7 +1098,7 @@ function YtEnrichResults({ summary }: { summary: YtEnrichSummary }) {
 
       {skipped.length > 0 && (
         <Section title={`↷ Praleista — žemo confidence (${skipped.length})`} tone="amber">
-          <p className="px-3 py-1 text-[13px] text-amber-800/70">
+          <p className="px-3 py-1 text-[14px] text-amber-800/70">
             Pirmas YouTube paieškos kandidatas neatitiko match threshold'o (artist/track tokenai title/channel'yje, duration sanity). Track liko be video_url — galima rankiniu būdu suvesti per /admin/tracks/[id].
           </p>
           {skipped.map(d => (
@@ -1106,7 +1106,7 @@ function YtEnrichResults({ summary }: { summary: YtEnrichSummary }) {
               <div className="min-w-0 flex-1">
                 <div className="font-medium text-[var(--text-primary)] truncate">{d.trackTitle || `#${d.trackId}`}</div>
                 <div className="text-xs text-[var(--text-muted)] truncate">{d.skipReason}</div>
-                {d.videoTitle && <div className="text-[13px] text-[var(--text-faint)] truncate">top kandidatas: {d.videoTitle} · {d.videoChannel}</div>}
+                {d.videoTitle && <div className="text-[14px] text-[var(--text-faint)] truncate">top kandidatas: {d.videoTitle} · {d.videoChannel}</div>}
               </div>
               {d.matchScore !== undefined && d.matchScore !== null && <span className="text-xs tabular-nums text-amber-700 shrink-0">score {d.matchScore}</span>}
             </Row>
@@ -1139,7 +1139,7 @@ function YtEnrichResults({ summary }: { summary: YtEnrichSummary }) {
               <div className="min-w-0 flex-1">
                 <div className="font-medium text-[var(--text-primary)] truncate">{d.trackTitle || `#${d.trackId}`}</div>
                 {(d.warnings || []).map((w, i) => (
-                  <div key={i} className="text-[13px] text-red-700 truncate">⚠ {w}</div>
+                  <div key={i} className="text-[14px] text-red-700 truncate">⚠ {w}</div>
                 ))}
               </div>
             </Row>
@@ -1328,7 +1328,7 @@ function YoutubeClearButton({ artistId, onDone }: { artistId: string; onDone?: (
   if (status === 'confirm') {
     return (
       <div className="flex items-center gap-1">
-        <span className="text-[13px] text-red-700 font-medium">Tikrai išvalyti?</span>
+        <span className="text-[14px] text-red-700 font-medium">Tikrai išvalyti?</span>
         <button onClick={run} className="px-2 py-1 rounded-lg text-xs font-medium bg-red-600 hover:bg-red-700 text-white">Taip</button>
         <button onClick={() => setStatus('idle')} className="px-2 py-1 rounded-lg text-xs font-medium text-[var(--text-muted)] hover:bg-[var(--bg-hover)]">Ne</button>
       </div>

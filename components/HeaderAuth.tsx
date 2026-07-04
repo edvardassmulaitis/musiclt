@@ -33,7 +33,7 @@ function ThemeToggleRow({ onDone }: { onDone?: () => void }) {
   return (
     <button
       onClick={() => { setTheme(dk ? 'light' : 'dark'); onDone?.() }}
-      className="flex w-full items-center gap-3 mx-1.5 px-2.5 py-2 rounded-lg text-[14.5px] font-medium transition-all text-left"
+      className="flex w-full items-center gap-3 mx-1.5 px-2.5 py-2 rounded-lg text-[14px] font-medium transition-all text-left"
       style={{ width: 'calc(100% - 0.75rem)', color: 'var(--text-secondary)' }}
       onMouseEnter={e => {
         const el = e.currentTarget as HTMLElement
@@ -198,7 +198,7 @@ function AuthModal({ onClose }: { onClose: () => void }) {
 
             <div className="flex items-center gap-3 py-1">
               <div className="flex-1 h-px" style={{ background: 'var(--border-subtle)' }} />
-              <span className="text-[13px]" style={{ color: 'var(--text-faint)' }}>arba el. paštu</span>
+              <span className="text-[14px]" style={{ color: 'var(--text-faint)' }}>arba el. paštu</span>
               <div className="flex-1 h-px" style={{ background: 'var(--border-subtle)' }} />
             </div>
 
@@ -226,7 +226,7 @@ function AuthModal({ onClose }: { onClose: () => void }) {
               </button>
             </form>
 
-            <p className="text-center text-[13px] pt-1" style={{ color: 'var(--text-faint)' }}>
+            <p className="text-center text-[14px] pt-1" style={{ color: 'var(--text-faint)' }}>
               Prisijungdamas sutinki su{' '}
               <a href="/privatumas" className="transition-colors" style={{ color: 'var(--accent-link)' }}>privatumo politika</a>
             </p>
@@ -271,7 +271,7 @@ function UserMenu() {
       <Link
         href={href}
         onClick={() => setOpen(false)}
-        className="group/mi flex items-center gap-3 mx-1.5 px-2.5 py-2 rounded-lg text-[14.5px] font-medium transition-all"
+        className="group/mi flex items-center gap-3 mx-1.5 px-2.5 py-2 rounded-lg text-[14px] font-medium transition-all"
         style={{ color: fg }}
         onMouseEnter={e => {
           const el = e.currentTarget as HTMLElement
@@ -440,7 +440,7 @@ function UserMenu() {
           <div style={{ borderTop: '1px solid var(--border-subtle)' }} className="py-1.5">
             <button
               onClick={() => { setOpen(false); signOut({ callbackUrl: '/' }) }}
-              className="w-full flex items-center gap-3 mx-1.5 px-2.5 py-2 rounded-lg text-[14.5px] font-medium transition-all text-left"
+              className="w-full flex items-center gap-3 mx-1.5 px-2.5 py-2 rounded-lg text-[14px] font-medium transition-all text-left"
               style={{ width: 'calc(100% - 0.75rem)', color: 'var(--text-secondary)' }}
               onMouseEnter={e => {
                 const el = e.currentTarget as HTMLElement

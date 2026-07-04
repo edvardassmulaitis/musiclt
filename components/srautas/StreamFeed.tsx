@@ -564,7 +564,7 @@ export function StreamFeed({ initialMode = 'sekami', onModeChange, showManageLin
         .srf { display:flex; justify-content:space-between; align-items:center; gap:8px; flex-wrap:wrap; margin-bottom:20px; }
         .srf-modes { display:flex; align-items:center; gap:8px; }
         .srf-chip { display:inline-flex; align-items:center; gap:8px; padding:6px 16px; border-radius:100px;
-          font-size:13px; font-weight:600; font-family:'Outfit', sans-serif; cursor:pointer; white-space:nowrap; line-height:1.3;
+          font-size:14px; font-weight:600; font-family:'Outfit', sans-serif; cursor:pointer; white-space:nowrap; line-height:1.3;
           background:var(--bg-hover, var(--bg-surface)); border:1px solid var(--border-default, var(--border-subtle)); color:var(--text-secondary);
           transition:color .15s, border-color .15s, background .15s; -webkit-tap-highlight-color:transparent; text-decoration:none; }
         .srf-chip svg { width:15px; height:15px; display:block; }
@@ -607,21 +607,21 @@ export function StreamFeed({ initialMode = 'sekami', onModeChange, showManageLin
         .srl-mini-pbtn svg { width:18px; height:18px; margin-left:2px; }
         .srl-miniwrap { display:flex; position:relative; min-width:0; }
         /* dainos pavadinimas ant albumo grotuvo (apačioje) */
-        .srl-mini-cap { position:absolute; left:0; right:0; bottom:0; padding:16px 8px 6px; font-size:10.5px; font-weight:600; color:#fff;
+        .srl-mini-cap { position:absolute; left:0; right:0; bottom:0; padding:16px 8px 6px; font-size:12px; font-weight:600; color:#fff;
           background:linear-gradient(to top, rgba(0,0,0,0.85), rgba(0,0,0,0)); text-align:left; line-height:1.2;
           white-space:nowrap; overflow:hidden; text-overflow:ellipsis; pointer-events:none; }
 
         .srl-body { flex:1; min-width:0; display:flex; flex-direction:column; justify-content:center; gap:4px; padding:14px 50px 14px 16px; }
-        .srl-kicker { font-size:10.5px; font-weight:800; letter-spacing:.04em; text-transform:uppercase; line-height:1; }
+        .srl-kicker { font-size:12px; font-weight:800; letter-spacing:.04em; text-transform:uppercase; line-height:1; }
         .srl-title { font-size:16px; font-weight:700; color:var(--text-primary); line-height:1.3;
           display:-webkit-box; -webkit-line-clamp:2; -webkit-box-orient:vertical; overflow:hidden; }
         .srl-subrow { display:flex; align-items:center; gap:7px; min-width:0; }
         .srl-avatar { width:19px; height:19px; border-radius:50%; object-fit:cover; flex:0 0 auto; box-shadow:0 0 0 1px var(--border-subtle); }
-        .srl-sub { font-size:12.5px; color:var(--text-secondary); white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
-        .srl-excerpt { font-size:13px; color:var(--text-secondary); line-height:1.5; margin-top:2px;
+        .srl-sub { font-size:12px; color:var(--text-secondary); white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
+        .srl-excerpt { font-size:14px; color:var(--text-secondary); line-height:1.5; margin-top:2px;
           display:-webkit-box; -webkit-line-clamp:4; -webkit-box-orient:vertical; overflow:hidden; }
         .srl-quote { font-style:italic; color:var(--text-muted); }
-        .srl-byline { display:flex; align-items:center; gap:6px; font-size:11.5px; color:var(--text-secondary); margin-top:2px; }
+        .srl-byline { display:flex; align-items:center; gap:6px; font-size:12px; color:var(--text-secondary); margin-top:2px; }
         .srl-byline-av { width:18px; height:18px; border-radius:50%; object-fit:cover; flex:0 0 auto; }
         .srl-trip { font-size:12px; color:var(--text-secondary); margin-top:1px; white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
         .srl-footauthor { display:inline-flex; align-items:center; gap:5px; color:var(--text-secondary); font-weight:600; }
@@ -636,15 +636,15 @@ export function StreamFeed({ initialMode = 'sekami', onModeChange, showManageLin
           background:var(--bg-surface); border:1px solid var(--border-subtle); transition:border-color .14s, background .14s; }
         .srl-artcard:hover { border-color:var(--border-strong); background:var(--bg-hover, var(--bg-surface)); }
         .srl-artcard-img { width:38px; height:38px; border-radius:50%; object-fit:cover; flex:0 0 auto; box-shadow:0 0 0 1px var(--border-subtle); }
-        .srl-artcard-ph { display:inline-flex; align-items:center; justify-content:center; background:var(--bg-active); color:var(--text-faint); font-weight:800; font-size:15px; font-family:'Outfit', sans-serif; }
-        .srl-artcard-nm { font-size:13.5px; font-weight:600; color:var(--text-primary); white-space:nowrap; }
+        .srl-artcard-ph { display:inline-flex; align-items:center; justify-content:center; background:var(--bg-active); color:var(--text-faint); font-weight:800; font-size:16px; font-family:'Outfit', sans-serif; }
+        .srl-artcard-nm { font-size:14px; font-weight:600; color:var(--text-primary); white-space:nowrap; }
 
         /* ── Prisegamas grotuvas (apačioj dešinėj) ── */
         .sr-fp { position:fixed; right:18px; bottom:18px; z-index:1200; width:384px; max-width:calc(100vw - 24px);
           background:var(--bg-elevated); border:1px solid var(--border-default, var(--border-subtle)); border-radius:16px; overflow:hidden;
           box-shadow:0 20px 54px rgba(0,0,0,0.46); }
         .sr-fp-bar { display:flex; align-items:center; gap:10px; padding:9px 10px 9px 14px; }
-        .sr-fp-title { flex:1; min-width:0; font-size:13px; font-weight:700; color:var(--text-primary); white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
+        .sr-fp-title { flex:1; min-width:0; font-size:14px; font-weight:700; color:var(--text-primary); white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
         .sr-fp-x { flex:0 0 auto; width:28px; height:28px; border-radius:50%; border:none; cursor:pointer; background:var(--bg-surface); color:var(--text-secondary);
           display:inline-flex; align-items:center; justify-content:center; }
         .sr-fp-x:hover { color:var(--text-primary); }
@@ -656,14 +656,14 @@ export function StreamFeed({ initialMode = 'sekami', onModeChange, showManageLin
         /* „Nes mėgsti" — vizualiai su atlikėjų avatarais */
         .srl-because { display:flex; align-items:center; gap:6px; margin-top:3px; min-width:0;
           background:none; border:none; padding:0; cursor:pointer; font-family:inherit; text-align:left; }
-        .srl-because-lbl { font-size:11.5px; font-weight:700; color:var(--text-muted); flex:0 0 auto; text-transform:uppercase; letter-spacing:.03em; }
+        .srl-because-lbl { font-size:12px; font-weight:700; color:var(--text-muted); flex:0 0 auto; text-transform:uppercase; letter-spacing:.03em; }
         .srl-because-arts { display:flex; align-items:center; min-width:0; }
         .srl-because-av { width:22px; height:22px; border-radius:50%; object-fit:cover; flex:0 0 auto; box-shadow:0 0 0 2px var(--bg-elevated); margin-left:-7px; }
         .srl-because-av:first-child { margin-left:0; }
-        .srl-because-av--ph { display:inline-flex; align-items:center; justify-content:center; background:var(--bg-active); color:var(--text-faint); font-weight:800; font-size:10px; }
-        .srl-because-nm { font-size:12.5px; color:var(--accent-orange); white-space:nowrap; overflow:hidden; text-overflow:ellipsis; margin-left:8px; }
+        .srl-because-av--ph { display:inline-flex; align-items:center; justify-content:center; background:var(--bg-active); color:var(--text-faint); font-weight:800; font-size:12px; }
+        .srl-because-nm { font-size:12px; color:var(--accent-orange); white-space:nowrap; overflow:hidden; text-overflow:ellipsis; margin-left:8px; }
         .srl-because:hover .srl-because-nm { text-decoration:underline; }
-        .srl-foot { display:flex; align-items:center; gap:9px; font-size:11.5px; color:var(--text-faint); margin-top:3px; flex-wrap:wrap; }
+        .srl-foot { display:flex; align-items:center; gap:9px; font-size:12px; color:var(--text-faint); margin-top:3px; flex-wrap:wrap; }
         .srl-stat { position:relative; padding-left:12px; }
         .srl-stat::before { content:''; position:absolute; left:0; top:50%; width:3px; height:3px; border-radius:50%; background:currentColor; transform:translateY(-50%); }
 
@@ -672,7 +672,7 @@ export function StreamFeed({ initialMode = 'sekami', onModeChange, showManageLin
           .srl { height:auto; min-height:96px; }
           .srl-body { overflow:visible; }
           .srl-cover--ph span { font-size:32px; }
-          .srl-title { font-size:14.5px; }
+          .srl-title { font-size:14px; }
           .srl-body { padding:11px 46px 11px 13px; }
           /* mini grotuvas lieka dešinėj — kompaktiškas thumbnailas (ne per visą plotį) */
           .srl--hasmini { flex-wrap:nowrap; }
@@ -710,8 +710,8 @@ export function StreamFeed({ initialMode = 'sekami', onModeChange, showManageLin
         .sr-wm-x { position:absolute; top:12px; right:12px; width:30px; height:30px; border-radius:50%; border:none; cursor:pointer;
           background:var(--bg-surface); color:var(--text-secondary); display:inline-flex; align-items:center; justify-content:center; }
         .sr-wm-x svg { width:16px; height:16px; }
-        .sr-wm-h { font-size:17px; font-weight:800; color:var(--text-primary); margin-bottom:10px; }
-        .sr-wm-p { font-size:13.5px; line-height:1.5; color:var(--text-secondary); margin:0 0 14px; }
+        .sr-wm-h { font-size:16px; font-weight:800; color:var(--text-primary); margin-bottom:10px; }
+        .sr-wm-p { font-size:14px; line-height:1.5; color:var(--text-secondary); margin:0 0 14px; }
         .sr-wm-arts { display:flex; flex-direction:column; gap:9px; margin-bottom:15px; }
         .sr-wm-art { display:flex; align-items:center; gap:10px; font-size:14px; font-weight:600; color:var(--text-primary); }
         .sr-wm-art img { width:34px; height:34px; border-radius:50%; object-fit:cover; flex:0 0 auto; box-shadow:0 0 0 1px var(--border-subtle); }
@@ -721,7 +721,7 @@ export function StreamFeed({ initialMode = 'sekami', onModeChange, showManageLin
         .sr-wm--charts { max-width:540px; }
         .sr-ch-list { display:flex; flex-direction:column; gap:16px; max-height:66vh; overflow-y:auto; }
         .sr-ch-grp { }
-        .sr-ch-name { display:inline-block; font-size:11px; font-weight:800; text-transform:uppercase; letter-spacing:.04em;
+        .sr-ch-name { display:inline-block; font-size:12px; font-weight:800; text-transform:uppercase; letter-spacing:.04em;
           color:var(--accent-orange); text-decoration:none; margin-bottom:8px; }
         .sr-ch-name:hover { text-decoration:underline; }
         .sr-ch-rows { display:flex; flex-direction:column; gap:6px; }
@@ -738,7 +738,7 @@ export function StreamFeed({ initialMode = 'sekami', onModeChange, showManageLin
         .sr-ch-pbtn svg { width:15px; height:15px; margin-left:1px; }
         .sr-ch-thumb iframe { width:100%; height:100%; border:0; display:block; }
         img.sr-ch-cover { width:104px; aspect-ratio:16/9; border-radius:8px; object-fit:cover; flex:0 0 auto; box-shadow:0 0 0 1px var(--border-subtle); }
-        span.sr-ch-cover { width:104px; aspect-ratio:16/9; border-radius:8px; flex:0 0 auto; display:inline-flex; align-items:center; justify-content:center; background:var(--bg-active); color:var(--text-faint); font-weight:800; font-size:18px; }
+        span.sr-ch-cover { width:104px; aspect-ratio:16/9; border-radius:8px; flex:0 0 auto; display:inline-flex; align-items:center; justify-content:center; background:var(--bg-active); color:var(--text-faint); font-weight:800; font-size:20px; }
         .sr-ch-meta { display:flex; flex-direction:column; min-width:0; text-decoration:none; }
         .sr-ch-song { font-size:14px; font-weight:600; color:var(--text-primary); white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
         .sr-ch-meta:hover .sr-ch-song { text-decoration:underline; }
@@ -746,10 +746,10 @@ export function StreamFeed({ initialMode = 'sekami', onModeChange, showManageLin
 
         /* ── Pagalbiniai ── */
         .sr-end { text-align:center; padding:30px 16px 6px; }
-        .sr-end-title { font-size:15px; font-weight:700; color:var(--text-primary); }
-        .sr-end-sub { font-size:13px; color:var(--text-muted); margin-top:5px; }
+        .sr-end-title { font-size:16px; font-weight:700; color:var(--text-primary); }
+        .sr-end-sub { font-size:14px; color:var(--text-muted); margin-top:5px; }
         .sr-end a, .sr-end button { display:inline-block; margin-top:13px; text-decoration:none; border:none; cursor:pointer;
-          background:var(--accent-orange); color:#fff; font-weight:700; font-size:13.5px; padding:9px 18px; border-radius:10px; font-family:inherit; }
+          background:var(--accent-orange); color:#fff; font-weight:700; font-size:14px; padding:9px 18px; border-radius:10px; font-family:inherit; }
         .sr-empty { text-align:center; padding:56px 16px; color:var(--text-muted); }
         .sr-empty a, .sr-empty button { color:var(--accent-orange); font-weight:700; }
         .sr-loading { display:flex; justify-content:center; padding:64px 0; }

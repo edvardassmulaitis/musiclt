@@ -61,7 +61,7 @@ export default function BioModal({ open, onClose, title, subtitle, html }: Props
           <div style={{ minWidth: 0 }}>
             <div
               style={{
-                fontFamily: 'Outfit,sans-serif', fontWeight: 800, fontSize: 18,
+                fontFamily: 'Outfit,sans-serif', fontWeight: 800, fontSize: 20,
                 color: 'var(--text-primary)', lineHeight: 1.15,
                 overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap',
               }}
@@ -108,7 +108,7 @@ export default function BioModal({ open, onClose, title, subtitle, html }: Props
           style={{
             flex: 1, overflowY: 'auto',
             padding: '22px 28px 28px 28px',
-            fontSize: 15, lineHeight: 1.78, color: 'var(--text-secondary)',
+            fontSize: 16, lineHeight: 1.78, color: 'var(--text-secondary)',
           }}
           className="bio-modal-content"
           dangerouslySetInnerHTML={{ __html: normalizeBio(html) }}

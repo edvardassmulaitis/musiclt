@@ -48,17 +48,17 @@ export async function POST(req: NextRequest) {
             <div style="background-color:#f4f7fc;background:linear-gradient(135deg,#eef3fb 0%,#fdf2ea 100%);padding:28px 40px 22px;text-align:center;border-bottom:1px solid #eef0f3;">
               <img src="https://musiclt.vercel.app/email-logo.png" width="44" height="44" alt="music.lt" style="display:inline-block;vertical-align:middle;border:0;" />
               <span style="display:inline-block;vertical-align:middle;margin-left:11px;font-size:28px;font-weight:800;letter-spacing:-0.5px;"><span style="color:#1a73e8;">music</span><span style="color:#f97316;">.lt</span></span>
-              <div style="color:#8a93a3;font-size:13px;margin-top:10px;">Lietuviškos muzikos bendruomenė</div>
+              <div style="color:#8a93a3;font-size:14px;margin-top:10px;">Lietuviškos muzikos bendruomenė</div>
             </div>
             <div style="padding:36px 40px;text-align:center;">
-              <h1 style="font-size:21px;font-weight:700;color:#1a1a1a;margin:0 0 12px;">Prisijunkite prie music.lt</h1>
-              <p style="color:#5f6368;font-size:15px;line-height:1.6;margin:0 0 28px;">
+              <h1 style="font-size:20px;font-weight:700;color:#1a1a1a;margin:0 0 12px;">Prisijunkite prie music.lt</h1>
+              <p style="color:#5f6368;font-size:16px;line-height:1.6;margin:0 0 28px;">
                 Sveiki! Paspauskite mygtuką žemiau ir iškart prisijungsite — slaptažodžio nereikia.
               </p>
               <a href="${url}" style="display:inline-block;background-color:#f97316;background:linear-gradient(135deg,#1a73e8,#f97316);color:#ffffff;font-weight:700;padding:16px 44px;border-radius:12px;text-decoration:none;font-size:16px;">
                 Prisijungti
               </a>
-              <p style="color:#9aa0a6;font-size:13px;margin:28px 0 0;">
+              <p style="color:#9aa0a6;font-size:14px;margin:28px 0 0;">
                 Nuoroda galioja <strong style="color:#5f6368;">24 valandas</strong>.
               </p>
             </div>

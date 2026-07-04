@@ -64,7 +64,7 @@ export default async function KoncertuIrasaiPage() {
 
       {recordings.length === 0 ? (
         <div className="rounded-2xl border border-dashed border-[var(--border-default)] bg-[var(--bg-surface)] p-10 text-center">
-          <p className="text-[15px] font-semibold text-[var(--text-primary)]">Įrašų archyvas dar pildomas</p>
+          <p className="text-[16px] font-semibold text-[var(--text-primary)]">Įrašų archyvas dar pildomas</p>
           <p className="mx-auto mt-1 max-w-md text-sm text-[var(--text-muted)]">
             Netrukus čia rasi pilnus koncertus, gyvus pasirodymus ir live sesijas iš Lietuvos scenos.
           </p>

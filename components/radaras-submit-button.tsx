@@ -11,7 +11,7 @@ import { useSession } from 'next-auth/react'
 const field: React.CSSProperties = {
   width: '100%', borderRadius: 11, border: '1px solid var(--border-default)',
   background: 'var(--bg-elevated)', color: 'var(--text-primary)', padding: '11px 13px',
-  fontSize: 14.5, outline: 'none', fontFamily: "'DM Sans',sans-serif",
+  fontSize: 14, outline: 'none', fontFamily: "'DM Sans',sans-serif",
 }
 
 export default function RadarSubmitButton() {
@@ -72,8 +72,8 @@ export default function RadarSubmitButton() {
             {state === 'done' ? (
               <div style={{ textAlign: 'center', padding: '8px 0 6px' }}>
                 <div style={{ fontSize: 32 }}>✅</div>
-                <h3 style={{ fontFamily: "'Outfit',sans-serif", fontWeight: 800, fontSize: 18, color: 'var(--text-primary)', marginTop: 6 }}>Ačiū! Gavome.</h3>
-                <p style={{ color: 'var(--text-muted)', fontSize: 14.5, marginTop: 8, lineHeight: 1.5 }}>
+                <h3 style={{ fontFamily: "'Outfit',sans-serif", fontWeight: 800, fontSize: 20, color: 'var(--text-primary)', marginTop: 6 }}>Ačiū! Gavome.</h3>
+                <p style={{ color: 'var(--text-muted)', fontSize: 14, marginTop: 8, lineHeight: 1.5 }}>
                   Peržiūrėsime ir, jei tinka, įtrauksime į radarą.
                 </p>
                 <button onClick={close} className="rd-btn rd-btn-primary" style={{ marginTop: 16 }}>Gerai</button>
@@ -81,7 +81,7 @@ export default function RadarSubmitButton() {
             ) : (
               <form onSubmit={onSubmit} style={{ display: 'flex', flexDirection: 'column', gap: 14 }}>
                 <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 10 }}>
-                  <h3 style={{ fontFamily: "'Outfit',sans-serif", fontWeight: 800, fontSize: 19, color: 'var(--text-primary)' }}>Pasiūlyk atlikėją</h3>
+                  <h3 style={{ fontFamily: "'Outfit',sans-serif", fontWeight: 800, fontSize: 20, color: 'var(--text-primary)' }}>Pasiūlyk atlikėją</h3>
                   <button type="button" onClick={close} aria-label="Uždaryti" style={{ width: 32, height: 32, borderRadius: '50%', border: '1px solid var(--border-default)', background: 'var(--bg-hover)', color: 'var(--text-muted)', cursor: 'pointer', fontSize: 14, flexShrink: 0 }}>✕</button>
                 </div>
 

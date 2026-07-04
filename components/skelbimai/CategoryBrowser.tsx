@@ -163,9 +163,9 @@ export function CategoryBrowser({ type, initialListings, initialQ = '' }: Props)
         .sk-fbar { display:flex; flex-wrap:wrap; gap:7px; align-items:center; padding:11px 12px; border-radius:14px;
           background:var(--bg-surface); border:1px solid var(--border-default); margin-bottom:22px; }
         .sk-divider { width:1px; height:22px; background:var(--border-default); margin:0 2px; }
-        .sk-search { height:34px; min-width:160px; flex:1 1 180px; border-radius:9px; padding:0 12px; font-size:13px;
+        .sk-search { height:34px; min-width:160px; flex:1 1 180px; border-radius:9px; padding:0 12px; font-size:14px;
           background:var(--bg-hover); border:1px solid var(--border-default); color:var(--text-primary); outline:none; }
-        .sk-chip { display:inline-flex; align-items:center; gap:6px; padding:6px 13px; border-radius:100px; font-size:12.5px; font-weight:600;
+        .sk-chip { display:inline-flex; align-items:center; gap:6px; padding:6px 13px; border-radius:100px; font-size:12px; font-weight:600;
           font-family:'Outfit',sans-serif; background:var(--bg-hover); border:1px solid var(--border-default);
           color:var(--text-secondary); transition:all .15s; white-space:nowrap; cursor:pointer; line-height:1.3; }
         .sk-chip:hover { color:var(--text-primary); border-color:rgba(249,115,22,0.4); }
@@ -177,7 +177,7 @@ export function CategoryBrowser({ type, initialListings, initialQ = '' }: Props)
         .sk-pop { position:absolute; top:calc(100% + 8px); left:0; z-index:50; padding:10px;
           background:var(--bg-surface); border:1px solid var(--border-default); border-radius:14px; box-shadow:0 14px 40px rgba(0,0,0,0.32); }
         .sk-pop-list { display:flex; flex-direction:column; gap:2px; max-height:280px; overflow-y:auto; }
-        .sk-opt { text-align:left; width:100%; padding:8px 10px; border-radius:9px; font-size:13px; font-weight:600;
+        .sk-opt { text-align:left; width:100%; padding:8px 10px; border-radius:9px; font-size:14px; font-weight:600;
           font-family:'Outfit',sans-serif; cursor:pointer; background:transparent; border:none; color:var(--text-secondary); transition:all .12s; white-space:nowrap; }
         .sk-opt:hover { background:var(--bg-hover); color:var(--text-primary); }
         .sk-opt.on { color:var(--accent-orange); }

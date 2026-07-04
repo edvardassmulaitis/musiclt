@@ -62,7 +62,7 @@ export function ChoiceCards({
         .cc-ico :global(svg) { width: 22px; height: 22px; }
         .cc-text { flex: 1; min-width: 0; display: flex; flex-direction: column; gap: 3px; }
         .cc-label { font-family: 'Outfit', sans-serif; font-weight: 800; font-size: 16px; color: var(--text-primary); }
-        .cc-desc { font-size: 13px; color: var(--text-muted); line-height: 1.35; }
+        .cc-desc { font-size: 14px; color: var(--text-muted); line-height: 1.35; }
         .cc-check { flex-shrink: 0; width: 22px; height: 22px; color: var(--accent-orange); }
         .cc-check :global(svg) { width: 22px; height: 22px; stroke-width: 2.6; }
       `}</style>
@@ -117,13 +117,13 @@ export function CountChips({
         .ctc-row { display: flex; gap: 8px; flex-wrap: wrap; }
         .ctc-chip {
           min-width: 56px; height: 52px; padding: 0 14px; border-radius: 13px;
-          font-family: 'Outfit', sans-serif; font-weight: 800; font-size: 17px; cursor: pointer;
+          font-family: 'Outfit', sans-serif; font-weight: 800; font-size: 16px; cursor: pointer;
           background: var(--bg-elevated); border: 1.5px solid var(--border-subtle); color: var(--text-secondary);
           -webkit-tap-highlight-color: transparent;
         }
         .ctc-chip.is-active { background: var(--accent-orange); color: #fff; border-color: transparent; }
         .ctc-custom { display: flex; align-items: center; gap: 10px; margin-top: 14px; }
-        .ctc-custom-label { font-size: 13px; color: var(--text-muted); }
+        .ctc-custom-label { font-size: 14px; color: var(--text-muted); }
         .ctc-input {
           width: 110px; height: 46px; border-radius: 12px; padding: 0 14px;
           background: var(--bg-elevated); border: 1.5px solid var(--border-subtle);
@@ -143,7 +143,7 @@ export function FieldLabel({ children, optional }: { children: ReactNode; option
       <style jsx>{`
         .wzfl {
           display: block; margin-bottom: 8px;
-          font-size: 11px; font-weight: 800; text-transform: uppercase; letter-spacing: .07em;
+          font-size: 12px; font-weight: 800; text-transform: uppercase; letter-spacing: .07em;
           color: var(--text-faint); font-family: 'Outfit', sans-serif;
         }
         .wzfl-opt { text-transform: none; letter-spacing: 0; font-weight: 600; color: var(--text-faint); }

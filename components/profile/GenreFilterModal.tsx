@@ -85,7 +85,7 @@ export function GenreFilterModal({
             </h2>
             {genreFilter && (
               <button type="button" onClick={() => setGenreFilter(null)}
-                className="flex-shrink-0 w-6 h-6 flex items-center justify-center rounded-full text-[13px] transition hover:opacity-80"
+                className="flex-shrink-0 w-6 h-6 flex items-center justify-center rounded-full text-[14px] transition hover:opacity-80"
                 style={{ background: 'rgba(255,255,255,0.10)', border: '1px solid rgba(255,255,255,0.18)', color: 'var(--text-secondary)' }}
                 aria-label="Atstatyti filtrą">✕</button>
             )}
@@ -124,7 +124,7 @@ export function GenreFilterModal({
                   const isSelected = selectedSubstyle === s.legacy_style_id
                   const sz = i < 3 ? { fontSize: '14px', fontWeight: 800 }
                            : i < 7 ? { fontSize: '14px', fontWeight: 700 }
-                           : { fontSize: '13px', fontWeight: 600 }
+                           : { fontSize: '14px', fontWeight: 600 }
                   return (
                     <button key={s.legacy_style_id} type="button"
                       onClick={() => setSelectedSubstyle(isSelected ? null : s.legacy_style_id)}
@@ -180,7 +180,7 @@ export function GenreFilterModal({
                       )}
                       <div className="absolute inset-0 bg-gradient-to-t from-black/85 via-black/15 to-transparent" />
                       <div className="absolute bottom-0 left-0 right-0 p-2">
-                        <p className="text-[13px] font-extrabold text-white leading-tight truncate"
+                        <p className="text-[14px] font-extrabold text-white leading-tight truncate"
                            style={{ fontFamily: "'Outfit', sans-serif" }}>{a.name}</p>
                       </div>
                     </Link>
@@ -209,7 +209,7 @@ export function GenreFilterModal({
                         )}
                         <div className="absolute inset-0 bg-gradient-to-t from-black/90 via-black/20 to-transparent" />
                         <div className="absolute bottom-0 left-0 right-0 p-2">
-                          <p className="text-[11px] font-extrabold uppercase tracking-widest text-orange-300 truncate"
+                          <p className="text-[12px] font-extrabold uppercase tracking-widest text-orange-300 truncate"
                              style={{ fontFamily: "'Outfit', sans-serif" }}>{artist?.name || ''}</p>
                           <h3 className="text-xs font-bold text-white leading-tight line-clamp-2"
                               style={{ fontFamily: "'Outfit', sans-serif" }}>{t?.title || '—'}</h3>

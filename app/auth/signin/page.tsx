@@ -124,7 +124,7 @@ function SignInContent() {
               key={key}
               onClick={() => setTab(key)}
               style={{
-                flex: 1, padding: '13px 0', fontSize: 14.5, fontWeight: 700, cursor: 'pointer',
+                flex: 1, padding: '13px 0', fontSize: 14, fontWeight: 700, cursor: 'pointer',
                 background: tab === key ? 'var(--bg-surface)' : 'transparent',
                 color: tab === key ? 'var(--text-primary)' : 'var(--text-muted)',
                 border: 'none',
@@ -144,7 +144,7 @@ function SignInContent() {
               disabled={loading !== null}
               style={{
                 width: '100%', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 12,
-                background: '#fff', color: '#1a1a1a', fontWeight: 600, fontSize: 14.5, padding: '13px 18px',
+                background: '#fff', color: '#1a1a1a', fontWeight: 600, fontSize: 14, padding: '13px 18px',
                 borderRadius: 12, border: '1px solid rgba(0,0,0,.1)', cursor: 'pointer', opacity: loading ? 0.6 : 1,
               }}
             >
@@ -176,7 +176,7 @@ function SignInContent() {
                 type="submit"
                 disabled={loading === 'email' || !email}
                 style={{
-                  width: '100%', background: 'var(--accent-orange)', color: '#fff', fontWeight: 700, fontSize: 14.5,
+                  width: '100%', background: 'var(--accent-orange)', color: '#fff', fontWeight: 700, fontSize: 14,
                   padding: '13px 0', borderRadius: 12, border: 'none', cursor: 'pointer',
                   opacity: loading === 'email' || !email ? 0.6 : 1,
                   display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 8,

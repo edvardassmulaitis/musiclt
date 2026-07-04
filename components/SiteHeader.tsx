@@ -514,7 +514,7 @@ function quickSlug(s: string): string {
 }
 
 const SEC_HEAD: React.CSSProperties = {
-  fontFamily: "'Outfit', sans-serif", fontSize: 13, fontWeight: 800,
+  fontFamily: "'Outfit', sans-serif", fontSize: 14, fontWeight: 800,
   textTransform: 'uppercase', letterSpacing: '0.1em', color: 'var(--text-muted)',
 }
 
@@ -530,8 +530,8 @@ function TopMiniRow({ entry, fallbackHref, hex }: { entry: TopMini; fallbackHref
         {entry.image ? <img src={proxyImg(entry.image)} alt="" style={{ width: '100%', height: '100%', objectFit: 'cover' }} /> : <span style={{ fontSize: 14, opacity: 0.45 }}>♪</span>}
       </span>
       <span style={{ minWidth: 0, flex: 1, display: 'flex', flexDirection: 'column' }}>
-        <span style={{ fontSize: 14.5, fontWeight: 700, color: 'var(--text-primary)', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{entry.title}</span>
-        <span style={{ fontSize: 13, color: 'var(--text-muted)', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{entry.artist}</span>
+        <span style={{ fontSize: 14, fontWeight: 700, color: 'var(--text-primary)', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{entry.title}</span>
+        <span style={{ fontSize: 14, color: 'var(--text-muted)', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{entry.artist}</span>
       </span>
     </Link>
   )
@@ -961,7 +961,7 @@ function BendruomenePanel({ data, accent }: { data: NavPreview | null; accent: s
 // greitos nuorodos. Vientisa su /muzika ir /naujienos puslapiu.
 const SECTION_HEAD: React.CSSProperties = {
   display: 'flex', alignItems: 'center', gap: 6, fontFamily: "'Outfit', sans-serif",
-  fontSize: 13, fontWeight: 800, textTransform: 'uppercase', letterSpacing: '0.1em',
+  fontSize: 14, fontWeight: 800, textTransform: 'uppercase', letterSpacing: '0.1em',
   color: 'var(--text-muted)', marginBottom: 8,
 }
 // Stilių trumpi NOMINATYVAI (vienas aiškus žodis) — Naujienų „Pagal stilių" gridui.
@@ -1083,7 +1083,7 @@ function SkelbimaiPanel({ data, accent }: { data: NavPreview | null; accent: str
     <div className="sh-panel">
       {/* ── Naujausi skelbimai — realūs itemai (juosta kaip Muzika/Topai) ── */}
       <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 10 }}>
-        <span style={{ display: 'flex', alignItems: 'center', gap: 6, fontFamily: "'Outfit', sans-serif", fontSize: 13, fontWeight: 800, textTransform: 'uppercase', letterSpacing: '0.1em', color: 'var(--text-muted)' }}>
+        <span style={{ display: 'flex', alignItems: 'center', gap: 6, fontFamily: "'Outfit', sans-serif", fontSize: 14, fontWeight: 800, textTransform: 'uppercase', letterSpacing: '0.1em', color: 'var(--text-muted)' }}>
           <span className="sh-trending-glyph">{I.market}</span>
           Naujausi skelbimai
         </span>
@@ -1116,7 +1116,7 @@ function SkelbimaiPanel({ data, accent }: { data: NavPreview | null; accent: str
 
       {/* ── Kategorijos — realūs skelbimų tipai ── */}
       <div style={{ marginTop: 16, paddingTop: 14, borderTop: '1px solid var(--border-default)' }}>
-        <div style={{ fontFamily: "'Outfit', sans-serif", fontSize: 13, fontWeight: 800, textTransform: 'uppercase', letterSpacing: '0.1em', color: 'var(--text-muted)', marginBottom: 8 }}>Kategorijos</div>
+        <div style={{ fontFamily: "'Outfit', sans-serif", fontSize: 14, fontWeight: 800, textTransform: 'uppercase', letterSpacing: '0.1em', color: 'var(--text-muted)', marginBottom: 8 }}>Kategorijos</div>
         <div className="sh-chiprow sh-chiprow-fill">
           {LISTING_TYPE_ORDER.map(t => {
             const meta = LISTING_TYPES[t]
@@ -1154,7 +1154,7 @@ function MobileExpansion({
         <div style={{
           display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 6,
           fontFamily: "'Outfit', sans-serif",
-          fontSize: 13, fontWeight: 800,
+          fontSize: 14, fontWeight: 800,
           textTransform: 'uppercase', letterSpacing: '0.1em',
           color: 'var(--text-muted)',
           marginBottom: 8,
@@ -1214,7 +1214,7 @@ function MobileExpansion({
         <div style={{ paddingTop: 12, borderTop: '1px solid var(--border-default)' }}>
           <div style={{
             fontFamily: "'Outfit', sans-serif",
-            fontSize: 13, fontWeight: 800,
+            fontSize: 14, fontWeight: 800,
             textTransform: 'uppercase', letterSpacing: '0.1em',
             color: 'var(--text-muted)',
             marginBottom: 8,
@@ -1275,7 +1275,7 @@ function MobileExpansion({
                     ? <img src={proxyImg(e.image)} alt="" style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
                     : <span style={{ color: 'var(--text-muted)', opacity: 0.5 }}>{I.music}</span>}
                 </span>
-                <span style={{ fontSize: 13.5, fontWeight: 700, color: 'var(--text-primary)', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{e?.title || '—'}</span>
+                <span style={{ fontSize: 14, fontWeight: 700, color: 'var(--text-primary)', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{e?.title || '—'}</span>
                 <span style={{ fontSize: 12, color: 'var(--text-muted)', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis', marginTop: -2 }}>{e?.artist || ''}</span>
               </Link>
             ))}
@@ -1641,7 +1641,7 @@ export function SiteHeader() {
         .sh-navlink {
           position: relative;
           display: inline-flex; align-items: center;
-          font-size: 13.5px; font-weight: 600;
+          font-size: 14px; font-weight: 600;
           padding: 8px 14px;
           text-decoration: none;
           color: ${navColor};
@@ -1737,7 +1737,7 @@ export function SiteHeader() {
         }
         .sh-panel-muzika .sh-panel-section { margin-bottom: 6px; }
         .sh-panel-section-title {
-          font-size: 11px; font-weight: 800;
+          font-size: 12px; font-weight: 800;
           text-transform: uppercase;
           letter-spacing: 0.1em;
           color: var(--text-muted);
@@ -1754,7 +1754,7 @@ export function SiteHeader() {
         .sh-trending-mini svg { width: 10px; height: 10px; }
         .sh-panel-section-more {
           display: inline-flex; align-items: center; gap: 4px;
-          font-size: 11px; font-weight: 700;
+          font-size: 12px; font-weight: 700;
           color: var(--text-secondary);
           text-decoration: none;
           padding: 3px 7px;
@@ -1821,7 +1821,7 @@ export function SiteHeader() {
         }
         @media (prefers-reduced-motion: reduce) { .sh-pulse-dot { animation: none; } }
         .sh-railitem-label {
-          font-size: 13px; font-weight: 600; letter-spacing: -0.005em;
+          font-size: 14px; font-weight: 600; letter-spacing: -0.005em;
           white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
         }
         /* Fiksuotas min-aukštis — kad perjungiant skiltis modalas neсокinetų.
@@ -1863,12 +1863,12 @@ export function SiteHeader() {
         }
         .sh-vcard:hover .sh-vimg { transform: scale(1.03); }
         .sh-vtitle {
-          font-family: 'Outfit', sans-serif; font-size: 12.5px; font-weight: 700;
+          font-family: 'Outfit', sans-serif; font-size: 12px; font-weight: 700;
           color: var(--text-primary); line-height: 1.25;
           white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
         }
         .sh-vmeta {
-          font-size: 10.5px; font-weight: 500; color: var(--text-muted);
+          font-size: 12px; font-weight: 500; color: var(--text-muted);
           white-space: nowrap; overflow: hidden; text-overflow: ellipsis; margin-top: -2px;
         }
         /* Plakatai/viršeliai — talpinam pagal ilgiausią kraštinę (be apkirpimo). */
@@ -1883,7 +1883,7 @@ export function SiteHeader() {
         .sh-vimg--avatar { width: 66px; margin: 0 auto; }
         /* Tipo žyma (Naujienos interviu/recenzija, Bendruomenė apžvalga/koncertas). */
         .sh-tag {
-          align-self: flex-start; font-size: 9.5px; font-weight: 800;
+          align-self: flex-start; font-size: 12px; font-weight: 800;
           text-transform: uppercase; letter-spacing: 0.04em;
           padding: 1px 6px; border-radius: 5px;
           background: var(--bg-elevated); border: 0.5px solid var(--border-default);
@@ -1957,7 +1957,7 @@ export function SiteHeader() {
         .sh-more-link {
           flex-shrink: 0;
           font-family: 'Outfit', sans-serif;
-          font-size: 11.5px; font-weight: 700;
+          font-size: 12px; font-weight: 700;
           color: var(--accent-orange);
           text-decoration: none;
           padding-left: 6px;
@@ -1977,7 +1977,7 @@ export function SiteHeader() {
         .sh-panel-h2 {
           margin: 0;
           font-family: 'Outfit', sans-serif;
-          font-size: 17px; font-weight: 800;
+          font-size: 16px; font-weight: 800;
           letter-spacing: -0.01em;
           color: var(--text-primary);
         }
@@ -1994,7 +1994,7 @@ export function SiteHeader() {
           border-radius: 11px;
           background: var(--bg-elevated);
           border: 1px solid var(--border-default);
-          font-size: 13.5px; font-weight: 600;
+          font-size: 14px; font-weight: 600;
           color: var(--text-primary);
           text-decoration: none; white-space: nowrap;
           line-height: 1.2;
@@ -2056,7 +2056,7 @@ export function SiteHeader() {
           opacity: 0.75;
         }
         .sh-more-tile-count {
-          font-size: 13px;
+          font-size: 14px;
           font-weight: 800;
           letter-spacing: -0.01em;
           line-height: 1.1;
@@ -2067,7 +2067,7 @@ export function SiteHeader() {
           width: 116px;
         }
         .sh-more-tile-xl .sh-more-tile-plus { font-size: 28px; }
-        .sh-more-tile-xl .sh-more-tile-count { font-size: 15px; }
+        .sh-more-tile-xl .sh-more-tile-count { font-size: 16px; }
         /* Mobile style kortelės — kompaktiškesnės nei desktop'o (kad
            neužimtų daugiau vietos nei atlikėjai) */
         .sh-style-card-mobile {
@@ -2075,7 +2075,7 @@ export function SiteHeader() {
           padding: 9px 10px;
         }
         .sh-style-card-mobile .sh-style-card-name {
-          font-size: 12.5px;
+          font-size: 12px;
         }
         .sh-style-card-mobile.sh-style-card-photo {
           min-height: 60px;
@@ -2091,7 +2091,7 @@ export function SiteHeader() {
           min-height: 46px;
         }
         .sh-topgrid-mini .sh-style-card-name {
-          font-size: 11.5px;
+          font-size: 12px;
         }
         .sh-style-card {
           position: relative;
@@ -2144,7 +2144,7 @@ export function SiteHeader() {
           z-index: 1;
           display: block;
           font-family: 'Outfit', sans-serif;
-          font-size: 15px; font-weight: 800;
+          font-size: 16px; font-weight: 800;
           letter-spacing: -0.01em;
           color: #fff;
           line-height: 1.15;
@@ -2194,7 +2194,7 @@ export function SiteHeader() {
         /* Atlikėjai — didžiausi (90×90) */
         .sh-mini-lg { flex-basis: 96px; width: 96px; max-width: 96px; gap: 5px; }
         .sh-mini-lg .sh-mini-img { width: 88px; height: 88px; border-radius: 9px; }
-        .sh-mini-lg .sh-mini-title { font-size: 11.5px; text-align: center; }
+        .sh-mini-lg .sh-mini-title { font-size: 12px; text-align: center; }
 
         /* VIENODAS dropdown vizualas VISOSE sekcijose — fiksuotas AUKŠTIS 92px
            (Muzika/Topai/Koncertai/Naujienos/Atradimai). Platesnis nei aukštas, kad
@@ -2202,19 +2202,19 @@ export function SiteHeader() {
            rezervuotas 2 eilučių aukštis → visos kortelės vienodo aukščio. */
         .sh-mini-xl, .sh-mini-md { flex-basis: 140px; width: 140px; max-width: 140px; gap: 8px; padding: 4px; }
         .sh-mini-xl .sh-mini-img, .sh-mini-md .sh-mini-img { width: 132px; height: 102px; border-radius: 12px; margin: 0; border: 0.5px solid var(--border-subtle); }
-        .sh-mini-xl .sh-mini-title, .sh-mini-md .sh-mini-title { font-family: 'Outfit', sans-serif; font-size: 13px; font-weight: 700; line-height: 1.3; text-align: left; min-height: 34px; padding: 0 2px; }
-        .sh-mini-xl .sh-mini-meta, .sh-mini-md .sh-mini-meta { font-size: 11px; text-align: left; padding: 0 2px; }
+        .sh-mini-xl .sh-mini-title, .sh-mini-md .sh-mini-title { font-family: 'Outfit', sans-serif; font-size: 14px; font-weight: 700; line-height: 1.3; text-align: left; min-height: 34px; padding: 0 2px; }
+        .sh-mini-xl .sh-mini-meta, .sh-mini-md .sh-mini-meta { font-size: 12px; text-align: left; padding: 0 2px; }
 
         /* Dainos — mažiausi (60×60) */
         .sh-mini-sm { flex-basis: 68px; width: 68px; max-width: 68px; gap: 3px; }
         .sh-mini-sm .sh-mini-img { width: 60px; height: 60px; border-radius: 7px; }
-        .sh-mini-sm .sh-mini-title { font-size: 10.5px; }
-        .sh-mini-sm .sh-mini-meta { font-size: 9.5px; }
+        .sh-mini-sm .sh-mini-title { font-size: 12px; }
+        .sh-mini-sm .sh-mini-meta { font-size: 12px; }
 
         /* XS — mobile expansion turiniui (52×52) */
         .sh-mini-xs { flex-basis: 60px; width: 60px; max-width: 60px; gap: 3px; padding: 3px; }
         .sh-mini-xs .sh-mini-img { width: 54px; height: 54px; border-radius: 7px; }
-        .sh-mini-xs .sh-mini-title { font-size: 10px; }
+        .sh-mini-xs .sh-mini-title { font-size: 12px; }
 
         .sh-mini-img {
           position: relative;
@@ -2241,7 +2241,7 @@ export function SiteHeader() {
         }
         .sh-mini-title-2 { -webkit-line-clamp: 2; }
         .sh-mini-meta {
-          font-size: 10px; font-weight: 500;
+          font-size: 12px; font-weight: 500;
           color: var(--text-muted);
           line-height: 1.2;
           padding: 0 1px;
@@ -2336,7 +2336,7 @@ export function SiteHeader() {
         .sh-news-link {
           display: flex; align-items: center; gap: 9px;
           padding: 7px 9px; border-radius: 9px;
-          font-size: 13px; font-weight: 600;
+          font-size: 14px; font-weight: 600;
           color: var(--text-secondary); text-decoration: none;
           transition: background .15s, color .15s;
         }
@@ -2344,16 +2344,16 @@ export function SiteHeader() {
         .sh-news-chip {
           display: inline-flex; align-items: center; gap: 9px;
           padding: 10px 15px; border-radius: 11px;
-          font-size: 13.5px; font-weight: 600;
+          font-size: 14px; font-weight: 600;
           background: var(--bg-elevated); border: 1px solid var(--border-default);
           color: var(--text-primary); text-decoration: none; transition: background .15s, border-color .15s, transform .1s; white-space: nowrap;
         }
         .sh-news-chip:hover { background: var(--bg-hover); border-color: var(--accent-orange); }
-        .sh-news-link-icon { font-size: 15px; line-height: 1; width: 18px; text-align: center; }
+        .sh-news-link-icon { font-size: 16px; line-height: 1; width: 18px; text-align: center; }
         .sh-news-style {
           display: flex; align-items: center; gap: 7px;
           padding: 8px 10px; border-radius: 10px;
-          font-size: 12.5px; font-weight: 700;
+          font-size: 12px; font-weight: 700;
           color: var(--text-secondary); text-decoration: none;
           border: 1px solid var(--border-default);
           background: var(--bg-surface);
@@ -2380,7 +2380,7 @@ export function SiteHeader() {
           display: flex; flex-direction: column; gap: 2px;
         }
         .sh-album-title {
-          font-size: 13px; font-weight: 700;
+          font-size: 14px; font-weight: 700;
           color: var(--text-primary);
           line-height: 1.3;
           display: -webkit-box;
@@ -2389,7 +2389,7 @@ export function SiteHeader() {
           overflow: hidden;
         }
         .sh-album-meta {
-          font-size: 11.5px; font-weight: 500;
+          font-size: 12px; font-weight: 500;
           color: var(--text-muted);
           line-height: 1.3;
           overflow: hidden;
@@ -2437,7 +2437,7 @@ export function SiteHeader() {
           position: absolute;
           top: 6px; left: 6px;
           padding: 3px 8px;
-          font-size: 10.5px; font-weight: 800;
+          font-size: 12px; font-weight: 800;
           text-transform: uppercase;
           letter-spacing: 0.04em;
           color: #fff;
@@ -2446,7 +2446,7 @@ export function SiteHeader() {
           backdrop-filter: blur(8px);
         }
         .sh-event-title {
-          font-size: 13px; font-weight: 700;
+          font-size: 14px; font-weight: 700;
           color: var(--text-primary);
           line-height: 1.3;
           display: -webkit-box;
@@ -2455,7 +2455,7 @@ export function SiteHeader() {
           overflow: hidden;
         }
         .sh-event-venue {
-          font-size: 11px;
+          font-size: 12px;
           color: var(--text-muted);
           margin-top: 2px;
           display: block;
@@ -2502,7 +2502,7 @@ export function SiteHeader() {
         }
         .sh-feature-icon-sm svg { width: 16px; height: 16px; }
         .sh-feature-title {
-          font-size: 18px; font-weight: 800;
+          font-size: 20px; font-weight: 800;
           color: var(--text-primary);
           letter-spacing: -0.01em;
           line-height: 1.2;
@@ -2513,12 +2513,12 @@ export function SiteHeader() {
           line-height: 1.2;
         }
         .sh-feature-desc {
-          font-size: 13px;
+          font-size: 14px;
           color: var(--text-secondary);
           line-height: 1.4;
         }
         .sh-feature-desc-sm {
-          font-size: 11.5px;
+          font-size: 12px;
           color: var(--text-muted);
           line-height: 1.35;
         }
@@ -2530,7 +2530,7 @@ export function SiteHeader() {
         }
         .sh-soon-pill {
           display: inline-flex; align-items: center; gap: 4px;
-          font-size: 9px; font-weight: 800;
+          font-size: 12px; font-weight: 800;
           text-transform: uppercase; letter-spacing: 0.08em;
           padding: 2px 7px;
           border-radius: 999px;
@@ -2552,7 +2552,7 @@ export function SiteHeader() {
         /* Radaras mini SVG badge nav dropdown'e — atitinka puslapio RadarSweep */
         .sh-radar-badge {
           display: inline-flex; align-items: center; gap: 8px;
-          font-family: 'Outfit', sans-serif; font-size: 11px; font-weight: 700;
+          font-family: 'Outfit', sans-serif; font-size: 12px; font-weight: 700;
           text-transform: uppercase; letter-spacing: .09em;
           color: var(--accent-green);
         }
@@ -2594,7 +2594,7 @@ export function SiteHeader() {
           gap: 4px;
         }
         .sh-hero-eyebrow {
-          font-size: 10.5px; font-weight: 800;
+          font-size: 12px; font-weight: 800;
           text-transform: uppercase; letter-spacing: 0.12em;
           color: var(--accent-orange);
           margin-bottom: 4px;
@@ -2618,7 +2618,7 @@ export function SiteHeader() {
           margin-bottom: 6px;
         }
         .sh-hero-desc {
-          font-size: 13px;
+          font-size: 14px;
           color: var(--text-muted);
           line-height: 1.5;
           max-width: 90%;
@@ -2629,7 +2629,7 @@ export function SiteHeader() {
           align-self: flex-start;
           padding: 7px 14px;
           border-radius: 999px;
-          font-size: 12.5px; font-weight: 700;
+          font-size: 12px; font-weight: 700;
           background: rgba(249,115,22,0.14);
           border: 0.5px solid rgba(249,115,22,0.4);
           color: var(--accent-orange);
@@ -2675,7 +2675,7 @@ export function SiteHeader() {
         .sh-spotlight-title svg { color: var(--text-faint); transition: transform .15s, color .15s; }
         .sh-spotlight:hover .sh-spotlight-title svg { transform: translateX(3px); color: var(--accent-orange); }
         .sh-spotlight-desc {
-          font-size: 11.5px; line-height: 1.35;
+          font-size: 12px; line-height: 1.35;
           color: var(--text-muted);
         }
 
@@ -2706,13 +2706,13 @@ export function SiteHeader() {
         .sh-bigshortcut-icon svg { width: 18px; height: 18px; }
         .sh-bigshortcut-title {
           display: block;
-          font-size: 13.5px; font-weight: 700;
+          font-size: 14px; font-weight: 700;
           color: var(--text-primary);
           line-height: 1.2;
         }
         .sh-bigshortcut-desc {
           display: block;
-          font-size: 11.5px;
+          font-size: 12px;
           color: var(--text-muted);
           margin-top: 2px;
         }
@@ -2745,7 +2745,7 @@ export function SiteHeader() {
         .sh-cat-tile:hover .sh-cat-icon { color: var(--accent-orange); }
         .sh-cat-icon svg { width: 16px; height: 16px; }
         .sh-cat-label {
-          font-size: 11.5px; font-weight: 700;
+          font-size: 12px; font-weight: 700;
           color: var(--text-primary);
           line-height: 1.2;
         }
@@ -2790,7 +2790,7 @@ export function SiteHeader() {
           display: flex; align-items: center; gap: 6px; padding: 0 14px;
           height: 34px; border-radius: 12px;
           border: none; cursor: pointer; background: var(--accent-orange); color: #fff;
-          font-family: inherit; font-size: 13px; font-weight: 700;
+          font-family: inherit; font-size: 14px; font-weight: 700;
           transition: filter .15s, transform .1s;
           -webkit-tap-highlight-color: transparent;
         }
@@ -2978,7 +2978,7 @@ export function SiteHeader() {
           gap: 3px;
         }
         .sh-mrow-title {
-          font-size: 18.5px; font-weight: 800;
+          font-size: 20px; font-weight: 800;
           color: var(--text-primary);
           line-height: 1.15;
           letter-spacing: -0.02em;
@@ -3002,7 +3002,7 @@ export function SiteHeader() {
           .sh-mchip-dot { animation: none; }
         }
         .sh-mrow-desc {
-          font-size: 12.5px; font-weight: 500;
+          font-size: 12px; font-weight: 500;
           color: var(--text-muted);
           line-height: 1.3;
         }
@@ -3027,7 +3027,7 @@ export function SiteHeader() {
           border: none;
           background: var(--bg-hover);
           color: var(--text-secondary);
-          font-size: 13.5px; font-weight: 700;
+          font-size: 14px; font-weight: 700;
           font-family: inherit;
           text-decoration: none;
           cursor: pointer;
@@ -3093,14 +3093,14 @@ export function SiteHeader() {
         .sh-mcard-icon svg { width: 22px; height: 22px; }
         .sh-mcard-text { flex: 1; min-width: 0; }
         .sh-mcard-title {
-          font-size: 15.5px; font-weight: 800;
+          font-size: 16px; font-weight: 800;
           color: var(--text-primary);
           line-height: 1.2;
           margin-bottom: 3px;
           letter-spacing: -0.01em;
         }
         .sh-mcard-desc {
-          font-size: 12.5px; font-weight: 500;
+          font-size: 12px; font-weight: 500;
           color: var(--text-secondary);
           line-height: 1.35;
           opacity: 0.85;
@@ -3127,7 +3127,7 @@ export function SiteHeader() {
           align-self: flex-start;
           padding: 6px 12px;
           border-radius: 999px;
-          font-size: 11.5px; font-weight: 700;
+          font-size: 12px; font-weight: 700;
           text-decoration: none;
           color: rgba(var(--it-rgb), 1);
           background: rgba(var(--it-rgb), 0.12);
@@ -3144,13 +3144,13 @@ export function SiteHeader() {
           margin-top: 4px;
         }
         .sh-mexp-title {
-          font-size: 10px; font-weight: 800;
+          font-size: 12px; font-weight: 800;
           text-transform: uppercase; letter-spacing: 0.1em;
           color: var(--text-muted);
         }
         .sh-mexp-more {
           display: inline-flex; align-items: center; gap: 3px;
-          font-size: 10px; font-weight: 700;
+          font-size: 12px; font-weight: 700;
           padding: 2px 6px;
           border-radius: 5px;
           color: var(--text-secondary);
@@ -3188,7 +3188,7 @@ export function SiteHeader() {
         }
         .sh-mexp-tile-icon svg { width: 14px; height: 14px; }
         .sh-mexp-tile-label {
-          font-size: 11.5px; font-weight: 700;
+          font-size: 12px; font-weight: 700;
           color: var(--text-primary);
           line-height: 1.2;
           overflow: hidden;
@@ -3215,8 +3215,8 @@ export function SiteHeader() {
           {/* Radaro ikona iš top bar'o pašalinta (2026-06-25) — radaras lieka
               Muzikos hover dropdown'e ir /nauji-atlikejai. Mažiau vizualaus triukšmo. */}
           <Link href="/" style={{ flexShrink: 0, textDecoration: 'none', display: 'flex', alignItems: 'center' }}>
-            <span style={{ fontWeight: 900, fontSize: 21, letterSpacing: '-0.02em', color: logoColor }}>music</span>
-            <span style={{ fontWeight: 900, fontSize: 21, letterSpacing: '-0.02em', color: 'var(--accent-orange)' }}>.lt</span>
+            <span style={{ fontWeight: 900, fontSize: 20, letterSpacing: '-0.02em', color: logoColor }}>music</span>
+            <span style={{ fontWeight: 900, fontSize: 20, letterSpacing: '-0.02em', color: 'var(--accent-orange)' }}>.lt</span>
           </Link>
 
           {/* Desktop nav with rich dropdowns */}

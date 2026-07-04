@@ -191,7 +191,7 @@ function KindBadge({ kind, abs = true, label }: { kind: string; abs?: boolean; l
   const m = KIND_META[kind] || KIND_META.irasas
   // !abs — inline-flex + self-start, kad flex-col tėvas neištemptų per visą plotį.
   return (
-    <span className={`${abs ? 'absolute left-3 top-3 z-[2]' : 'inline-flex self-start'} rounded-[7px] px-2 py-1 font-['Outfit',sans-serif] text-[11.5px] font-extrabold uppercase tracking-[0.08em] text-white`}
+    <span className={`${abs ? 'absolute left-3 top-3 z-[2]' : 'inline-flex self-start'} rounded-[7px] px-2 py-1 font-['Outfit',sans-serif] text-[12px] font-extrabold uppercase tracking-[0.08em] text-white`}
       style={{ background: m.color }}>{label || m.label}</span>
   )
 }
@@ -206,7 +206,7 @@ function Stats({ likes, comments }: { likes?: number | null; comments?: number |
   const l = likes ?? 0, c = comments ?? 0
   if (l <= 0 && c <= 0) return null
   return (
-    <span className="ml-auto flex shrink-0 items-center gap-2.5 text-[13px] text-[var(--text-muted)]">
+    <span className="ml-auto flex shrink-0 items-center gap-2.5 text-[14px] text-[var(--text-muted)]">
       {l > 0 && <span className="flex items-center gap-1"><Ic d={I.heart} size={12} /> {l}</span>}
       {c > 0 && <span className="flex items-center gap-1"><Ic d={I.comment} size={12} /> {c}</span>}
     </span>
@@ -275,7 +275,7 @@ function DiscoveryModal({ a, onClose }: { a: Atradimas; onClose: () => void }) {
               <img src={discThumb(a)!} alt="" className="w-full rounded-xl object-cover" style={{ maxHeight: 280 }} />
             ) : null}
           </div>
-          {body && <p className="m-0 max-h-[52vh] min-w-0 overflow-y-auto whitespace-pre-line text-[14.5px] leading-relaxed text-[var(--text-secondary)] sm:max-h-[420px]">{body}</p>}
+          {body && <p className="m-0 max-h-[52vh] min-w-0 overflow-y-auto whitespace-pre-line text-[14px] leading-relaxed text-[var(--text-secondary)] sm:max-h-[420px]">{body}</p>}
         </div>
         {/* apačia: dviejų zonų „patinka" (širdis + skaičius → kas pamėgo) + Daugiau (į bendrą atradimų puslapį) */}
         <div className="mt-4 flex items-center gap-3 border-t border-[var(--border-subtle)] pt-3">
@@ -336,7 +336,7 @@ function FeaturedSlide({ it, onOpenDiscovery }: { it: FeatItem; onOpenDiscovery:
         </div>
         <FeatTextPanel>
           <FeatLabel />
-          <h2 className="relative m-0 mt-3 line-clamp-2 font-['Outfit',sans-serif] text-[21px] font-black leading-[1.15] tracking-[-0.02em] text-[#f0f4fc] sm:text-[25px]">{sani(p.title)}</h2>
+          <h2 className="relative m-0 mt-3 line-clamp-2 font-['Outfit',sans-serif] text-[20px] font-black leading-[1.15] tracking-[-0.02em] text-[#f0f4fc] sm:text-[25px]">{sani(p.title)}</h2>
           {isTopas && entries.length > 0 ? (
             <div className="relative mt-3 flex flex-col gap-1">
               {entries.map(e => (
@@ -346,18 +346,18 @@ function FeaturedSlide({ it, onOpenDiscovery }: { it: FeatItem; onOpenDiscovery:
                     // eslint-disable-next-line @next/next/no-img-element
                     <img src={proxyImg(e.image)} alt="" loading="lazy" className="h-7 w-7 shrink-0 rounded-md object-cover" />
                   ) : <div className="h-7 w-7 shrink-0 rounded-md" style={{ background: `hsl(${hue(e.title)},30%,22%)` }} />}
-                  <span className="min-w-0 truncate text-[14.5px] font-bold text-[#f0f4fc]">{sani(e.title)}</span>
-                  {e.artist && <span className="min-w-0 truncate text-[13px] text-[#8ea8c4]">{e.artist}</span>}
+                  <span className="min-w-0 truncate text-[14px] font-bold text-[#f0f4fc]">{sani(e.title)}</span>
+                  {e.artist && <span className="min-w-0 truncate text-[14px] text-[#8ea8c4]">{e.artist}</span>}
                 </div>
               ))}
             </div>
           ) : p.excerpt ? (
-            <p className="relative m-0 mt-2.5 line-clamp-3 text-[14.5px] leading-relaxed text-[#aec4dd]">{p.excerpt}</p>
+            <p className="relative m-0 mt-2.5 line-clamp-3 text-[14px] leading-relaxed text-[#aec4dd]">{p.excerpt}</p>
           ) : null}
           <div className="relative mt-4 flex items-center gap-2.5">
             <Avatar src={p.author?.avatar_url} name={uname(p.author)} size={26} />
-            <span className="text-[14.5px] font-bold text-[#f0f4fc]">{uname(p.author)}</span>
-            {timeAgo(p.published_at) && <span className="text-[13.5px] text-[#8ea8c4]">· {timeAgo(p.published_at)}</span>}
+            <span className="text-[14px] font-bold text-[#f0f4fc]">{uname(p.author)}</span>
+            {timeAgo(p.published_at) && <span className="text-[14px] text-[#8ea8c4]">· {timeAgo(p.published_at)}</span>}
           </div>
         </FeatTextPanel>
       </Link>
@@ -376,18 +376,18 @@ function FeaturedSlide({ it, onOpenDiscovery }: { it: FeatItem; onOpenDiscovery:
           ) : (
             <div className="absolute inset-0" style={{ background: `linear-gradient(135deg, hsl(${hue(d.title)},34%,22%), hsl(${(hue(d.title) + 40) % 360},30%,12%))` }} />
           )}
-          {d.artist_name && <span className="absolute bottom-2.5 left-3 font-['Outfit',sans-serif] text-[13px] font-extrabold uppercase tracking-[0.06em] text-white/90" style={{ textShadow: '0 1px 4px rgba(0,0,0,0.7)' }}>{d.artist_name}</span>}
+          {d.artist_name && <span className="absolute bottom-2.5 left-3 font-['Outfit',sans-serif] text-[14px] font-extrabold uppercase tracking-[0.06em] text-white/90" style={{ textShadow: '0 1px 4px rgba(0,0,0,0.7)' }}>{d.artist_name}</span>}
         </div>
         <FeatTextPanel>
           <FeatLabel />
-          <h2 className="relative m-0 mt-3 line-clamp-2 font-['Outfit',sans-serif] text-[21px] font-black leading-[1.15] tracking-[-0.02em] text-[#f0f4fc] sm:text-[24px]">{sani(d.title)}</h2>
+          <h2 className="relative m-0 mt-3 line-clamp-2 font-['Outfit',sans-serif] text-[20px] font-black leading-[1.15] tracking-[-0.02em] text-[#f0f4fc] sm:text-[24px]">{sani(d.title)}</h2>
           {lc?.excerpt && (
             <div className="relative mt-3 rounded-[4px_14px_14px_14px] border border-[rgba(255,255,255,0.1)] bg-[rgba(255,255,255,0.06)] px-3 py-2">
               <div className="mb-1 flex items-center gap-1.5">
                 <Avatar src={lc.avatar} name={lc.author} size={17} />
-                <b className="text-[13px] font-bold text-[#f0f4fc]">{lc.author}</b>
+                <b className="text-[14px] font-bold text-[#f0f4fc]">{lc.author}</b>
               </div>
-              <p className="m-0 line-clamp-3 text-[14.5px] leading-relaxed text-[#aec4dd]">{lc.excerpt}</p>
+              <p className="m-0 line-clamp-3 text-[14px] leading-relaxed text-[#aec4dd]">{lc.excerpt}</p>
             </div>
           )}
           <div className="relative mt-4 flex items-center gap-2 text-[14px] text-[#8ea8c4]">
@@ -414,14 +414,14 @@ function FeaturedSlide({ it, onOpenDiscovery }: { it: FeatItem; onOpenDiscovery:
       </div>
       <FeatTextPanel>
         <FeatLabel />
-        <h2 className="relative m-0 mt-3 line-clamp-2 font-['Outfit',sans-serif] text-[21px] font-black leading-[1.15] tracking-[-0.02em] text-[#f0f4fc] sm:text-[24px]">
+        <h2 className="relative m-0 mt-3 line-clamp-2 font-['Outfit',sans-serif] text-[20px] font-black leading-[1.15] tracking-[-0.02em] text-[#f0f4fc] sm:text-[24px]">
           {a.artist_name || 'Atradimas'}{a.track_name ? ` - ${a.track_name}` : ''}
         </h2>
-        {quote && <p className="relative m-0 mt-2.5 line-clamp-3 text-[14.5px] italic leading-relaxed text-[#aec4dd]">„{quote.length > 240 ? quote.slice(0, 240).replace(/\s+\S*$/, '') + '…' : quote}"</p>}
+        {quote && <p className="relative m-0 mt-2.5 line-clamp-3 text-[14px] italic leading-relaxed text-[#aec4dd]">„{quote.length > 240 ? quote.slice(0, 240).replace(/\s+\S*$/, '') + '…' : quote}"</p>}
         <div className="relative mt-4 flex items-center gap-2.5">
           <Avatar src={a.author?.avatar_url} name={uname(a.author)} size={26} />
-          <span className="text-[14.5px] font-bold text-[#f0f4fc]">{uname(a.author)}</span>
-          {timeAgo(a.created_at) && <span className="text-[13.5px] text-[#8ea8c4]">· {timeAgo(a.created_at)}</span>}
+          <span className="text-[14px] font-bold text-[#f0f4fc]">{uname(a.author)}</span>
+          {timeAgo(a.created_at) && <span className="text-[14px] text-[#8ea8c4]">· {timeAgo(a.created_at)}</span>}
         </div>
       </FeatTextPanel>
     </button>
@@ -596,7 +596,7 @@ function FeaturedSlider() {
                 </div>
                 <div className="pointer-events-none absolute inset-0 bg-gradient-to-t from-black/90 via-black/45 to-black/10" />
                 <div className="absolute inset-0 flex flex-col justify-end p-4">
-                  <h3 className="m-0 max-w-[420px] font-['Outfit',sans-serif] text-[19px] font-black leading-[1.15] tracking-tight text-white transition-opacity group-hover:opacity-90 sm:text-[21px]">
+                  <h3 className="m-0 max-w-[420px] font-['Outfit',sans-serif] text-[20px] font-black leading-[1.15] tracking-tight text-white transition-opacity group-hover:opacity-90 sm:text-[20px]">
                     {c.title}
                   </h3>
                   {c.author && (
@@ -689,7 +689,7 @@ function ShoutPane({ tall = false }: { tall?: boolean }) {
     <div className="flex min-h-0 flex-1 flex-col">
       <div ref={bodyRef} className="min-h-0 flex-1 overflow-y-auto py-1" style={tall ? { maxHeight: '55vh' } : undefined}>
         {messages.length === 0 ? (
-          <div className="px-2 py-6 text-center text-[13.5px] text-[var(--text-muted)]">Dar nėra žinučių — parašyk pirmas!</div>
+          <div className="px-2 py-6 text-center text-[14px] text-[var(--text-muted)]">Dar nėra žinučių — parašyk pirmas!</div>
         ) : messages.map(m => {
           const name = m.author_name || 'narys'
           return (
@@ -697,10 +697,10 @@ function ShoutPane({ tall = false }: { tall?: boolean }) {
               <Avatar src={m.author_avatar} name={name} size={24} />
               <div className="min-w-0 flex-1 rounded-[4px_12px_12px_12px] border border-[var(--border-subtle)] bg-[rgba(255,255,255,0.05)] px-2.5 py-1.5">
                 <div className="flex items-baseline gap-1.5">
-                  <span className="truncate text-[13px] font-extrabold text-[var(--accent-link)]">{name}</span>
-                  <span className="shrink-0 text-[11px] text-[var(--text-faint)]">{timeAgo(m.created_at)}</span>
+                  <span className="truncate text-[14px] font-extrabold text-[var(--accent-link)]">{name}</span>
+                  <span className="shrink-0 text-[12px] text-[var(--text-faint)]">{timeAgo(m.created_at)}</span>
                 </div>
-                <p className="m-0 break-words text-[12.3px] leading-snug text-[var(--text-secondary)]">{m.body}</p>
+                <p className="m-0 break-words text-[12px] leading-snug text-[var(--text-secondary)]">{m.body}</p>
               </div>
             </div>
           )
@@ -714,7 +714,7 @@ function ShoutPane({ tall = false }: { tall?: boolean }) {
             <button onClick={send} disabled={sending || !text.trim()} className="flex shrink-0 cursor-pointer items-center justify-center rounded-lg border-0 bg-[var(--accent-orange)] px-3 py-2 text-white disabled:opacity-40"><Ic d={I.send} size={14} /></button>
           </div>
         ) : (
-          <Link href="/auth/signin" className="block rounded-lg border border-[var(--border-default)] bg-[var(--bg-hover)] px-3 py-2 text-center text-[13px] font-bold text-[var(--accent-link)] no-underline">Prisijunk rašyti pokalbyje →</Link>
+          <Link href="/auth/signin" className="block rounded-lg border border-[var(--border-default)] bg-[var(--bg-hover)] px-3 py-2 text-center text-[14px] font-bold text-[var(--accent-link)] no-underline">Prisijunk rašyti pokalbyje →</Link>
         )}
         {err && <p className="m-0 mt-1 text-[12px] text-[#f87171]">{err}</p>}
       </div>
@@ -737,7 +737,7 @@ function ActRow({ e }: { e: any }) {
     <div className="flex items-start gap-2.5 border-b border-[var(--border-subtle)] py-2 last:border-b-0">
       <Avatar src={e.actor_avatar} name={name} size={26} />
       <div className="min-w-0 flex-1">
-        <p className="m-0 text-[12.3px] leading-snug text-[var(--text-secondary)]">
+        <p className="m-0 text-[12px] leading-snug text-[var(--text-secondary)]">
           <b className="font-semibold text-[var(--text-primary)]">{name}</b> {ACT_VERB[e.event_type] || 'atnaujino'}
           {e.entity_title ? (
             e.entity_url
@@ -796,9 +796,9 @@ function HappeningArea() {
             <>
               <div className="min-h-0 flex-1 overflow-y-auto">
                 {loading ? (
-                  <div className="py-6 text-center text-[13.5px] text-[var(--text-faint)]">Kraunama…</div>
+                  <div className="py-6 text-center text-[14px] text-[var(--text-faint)]">Kraunama…</div>
                 ) : events.length === 0 ? (
-                  <div className="py-6 text-center text-[13.5px] text-[var(--text-muted)]">Dar nėra aktyvumo.</div>
+                  <div className="py-6 text-center text-[14px] text-[var(--text-muted)]">Dar nėra aktyvumo.</div>
                 ) : events.slice(0, 20).map(e => <ActRow key={e.id} e={e} />)}
               </div>
               {events.length > 0 && (
@@ -832,7 +832,7 @@ function HappeningArea() {
                 <img src={proxyImg(ev0.entity_image)} alt="" loading="lazy" className="h-9 w-9 shrink-0 rounded-md object-cover" />
               )}
             </span>
-          ) : <span className="text-[13px] text-[var(--text-muted)]">narių veiksmų srautas</span>}
+          ) : <span className="text-[14px] text-[var(--text-muted)]">narių veiksmų srautas</span>}
         </button>
         <button type="button" onClick={() => setShoutModal(true)}
           className="relative flex cursor-pointer flex-col items-start gap-2 rounded-2xl border border-[var(--border-default)] bg-[var(--bg-surface)] px-3.5 py-3 text-left">
@@ -848,7 +848,7 @@ function HappeningArea() {
                 <span className="text-[12px] text-[var(--text-faint)]">{timeAgo(lastShoutMsg.created_at) || 'ką tik'}</span>
               </span>
             </span>
-          ) : <span className="text-[13px] text-[var(--text-muted)]">bendras pokalbis</span>}
+          ) : <span className="text-[14px] text-[var(--text-muted)]">bendras pokalbis</span>}
         </button>
       </div>
 
@@ -878,8 +878,8 @@ function PromptsRow({ compact = false }: { compact?: boolean }) {
           <Link key={p.title} href={p.href} className="flex items-center gap-3 rounded-xl border border-dashed border-[var(--border-strong)] bg-[var(--card-bg)] px-3.5 py-2.5 no-underline transition-colors hover:border-[var(--accent-orange)] hover:bg-[rgba(249,115,22,0.05)]">
             <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-[11px]" style={{ background: p.bg, color: p.color }}><Ic d={p.icon} size={16} /></span>
             <span className="min-w-0 flex-1">
-              <b className="block truncate text-[14.5px] font-bold leading-snug text-[var(--text-primary)]">{p.title}</b>
-              <span className="block truncate text-[12.5px] leading-snug text-[var(--text-muted)]">{p.sub}</span>
+              <b className="block truncate text-[14px] font-bold leading-snug text-[var(--text-primary)]">{p.title}</b>
+              <span className="block truncate text-[12px] leading-snug text-[var(--text-muted)]">{p.sub}</span>
             </span>
             <span className="shrink-0 text-[var(--text-faint)]"><Ic d="M9 6l6 6-6 6" size={14} /></span>
           </Link>
@@ -893,8 +893,8 @@ function PromptsRow({ compact = false }: { compact?: boolean }) {
         <Link key={p.title} href={p.href} className="group flex flex-col items-start gap-2 rounded-[14px] border border-dashed border-[var(--border-strong)] bg-[var(--card-bg)] px-3 py-3 no-underline transition-colors hover:border-[var(--accent-orange)] hover:bg-[rgba(249,115,22,0.07)] sm:flex-row sm:items-center sm:gap-3 sm:px-3.5">
           <span className="flex h-8 w-8 shrink-0 items-center justify-center rounded-[10px] sm:h-9 sm:w-9 sm:rounded-[11px]" style={{ background: p.bg, color: p.color }}><Ic d={p.icon} size={16} /></span>
           <span className="min-w-0">
-            <b className="block text-[14px] font-bold leading-snug text-[var(--text-primary)] sm:text-[14.5px]">{p.title}</b>
-            <span className="block text-[12.5px] leading-snug text-[var(--text-muted)] sm:text-[13px]">{p.sub}</span>
+            <b className="block text-[14px] font-bold leading-snug text-[var(--text-primary)] sm:text-[14px]">{p.title}</b>
+            <span className="block text-[12px] leading-snug text-[var(--text-muted)] sm:text-[14px]">{p.sub}</span>
           </span>
         </Link>
       ))}
@@ -941,7 +941,7 @@ function RowMeta({ author, date, likes, comments }: { author?: { username?: stri
   return (
     <div className="mt-2.5 flex items-center gap-2">
       <Avatar src={author?.avatar_url} name={uname(author)} size={18} />
-      <span className="min-w-0 truncate text-[13.5px] font-semibold text-[var(--text-secondary)]">{uname(author)}</span>
+      <span className="min-w-0 truncate text-[14px] font-semibold text-[var(--text-secondary)]">{uname(author)}</span>
       {timeAgo(date) && <span className="shrink-0 text-[12px] text-[var(--text-faint)]">{timeAgo(date)}</span>}
       <Stats likes={likes} comments={comments} />
     </div>
@@ -963,7 +963,7 @@ function PostRowCard({ p, onGroupPlay }: { p: FeedPost; onGroupPlay: (a: { id: n
       )}
       <div className={ROW_PAD}>
         <KindBadge kind={kind} abs={false} />
-        <h3 className="m-0 mt-2 line-clamp-2 font-['Outfit',sans-serif] text-[16px] font-extrabold leading-snug text-[var(--text-primary)] group-hover:text-[var(--accent-orange)] sm:text-[17.5px]">{sani(p.title)}</h3>
+        <h3 className="m-0 mt-2 line-clamp-2 font-['Outfit',sans-serif] text-[16px] font-extrabold leading-snug text-[var(--text-primary)] group-hover:text-[var(--accent-orange)] sm:text-[16px]">{sani(p.title)}</h3>
         {p.excerpt && <p className="m-0 mt-1.5 line-clamp-[5] text-[14px] leading-relaxed text-[var(--text-secondary)] sm:line-clamp-5">{p.excerpt}</p>}
         <RowMeta author={p.author} date={p.published_at} likes={p.like_count} comments={p.comment_count} />
       </div>
@@ -979,11 +979,11 @@ function TopEntryTile({ e, big = false }: { e: ListEntry; big?: boolean }) {
         // eslint-disable-next-line @next/next/no-img-element
         <img src={proxyImg(e.image)} alt="" loading="lazy" className="absolute inset-0 h-full w-full object-cover transition-transform duration-500 group-hover:scale-[1.04]" />
       ) : <div className="absolute inset-0" style={{ background: `hsl(${hue(e.title)},30%,20%)` }} />}
-      <span className={`absolute left-1.5 top-1.5 flex items-center justify-center rounded-md px-1 font-['Outfit',sans-serif] font-black ${big ? 'h-[26px] min-w-[26px] text-[15px]' : 'h-[20px] min-w-[20px] text-[13px]'} ${e.rank === 1 ? 'bg-[var(--accent-orange)] text-white' : 'bg-black/65 text-white'}`}>{e.rank}</span>
+      <span className={`absolute left-1.5 top-1.5 flex items-center justify-center rounded-md px-1 font-['Outfit',sans-serif] font-black ${big ? 'h-[26px] min-w-[26px] text-[16px]' : 'h-[20px] min-w-[20px] text-[14px]'} ${e.rank === 1 ? 'bg-[var(--accent-orange)] text-white' : 'bg-black/65 text-white'}`}>{e.rank}</span>
       {big && (
         <div className="absolute inset-x-0 bottom-0 bg-gradient-to-t from-black/85 to-transparent px-2 pb-1.5 pt-5">
-          <p className="m-0 truncate text-[14.5px] font-bold leading-tight text-white">{sani(e.title)}</p>
-          {e.artist && <p className="m-0 truncate text-[12.5px] text-white/70">{e.artist}</p>}
+          <p className="m-0 truncate text-[14px] font-bold leading-tight text-white">{sani(e.title)}</p>
+          {e.artist && <p className="m-0 truncate text-[12px] text-white/70">{e.artist}</p>}
         </div>
       )}
     </>
@@ -1002,7 +1002,7 @@ function PostTopasRowCard({ p, onOpenEntry }: { p: FeedPost; onOpenEntry: (e: Li
         <div className="flex flex-wrap items-center gap-2.5">
           <KindBadge kind="topas" abs={false} label={topLabel(p)} />
           <Link href={feedHref(p)} className="no-underline">
-            <h3 className="m-0 line-clamp-2 font-['Outfit',sans-serif] text-[16px] font-extrabold leading-snug text-[var(--text-primary)] transition-colors hover:text-[var(--accent-orange)] sm:text-[17.5px]">{sani(p.title)}</h3>
+            <h3 className="m-0 line-clamp-2 font-['Outfit',sans-serif] text-[16px] font-extrabold leading-snug text-[var(--text-primary)] transition-colors hover:text-[var(--accent-orange)] sm:text-[16px]">{sani(p.title)}</h3>
           </Link>
           <Link href={feedHref(p)} className="ml-auto hidden shrink-0 font-['Outfit',sans-serif] text-[14px] font-bold text-[var(--accent-orange)] no-underline transition-opacity hover:opacity-70 sm:inline-flex">Visas topas →</Link>
         </div>
@@ -1045,7 +1045,7 @@ function PostTopasRowCard({ p, onOpenEntry }: { p: FeedPost; onOpenEntry: (e: Li
           </>
         )}
         <RowMeta author={p.author} date={p.published_at} likes={p.like_count} comments={p.comment_count} />
-        <Link href={feedHref(p)} className="mt-2 self-start font-['Outfit',sans-serif] text-[13.5px] font-bold text-[var(--accent-orange)] no-underline transition-opacity hover:opacity-70 sm:hidden">Visas topas →</Link>
+        <Link href={feedHref(p)} className="mt-2 self-start font-['Outfit',sans-serif] text-[14px] font-bold text-[var(--accent-orange)] no-underline transition-opacity hover:opacity-70 sm:hidden">Visas topas →</Link>
       </div>
     </div>
   )
@@ -1065,13 +1065,13 @@ function DiskusijaRowCard({ d, onGroupPlay }: { d: Diskusija; onGroupPlay: (a: {
           {/* eslint-disable-next-line @next/next/no-img-element */}
           <img src={proxyImg(d.artist_image)} alt="" loading="lazy" className="absolute inset-0 h-full w-full object-cover transition-transform duration-500 group-hover:scale-[1.04]" />
           <div className="pointer-events-none absolute inset-0" style={{ background: 'linear-gradient(180deg, transparent 45%, rgba(13,19,32,0.85))' }} />
-          {d.artist_name && <span className="absolute bottom-2 left-3 font-['Outfit',sans-serif] text-[12.5px] font-extrabold uppercase tracking-[0.06em] text-white/90">{d.artist_name}</span>}
+          {d.artist_name && <span className="absolute bottom-2 left-3 font-['Outfit',sans-serif] text-[12px] font-extrabold uppercase tracking-[0.06em] text-white/90">{d.artist_name}</span>}
           {d.artist_id && <GroupPlayBtn onPlay={() => onGroupPlay({ id: d.artist_id!, name: d.artist_name || 'Grupė' })} />}
         </div>
       )}
       <div className={ROW_PAD}>
         <KindBadge kind="diskusija" abs={false} />
-        <h3 className="m-0 mt-2 line-clamp-2 font-['Outfit',sans-serif] text-[16px] font-extrabold leading-snug text-[var(--text-primary)] group-hover:text-[var(--accent-orange)] sm:text-[17.5px]">{sani(d.title)}</h3>
+        <h3 className="m-0 mt-2 line-clamp-2 font-['Outfit',sans-serif] text-[16px] font-extrabold leading-snug text-[var(--text-primary)] group-hover:text-[var(--accent-orange)] sm:text-[16px]">{sani(d.title)}</h3>
         {lc?.excerpt && <p className="m-0 mt-1.5 line-clamp-[5] text-[14px] leading-relaxed text-[var(--text-secondary)] sm:line-clamp-5">{lc.excerpt}</p>}
         <RowMeta author={{ username: lc?.author || d.author_name, avatar_url: lc?.avatar }} date={null} comments={d.comment_count} />
       </div>
@@ -1111,7 +1111,7 @@ function AtradimasRowCard({ a, onOpen }: { a: Atradimas; onOpen: (a: Atradimas) 
       </div>
       <button type="button" onClick={() => onOpen(a)} className={`${ROW_PAD} cursor-pointer border-0 bg-transparent text-left`}>
         <KindBadge kind="atradimas" abs={false} />
-        <h3 className="m-0 mt-2 line-clamp-2 font-['Outfit',sans-serif] text-[16px] font-extrabold leading-snug text-[var(--text-primary)] group-hover:text-[var(--accent-orange)] sm:text-[17.5px]">
+        <h3 className="m-0 mt-2 line-clamp-2 font-['Outfit',sans-serif] text-[16px] font-extrabold leading-snug text-[var(--text-primary)] group-hover:text-[var(--accent-orange)] sm:text-[16px]">
           {a.artist_name || 'Atradimas'}{a.track_name ? ` - ${a.track_name}` : ''}
         </h3>
         {quote && <p className="m-0 mt-1.5 line-clamp-4 text-[14px] leading-relaxed text-[var(--text-secondary)] sm:line-clamp-5">{quote.length > 340 ? quote.slice(0, 340).replace(/\s+\S*$/, '') + '…' : quote}</p>}
@@ -1318,7 +1318,7 @@ function PulsasSection() {
           const on = chip === c.key
           return (
             <button key={c.key} type="button" onClick={() => { setChip(chip === c.key ? '' : c.key); setShown(PAGE_SIZE) }}
-              className={`flex cursor-pointer items-center gap-1.5 rounded-full border px-3.5 py-1.5 font-['Outfit',sans-serif] text-[14.5px] font-bold transition-colors ${
+              className={`flex cursor-pointer items-center gap-1.5 rounded-full border px-3.5 py-1.5 font-['Outfit',sans-serif] text-[14px] font-bold transition-colors ${
                 on ? 'border-transparent text-white' : 'border-[var(--border-default)] bg-[var(--card-bg)] text-[var(--text-secondary)] hover:border-[var(--border-strong)] hover:text-[var(--text-primary)]'
               }`}
               style={on ? { background: c.color || 'var(--accent-orange)' } : undefined}>
@@ -1439,20 +1439,20 @@ function KornerCard({ p, wide = false }: { p: FeedPost; wide?: boolean }) {
   return (
     <Link href={feedHref(p)} style={{ minHeight: 250 }} className={`group flex snap-start flex-col rounded-[15px] border border-[var(--border-subtle)] bg-[var(--card-bg)] p-4 no-underline transition-colors hover:bg-[var(--card-hover)] ${wide ? 'w-full shrink sm:w-[280px] sm:shrink-0' : 'w-[280px] shrink-0'}`}>
       <KindBadge kind={kind} abs={false} />
-      <h4 className="m-0 mt-3 line-clamp-2 font-['Outfit',sans-serif] text-[15px] font-bold leading-snug text-[var(--text-primary)] group-hover:text-[var(--accent-orange)]">{sani(p.title) || '(be pavadinimo)'}</h4>
+      <h4 className="m-0 mt-3 line-clamp-2 font-['Outfit',sans-serif] text-[16px] font-bold leading-snug text-[var(--text-primary)] group-hover:text-[var(--accent-orange)]">{sani(p.title) || '(be pavadinimo)'}</h4>
       {poem && poem.length > 0 ? (
         <div className="mt-2 min-h-0 flex-1 overflow-hidden">
           {poem.map((line, i) => (
-            <span key={i} className="block truncate text-[14.5px] italic leading-[1.7] text-[var(--text-secondary)]">{line}</span>
+            <span key={i} className="block truncate text-[14px] italic leading-[1.7] text-[var(--text-secondary)]">{line}</span>
           ))}
         </div>
       ) : p.excerpt ? (
-        <p className="m-0 mt-1.5 line-clamp-6 text-[14.5px] leading-relaxed text-[var(--text-muted)]">{p.excerpt}</p>
+        <p className="m-0 mt-1.5 line-clamp-6 text-[14px] leading-relaxed text-[var(--text-muted)]">{p.excerpt}</p>
       ) : null}
       <div className="mt-auto flex items-center gap-1.5 pt-2.5">
         <Avatar src={p.author?.avatar_url} name={uname(p.author)} size={16} />
-        <span className="min-w-0 truncate text-[13px] text-[var(--text-muted)]">{uname(p.author)}</span>
-        {(p.like_count ?? 0) > 0 && <span className="ml-auto flex shrink-0 items-center gap-1 text-[12.5px] text-[var(--text-faint)]"><Ic d={I.heart} size={10} /> {p.like_count}</span>}
+        <span className="min-w-0 truncate text-[14px] text-[var(--text-muted)]">{uname(p.author)}</span>
+        {(p.like_count ?? 0) > 0 && <span className="ml-auto flex shrink-0 items-center gap-1 text-[12px] text-[var(--text-faint)]"><Ic d={I.heart} size={10} /> {p.like_count}</span>}
       </div>
     </Link>
   )
@@ -1509,8 +1509,8 @@ function KornerSection() {
             {ordered.map(p => <KornerCard key={p.id} p={p} />)}
             <Link href="/blogas/rasyti?type=creation" className="group flex w-[280px] shrink-0 snap-start flex-col items-center justify-center gap-2 rounded-[15px] border border-dashed border-[var(--border-strong)] p-4 text-center no-underline transition-colors hover:border-[var(--accent-orange)]" style={{ minHeight: 250 }}>
               <span className="flex h-9 w-9 items-center justify-center rounded-full bg-[rgba(249,115,22,0.15)] text-[var(--accent-orange)]"><Ic d={I.plus} size={15} /></span>
-              <b className="font-['Outfit',sans-serif] text-[14.5px] font-extrabold text-[var(--text-primary)]">Įkelk savo kūrybą</b>
-              <span className="text-[13px] text-[var(--text-muted)]">eilėraštį, vertimą ar mintis</span>
+              <b className="font-['Outfit',sans-serif] text-[14px] font-extrabold text-[var(--text-primary)]">Įkelk savo kūrybą</b>
+              <span className="text-[14px] text-[var(--text-muted)]">eilėraštį, vertimą ar mintis</span>
             </Link>
           </>
         )}
@@ -1557,8 +1557,8 @@ function NariaiSection() {
                 {m.isNew && <span title="Naujas narys" className="absolute -bottom-0.5 -right-0.5 h-3 w-3 rounded-full border-2 border-[var(--card-bg)] bg-[#22c55e]" />}
               </div>
               <div className="min-w-0 flex-1">
-                <p className="m-0 truncate font-['Outfit',sans-serif] text-[14.5px] font-extrabold text-[var(--text-primary)] group-hover:text-[var(--accent-orange)]">{capName(m.username)}</p>
-                {m.isNew && <p className="m-0 text-[11.5px] font-bold uppercase tracking-[0.08em] text-[#22c55e]">naujas narys</p>}
+                <p className="m-0 truncate font-['Outfit',sans-serif] text-[14px] font-extrabold text-[var(--text-primary)] group-hover:text-[var(--accent-orange)]">{capName(m.username)}</p>
+                {m.isNew && <p className="m-0 text-[12px] font-bold uppercase tracking-[0.08em] text-[#22c55e]">naujas narys</p>}
               </div>
             </div>
             {/* Mėgstamiausi atlikėjai — vienodo dydžio 3 stulpelių tinklelis (iki 6). */}
@@ -1570,7 +1570,7 @@ function NariaiSection() {
                       // eslint-disable-next-line @next/next/no-img-element
                       <img src={proxyImg(a.image)} alt={a.name} loading="lazy" className="absolute inset-0 h-full w-full object-cover" />
                     ) : (
-                      <span className="flex h-full w-full items-center justify-center text-[18px] font-extrabold" style={{ background: `hsl(${hue(a.name)},32%,22%)`, color: `hsl(${hue(a.name)},52%,64%)` }}>{a.name.charAt(0).toUpperCase()}</span>
+                      <span className="flex h-full w-full items-center justify-center text-[20px] font-extrabold" style={{ background: `hsl(${hue(a.name)},32%,22%)`, color: `hsl(${hue(a.name)},52%,64%)` }}>{a.name.charAt(0).toUpperCase()}</span>
                     )}
                   </span>
                 ))}
@@ -1581,8 +1581,8 @@ function NariaiSection() {
         {/* „Daugiau" — į pilną narių sąrašą. */}
         <Link href="/nariai" className="group flex w-[150px] shrink-0 snap-start flex-col items-center justify-center gap-2 rounded-[15px] border border-dashed border-[var(--border-strong)] p-4 text-center no-underline transition-colors hover:border-[var(--accent-orange)] hover:bg-[rgba(249,115,22,0.05)]">
           <span className="flex h-10 w-10 items-center justify-center rounded-full bg-[rgba(59,130,246,0.14)] text-[#3b82f6]"><Ic d="M9 6l6 6-6 6" size={18} /></span>
-          <b className="font-['Outfit',sans-serif] text-[14.5px] font-extrabold text-[var(--text-primary)] group-hover:text-[var(--accent-orange)]">Daugiau narių</b>
-          <span className="text-[12.5px] text-[var(--text-muted)]">visi bendruomenės nariai</span>
+          <b className="font-['Outfit',sans-serif] text-[14px] font-extrabold text-[var(--text-primary)] group-hover:text-[var(--accent-orange)]">Daugiau narių</b>
+          <span className="text-[12px] text-[var(--text-muted)]">visi bendruomenės nariai</span>
         </Link>
         </>)}
       </div>
@@ -1608,7 +1608,7 @@ function InviteCTA() {
   return (
     <section className="mb-1">
       <div className="flex flex-col items-center gap-4 rounded-2xl border border-[var(--border-default)] bg-[var(--bg-surface)] px-5 py-5 sm:flex-row sm:justify-between sm:px-7">
-        <h3 className="m-0 text-center font-['Outfit',sans-serif] text-[16px] font-extrabold tracking-[-0.01em] text-[var(--text-primary)] sm:text-left sm:text-[17px]">Pakviesk draugus į Music.lt</h3>
+        <h3 className="m-0 text-center font-['Outfit',sans-serif] text-[16px] font-extrabold tracking-[-0.01em] text-[var(--text-primary)] sm:text-left sm:text-[16px]">Pakviesk draugus į Music.lt</h3>
         <button type="button" onClick={share}
           className={`flex shrink-0 cursor-pointer items-center gap-2 rounded-xl border-0 px-5 py-2.5 font-['Outfit',sans-serif] text-[14px] font-extrabold text-white transition-transform hover:scale-[1.02] ${copied ? 'bg-[#22c55e]' : 'bg-[var(--accent-orange)]'}`}>
           {copied ? (

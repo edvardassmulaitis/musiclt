@@ -483,7 +483,7 @@ export default function AlbumInfoModal({
             {/* Kicker — tik „Greitai" žyma. Tipas pašalintas, data perkelta žemiau. */}
             {album?.is_upcoming && (
               <div className="mb-1 flex flex-wrap items-center gap-1.5">
-                <span className="rounded-md border border-[rgba(249,115,22,0.3)] bg-[rgba(249,115,22,0.15)] px-1.5 py-0.5 font-['Outfit',sans-serif] text-[11px] font-bold uppercase tracking-[0.08em] text-[var(--accent-orange)]">
+                <span className="rounded-md border border-[rgba(249,115,22,0.3)] bg-[rgba(249,115,22,0.15)] px-1.5 py-0.5 font-['Outfit',sans-serif] text-[12px] font-bold uppercase tracking-[0.08em] text-[var(--accent-orange)]">
                   Greitai
                 </span>
               </div>
@@ -500,7 +500,7 @@ export default function AlbumInfoModal({
             )}
             {/* Data — po atlikėjo pavadinimo (perkelta iš kicker'io). */}
             {album && (album.dateFormatted || album.year) && (
-              <div className="mt-0.5 text-[13px] font-semibold text-[var(--text-muted)]">
+              <div className="mt-0.5 text-[14px] font-semibold text-[var(--text-muted)]">
                 {album.dateFormatted || `${album.year} m.`}
               </div>
             )}
@@ -576,7 +576,7 @@ export default function AlbumInfoModal({
                   <div className="mb-1.5 font-['Outfit',sans-serif] text-[12px] font-extrabold uppercase tracking-[0.14em] text-[var(--text-muted)]">
                     Apie albumą
                   </div>
-                  <p className="whitespace-pre-line text-[14.5px] leading-[1.6] text-[var(--text-secondary)]">
+                  <p className="whitespace-pre-line text-[14px] leading-[1.6] text-[var(--text-secondary)]">
                     {plainText(album.description)}
                   </p>
                 </div>
@@ -641,7 +641,7 @@ export default function AlbumInfoModal({
                           {a.title}
                         </span>
                         {a.year && (
-                          <span className="block font-['Outfit',sans-serif] text-[11px] font-semibold text-[var(--text-faint)]">{a.year}</span>
+                          <span className="block font-['Outfit',sans-serif] text-[12px] font-semibold text-[var(--text-faint)]">{a.year}</span>
                         )}
                       </Link>
                     ))}
@@ -720,7 +720,7 @@ export default function AlbumInfoModal({
                       <span className="w-[3px] origin-bottom rounded-[1px] bg-[var(--accent-orange)]" style={{ animation: 'eqBar 1.0s ease-in-out -0.45s infinite' }} />
                       <span className="w-[3px] origin-bottom rounded-[1px] bg-[var(--accent-orange)]" style={{ animation: 'eqBar 1.0s ease-in-out -0.10s infinite' }} />
                     </span>
-                    <div className="text-[13px] uppercase tracking-wider text-[var(--text-muted)]">Kraunama…</div>
+                    <div className="text-[14px] uppercase tracking-wider text-[var(--text-muted)]">Kraunama…</div>
                     <style>{`@keyframes eqBar { 0%,100% { height: 30%; } 50% { height: 100%; } }`}</style>
                   </div>
                 ) : tracks.length === 0 ? (

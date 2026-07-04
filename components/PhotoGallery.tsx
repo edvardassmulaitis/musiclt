@@ -312,7 +312,7 @@ export default function PhotoGallery({ photos, onChange, artistName, artistId }:
         >
           <div className="w-full max-w-[500px] rounded-2xl border border-gray-200 bg-white shadow-2xl overflow-hidden">
             <div className="flex items-center justify-between border-b border-gray-100 px-5 py-3">
-              <div className="text-[15px] font-bold text-gray-900">Redaguoti nuotraukos detales</div>
+              <div className="text-[16px] font-bold text-gray-900">Redaguoti nuotraukos detales</div>
               <button onClick={closeEditor} className="flex h-7 w-7 items-center justify-center rounded text-gray-400 hover:bg-gray-100 hover:text-gray-700">✕</button>
             </div>
             <div className="px-5 py-4 space-y-3">
@@ -324,7 +324,7 @@ export default function PhotoGallery({ photos, onChange, artistName, artistId }:
                   Anksciau buvo input[type=date] kuris reikalavo pilnos datos —
                   daug fotografų tik metus žino. API parse'ina į ISO automatiškai. */}
               <div>
-                <label className="text-[13px] font-bold uppercase tracking-wider text-gray-500 block mb-1">Nuotraukos data</label>
+                <label className="text-[14px] font-bold uppercase tracking-wider text-gray-500 block mb-1">Nuotraukos data</label>
                 <input
                   type="text"
                   value={(editDraft.takenAt || '').slice(0, 10)}
@@ -336,7 +336,7 @@ export default function PhotoGallery({ photos, onChange, artistName, artistId }:
               </div>
               {/* Place — NEW */}
               <div>
-                <label className="text-[13px] font-bold uppercase tracking-wider text-gray-500 block mb-1">Vieta (optional)</label>
+                <label className="text-[14px] font-bold uppercase tracking-wider text-gray-500 block mb-1">Vieta (optional)</label>
                 <input
                   type="text"
                   value={editDraft.place || ''}
@@ -347,7 +347,7 @@ export default function PhotoGallery({ photos, onChange, artistName, artistId }:
               </div>
               {/* Author */}
               <div>
-                <label className="text-[13px] font-bold uppercase tracking-wider text-gray-500 block mb-1">Autorius</label>
+                <label className="text-[14px] font-bold uppercase tracking-wider text-gray-500 block mb-1">Autorius</label>
                 <input
                   type="text"
                   value={editDraft.author || ''}
@@ -358,7 +358,7 @@ export default function PhotoGallery({ photos, onChange, artistName, artistId }:
               </div>
               {/* License */}
               <div>
-                <label className="text-[13px] font-bold uppercase tracking-wider text-gray-500 block mb-1">Licencija</label>
+                <label className="text-[14px] font-bold uppercase tracking-wider text-gray-500 block mb-1">Licencija</label>
                 <input
                   type="text"
                   value={editDraft.license || ''}
@@ -369,7 +369,7 @@ export default function PhotoGallery({ photos, onChange, artistName, artistId }:
               </div>
               {/* Source URL */}
               <div>
-                <label className="text-[13px] font-bold uppercase tracking-wider text-gray-500 block mb-1">Šaltinis (URL)</label>
+                <label className="text-[14px] font-bold uppercase tracking-wider text-gray-500 block mb-1">Šaltinis (URL)</label>
                 <input
                   type="url"
                   value={editDraft.sourceUrl || ''}

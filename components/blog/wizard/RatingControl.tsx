@@ -56,7 +56,7 @@ export function RatingControl({
           color: var(--text-muted);
           font-family: 'Outfit', sans-serif;
           font-weight: 800;
-          font-size: 15px;
+          font-size: 16px;
           cursor: pointer;
           transition: background .12s, color .12s, transform .08s, border-color .12s;
           -webkit-tap-highlight-color: transparent;
@@ -77,14 +77,14 @@ export function RatingControl({
           margin-top: 12px; display: flex; align-items: center; justify-content: space-between;
         }
         .rc-readout {
-          font-family: 'Outfit', sans-serif; font-weight: 800; font-size: 18px; color: var(--text-primary);
+          font-family: 'Outfit', sans-serif; font-weight: 800; font-size: 20px; color: var(--text-primary);
         }
         .rc-clear {
           font-size: 12px; font-weight: 700; color: var(--text-muted);
           background: transparent; border: none; cursor: pointer;
         }
         @media (max-width: 380px) {
-          .rc-pill { font-size: 13px; border-radius: 9px; }
+          .rc-pill { font-size: 14px; border-radius: 9px; }
         }
       `}</style>
     </div>

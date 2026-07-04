@@ -96,17 +96,17 @@ function ProgressBar({ pct, label, doneN, totalN, color, active, onClick }: {
       }`}
     >
       <div className="mb-1.5 flex items-baseline justify-between gap-2">
-        <span className="text-[13.5px] font-bold uppercase tracking-wider text-[var(--text-secondary)]">
+        <span className="text-[14px] font-bold uppercase tracking-wider text-[var(--text-secondary)]">
           {label}
         </span>
-        <span className="text-[13px] tabular-nums text-[var(--text-muted)]">
+        <span className="text-[14px] tabular-nums text-[var(--text-muted)]">
           {doneN.toLocaleString('lt-LT')} / {totalN.toLocaleString('lt-LT')}
         </span>
       </div>
       <div className="h-2 w-full overflow-hidden rounded-full bg-[var(--bg-elevated)]">
         <div className={`h-full rounded-full ${color} transition-all`} style={{ width: `${safePct}%` }} />
       </div>
-      <div className="mt-1 text-right text-[12.5px] font-semibold tabular-nums text-[var(--text-secondary)]">
+      <div className="mt-1 text-right text-[12px] font-semibold tabular-nums text-[var(--text-secondary)]">
         {safePct.toFixed(1)}%
       </div>
     </button>
@@ -138,19 +138,19 @@ function MissingBadges({ row }: { row: Row }) {
       : 'bg-gray-200 text-gray-700'
   return (
     <span className="inline-flex shrink-0 items-center gap-1">
-      <span className={`rounded-full px-1.5 py-0.5 text-[11px] font-bold uppercase tracking-wider ${kindColor}`}>
+      <span className={`rounded-full px-1.5 py-0.5 text-[12px] font-bold uppercase tracking-wider ${kindColor}`}>
         {kindLabel}
       </span>
       {row.missing.map(m => (
         <span
           key={m}
-          className={`rounded-full px-1.5 py-0.5 text-[11px] font-bold uppercase tracking-wider ${MISSING_COLOR[m]}`}
+          className={`rounded-full px-1.5 py-0.5 text-[12px] font-bold uppercase tracking-wider ${MISSING_COLOR[m]}`}
         >
           –{MISSING_LABEL[m]}
         </span>
       ))}
       {row.missing.length === 0 && (
-        <span className="rounded-full bg-green-100 px-1.5 py-0.5 text-[11px] font-bold uppercase tracking-wider text-green-700">
+        <span className="rounded-full bg-green-100 px-1.5 py-0.5 text-[12px] font-bold uppercase tracking-wider text-green-700">
           ✓
         </span>
       )}
@@ -223,10 +223,10 @@ function ImageStatus({ row }: { row: Row }) {
   return (
     <span className="inline-flex items-center gap-1.5 text-[12px]">
       <span title="Profile foto" className="inline-flex items-center gap-0.5">
-        <span className="font-mono text-[11px] text-[var(--text-faint)]">P</span>{photoIcon}
+        <span className="font-mono text-[12px] text-[var(--text-faint)]">P</span>{photoIcon}
       </span>
       <span title="Hero foto" className="inline-flex items-center gap-0.5">
-        <span className="font-mono text-[11px] text-[var(--text-faint)]">H</span>{heroIcon}
+        <span className="font-mono text-[12px] text-[var(--text-faint)]">H</span>{heroIcon}
       </span>
     </span>
   )
@@ -239,7 +239,7 @@ function CoverageSummary({ data, bucket }: { data: StatsResponse; bucket: Bucket
     : null
   if (!cov || (cov.lyrics_pct === 0 && cov.yt_pct === 0 && cov.yt_views_pct === 0)) return null
   return (
-    <div className="mb-3 inline-flex items-center gap-2 rounded-lg border border-[var(--input-border)] bg-[var(--bg-surface)] px-3 py-1.5 text-[13px]">
+    <div className="mb-3 inline-flex items-center gap-2 rounded-lg border border-[var(--input-border)] bg-[var(--bg-surface)] px-3 py-1.5 text-[14px]">
       <span className="text-[var(--text-muted)]">Vid. coverage:</span>
       <span title="Lyrics" className="inline-flex items-center gap-1">
         <span className="text-[var(--text-faint)]">Lyr</span>
@@ -350,14 +350,14 @@ function AdminMigrationContent() {
             <h1 className="mt-1 font-['Outfit',sans-serif] text-2xl font-extrabold text-[var(--text-primary)] sm:text-3xl">
               Migracijos progresas
             </h1>
-            <p className="mt-1 text-[14.5px] text-[var(--text-muted)]">
+            <p className="mt-1 text-[14px] text-[var(--text-muted)]">
               Click on bar / badge for filter; default rodo „pending" + sortinta pagal music.lt likes. Done = scrape + (INT: wiki) + hero + foto + score.
             </p>
           </div>
           <button
             onClick={load}
             disabled={reloading}
-            className="text-[13.5px] text-music-blue hover:underline disabled:opacity-50"
+            className="text-[14px] text-music-blue hover:underline disabled:opacity-50"
           >
             {reloading ? '...' : '↻ Refresh'}
           </button>
@@ -450,7 +450,7 @@ function AdminMigrationContent() {
                 <button
                   key={s}
                   onClick={() => setQuery({ status: s })}
-                  className={`flex-1 rounded-md py-1.5 text-[13.5px] font-semibold transition-colors ${
+                  className={`flex-1 rounded-md py-1.5 text-[14px] font-semibold transition-colors ${
                     statusFilter === s
                       ? 'bg-music-blue text-white'
                       : 'text-[var(--text-secondary)] hover:bg-[var(--bg-hover)]'
@@ -462,7 +462,7 @@ function AdminMigrationContent() {
             </div>
 
             {/* Results header */}
-            <div className="mb-2 flex items-baseline justify-between gap-2 px-1 text-[13.5px] text-[var(--text-muted)]">
+            <div className="mb-2 flex items-baseline justify-between gap-2 px-1 text-[14px] text-[var(--text-muted)]">
               <span>
                 Rodoma <strong>{data.rows.length}</strong> iš {data.query.total.toLocaleString('lt-LT')} (po dedupe)
               </span>
@@ -517,29 +517,29 @@ function AdminMigrationContent() {
                         >
                           {/* Row line 1: number + name + legacy stats + missing badges */}
                           <div className="flex items-center gap-2">
-                            <span className="w-8 shrink-0 text-right text-[13px] tabular-nums text-[var(--text-faint)]">
+                            <span className="w-8 shrink-0 text-right text-[14px] tabular-nums text-[var(--text-faint)]">
                               {offset + i + 1}.
                             </span>
                             <span className="min-w-0 flex-1 truncate text-[14px] font-semibold text-[var(--text-primary)]">
                               {p.name || `(be vardo) #${p.id}`}
                               {p.dup_count > 1 && (
-                                <span className="ml-1.5 rounded-full bg-orange-100 px-1.5 py-0.5 text-[11px] font-bold text-orange-700">
+                                <span className="ml-1.5 rounded-full bg-orange-100 px-1.5 py-0.5 text-[12px] font-bold text-orange-700">
                                   {p.dup_count}x
                                 </span>
                               )}
                               {p.country && p.kind === 'intl' && (
-                                <span className="ml-1.5 text-[12.5px] font-normal text-[var(--text-muted)]">
+                                <span className="ml-1.5 text-[12px] font-normal text-[var(--text-muted)]">
                                   · {p.country}
                                 </span>
                               )}
                             </span>
                             {p.legacy_likes != null && p.legacy_likes > 0 && (
-                              <span className="shrink-0 text-[13px] tabular-nums text-[var(--text-secondary)]">
+                              <span className="shrink-0 text-[14px] tabular-nums text-[var(--text-secondary)]">
                                 ♥ {p.legacy_likes.toLocaleString('lt-LT')}
                               </span>
                             )}
                             {p.legacy_discussion_count != null && p.legacy_discussion_count > 0 && (
-                              <span className="shrink-0 text-[13px] tabular-nums text-[var(--text-faint)]">
+                              <span className="shrink-0 text-[14px] tabular-nums text-[var(--text-faint)]">
                                 💬 {p.legacy_discussion_count}
                               </span>
                             )}

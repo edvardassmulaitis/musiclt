@@ -957,10 +957,10 @@ function WikipediaImportCore({ onImport, initialSearch }: Props) {
             <div className="flex flex-col items-end gap-1">
               {similarArtists.length > 0 && (
                 <div className="text-right">
-                  <p className="text-[13px] font-semibold text-amber-600">⚠️ Panašūs jau yra:</p>
+                  <p className="text-[14px] font-semibold text-amber-600">⚠️ Panašūs jau yra:</p>
                   {similarArtists.map(d => (
                     <a key={d.id} href={`/admin/artists/${d.id}`} target="_blank" rel="noreferrer"
-                      className="block text-[13px] text-amber-700 hover:text-blue-600 hover:underline">
+                      className="block text-[14px] text-amber-700 hover:text-blue-600 hover:underline">
                       {d.name} ({d.type === 'group' ? 'Grupė' : 'Solo'})
                     </a>
                   ))}
@@ -983,7 +983,7 @@ function WikipediaImportCore({ onImport, initialSearch }: Props) {
               <div className="flex flex-wrap items-center gap-1.5">
                 {p.genre && <span className="text-gray-600 font-medium">{p.genre}</span>}
                 {p.substyles && p.substyles.map(s => (
-                  <span key={s} className="px-1.5 py-0.5 bg-gray-100 text-gray-500 rounded text-[13px]">{s}</span>
+                  <span key={s} className="px-1.5 py-0.5 bg-gray-100 text-gray-500 rounded text-[14px]">{s}</span>
                 ))}
               </div>
             )}
@@ -1007,7 +1007,7 @@ function WikipediaImportCore({ onImport, initialSearch }: Props) {
                 )}
                 {foundSocialKeys.map(k => (
                   <a key={k} href={(p as any)[k]} target="_blank" rel="noopener noreferrer" title={(p as any)[k]}
-                    className="px-1.5 py-0.5 bg-blue-50 text-blue-600 border border-blue-100 rounded text-[13px] hover:bg-blue-100 transition-colors">
+                    className="px-1.5 py-0.5 bg-blue-50 text-blue-600 border border-blue-100 rounded text-[14px] hover:bg-blue-100 transition-colors">
                     {k}
                   </a>
                 ))}
@@ -1034,7 +1034,7 @@ function WikipediaImportCore({ onImport, initialSearch }: Props) {
                         </span>
                       )}
                       {pastMembers.length > 0 && (
-                        <span className="text-gray-400 text-[13px]">
+                        <span className="text-gray-400 text-[14px]">
                           {currentMembers.length > 0 && <span className="mx-1 text-gray-300">|</span>}
                           Buvę: {pastMembers.map((m, i) => (
                             <span key={m.wikiTitle}>
@@ -1045,7 +1045,7 @@ function WikipediaImportCore({ onImport, initialSearch }: Props) {
                         </span>
                       )}
                       {currentMembers.some(m => !m.existingId) && (
-                        <span className="text-[13px] text-amber-500 ml-1">· trūkstami bus sukurti išsaugant</span>
+                        <span className="text-[14px] text-amber-500 ml-1">· trūkstami bus sukurti išsaugant</span>
                       )}
                     </>
                 }
@@ -1062,7 +1062,7 @@ function WikipediaImportCore({ onImport, initialSearch }: Props) {
                   <span key={i} className="flex items-center gap-1">
                     {g.avatar
                       ? <img src={g.avatar} alt="" className="w-3.5 h-3.5 rounded-full object-cover shrink-0" referrerPolicy="no-referrer" />
-                      : <div className="w-3.5 h-3.5 rounded-full bg-gray-200 flex items-center justify-center text-[7px] shrink-0 font-bold">{g.name?.[0] ?? '?'}</div>
+                      : <div className="w-3.5 h-3.5 rounded-full bg-gray-200 flex items-center justify-center text-[12px] shrink-0 font-bold">{g.name?.[0] ?? '?'}</div>
                     }
                     <span className={g.id ? 'text-green-600' : 'text-gray-700'}>{g.name}</span>
                     {g.id
@@ -1094,12 +1094,12 @@ function WikipediaImportCore({ onImport, initialSearch }: Props) {
                 </div>
                 <div className="flex items-center gap-3 mt-1">
                   <button type="button"
-                    className="text-[13px] text-gray-400 hover:text-gray-600"
+                    className="text-[14px] text-gray-400 hover:text-gray-600"
                     onClick={() => setPreview(prev => prev ? { ...prev, _descExpanded: !(prev as any)._descExpanded } as any : prev)}>
                     {(preview as any)?._descExpanded ? '▲ Sutraukti' : '▼ Rodyti visą'}
                   </button>
                   <button type="button"
-                    className="text-[13px] text-blue-500 hover:text-blue-700"
+                    className="text-[14px] text-blue-500 hover:text-blue-700"
                     onClick={() => setPreview(prev => prev ? { ...prev, _descEditing: true, _descExpanded: true } as any : prev)}>
                     ✎ Redaguoti
                   </button>
@@ -1150,7 +1150,7 @@ function WikipediaImportCore({ onImport, initialSearch }: Props) {
                 }
                 setStep('')
               }}
-              className="mt-1.5 text-[13px] text-blue-500 hover:text-blue-700 underline"
+              className="mt-1.5 text-[14px] text-blue-500 hover:text-blue-700 underline"
             >
               {step === 'Generuojamas aprašymas...' ? '⏳ Generuojama...' : p.description ? '↺ Regeneruoti aprašymą' : '✦ Generuoti aprašymą'}
             </button>
@@ -1163,14 +1163,14 @@ function WikipediaImportCore({ onImport, initialSearch }: Props) {
 
 function MemberChip({ member, past }: { member: BandMember; past?: boolean }) {
   return (
-    <div className={`inline-flex items-center gap-1 px-1.5 py-0.5 rounded border text-[13px] ${
+    <div className={`inline-flex items-center gap-1 px-1.5 py-0.5 rounded border text-[14px] ${
       past ? 'bg-gray-50 border-gray-200 text-gray-400'
            : member.existingId ? 'bg-green-50 border-green-200 text-green-700'
                                : 'bg-blue-50 border-blue-200 text-blue-700'
     }`}>
       {member.avatar
         ? <img src={member.avatar} alt="" className="w-3.5 h-3.5 rounded-full object-cover shrink-0" referrerPolicy="no-referrer" />
-        : <div className="w-3.5 h-3.5 rounded-full bg-gray-200 flex items-center justify-center text-[7px] shrink-0 font-bold">{member.name?.[0] ?? '?'}</div>
+        : <div className="w-3.5 h-3.5 rounded-full bg-gray-200 flex items-center justify-center text-[12px] shrink-0 font-bold">{member.name?.[0] ?? '?'}</div>
       }
       <span>{member.name}</span>
       <span className="opacity-50">{member.existingId ? '✓' : '+'}</span>

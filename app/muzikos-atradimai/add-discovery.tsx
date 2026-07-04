@@ -84,24 +84,24 @@ export default function AddDiscovery({ onAdded }: { onAdded?: (d: Discovery) => 
       )}
 
       <style jsx>{`
-        .ad-cta{display:inline-flex;align-items:center;gap:6px;background:var(--accent-orange);border:1px solid var(--accent-orange);color:#fff;border-radius:100px;padding:8px 16px;font-size:12.5px;font-weight:700;font-family:'Outfit',sans-serif;cursor:pointer;white-space:nowrap}
+        .ad-cta{display:inline-flex;align-items:center;gap:6px;background:var(--accent-orange);border:1px solid var(--accent-orange);color:#fff;border-radius:100px;padding:8px 16px;font-size:12px;font-weight:700;font-family:'Outfit',sans-serif;cursor:pointer;white-space:nowrap}
         .ad-cta:hover{filter:brightness(1.05)}
         .ad-overlay{position:fixed;inset:0;z-index:200;background:rgba(0,0,0,.5);display:flex;align-items:center;justify-content:center;padding:20px}
         .ad-modal{background:var(--bg-surface);border:1px solid var(--border-default);border-radius:16px;padding:20px;width:100%;max-width:500px;box-shadow:0 20px 60px rgba(0,0,0,.4);max-height:90vh;overflow-y:auto}
         .ad-head{display:flex;justify-content:space-between;align-items:center;margin-bottom:4px}
-        .ad-head strong{font-family:'Outfit',sans-serif;font-size:18px}
+        .ad-head strong{font-family:'Outfit',sans-serif;font-size:20px}
         .ad-x{background:none;border:none;color:var(--text-muted);font-size:16px;cursor:pointer;padding:4px}
-        .ad-sub{color:var(--text-muted);font-size:13px;margin:2px 0 14px}
-        .ad-lbl{display:block;font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:.04em;color:var(--text-faint);margin:10px 0 5px;font-family:'Outfit',sans-serif}
-        input,textarea{width:100%;background:var(--bg-hover);border:1px solid var(--border-default);border-radius:9px;color:var(--text-primary);font-size:13.5px;padding:9px 11px;outline:none;font-family:inherit}
+        .ad-sub{color:var(--text-muted);font-size:14px;margin:2px 0 14px}
+        .ad-lbl{display:block;font-size:12px;font-weight:700;text-transform:uppercase;letter-spacing:.04em;color:var(--text-faint);margin:10px 0 5px;font-family:'Outfit',sans-serif}
+        input,textarea{width:100%;background:var(--bg-hover);border:1px solid var(--border-default);border-radius:9px;color:var(--text-primary);font-size:14px;padding:9px 11px;outline:none;font-family:inherit}
         input:focus,textarea:focus{border-color:var(--accent-orange)}
         textarea{resize:vertical}
         .ad-row{display:flex;gap:10px}
-        .ad-err{color:var(--accent-red);font-size:12.5px;margin-top:8px}
+        .ad-err{color:var(--accent-red);font-size:12px;margin-top:8px}
         .ad-done{font-size:14px;color:var(--text-primary);line-height:1.5;padding:6px 0}
         .ad-actions{display:flex;justify-content:flex-end;gap:8px;margin-top:14px}
-        .ad-cancel{background:transparent;border:none;color:var(--text-muted);font-size:12.5px;font-weight:600;cursor:pointer;padding:8px 12px}
-        .ad-send{background:var(--accent-orange);border:none;color:#fff;border-radius:9px;padding:9px 20px;font-size:13px;font-weight:700;font-family:'Outfit',sans-serif;cursor:pointer}
+        .ad-cancel{background:transparent;border:none;color:var(--text-muted);font-size:12px;font-weight:600;cursor:pointer;padding:8px 12px}
+        .ad-send{background:var(--accent-orange);border:none;color:#fff;border-radius:9px;padding:9px 20px;font-size:14px;font-weight:700;font-family:'Outfit',sans-serif;cursor:pointer}
         .ad-send:disabled{opacity:.6}
       `}</style>
     </>

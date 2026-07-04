@@ -82,7 +82,7 @@ export default async function Page({ params }: Props) {
           <h1 className="font-['Outfit',sans-serif] text-[28px] font-black leading-tight tracking-[-0.01em] text-[var(--text-primary)] sm:text-[34px]">
             {p.name}
           </h1>
-          <div className="mt-1 flex flex-wrap items-center gap-3 text-[14.5px] text-[var(--text-muted)]">
+          <div className="mt-1 flex flex-wrap items-center gap-3 text-[14px] text-[var(--text-muted)]">
             {reportages.length > 0 && <span>{ltCount(reportages.length, ['reportažas', 'reportažai', 'reportažų'])}</span>}
             {photos.length > 0 && <span>{ltCount(photos.length, ['nuotrauka', 'nuotraukos', 'nuotraukų'])}</span>}
             {socials}
@@ -96,7 +96,7 @@ export default async function Page({ params }: Props) {
       {/* Reportažai — naujausias didelis, likę tinklelyje */}
       {reportages.length > 0 && (
         <section className="mb-12">
-          <h2 className="mb-4 font-['Outfit',sans-serif] text-[19px] font-black tracking-[-0.01em] text-[var(--text-primary)]">
+          <h2 className="mb-4 font-['Outfit',sans-serif] text-[20px] font-black tracking-[-0.01em] text-[var(--text-primary)]">
             Foto reportažai
           </h2>
 
@@ -109,11 +109,11 @@ export default async function Page({ params }: Props) {
                   <span className="absolute right-4 top-4 rounded-full bg-black/55 px-3 py-1 text-[14px] font-bold text-white backdrop-blur">📸 {featured.photoCount}</span>
                 )}
                 <div className="absolute inset-x-0 bottom-0 p-5 sm:p-6">
-                  {featured.artistName && <div className="mb-1 font-['Outfit',sans-serif] text-[13px] font-extrabold uppercase tracking-[0.14em] text-[#ec4899]">{featured.artistName}</div>}
+                  {featured.artistName && <div className="mb-1 font-['Outfit',sans-serif] text-[14px] font-extrabold uppercase tracking-[0.14em] text-[#ec4899]">{featured.artistName}</div>}
                   <h3 className="font-['Outfit',sans-serif] text-[22px] font-black leading-tight text-white drop-shadow sm:text-[26px]">
                     {featured.title.replace(/^FOTO\s+(REPORTA[ŽZ]AS|GALERIJA)\s*\|\s*/i, '')}
                   </h3>
-                  <div className="mt-1 flex flex-wrap items-center gap-x-2.5 text-[14.5px] text-white/80">
+                  <div className="mt-1 flex flex-wrap items-center gap-x-2.5 text-[14px] text-white/80">
                     {reportagePlaceLine(featured) && <span>{reportagePlaceLine(featured)}</span>}
                     {formatEventDate(featured.eventDate) && <><span className="opacity-50">·</span><span>{formatEventDate(featured.eventDate)}</span></>}
                   </div>
@@ -135,7 +135,7 @@ export default async function Page({ params }: Props) {
       {/* Atlikėjų nuotraukos (legacy artist_photos) */}
       {photos.length > 0 && (
         <section>
-          <h2 className="mb-3 font-['Outfit',sans-serif] text-[19px] font-black tracking-[-0.01em] text-[var(--text-primary)]">
+          <h2 className="mb-3 font-['Outfit',sans-serif] text-[20px] font-black tracking-[-0.01em] text-[var(--text-primary)]">
             Nuotraukos
           </h2>
           <div className="[column-gap:10px] columns-2 sm:columns-3 lg:columns-4">

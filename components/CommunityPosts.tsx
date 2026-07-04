@@ -42,7 +42,7 @@ export function CommunityPosts() {
     return (
       <section>
         <div className="flex items-center justify-between mb-6">
-          <h2 className="text-[19px] font-black tracking-tight" style={{ color: dk ? '#f2f4f8' : '#0f1a2e' }}>Iš bendruomenės</h2>
+          <h2 className="text-[20px] font-black tracking-tight" style={{ color: dk ? '#f2f4f8' : '#0f1a2e' }}>Iš bendruomenės</h2>
         </div>
         <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
           {[0,1,2,3].map(i => (
@@ -62,7 +62,7 @@ export function CommunityPosts() {
   return (
     <section>
       <div className="flex items-center justify-between mb-6">
-        <h2 className="text-[19px] font-black tracking-tight" style={{ color: dk ? '#f2f4f8' : '#0f1a2e' }}>Iš bendruomenės</h2>
+        <h2 className="text-[20px] font-black tracking-tight" style={{ color: dk ? '#f2f4f8' : '#0f1a2e' }}>Iš bendruomenės</h2>
         <Link href="/blogas/mano" className="text-sm font-semibold transition-colors" style={{ color: '#4a6fa5' }}>Visi blogai →</Link>
       </div>
       <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
@@ -98,10 +98,10 @@ export function CommunityPosts() {
                   {post.title}
                 </p>
                 {post.summary && (
-                  <p className="text-[13px] mt-0.5 truncate" style={{ color: dk ? '#3d5878' : '#6a85a8' }}>{post.summary}</p>
+                  <p className="text-[14px] mt-0.5 truncate" style={{ color: dk ? '#3d5878' : '#6a85a8' }}>{post.summary}</p>
                 )}
                 <div className="flex items-center gap-3 mt-1.5">
-                  <span className="text-[13px]" style={{ color: dk ? '#3d5878' : '#6a85a8' }}>{authorName}</span>
+                  <span className="text-[14px]" style={{ color: dk ? '#3d5878' : '#6a85a8' }}>{authorName}</span>
                   {post.like_count > 0 && <span className="text-[12px]" style={{ color: '#2a3a50' }}>♥ {post.like_count}</span>}
                   {post.comment_count > 0 && <span className="text-[12px]" style={{ color: '#2a3a50' }}>💬 {post.comment_count}</span>}
                 </div>

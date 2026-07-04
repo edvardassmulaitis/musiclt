@@ -42,7 +42,7 @@ export function PostContent({ html }: { html: string }) {
     <>
       <div
         className="prose-custom leading-relaxed mb-10"
-        style={{ color: 'var(--text-secondary, #dde8f8)', fontSize: '17px', lineHeight: 1.75 }}
+        style={{ color: 'var(--text-secondary, #dde8f8)', fontSize: '16px', lineHeight: 1.75 }}
         dangerouslySetInnerHTML={{ __html: processedHtml }}
       />
       <style jsx global>{`

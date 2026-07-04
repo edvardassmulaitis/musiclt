@@ -85,7 +85,7 @@ export function QuickEmbedField({
             <img src={value.embed_thumbnail_url} alt="" className="w-full max-h-48 object-cover" />
           )}
           <div className="px-3 py-2">
-            <p className="text-[11px] font-bold uppercase tracking-wider" style={{ color: 'var(--text-muted)' }}>
+            <p className="text-[12px] font-bold uppercase tracking-wider" style={{ color: 'var(--text-muted)' }}>
               {value.embed_type}
             </p>
             <p className="text-sm font-semibold mt-0.5 truncate" style={{ color: 'var(--text-primary)' }}>

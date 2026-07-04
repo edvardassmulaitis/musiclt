@@ -47,7 +47,7 @@ export default async function CategoryPage({ params }: { params: Promise<{ tipas
       <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', gap: 16, marginBottom: 20, flexWrap: 'wrap' }}>
         <div>
           <h1 style={{ fontSize: 'clamp(24px,4vw,34px)', fontWeight: 900, color: 'var(--text-primary)', margin: '0 0 6px' }}>{meta.h1}</h1>
-          <p style={{ fontSize: 14.5, color: 'var(--text-secondary)', margin: 0, maxWidth: 560 }}>{meta.desc}</p>
+          <p style={{ fontSize: 14, color: 'var(--text-secondary)', margin: 0, maxWidth: 560 }}>{meta.desc}</p>
         </div>
         <Link href={`/skelbimai/naujas?tipas=${meta.type}`} style={{
           padding: '10px 18px', fontSize: 14, fontWeight: 700, borderRadius: 10, whiteSpace: 'nowrap',

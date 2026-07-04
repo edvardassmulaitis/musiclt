@@ -146,7 +146,7 @@ export function WizardChrome({
         .wz-error {
           margin-bottom: 14px; padding: 10px 12px; border-radius: 10px;
           background: rgba(239,68,68,0.10); border: 1px solid rgba(239,68,68,0.25);
-          color: #fca5a5; font-size: 13px;
+          color: #fca5a5; font-size: 14px;
         }
 
         .wz-actions {
@@ -158,7 +158,7 @@ export function WizardChrome({
         .wz-actions-inner { max-width: 620px; margin: 0 auto; display: flex; align-items: center; gap: 10px; }
         .wz-btn {
           height: 50px; border-radius: 14px; font-family: 'Outfit', sans-serif;
-          font-weight: 800; font-size: 15px; cursor: pointer; border: none;
+          font-weight: 800; font-size: 16px; cursor: pointer; border: none;
           transition: transform .1s, opacity .15s; -webkit-tap-highlight-color: transparent;
         }
         .wz-btn:active { transform: scale(.98); }

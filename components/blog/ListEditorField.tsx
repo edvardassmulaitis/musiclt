@@ -257,10 +257,10 @@ export function ListEditorField({
                   {/* Title + meta */}
                   <div className="flex-1 min-w-0">
                     <p className="text-sm font-bold truncate" style={{ color: 'var(--text-primary)', fontFamily: "'Outfit', sans-serif" }}>{item.title}</p>
-                    <p className="text-[13px] truncate flex items-center gap-1.5" style={{ color: 'var(--text-muted)' }}>
+                    <p className="text-[14px] truncate flex items-center gap-1.5" style={{ color: 'var(--text-muted)' }}>
                       {item.artist && <span className="truncate">{item.artist}</span>}
                       {item.type !== 'custom' && (
-                        <span className="px-1.5 py-0.5 rounded text-[11px] uppercase tracking-wide flex-shrink-0" style={{ background: 'var(--bg-elevated)', color: 'var(--text-faint)' }}>
+                        <span className="px-1.5 py-0.5 rounded text-[12px] uppercase tracking-wide flex-shrink-0" style={{ background: 'var(--bg-elevated)', color: 'var(--text-faint)' }}>
                           {TYPE_LABEL[item.type]}
                         </span>
                       )}
@@ -285,7 +285,7 @@ export function ListEditorField({
                   <div className="mt-2.5 rounded-lg p-2.5" style={{ background: 'var(--bg-elevated)', border: '1px solid var(--border-default)' }}>
                     <p className="text-[12px] font-bold uppercase tracking-wider mb-1.5" style={{ color: 'var(--text-muted)' }}>Pakeisti į kitą įrašą <span className="font-normal normal-case" style={{ color: 'var(--text-faint)' }}>· komentaras išliks</span></p>
                     <MusicSearchPicker attached={[]} onAdd={replaceEntity} placeholder="Naujas atlikėjas, albumas ar daina…" compact />
-                    <button type="button" onClick={() => setReplaceIdx(null)} className="mt-1.5 text-[13px] hover:opacity-80 transition" style={{ color: 'var(--text-muted)' }}>Atšaukti</button>
+                    <button type="button" onClick={() => setReplaceIdx(null)} className="mt-1.5 text-[14px] hover:opacity-80 transition" style={{ color: 'var(--text-muted)' }}>Atšaukti</button>
                   </div>
                 )}
 
@@ -296,7 +296,7 @@ export function ListEditorField({
                   </div>
                 ) : (
                   <button type="button" onClick={() => setOpenComment(idx)}
-                    className="mt-2 text-[13px] font-semibold hover:opacity-80 transition flex items-center gap-1" style={{ color: 'var(--text-muted)' }}>
+                    className="mt-2 text-[14px] font-semibold hover:opacity-80 transition flex items-center gap-1" style={{ color: 'var(--text-muted)' }}>
                     <span style={{ color: 'var(--accent-orange)' }}>+</span> Komentaras
                   </button>
                 )}

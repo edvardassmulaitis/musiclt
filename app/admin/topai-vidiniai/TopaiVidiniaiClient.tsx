@@ -25,7 +25,7 @@ const PAGE = 40
 
 function Flag({ ok, label }: { ok: boolean; label: string }) {
   return (
-    <span className={`shrink-0 text-[13px] px-1.5 py-0.5 rounded font-semibold ${ok ? 'bg-emerald-100 text-emerald-700' : 'bg-red-50 text-red-600'}`}>
+    <span className={`shrink-0 text-[14px] px-1.5 py-0.5 rounded font-semibold ${ok ? 'bg-emerald-100 text-emerald-700' : 'bg-red-50 text-red-600'}`}>
       {ok ? '✓' : '✗'} {label}
     </span>
   )
@@ -141,12 +141,12 @@ export default function TopaiVidiniaiClient() {
                       <div className="flex items-center gap-2 flex-wrap">
                         {link ? <a href={link} target="_blank" rel="noreferrer" className="font-bold text-gray-900 hover:text-orange-600 truncate">{t.title}</a>
                           : <span className="font-bold text-gray-900 truncate">{t.title}</span>}
-                        {t.hidden && <span className="text-[13px] px-1.5 py-0.5 rounded bg-red-100 text-red-600 font-semibold">narys paslėptas</span>}
-                        {t.approved && <span className="text-[13px] px-1.5 py-0.5 rounded bg-emerald-100 text-emerald-700 font-semibold">patvirtinta</span>}
+                        {t.hidden && <span className="text-[14px] px-1.5 py-0.5 rounded bg-red-100 text-red-600 font-semibold">narys paslėptas</span>}
+                        {t.approved && <span className="text-[14px] px-1.5 py-0.5 rounded bg-emerald-100 text-emerald-700 font-semibold">patvirtinta</span>}
                       </div>
                       <div className="text-xs text-gray-500 mt-0.5">{t.author || 'be autoriaus'} · {t.published_at ? new Date(t.published_at).toLocaleDateString('lt-LT') : '—'}</div>
                     </div>
-                    <span className={`shrink-0 text-[13px] px-2 py-1 rounded-lg font-semibold ${allConnected ? 'bg-emerald-50 text-emerald-700' : 'bg-amber-50 text-amber-700'}`}>{t.connected}/{t.total} sujungta</span>
+                    <span className={`shrink-0 text-[14px] px-2 py-1 rounded-lg font-semibold ${allConnected ? 'bg-emerald-50 text-emerald-700' : 'bg-amber-50 text-amber-700'}`}>{t.connected}/{t.total} sujungta</span>
                   </div>
 
                   {/* Veiksmai */}
@@ -188,7 +188,7 @@ export default function TopaiVidiniaiClient() {
                         const key = `${t.id}:${e.rank}`
                         const entLabel = e.type === 'album' ? 'alb.' : e.type === 'artist' ? 'atl.' : 'dai.'
                         const Flag = ({ ok, label }: { ok: boolean; label: string }) => (
-                          <span className={`shrink-0 text-[13px] px-1.5 py-0.5 rounded font-semibold ${ok ? 'bg-emerald-100 text-emerald-700' : 'bg-red-50 text-red-600'}`}>
+                          <span className={`shrink-0 text-[14px] px-1.5 py-0.5 rounded font-semibold ${ok ? 'bg-emerald-100 text-emerald-700' : 'bg-red-50 text-red-600'}`}>
                             {ok ? '✓' : '✗'} {label}
                           </span>
                         )

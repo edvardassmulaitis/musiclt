@@ -286,7 +286,7 @@ function ConversationRow({ c, viewerId, active }: { c: ConversationListItem; vie
       <div style={{ flex: 1, minWidth: 0 }}>
         <div style={{ display: 'flex', alignItems: 'baseline', gap: 6, marginBottom: 2 }}>
           <div style={{
-            flex: 1, minWidth: 0, fontSize: 14.5,
+            flex: 1, minWidth: 0, fontSize: 14,
             fontWeight: c.unread_count > 0 ? 800 : 600,
             color: 'var(--text-primary)',
             overflow: 'hidden', whiteSpace: 'nowrap', textOverflow: 'ellipsis',
@@ -294,7 +294,7 @@ function ConversationRow({ c, viewerId, active }: { c: ConversationListItem; vie
             {name}
             {c.notifications_muted && <span style={{ marginLeft: 6, fontSize: 12, color: 'var(--text-muted)' }}>🔕</span>}
           </div>
-          <div style={{ fontSize: 12.5, color: c.unread_count > 0 ? 'var(--accent-orange)' : 'var(--text-muted)', flexShrink: 0 }}>
+          <div style={{ fontSize: 12, color: c.unread_count > 0 ? 'var(--accent-orange)' : 'var(--text-muted)', flexShrink: 0 }}>
             {time}
           </div>
         </div>
@@ -350,13 +350,13 @@ function DiscussionRow({ d }: { d: DiscussionItem }) {
       <div style={{ flex: 1, minWidth: 0 }}>
         <div style={{ display: 'flex', alignItems: 'baseline', gap: 6, marginBottom: 2 }}>
           <div style={{
-            flex: 1, minWidth: 0, fontSize: 14.5, fontWeight: 700,
+            flex: 1, minWidth: 0, fontSize: 14, fontWeight: 700,
             color: 'var(--text-primary)',
             overflow: 'hidden', whiteSpace: 'nowrap', textOverflow: 'ellipsis',
           }}>
             {d.title}
           </div>
-          <div style={{ fontSize: 12.5, color: 'var(--text-muted)', flexShrink: 0 }}>
+          <div style={{ fontSize: 12, color: 'var(--text-muted)', flexShrink: 0 }}>
             {time}
           </div>
         </div>
@@ -368,7 +368,7 @@ function DiscussionRow({ d }: { d: DiscussionItem }) {
             {subtitle}
           </div>
           <span style={{
-            fontSize: 11, fontWeight: 800, padding: '1px 6px', borderRadius: 4,
+            fontSize: 12, fontWeight: 800, padding: '1px 6px', borderRadius: 4,
             background: 'rgba(139, 92, 246, 0.18)',
             color: '#c4b5fd', textTransform: 'uppercase', letterSpacing: '0.05em',
           }}>{involvementBadge}</span>

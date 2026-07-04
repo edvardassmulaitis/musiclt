@@ -368,7 +368,7 @@ export function MessagePane({ conversation, viewerId, initialMessages, onOpenThr
 
       {/* Typing indicator */}
       {typingArr.length > 0 && (
-        <div style={{ padding: '4px 16px 0', fontSize: 13.5, color: 'var(--text-muted)', fontStyle: 'italic' }}>
+        <div style={{ padding: '4px 16px 0', fontSize: 14, color: 'var(--text-muted)', fontStyle: 'italic' }}>
           {typingArr.length === 1
             ? `${typingArr[0]} rašo…`
             : typingArr.length === 2
@@ -392,7 +392,7 @@ function DateSeparator({ label }: { label: string }) {
   return (
     <div style={{ display: 'flex', alignItems: 'center', gap: 12, padding: '14px 16px 6px' }}>
       <div style={{ flex: 1, height: 1, background: 'var(--border-subtle)' }}/>
-      <div style={{ fontSize: 12.5, fontWeight: 700, color: 'var(--text-muted)', textTransform: 'uppercase', letterSpacing: '0.08em' }}>
+      <div style={{ fontSize: 12, fontWeight: 700, color: 'var(--text-muted)', textTransform: 'uppercase', letterSpacing: '0.08em' }}>
         {label}
       </div>
       <div style={{ flex: 1, height: 1, background: 'var(--border-subtle)' }}/>
@@ -446,11 +446,11 @@ function ConversationHeader({ conversation, viewerId, onOpenSettings, onMobileBa
         : <ChatAvatar url={dmOther?.avatar_url || null} fallbackName={title} size={36} />}
 
       <div style={{ flex: 1, minWidth: 0 }}>
-        <div style={{ fontSize: 14.5, fontWeight: 800, color: 'var(--text-primary)', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+        <div style={{ fontSize: 14, fontWeight: 800, color: 'var(--text-primary)', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
           {title}
         </div>
         {subtitle && (
-          <div style={{ fontSize: 13.5, color: 'var(--text-muted)', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+          <div style={{ fontSize: 14, color: 'var(--text-muted)', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
             {subtitle}
           </div>
         )}

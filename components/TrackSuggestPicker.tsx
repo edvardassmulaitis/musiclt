@@ -504,7 +504,7 @@ export default function TrackSuggestPicker({
               type="button"
               onClick={() => runYtSearch(ytLastQuery, ytNextPageToken)}
               disabled={ytLoadingMore}
-              className="w-full mt-1 px-2 py-1 text-[13px] text-blue-700 hover:bg-blue-50 rounded font-medium">
+              className="w-full mt-1 px-2 py-1 text-[14px] text-blue-700 hover:bg-blue-50 rounded font-medium">
               {ytLoadingMore ? 'Kraunama...' : '+ Rodyti daugiau YouTube rezultatų'}
             </button>
           )}
@@ -741,7 +741,7 @@ function Badge({ type }: { type: 'db' | 'ai' | 'embed' | 'yt' | 'wiki' | 'manual
     manual: { label: 'MANUAL', cls: 'bg-gray-100 text-gray-700' },
   }
   const c = cfg[type]
-  return <span className={`px-1 py-0 rounded text-[11px] font-bold ${c.cls}`}>{c.label}</span>
+  return <span className={`px-1 py-0 rounded text-[12px] font-bold ${c.cls}`}>{c.label}</span>
 }
 
 function Row({ title, subtitle, badge, selected, disabled = false, onToggle, onTitleClick }: {

@@ -20,7 +20,7 @@ export function PhotographerCard({ p }: { p: Photographer }) {
           className="h-12 w-12 flex-none rounded-full object-cover"
         />
       ) : (
-        <div className="flex h-12 w-12 flex-none items-center justify-center rounded-full bg-gradient-to-br from-[#ec4899] to-[#8b5cf6] font-['Outfit',sans-serif] text-[18px] font-black text-white">
+        <div className="flex h-12 w-12 flex-none items-center justify-center rounded-full bg-gradient-to-br from-[#ec4899] to-[#8b5cf6] font-['Outfit',sans-serif] text-[20px] font-black text-white">
           {p.name?.charAt(0)?.toUpperCase() || '?'}
         </div>
       )}

@@ -135,7 +135,7 @@ export default function YtBackfillPage() {
         {(['A', 'B', 'C'] as const).map((p) => (
           <div key={p} className="bg-[var(--bg-surface)] border border-[var(--border-subtle)] rounded-xl p-4 shadow-sm">
             <div className="text-2xl font-bold tabular-nums text-[var(--text-primary)]">{fmt(stats?.remaining[p])}</div>
-            <div className="text-[13px] uppercase tracking-wide font-semibold text-[var(--text-muted)] mt-0.5">Fazė {p}</div>
+            <div className="text-[14px] uppercase tracking-wide font-semibold text-[var(--text-muted)] mt-0.5">Fazė {p}</div>
             <div className="text-xs text-[var(--text-secondary)] mt-1">{PHASE_LABEL[p]}</div>
           </div>
         ))}

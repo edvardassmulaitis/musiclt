@@ -135,7 +135,7 @@ export default function LegacyLikesPanel({
           style={{
             padding: '10px 18px',
             borderTop: '1px solid var(--border-subtle)',
-            fontSize: 13,
+            fontSize: 14,
             color: 'var(--text-muted)',
             textAlign: 'center',
             fontStyle: 'italic',
@@ -212,7 +212,7 @@ function LegacyUserTile({ user }: { user: LegacyLikeUser }) {
           alignItems: 'center',
           justifyContent: 'center',
           flexShrink: 0,
-          fontSize: 13,
+          fontSize: 14,
           fontWeight: 800,
           color: AMBER,
           fontFamily: 'Outfit,sans-serif',
@@ -223,7 +223,7 @@ function LegacyUserTile({ user }: { user: LegacyLikeUser }) {
       <div style={{ minWidth: 0, flex: 1 }}>
         <div
           style={{
-            fontSize: 13,
+            fontSize: 14,
             fontWeight: 700,
             color: 'var(--text-primary)',
             whiteSpace: 'nowrap',
@@ -236,7 +236,7 @@ function LegacyUserTile({ user }: { user: LegacyLikeUser }) {
         {user.user_rank && (
           <div
             style={{
-              fontSize: 11,
+              fontSize: 12,
               color: 'var(--text-muted)',
               fontWeight: 600,
               whiteSpace: 'nowrap',
@@ -262,7 +262,7 @@ export function LegacyBadge({ label = 'Archyvas' }: { label?: string } = {}) {
         display: 'inline-flex',
         alignItems: 'center',
         gap: 4,
-        fontSize: 11,
+        fontSize: 12,
         fontWeight: 800,
         textTransform: 'uppercase',
         letterSpacing: '.1em',

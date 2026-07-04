@@ -256,7 +256,7 @@ export default function LiveWidget() {
                 }`}>
                 {l}
                 {k === 'shout' && tab !== 'shout' && unread > 0 && (
-                  <span className="ml-1 px-1.5 py-0.5 rounded-full text-[11px] font-black bg-red-500 text-white">
+                  <span className="ml-1 px-1.5 py-0.5 rounded-full text-[12px] font-black bg-red-500 text-white">
                     {unread}
                   </span>
                 )}
@@ -285,7 +285,7 @@ export default function LiveWidget() {
                       <Avatar name={msg.author_name} src={msg.author_avatar} size={6} />
                       <div className="flex-1 min-w-0">
                         <div className="flex items-baseline gap-1.5">
-                          <span className="text-[13px] font-bold text-blue-300 truncate max-w-[100px]">
+                          <span className="text-[14px] font-bold text-blue-300 truncate max-w-[100px]">
                             {msg.author_name}
                           </span>
                           <span className="text-[12px] text-gray-700 flex-shrink-0">{timeShort(msg.created_at)}</span>
@@ -375,7 +375,7 @@ export default function LiveWidget() {
                     <div className="flex items-start gap-2 px-2 py-2 rounded-xl transition-colors hover:bg-white/5 cursor-pointer">
                       <span className="text-sm flex-shrink-0 mt-0.5">{icon}</span>
                       <div className="flex-1 min-w-0">
-                        <p className="text-[13px] text-gray-300 leading-relaxed line-clamp-2">{text}</p>
+                        <p className="text-[14px] text-gray-300 leading-relaxed line-clamp-2">{text}</p>
                         <span className="text-[12px] text-gray-700">{timeShort(event.created_at)}</span>
                       </div>
                     </div>

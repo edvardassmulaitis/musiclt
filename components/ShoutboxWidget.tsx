@@ -37,13 +37,13 @@ function MsgRow({ m, isAdmin, onDelete }: { m: Msg; isAdmin: boolean; onDelete: 
       )}
       <div className="min-w-0 flex-1">
         <div className="flex items-baseline gap-1.5">
-          <span className="truncate text-[13px] font-extrabold text-[var(--accent-link)]">{name}</span>
-          <span className="shrink-0 text-[11px] text-[var(--text-faint)]">{timeAgoShort(m.created_at)}</span>
+          <span className="truncate text-[14px] font-extrabold text-[var(--accent-link)]">{name}</span>
+          <span className="shrink-0 text-[12px] text-[var(--text-faint)]">{timeAgoShort(m.created_at)}</span>
           {isAdmin && (
             <button onClick={() => onDelete(m.id)} title="Ištrinti" className="ml-auto shrink-0 text-[12px] text-[var(--text-faint)] opacity-0 transition-opacity hover:text-[var(--accent-red)] group-hover:opacity-100">✕</button>
           )}
         </div>
-        <p className="m-0 break-words text-[14.5px] leading-snug text-[var(--text-secondary)]">{m.body}</p>
+        <p className="m-0 break-words text-[14px] leading-snug text-[var(--text-secondary)]">{m.body}</p>
       </div>
     </div>
   )
@@ -71,7 +71,7 @@ function Composer({ onSent, big = false }: { onSent: () => void; big?: boolean }
   const [err, setErr] = useState<string | null>(null)
   if (!session?.user) {
     return (
-      <Link href="/auth/signin" className="block rounded-lg border border-[var(--border-default)] bg-[var(--bg-hover)] px-3 py-2 text-center text-[13px] font-bold text-[var(--accent-link)] no-underline">
+      <Link href="/auth/signin" className="block rounded-lg border border-[var(--border-default)] bg-[var(--bg-hover)] px-3 py-2 text-center text-[14px] font-bold text-[var(--accent-link)] no-underline">
         Prisijunk rašyti pokalbyje →
       </Link>
     )
@@ -160,9 +160,9 @@ export function ShoutboxWidget() {
       </div>
       <div ref={bodyRef} className="flex-1 overflow-y-auto py-1.5" style={{ minHeight: 0 }}>
         {loading ? (
-          <div className="px-3 py-6 text-center text-[13px] text-[var(--text-faint)]">Kraunama…</div>
+          <div className="px-3 py-6 text-center text-[14px] text-[var(--text-faint)]">Kraunama…</div>
         ) : messages.length === 0 ? (
-          <div className="px-3 py-6 text-center text-[13px] text-[var(--text-muted)]">Dar nėra žinučių — parašyk pirmas!</div>
+          <div className="px-3 py-6 text-center text-[14px] text-[var(--text-muted)]">Dar nėra žinučių — parašyk pirmas!</div>
         ) : messages.map(m => <MsgRow key={m.id} m={m} isAdmin={isAdmin} onDelete={del} />)}
       </div>
       <div className="shrink-0 border-t border-[var(--border-subtle)] p-2.5">

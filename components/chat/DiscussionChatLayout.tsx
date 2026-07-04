@@ -333,18 +333,18 @@ function DiscussionHeader({ discussion, onMobileBack }: { discussion: Discussion
       </div>
       <div style={{ flex: 1, minWidth: 0 }}>
         <div style={{
-          fontSize: 14.5, fontWeight: 800, color: 'var(--text-primary)',
+          fontSize: 14, fontWeight: 800, color: 'var(--text-primary)',
           overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap',
         }}>
           {discussion.title}
         </div>
-        <div style={{ fontSize: 13.5, color: 'var(--text-muted)' }}>
+        <div style={{ fontSize: 14, color: 'var(--text-muted)' }}>
           Diskusija · {discussion.comment_count} {discussion.comment_count === 1 ? 'atsakymas' : 'atsakymai'}
         </div>
       </div>
       <Link href={`/diskusijos/${discussion.slug}`}
         style={{
-          fontSize: 13, color: 'var(--text-muted)', textDecoration: 'none',
+          fontSize: 14, color: 'var(--text-muted)', textDecoration: 'none',
           padding: '5px 10px', borderRadius: 6,
           border: '1px solid var(--border-default)',
         }}
@@ -371,7 +371,7 @@ function DiscussionRoot({ discussion }: { discussion: DiscussionRow }) {
           <div style={{ fontSize: 14, fontWeight: 700, color: 'var(--text-primary)' }}>
             {discussion.author_name || 'Anonimas'}
           </div>
-          <div style={{ fontSize: 12.5, color: 'var(--text-muted)' }}>
+          <div style={{ fontSize: 12, color: 'var(--text-muted)' }}>
             Diskusijos pradžia
           </div>
         </div>
@@ -403,7 +403,7 @@ function DateSep({ label }: { label: string }) {
   return (
     <div style={{ display: 'flex', alignItems: 'center', gap: 12, padding: '14px 16px 6px' }}>
       <div style={{ flex: 1, height: 1, background: 'var(--border-subtle)' }}/>
-      <div style={{ fontSize: 12.5, fontWeight: 700, color: 'var(--text-muted)', textTransform: 'uppercase', letterSpacing: '0.08em' }}>
+      <div style={{ fontSize: 12, fontWeight: 700, color: 'var(--text-muted)', textTransform: 'uppercase', letterSpacing: '0.08em' }}>
         {label}
       </div>
       <div style={{ flex: 1, height: 1, background: 'var(--border-subtle)' }}/>

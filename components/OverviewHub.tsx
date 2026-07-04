@@ -79,7 +79,7 @@ export function OverviewHub({
           </h1>
         </div>
         <p style={{
-          fontSize: 17,
+          fontSize: 16,
           lineHeight: 1.5,
           color: 'var(--text-secondary)',
           margin: '0 0 0 74px',
@@ -184,14 +184,14 @@ export function OverviewHub({
           display: flex; align-items: center; gap: 8px; margin-bottom: 4px; flex-wrap: wrap;
         }
         .ovh-tile-title {
-          font-size: 17px; font-weight: 800;
+          font-size: 16px; font-weight: 800;
           color: var(--text-primary);
           letter-spacing: -0.01em;
           line-height: 1.2;
         }
         .ovh-tile-soon {
           display: inline-flex; align-items: center; gap: 4px;
-          font-size: 9.5px; font-weight: 800;
+          font-size: 12px; font-weight: 800;
           text-transform: uppercase; letter-spacing: 0.08em;
           padding: 2px 7px;
           border-radius: 999px;
@@ -209,14 +209,14 @@ export function OverviewHub({
           50%      { opacity: 0.5; transform: scale(1.4); }
         }
         .ovh-tile-desc {
-          font-size: 13.5px; font-weight: 500;
+          font-size: 14px; font-weight: 500;
           color: var(--text-secondary);
           line-height: 1.5;
           margin-bottom: 8px;
         }
         .ovh-tile-stat {
           display: inline-block;
-          font-size: 11.5px; font-weight: 700;
+          font-size: 12px; font-weight: 700;
           color: rgba(var(--it-rgb), 1);
           padding: 3px 9px;
           border-radius: 6px;

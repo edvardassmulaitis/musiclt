@@ -10,7 +10,7 @@ export function PostTypeBadge({ type }: { type: BlogPostType }) {
   if (!meta) return null
   return (
     <span
-      className="inline-flex items-center px-1.5 py-0.5 rounded text-[11px] font-bold uppercase tracking-wider"
+      className="inline-flex items-center px-1.5 py-0.5 rounded text-[12px] font-bold uppercase tracking-wider"
       style={{ background: 'rgba(255,255,255,0.04)', color: '#8aa8cc', border: '1px solid rgba(255,255,255,0.06)' }}
     >
       {meta.label}

@@ -264,17 +264,17 @@ export default function IrasaiAdminClient() {
                         {link
                           ? <a href={link} target="_blank" rel="noreferrer" className="font-bold text-gray-900 hover:text-orange-600 truncate">{it.title}</a>
                           : <span className="font-bold text-gray-900 truncate">{it.title}</span>}
-                        {it.hidden && <span className="text-[13px] px-1.5 py-0.5 rounded bg-red-100 text-red-600 font-semibold">narys paslėptas</span>}
-                        {it.is_deleted && <span className="text-[13px] px-1.5 py-0.5 rounded bg-red-100 text-red-700 font-semibold">🗑 ištrintas</span>}
-                        {it.reviewed && <span className="text-[13px] px-1.5 py-0.5 rounded bg-emerald-100 text-emerald-700 font-semibold">sutvarkyta</span>}
-                        {it.featured && <span className="text-[13px] px-1.5 py-0.5 rounded bg-amber-100 text-amber-700 font-semibold" title={it.featured_until ? `iki ${new Date(it.featured_until).toLocaleString('lt-LT')}` : ''}>★ verta dėmesio</span>}
-                        {it.home_hero && <span className="text-[13px] px-1.5 py-0.5 rounded bg-orange-100 text-orange-700 font-semibold">🏠 hero</span>}
+                        {it.hidden && <span className="text-[14px] px-1.5 py-0.5 rounded bg-red-100 text-red-600 font-semibold">narys paslėptas</span>}
+                        {it.is_deleted && <span className="text-[14px] px-1.5 py-0.5 rounded bg-red-100 text-red-700 font-semibold">🗑 ištrintas</span>}
+                        {it.reviewed && <span className="text-[14px] px-1.5 py-0.5 rounded bg-emerald-100 text-emerald-700 font-semibold">sutvarkyta</span>}
+                        {it.featured && <span className="text-[14px] px-1.5 py-0.5 rounded bg-amber-100 text-amber-700 font-semibold" title={it.featured_until ? `iki ${new Date(it.featured_until).toLocaleString('lt-LT')}` : ''}>★ verta dėmesio</span>}
+                        {it.home_hero && <span className="text-[14px] px-1.5 py-0.5 rounded bg-orange-100 text-orange-700 font-semibold">🏠 hero</span>}
                       </div>
                       <div className="text-xs text-gray-500 mt-0.5">
                         {it.author || 'be autoriaus'} · {it.published_at ? new Date(it.published_at).toLocaleDateString('lt-LT') : 'nepublikuotas'} · 👁 {it.view_count.toLocaleString('lt-LT')} perž.
                       </div>
                     </div>
-                    <span className={`shrink-0 text-[13px] px-2 py-1 rounded-lg font-semibold ${onHome ? 'bg-emerald-50 text-emerald-700' : 'bg-gray-100 text-gray-500'}`}>
+                    <span className={`shrink-0 text-[14px] px-2 py-1 rounded-lg font-semibold ${onHome ? 'bg-emerald-50 text-emerald-700' : 'bg-gray-100 text-gray-500'}`}>
                       {onHome ? '● homepage' : '○ tik /atrasti'}
                     </span>
                   </div>
@@ -290,7 +290,7 @@ export default function IrasaiAdminClient() {
 
                     {it.post_type === 'topas' && it.topas && (
                       <div className="flex items-center gap-2">
-                        <span className={`text-[13px] px-2 py-1 rounded-lg font-semibold ${fmtBadge[it.topas.format].c}`}>
+                        <span className={`text-[14px] px-2 py-1 rounded-lg font-semibold ${fmtBadge[it.topas.format].c}`}>
                           {fmtBadge[it.topas.format].l} · {it.topas.matched}/{it.topas.total} sutapo
                         </span>
                         {it.topas.format !== 'empty' && (

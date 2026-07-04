@@ -147,7 +147,7 @@ export default function NewsCard({
         </div>
         <div className="min-w-0 flex-1">
           <h3 className="line-clamp-2 text-[14px] font-bold leading-snug text-[var(--text-primary)] group-hover:text-[var(--accent-orange,#f59e0b)]">{item.title}</h3>
-          <div className="mt-0.5 flex items-center gap-1.5 text-[13px] text-[var(--text-faint)]">
+          <div className="mt-0.5 flex items-center gap-1.5 text-[14px] text-[var(--text-faint)]">
             {item.artistName && <span className="truncate font-medium text-[var(--text-secondary)]">{item.artistName}</span>}
             {item.artistName && item.date && <span>·</span>}
             {item.date && <span className="shrink-0">{relNewsDate(item.date)}</span>}
@@ -177,7 +177,7 @@ export default function NewsCard({
         <h2 className="line-clamp-3 min-h-[3.85em] text-[14px] font-bold leading-[1.28] text-[var(--text-primary)] transition-colors group-hover:text-[var(--accent-orange,#f59e0b)]">
           {item.title}
         </h2>
-        <div className="flex items-center justify-between gap-2 text-[13px] text-[var(--text-faint)]">
+        <div className="flex items-center justify-between gap-2 text-[14px] text-[var(--text-faint)]">
           <span className="flex min-w-0 items-center gap-1.5">
             {item.artistName && <span className="truncate font-semibold text-[var(--text-secondary)]">{item.artistName}</span>}
             {item.artistName && item.date && <span className="shrink-0 opacity-50">·</span>}

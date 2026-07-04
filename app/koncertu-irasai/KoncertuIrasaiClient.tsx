@@ -132,13 +132,13 @@ function ThumbOverlays({ rec }: { rec: ConcertRecording }) {
   return (
     <>
       {rel && (
-        <span className="pointer-events-none absolute left-2 top-2 inline-flex items-center gap-1 rounded-full bg-black/70 px-2 py-0.5 text-[12.5px] font-bold text-white backdrop-blur-sm">
+        <span className="pointer-events-none absolute left-2 top-2 inline-flex items-center gap-1 rounded-full bg-black/70 px-2 py-0.5 text-[12px] font-bold text-white backdrop-blur-sm">
           {fresh && <span className="h-1.5 w-1.5 rounded-full bg-emerald-400" />}
           {rel}
         </span>
       )}
       {rec.duration_seconds != null && (
-        <span className="pointer-events-none absolute bottom-2 left-2 rounded bg-black/80 px-1.5 py-0.5 font-['Outfit',sans-serif] text-[13px] font-bold text-white">
+        <span className="pointer-events-none absolute bottom-2 left-2 rounded bg-black/80 px-1.5 py-0.5 font-['Outfit',sans-serif] text-[14px] font-bold text-white">
           {formatDurationRough(rec.duration_seconds)}
         </span>
       )}
@@ -166,12 +166,12 @@ function RecordingCard({ rec, onPlay }: { rec: ConcertRecording; onPlay: () => v
       </div>
       <div className="mt-2">
         <button onClick={onPlay} className="block text-left">
-          <h3 className="line-clamp-2 font-['Outfit',sans-serif] text-[14.5px] font-bold leading-snug text-[var(--text-primary)] group-hover:text-[var(--accent-orange)]">{rec.title}</h3>
+          <h3 className="line-clamp-2 font-['Outfit',sans-serif] text-[14px] font-bold leading-snug text-[var(--text-primary)] group-hover:text-[var(--accent-orange)]">{rec.title}</h3>
         </button>
         <div className="mt-0.5 flex items-center justify-between gap-2">
           {rec.artist_slug ? (
-            <Link href={`/atlikejai/${rec.artist_slug}`} className="truncate text-[14.5px] font-semibold text-[var(--text-secondary)] hover:text-[var(--accent-orange)]">{rec.artist_name}</Link>
-          ) : rec.artist_name ? <span className="truncate text-[14.5px] font-semibold text-[var(--text-muted)]">{rec.artist_name}</span> : <span />}
+            <Link href={`/atlikejai/${rec.artist_slug}`} className="truncate text-[14px] font-semibold text-[var(--text-secondary)] hover:text-[var(--accent-orange)]">{rec.artist_name}</Link>
+          ) : rec.artist_name ? <span className="truncate text-[14px] font-semibold text-[var(--text-muted)]">{rec.artist_name}</span> : <span />}
           <PopBar views={rec.view_count} />
         </div>
       </div>
@@ -192,8 +192,8 @@ function FeaturedPlayer({ rec }: { rec: ConcertRecording }) {
         {relativeAppeared(rec.uploaded_at) && <span className="text-[14px] text-[var(--text-faint)]">{relativeAppeared(rec.uploaded_at)}</span>}
         <PopBar views={rec.view_count} />
       </div>
-      <h2 className="mt-1.5 font-['Outfit',sans-serif] text-[19px] font-black leading-tight tracking-[-0.01em] text-[var(--text-primary)]">{rec.title}</h2>
-      <div className="mt-1 text-[14.5px] text-[var(--text-muted)]">
+      <h2 className="mt-1.5 font-['Outfit',sans-serif] text-[20px] font-black leading-tight tracking-[-0.01em] text-[var(--text-primary)]">{rec.title}</h2>
+      <div className="mt-1 text-[14px] text-[var(--text-muted)]">
         {rec.artist_slug ? <Link href={`/atlikejai/${rec.artist_slug}`} className="font-bold text-[var(--accent-link)]">{rec.artist_name}</Link> : rec.artist_name}
         {rec.recorded_year && <span> · {rec.recorded_year} m.</span>}
       </div>
@@ -224,11 +224,11 @@ function PlayerModal({ rec, onClose }: { rec: ConcertRecording; onClose: () => v
               {rel && <span className="text-[14px] text-[var(--text-faint)]">{rel}</span>}
               <PopBar views={rec.view_count} />
             </div>
-            <h2 className="font-['Outfit',sans-serif] text-[17px] font-extrabold leading-tight text-[var(--text-primary)]">{rec.title}</h2>
+            <h2 className="font-['Outfit',sans-serif] text-[16px] font-extrabold leading-tight text-[var(--text-primary)]">{rec.title}</h2>
             <div className="mt-1 text-[14px] text-[var(--text-muted)]">
               {rec.artist_slug ? <Link href={`/atlikejai/${rec.artist_slug}`} className="font-semibold text-[var(--accent-link)]">{rec.artist_name}</Link> : rec.artist_name}
             </div>
-            <Link href={recordingHref(rec)} className="mt-2 inline-block text-[14.5px] font-semibold text-[var(--accent-link)]">Atskiras puslapis →</Link>
+            <Link href={recordingHref(rec)} className="mt-2 inline-block text-[14px] font-semibold text-[var(--accent-link)]">Atskiras puslapis →</Link>
           </div>
           <button onClick={onClose} className="shrink-0 rounded-full bg-[var(--bg-elevated)] p-2 text-[var(--text-muted)] hover:text-[var(--text-primary)]" aria-label="Uždaryti">
             <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round"><path d="M18 6 6 18M6 6l12 12" /></svg>
@@ -246,7 +246,7 @@ function FilterStyles() {
       .kf-bar { display:flex; flex-wrap:wrap; gap:7px; align-items:center; padding:11px 12px; border-radius:14px;
         background:var(--bg-surface); border:1px solid var(--border-default,rgba(255,255,255,0.08)); margin-bottom:22px; }
       .kf-divider { width:1px; height:22px; background:var(--border-default,rgba(255,255,255,0.1)); margin:0 2px; }
-      .kf-chip { display:inline-flex; align-items:center; gap:5px; padding:6px 13px; border-radius:100px; font-size:12.5px; font-weight:600;
+      .kf-chip { display:inline-flex; align-items:center; gap:5px; padding:6px 13px; border-radius:100px; font-size:12px; font-weight:600;
         font-family:'Outfit',sans-serif; background:var(--bg-hover); border:1px solid var(--border-default,rgba(255,255,255,0.08));
         color:var(--text-secondary); transition:all .15s; white-space:nowrap; cursor:pointer; line-height:1.3; }
       .kf-chip:hover { color:var(--text-primary); border-color:rgba(249,115,22,0.4); }
@@ -257,10 +257,10 @@ function FilterStyles() {
       .kf-pop { position:absolute; top:calc(100% + 8px); left:0; z-index:50; min-width:190px; max-height:300px; overflow-y:auto; padding:7px;
         background:var(--bg-surface); border:1px solid var(--border-default,rgba(255,255,255,0.12)); border-radius:13px; box-shadow:0 14px 40px rgba(0,0,0,0.32); }
       .kf-opt { display:flex; align-items:center; justify-content:space-between; gap:10px; width:100%; text-align:left; padding:8px 10px; border-radius:9px;
-        font-size:13px; font-weight:600; font-family:'Outfit',sans-serif; cursor:pointer; background:transparent; border:none; color:var(--text-secondary); transition:all .12s; }
+        font-size:14px; font-weight:600; font-family:'Outfit',sans-serif; cursor:pointer; background:transparent; border:none; color:var(--text-secondary); transition:all .12s; }
       .kf-opt:hover { background:var(--bg-hover); color:var(--text-primary); }
       .kf-opt.on { color:var(--accent-orange); }
-      .kf-optn { font-size:11px; font-weight:700; color:var(--text-faint); }
+      .kf-optn { font-size:12px; font-weight:700; color:var(--text-faint); }
     `}</style>
   )
 }

@@ -106,11 +106,11 @@ export default function PranesimaiPage() {
         .pr-h h1 { font-size: 24px; font-weight: 900; letter-spacing: -0.02em; color: var(--text-primary); margin: 0; }
         .pr-tabs { display: flex; gap: 4px; border-bottom: 1px solid var(--border-subtle); }
         .pr-tab { flex: 1; padding: 11px 8px; border: none; background: transparent; cursor: pointer;
-          font-family: inherit; font-size: 13.5px; font-weight: 700; color: var(--text-muted);
+          font-family: inherit; font-size: 14px; font-weight: 700; color: var(--text-muted);
           border-bottom: 2px solid transparent; display: inline-flex; align-items: center; justify-content: center; gap: 7px; }
         .pr-tab.active { color: var(--text-primary); border-bottom-color: var(--accent-orange); }
         .pr-tab-badge { min-width: 17px; height: 17px; padding: 0 5px; border-radius: 9px; background: var(--accent-orange);
-          color: #fff; font-size: 10px; font-weight: 800; display: inline-flex; align-items: center; justify-content: center; }
+          color: #fff; font-size: 12px; font-weight: 800; display: inline-flex; align-items: center; justify-content: center; }
         .pr-list { display: flex; flex-direction: column; gap: 8px; padding: 14px 16px 0; }
         .pr-row { display: flex; gap: 12px; align-items: center; text-decoration: none;
           background: var(--bg-elevated); border: 1px solid var(--border-subtle); border-radius: 13px; padding: 11px 13px; transition: border-color .14s; }
@@ -119,10 +119,10 @@ export default function PranesimaiPage() {
         .pr-av { flex-shrink: 0; width: 42px; height: 42px; border-radius: 50%; overflow: hidden;
           background: var(--bg-surface); display: flex; align-items: center; justify-content: center; }
         .pr-av img { width: 100%; height: 100%; object-fit: cover; }
-        .pr-av span { font-size: 17px; font-weight: 800; color: var(--text-faint); }
+        .pr-av span { font-size: 16px; font-weight: 800; color: var(--text-faint); }
         .pr-body { display: flex; flex-direction: column; gap: 2px; min-width: 0; flex: 1; }
         .pr-title { font-size: 14px; font-weight: 600; color: var(--text-primary); line-height: 1.3; }
-        .pr-snippet { font-size: 13px; color: var(--text-secondary); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+        .pr-snippet { font-size: 14px; color: var(--text-secondary); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
         .pr-time { font-size: 12px; color: var(--text-faint); margin-top: 1px; }
         .pr-dot { flex-shrink: 0; width: 9px; height: 9px; border-radius: 50%; background: var(--accent-orange); }
         .pr-empty, .pr-cta { text-align: center; padding: 44px 16px; color: var(--text-muted); }

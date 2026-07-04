@@ -153,13 +153,13 @@ export default function ReitingaiAdmin() {
         </div>
         <div className="grid sm:grid-cols-2 gap-x-6 gap-y-1.5">
           {cols.map(c => (
-            <div key={c.key} className="flex gap-2 text-[13px] leading-snug">
+            <div key={c.key} className="flex gap-2 text-[14px] leading-snug">
               <span className="shrink-0 font-bold" style={{ color: c.color }}>{c.label} <span className="text-[var(--text-faint)]">(0–{c.max})</span></span>
               <span className="text-[var(--text-faint)]">{c.desc}</span>
             </div>
           ))}
         </div>
-        <div className="text-[13px] text-[var(--text-faint)] mt-2 pt-2 border-t border-[var(--border-subtle)]">
+        <div className="text-[14px] text-[var(--text-faint)] mt-2 pt-2 border-t border-[var(--border-subtle)]">
           <b>Bazė</b> = šių dalių suma. <b>Galutinis</b> = bazė + bonusas (±15), apkarpoma 0–100. Ta pati formulė LT ir užsienio atlikėjams.
         </div>
       </div>
@@ -173,7 +173,7 @@ export default function ReitingaiAdmin() {
               {cols.map(c => (
                 <th key={c.key} className="px-2 py-2 text-center font-semibold w-16" title={`${c.label} (0–${c.max}). ${c.desc}`}>
                   <span style={{ color: c.color }}>{c.short}</span>
-                  <span className="block text-[11px] font-normal text-[var(--text-faint)]">/{c.max}</span>
+                  <span className="block text-[12px] font-normal text-[var(--text-faint)]">/{c.max}</span>
                 </th>
               ))}
               <th className="px-2 py-2 text-center font-bold w-14 border-l border-[var(--border-subtle)]">Bazė</th>
@@ -198,7 +198,7 @@ export default function ReitingaiAdmin() {
                     <button onClick={() => toggleExpand(r.id)} title="Rodyti, kokios dainos subuildino balą"
                       className="mr-1.5 text-[var(--text-faint)] hover:text-orange-600 w-4 inline-block text-center">{open ? '▾' : '▸'}</button>
                     <Link href={`/admin/artists/${r.id}`} className="font-semibold text-[var(--text-primary)] hover:text-orange-600">{r.name}</Link>
-                    <span className="ml-1.5 text-[13px] text-[var(--text-faint)]">{fmtCountry(r.country)}</span>
+                    <span className="ml-1.5 text-[14px] text-[var(--text-faint)]">{fmtCountry(r.country)}</span>
                   </td>
                   {cols.map(c => {
                     const cat = md.categories?.[c.key]
@@ -229,12 +229,12 @@ export default function ReitingaiAdmin() {
                         <div className="text-xs text-[var(--text-faint)]">Kraunama…</div>
                       ) : (
                         <div>
-                          <div className="text-[13px] text-[var(--text-secondary)] mb-2">
+                          <div className="text-[14px] text-[var(--text-secondary)] mb-2">
                             Viso peržiūrų: <b>{fmtN(dd.summary.total_views)}</b> · klipų su peržiūromis: <b>{dd.summary.n_videos}</b> · kūrybos tarpsnis: <b>{dd.summary.span_years} m.</b>{dd.summary.min_year ? ` (${dd.summary.min_year}–${dd.summary.max_year})` : ''}
                           </div>
                           <div className="grid md:grid-cols-2 gap-4">
                             <div>
-                              <div className="text-[13px] font-bold text-[var(--text-secondary)] mb-1">🏆 Daugiausiai peržiūrų (visų laikų aprėptis)</div>
+                              <div className="text-[14px] font-bold text-[var(--text-secondary)] mb-1">🏆 Daugiausiai peržiūrų (visų laikų aprėptis)</div>
                               <ol className="space-y-0.5">
                                 {dd.top_views.map((t: any, k: number) => (
                                   <li key={t.id} className="flex items-baseline gap-2 text-[14px]">
@@ -247,7 +247,7 @@ export default function ReitingaiAdmin() {
                               </ol>
                             </div>
                             <div>
-                              <div className="text-[13px] font-bold text-[var(--text-secondary)] mb-1">🔥 Naujos dainos (≤2 m.) — peržiūros / dieną (trending)</div>
+                              <div className="text-[14px] font-bold text-[var(--text-secondary)] mb-1">🔥 Naujos dainos (≤2 m.) — peržiūros / dieną (trending)</div>
                               <ol className="space-y-0.5">
                                 {(dd.top_recent || []).map((t: any, k: number) => (
                                   <li key={t.id} className="flex items-baseline gap-2 text-[14px]">
@@ -258,7 +258,7 @@ export default function ReitingaiAdmin() {
                                   </li>
                                 ))}
                                 {(!dd.top_recent || dd.top_recent.length === 0) && (
-                                  <li className="text-[13px] text-[var(--text-faint)]">Nėra naujų (≤2 m.) dainų — todėl trending balas žemas.</li>
+                                  <li className="text-[14px] text-[var(--text-faint)]">Nėra naujų (≤2 m.) dainų — todėl trending balas žemas.</li>
                                 )}
                               </ol>
                             </div>

@@ -288,18 +288,18 @@ export default function TopChartsClient({ top40, ltTop30 }: { top40: TopData; lt
 
         .tc-header { display: flex; align-items: flex-end; justify-content: space-between; margin-bottom: 36px; gap: 16px; flex-wrap: wrap; }
         .tc-heading { font-family: 'Syne', sans-serif; font-size: 42px; font-weight: 800; color: #fff; margin: 0 0 4px; letter-spacing: -0.03em; line-height: 1; }
-        .tc-subhead { color: #4b5563; font-size: 13px; margin: 0; font-weight: 400; }
+        .tc-subhead { color: #4b5563; font-size: 14px; margin: 0; font-weight: 400; }
         .tc-suggest-link { color: #6b7280; font-size: 12px; font-weight: 600; cursor: pointer; background: none; border: none; padding: 0; text-decoration: underline; text-underline-offset: 3px; transition: color 0.15s; }
         .tc-suggest-link:hover { color: #d1d5db; }
 
         .tc-controls { display: flex; align-items: center; justify-content: space-between; margin-bottom: 24px; gap: 12px; flex-wrap: wrap; }
         .tc-tabs { display: flex; gap: 0; background: rgba(255,255,255,0.03); border-radius: 10px; padding: 3px; border: 1px solid rgba(255,255,255,0.06); }
-        .tc-tab { padding: 7px 18px; border-radius: 7px; font-weight: 600; font-size: 13px; cursor: pointer; border: none; transition: all 0.2s; background: transparent; color: #4b5563; font-family: 'DM Sans', sans-serif; }
+        .tc-tab { padding: 7px 18px; border-radius: 7px; font-weight: 600; font-size: 14px; cursor: pointer; border: none; transition: all 0.2s; background: transparent; color: #4b5563; font-family: 'DM Sans', sans-serif; }
         .tc-tab.active { background: #1a1a2e; color: #fff; box-shadow: 0 1px 6px rgba(0,0,0,0.4); }
         .tc-meta { display: flex; align-items: center; gap: 10px; flex-wrap: wrap; }
         .tc-week-label { color: #374151; font-size: 12px; font-weight: 500; }
-        .tc-countdown { display: flex; align-items: center; gap: 5px; padding: 5px 11px; background: rgba(234,88,12,0.08); border: 1px solid rgba(234,88,12,0.18); border-radius: 7px; font-size: 11px; font-weight: 700; color: #ea580c; }
-        .tc-votes-left { display: flex; align-items: center; gap: 6px; padding: 5px 11px; background: rgba(255,255,255,0.04); border: 1px solid rgba(255,255,255,0.07); border-radius: 7px; font-size: 11px; font-weight: 600; color: #6b7280; }
+        .tc-countdown { display: flex; align-items: center; gap: 5px; padding: 5px 11px; background: rgba(234,88,12,0.08); border: 1px solid rgba(234,88,12,0.18); border-radius: 7px; font-size: 12px; font-weight: 700; color: #ea580c; }
+        .tc-votes-left { display: flex; align-items: center; gap: 6px; padding: 5px 11px; background: rgba(255,255,255,0.04); border: 1px solid rgba(255,255,255,0.07); border-radius: 7px; font-size: 12px; font-weight: 600; color: #6b7280; }
         .tc-votes-left strong { color: #e5e7eb; }
 
         .tc-guest-bar { margin-bottom: 20px; padding: 10px 16px; border-radius: 8px; background: rgba(30,64,175,0.07); border: 1px solid rgba(30,64,175,0.15); font-size: 12px; color: #93c5fd; }
@@ -315,37 +315,37 @@ export default function TopChartsClient({ top40, ltTop30 }: { top40: TopData; lt
         .tc-row.top3 { background: rgba(234,88,12,0.04); }
         .tc-row.top3.active { background: rgba(234,88,12,0.08); border-color: rgba(234,88,12,0.15); }
 
-        .tc-pos { width: 26px; text-align: center; flex-shrink: 0; font-family: 'Syne', sans-serif; font-weight: 800; font-size: 15px; color: #374151; }
+        .tc-pos { width: 26px; text-align: center; flex-shrink: 0; font-family: 'Syne', sans-serif; font-weight: 800; font-size: 16px; color: #374151; }
         .tc-pos.top { color: var(--accent-orange); }
 
         .tc-trend { width: 32px; flex-shrink: 0; display: flex; justify-content: center; }
-        .tc-new { font-size: 8px; font-weight: 800; padding: 2px 5px; border-radius: 3px; background: rgba(251,191,36,0.12); color: #f59e0b; letter-spacing: 0.06em; }
-        .tc-up { font-size: 10px; font-weight: 700; color: #34d399; }
-        .tc-down { font-size: 10px; font-weight: 700; color: #f87171; }
-        .tc-same { font-size: 13px; color: #1f2937; }
+        .tc-new { font-size: 12px; font-weight: 800; padding: 2px 5px; border-radius: 3px; background: rgba(251,191,36,0.12); color: #f59e0b; letter-spacing: 0.06em; }
+        .tc-up { font-size: 12px; font-weight: 700; color: #34d399; }
+        .tc-down { font-size: 12px; font-weight: 700; color: #f87171; }
+        .tc-same { font-size: 14px; color: #1f2937; }
 
         .tc-cover { width: 40px; height: 40px; border-radius: 6px; overflow: hidden; flex-shrink: 0; background: rgba(255,255,255,0.05); display: flex; align-items: center; justify-content: center; font-size: 14px; color: rgba(255,255,255,0.08); }
         .tc-cover img { width: 100%; height: 100%; object-fit: cover; }
         .tc-row.active .tc-cover { box-shadow: 0 0 0 2px rgba(99,102,241,0.5); }
 
         .tc-info { flex: 1; min-width: 0; }
-        .tc-title { margin: 0 0 2px; font-size: 13px; font-weight: 600; color: #e5e7eb; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; font-family: 'DM Sans', sans-serif; }
+        .tc-title { margin: 0 0 2px; font-size: 14px; font-weight: 600; color: #e5e7eb; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; font-family: 'DM Sans', sans-serif; }
         .tc-row.top3 .tc-title { color: #fff; }
         .tc-row.active .tc-title { color: #fff; }
         .tc-detail { display: flex; align-items: center; gap: 5px; }
-        .tc-artist { font-size: 11px; color: #4b5563; font-weight: 500; text-decoration: none; transition: color 0.15s; }
+        .tc-artist { font-size: 12px; color: #4b5563; font-weight: 500; text-decoration: none; transition: color 0.15s; }
         .tc-artist:hover { color: #818cf8; }
-        .tc-dot { color: #1f2937; font-size: 10px; }
-        .tc-weeks { font-size: 11px; color: #374151; }
+        .tc-dot { color: #1f2937; font-size: 12px; }
+        .tc-weeks { font-size: 12px; color: #374151; }
 
         .tc-spotify-icon { color: #1db954; opacity: 0.5; flex-shrink: 0; display: flex; transition: opacity 0.15s; }
         .tc-spotify-icon:hover { opacity: 1; }
 
-        .tc-vote-btn { display: flex; align-items: center; gap: 5px; padding: 6px 13px; border-radius: 20px; font-size: 11px; font-weight: 600; cursor: pointer; border: 1px solid rgba(255,255,255,0.09); background: rgba(255,255,255,0.04); color: #6b7280; transition: all 0.15s; flex-shrink: 0; font-family: 'DM Sans', sans-serif; }
+        .tc-vote-btn { display: flex; align-items: center; gap: 5px; padding: 6px 13px; border-radius: 20px; font-size: 12px; font-weight: 600; cursor: pointer; border: 1px solid rgba(255,255,255,0.09); background: rgba(255,255,255,0.04); color: #6b7280; transition: all 0.15s; flex-shrink: 0; font-family: 'DM Sans', sans-serif; }
         .tc-vote-btn:hover:not(.voted):not(.disabled) { background: rgba(239,68,68,0.12); border-color: rgba(239,68,68,0.3); color: #f87171; }
         .tc-vote-btn.voted { background: rgba(239,68,68,0.1); border-color: rgba(239,68,68,0.3); color: #f87171; cursor: default; }
         .tc-vote-btn.disabled { opacity: 0.3; cursor: not-allowed; }
-        .tc-vote-err { position: absolute; bottom: calc(100% + 6px); right: 0; padding: 5px 10px; background: #450a0a; color: #fca5a5; font-size: 11px; border-radius: 6px; white-space: nowrap; z-index: 10; }
+        .tc-vote-err { position: absolute; bottom: calc(100% + 6px); right: 0; padding: 5px 10px; background: #450a0a; color: #fca5a5; font-size: 12px; border-radius: 6px; white-space: nowrap; z-index: 10; }
         .tc-spinner { width: 10px; height: 10px; border: 1.5px solid currentColor; border-top-color: transparent; border-radius: 50%; animation: tc-spin 0.6s linear infinite; display: inline-block; }
         @keyframes tc-spin { to { transform: rotate(360deg) } }
 
@@ -360,22 +360,22 @@ export default function TopChartsClient({ top40, ltTop30 }: { top40: TopData; lt
 
         .tc-player-info { padding: 16px; }
         .tc-player-pos { display: flex; align-items: center; gap: 8px; margin-bottom: 8px; }
-        .tc-pos-num { font-family: 'Syne', sans-serif; font-size: 13px; font-weight: 800; }
-        .tc-player-title { margin: 0 0 4px; font-family: 'Syne', sans-serif; font-size: 18px; font-weight: 700; color: #fff; letter-spacing: -0.02em; line-height: 1.2; }
+        .tc-pos-num { font-family: 'Syne', sans-serif; font-size: 14px; font-weight: 800; }
+        .tc-player-title { margin: 0 0 4px; font-family: 'Syne', sans-serif; font-size: 20px; font-weight: 700; color: #fff; letter-spacing: -0.02em; line-height: 1.2; }
         .tc-player-artist { font-size: 12px; color: #4b5563; text-decoration: none; font-weight: 500; transition: color 0.15s; display: block; margin-bottom: 12px; }
         .tc-player-artist:hover { color: #818cf8; }
         .tc-player-meta { display: flex; gap: 12px; margin-bottom: 12px; }
-        .tc-player-meta span { font-size: 11px; color: #374151; background: rgba(255,255,255,0.03); padding: 4px 8px; border-radius: 5px; border: 1px solid rgba(255,255,255,0.05); }
+        .tc-player-meta span { font-size: 12px; color: #374151; background: rgba(255,255,255,0.03); padding: 4px 8px; border-radius: 5px; border: 1px solid rgba(255,255,255,0.05); }
         .tc-spotify-btn { display: flex; align-items: center; justify-content: center; gap: 7px; padding: 9px; border-radius: 8px; background: rgba(29,185,84,0.07); border: 1px solid rgba(29,185,84,0.15); color: #1db954; font-size: 12px; font-weight: 700; text-decoration: none; transition: background 0.15s; }
         .tc-spotify-btn:hover { background: rgba(29,185,84,0.12); }
 
         .tc-exhausted { margin-top: 12px; padding: 16px; border-radius: 10px; background: rgba(30,64,175,0.07); border: 1px solid rgba(30,64,175,0.14); text-align: center; }
-        .tc-exhausted p { margin: 0 0 8px; font-size: 13px; color: #e5e7eb; font-weight: 600; }
-        .tc-exhausted small { display: block; font-size: 11px; color: #4b5563; margin-bottom: 12px; }
+        .tc-exhausted p { margin: 0 0 8px; font-size: 14px; color: #e5e7eb; font-weight: 600; }
+        .tc-exhausted small { display: block; font-size: 12px; color: #4b5563; margin-bottom: 12px; }
 
         .tc-empty { padding: 80px 0; text-align: center; }
         .tc-empty-title { font-family: 'Syne', sans-serif; font-size: 22px; font-weight: 700; color: #374151; margin: 0 0 8px; }
-        .tc-empty-sub { font-size: 13px; color: #1f2937; margin: 0 0 20px; }
+        .tc-empty-sub { font-size: 14px; color: #1f2937; margin: 0 0 20px; }
 
         .tc-btn-primary { padding: 10px 22px; background: #1d4ed8; color: #fff; border: none; border-radius: 20px; font-weight: 700; font-size: 12px; cursor: pointer; font-family: 'DM Sans', sans-serif; transition: background 0.15s; }
         .tc-btn-primary:hover { background: #1e40af; }
@@ -387,14 +387,14 @@ export default function TopChartsClient({ top40, ltTop30 }: { top40: TopData; lt
         .tc-modal-close:hover { color: #fff; }
         .tc-modal-body { padding: 18px; display: flex; flex-direction: column; gap: 14px; }
         .tc-modal-sent { padding: 36px 20px; text-align: center; }
-        .tc-sent-title { font-family: 'Syne', sans-serif; font-size: 18px; font-weight: 700; color: #fff; margin: 0 0 6px; }
-        .tc-sent-sub { font-size: 13px; color: #4b5563; margin: 0 0 20px; }
+        .tc-sent-title { font-family: 'Syne', sans-serif; font-size: 20px; font-weight: 700; color: #fff; margin: 0 0 6px; }
+        .tc-sent-sub { font-size: 14px; color: #4b5563; margin: 0 0 20px; }
 
         .tc-mode-tabs { display: flex; gap: 6px; }
         .tc-mode-tab { padding: 6px 14px; border-radius: 20px; font-size: 12px; font-weight: 600; cursor: pointer; border: 1px solid rgba(255,255,255,0.08); background: rgba(255,255,255,0.04); color: #4b5563; font-family: 'DM Sans', sans-serif; transition: all 0.15s; }
         .tc-mode-tab.active { background: #1d4ed8; color: #fff; border-color: transparent; }
 
-        .tc-input { width: 100%; padding: 10px 13px; background: rgba(255,255,255,0.04); border: 1px solid rgba(255,255,255,0.08); border-radius: 9px; color: #e5e7eb; font-size: 13px; outline: none; box-sizing: border-box; font-family: 'DM Sans', sans-serif; transition: border-color 0.15s; }
+        .tc-input { width: 100%; padding: 10px 13px; background: rgba(255,255,255,0.04); border: 1px solid rgba(255,255,255,0.08); border-radius: 9px; color: #e5e7eb; font-size: 14px; outline: none; box-sizing: border-box; font-family: 'DM Sans', sans-serif; transition: border-color 0.15s; }
         .tc-input::placeholder { color: #374151; }
         .tc-input:focus { border-color: rgba(99,102,241,0.4); }
 
@@ -403,8 +403,8 @@ export default function TopChartsClient({ top40, ltTop30 }: { top40: TopData; lt
         .tc-result-row:hover { background: rgba(255,255,255,0.06); }
         .tc-result-cover { width: 30px; height: 30px; border-radius: 5px; background: rgba(255,255,255,0.07); display: flex; align-items: center; justify-content: center; font-size: 12px; flex-shrink: 0; overflow: hidden; color: #4b5563; }
         .tc-result-title { font-size: 12px; font-weight: 600; color: #e5e7eb; margin: 0 0 1px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
-        .tc-result-artist { font-size: 11px; color: #4b5563; margin: 0; }
-        .tc-result-cta { font-size: 11px; font-weight: 700; color: #6366f1; flex-shrink: 0; }
+        .tc-result-artist { font-size: 12px; color: #4b5563; margin: 0; }
+        .tc-result-cta { font-size: 12px; font-weight: 700; color: #6366f1; flex-shrink: 0; }
         .tc-manual { display: flex; flex-direction: column; gap: 8px; }
       `}</style>
 

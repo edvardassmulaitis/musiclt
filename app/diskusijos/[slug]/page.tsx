@@ -277,7 +277,7 @@ export default async function DiscussionPage({ params }: Props) {
                   <Link
                     key={tag}
                     href={`/diskusijos?tag=${encodeURIComponent(tag)}`}
-                    className="rounded-full px-2 py-0.5 text-[13px] font-bold transition-colors hover:bg-indigo-500/30"
+                    className="rounded-full px-2 py-0.5 text-[14px] font-bold transition-colors hover:bg-indigo-500/30"
                     style={{ background: 'rgba(99,102,241,0.12)', color: '#a5b4fc', border: '1px solid rgba(99,102,241,0.2)' }}
                   >
                     {tag}

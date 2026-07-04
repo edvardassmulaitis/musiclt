@@ -138,8 +138,8 @@ export default function AdminEventsPage() {
                 <div className="flex items-center gap-0.5 sm:gap-1 flex-shrink-0">
                   <button onClick={() => toggleFeatured(ev.id, ev.is_featured)} title="Featured"
                     className={`w-8 h-8 flex items-center justify-center rounded-lg text-base transition ${ev.is_featured ? 'text-orange-400 bg-orange-50' : 'text-gray-300 hover:text-orange-300 hover:bg-[var(--bg-hover)]'}`}>★</button>
-                  {ev.status === 'upcoming' && <button onClick={() => setEventStatus(ev.id, 'cancelled')} title="Atšaukti" className="hidden sm:inline-flex text-[13px] font-medium px-2 py-1 rounded-lg text-red-500 hover:bg-red-50 transition">Atšaukti</button>}
-                  {ev.status === 'cancelled' && <button onClick={() => setEventStatus(ev.id, 'upcoming')} title="Atkurti" className="hidden sm:inline-flex text-[13px] font-medium px-2 py-1 rounded-lg text-emerald-500 hover:bg-emerald-50 transition">Atkurti</button>}
+                  {ev.status === 'upcoming' && <button onClick={() => setEventStatus(ev.id, 'cancelled')} title="Atšaukti" className="hidden sm:inline-flex text-[14px] font-medium px-2 py-1 rounded-lg text-red-500 hover:bg-red-50 transition">Atšaukti</button>}
+                  {ev.status === 'cancelled' && <button onClick={() => setEventStatus(ev.id, 'upcoming')} title="Atkurti" className="hidden sm:inline-flex text-[14px] font-medium px-2 py-1 rounded-lg text-emerald-500 hover:bg-emerald-50 transition">Atkurti</button>}
                   <Link href={`/admin/events/${ev.id}`} title="Redaguoti" className="w-8 h-8 flex items-center justify-center rounded-lg text-blue-500 hover:text-blue-700 hover:bg-blue-50 transition">✎</Link>
                   <button onClick={() => remove(ev.id)} title="Ištrinti" className="w-8 h-8 flex items-center justify-center rounded-lg text-gray-300 hover:text-red-500 hover:bg-red-50 transition">✕</button>
                 </div>

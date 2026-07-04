@@ -20,7 +20,7 @@ function embedUrl(t: string | null, id: string | null) {
   return `https://open.spotify.com/${kind}/${id}`
 }
 
-const btn: React.CSSProperties = { fontSize: 14.5, fontWeight: 700, padding: '6px 12px', borderRadius: 8, border: '1px solid #e6e3df', background: '#fff', cursor: 'pointer' }
+const btn: React.CSSProperties = { fontSize: 14, fontWeight: 700, padding: '6px 12px', borderRadius: 8, border: '1px solid #e6e3df', background: '#fff', cursor: 'pointer' }
 const card: React.CSSProperties = { background: '#fff', border: '1px solid #e6e3df', borderRadius: 12, padding: 14 }
 
 async function patch(payload: any) {
@@ -33,10 +33,10 @@ function Samples({ samples }: { samples: Sample[] }) {
       {samples.map(s => {
         const u = embedUrl(s.embed_type, s.embed_id)
         return (
-          <div key={s.id} style={{ fontSize: 14.5, color: '#4b463f', lineHeight: 1.5 }}>
+          <div key={s.id} style={{ fontSize: 14, color: '#4b463f', lineHeight: 1.5 }}>
             {s.track_name && <span style={{ fontWeight: 700, color: '#1a1a1a' }}>{s.track_name} · </span>}
             {s.body || <span style={{ color: '#9c978d' }}>(be teksto)</span>}
-            {u && <a href={u} target="_blank" rel="noopener noreferrer" style={{ marginLeft: 6, color: '#2563eb', fontSize: 13.5, whiteSpace: 'nowrap' }}>{s.embed_type === 'youtube' ? '▶ klausyti' : '♫ klausyti'}</a>}
+            {u && <a href={u} target="_blank" rel="noopener noreferrer" style={{ marginLeft: 6, color: '#2563eb', fontSize: 14, whiteSpace: 'nowrap' }}>{s.embed_type === 'youtube' ? '▶ klausyti' : '♫ klausyti'}</a>}
           </div>
         )
       })}
@@ -75,7 +75,7 @@ function LinkArtist({ rawName, ids, onLinked }: { rawName: string; ids?: number[
               {/* eslint-disable-next-line @next/next/no-img-element */}
               {a.cover_image_url ? <img src={a.cover_image_url} alt="" width={24} height={24} style={{ borderRadius: 5, objectFit: 'cover' }} /> : <span style={{ width: 24, height: 24, borderRadius: 5, background: '#eee', display: 'inline-block' }} />}
               <span style={{ fontWeight: 700 }}>{a.name}</span>
-              {a.country && <span style={{ color: '#9c978d', fontSize: 13 }}>{a.country}</span>}
+              {a.country && <span style={{ color: '#9c978d', fontSize: 14 }}>{a.country}</span>}
             </button>
           ))}
         </div>
@@ -89,8 +89,8 @@ function PendingCard({ g, onGone }: { g: PendingGroup; onGone: () => void }) {
   return (
     <div style={card}>
       <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'baseline', gap: 8 }}>
-        <strong style={{ fontSize: 15 }}>{g.artist_name}</strong>
-        <span style={{ fontSize: 13, color: '#9c978d', fontWeight: 700 }}>{g.count}×</span>
+        <strong style={{ fontSize: 16 }}>{g.artist_name}</strong>
+        <span style={{ fontSize: 14, color: '#9c978d', fontWeight: 700 }}>{g.count}×</span>
       </div>
       <ExpandToggle open={open} set={setOpen} count={g.count} />
       {open && <Samples samples={g.samples} />}
@@ -110,10 +110,10 @@ function LinkedCard({ g, onUnlinked }: { g: LinkedGroup; onUnlinked: () => void 
     <div style={card}>
       <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'baseline', gap: 8 }}>
         <div style={{ minWidth: 0 }}>
-          {g.slug ? <Link href={`/atlikejai/${g.slug}`} target="_blank" style={{ fontSize: 15, fontWeight: 800, color: '#16a34a', textDecoration: 'none' }}>{g.db_name}</Link> : <strong style={{ fontSize: 15 }}>{g.db_name}</strong>}
-          {mismatch && <span style={{ fontSize: 13.5, color: '#b45309', marginLeft: 6 }}>(tekste: „{g.raw_name}")</span>}
+          {g.slug ? <Link href={`/atlikejai/${g.slug}`} target="_blank" style={{ fontSize: 16, fontWeight: 800, color: '#16a34a', textDecoration: 'none' }}>{g.db_name}</Link> : <strong style={{ fontSize: 16 }}>{g.db_name}</strong>}
+          {mismatch && <span style={{ fontSize: 14, color: '#b45309', marginLeft: 6 }}>(tekste: „{g.raw_name}")</span>}
         </div>
-        <span style={{ fontSize: 13, color: '#9c978d', fontWeight: 700 }}>{g.count}×</span>
+        <span style={{ fontSize: 14, color: '#9c978d', fontWeight: 700 }}>{g.count}×</span>
       </div>
       <ExpandToggle open={open} set={setOpen} count={g.count} />
       {open && <Samples samples={g.samples} />}
@@ -137,14 +137,14 @@ export default function AtradimaiAdminClient({ pendingGroups, linkedGroups, repo
         Atlikėjai iš <Link href="/muzikos-atradimai" style={{ color: '#f97316', fontWeight: 700 }}>atradimų</Link>. Išskleisk komentarą kontekstui, tada <b>„Susieti su DB"</b> (jei jau yra), <b>„Sukurti"</b> arba <b>„Praleisti"</b>.
       </p>
 
-      <h2 style={{ fontFamily: "'Outfit',sans-serif", fontSize: 17, fontWeight: 800, margin: '0 0 12px' }}>Trūkstami atlikėjai ({pend.length})</h2>
+      <h2 style={{ fontFamily: "'Outfit',sans-serif", fontSize: 16, fontWeight: 800, margin: '0 0 12px' }}>Trūkstami atlikėjai ({pend.length})</h2>
       <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill,minmax(340px,1fr))', gap: 12, marginBottom: 36 }}>
         {pend.length === 0 ? <p style={{ color: '#6b675f' }}>Visi sutvarkyti 🎉</p> :
           pend.map(g => <PendingCard key={g.artist_name} g={g} onGone={() => setPend(p => p.filter(x => x.artist_name !== g.artist_name))} />)}
       </div>
 
       <div style={{ display: 'flex', alignItems: 'center', gap: 10, marginBottom: 12 }}>
-        <h2 style={{ fontFamily: "'Outfit',sans-serif", fontSize: 17, fontWeight: 800, margin: 0 }}>Susieti su DB ({linked.length})</h2>
+        <h2 style={{ fontFamily: "'Outfit',sans-serif", fontSize: 16, fontWeight: 800, margin: 0 }}>Susieti su DB ({linked.length})</h2>
         <button style={{ ...btn, border: 'none', background: 'transparent', color: '#2563eb' }} onClick={() => setShowLinked(s => !s)}>{showLinked ? 'Slėpti' : 'Peržiūrėti / taisyti'}</button>
       </div>
       {showLinked && (
@@ -154,13 +154,13 @@ export default function AtradimaiAdminClient({ pendingGroups, linkedGroups, repo
         </div>
       )}
 
-      <h2 style={{ fontFamily: "'Outfit',sans-serif", fontSize: 17, fontWeight: 800, margin: '0 0 12px' }}>Narių pranešimai ({reps.length})</h2>
+      <h2 style={{ fontFamily: "'Outfit',sans-serif", fontSize: 16, fontWeight: 800, margin: '0 0 12px' }}>Narių pranešimai ({reps.length})</h2>
       <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
         {reps.length === 0 ? <p style={{ color: '#6b675f' }}>Naujų pranešimų nėra.</p> : reps.map(r => (
           <div key={r.id} style={{ ...card, display: 'flex', justifyContent: 'space-between', gap: 12, alignItems: 'flex-start' }}>
             <div style={{ minWidth: 0 }}>
-              <span style={{ fontSize: 12.5, fontWeight: 800, textTransform: 'uppercase', color: '#9c978d', letterSpacing: '.04em' }}>{r.kind}</span>
-              <div style={{ fontSize: 15, fontWeight: 700 }}>{r.name}</div>
+              <span style={{ fontSize: 12, fontWeight: 800, textTransform: 'uppercase', color: '#9c978d', letterSpacing: '.04em' }}>{r.kind}</span>
+              <div style={{ fontSize: 16, fontWeight: 700 }}>{r.name}</div>
               {r.note && <div style={{ fontSize: 14, color: '#6b675f', marginTop: 2 }}>{r.note}</div>}
               {r.source_url && <a href={r.source_url} target="_blank" rel="noopener noreferrer" style={{ fontSize: 14, color: '#2563eb' }}>{r.source_url}</a>}
             </div>

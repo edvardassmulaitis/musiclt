@@ -157,11 +157,11 @@ export default function NewsInfoModal({
             <div className="font-['Outfit',sans-serif] text-[12px] font-extrabold uppercase tracking-[0.18em] text-[var(--text-muted)]">
               Naujiena
             </div>
-            <div className="line-clamp-2 font-['Outfit',sans-serif] text-[14.5px] font-extrabold leading-tight text-[var(--text-primary)] sm:text-[15.5px]">
+            <div className="line-clamp-2 font-['Outfit',sans-serif] text-[14px] font-extrabold leading-tight text-[var(--text-primary)] sm:text-[16px]">
               {titleNow}
             </div>
             {dateLabel && (
-              <div className="mt-0.5 truncate text-[13px] text-[var(--text-muted)]">{dateLabel}</div>
+              <div className="mt-0.5 truncate text-[14px] text-[var(--text-muted)]">{dateLabel}</div>
             )}
           </div>
           <Link
@@ -233,7 +233,7 @@ export default function NewsInfoModal({
               </div>
             ) : body ? (
               <div
-                className="text-[14.5px] leading-[1.7] text-[var(--text-secondary)] [&_a]:text-[var(--accent-orange)] [&_a]:no-underline hover:[&_a]:underline [&_p]:mb-3 [&_img]:my-3 [&_img]:rounded-lg [&_h2]:mt-4 [&_h2]:mb-2 [&_h2]:text-[16px] [&_h2]:font-extrabold [&_h2]:text-[var(--text-primary)]"
+                className="text-[14px] leading-[1.7] text-[var(--text-secondary)] [&_a]:text-[var(--accent-orange)] [&_a]:no-underline hover:[&_a]:underline [&_p]:mb-3 [&_img]:my-3 [&_img]:rounded-lg [&_h2]:mt-4 [&_h2]:mb-2 [&_h2]:text-[16px] [&_h2]:font-extrabold [&_h2]:text-[var(--text-primary)]"
                 dangerouslySetInnerHTML={{ __html: body }}
               />
             ) : (
@@ -243,7 +243,7 @@ export default function NewsInfoModal({
             {/* Related artists */}
             {(details?.artist || details?.artist2) && (
               <div className="mt-5 border-t border-[var(--border-subtle)] pt-4">
-                <div className="mb-2 font-['Outfit',sans-serif] text-[13px] font-extrabold uppercase tracking-[0.18em] text-[var(--text-muted)]">
+                <div className="mb-2 font-['Outfit',sans-serif] text-[14px] font-extrabold uppercase tracking-[0.18em] text-[var(--text-muted)]">
                   Susiję atlikėjai
                 </div>
                 <div className="flex flex-wrap items-center gap-1.5">

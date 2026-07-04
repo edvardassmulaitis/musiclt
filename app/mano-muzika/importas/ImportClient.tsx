@@ -194,7 +194,7 @@ export default function ImportClient({ lastfmOk, youtubeOk, initialSource }: { l
   return (
     <div className="page-shell" style={{ color: 'var(--text-primary)' }}>
       <div className="page-head">
-        <div className="flex items-center gap-2 text-[14.5px] mb-1.5" style={{ color: 'var(--text-muted)' }}>
+        <div className="flex items-center gap-2 text-[14px] mb-1.5" style={{ color: 'var(--text-muted)' }}>
           <Link href="/mano-muzika" className="hover:underline">Mano muzika</Link><span>›</span><span>Perkelti</span>
         </div>
         <h1>Perkelti muziką</h1>
@@ -212,8 +212,8 @@ export default function ImportClient({ lastfmOk, youtubeOk, initialSource }: { l
               style={{ background: active ? 'linear-gradient(135deg, rgba(249,115,22,0.14), rgba(167,139,250,0.10))' : 'var(--bg-surface)',
                 border: `1px solid ${active ? 'rgba(249,115,22,0.5)' : 'var(--border-default)'}`, opacity: disabled ? 0.55 : 1 }}>
               <div className="text-2xl mb-1.5">{s.emoji}</div>
-              <div className="text-[14.5px] font-black">{s.label}{disabled && <span className="ml-1.5 text-[12px] font-bold align-middle" style={{ color: 'var(--text-faint)' }}>(netrukus)</span>}</div>
-              <div className="text-[13.5px] mt-0.5" style={{ color: 'var(--text-muted)' }}>{s.blurb}</div>
+              <div className="text-[14px] font-black">{s.label}{disabled && <span className="ml-1.5 text-[12px] font-bold align-middle" style={{ color: 'var(--text-faint)' }}>(netrukus)</span>}</div>
+              <div className="text-[14px] mt-0.5" style={{ color: 'var(--text-muted)' }}>{s.blurb}</div>
             </button>
           )
         })}
@@ -285,8 +285,8 @@ export default function ImportClient({ lastfmOk, youtubeOk, initialSource }: { l
             className="w-full cursor-pointer rounded-xl border-2 border-dashed py-7 text-center transition-colors"
             style={{ borderColor: dragOver ? 'var(--accent-orange)' : 'var(--border-default)', background: dragOver ? 'rgba(249,115,22,0.08)' : 'var(--bg-elevated)' }}>
             <div className="text-2xl mb-1">{dragOver ? '📥' : '📂'}</div>
-            <div className="text-[14.5px] font-bold">{loading ? 'Apdorojama…' : (dragOver ? 'Paleisk failą čia' : 'Vilk Spotify JSON failą čia')}</div>
-            <div className="text-[13.5px] mt-0.5" style={{ color: 'var(--text-muted)' }}>arba spustelėk ir pasirink (pvz. Playlist1.json)</div>
+            <div className="text-[14px] font-bold">{loading ? 'Apdorojama…' : (dragOver ? 'Paleisk failą čia' : 'Vilk Spotify JSON failą čia')}</div>
+            <div className="text-[14px] mt-0.5" style={{ color: 'var(--text-muted)' }}>arba spustelėk ir pasirink (pvz. Playlist1.json)</div>
           </div>
           {spotifyInfo && (
             <div className="mt-3 rounded-xl px-3.5 py-2.5 text-[14px] leading-snug" style={{ background: 'rgba(29,185,84,0.10)', border: '1px solid rgba(29,185,84,0.35)', color: 'var(--text-secondary)' }}>
@@ -316,17 +316,17 @@ export default function ImportClient({ lastfmOk, youtubeOk, initialSource }: { l
       {/* FONINIO IMPORTO BŪSENA */}
       {(job ? (job.status === 'queued' || job.status === 'running') : !!enqueued) && (
         <div className="mb-4 rounded-2xl p-5" style={{ background: 'linear-gradient(135deg, rgba(167,139,250,0.14), transparent)', border: '1px solid rgba(167,139,250,0.4)' }}>
-          <div className="flex items-center gap-2 text-[15px] font-black">
+          <div className="flex items-center gap-2 text-[16px] font-black">
             <span className="inline-block h-2 w-2 rounded-full animate-pulse" style={{ background: '#a78bfa' }} />
             {enqueued === 'existing' ? 'Importas jau vyksta' : 'Pradėjome pilną importą'}
           </div>
-          <p className="text-[14.5px] mt-1.5 leading-relaxed" style={{ color: 'var(--text-muted)' }}>
+          <p className="text-[14px] mt-1.5 leading-relaxed" style={{ color: 'var(--text-muted)' }}>
             Apdorojame tavo Last.fm biblioteką <b>fone</b> — tau nieko daryti nereikia ir langą uždaryti gali.
             Kai baigsim, <b>duosim peržiūrėti</b> rastas atitiktis ir patvirtinsi, ką pridėti — nieko nepridėsim be tavo sutikimo.
             Atsiųsim pranešimą.
           </p>
           {job && (job.status === 'running' || job.status === 'queued') && job.processed > 0 && (
-            <div className="text-[13.5px] mt-2" style={{ color: 'var(--text-faint)' }}>
+            <div className="text-[14px] mt-2" style={{ color: 'var(--text-faint)' }}>
               Apdorota {job.processed}{job.total ? ` iš ${job.total}` : ''} · rasta atitikčių {job.matched}
             </div>
           )}
@@ -340,14 +340,14 @@ export default function ImportClient({ lastfmOk, youtubeOk, initialSource }: { l
       )}
       {job && job.status === 'error' && (
         <div className="mb-4 rounded-2xl p-5" style={{ background: 'rgba(244,63,94,0.10)', border: '1px solid rgba(244,63,94,0.3)' }}>
-          <div className="text-[15px] font-black" style={{ color: '#f43f5e' }}>Importas nepavyko</div>
-          <p className="text-[14.5px] mt-1" style={{ color: 'var(--text-muted)' }}>{job.error || 'Nežinoma klaida.'} Pabandyk dar kartą arba pranešk administratoriui.</p>
+          <div className="text-[16px] font-black" style={{ color: '#f43f5e' }}>Importas nepavyko</div>
+          <p className="text-[14px] mt-1" style={{ color: 'var(--text-muted)' }}>{job.error || 'Nežinoma klaida.'} Pabandyk dar kartą arba pranešk administratoriui.</p>
         </div>
       )}
       {job && job.status === 'done' && !enqueued && (
         <div className="mb-4 rounded-2xl p-5" style={{ background: 'linear-gradient(135deg, rgba(52,211,153,0.14), transparent)', border: '1px solid rgba(52,211,153,0.4)' }}>
-          <div className="text-[15px] font-black">✅ Pilnas importas baigtas</div>
-          <p className="text-[14.5px] mt-1" style={{ color: 'var(--text-muted)' }}>
+          <div className="text-[16px] font-black">✅ Pilnas importas baigtas</div>
+          <p className="text-[14px] mt-1" style={{ color: 'var(--text-muted)' }}>
             Į tavo muziką pridėjome <b>{job.matched}</b> įrašų{job.reported > 0 ? <>, dar <b>{job.reported}</b> laukia įkėlimo ir atsiras vėliau</> : null}.{' '}
             <Link href="/mano-muzika" className="underline" style={{ color: 'var(--accent-orange)' }}>Eiti į Mano muziką →</Link>
           </p>
@@ -366,8 +366,8 @@ export default function ImportClient({ lastfmOk, youtubeOk, initialSource }: { l
           <div className="rounded-2xl p-5 mb-4" style={{ background: 'linear-gradient(135deg, rgba(167,139,250,0.14), transparent)', border: '1px solid rgba(167,139,250,0.4)' }}>
             <div className="flex items-center justify-between flex-wrap gap-2">
               <div>
-                <div className="text-[15px] font-black">Peržiūrėk importą prieš pridedant</div>
-                <p className="text-[14.5px] mt-1" style={{ color: 'var(--text-muted)' }}>
+                <div className="text-[16px] font-black">Peržiūrėk importą prieš pridedant</div>
+                <p className="text-[14px] mt-1" style={{ color: 'var(--text-muted)' }}>
                   Radome <b>{review.matched}</b> atitikčių{review.missing > 0 ? <>, dar <b>{review.missing}</b> neatpažinta (jas persiųsim į trūkstamą muziką)</> : null}. Viskas pažymėta — atžymėk, ko nenori, ir patvirtink.
                 </p>
               </div>
@@ -411,7 +411,7 @@ export default function ImportClient({ lastfmOk, youtubeOk, initialSource }: { l
       {result && !done && (
         <div>
           {!!result.reported && result.reported > 0 && (
-            <div className="mb-4 rounded-xl px-4 py-3 text-[14.5px] leading-relaxed" style={{ background: 'rgba(167,139,250,0.10)', border: '1px solid rgba(167,139,250,0.32)', color: 'var(--text-secondary)' }}>
+            <div className="mb-4 rounded-xl px-4 py-3 text-[14px] leading-relaxed" style={{ background: 'rgba(167,139,250,0.10)', border: '1px solid rgba(167,139,250,0.32)', color: 'var(--text-secondary)' }}>
               🔎 <b style={{ color: 'var(--text-primary)' }}>{result.reported}</b> neatpažintų įrašų persiuntėme į music.lt trūkstamos muzikos sąrašą. Kai tik jie bus įkelti, <b>automatiškai atsiras tavo „Mano muzikoje"</b> — nieko daryti nereikia.
             </div>
           )}
@@ -435,7 +435,7 @@ export default function ImportClient({ lastfmOk, youtubeOk, initialSource }: { l
   )
 }
 
-const inputCls = 'flex-1 min-w-0 rounded-lg px-3 py-2.5 text-[14.5px] outline-none'
+const inputCls = 'flex-1 min-w-0 rounded-lg px-3 py-2.5 text-[14px] outline-none'
 
 function InputPanel({ children, disabled, notConfigured }: { children: React.ReactNode; disabled?: boolean; notConfigured?: string | null }) {
   return (
@@ -448,7 +448,7 @@ function InputPanel({ children, disabled, notConfigured }: { children: React.Rea
   )
 }
 function Hint({ children }: { children: React.ReactNode }) {
-  return <p className="mt-2.5 text-[13.5px] leading-relaxed" style={{ color: 'var(--text-faint)' }}>{children}</p>
+  return <p className="mt-2.5 text-[14px] leading-relaxed" style={{ color: 'var(--text-faint)' }}>{children}</p>
 }
 function RunBtn({ onClick, loading, disabled, label }: { onClick: () => void; loading: boolean; disabled: boolean; label?: string }) {
   return (
@@ -466,7 +466,7 @@ function LoadingBar({ label }: { label: string }) {
       <div className="h-1.5 w-full overflow-hidden rounded-full" style={{ background: 'var(--bg-elevated)' }}>
         <div className="h-full w-1/3 rounded-full mz-impbar" style={{ background: 'var(--accent-orange)' }} />
       </div>
-      <div className="mt-1.5 text-[13.5px]" style={{ color: 'var(--text-faint)' }}>{label}</div>
+      <div className="mt-1.5 text-[14px]" style={{ color: 'var(--text-faint)' }}>{label}</div>
       <style jsx>{`.mz-impbar{animation:mzimp 1.1s ease-in-out infinite}@keyframes mzimp{0%{transform:translateX(-110%)}100%{transform:translateX(330%)}}`}</style>
     </div>
   )
@@ -509,7 +509,7 @@ function ReviewGroup({ title, kind, hits, deselected, toggle, toggleGroup }: {
   return (
     <div className="mb-6">
       <div className="flex items-center justify-between mb-2.5">
-        <h2 className="text-[15px] font-black">{title} <span className="text-[14px] font-bold" style={{ color: 'var(--text-faint)' }}>· {selectedCount}/{hits.length}</span></h2>
+        <h2 className="text-[16px] font-black">{title} <span className="text-[14px] font-bold" style={{ color: 'var(--text-faint)' }}>· {selectedCount}/{hits.length}</span></h2>
         <button onClick={() => toggleGroup(hits, !allSel)} className="text-[14px] font-bold" style={{ color: 'var(--accent-orange)' }}>{allSel ? 'Atžymėti visus' : 'Pažymėti visus'}</button>
       </div>
       <div className={isGrid ? 'grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 gap-2' : 'grid grid-cols-1 lg:grid-cols-2 gap-1.5'}>
@@ -523,28 +523,28 @@ function ReviewGroup({ title, kind, hits, deselected, toggle, toggleGroup }: {
                   // eslint-disable-next-line @next/next/no-img-element
                   ? <img src={proxyImg(h.cover)} alt="" referrerPolicy="no-referrer" className="h-full w-full object-cover" />
                   : <div className="flex h-full w-full items-center justify-center text-2xl opacity-40">{emoji}</div>}
-                <span className="absolute top-1.5 left-1.5 h-5 w-5 rounded-md flex items-center justify-center text-[13px] font-black" style={{ background: on ? 'var(--accent-orange)' : 'rgba(0,0,0,0.45)', color: '#fff', border: on ? 'none' : '1px solid rgba(255,255,255,0.5)' }}>{on ? '✓' : ''}</span>
+                <span className="absolute top-1.5 left-1.5 h-5 w-5 rounded-md flex items-center justify-center text-[14px] font-black" style={{ background: on ? 'var(--accent-orange)' : 'rgba(0,0,0,0.45)', color: '#fff', border: on ? 'none' : '1px solid rgba(255,255,255,0.5)' }}>{on ? '✓' : ''}</span>
                 {href && <OpenExt href={href} overlay />}
               </div>
-              <div className="px-2 py-1.5"><div className="truncate text-[14.5px] font-bold">{h.name}</div>{h.artist && <div className="truncate text-[13px]" style={{ color: 'var(--text-muted)' }}>{h.artist}</div>}</div>
+              <div className="px-2 py-1.5"><div className="truncate text-[14px] font-bold">{h.name}</div>{h.artist && <div className="truncate text-[14px]" style={{ color: 'var(--text-muted)' }}>{h.artist}</div>}</div>
             </button>
           ) : (
             <button key={h.itemId} onClick={() => toggle(h.itemId)} className="w-full flex items-center gap-3 rounded-xl px-2.5 py-2 text-left transition-colors"
               style={{ background: on ? 'var(--bg-elevated)' : 'var(--bg-surface)', border: `1px solid ${on ? 'rgba(249,115,22,0.4)' : 'var(--border-default)'}`, opacity: on ? 1 : 0.55 }}>
-              <span className="shrink-0 h-5 w-5 rounded-md flex items-center justify-center text-[13px] font-black" style={{ background: on ? 'var(--accent-orange)' : 'transparent', border: on ? 'none' : '1.5px solid var(--border-default)', color: '#fff' }}>{on ? '✓' : ''}</span>
+              <span className="shrink-0 h-5 w-5 rounded-md flex items-center justify-center text-[14px] font-black" style={{ background: on ? 'var(--accent-orange)' : 'transparent', border: on ? 'none' : '1.5px solid var(--border-default)', color: '#fff' }}>{on ? '✓' : ''}</span>
               <div className="h-9 w-9 shrink-0 overflow-hidden rounded-md" style={{ background: 'var(--bg-elevated)' }}>
                 {h.cover
                   // eslint-disable-next-line @next/next/no-img-element
                   ? <img src={proxyImg(h.cover)} alt="" referrerPolicy="no-referrer" className="h-full w-full object-cover" />
                   : <div className="flex h-full w-full items-center justify-center text-[14px] opacity-50">{emoji}</div>}
               </div>
-              <div className="min-w-0 flex-1"><div className="truncate text-[14px] font-bold">{h.name}</div>{h.artist && <div className="truncate text-[13px]" style={{ color: 'var(--text-muted)' }}>{h.artist}</div>}</div>
+              <div className="min-w-0 flex-1"><div className="truncate text-[14px] font-bold">{h.name}</div>{h.artist && <div className="truncate text-[14px]" style={{ color: 'var(--text-muted)' }}>{h.artist}</div>}</div>
               {href && <OpenExt href={href} />}
             </button>
           )
         })}
       </div>
-      {hits.length > limit && <div className="mt-2 flex justify-center gap-2"><button onClick={() => setLimit(l => l + 200)} className="rounded-full px-5 py-2 text-[14.5px] font-bold" style={{ background: 'var(--bg-elevated)', border: '1px solid var(--border-default)', color: 'var(--text-secondary)' }}>Rodyti daugiau ({hits.length - limit})</button><button onClick={() => setLimit(hits.length)} className="rounded-full px-4 py-2 text-[14.5px] font-bold" style={{ background: 'transparent', border: '1px solid var(--border-default)', color: 'var(--text-muted)' }}>Visus</button></div>}
+      {hits.length > limit && <div className="mt-2 flex justify-center gap-2"><button onClick={() => setLimit(l => l + 200)} className="rounded-full px-5 py-2 text-[14px] font-bold" style={{ background: 'var(--bg-elevated)', border: '1px solid var(--border-default)', color: 'var(--text-secondary)' }}>Rodyti daugiau ({hits.length - limit})</button><button onClick={() => setLimit(hits.length)} className="rounded-full px-4 py-2 text-[14px] font-bold" style={{ background: 'transparent', border: '1px solid var(--border-default)', color: 'var(--text-muted)' }}>Visus</button></div>}
     </div>
   )
 }
@@ -563,7 +563,7 @@ function Group({ title, kind, hits, selected, toggle, toggleGroup }: {
   return (
     <div className="mb-6">
       <div className="flex items-center justify-between mb-2.5">
-        <h2 className="text-[15px] font-black">{title} <span className="text-[14px] font-bold" style={{ color: 'var(--text-faint)' }}>· {matched.length}</span></h2>
+        <h2 className="text-[16px] font-black">{title} <span className="text-[14px] font-bold" style={{ color: 'var(--text-faint)' }}>· {matched.length}</span></h2>
         {matched.length > 0 && (
           <button onClick={() => toggleGroup(kind, !allSel)} className="text-[14px] font-bold" style={{ color: 'var(--accent-orange)' }}>
             {allSel ? 'Atžymėti visus' : 'Pažymėti visus'}
@@ -584,13 +584,13 @@ function Group({ title, kind, hits, selected, toggle, toggleGroup }: {
                     // eslint-disable-next-line @next/next/no-img-element
                     ? <img src={proxyImg(h.cover)} alt="" referrerPolicy="no-referrer" className="h-full w-full object-cover" />
                     : <div className="flex h-full w-full items-center justify-center text-2xl opacity-40">{emoji}</div>}
-                  <span className="absolute top-1.5 left-1.5 h-5 w-5 rounded-md flex items-center justify-center text-[13px] font-black"
+                  <span className="absolute top-1.5 left-1.5 h-5 w-5 rounded-md flex items-center justify-center text-[14px] font-black"
                     style={{ background: on ? 'var(--accent-orange)' : 'rgba(0,0,0,0.45)', color: '#fff', border: on ? 'none' : '1px solid rgba(255,255,255,0.5)' }}>{on ? '✓' : ''}</span>
                   {href && <OpenExt href={href} overlay />}
                 </div>
                 <div className="px-2 py-1.5">
-                  <div className="truncate text-[14.5px] font-bold">{h.name}</div>
-                  {h.artist && <div className="truncate text-[13px]" style={{ color: 'var(--text-muted)' }}>{h.artist}</div>}
+                  <div className="truncate text-[14px] font-bold">{h.name}</div>
+                  {h.artist && <div className="truncate text-[14px]" style={{ color: 'var(--text-muted)' }}>{h.artist}</div>}
                 </div>
               </button>
             )
@@ -604,7 +604,7 @@ function Group({ title, kind, hits, selected, toggle, toggleGroup }: {
             return (
               <button key={key} onClick={() => toggle(key)} className="w-full flex items-center gap-3 rounded-xl px-2.5 py-2 text-left transition-colors"
                 style={{ background: on ? 'var(--bg-elevated)' : 'var(--bg-surface)', border: `1px solid ${on ? 'rgba(249,115,22,0.4)' : 'var(--border-default)'}` }}>
-                <span className="shrink-0 h-5 w-5 rounded-md flex items-center justify-center text-[13px] font-black"
+                <span className="shrink-0 h-5 w-5 rounded-md flex items-center justify-center text-[14px] font-black"
                   style={{ background: on ? 'var(--accent-orange)' : 'transparent', border: on ? 'none' : '1.5px solid var(--border-default)', color: '#fff' }}>{on ? '✓' : ''}</span>
                 <div className="h-9 w-9 shrink-0 overflow-hidden rounded-md" style={{ background: 'var(--bg-elevated)' }}>
                   {h.cover
@@ -614,7 +614,7 @@ function Group({ title, kind, hits, selected, toggle, toggleGroup }: {
                 </div>
                 <div className="min-w-0 flex-1">
                   <div className="truncate text-[14px] font-bold">{h.name}</div>
-                  {h.artist && <div className="truncate text-[13px]" style={{ color: 'var(--text-muted)' }}>{h.artist}</div>}
+                  {h.artist && <div className="truncate text-[14px]" style={{ color: 'var(--text-muted)' }}>{h.artist}</div>}
                 </div>
                 {href && <OpenExt href={href} />}
               </button>
@@ -625,13 +625,13 @@ function Group({ title, kind, hits, selected, toggle, toggleGroup }: {
 
       {unmatched.length > 0 && (
         <div className="mt-2">
-          <button onClick={() => setShowUnmatched(v => !v)} className="text-[13.5px] font-bold" style={{ color: 'var(--text-faint)' }}>
+          <button onClick={() => setShowUnmatched(v => !v)} className="text-[14px] font-bold" style={{ color: 'var(--text-faint)' }}>
             {showUnmatched ? '▾' : '▸'} Neatpažinta ({unmatched.length})
           </button>
           {showUnmatched && (
             <div className="mt-1.5 flex flex-wrap gap-1.5">
               {unmatched.map((h, i) => (
-                <span key={i} className="rounded-full px-2.5 py-1 text-[13px]" style={{ background: 'var(--bg-elevated)', color: 'var(--text-muted)' }}>
+                <span key={i} className="rounded-full px-2.5 py-1 text-[14px]" style={{ background: 'var(--bg-elevated)', color: 'var(--text-muted)' }}>
                   {h.raw}{h.rawArtist ? ` — ${h.rawArtist}` : ''}
                 </span>
               ))}

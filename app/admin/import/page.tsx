@@ -603,11 +603,11 @@ function HelpToggle() {
             <div className="p-4 space-y-4 text-sm text-[var(--text-secondary)]">
               <section>
                 <h3 className="font-semibold text-[var(--text-primary)] mb-1.5">Real-state vs queue (v2)</h3>
-                <p className="text-[14.5px]">Wiki/Scrape badge'ai dabar = realus DB state'as (tracks/albums source). CLI imported atlikėjai (`import_artist.py`) rodomi kaip done be queue trace'o.</p>
+                <p className="text-[14px]">Wiki/Scrape badge'ai dabar = realus DB state'as (tracks/albums source). CLI imported atlikėjai (`import_artist.py`) rodomi kaip done be queue trace'o.</p>
               </section>
               <section>
                 <h3 className="font-semibold text-[var(--text-primary)] mb-1.5">Stats reikšmės</h3>
-                <ul className="space-y-1 text-[14.5px]">
+                <ul className="space-y-1 text-[14px]">
                   <li><strong>Iš viso</strong> — visi atlikėjai DB'oje (12k+ iš legacy)</li>
                   <li><strong>Sutvarkyti</strong> — turi wiki + scrape (real DB content). Galima per UI flow arba per CLI</li>
                   <li><strong>Aktyvūs job'ai</strong> — queue (kuria UI „Paleisti Wiki/Scrape" mygtukai)</li>
@@ -615,21 +615,21 @@ function HelpToggle() {
               </section>
               <section>
                 <h3 className="font-semibold text-[var(--text-primary)] mb-1.5">Single atlikėjui — viskas vienu metu</h3>
-                <p className="text-[14.5px] mb-2">Greičiausia kelti naują atlikėją (scrape + Wiki + news + events + lyrics + YT enrich + score):</p>
-                <div className="rounded-lg bg-[var(--bg-elevated)] border border-[var(--border-subtle)] p-2.5 font-mono text-[13px] text-[var(--text-primary)] whitespace-pre-wrap break-all">
+                <p className="text-[14px] mb-2">Greičiausia kelti naują atlikėją (scrape + Wiki + news + events + lyrics + YT enrich + score):</p>
+                <div className="rounded-lg bg-[var(--bg-elevated)] border border-[var(--border-subtle)] p-2.5 font-mono text-[14px] text-[var(--text-primary)] whitespace-pre-wrap break-all">
                   {`python3 scraper/import_artist.py <artist_id>`}
                 </div>
               </section>
               <section>
                 <h3 className="font-semibold text-[var(--text-primary)] mb-1.5">Bulk per queue</h3>
-                <p className="text-[14.5px] mb-2">Pažymėk N atlikėjų → „Paleisti Wiki / Scrape" → job queue. Mac worker'is:</p>
-                <div className="rounded-lg bg-[var(--bg-elevated)] border border-[var(--border-subtle)] p-2.5 font-mono text-[13px] text-[var(--text-primary)] whitespace-pre-wrap break-all">
+                <p className="text-[14px] mb-2">Pažymėk N atlikėjų → „Paleisti Wiki / Scrape" → job queue. Mac worker'is:</p>
+                <div className="rounded-lg bg-[var(--bg-elevated)] border border-[var(--border-subtle)] p-2.5 font-mono text-[14px] text-[var(--text-primary)] whitespace-pre-wrap break-all">
                   {`bash scraper/run_worker.sh wiki\n# atskiram terminale:\nbash scraper/run_worker.sh scrape`}
                 </div>
               </section>
               <section>
                 <h3 className="font-semibold text-[var(--text-primary)] mb-1.5">Kokybės badges</h3>
-                <ul className="space-y-1 text-[14.5px]">
+                <ul className="space-y-1 text-[14px]">
                   <li><strong>Score pill</strong>: 90+ ⭐ aukso, 70+ smaragdo, 50+ mėlyna, 30+ pilka. <code>•</code> = Wiki factors atjungti (score gated).</li>
                   <li><strong>P</strong> = profile foto (cover_image_url). ✓ OK, ⚠ legacy/maža, ○ nėra.</li>
                   <li><strong>H</strong> = hero foto (cover_image_wide_url). ✓ OK, ○ nėra.</li>
@@ -658,7 +658,7 @@ function StatCard({ label, value, sub, highlight }: { label: string; value: numb
 
 function FilterGroupLabel({ children }: { children: React.ReactNode }) {
   return (
-    <span className="text-[12.5px] font-bold uppercase tracking-wider text-[var(--text-faint)] self-center mr-1">
+    <span className="text-[12px] font-bold uppercase tracking-wider text-[var(--text-faint)] self-center mr-1">
       {children}
     </span>
   )
@@ -671,7 +671,7 @@ function FilterChip({ current, value, onClick, children }: {
   return (
     <button
       onClick={() => onClick(value)}
-      className={`px-2.5 py-1 text-[13.5px] rounded-full border transition-colors ${
+      className={`px-2.5 py-1 text-[14px] rounded-full border transition-colors ${
         active
           ? 'bg-music-blue text-white border-music-blue'
           : 'bg-[var(--bg-elevated)] border-[var(--input-border)] text-[var(--text-primary)] hover:bg-[var(--bg-hover)]'
@@ -721,7 +721,7 @@ function KindBadge({ row }: { row: ArtistStatus }) {
       : 'bg-gray-200 text-gray-700'
   return (
     <span
-      className={`inline-block rounded-full px-1.5 py-0.5 text-[11.5px] font-bold uppercase tracking-wider ${color}`}
+      className={`inline-block rounded-full px-1.5 py-0.5 text-[12px] font-bold uppercase tracking-wider ${color}`}
       title={row.country || 'Be šalies'}
     >
       {label}
@@ -774,10 +774,10 @@ function PhotoBadges({ row }: { row: ArtistStatus }) {
   return (
     <span className="inline-flex items-center gap-1 text-[12px]">
       <span title="Profile foto" className="inline-flex items-center gap-0.5">
-        <span className="font-mono text-[11px] text-[var(--text-faint)]">P</span>{photoIcon}
+        <span className="font-mono text-[12px] text-[var(--text-faint)]">P</span>{photoIcon}
       </span>
       <span title="Hero foto" className="inline-flex items-center gap-0.5">
-        <span className="font-mono text-[11px] text-[var(--text-faint)]">H</span>{heroIcon}
+        <span className="font-mono text-[12px] text-[var(--text-faint)]">H</span>{heroIcon}
       </span>
     </span>
   )

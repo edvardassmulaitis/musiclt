@@ -151,7 +151,7 @@ export function MessageComposer({ placeholder, onSend, onTyping, disabled, compa
             background: emojiOpen ? 'var(--bg-hover)' : 'transparent',
             color: 'var(--text-muted)', cursor: 'pointer',
             display: 'flex', alignItems: 'center', justifyContent: 'center',
-            fontSize: 18, flexShrink: 0,
+            fontSize: 20, flexShrink: 0,
             transition: 'background .12s',
           }}
           onMouseEnter={ev => (ev.currentTarget.style.background = 'var(--bg-hover)')}
@@ -180,7 +180,7 @@ export function MessageComposer({ placeholder, onSend, onTyping, disabled, compa
           </svg>
         </button>
       </div>
-      <div style={{ fontSize: 12.5, color: 'var(--text-faint, var(--text-muted))', marginTop: 4, paddingLeft: 4 }}>
+      <div style={{ fontSize: 12, color: 'var(--text-faint, var(--text-muted))', marginTop: 4, paddingLeft: 4 }}>
         Enter — siųsti · Shift+Enter — nauja eilutė
       </div>
     </div>

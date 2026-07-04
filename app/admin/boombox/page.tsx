@@ -194,7 +194,7 @@ function AutoGenerateBar({ type, onGenerate, disabled }: {
   return (
     <div style={{ background: 'var(--bg-surface)', border: '1px solid var(--border-default)', borderRadius: 12, padding: 16, marginBottom: 16, display: 'flex', alignItems: 'center', gap: 12, flexWrap: 'wrap' }}>
       <div style={{ flex: 1, minWidth: 200 }}>
-        <div style={{ fontFamily: 'Outfit, system-ui, sans-serif', fontSize: 15, fontWeight: 700, marginBottom: 2 }}>
+        <div style={{ fontFamily: 'Outfit, system-ui, sans-serif', fontSize: 16, fontWeight: 700, marginBottom: 2 }}>
           Auto-generuoti {type === 'duel' ? 'dvikovas' : 'verdiktus'}
         </div>
         <div style={{ fontSize: 14, color: 'var(--text-muted)' }}>
@@ -289,7 +289,7 @@ function ImageCreator({ onCreated }: { onCreated: () => void }) {
 
   return (
     <div style={{ background: 'var(--bg-surface)', border: '1px solid var(--border-default)', borderRadius: 12, padding: 16, marginBottom: 16 }}>
-      <div style={{ fontFamily: 'Outfit, system-ui, sans-serif', fontSize: 15, fontWeight: 700, marginBottom: 4 }}>
+      <div style={{ fontFamily: 'Outfit, system-ui, sans-serif', fontSize: 16, fontWeight: 700, marginBottom: 4 }}>
         Naujas atspėk vaizdo drop'as
       </div>
       <div style={{ fontSize: 14, color: 'var(--text-muted)', marginBottom: 14 }}>
@@ -340,7 +340,7 @@ function ImageCreator({ onCreated }: { onCreated: () => void }) {
                 <>
                   <div style={{ fontSize: 32 }}>📥</div>
                   <div style={{ fontSize: 14, fontWeight: 600 }}>Tempk failą čia</div>
-                  <div style={{ fontSize: 13, color: 'var(--text-muted)' }}>arba spauk pasirinkti · max 5MB</div>
+                  <div style={{ fontSize: 14, color: 'var(--text-muted)' }}>arba spauk pasirinkti · max 5MB</div>
                 </>
               )}
               <input
@@ -445,7 +445,7 @@ function VideoCreator({ onCreated }: { onCreated: () => void }) {
 
   return (
     <div style={{ background: 'var(--bg-surface)', border: '1px solid var(--border-default)', borderRadius: 12, padding: 16, marginBottom: 16 }}>
-      <div style={{ fontFamily: 'Outfit, system-ui, sans-serif', fontSize: 15, fontWeight: 700, marginBottom: 4 }}>
+      <div style={{ fontFamily: 'Outfit, system-ui, sans-serif', fontSize: 16, fontWeight: 700, marginBottom: 4 }}>
         Naujas video drop'as
       </div>
       <div style={{ fontSize: 14, color: 'var(--text-muted)', marginBottom: 14 }}>
@@ -482,7 +482,7 @@ function VideoCreator({ onCreated }: { onCreated: () => void }) {
           {tag ? (
             <div style={{ display: 'flex', alignItems: 'center', gap: 8, background: 'var(--card-bg)', border: '1px solid var(--accent-orange)', borderRadius: 8, padding: '8px 12px' }}>
               <div style={{ flex: 1, fontSize: 14 }}>
-                <span style={{ fontSize: 13, color: 'var(--text-muted)', marginRight: 6 }}>{tag.type === 'grupe' ? 'atlikėjas' : 'daina'}</span>
+                <span style={{ fontSize: 14, color: 'var(--text-muted)', marginRight: 6 }}>{tag.type === 'grupe' ? 'atlikėjas' : 'daina'}</span>
                 <strong>{tag.title}</strong>
                 {tag.artist && <span style={{ color: 'var(--text-muted)', marginLeft: 6 }}>{tag.artist}</span>}
               </div>
@@ -579,7 +579,7 @@ function DropTable({ type, drops, trackMap, artistMap, statsMap, onPatch, onArch
                         background: isReady ? 'transparent' : 'var(--status-success-bg)',
                         border: `1px solid ${isReady ? 'var(--border-default)' : 'var(--accent-green)'}`,
                         color: isReady ? 'var(--text-muted)' : 'var(--accent-green)',
-                        padding: '4px 10px', borderRadius: 6, fontSize: 13, cursor: 'pointer', marginRight: 6, fontWeight: 600,
+                        padding: '4px 10px', borderRadius: 6, fontSize: 14, cursor: 'pointer', marginRight: 6, fontWeight: 600,
                       }}
                     >
                       {isReady ? 'Išjungti' : 'Įjungti'}
@@ -589,7 +589,7 @@ function DropTable({ type, drops, trackMap, artistMap, statsMap, onPatch, onArch
                     <button
                       onClick={() => onPatch(d.id, { sort_order: 0 })}
                       title="Pakelti į priekį"
-                      style={{ background: 'transparent', border: '1px solid var(--border-default)', color: 'var(--text-muted)', padding: '4px 8px', borderRadius: 6, fontSize: 13, cursor: 'pointer', marginRight: 6 }}
+                      style={{ background: 'transparent', border: '1px solid var(--border-default)', color: 'var(--text-muted)', padding: '4px 8px', borderRadius: 6, fontSize: 14, cursor: 'pointer', marginRight: 6 }}
                     >
                       ↑ next
                     </button>
@@ -597,7 +597,7 @@ function DropTable({ type, drops, trackMap, artistMap, statsMap, onPatch, onArch
                   {!isArchived && (
                     <button
                       onClick={() => onArchive(d.id)}
-                      style={{ background: 'transparent', border: '1px solid var(--border-default)', color: 'var(--text-muted)', padding: '4px 10px', borderRadius: 6, fontSize: 13, cursor: 'pointer' }}
+                      style={{ background: 'transparent', border: '1px solid var(--border-default)', color: 'var(--text-muted)', padding: '4px 10px', borderRadius: 6, fontSize: 14, cursor: 'pointer' }}
                     >
                       Archyvuoti
                     </button>
@@ -624,7 +624,7 @@ function DateLabel({ t }: { t: TrackInfo | undefined }) {
   if (!d.label) return null
   return (
     <span style={{
-      marginLeft: 8, fontSize: 13,
+      marginLeft: 8, fontSize: 14,
       color: d.missing ? 'var(--status-error-text)' : 'var(--text-faint)',
       fontStyle: d.missing ? 'italic' : 'normal',
     }}>
@@ -645,7 +645,7 @@ function describeDrop(type: DropType, d: any, trackMap: Record<number, TrackInfo
             ✓ {correct ? `${correct.artist} — ${correct.title}` : `track #${d.correct_track_id}`}
             <DateLabel t={correct} />
           </div>
-          <div style={{ fontSize: 13, color: 'var(--text-muted)', marginTop: 2 }}>
+          <div style={{ fontSize: 14, color: 'var(--text-muted)', marginTop: 2 }}>
             decoys: {decoys || '—'}
           </div>
         </div>
@@ -685,15 +685,15 @@ function describeDrop(type: DropType, d: any, trackMap: Record<number, TrackInfo
       <div>
         <div style={{ fontSize: 12, color: 'var(--text-muted)', textTransform: 'uppercase', letterSpacing: 1, marginBottom: 4 }}>{d.source}</div>
         {d.caption && <div style={{ fontWeight: 600 }}>{d.caption}</div>}
-        <div style={{ fontSize: 13, color: 'var(--text-muted)', marginTop: 2 }}>
+        <div style={{ fontSize: 14, color: 'var(--text-muted)', marginTop: 2 }}>
           {t ? `→ ${t.artist} — ${t.title}` : a ? `→ ${a.name}` : <span style={{ color: 'var(--text-faint)' }}>be tag&apos;o</span>}
         </div>
-        <a href={d.source_url} target="_blank" rel="noopener noreferrer" style={{ fontSize: 13, color: 'var(--accent-orange)' }}>↗ source</a>
+        <a href={d.source_url} target="_blank" rel="noopener noreferrer" style={{ fontSize: 14, color: 'var(--accent-orange)' }}>↗ source</a>
       </div>
     )
   }
   return null
 }
 
-const th: React.CSSProperties = { padding: '10px 12px', fontSize: 13, color: 'var(--text-muted)', textTransform: 'uppercase', letterSpacing: 1, fontWeight: 600, textAlign: 'left' }
+const th: React.CSSProperties = { padding: '10px 12px', fontSize: 14, color: 'var(--text-muted)', textTransform: 'uppercase', letterSpacing: 1, fontWeight: 600, textAlign: 'left' }
 const td: React.CSSProperties = { padding: '12px', fontSize: 14, verticalAlign: 'top' }

@@ -12,16 +12,22 @@ module.exports = {
         'music-blue-light': '#5eb7f7',
         'music-orange': '#f07820',
       },
-      /* Globaliai padidinta šriftų skalė (~+1px kiekvienam žingsniui) —
-         testuotojo prašymu tekstas visoje svetainėje buvo per smulkus.
-         Paveikia VISAS text-xs / text-sm / text-base / text-lg / text-xl
-         klases (arbitrary text-[Npx] tvarkomi atskirai sed'u). */
+      /* ── VIENINGA TIPOGRAFIJOS SKALĖ (px): 12 / 14 / 16 / 20 / 24 / 30 ──
+         Vienas tiesos šaltinis visai svetainei. Semantika:
+           12 = meta / žymos / laikai      (text-xs)
+           14 = antrinis / paantraštės     (text-sm)
+           16 = kūnas / kortelių pavadinimai (text-base)
+           20 = sekcijų antraštės          (text-lg)
+           24 = didesnės antraštės         (text-xl)
+           30 = hero / display             (text-2xl)
+         Arbitrary text-[Npx] ir inline fontSize priderinti prie šių žingsnių. */
       fontSize: {
-        'xs':   ['0.8125rem', '1.1rem'],   /* 12 -> 13 */
-        'sm':   ['0.9375rem', '1.35rem'],  /* 14 -> 15 */
-        'base': ['1.0625rem', '1.6rem'],   /* 16 -> 17 */
-        'lg':   ['1.1875rem', '1.75rem'],  /* 18 -> 19 */
-        'xl':   ['1.3125rem', '1.85rem'],  /* 20 -> 21 */
+        'xs':   ['0.75rem',  '1rem'],     /* 12 */
+        'sm':   ['0.875rem', '1.3rem'],   /* 14 */
+        'base': ['1rem',     '1.55rem'],  /* 16 */
+        'lg':   ['1.25rem',  '1.75rem'],  /* 20 */
+        'xl':   ['1.5rem',   '2rem'],     /* 24 */
+        '2xl':  ['1.875rem', '2.25rem'],  /* 30 */
       },
     },
   },
