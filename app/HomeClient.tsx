@@ -910,22 +910,25 @@ function ReaderSlide({ slide, active, seen, dk, scrollTopSignal, onScrolledChang
   }
 
   const place = slide.metaLine || (isChart ? '' : slide.subtitle) || ''
-  const artistName = slide.artist?.name || null
-  const showArtistRow = !!artistName && slide.type !== 'event' && !isChart && !isDaily
   // Trumpo turinio kortelės (be body teksto) — aukštesnis posteris, kad kortelė
   // neatrodytų pustuštė (daily_winner/event/verta/discovery/recording).
   const tallPoster = !body && !bodyLoading && !isChart && !isDaily && !isNews && !isBlog
 
   /* „Muzika" sekcijos embed'ai (max 3): slide.songs arba vienas slide.videoId.
-   * Jei iš sąrašo paprašytas video nėra tarp jų — įterpiam pirmu. */
-  const embeds: { videoId: string; title?: string | null; artist?: string | null }[] = []
+   * Jei iš sąrašo paprašytas video nėra tarp jų — įterpiam pirmu. Antraštė
+   * rodoma TIK kai yra tikras dainos pavadinimas (ne tuščias/generinis „Daina"). */
+  const realTitle = (t?: string | null): string | null => {
+    const s = (t || '').trim()
+    return s && s.toLowerCase() !== 'daina' ? s : null
+  }
+  const embeds: { videoId: string; title: string | null; artist?: string | null }[] = []
   if (slide.songs && slide.songs.length) {
-    for (const s of slide.songs.slice(0, 3)) embeds.push({ videoId: s.videoId, title: s.title, artist: s.artist || null })
+    for (const s of slide.songs.slice(0, 3)) embeds.push({ videoId: s.videoId, title: realTitle(s.title), artist: s.artist || null })
   } else if (slide.videoId) {
-    embeds.push({ videoId: slide.videoId, title: slide.songTitle || null, artist: slide.songArtist || null })
+    embeds.push({ videoId: slide.videoId, title: realTitle(slide.songTitle), artist: slide.songArtist || null })
   }
   if (reqVideoId && !embeds.some(e => e.videoId === reqVideoId)) {
-    embeds.unshift({ videoId: reqVideoId })
+    embeds.unshift({ videoId: reqVideoId, title: null })
     if (embeds.length > 3) embeds.length = 3
   }
 
@@ -1006,11 +1009,11 @@ function ReaderSlide({ slide, active, seen, dk, scrollTopSignal, onScrolledChang
             Iš topo/kandidatų eilutės paprašytas video (reqVideoId) gauna autoplay=1. ── */}
         {active && embeds.length > 0 && (
           <div className="rdr-embeds" ref={embedsRef}>
-            <span className="rdr-embeds-head">Muzika</span>
+            <span className="rdr-embeds-head">🎵 Muzika</span>
             {embeds.map(e => (
               <div key={e.videoId} className="rdr-embed">
-                {(e.title || e.artist) && (
-                  <p className="rdr-embed-cap"><b>{e.title}</b>{e.artist ? <i> — {e.artist}</i> : null}</p>
+                {e.title && (
+                  <p className="rdr-embed-cap">{e.title}{e.artist ? ` · ${e.artist}` : ''}</p>
                 )}
                 <div className="rdr-embed-frame">
                   <iframe
@@ -1026,69 +1029,86 @@ function ReaderSlide({ slide, active, seen, dk, scrollTopSignal, onScrolledChang
           </div>
         )}
 
-        {/* Renginio lineup'as — avatarai + vardai, kiekvienas → atlikėjo puslapis. */}
-        {slide.lineup && slide.lineup.length > 0 && (
-          <div className="rdr-lineup">
-            <span className="rdr-lineup-head">Lineup</span>
-            <div className="rdr-lineup-row">
-              {slide.lineup.map(a => (
-                <Link key={a.slug} href={`/atlikejai/${a.slug}`} onClick={onNavLink} className="rdr-lineup-item">
-                  {a.image
-                    ? <img src={proxyImg(a.image)} alt="" />
-                    : <span className="rdr-lineup-ph">{a.name[0]}</span>}
-                  <span>{a.name}</span>
-                </Link>
-              ))}
-            </div>
-          </div>
-        )}
-
-        {showArtistRow && (
-          <Link href={`/atlikejai/${slide.artist!.slug}`} className="rdr-artist rdr-artist-foot" onClick={onNavLink}>
-            {slide.artist!.image
-              ? <img src={proxyImg(slide.artist!.image)} alt="" />
-              : <span className="rdr-artist-ph">{artistName![0]}</span>}
-            <span>{artistName}</span>
-          </Link>
-        )}
-
         {slide.authorName && <p className="rdr-author">— {slide.authorName}</p>}
 
-        {/* News: subtilus CTA į pilną straipsnį (komentarai). */}
-        {isNews && body && (
-          <Link href={slide.href} onClick={onNavLink} className="rdr-inline-cta">
-            Pilna versija ir komentarai
-            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round"><path d="M5 12h14M12 5l7 7-7 7" /></svg>
-          </Link>
-        )}
-
-        <div style={{ height: 92 }} />
+        {/* Vieningas kortelės pabaigos blokas — kontekstas (atlikėjas/lineup + ♥)
+            ir veiksmai (CTA + Bilietai) VIENODU stiliumi visiems tipams. */}
+        <CardFooter slide={slide} liked={liked} onToggleLike={toggleLike} onNavLink={onNavLink} />
       </div>
+    </div>
+  )
+}
 
-      {/* ── Apatinė zona (sticky): TIK veiksmai — pirminis CTA, ♥ (news),
-          Bilietai. Koncertų įrašams jos NĖRA — title yra aktyvi nuoroda. ── */}
-      {!isRecording && (
-        <div className="rdr-bottom" onClick={(e) => e.stopPropagation()}>
-          <div className="rdr-actions">
-            {slide.likeable && slide.newsId && (
-              <button className={`rdr-like${liked ? ' on' : ''}`} onClick={toggleLike} aria-label="Patinka">
-                <svg width="20" height="20" viewBox="0 0 24 24" fill={liked ? '#f43f5e' : 'none'} stroke={liked ? '#f43f5e' : 'currentColor'} strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M20.8 4.6a5.5 5.5 0 0 0-7.8 0L12 5.6l-1-1a5.5 5.5 0 1 0-7.8 7.8l1 1L12 21l7.8-7.6 1-1a5.5 5.5 0 0 0 0-7.8z" /></svg>
+/** Vieningas kortelės pabaigos blokas (footer) — VIENODAS visiems slide tipams,
+ *  scrollinasi su turiniu (ne sticky). Eilutė 1 (jei yra konteksto): atlikėjo
+ *  avataras+vardas ARBA renginio lineup'as kairėje, ♥ (news) dešinėje.
+ *  Eilutė 2: pilno pločio solid CTA (+ „Bilietai" outlined, jei yra ticketUrl). */
+function CardFooter({ slide, liked, onToggleLike, onNavLink }: {
+  slide: HeroSlide
+  liked: boolean
+  onToggleLike: () => void
+  onNavLink: () => void
+}) {
+  const isNews = slide.type === 'news'
+  const isChart = slide.type === 'chart_lt' || slide.type === 'chart_world'
+  const showLineup = !!(slide.lineup && slide.lineup.length)
+  const showArtist = !showLineup && !!slide.artist && slide.type !== 'event' && !isChart && slide.type !== 'daily'
+  const showLike = !!(slide.likeable && slide.newsId)
+  const hasCtx = showLineup || showArtist || showLike
+  // Vieninga CTA etikečių logika — tipas → aiškus veiksmas, fallback ctaLabel.
+  const ctaLabel = isNews ? 'Pilna versija ir komentarai'
+    : isChart ? 'Visas topas'
+    : slide.type === 'daily' || slide.type === 'daily_winner' ? 'Dienos daina'
+    : slide.type === 'event' ? 'Apie renginį'
+    : slide.type === 'verta' ? 'Apie kelionę'
+    : slide.ctaLabel || 'Skaityti'
+  return (
+    <div className="rdr-foot" onClick={(e) => e.stopPropagation()}>
+      {hasCtx && (
+        <>
+          <div className="rdr-foot-ctx">
+            {showLineup ? (
+              <div className="rdr-foot-lineup">
+                {slide.lineup!.map(a => (
+                  <Link key={a.slug} href={`/atlikejai/${a.slug}`} onClick={onNavLink} className="rdr-lineup-item">
+                    {a.image
+                      ? <img src={proxyImg(a.image)} alt="" />
+                      : <span className="rdr-lineup-ph">{a.name[0]}</span>}
+                    <span>{a.name}</span>
+                  </Link>
+                ))}
+              </div>
+            ) : showArtist ? (
+              <Link href={`/atlikejai/${slide.artist!.slug}`} onClick={onNavLink} className="rdr-foot-artist">
+                {slide.artist!.image
+                  ? <img src={proxyImg(slide.artist!.image)} alt="" />
+                  : <span className="rdr-foot-ph">{slide.artist!.name[0]}</span>}
+                <span>{slide.artist!.name}</span>
+              </Link>
+            ) : (
+              <span style={{ flex: 1 }} />
+            )}
+            {showLike && (
+              <button className={`rdr-foot-like${liked ? ' on' : ''}`} onClick={onToggleLike} aria-label="Patinka">
+                <svg width="18" height="18" viewBox="0 0 24 24" fill={liked ? '#f43f5e' : 'none'} stroke={liked ? '#f43f5e' : 'currentColor'} strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M20.8 4.6a5.5 5.5 0 0 0-7.8 0L12 5.6l-1-1a5.5 5.5 0 1 0-7.8 7.8l1 1L12 21l7.8-7.6 1-1a5.5 5.5 0 0 0 0-7.8z" /></svg>
               </button>
             )}
-            <Link href={slide.href} onClick={onNavLink} className={`rdr-cta${isNews ? ' subtle' : ''}`}
-              style={isNews ? undefined : { background: seen ? 'rgba(255,255,255,0.18)' : (isChart ? (slide.type === 'chart_lt' ? 'var(--accent-orange)' : '#3b82f6') : isDaily ? '#f59e0b' : 'var(--accent-orange)') }}>
-              {(isNews ? 'Pilna versija ir komentarai' : slide.ctaLabel) || (isChart ? 'Visas topas' : isDaily ? 'Dienos daina' : 'Skaityti')}
-              <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.4" strokeLinecap="round" strokeLinejoin="round"><path d="M5 12h14M12 5l7 7-7 7" /></svg>
-            </Link>
-            {slide.ticketUrl && (
-              <a href={slide.ticketUrl} target="_blank" rel="noopener noreferrer" className="rdr-ticket">
-                <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M3 7v3a2 2 0 0 1 0 4v3a1 1 0 0 0 1 1h16a1 1 0 0 0 1-1v-3a2 2 0 0 1 0-4V7a1 1 0 0 0-1-1H4a1 1 0 0 0-1 1z" /></svg>
-                Bilietai
-              </a>
-            )}
           </div>
-        </div>
+          <div className="rdr-foot-div" />
+        </>
       )}
+      <div className="rdr-foot-actions">
+        <Link href={slide.href} onClick={onNavLink} className="rdr-foot-cta">
+          {ctaLabel}
+          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.4" strokeLinecap="round" strokeLinejoin="round"><path d="M5 12h14M12 5l7 7-7 7" /></svg>
+        </Link>
+        {slide.ticketUrl && (
+          <a href={slide.ticketUrl} target="_blank" rel="noopener noreferrer" className="rdr-foot-ticket">
+            <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M3 7v3a2 2 0 0 1 0 4v3a1 1 0 0 0 1 1h16a1 1 0 0 0 1-1v-3a2 2 0 0 1 0-4V7a1 1 0 0 0-1-1H4a1 1 0 0 0-1 1z" /></svg>
+            Bilietai
+          </a>
+        )}
+      </div>
     </div>
   )
 }
@@ -1200,7 +1220,7 @@ function ReelsOverlay({ slides, initialIdx, seenSlides, onSeen, onClose, onChart
   }
   const onTouchStart = (e: React.TouchEvent) => {
     const t = e.target as HTMLElement
-    ignoreGesture.current = !!(t && t.closest && t.closest('button, a, iframe, input, textarea, .rdr-bottom'))
+    ignoreGesture.current = !!(t && t.closest && t.closest('button, a, iframe, input, textarea, .rdr-foot'))
     touchStartX.current = e.touches[0].clientX
     touchStartY.current = e.touches[0].clientY
     gestureDir.current = null
@@ -3447,8 +3467,6 @@ export default function HomeClient({ initialLatest, initialHero }: { initialLate
         /* Antraštės galvutė: badge + data vienoj eilutėj (kompaktiška) */
         .rdr-head{display:flex;align-items:center;gap:8px;flex-wrap:wrap;margin-bottom:10px}
         .rdr-date{font-size:12px;font-weight:600;color:rgba(255,255,255,0.5);font-family:'Outfit',sans-serif}
-        /* Atlikėjo „pill" perkelta į teksto apačią */
-        .rdr-artist-foot{margin:18px 0 0}
 
         /* ── Šviesi tema (light mode) — reels neturi būti juodas ── */
         .hp-reels.light,.hp-reels.light .hp-reels-slide,.hp-reels.light .rdr-slide{background:var(--bg-body)}
@@ -3457,48 +3475,38 @@ export default function HomeClient({ initialLatest, initialHero }: { initialLate
         .hp-reels.light .rdr-excerpt,.hp-reels.light .rdr-html{color:var(--text-secondary)}
         .hp-reels.light .rdr-html h2,.hp-reels.light .rdr-html h3{color:var(--text-primary)}
         .hp-reels.light .rdr-html a{color:var(--accent-link)}
-        .hp-reels.light .rdr-artist{background:var(--bg-hover)}
-        .hp-reels.light .rdr-artist span{color:var(--text-primary)}
         .hp-reels.light .rdr-author{color:var(--text-muted)}
-        .hp-reels.light .rdr-bottom{background:linear-gradient(to top,var(--bg-body) 62%,transparent)}
         .hp-reels.light .rdr-media-fade{display:none}
         .hp-reels.light .rdr-embeds-head{color:var(--text-muted)}
-        .hp-reels.light .rdr-embed-cap b{color:var(--text-primary)}
-        .hp-reels.light .rdr-embed-cap i{color:var(--text-muted)}
-        .hp-reels.light .rdr-like{background:var(--bg-hover);border-color:var(--border-default);color:var(--text-primary)}
-        .hp-reels.light .rdr-cta.subtle{background:var(--bg-hover);border-color:var(--border-default);color:var(--text-primary)}
-        .hp-reels.light .rdr-inline-cta{border-color:var(--border-default);color:var(--text-secondary)}
+        .hp-reels.light .rdr-embed-cap{color:var(--text-muted)}
+        .hp-reels.light .rdr-foot{background:var(--bg-elevated);border-color:var(--border-default)}
+        .hp-reels.light .rdr-foot-artist span{color:var(--text-primary)}
+        .hp-reels.light .rdr-foot-div{background:var(--border-default)}
+        .hp-reels.light .rdr-foot-like{background:var(--bg-hover);border-color:var(--border-default);color:var(--text-primary)}
+        .hp-reels.light .rdr-foot-ticket{border-color:var(--border-default);color:var(--text-primary)}
         .hp-reels.light .rdr-uptop{background:var(--bg-elevated);border-color:var(--border-default);color:var(--text-primary)}
         .hp-reels.light .rdr-chart-info b,.hp-reels.light .rdr-top-title{color:var(--text-primary)}
         .hp-reels.light .rdr-toplist .rdr-top-comment,.hp-reels.light .rdr-chart-info i,.hp-reels.light .rdr-top-artist{color:var(--text-muted)}
 
-        /* Turinys */
-        .rdr-content{padding:16px 20px 0}
+        /* Turinys — apačioje safe-area tarpas (footer'is scrollinasi su turiniu,
+           nebe sticky juosta), kad jo nenukirstų home indikatorius. */
+        .rdr-content{padding:16px 20px calc(24px + env(safe-area-inset-bottom))}
         .rdr-chip{display:inline-block;padding:4px 12px;border-radius:16px;font-size:10px;font-weight:900;color:#fff;font-family:'Outfit',sans-serif;letter-spacing:0.08em;text-transform:uppercase}
         .rdr-title{font-family:'Outfit',sans-serif;font-size:23px;font-weight:900;color:#fff;line-height:1.14;letter-spacing:-0.02em;margin:0 0 8px;display:block}
         a.rdr-title-link{text-decoration:none}
         a.rdr-title-link:active{opacity:0.7}
         .rdr-meta{font-size:12.5px;font-weight:600;color:rgba(255,255,255,0.5);margin:0 0 12px}
-        .rdr-artist{display:inline-flex;align-items:center;gap:8px;text-decoration:none;margin:0 0 14px;padding:5px 12px 5px 5px;background:rgba(255,255,255,0.06);border-radius:999px}
-        .rdr-artist img{width:30px;height:30px;border-radius:50%;object-fit:cover}
-        .rdr-artist-ph{width:30px;height:30px;border-radius:50%;background:var(--accent-orange);display:flex;align-items:center;justify-content:center;color:#fff;font-weight:800;font-size:13px;text-transform:uppercase}
-        .rdr-artist span{font-size:13px;font-weight:700;color:#fff}
         .rdr-excerpt{font-size:15.5px;line-height:1.62;color:rgba(255,255,255,0.82);margin:0}
-        /* Renginio lineup'as — avatarų eilutė (wrap'inasi) */
-        .rdr-lineup{margin:18px 0 0}
-        .rdr-lineup-head{display:block;font-family:'Outfit',sans-serif;font-size:11px;font-weight:800;letter-spacing:0.04em;color:rgba(255,255,255,0.55);text-transform:uppercase}
-        .rdr-lineup-row{display:flex;flex-wrap:wrap;gap:8px;margin-top:9px}
-        .rdr-lineup-item{display:inline-flex;align-items:center;gap:7px;padding:4px 12px 4px 4px;border-radius:999px;background:rgba(255,255,255,0.07);border:1px solid rgba(255,255,255,0.10);text-decoration:none}
+        /* Lineup „pill'ės" — naudojamos footer'io konteksto eilutėje */
+        .rdr-lineup-item{display:inline-flex;align-items:center;gap:7px;padding:4px 12px 4px 4px;border-radius:999px;background:rgba(255,255,255,0.07);border:1px solid rgba(255,255,255,0.10);text-decoration:none;flex-shrink:0}
         .rdr-lineup-item img,.rdr-lineup-ph{width:28px;height:28px;border-radius:50%;object-fit:cover;flex-shrink:0;background:var(--accent-orange);display:flex;align-items:center;justify-content:center;color:#fff;font-weight:800;font-size:12px;text-transform:uppercase}
         .rdr-lineup-item span:last-child{font-size:12.5px;font-weight:700;color:#fff;white-space:nowrap}
-        .hp-reels.light .rdr-lineup-head{color:var(--text-muted)}
         .hp-reels.light .rdr-lineup-item{background:var(--bg-hover);border-color:var(--border-default)}
         .hp-reels.light .rdr-lineup-item span:last-child{color:var(--text-primary)}
         .rdr-html{font-size:15.5px;line-height:1.66;color:rgba(255,255,255,0.82)}
         .rdr-html p{margin:0 0 14px}
         .rdr-html a{color:#fb923c;text-decoration:underline}
         .rdr-html .news-source{display:none}
-        .rdr-inline-cta{display:inline-flex;align-items:center;gap:6px;margin-top:18px;padding:9px 16px;border-radius:12px;background:transparent;border:1px solid rgba(255,255,255,0.22);color:rgba(255,255,255,0.78);font-family:'Outfit',sans-serif;font-size:13px;font-weight:700;text-decoration:none}
         .rdr-html h2,.rdr-html h3{font-family:'Outfit',sans-serif;color:#fff;font-size:18px;margin:20px 0 8px;line-height:1.2}
         .rdr-html img{max-width:100%;height:auto;border-radius:12px;margin:12px 0;display:block}
         .rdr-html iframe{max-width:100%;border-radius:12px;margin:12px 0}
@@ -3552,15 +3560,12 @@ export default function HomeClient({ initialLatest, initialHero }: { initialLate
         .rdr-cvl-vote:active:not(:disabled){transform:scale(0.9)}
         .rdr-cvl-mine{font-size:15px;font-weight:900}
 
-        .rdr-cta.subtle{background:rgba(255,255,255,0.10);border:1px solid rgba(255,255,255,0.20);color:rgba(255,255,255,0.92);font-weight:700}
-
         /* ── „Muzika" sekcija — standartiniai YouTube embed'ai po tekstu (16/9,
-           užapvalinti). Grojimą paleidžia pats YouTube — jokio custom UI. ── */
-        .rdr-embeds{display:flex;flex-direction:column;gap:14px;margin:20px 0 0}
-        .rdr-embeds-head{font-family:'Outfit',sans-serif;font-size:11px;font-weight:800;letter-spacing:0.04em;color:rgba(255,255,255,0.55);text-transform:uppercase}
-        .rdr-embed-cap{margin:0 0 7px;font-size:13px;line-height:1.35}
-        .rdr-embed-cap b{font-family:'Outfit',sans-serif;font-weight:800;color:#fff}
-        .rdr-embed-cap i{font-style:normal;color:rgba(255,255,255,0.55)}
+           užapvalinti). Grojimą paleidžia pats YouTube — jokio custom UI.
+           Antraštė tik kai yra TIKRAS dainos pavadinimas. ── */
+        .rdr-embeds{display:flex;flex-direction:column;gap:10px;margin:20px 0 0}
+        .rdr-embeds-head{font-family:'Outfit',sans-serif;font-size:11px;font-weight:700;letter-spacing:0.08em;color:rgba(255,255,255,0.45);text-transform:uppercase}
+        .rdr-embed-cap{margin:0 0 5px;font-size:13px;font-weight:600;color:rgba(255,255,255,0.6);line-height:1.35;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
         .rdr-embed-frame{position:relative;width:100%;aspect-ratio:16/9;border-radius:14px;overflow:hidden;background:#000}
         .rdr-embed-frame iframe{position:absolute;inset:0;width:100%;height:100%;border:0;display:block}
 
@@ -3583,14 +3588,23 @@ export default function HomeClient({ initialLatest, initialHero }: { initialLate
         .rdr-dc-empty{display:flex;flex-direction:column;gap:12px;padding:8px 0}
         .rdr-dc-empty p{font-size:15px;font-weight:600;color:rgba(255,255,255,0.85);margin:0}
 
-        /* Apatinė zona (sticky): TIK veiksmų juosta. Apačioje — iOS safe-area
-           tarpas, kad mygtukų nenukirstų home indikatorius/naršyklės juosta. */
-        .rdr-bottom{position:sticky;bottom:0;left:0;right:0;background:linear-gradient(to top,#000 62%,transparent);z-index:5;padding-bottom:env(safe-area-inset-bottom)}
-        .rdr-actions{display:flex;align-items:center;gap:10px;padding:12px 16px 14px}
-        .rdr-like{width:48px;height:48px;flex-shrink:0;border-radius:14px;background:rgba(255,255,255,0.10);border:1px solid rgba(255,255,255,0.14);color:#fff;display:flex;align-items:center;justify-content:center;cursor:pointer;transition:background .2s}
-        .rdr-like.on{background:rgba(244,63,94,0.16);border-color:rgba(244,63,94,0.4)}
-        .rdr-cta{flex:1;display:flex;align-items:center;justify-content:center;gap:7px;padding:14px 20px;border-radius:14px;border:none;cursor:pointer;color:#fff;font-family:'Outfit',sans-serif;font-size:14.5px;font-weight:800;letter-spacing:-0.01em;text-decoration:none}
-        .rdr-ticket{display:flex;align-items:center;gap:6px;padding:14px 16px;border-radius:14px;background:rgba(255,255,255,0.10);border:1px solid rgba(255,255,255,0.16);color:#fff;font-family:'Outfit',sans-serif;font-size:13.5px;font-weight:800;text-decoration:none;flex-shrink:0}
+        /* ── Vieningas kortelės pabaigos blokas (footer) — vienas konteineris:
+           konteksto eilutė (atlikėjas/lineup + ♥), skirtukas, veiksmų eilutė
+           (pilno pločio CTA + „Bilietai"). Scrollinasi su turiniu. ── */
+        .rdr-foot{margin:22px 0 0;border-radius:18px;background:rgba(255,255,255,0.06);border:1px solid rgba(255,255,255,0.10);overflow:hidden}
+        .rdr-foot-ctx{display:flex;align-items:center;gap:10px;min-height:44px;padding:6px 10px}
+        .rdr-foot-artist{display:inline-flex;align-items:center;gap:8px;text-decoration:none;min-width:0;flex:1}
+        .rdr-foot-artist img,.rdr-foot-ph{width:30px;height:30px;border-radius:50%;object-fit:cover;flex-shrink:0;background:var(--accent-orange);display:flex;align-items:center;justify-content:center;color:#fff;font-weight:800;font-size:13px;text-transform:uppercase}
+        .rdr-foot-artist span{font-size:13px;font-weight:700;color:#fff;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+        .rdr-foot-lineup{display:flex;align-items:center;gap:6px;overflow-x:auto;scrollbar-width:none;min-width:0;flex:1}
+        .rdr-foot-lineup::-webkit-scrollbar{display:none}
+        .rdr-foot-like{margin-left:auto;width:38px;height:38px;flex-shrink:0;border-radius:12px;background:rgba(255,255,255,0.08);border:1px solid rgba(255,255,255,0.14);color:#fff;display:flex;align-items:center;justify-content:center;cursor:pointer;transition:background .2s}
+        .rdr-foot-like.on{background:rgba(244,63,94,0.16);border-color:rgba(244,63,94,0.4)}
+        .rdr-foot-div{height:1px;background:rgba(255,255,255,0.08)}
+        .rdr-foot-actions{display:flex;gap:8px;padding:10px}
+        .rdr-foot-cta{flex:1;display:flex;align-items:center;justify-content:center;gap:7px;height:46px;border-radius:12px;background:var(--accent-orange);color:#fff;font-family:'Outfit',sans-serif;font-size:14.5px;font-weight:800;letter-spacing:-0.01em;text-decoration:none;min-width:0}
+        .rdr-foot-cta:active{opacity:0.85}
+        .rdr-foot-ticket{flex:1;display:flex;align-items:center;justify-content:center;gap:6px;height:46px;border-radius:12px;background:transparent;border:1px solid rgba(255,255,255,0.25);color:#fff;font-family:'Outfit',sans-serif;font-size:13.5px;font-weight:800;text-decoration:none;min-width:0}
 
         /* Progreso juostelės + kontrolės */
         .rdr-bars{position:fixed;top:12px;left:14px;right:54px;z-index:312;display:flex;gap:4px;align-items:center;pointer-events:none}
@@ -3600,7 +3614,7 @@ export default function HomeClient({ initialLatest, initialHero }: { initialLate
         .rdr-uptop:active{transform:translateX(-50%) scale(0.9)}
         .rdr-nav{position:fixed;top:50%;transform:translateY(-50%);z-index:308;width:40px;height:40px;border-radius:50%;background:rgba(0,0,0,0.4);border:1px solid rgba(255,255,255,0.15);color:#fff;font-size:24px;line-height:1;cursor:pointer;display:none;align-items:center;justify-content:center;backdrop-filter:blur(6px)}
         .rdr-nav-l{left:12px}.rdr-nav-r{right:12px}
-        @media(min-width:900px){.rdr-nav{display:flex}.rdr-media,.rdr-content,.rdr-bottom{max-width:560px;margin-left:auto;margin-right:auto}}
+        @media(min-width:900px){.rdr-nav{display:flex}.rdr-media,.rdr-content{max-width:560px;margin-left:auto;margin-right:auto}}
 
         /* ── Hero cinematic ── */
         .hp-hero{position:relative;overflow:hidden;min-height:420px;display:flex;background:var(--bg-body)}
