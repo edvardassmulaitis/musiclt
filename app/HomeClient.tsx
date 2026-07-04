@@ -288,7 +288,7 @@ function SectionHead({ label, href, cta = 'Daugiau →', onMore }: { label: Reac
   const ctaCls = "font-['Outfit',sans-serif] text-[11.5px] font-bold text-[var(--accent-orange)] no-underline transition-opacity hover:opacity-70"
   return (
     <div className="mb-3.5 flex items-center justify-between">
-      <h2 className="m-0 font-['Outfit',sans-serif] text-[17px] font-extrabold tracking-[-0.01em] text-[var(--text-primary)] sm:text-[18px]">{label}</h2>
+      <h2 className="m-0 font-['Outfit',sans-serif] text-[19px] font-extrabold tracking-[-0.01em] text-[var(--text-primary)] sm:text-[20px]">{label}</h2>
       {onMore ? (
         <button type="button" onClick={onMore} className={ctaCls}>{cta}</button>
       ) : href ? (
@@ -3425,9 +3425,9 @@ export default function HomeClient({ initialLatest, initialHero }: { initialLate
 
         /* ── Reels reader v3 — horizontal istorijos, vertikalus skaitymas.
            z-index VIRŠ site header'io — overlay dengia visą ekraną (fullscreen). ── */
-        .hp-reels{position:fixed;inset:0;z-index:9999;background:#000;overflow:hidden}
+        .hp-reels{position:fixed;inset:0;z-index:9999;background:#101319;overflow:hidden}
         .hp-reels-track{height:100%;display:flex;flex-direction:row;will-change:transform}
-        .hp-reels-slide{height:100dvh;width:100vw;flex-shrink:0;position:relative;overflow:hidden;background:#000}
+        .hp-reels-slide{height:100dvh;width:100vw;flex-shrink:0;position:relative;overflow:hidden;background:#101319}
 
         /* Vertikaliai scrollinama istorija */
         .rdr-slide{height:100%;overflow-y:auto;overflow-x:hidden;-webkit-overflow-scrolling:touch;touch-action:pan-y;scrollbar-width:none}
@@ -3442,7 +3442,7 @@ export default function HomeClient({ initialLatest, initialHero }: { initialLate
         .rdr-poster-img{position:absolute;inset:0;width:100%;height:100%;object-fit:contain;z-index:1}
         /* Antraštės galvutė: badge + data vienoj eilutėj (kompaktiška) */
         .rdr-head{display:flex;align-items:center;gap:8px;flex-wrap:wrap;margin-bottom:10px}
-        .rdr-date{font-size:12px;font-weight:600;color:rgba(255,255,255,0.5);font-family:'Outfit',sans-serif}
+        .rdr-date{font-size:13px;font-weight:600;color:rgba(255,255,255,0.62);font-family:'Outfit',sans-serif}
 
         /* ── Šviesi tema (light mode) — reels neturi būti juodas ── */
         .hp-reels.light,.hp-reels.light .hp-reels-slide,.hp-reels.light .rdr-slide{background:var(--bg-body)}
@@ -3466,23 +3466,23 @@ export default function HomeClient({ initialLatest, initialHero }: { initialLate
         /* Turinys — footer'is yra PASKUTINIS elementas; apačioje tik nedidelis
            tarpas + safe-area, kad kortelė baigtųsi švariai (be tuščio scroll'o). */
         .rdr-content{padding:16px 20px calc(16px + env(safe-area-inset-bottom))}
-        .rdr-chip{display:inline-block;padding:4px 12px;border-radius:16px;font-size:10px;font-weight:900;color:#fff;font-family:'Outfit',sans-serif;letter-spacing:0.08em;text-transform:uppercase}
-        .rdr-title{font-family:'Outfit',sans-serif;font-size:23px;font-weight:900;color:#fff;line-height:1.14;letter-spacing:-0.02em;margin:0 0 8px;display:block}
+        .rdr-chip{display:inline-block;padding:4px 12px;border-radius:16px;font-size:11px;font-weight:900;color:#fff;font-family:'Outfit',sans-serif;letter-spacing:0.08em;text-transform:uppercase}
+        .rdr-title{font-family:'Outfit',sans-serif;font-size:25px;font-weight:900;color:#eef1f6;line-height:1.16;letter-spacing:-0.02em;margin:0 0 8px;display:block}
         a.rdr-title-link{text-decoration:none}
         a.rdr-title-link:active{opacity:0.7}
-        .rdr-meta{font-size:12.5px;font-weight:600;color:rgba(255,255,255,0.5);margin:0 0 12px}
-        .rdr-excerpt{font-size:15.5px;line-height:1.62;color:rgba(255,255,255,0.82);margin:0}
+        .rdr-meta{font-size:13.5px;font-weight:600;color:rgba(255,255,255,0.64);margin:0 0 12px}
+        .rdr-excerpt{font-size:16.5px;line-height:1.62;color:rgba(255,255,255,0.88);margin:0}
         /* Lineup „pill'ės" — naudojamos footer'io konteksto eilutėje */
         .rdr-lineup-item{display:inline-flex;align-items:center;gap:7px;padding:4px 12px 4px 4px;border-radius:999px;background:rgba(255,255,255,0.07);border:1px solid rgba(255,255,255,0.10);text-decoration:none;flex-shrink:0}
         .rdr-lineup-item img,.rdr-lineup-ph{width:28px;height:28px;border-radius:50%;object-fit:cover;flex-shrink:0;background:var(--accent-orange);display:flex;align-items:center;justify-content:center;color:#fff;font-weight:800;font-size:12px;text-transform:uppercase}
-        .rdr-lineup-item span:last-child{font-size:12.5px;font-weight:700;color:#fff;white-space:nowrap}
+        .rdr-lineup-item span:last-child{font-size:13.5px;font-weight:700;color:#eef1f6;white-space:nowrap}
         .hp-reels.light .rdr-lineup-item{background:var(--bg-hover);border-color:var(--border-default)}
         .hp-reels.light .rdr-lineup-item span:last-child{color:var(--text-primary)}
-        .rdr-html{font-size:15.5px;line-height:1.66;color:rgba(255,255,255,0.82)}
+        .rdr-html{font-size:16.5px;line-height:1.66;color:rgba(255,255,255,0.88)}
         .rdr-html p{margin:0 0 14px}
         .rdr-html a{color:#fb923c;text-decoration:underline}
         .rdr-html .news-source{display:none}
-        .rdr-html h2,.rdr-html h3{font-family:'Outfit',sans-serif;color:#fff;font-size:18px;margin:20px 0 8px;line-height:1.2}
+        .rdr-html h2,.rdr-html h3{font-family:'Outfit',sans-serif;color:#eef1f6;font-size:19.5px;margin:20px 0 8px;line-height:1.2}
         .rdr-html img{max-width:100%;height:auto;border-radius:12px;margin:12px 0;display:block}
         .rdr-html iframe{max-width:100%;border-radius:12px;margin:12px 0}
         .rdr-html ul,.rdr-html ol{padding-left:20px;margin:0 0 14px}
@@ -3494,13 +3494,13 @@ export default function HomeClient({ initialLatest, initialHero }: { initialLate
         .rdr-top-cover{flex-shrink:0;width:56px;height:56px;border-radius:10px;object-fit:cover;display:block}
         .rdr-top-ph{background:rgba(255,255,255,0.08)}
         .rdr-top-info{min-width:0;flex:1}
-        .rdr-top-title{margin:0;font-family:'Outfit',sans-serif;font-weight:800;font-size:14.5px;color:#fff;line-height:1.25}
-        .rdr-top-artist{font-weight:600;color:rgba(255,255,255,0.62)}
-        .rdr-top-comment{margin:5px 0 0;font-size:13px;line-height:1.5;color:rgba(255,255,255,0.72)}
+        .rdr-top-title{margin:0;font-family:'Outfit',sans-serif;font-weight:800;font-size:15.5px;color:#eef1f6;line-height:1.25}
+        .rdr-top-artist{font-weight:600;color:rgba(255,255,255,0.72)}
+        .rdr-top-comment{margin:5px 0 0;font-size:14px;line-height:1.5;color:rgba(255,255,255,0.8)}
         .rdr-outro{margin-top:20px}
         .rdr-outro a{display:flex;align-items:center;gap:9px;color:#fff;text-decoration:none;margin:0 0 9px;font-size:13.5px}
         .rdr-outro .bp-enrich-thumb{width:38px;height:38px;border-radius:8px;object-fit:cover;margin:0;flex-shrink:0}
-        .rdr-author{font-size:13px;font-weight:700;color:rgba(255,255,255,0.6);margin:14px 0 0}
+        .rdr-author{font-size:14px;font-weight:700;color:rgba(255,255,255,0.72);margin:14px 0 0}
         .rdr-load{display:flex;flex-direction:column;gap:10px;margin-top:4px}
         .rdr-load span{height:13px;border-radius:6px;background:linear-gradient(90deg,rgba(255,255,255,0.06),rgba(255,255,255,0.13),rgba(255,255,255,0.06));background-size:200% 100%;animation:rdr-sk 1.2s infinite}
         .rdr-load span:nth-child(1){width:100%}.rdr-load span:nth-child(2){width:92%}.rdr-load span:nth-child(3){width:68%}
@@ -3519,8 +3519,8 @@ export default function HomeClient({ initialLatest, initialHero }: { initialLate
         .hp-reels.light .rdr-trend.same{color:var(--text-muted)}
         .rdr-chart-row img,.rdr-chart-ph{width:42px;height:42px;border-radius:8px;object-fit:cover;flex-shrink:0;background:#1a1a1a}
         .rdr-chart-info{display:flex;flex-direction:column;min-width:0;flex:1}
-        .rdr-chart-info b{font-size:13.5px;font-weight:700;color:#fff;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
-        .rdr-chart-info i{font-size:11.5px;font-style:normal;color:rgba(255,255,255,0.5);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+        .rdr-chart-info b{font-size:14.5px;font-weight:700;color:#eef1f6;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+        .rdr-chart-info i{font-size:12.5px;font-style:normal;color:rgba(255,255,255,0.64);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
 
         /* Inline topas (balsavimas + grojimas) */
         .rdr-cvl{display:flex;flex-direction:column;gap:9px;margin:4px 0 12px}
@@ -3539,8 +3539,8 @@ export default function HomeClient({ initialLatest, initialHero }: { initialLate
            užapvalinti). Grojimą paleidžia pats YouTube — jokio custom UI.
            Antraštė tik kai yra TIKRAS dainos pavadinimas. ── */
         .rdr-embeds{display:flex;flex-direction:column;gap:10px;margin:20px 0 0}
-        .rdr-embeds-head{font-family:'Outfit',sans-serif;font-size:11px;font-weight:700;letter-spacing:0.08em;color:rgba(255,255,255,0.45);text-transform:uppercase}
-        .rdr-embed-cap{margin:0 0 5px;font-size:13px;font-weight:600;color:rgba(255,255,255,0.6);line-height:1.35;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+        .rdr-embeds-head{font-family:'Outfit',sans-serif;font-size:12px;font-weight:700;letter-spacing:0.08em;color:rgba(255,255,255,0.6);text-transform:uppercase}
+        .rdr-embed-cap{margin:0 0 5px;font-size:14px;font-weight:600;color:rgba(255,255,255,0.74);line-height:1.35;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
         .rdr-embed-frame{position:relative;width:100%;aspect-ratio:16/9;border-radius:14px;overflow:hidden;background:#000}
         .rdr-embed-frame iframe{position:absolute;inset:0;width:100%;height:100%;border:0;display:block}
 
@@ -3570,14 +3570,14 @@ export default function HomeClient({ initialLatest, initialHero }: { initialLate
         .rdr-foot-ctx{display:flex;align-items:center;gap:10px;min-height:44px;padding:6px 10px}
         .rdr-foot-artist{display:inline-flex;align-items:center;gap:8px;text-decoration:none;min-width:0;flex:1}
         .rdr-foot-artist img,.rdr-foot-ph{width:30px;height:30px;border-radius:50%;object-fit:cover;flex-shrink:0;background:var(--accent-orange);display:flex;align-items:center;justify-content:center;color:#fff;font-weight:800;font-size:13px;text-transform:uppercase}
-        .rdr-foot-artist span{font-size:13px;font-weight:700;color:#fff;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+        .rdr-foot-artist span{font-size:14px;font-weight:700;color:#eef1f6;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
         .rdr-foot-lineup{display:flex;align-items:center;gap:6px;overflow-x:auto;scrollbar-width:none;min-width:0;flex:1}
         .rdr-foot-lineup::-webkit-scrollbar{display:none}
         .rdr-foot-div{height:1px;background:rgba(255,255,255,0.08)}
         .rdr-foot-actions{display:flex;gap:8px;padding:10px}
-        .rdr-foot-cta{flex:1;display:flex;align-items:center;justify-content:center;gap:7px;height:46px;border-radius:12px;background:var(--accent-orange);color:#fff;font-family:'Outfit',sans-serif;font-size:14.5px;font-weight:800;letter-spacing:-0.01em;text-decoration:none;min-width:0}
+        .rdr-foot-cta{flex:1;display:flex;align-items:center;justify-content:center;gap:7px;height:48px;border-radius:12px;background:var(--accent-orange);color:#fff;font-family:'Outfit',sans-serif;font-size:15.5px;font-weight:800;letter-spacing:-0.01em;text-decoration:none;min-width:0}
         .rdr-foot-cta:active{opacity:0.85}
-        .rdr-foot-ticket{flex:1;display:flex;align-items:center;justify-content:center;gap:6px;height:46px;border-radius:12px;background:transparent;border:1px solid rgba(255,255,255,0.25);color:#fff;font-family:'Outfit',sans-serif;font-size:13.5px;font-weight:800;text-decoration:none;min-width:0}
+        .rdr-foot-ticket{flex:1;display:flex;align-items:center;justify-content:center;gap:6px;height:48px;border-radius:12px;background:transparent;border:1px solid rgba(255,255,255,0.25);color:#fff;font-family:'Outfit',sans-serif;font-size:14.5px;font-weight:800;text-decoration:none;min-width:0}
 
         /* Progreso juostelės + kontrolės */
         .rdr-bars{position:fixed;top:12px;left:14px;right:54px;z-index:312;display:flex;gap:4px;align-items:center;pointer-events:none}
@@ -3790,12 +3790,12 @@ export default function HomeClient({ initialLatest, initialHero }: { initialLate
                     <div style={{ position: 'absolute', inset: 0, background: 'linear-gradient(to top, rgba(0,0,0,0.95) 0%, rgba(0,0,0,0.55) 35%, rgba(0,0,0,0.10) 60%, rgba(0,0,0,0) 75%)' }} />
                     {/* Bottom: title + excerpt + artist */}
                     <div style={{ position: 'absolute', bottom: 0, left: 0, right: 0, padding: '10px 12px 12px', textAlign: 'left' }}>
-                      <p style={{ fontSize: 13.5, fontWeight: 800, color: '#fff', margin: 0, lineHeight: 1.22, fontFamily: 'Outfit,sans-serif', display: '-webkit-box', WebkitLineClamp: 3, WebkitBoxOrient: 'vertical', overflow: 'hidden', textOverflow: 'ellipsis', letterSpacing: '-0.01em' } as any}>{slide.title}</p>
+                      <p style={{ fontSize: 15, fontWeight: 800, color: '#fff', margin: 0, lineHeight: 1.22, fontFamily: 'Outfit,sans-serif', display: '-webkit-box', WebkitLineClamp: 3, WebkitBoxOrient: 'vertical', overflow: 'hidden', textOverflow: 'ellipsis', letterSpacing: '-0.01em' } as any}>{slide.title}</p>
                       {showExcerpt && (
-                        <p style={{ fontSize: 11, fontWeight: 500, color: 'rgba(255,255,255,0.78)', margin: '5px 0 0', lineHeight: 1.32, display: '-webkit-box', WebkitLineClamp: 2, WebkitBoxOrient: 'vertical', overflow: 'hidden', textOverflow: 'ellipsis' } as any}>{slide.subtitle}</p>
+                        <p style={{ fontSize: 12, fontWeight: 500, color: 'rgba(255,255,255,0.82)', margin: '5px 0 0', lineHeight: 1.32, display: '-webkit-box', WebkitLineClamp: 2, WebkitBoxOrient: 'vertical', overflow: 'hidden', textOverflow: 'ellipsis' } as any}>{slide.subtitle}</p>
                       )}
                       {artistName && (
-                        <p style={{ fontSize: 10.5, fontWeight: 700, color: 'rgba(255,255,255,0.65)', margin: '6px 0 0', lineHeight: 1.2, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{artistName}</p>
+                        <p style={{ fontSize: 11.5, fontWeight: 700, color: 'rgba(255,255,255,0.78)', margin: '6px 0 0', lineHeight: 1.2, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{artistName}</p>
                       )}
                     </div>
                     {/* Top: chip badge — „NAUJIENA" nerodom (kartotųsi), tik prominentiniai */}
@@ -3911,8 +3911,8 @@ export default function HomeClient({ initialLatest, initialHero }: { initialLate
                           {rel && (<span className={`absolute bottom-1.5 right-1.5 rounded px-1.5 py-0.5 font-['Outfit',sans-serif] text-[8.5px] font-bold backdrop-blur-sm ${highlight ? 'bg-[var(--accent-orange)] text-white' : 'bg-black/70 text-white'}`}>{rel}</span>)}
                           {isFresh24(t.created_at) && <FreshDot />}
                         </div>
-                        <p className="m-0 mt-1.5 truncate font-['Outfit',sans-serif] text-[12.5px] font-extrabold text-[var(--text-primary)] transition-colors group-hover:text-[var(--accent-orange)]">{sanitizeTitle(t.title)}</p>
-                        <p className="m-0 truncate text-[11px] text-[var(--text-muted)]">{t.artists?.name}</p>
+                        <p className="m-0 mt-1.5 truncate font-['Outfit',sans-serif] text-[14px] font-extrabold text-[var(--text-primary)] transition-colors group-hover:text-[var(--accent-orange)]">{sanitizeTitle(t.title)}</p>
+                        <p className="m-0 truncate text-[12px] text-[var(--text-muted)]">{t.artists?.name}</p>
                       </button>
                     )
                   }

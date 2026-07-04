@@ -197,22 +197,25 @@ select:focus-visible {
   /* Hero v2 kortelių šešėlis — tamsus ant tamsaus fono OK */
   --hero-card-shadow:       0 8px 32px rgba(0,0,0,0.25);
   --hero-card-shadow-hover: 0 14px 42px rgba(0,0,0,0.35);
-  --bg-body:         #080d14;
-  --bg-body-rgb:     8, 13, 20;
-  --bg-surface:      #0d1320;
-  --bg-surface-rgb:  13, 19, 32;
-  --bg-elevated:     #111827;
-  --bg-hover:        rgba(255,255,255,0.04);
-  --bg-active:       rgba(255,255,255,0.06);
+  /* Tamsus režimas: pilkesnio/šiltesnio tono, NE grynas juodas („juodosios
+     skylės" efektas) — pakelta iš #080d14. Antraštės — švelnesnės (ne #fff),
+     kad nešviestų „kaip saulė". Antrinis/pilkas tekstas — didesnio kontrasto. */
+  --bg-body:         #161a22;
+  --bg-body-rgb:     22, 26, 34;
+  --bg-surface:      #1e2430;
+  --bg-surface-rgb:  30, 36, 48;
+  --bg-elevated:     #262d3b;
+  --bg-hover:        rgba(255,255,255,0.05);
+  --bg-active:       rgba(255,255,255,0.07);
 
-  --border-subtle:   rgba(255,255,255,0.06);
-  --border-default:  rgba(255,255,255,0.09);
-  --border-strong:   rgba(255,255,255,0.14);
+  --border-subtle:   rgba(255,255,255,0.07);
+  --border-default:  rgba(255,255,255,0.11);
+  --border-strong:   rgba(255,255,255,0.16);
 
-  --text-primary:    #f0f4fc;
-  --text-secondary:  #9cb5d0;
-  --text-muted:      #6889a8;
-  --text-faint:      #3a5878;
+  --text-primary:    #e7ebf2;
+  --text-secondary:  #aebfd4;
+  --text-muted:      #8ba1bd;
+  --text-faint:      #64809d;
 
   --accent-orange:   #f97316;
   --accent-blue:     #1d4ed8;
@@ -359,9 +362,10 @@ select:focus-visible {
   --border-strong:   rgba(0,0,0,0.16);
 
   --text-primary:    #0f1a2e;
-  --text-secondary:  #3a4f6a;
-  --text-muted:      #6a85a8;
-  --text-faint:      #b0bdd0;
+  --text-secondary:  #33475f;
+  /* Pilkas antrinis tekstas — patamsintas, kad būtų įskaitomesnis (buvo #6a85a8/#b0bdd0). */
+  --text-muted:      #556f90;
+  --text-faint:      #93a3ba;
 
   --accent-orange:   #ea6c0a;
   --accent-blue:     #1d4ed8;
