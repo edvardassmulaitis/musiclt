@@ -330,7 +330,7 @@ export function MessagePane({ conversation, viewerId, initialMessages, onOpenThr
         }}
       >
         {loadingMore && (
-          <div style={{ padding: 12, textAlign: 'center', fontSize: 12, color: 'var(--text-muted)' }}>
+          <div style={{ padding: 12, textAlign: 'center', fontSize: 13, color: 'var(--text-muted)' }}>
             Kraunama daugiau…
           </div>
         )}
@@ -341,7 +341,7 @@ export function MessagePane({ conversation, viewerId, initialMessages, onOpenThr
             <div style={{ fontSize: 14, fontWeight: 700, color: 'var(--text-primary)', marginBottom: 6 }}>
               Pradėkite pokalbį
             </div>
-            <div style={{ fontSize: 12, color: 'var(--text-muted)' }}>
+            <div style={{ fontSize: 13, color: 'var(--text-muted)' }}>
               Parašykite pirmą žinutę.
             </div>
           </div>
@@ -368,7 +368,7 @@ export function MessagePane({ conversation, viewerId, initialMessages, onOpenThr
 
       {/* Typing indicator */}
       {typingArr.length > 0 && (
-        <div style={{ padding: '4px 16px 0', fontSize: 11.5, color: 'var(--text-muted)', fontStyle: 'italic' }}>
+        <div style={{ padding: '4px 16px 0', fontSize: 12.5, color: 'var(--text-muted)', fontStyle: 'italic' }}>
           {typingArr.length === 1
             ? `${typingArr[0]} rašo…`
             : typingArr.length === 2
@@ -392,7 +392,7 @@ function DateSeparator({ label }: { label: string }) {
   return (
     <div style={{ display: 'flex', alignItems: 'center', gap: 12, padding: '14px 16px 6px' }}>
       <div style={{ flex: 1, height: 1, background: 'var(--border-subtle)' }}/>
-      <div style={{ fontSize: 10.5, fontWeight: 700, color: 'var(--text-muted)', textTransform: 'uppercase', letterSpacing: '0.08em' }}>
+      <div style={{ fontSize: 11.5, fontWeight: 700, color: 'var(--text-muted)', textTransform: 'uppercase', letterSpacing: '0.08em' }}>
         {label}
       </div>
       <div style={{ flex: 1, height: 1, background: 'var(--border-subtle)' }}/>
@@ -450,7 +450,7 @@ function ConversationHeader({ conversation, viewerId, onOpenSettings, onMobileBa
           {title}
         </div>
         {subtitle && (
-          <div style={{ fontSize: 11.5, color: 'var(--text-muted)', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+          <div style={{ fontSize: 12.5, color: 'var(--text-muted)', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
             {subtitle}
           </div>
         )}

@@ -62,7 +62,7 @@ export function ArtistOverviewCard({
           )}
         </Link>
         <div className="min-w-0 flex-1">
-          <div className="font-['Outfit',sans-serif] text-[9.5px] font-extrabold uppercase tracking-[0.16em] text-[var(--text-faint)]">
+          <div className="font-['Outfit',sans-serif] text-[10.5px] font-extrabold uppercase tracking-[0.16em] text-[var(--text-faint)]">
             Atlikėjas
           </div>
           <Link
@@ -76,7 +76,7 @@ export function ArtistOverviewCard({
               {genres.map(g => (
                 <span
                   key={g}
-                  className="rounded-full bg-[var(--bg-elevated)] px-2 py-0.5 font-['Outfit',sans-serif] text-[10px] font-semibold text-[var(--text-muted)]"
+                  className="rounded-full bg-[var(--bg-elevated)] px-2 py-0.5 font-['Outfit',sans-serif] text-[11px] font-semibold text-[var(--text-muted)]"
                 >
                   {g}
                 </span>
@@ -89,12 +89,12 @@ export function ArtistOverviewCard({
       {/* Aprašymas — pilnu pločiu, prijungtas prie kortelės (ne atskira pastraipa) */}
       {description && (
         <div className="px-3.5 pb-3.5">
-          <p className="line-clamp-5 text-[12.5px] leading-[1.65] text-[var(--text-secondary)]">
+          <p className="line-clamp-5 text-[13.5px] leading-[1.65] text-[var(--text-secondary)]">
             {description}
           </p>
           <Link
             href={href}
-            className="mt-2 inline-flex items-center gap-1 font-['Outfit',sans-serif] text-[11px] font-extrabold text-[var(--accent-orange)] no-underline hover:underline"
+            className="mt-2 inline-flex items-center gap-1 font-['Outfit',sans-serif] text-[12px] font-extrabold text-[var(--accent-orange)] no-underline hover:underline"
           >
             Daugiau apie atlikėją
             <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.6" strokeLinecap="round" strokeLinejoin="round" aria-hidden>

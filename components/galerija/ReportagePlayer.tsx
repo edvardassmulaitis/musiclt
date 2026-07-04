@@ -59,7 +59,7 @@ export default function ReportagePlayer({ items }: { items: PlaylistItem[] }) {
               <span className="flex h-[54px] w-[54px] items-center justify-center rounded-full bg-red-600 ring-[4px] ring-white/10">
                 <svg viewBox="0 0 24 24" width="26" height="26" fill="#fff" aria-hidden><path d="M19.615 3.184c-3.604-.246-11.631-.245-15.23 0-3.897.266-4.356 2.62-4.385 8.816.029 6.185.484 8.549 4.385 8.816 3.6.245 11.626.246 15.23 0 3.897-.266 4.356-2.62 4.385-8.816-.029-6.185-.484-8.549-4.385-8.816zm-10.615 12.816v-8l8 3.993-8 4.007z" /></svg>
               </span>
-              <span className="text-[12.5px] font-semibold">Žiūrėti YouTube'e</span>
+              <span className="text-[13.5px] font-semibold">Žiūrėti YouTube'e</span>
             </span>
           </a>
         ) : (
@@ -70,8 +70,8 @@ export default function ReportagePlayer({ items }: { items: PlaylistItem[] }) {
               <svg viewBox="0 0 24 24" width="20" height="20" fill="#fff" aria-hidden className="ml-0.5"><path d="M8 5v14l11-7z" /></svg>
             </span>
             <span className="absolute inset-x-0 bottom-0 px-3 pb-3 pr-16 text-left">
-              <span className="block truncate text-[13px] font-bold text-white drop-shadow">{cur.title}</span>
-              <span className="block truncate text-[11px] text-white/80">{cur.artistName}</span>
+              <span className="block truncate text-[14px] font-bold text-white drop-shadow">{cur.title}</span>
+              <span className="block truncate text-[12px] text-white/80">{cur.artistName}</span>
             </span>
           </button>
         )}
@@ -88,10 +88,10 @@ export default function ReportagePlayer({ items }: { items: PlaylistItem[] }) {
                 onKeyDown={(e) => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); play(i) } }}
                 className={['flex w-full cursor-pointer items-center gap-2 px-2.5 py-2 transition-colors', isActive ? 'bg-[rgba(249,115,22,0.08)]' : 'hover:bg-[var(--bg-hover)]'].join(' ')}
               >
-                <span className={['w-4 shrink-0 text-center font-["Outfit",sans-serif] text-[11px] font-bold tabular-nums', isActive ? 'text-[var(--accent-orange)]' : 'text-[var(--text-faint,var(--text-muted))]'].join(' ')} aria-hidden>{i + 1}</span>
+                <span className={['w-4 shrink-0 text-center font-["Outfit",sans-serif] text-[12px] font-bold tabular-nums', isActive ? 'text-[var(--accent-orange)]' : 'text-[var(--text-faint,var(--text-muted))]'].join(' ')} aria-hidden>{i + 1}</span>
                 <div className="flex min-w-0 flex-1 flex-col items-start">
-                  <span className={['w-full truncate font-["Outfit",sans-serif] text-[12.5px] font-bold leading-tight', isActive ? 'text-[var(--accent-orange)]' : 'text-[var(--text-primary)]'].join(' ')}>{s.title}</span>
-                  <span className="w-full truncate text-[10.5px] text-[var(--text-muted)]">{s.artistName}</span>
+                  <span className={['w-full truncate font-["Outfit",sans-serif] text-[13.5px] font-bold leading-tight', isActive ? 'text-[var(--accent-orange)]' : 'text-[var(--text-primary)]'].join(' ')}>{s.title}</span>
+                  <span className="w-full truncate text-[11.5px] text-[var(--text-muted)]">{s.artistName}</span>
                 </div>
                 <button onClick={(e) => { e.stopPropagation(); play(i) }} aria-label={`Leisti ${s.title}`}
                   className={['flex h-7 w-7 shrink-0 items-center justify-center rounded-full transition-colors', isActive ? 'bg-[var(--accent-orange)] text-white' : 'bg-[var(--card-bg)] text-[var(--text-primary)] hover:bg-[var(--accent-orange)] hover:text-white'].join(' ')}>
@@ -121,8 +121,8 @@ export default function ReportagePlayer({ items }: { items: PlaylistItem[] }) {
             </span>
           </span>
           <span className="min-w-0 flex-1">
-            <span className="block text-[13px] font-extrabold text-[var(--text-primary)]">Pasiklausyk atlikėjų</span>
-            <span className="block truncate text-[11px] text-[var(--text-muted)]">{cur.artistName} ir kt. · {items.length} dainos</span>
+            <span className="block text-[14px] font-extrabold text-[var(--text-primary)]">Pasiklausyk atlikėjų</span>
+            <span className="block truncate text-[12px] text-[var(--text-muted)]">{cur.artistName} ir kt. · {items.length} dainos</span>
           </span>
           <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="var(--accent-orange)" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round" className="flex-none"><path d="m9 18 6-6-6-6" /></svg>
         </button>

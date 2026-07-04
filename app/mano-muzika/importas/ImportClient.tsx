@@ -194,7 +194,7 @@ export default function ImportClient({ lastfmOk, youtubeOk, initialSource }: { l
   return (
     <div className="page-shell" style={{ color: 'var(--text-primary)' }}>
       <div className="page-head">
-        <div className="flex items-center gap-2 text-[12.5px] mb-1.5" style={{ color: 'var(--text-muted)' }}>
+        <div className="flex items-center gap-2 text-[13.5px] mb-1.5" style={{ color: 'var(--text-muted)' }}>
           <Link href="/mano-muzika" className="hover:underline">Mano muzika</Link><span>›</span><span>Perkelti</span>
         </div>
         <h1>Perkelti muziką</h1>
@@ -212,8 +212,8 @@ export default function ImportClient({ lastfmOk, youtubeOk, initialSource }: { l
               style={{ background: active ? 'linear-gradient(135deg, rgba(249,115,22,0.14), rgba(167,139,250,0.10))' : 'var(--bg-surface)',
                 border: `1px solid ${active ? 'rgba(249,115,22,0.5)' : 'var(--border-default)'}`, opacity: disabled ? 0.55 : 1 }}>
               <div className="text-2xl mb-1.5">{s.emoji}</div>
-              <div className="text-[14.5px] font-black">{s.label}{disabled && <span className="ml-1.5 text-[10px] font-bold align-middle" style={{ color: 'var(--text-faint)' }}>(netrukus)</span>}</div>
-              <div className="text-[11.5px] mt-0.5" style={{ color: 'var(--text-muted)' }}>{s.blurb}</div>
+              <div className="text-[14.5px] font-black">{s.label}{disabled && <span className="ml-1.5 text-[11px] font-bold align-middle" style={{ color: 'var(--text-faint)' }}>(netrukus)</span>}</div>
+              <div className="text-[12.5px] mt-0.5" style={{ color: 'var(--text-muted)' }}>{s.blurb}</div>
             </button>
           )
         })}
@@ -232,7 +232,7 @@ export default function ImportClient({ lastfmOk, youtubeOk, initialSource }: { l
           {scanning && <LoadingBar label="Skaitome tavo Last.fm biblioteką…" />}
           <label className="mt-3 flex items-start gap-2.5 cursor-pointer select-none">
             <input type="checkbox" checked={lastfmFull} onChange={e => { setLastfmFull(e.target.checked); setScan(null) }} className="mt-0.5 h-4 w-4 shrink-0 accent-orange-500" />
-            <span className="text-[12px] leading-snug" style={{ color: 'var(--text-muted)' }}>
+            <span className="text-[13px] leading-snug" style={{ color: 'var(--text-muted)' }}>
               <b style={{ color: 'var(--text-primary)' }}>Importuoti visą biblioteką</b> — pirma parodysim, kiek ko turi, leisim pasirinkti apimtį, o tada fone surinksim ir <b>duosim peržiūrėti prieš pridedant</b> (nieko nepridėsim be tavo patvirtinimo).
             </span>
           </label>
@@ -241,31 +241,31 @@ export default function ImportClient({ lastfmOk, youtubeOk, initialSource }: { l
           {/* APIMTIES PASIRINKIMAS (po skenavimo) */}
           {scan && lastfmFull && (
             <div className="mt-4 rounded-xl p-4" style={{ background: 'var(--bg-elevated)', border: '1px solid var(--border-default)' }}>
-              <div className="text-[13px] font-black mb-1">Tavo Last.fm bibliotekoje:</div>
-              <div className="text-[12px] mb-3" style={{ color: 'var(--text-muted)' }}>
+              <div className="text-[14px] font-black mb-1">Tavo Last.fm bibliotekoje:</div>
+              <div className="text-[13px] mb-3" style={{ color: 'var(--text-muted)' }}>
                 {scan.artists} atlikėjų · {scan.albums} albumų · {scan.topTracks} dažniausių dainų · {scan.lovedTracks} pamėgtų · {scan.recentTracks.toLocaleString('lt')} scrobble istorijoje
               </div>
-              <div className="text-[12px] font-bold mb-1.5">Ką kelti?</div>
+              <div className="text-[13px] font-bold mb-1.5">Ką kelti?</div>
               <div className="flex flex-wrap gap-2 mb-3">
                 {([['artist', 'Atlikėjai'], ['album', 'Albumai'], ['track', 'Dainos']] as const).map(([k, lbl]) => {
                   const on = scKinds.has(k)
                   return <button key={k} onClick={() => setScKinds(s => { const n = new Set(s); n.has(k) ? n.delete(k) : n.add(k); return n })}
-                    className="rounded-full px-3 py-1.5 text-[12px] font-bold" style={{ background: on ? 'rgba(249,115,22,0.15)' : 'var(--bg-surface)', border: `1px solid ${on ? 'rgba(249,115,22,0.5)' : 'var(--border-default)'}`, color: on ? 'var(--accent-orange)' : 'var(--text-muted)' }}>{on ? '✓ ' : ''}{lbl}</button>
+                    className="rounded-full px-3 py-1.5 text-[13px] font-bold" style={{ background: on ? 'rgba(249,115,22,0.15)' : 'var(--bg-surface)', border: `1px solid ${on ? 'rgba(249,115,22,0.5)' : 'var(--border-default)'}`, color: on ? 'var(--accent-orange)' : 'var(--text-muted)' }}>{on ? '✓ ' : ''}{lbl}</button>
                 })}
               </div>
-              <div className="text-[12px] font-bold mb-1.5">Kiek giliai?</div>
+              <div className="text-[13px] font-bold mb-1.5">Kiek giliai?</div>
               <div className="flex flex-wrap gap-2 mb-3">
                 {([['best', 'Tik mėgstami ir dažni'], ['all', 'Visa klausymų istorija']] as const).map(([k, lbl]) => (
-                  <button key={k} onClick={() => setScHistory(k)} className="rounded-full px-3 py-1.5 text-[12px] font-bold" style={{ background: scHistory === k ? 'rgba(249,115,22,0.15)' : 'var(--bg-surface)', border: `1px solid ${scHistory === k ? 'rgba(249,115,22,0.5)' : 'var(--border-default)'}`, color: scHistory === k ? 'var(--accent-orange)' : 'var(--text-muted)' }}>{lbl}</button>
+                  <button key={k} onClick={() => setScHistory(k)} className="rounded-full px-3 py-1.5 text-[13px] font-bold" style={{ background: scHistory === k ? 'rgba(249,115,22,0.15)' : 'var(--bg-surface)', border: `1px solid ${scHistory === k ? 'rgba(249,115,22,0.5)' : 'var(--border-default)'}`, color: scHistory === k ? 'var(--accent-orange)' : 'var(--text-muted)' }}>{lbl}</button>
                 ))}
               </div>
-              <label className="flex items-center gap-2 text-[12px] mb-3" style={{ color: 'var(--text-muted)' }}>
+              <label className="flex items-center gap-2 text-[13px] mb-3" style={{ color: 'var(--text-muted)' }}>
                 Min. klausymų skaičius:
-                <input type="number" min={0} value={scMin} onChange={e => setScMin(Math.max(0, Number(e.target.value) || 0))} className="w-20 rounded-lg px-2 py-1 text-[12px] outline-none" style={{ background: 'var(--bg-surface)', border: '1px solid var(--border-default)', color: 'var(--text-primary)' }} />
+                <input type="number" min={0} value={scMin} onChange={e => setScMin(Math.max(0, Number(e.target.value) || 0))} className="w-20 rounded-lg px-2 py-1 text-[13px] outline-none" style={{ background: 'var(--bg-surface)', border: '1px solid var(--border-default)', color: 'var(--text-primary)' }} />
                 <span style={{ color: 'var(--text-faint)' }}>(0 = visi)</span>
               </label>
               <button onClick={startFull} disabled={loading || scKinds.size === 0}
-                className="rounded-full px-6 py-2.5 text-[13px] font-black text-white disabled:opacity-40" style={{ background: 'var(--accent-orange)' }}>
+                className="rounded-full px-6 py-2.5 text-[14px] font-black text-white disabled:opacity-40" style={{ background: 'var(--accent-orange)' }}>
                 {loading ? 'Pradedama…' : 'Pradėti importą fone'}
               </button>
             </div>
@@ -285,11 +285,11 @@ export default function ImportClient({ lastfmOk, youtubeOk, initialSource }: { l
             className="w-full cursor-pointer rounded-xl border-2 border-dashed py-7 text-center transition-colors"
             style={{ borderColor: dragOver ? 'var(--accent-orange)' : 'var(--border-default)', background: dragOver ? 'rgba(249,115,22,0.08)' : 'var(--bg-elevated)' }}>
             <div className="text-2xl mb-1">{dragOver ? '📥' : '📂'}</div>
-            <div className="text-[13.5px] font-bold">{loading ? 'Apdorojama…' : (dragOver ? 'Paleisk failą čia' : 'Vilk Spotify JSON failą čia')}</div>
-            <div className="text-[11.5px] mt-0.5" style={{ color: 'var(--text-muted)' }}>arba spustelėk ir pasirink (pvz. Playlist1.json)</div>
+            <div className="text-[14.5px] font-bold">{loading ? 'Apdorojama…' : (dragOver ? 'Paleisk failą čia' : 'Vilk Spotify JSON failą čia')}</div>
+            <div className="text-[12.5px] mt-0.5" style={{ color: 'var(--text-muted)' }}>arba spustelėk ir pasirink (pvz. Playlist1.json)</div>
           </div>
           {spotifyInfo && (
-            <div className="mt-3 rounded-xl px-3.5 py-2.5 text-[12px] leading-snug" style={{ background: 'rgba(29,185,84,0.10)', border: '1px solid rgba(29,185,84,0.35)', color: 'var(--text-secondary)' }}>
+            <div className="mt-3 rounded-xl px-3.5 py-2.5 text-[13px] leading-snug" style={{ background: 'rgba(29,185,84,0.10)', border: '1px solid rgba(29,185,84,0.35)', color: 'var(--text-secondary)' }}>
               {spotifyInfo}
             </div>
           )}
@@ -311,7 +311,7 @@ export default function ImportClient({ lastfmOk, youtubeOk, initialSource }: { l
         </InputPanel>
       )}
 
-      {error && <div className="mb-4 rounded-xl px-4 py-3 text-[13px]" style={{ background: 'rgba(244,63,94,0.10)', border: '1px solid rgba(244,63,94,0.3)', color: '#f43f5e' }}>{error}</div>}
+      {error && <div className="mb-4 rounded-xl px-4 py-3 text-[14px]" style={{ background: 'rgba(244,63,94,0.10)', border: '1px solid rgba(244,63,94,0.3)', color: '#f43f5e' }}>{error}</div>}
 
       {/* FONINIO IMPORTO BŪSENA */}
       {(job ? (job.status === 'queued' || job.status === 'running') : !!enqueued) && (
@@ -320,19 +320,19 @@ export default function ImportClient({ lastfmOk, youtubeOk, initialSource }: { l
             <span className="inline-block h-2 w-2 rounded-full animate-pulse" style={{ background: '#a78bfa' }} />
             {enqueued === 'existing' ? 'Importas jau vyksta' : 'Pradėjome pilną importą'}
           </div>
-          <p className="text-[12.5px] mt-1.5 leading-relaxed" style={{ color: 'var(--text-muted)' }}>
+          <p className="text-[13.5px] mt-1.5 leading-relaxed" style={{ color: 'var(--text-muted)' }}>
             Apdorojame tavo Last.fm biblioteką <b>fone</b> — tau nieko daryti nereikia ir langą uždaryti gali.
             Kai baigsim, <b>duosim peržiūrėti</b> rastas atitiktis ir patvirtinsi, ką pridėti — nieko nepridėsim be tavo sutikimo.
             Atsiųsim pranešimą.
           </p>
           {job && (job.status === 'running' || job.status === 'queued') && job.processed > 0 && (
-            <div className="text-[11.5px] mt-2" style={{ color: 'var(--text-faint)' }}>
+            <div className="text-[12.5px] mt-2" style={{ color: 'var(--text-faint)' }}>
               Apdorota {job.processed}{job.total ? ` iš ${job.total}` : ''} · rasta atitikčių {job.matched}
             </div>
           )}
           {job && (job.status === 'running' || job.status === 'queued') && job.batch_status !== 'reverted' && (
             <button onClick={() => revert({ jobId: job.id })} disabled={reverting}
-              className="mt-3 text-[12px] font-bold underline disabled:opacity-40" style={{ color: 'var(--text-muted)' }}>
+              className="mt-3 text-[13px] font-bold underline disabled:opacity-40" style={{ color: 'var(--text-muted)' }}>
               {reverting ? 'Atšaukiama…' : 'Sustabdyti ir atšaukti importą'}
             </button>
           )}
@@ -341,20 +341,20 @@ export default function ImportClient({ lastfmOk, youtubeOk, initialSource }: { l
       {job && job.status === 'error' && (
         <div className="mb-4 rounded-2xl p-5" style={{ background: 'rgba(244,63,94,0.10)', border: '1px solid rgba(244,63,94,0.3)' }}>
           <div className="text-[15px] font-black" style={{ color: '#f43f5e' }}>Importas nepavyko</div>
-          <p className="text-[12.5px] mt-1" style={{ color: 'var(--text-muted)' }}>{job.error || 'Nežinoma klaida.'} Pabandyk dar kartą arba pranešk administratoriui.</p>
+          <p className="text-[13.5px] mt-1" style={{ color: 'var(--text-muted)' }}>{job.error || 'Nežinoma klaida.'} Pabandyk dar kartą arba pranešk administratoriui.</p>
         </div>
       )}
       {job && job.status === 'done' && !enqueued && (
         <div className="mb-4 rounded-2xl p-5" style={{ background: 'linear-gradient(135deg, rgba(52,211,153,0.14), transparent)', border: '1px solid rgba(52,211,153,0.4)' }}>
           <div className="text-[15px] font-black">✅ Pilnas importas baigtas</div>
-          <p className="text-[12.5px] mt-1" style={{ color: 'var(--text-muted)' }}>
+          <p className="text-[13.5px] mt-1" style={{ color: 'var(--text-muted)' }}>
             Į tavo muziką pridėjome <b>{job.matched}</b> įrašų{job.reported > 0 ? <>, dar <b>{job.reported}</b> laukia įkėlimo ir atsiras vėliau</> : null}.{' '}
             <Link href="/mano-muzika" className="underline" style={{ color: 'var(--accent-orange)' }}>Eiti į Mano muziką →</Link>
           </p>
           {(job.batch_status === 'reverted' || reverted)
-            ? <div className="mt-2 text-[12px] font-bold" style={{ color: 'var(--text-faint)' }}>Importas atšauktas.</div>
+            ? <div className="mt-2 text-[13px] font-bold" style={{ color: 'var(--text-faint)' }}>Importas atšauktas.</div>
             : (job.batch_id && <button onClick={() => revert({ batchId: job.batch_id })} disabled={reverting}
-                className="mt-2 text-[12px] font-bold underline disabled:opacity-40" style={{ color: 'var(--text-muted)' }}>
+                className="mt-2 text-[13px] font-bold underline disabled:opacity-40" style={{ color: 'var(--text-muted)' }}>
                 {reverting ? 'Atšaukiama…' : 'Atšaukti šį importą'}
               </button>)}
         </div>
@@ -367,12 +367,12 @@ export default function ImportClient({ lastfmOk, youtubeOk, initialSource }: { l
             <div className="flex items-center justify-between flex-wrap gap-2">
               <div>
                 <div className="text-[15px] font-black">Peržiūrėk importą prieš pridedant</div>
-                <p className="text-[12.5px] mt-1" style={{ color: 'var(--text-muted)' }}>
+                <p className="text-[13.5px] mt-1" style={{ color: 'var(--text-muted)' }}>
                   Radome <b>{review.matched}</b> atitikčių{review.missing > 0 ? <>, dar <b>{review.missing}</b> neatpažinta (jas persiųsim į trūkstamą muziką)</> : null}. Viskas pažymėta — atžymėk, ko nenori, ir patvirtink.
                 </p>
               </div>
               <button onClick={confirmReview} disabled={confirming || review.matched - deselected.size === 0}
-                className="rounded-full px-6 py-2.5 text-[13px] font-black text-white disabled:opacity-40" style={{ background: 'var(--accent-orange)' }}>
+                className="rounded-full px-6 py-2.5 text-[14px] font-black text-white disabled:opacity-40" style={{ background: 'var(--accent-orange)' }}>
                 {confirming ? 'Pridedama…' : `Pridėti pasirinktus (${review.matched - deselected.size})`}
               </button>
             </div>
@@ -388,19 +388,19 @@ export default function ImportClient({ lastfmOk, youtubeOk, initialSource }: { l
         <div className="rounded-2xl p-6 text-center" style={{ background: 'linear-gradient(135deg, rgba(52,211,153,0.14), transparent)', border: '1px solid rgba(52,211,153,0.4)' }}>
           <div className="text-4xl mb-2">✅</div>
           <div className="text-[16px] font-black">Perkelta!</div>
-          <div className="text-[13px] mt-1" style={{ color: 'var(--text-muted)' }}>
+          <div className="text-[14px] mt-1" style={{ color: 'var(--text-muted)' }}>
             {done.total != null
               ? <>Į tavo muziką pridėta <b>{done.total}</b> įrašų</>
               : <>Pridėta: {done.artists} atlikėjai · {done.albums} albumai · {done.tracks} dainos</>}
           </div>
           <div className="mt-4 flex items-center justify-center gap-4">
-            <Link href="/mano-muzika" className="inline-block rounded-full px-6 py-2.5 text-[13px] font-black text-white" style={{ background: 'var(--accent-orange)' }}>
+            <Link href="/mano-muzika" className="inline-block rounded-full px-6 py-2.5 text-[14px] font-black text-white" style={{ background: 'var(--accent-orange)' }}>
               Eiti į Mano muziką →
             </Link>
             {reverted
-              ? <span className="text-[12px] font-bold" style={{ color: 'var(--text-faint)' }}>Atšaukta</span>
+              ? <span className="text-[13px] font-bold" style={{ color: 'var(--text-faint)' }}>Atšaukta</span>
               : (batchId && <button onClick={() => revert({ batchId })} disabled={reverting}
-                  className="text-[12px] font-bold underline disabled:opacity-40" style={{ color: 'var(--text-muted)' }}>
+                  className="text-[13px] font-bold underline disabled:opacity-40" style={{ color: 'var(--text-muted)' }}>
                   {reverting ? 'Atšaukiama…' : 'Atšaukti importą'}
                 </button>)}
           </div>
@@ -411,17 +411,17 @@ export default function ImportClient({ lastfmOk, youtubeOk, initialSource }: { l
       {result && !done && (
         <div>
           {!!result.reported && result.reported > 0 && (
-            <div className="mb-4 rounded-xl px-4 py-3 text-[12.5px] leading-relaxed" style={{ background: 'rgba(167,139,250,0.10)', border: '1px solid rgba(167,139,250,0.32)', color: 'var(--text-secondary)' }}>
+            <div className="mb-4 rounded-xl px-4 py-3 text-[13.5px] leading-relaxed" style={{ background: 'rgba(167,139,250,0.10)', border: '1px solid rgba(167,139,250,0.32)', color: 'var(--text-secondary)' }}>
               🔎 <b style={{ color: 'var(--text-primary)' }}>{result.reported}</b> neatpažintų įrašų persiuntėme į music.lt trūkstamos muzikos sąrašą. Kai tik jie bus įkelti, <b>automatiškai atsiras tavo „Mano muzikoje"</b> — nieko daryti nereikia.
             </div>
           )}
           <div className="flex items-center justify-between flex-wrap gap-2 mb-3">
-            <div className="text-[13px]" style={{ color: 'var(--text-muted)' }}>
+            <div className="text-[14px]" style={{ color: 'var(--text-muted)' }}>
               Rasta atitikčių: <b style={{ color: 'var(--text-primary)' }}>{result.counts.matched}</b> iš {result.counts.total}
               {result.counts.unmatched > 0 && <> · neatpažinta {result.counts.unmatched}</>}
             </div>
             <button onClick={commit} disabled={committing || selCount === 0}
-              className="rounded-full px-6 py-2.5 text-[13px] font-black text-white transition-transform enabled:hover:scale-[1.03] disabled:opacity-40"
+              className="rounded-full px-6 py-2.5 text-[14px] font-black text-white transition-transform enabled:hover:scale-[1.03] disabled:opacity-40"
               style={{ background: 'var(--accent-orange)' }}>
               {committing ? 'Importuojama…' : `Importuoti pasirinktus (${selCount})`}
             </button>
@@ -435,12 +435,12 @@ export default function ImportClient({ lastfmOk, youtubeOk, initialSource }: { l
   )
 }
 
-const inputCls = 'flex-1 min-w-0 rounded-lg px-3 py-2.5 text-[13.5px] outline-none'
+const inputCls = 'flex-1 min-w-0 rounded-lg px-3 py-2.5 text-[14.5px] outline-none'
 
 function InputPanel({ children, disabled, notConfigured }: { children: React.ReactNode; disabled?: boolean; notConfigured?: string | null }) {
   return (
     <div className="mb-5 rounded-2xl p-4 sm:p-5" style={{ background: 'var(--bg-surface)', border: '1px solid var(--border-default)' }}>
-      {notConfigured ? <div className="text-[13px]" style={{ color: 'var(--text-muted)' }}>{notConfigured}</div> : (
+      {notConfigured ? <div className="text-[14px]" style={{ color: 'var(--text-muted)' }}>{notConfigured}</div> : (
         <div style={{ opacity: disabled ? 0.5 : 1, pointerEvents: disabled ? 'none' : 'auto' }}>{children}</div>
       )}
       <style jsx global>{`.page-shell input[type=text],.page-shell input:not([type]){background:var(--bg-elevated);border:1px solid var(--border-default);color:var(--text-primary)}`}</style>
@@ -448,12 +448,12 @@ function InputPanel({ children, disabled, notConfigured }: { children: React.Rea
   )
 }
 function Hint({ children }: { children: React.ReactNode }) {
-  return <p className="mt-2.5 text-[11.5px] leading-relaxed" style={{ color: 'var(--text-faint)' }}>{children}</p>
+  return <p className="mt-2.5 text-[12.5px] leading-relaxed" style={{ color: 'var(--text-faint)' }}>{children}</p>
 }
 function RunBtn({ onClick, loading, disabled, label }: { onClick: () => void; loading: boolean; disabled: boolean; label?: string }) {
   return (
     <button onClick={onClick} disabled={loading || disabled}
-      className="shrink-0 rounded-lg px-5 py-2.5 text-[13px] font-black text-white transition-opacity disabled:opacity-40" style={{ background: 'var(--accent-orange)' }}>
+      className="shrink-0 rounded-lg px-5 py-2.5 text-[14px] font-black text-white transition-opacity disabled:opacity-40" style={{ background: 'var(--accent-orange)' }}>
       {loading ? '…' : (label || 'Ieškoti')}
     </button>
   )
@@ -466,7 +466,7 @@ function LoadingBar({ label }: { label: string }) {
       <div className="h-1.5 w-full overflow-hidden rounded-full" style={{ background: 'var(--bg-elevated)' }}>
         <div className="h-full w-1/3 rounded-full mz-impbar" style={{ background: 'var(--accent-orange)' }} />
       </div>
-      <div className="mt-1.5 text-[11.5px]" style={{ color: 'var(--text-faint)' }}>{label}</div>
+      <div className="mt-1.5 text-[12.5px]" style={{ color: 'var(--text-faint)' }}>{label}</div>
       <style jsx>{`.mz-impbar{animation:mzimp 1.1s ease-in-out infinite}@keyframes mzimp{0%{transform:translateX(-110%)}100%{transform:translateX(330%)}}`}</style>
     </div>
   )
@@ -509,8 +509,8 @@ function ReviewGroup({ title, kind, hits, deselected, toggle, toggleGroup }: {
   return (
     <div className="mb-6">
       <div className="flex items-center justify-between mb-2.5">
-        <h2 className="text-[15px] font-black">{title} <span className="text-[12px] font-bold" style={{ color: 'var(--text-faint)' }}>· {selectedCount}/{hits.length}</span></h2>
-        <button onClick={() => toggleGroup(hits, !allSel)} className="text-[12px] font-bold" style={{ color: 'var(--accent-orange)' }}>{allSel ? 'Atžymėti visus' : 'Pažymėti visus'}</button>
+        <h2 className="text-[15px] font-black">{title} <span className="text-[13px] font-bold" style={{ color: 'var(--text-faint)' }}>· {selectedCount}/{hits.length}</span></h2>
+        <button onClick={() => toggleGroup(hits, !allSel)} className="text-[13px] font-bold" style={{ color: 'var(--accent-orange)' }}>{allSel ? 'Atžymėti visus' : 'Pažymėti visus'}</button>
       </div>
       <div className={isGrid ? 'grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 gap-2' : 'grid grid-cols-1 lg:grid-cols-2 gap-1.5'}>
         {shown.map(h => {
@@ -523,28 +523,28 @@ function ReviewGroup({ title, kind, hits, deselected, toggle, toggleGroup }: {
                   // eslint-disable-next-line @next/next/no-img-element
                   ? <img src={proxyImg(h.cover)} alt="" referrerPolicy="no-referrer" className="h-full w-full object-cover" />
                   : <div className="flex h-full w-full items-center justify-center text-2xl opacity-40">{emoji}</div>}
-                <span className="absolute top-1.5 left-1.5 h-5 w-5 rounded-md flex items-center justify-center text-[11px] font-black" style={{ background: on ? 'var(--accent-orange)' : 'rgba(0,0,0,0.45)', color: '#fff', border: on ? 'none' : '1px solid rgba(255,255,255,0.5)' }}>{on ? '✓' : ''}</span>
+                <span className="absolute top-1.5 left-1.5 h-5 w-5 rounded-md flex items-center justify-center text-[12px] font-black" style={{ background: on ? 'var(--accent-orange)' : 'rgba(0,0,0,0.45)', color: '#fff', border: on ? 'none' : '1px solid rgba(255,255,255,0.5)' }}>{on ? '✓' : ''}</span>
                 {href && <OpenExt href={href} overlay />}
               </div>
-              <div className="px-2 py-1.5"><div className="truncate text-[12.5px] font-bold">{h.name}</div>{h.artist && <div className="truncate text-[11px]" style={{ color: 'var(--text-muted)' }}>{h.artist}</div>}</div>
+              <div className="px-2 py-1.5"><div className="truncate text-[13.5px] font-bold">{h.name}</div>{h.artist && <div className="truncate text-[12px]" style={{ color: 'var(--text-muted)' }}>{h.artist}</div>}</div>
             </button>
           ) : (
             <button key={h.itemId} onClick={() => toggle(h.itemId)} className="w-full flex items-center gap-3 rounded-xl px-2.5 py-2 text-left transition-colors"
               style={{ background: on ? 'var(--bg-elevated)' : 'var(--bg-surface)', border: `1px solid ${on ? 'rgba(249,115,22,0.4)' : 'var(--border-default)'}`, opacity: on ? 1 : 0.55 }}>
-              <span className="shrink-0 h-5 w-5 rounded-md flex items-center justify-center text-[11px] font-black" style={{ background: on ? 'var(--accent-orange)' : 'transparent', border: on ? 'none' : '1.5px solid var(--border-default)', color: '#fff' }}>{on ? '✓' : ''}</span>
+              <span className="shrink-0 h-5 w-5 rounded-md flex items-center justify-center text-[12px] font-black" style={{ background: on ? 'var(--accent-orange)' : 'transparent', border: on ? 'none' : '1.5px solid var(--border-default)', color: '#fff' }}>{on ? '✓' : ''}</span>
               <div className="h-9 w-9 shrink-0 overflow-hidden rounded-md" style={{ background: 'var(--bg-elevated)' }}>
                 {h.cover
                   // eslint-disable-next-line @next/next/no-img-element
                   ? <img src={proxyImg(h.cover)} alt="" referrerPolicy="no-referrer" className="h-full w-full object-cover" />
-                  : <div className="flex h-full w-full items-center justify-center text-[13px] opacity-50">{emoji}</div>}
+                  : <div className="flex h-full w-full items-center justify-center text-[14px] opacity-50">{emoji}</div>}
               </div>
-              <div className="min-w-0 flex-1"><div className="truncate text-[13px] font-bold">{h.name}</div>{h.artist && <div className="truncate text-[11px]" style={{ color: 'var(--text-muted)' }}>{h.artist}</div>}</div>
+              <div className="min-w-0 flex-1"><div className="truncate text-[14px] font-bold">{h.name}</div>{h.artist && <div className="truncate text-[12px]" style={{ color: 'var(--text-muted)' }}>{h.artist}</div>}</div>
               {href && <OpenExt href={href} />}
             </button>
           )
         })}
       </div>
-      {hits.length > limit && <div className="mt-2 flex justify-center gap-2"><button onClick={() => setLimit(l => l + 200)} className="rounded-full px-5 py-2 text-[12.5px] font-bold" style={{ background: 'var(--bg-elevated)', border: '1px solid var(--border-default)', color: 'var(--text-secondary)' }}>Rodyti daugiau ({hits.length - limit})</button><button onClick={() => setLimit(hits.length)} className="rounded-full px-4 py-2 text-[12.5px] font-bold" style={{ background: 'transparent', border: '1px solid var(--border-default)', color: 'var(--text-muted)' }}>Visus</button></div>}
+      {hits.length > limit && <div className="mt-2 flex justify-center gap-2"><button onClick={() => setLimit(l => l + 200)} className="rounded-full px-5 py-2 text-[13.5px] font-bold" style={{ background: 'var(--bg-elevated)', border: '1px solid var(--border-default)', color: 'var(--text-secondary)' }}>Rodyti daugiau ({hits.length - limit})</button><button onClick={() => setLimit(hits.length)} className="rounded-full px-4 py-2 text-[13.5px] font-bold" style={{ background: 'transparent', border: '1px solid var(--border-default)', color: 'var(--text-muted)' }}>Visus</button></div>}
     </div>
   )
 }
@@ -563,9 +563,9 @@ function Group({ title, kind, hits, selected, toggle, toggleGroup }: {
   return (
     <div className="mb-6">
       <div className="flex items-center justify-between mb-2.5">
-        <h2 className="text-[15px] font-black">{title} <span className="text-[12px] font-bold" style={{ color: 'var(--text-faint)' }}>· {matched.length}</span></h2>
+        <h2 className="text-[15px] font-black">{title} <span className="text-[13px] font-bold" style={{ color: 'var(--text-faint)' }}>· {matched.length}</span></h2>
         {matched.length > 0 && (
-          <button onClick={() => toggleGroup(kind, !allSel)} className="text-[12px] font-bold" style={{ color: 'var(--accent-orange)' }}>
+          <button onClick={() => toggleGroup(kind, !allSel)} className="text-[13px] font-bold" style={{ color: 'var(--accent-orange)' }}>
             {allSel ? 'Atžymėti visus' : 'Pažymėti visus'}
           </button>
         )}
@@ -584,13 +584,13 @@ function Group({ title, kind, hits, selected, toggle, toggleGroup }: {
                     // eslint-disable-next-line @next/next/no-img-element
                     ? <img src={proxyImg(h.cover)} alt="" referrerPolicy="no-referrer" className="h-full w-full object-cover" />
                     : <div className="flex h-full w-full items-center justify-center text-2xl opacity-40">{emoji}</div>}
-                  <span className="absolute top-1.5 left-1.5 h-5 w-5 rounded-md flex items-center justify-center text-[11px] font-black"
+                  <span className="absolute top-1.5 left-1.5 h-5 w-5 rounded-md flex items-center justify-center text-[12px] font-black"
                     style={{ background: on ? 'var(--accent-orange)' : 'rgba(0,0,0,0.45)', color: '#fff', border: on ? 'none' : '1px solid rgba(255,255,255,0.5)' }}>{on ? '✓' : ''}</span>
                   {href && <OpenExt href={href} overlay />}
                 </div>
                 <div className="px-2 py-1.5">
-                  <div className="truncate text-[12.5px] font-bold">{h.name}</div>
-                  {h.artist && <div className="truncate text-[11px]" style={{ color: 'var(--text-muted)' }}>{h.artist}</div>}
+                  <div className="truncate text-[13.5px] font-bold">{h.name}</div>
+                  {h.artist && <div className="truncate text-[12px]" style={{ color: 'var(--text-muted)' }}>{h.artist}</div>}
                 </div>
               </button>
             )
@@ -604,17 +604,17 @@ function Group({ title, kind, hits, selected, toggle, toggleGroup }: {
             return (
               <button key={key} onClick={() => toggle(key)} className="w-full flex items-center gap-3 rounded-xl px-2.5 py-2 text-left transition-colors"
                 style={{ background: on ? 'var(--bg-elevated)' : 'var(--bg-surface)', border: `1px solid ${on ? 'rgba(249,115,22,0.4)' : 'var(--border-default)'}` }}>
-                <span className="shrink-0 h-5 w-5 rounded-md flex items-center justify-center text-[11px] font-black"
+                <span className="shrink-0 h-5 w-5 rounded-md flex items-center justify-center text-[12px] font-black"
                   style={{ background: on ? 'var(--accent-orange)' : 'transparent', border: on ? 'none' : '1.5px solid var(--border-default)', color: '#fff' }}>{on ? '✓' : ''}</span>
                 <div className="h-9 w-9 shrink-0 overflow-hidden rounded-md" style={{ background: 'var(--bg-elevated)' }}>
                   {h.cover
                     // eslint-disable-next-line @next/next/no-img-element
                     ? <img src={proxyImg(h.cover)} alt="" referrerPolicy="no-referrer" className="h-full w-full object-cover" />
-                    : <div className="flex h-full w-full items-center justify-center text-[13px] opacity-50">{emoji}</div>}
+                    : <div className="flex h-full w-full items-center justify-center text-[14px] opacity-50">{emoji}</div>}
                 </div>
                 <div className="min-w-0 flex-1">
-                  <div className="truncate text-[13px] font-bold">{h.name}</div>
-                  {h.artist && <div className="truncate text-[11px]" style={{ color: 'var(--text-muted)' }}>{h.artist}</div>}
+                  <div className="truncate text-[14px] font-bold">{h.name}</div>
+                  {h.artist && <div className="truncate text-[12px]" style={{ color: 'var(--text-muted)' }}>{h.artist}</div>}
                 </div>
                 {href && <OpenExt href={href} />}
               </button>
@@ -625,13 +625,13 @@ function Group({ title, kind, hits, selected, toggle, toggleGroup }: {
 
       {unmatched.length > 0 && (
         <div className="mt-2">
-          <button onClick={() => setShowUnmatched(v => !v)} className="text-[11.5px] font-bold" style={{ color: 'var(--text-faint)' }}>
+          <button onClick={() => setShowUnmatched(v => !v)} className="text-[12.5px] font-bold" style={{ color: 'var(--text-faint)' }}>
             {showUnmatched ? '▾' : '▸'} Neatpažinta ({unmatched.length})
           </button>
           {showUnmatched && (
             <div className="mt-1.5 flex flex-wrap gap-1.5">
               {unmatched.map((h, i) => (
-                <span key={i} className="rounded-full px-2.5 py-1 text-[11px]" style={{ background: 'var(--bg-elevated)', color: 'var(--text-muted)' }}>
+                <span key={i} className="rounded-full px-2.5 py-1 text-[12px]" style={{ background: 'var(--bg-elevated)', color: 'var(--text-muted)' }}>
                   {h.raw}{h.rawArtist ? ` — ${h.rawArtist}` : ''}
                 </span>
               ))}

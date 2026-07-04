@@ -334,14 +334,14 @@ function PhotoPanel({
       {/* Embedai (YouTube / Spotify…) — rodomi straipsnio gale kaip realūs grotuvai */}
       {embeds.length > 0 && (
         <div className="border-b border-gray-100 px-3 py-2">
-          <div className="text-[10px] font-bold text-gray-400 uppercase tracking-wider mb-1.5">
+          <div className="text-[11px] font-bold text-gray-400 uppercase tracking-wider mb-1.5">
             Embedai · {embeds.length} (straipsnio gale)
           </div>
           <div className="flex flex-col gap-1">
             {embeds.map((e, i) => (
               <div key={`${e.url}-${i}`} className="flex items-center gap-2 bg-gray-50 rounded-lg px-2 py-1.5">
-                <span className="shrink-0 text-[9px] font-black uppercase px-1.5 py-0.5 rounded bg-blue-100 text-blue-700">{e.type || 'embed'}</span>
-                <span className="flex-1 min-w-0 truncate text-[11px] text-gray-600">{e.title || e.url}</span>
+                <span className="shrink-0 text-[10px] font-black uppercase px-1.5 py-0.5 rounded bg-blue-100 text-blue-700">{e.type || 'embed'}</span>
+                <span className="flex-1 min-w-0 truncate text-[12px] text-gray-600">{e.title || e.url}</span>
                 <button onClick={() => onEmbedsChange(embeds.filter((_, j) => j !== i))}
                   className="shrink-0 w-6 h-6 rounded-full hover:bg-red-500 hover:text-white flex items-center justify-center text-xs text-gray-500 transition-all">🗑</button>
               </div>
@@ -354,10 +354,10 @@ function PhotoPanel({
       {artists.length > 0 && (
         <div className="border-b border-gray-100">
           <div className="px-3 pt-2 pb-1 flex items-center gap-2">
-            <span className="text-[10px] font-bold text-gray-400 uppercase tracking-wider">Iš atlikėjo galerijos</span>
+            <span className="text-[11px] font-bold text-gray-400 uppercase tracking-wider">Iš atlikėjo galerijos</span>
             {artists.length > 1 && artists.map(a => (
               <button key={a.id} onClick={() => setActiveArtistId(a.id)}
-                className={`px-2 py-0.5 rounded-full text-[10px] font-medium ${artistId === a.id ? 'bg-blue-100 text-blue-700' : 'text-gray-400 hover:bg-gray-100'}`}>
+                className={`px-2 py-0.5 rounded-full text-[11px] font-medium ${artistId === a.id ? 'bg-blue-100 text-blue-700' : 'text-gray-400 hover:bg-gray-100'}`}>
                 {a.name}
               </button>
             ))}
@@ -376,7 +376,7 @@ function PhotoPanel({
               })}
             </div>
           ) : (
-            <p className="text-[10px] text-gray-400 px-3 pb-2">Nėra nuotraukų</p>
+            <p className="text-[11px] text-gray-400 px-3 pb-2">Nėra nuotraukų</p>
           )}
         </div>
       )}
@@ -389,7 +389,7 @@ function PhotoPanel({
           </div>
         ) : (
           <>
-            <div className="text-[10px] font-bold text-gray-400 uppercase tracking-wider mb-2">
+            <div className="text-[11px] font-bold text-gray-400 uppercase tracking-wider mb-2">
               {gallery.length} nuotr. · Spausk ★ = hero (rodoma straipsnio viršuje)
             </div>
             <div className="grid grid-cols-3 gap-1.5">
@@ -399,7 +399,7 @@ function PhotoPanel({
                     <img src={photo.url} alt="" className="w-full h-full object-cover" />
                   </div>
                   {heroUrl === photo.url && (
-                    <div className="absolute top-1 left-1 bg-orange-500 text-white text-[9px] font-black px-1.5 py-0.5 rounded-full">HERO</div>
+                    <div className="absolute top-1 left-1 bg-orange-500 text-white text-[10px] font-black px-1.5 py-0.5 rounded-full">HERO</div>
                   )}
                   <div className="absolute inset-0 bg-black/0 group-hover:bg-black/40 rounded-lg transition-all flex items-center justify-center gap-1 opacity-0 group-hover:opacity-100">
                     <button onClick={() => onHeroChange(photo.url)}
@@ -423,7 +423,7 @@ function PhotoPanel({
 // ─── Label ────────────────────────────────────────────────────────────────────
 
 const Label = ({ children }: { children: React.ReactNode }) => (
-  <span className="text-[10px] font-bold text-gray-400 uppercase tracking-wider">{children}</span>
+  <span className="text-[11px] font-bold text-gray-400 uppercase tracking-wider">{children}</span>
 )
 
 // ─── Main ─────────────────────────────────────────────────────────────────────
@@ -550,7 +550,7 @@ export default function EditNews() {
             </nav>
             {!isNew && publicUrl && (
               <a href={publicUrl} target="_blank" rel="noopener"
-                className="flex items-center gap-1 text-[11px] text-blue-400 hover:text-blue-600 transition-colors w-fit">
+                className="flex items-center gap-1 text-[12px] text-blue-400 hover:text-blue-600 transition-colors w-fit">
                 <svg viewBox="0 0 24 24" className="w-3 h-3 fill-none stroke-current stroke-2 shrink-0"><path d="M18 13v6a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h6"/><polyline points="15 3 21 3 21 9"/><line x1="10" y1="14" x2="21" y2="3"/></svg>
                 <span className="font-mono truncate max-w-[400px]">music.lt{publicUrl}</span>
               </a>
@@ -644,10 +644,10 @@ export default function EditNews() {
           {/* Photos – top 55% */}
           <div className="flex flex-col overflow-hidden" style={{ height: '55%', borderBottom: '1px solid #e5e7eb' }}>
             <div className="shrink-0 px-3 py-2 border-b border-gray-100 bg-white/80 flex items-center justify-between">
-              <span className="text-[10px] font-bold text-gray-400 uppercase tracking-wider">Nuotraukos</span>
+              <span className="text-[11px] font-bold text-gray-400 uppercase tracking-wider">Nuotraukos</span>
               <div className="flex items-center gap-2">
-                {form.image_small_url && <span className="text-[10px] text-orange-500 font-bold">★ Hero pasirinktas</span>}
-                <span className="text-[10px] text-gray-400">{form.gallery.length} nuotr.</span>
+                {form.image_small_url && <span className="text-[11px] text-orange-500 font-bold">★ Hero pasirinktas</span>}
+                <span className="text-[11px] text-gray-400">{form.gallery.length} nuotr.</span>
               </div>
             </div>
             <div className="flex-1 overflow-y-auto">
@@ -663,7 +663,7 @@ export default function EditNews() {
           {/* Songs – bottom 45% */}
           <div className="flex flex-col overflow-hidden" style={{ height: '45%' }}>
             <div className="shrink-0 px-3 py-2 border-b border-gray-100 bg-white/80">
-              <span className="text-[10px] font-bold text-gray-400 uppercase tracking-wider">Susijusi muzika</span>
+              <span className="text-[11px] font-bold text-gray-400 uppercase tracking-wider">Susijusi muzika</span>
             </div>
             <div className="flex-1 overflow-y-auto">
               <SongsPanel newsId={newsId || 'new'} isNew={isNew} />
@@ -717,7 +717,7 @@ function FormPane({ form, set, textareaRef, showSlug, setShowSlug, showDate, set
                 <input type="text" value={form.slug} onChange={e => set('slug', e.target.value)}
                   placeholder="url-slug..."
                   className="w-full px-2 py-1.5 border border-gray-200 rounded-lg text-xs font-mono text-gray-600 focus:outline-none focus:border-blue-400" />
-                {form.slug && <p className="text-[10px] text-gray-400 mt-1 font-mono">music.lt/news/{form.slug}</p>}
+                {form.slug && <p className="text-[11px] text-gray-400 mt-1 font-mono">music.lt/news/{form.slug}</p>}
               </div>
             )}
           </div>

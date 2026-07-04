@@ -56,7 +56,7 @@ export function ImageUploadField({
 
   return (
     <div>
-      <label className="text-[10px] font-bold uppercase tracking-wider mb-2 block" style={{ color: 'var(--text-muted)', fontFamily: "'Outfit', sans-serif" }}>
+      <label className="text-[11px] font-bold uppercase tracking-wider mb-2 block" style={{ color: 'var(--text-muted)', fontFamily: "'Outfit', sans-serif" }}>
         {label}
       </label>
 
@@ -67,7 +67,7 @@ export function ImageUploadField({
           <button
             type="button"
             onClick={() => onChange('')}
-            className="absolute top-2 right-2 px-2 py-0.5 rounded text-[10px] font-bold bg-black/60 text-white opacity-0 group-hover:opacity-100 transition"
+            className="absolute top-2 right-2 px-2 py-0.5 rounded text-[11px] font-bold bg-black/60 text-white opacity-0 group-hover:opacity-100 transition"
           >
             Pašalinti
           </button>

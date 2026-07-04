@@ -245,7 +245,7 @@ function MusicPlayer({ songs }: { songs: SongEntry[] }) {
               <span className="flex h-[60px] w-[60px] items-center justify-center rounded-full bg-red-600 shadow-[0_10px_36px_rgba(0,0,0,0.5)] ring-[5px] ring-white/10">
                 <svg viewBox="0 0 24 24" width="28" height="28" fill="#fff" aria-hidden><path d="M19.615 3.184c-3.604-.246-11.631-.245-15.23 0-3.897.266-4.356 2.62-4.385 8.816.029 6.185.484 8.549 4.385 8.816 3.6.245 11.626.246 15.23 0 3.897-.266 4.356-2.62 4.385-8.816-.029-6.185-.484-8.549-4.385-8.816zm-10.615 12.816v-8l8 3.993-8 4.007z"/></svg>
               </span>
-              <span className="text-[13px] font-semibold">Žiūrėti YouTube'e</span>
+              <span className="text-[14px] font-semibold">Žiūrėti YouTube'e</span>
             </span>
           </a>
         ) : (
@@ -269,7 +269,7 @@ function MusicPlayer({ songs }: { songs: SongEntry[] }) {
                 <span className="flex h-14 w-14 items-center justify-center rounded-full bg-white/5 ring-1 ring-white/10">
                   <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" className="text-white/50"><path d="M23 7l-7 5 7 5V7z" /><rect x="1" y="5" width="15" height="14" rx="2" ry="2" /></svg>
                 </span>
-                <span className="font-['Outfit',sans-serif] text-[12px] font-extrabold uppercase tracking-[0.15em] text-white/60">Video dar nėra</span>
+                <span className="font-['Outfit',sans-serif] text-[13px] font-extrabold uppercase tracking-[0.15em] text-white/60">Video dar nėra</span>
               </span>
             )}
           </button>
@@ -295,14 +295,14 @@ function MusicPlayer({ songs }: { songs: SongEntry[] }) {
                   v ? 'cursor-pointer' : '',
                 ].join(' ')}
               >
-                <span className={['w-5 shrink-0 text-center font-["Outfit",sans-serif] text-[12px] font-bold tabular-nums', isActive ? 'text-[var(--accent-orange)]' : 'text-[var(--text-faint)]'].join(' ')} aria-hidden>
+                <span className={['w-5 shrink-0 text-center font-["Outfit",sans-serif] text-[13px] font-bold tabular-nums', isActive ? 'text-[var(--accent-orange)]' : 'text-[var(--text-faint)]'].join(' ')} aria-hidden>
                   {i + 1}
                 </span>
                 <div className="flex min-w-0 flex-1 flex-col items-start">
-                  <span className={['w-full truncate font-["Outfit",sans-serif] text-[13px] font-bold leading-tight', isActive ? 'text-[var(--accent-orange)]' : 'text-[var(--text-primary)]'].join(' ')}>
+                  <span className={['w-full truncate font-["Outfit",sans-serif] text-[14px] font-bold leading-tight', isActive ? 'text-[var(--accent-orange)]' : 'text-[var(--text-primary)]'].join(' ')}>
                     {s.title}
                   </span>
-                  {s.artist_name && <span className="w-full truncate text-[11px] text-[var(--text-muted)]">{s.artist_name}</span>}
+                  {s.artist_name && <span className="w-full truncate text-[12px] text-[var(--text-muted)]">{s.artist_name}</span>}
                 </div>
                 {s.song_id ? (
                   <button

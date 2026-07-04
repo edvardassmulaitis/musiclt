@@ -72,7 +72,7 @@ export default async function ReportagePage({ params }: Props) {
     <div className="mx-auto max-w-[1600px] px-4 pb-24 pt-6 sm:px-6 lg:px-8">
       <div className="lg:flex lg:items-start lg:justify-between lg:gap-8">
       <header className="min-w-0 max-w-4xl lg:flex-1">
-        <Link href="/galerija" className="mb-1.5 inline-flex items-center gap-1 font-['Outfit',sans-serif] text-[11px] font-extrabold uppercase tracking-[0.18em] text-[var(--accent-orange)] no-underline transition-opacity hover:opacity-75">
+        <Link href="/galerija" className="mb-1.5 inline-flex items-center gap-1 font-['Outfit',sans-serif] text-[12px] font-extrabold uppercase tracking-[0.18em] text-[var(--accent-orange)] no-underline transition-opacity hover:opacity-75">
           <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><path d="m15 18-6-6 6-6" /></svg>
           Koncertų nuotraukos
         </Link>
@@ -82,7 +82,7 @@ export default async function ReportagePage({ params }: Props) {
 
         {/* Meta eilutė: vieta · data · [kiekis] · ✎autorius · 📷fotografas.
             Mobile — nuotraukų skaičius paslėptas, „Tekstas/Foto" tik ikonos. */}
-        <div className="mt-3 flex flex-wrap items-center gap-x-2.5 gap-y-1 text-[13px] text-[var(--text-muted)] sm:text-[13.5px]">
+        <div className="mt-3 flex flex-wrap items-center gap-x-2.5 gap-y-1 text-[14px] text-[var(--text-muted)] sm:text-[14.5px]">
           {place && <span>{place}</span>}
           {date && <><span className="opacity-40">·</span><span>{date}</span></>}
           {photoCount && <span className="hidden items-center gap-x-2.5 sm:inline-flex"><span className="opacity-40">·</span><span>{photoCount}</span></span>}
@@ -127,14 +127,14 @@ export default async function ReportagePage({ params }: Props) {
                     {a.image
                       ? // eslint-disable-next-line @next/next/no-img-element
                         <img src={a.image} alt="" className="h-full w-full object-cover" />
-                      : <span className="font-['Outfit',sans-serif] text-[13px] font-black text-[var(--text-muted)] sm:text-[15px]">{a.name.charAt(0)}</span>}
+                      : <span className="font-['Outfit',sans-serif] text-[14px] font-black text-[var(--text-muted)] sm:text-[15px]">{a.name.charAt(0)}</span>}
                   </span>
-                  <span className="font-['Outfit',sans-serif] text-[13px] font-extrabold leading-tight text-[var(--text-primary)] sm:text-[15px]">{a.name}</span>
+                  <span className="font-['Outfit',sans-serif] text-[14px] font-extrabold leading-tight text-[var(--text-primary)] sm:text-[15px]">{a.name}</span>
                 </>
               ) : (
                 <>
-                  <span className="text-[12px] font-semibold text-[var(--text-primary)] sm:text-[13px]">{a.name}</span>
-                  {roleLabel && <span className="text-[10px] font-bold uppercase tracking-wide text-[var(--text-muted)]">{roleLabel}</span>}
+                  <span className="text-[13px] font-semibold text-[var(--text-primary)] sm:text-[14px]">{a.name}</span>
+                  {roleLabel && <span className="text-[11px] font-bold uppercase tracking-wide text-[var(--text-muted)]">{roleLabel}</span>}
                 </>
               )
               return a.slug ? (
@@ -152,7 +152,7 @@ export default async function ReportagePage({ params }: Props) {
         {/* Thread C 3b: nuoroda į susietą narių recenzijos įrašą */}
         {reviewPost && (
           <Link href={`/blogas/${reviewPost.blogSlug}/${reviewPost.slug}`}
-            className="mt-4 inline-flex items-center gap-1.5 rounded-full border border-[var(--border-default)] px-3.5 py-1.5 text-[13px] font-semibold text-[var(--text-primary)] hover:border-[var(--accent-orange)] hover:text-[var(--accent-orange)] transition-colors">
+            className="mt-4 inline-flex items-center gap-1.5 rounded-full border border-[var(--border-default)] px-3.5 py-1.5 text-[14px] font-semibold text-[var(--text-primary)] hover:border-[var(--accent-orange)] hover:text-[var(--accent-orange)] transition-colors">
             📖 Skaityti recenziją
           </Link>
         )}
@@ -189,7 +189,7 @@ export default async function ReportagePage({ params }: Props) {
               Daugiau {r.photographerName ? `fotografo ${genitivasLT(r.photographerName)}` : 'šio fotografo'} nuotraukų
             </h2>
             {r.photographerSlug && (
-              <Link href={photographerHref(r.photographerSlug)} className="flex-none text-[13px] font-bold text-[var(--accent-orange)] no-underline hover:underline">Visi →</Link>
+              <Link href={photographerHref(r.photographerSlug)} className="flex-none text-[14px] font-bold text-[var(--accent-orange)] no-underline hover:underline">Visi →</Link>
             )}
           </div>
           <div className="grid grid-cols-2 gap-3 sm:grid-cols-3 lg:grid-cols-4">
@@ -202,8 +202,8 @@ export default async function ReportagePage({ params }: Props) {
                   )}
                 </div>
                 <div className="p-2.5">
-                  <div className="line-clamp-2 text-[13px] font-bold leading-tight text-[var(--text-primary)]">{cleanTitle(m.title)}</div>
-                  <div className="mt-1 text-[11.5px] text-[var(--text-muted)]">
+                  <div className="line-clamp-2 text-[14px] font-bold leading-tight text-[var(--text-primary)]">{cleanTitle(m.title)}</div>
+                  <div className="mt-1 text-[12.5px] text-[var(--text-muted)]">
                     {[reportagePlaceLine(m), formatEventDate(m.eventDate)].filter(Boolean).join(' · ')}
                   </div>
                 </div>

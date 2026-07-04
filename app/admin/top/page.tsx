@@ -59,7 +59,7 @@ type AutoCandidate = {
 
 function TrendBadge({ curr, prev }: { curr: number | null; prev: number | null }) {
   if (prev === null || curr === null)
-    return <span className="text-[10px] font-bold px-1.5 py-0.5 rounded bg-amber-50 text-amber-600 border border-amber-200">NEW</span>
+    return <span className="text-[11px] font-bold px-1.5 py-0.5 rounded bg-amber-50 text-amber-600 border border-amber-200">NEW</span>
   if (curr < prev) return <span className="text-emerald-600 font-bold text-xs">↑{prev - curr}</span>
   if (curr > prev) return <span className="text-red-500 font-bold text-xs">↓{curr - prev}</span>
   return <span className="text-gray-300 text-xs">—</span>
@@ -416,7 +416,7 @@ function AdminTopInner() {
                   ↻ Atnaujinti
                 </button>
               </div>
-              <p className="text-[11px] text-[var(--text-muted)] mb-3">
+              <p className="text-[12px] text-[var(--text-muted)] mb-3">
                 Kandidatai iš naujų dainų srauto ir external topų. Patvirtinti pateks į kitą savaitę; praleisti — nebebus siūlomi.
               </p>
               {loadingAuto ? (
@@ -442,13 +442,13 @@ function AdminTopInner() {
                         <p className="text-xs text-gray-500 truncate">{c.artist_name}</p>
                         <div className="flex flex-wrap gap-1 mt-1">
                           {c.reasons.map((r, i) => (
-                            <span key={i} className="text-[10px] font-semibold px-1.5 py-0.5 rounded bg-indigo-50 text-indigo-600 border border-indigo-100">
+                            <span key={i} className="text-[11px] font-semibold px-1.5 py-0.5 rounded bg-indigo-50 text-indigo-600 border border-indigo-100">
                               {r}
                             </span>
                           ))}
                         </div>
                         {(c.history.last_top_week || c.history.last_suggested_at) && (
-                          <p className={`text-[10px] mt-1 ${c.penalty ? 'text-amber-600 font-semibold' : 'text-gray-400'}`}>
+                          <p className={`text-[11px] mt-1 ${c.penalty ? 'text-amber-600 font-semibold' : 'text-gray-400'}`}>
                             {c.history.last_top_week && (
                               <>Tope {new Date(c.history.last_top_week).toLocaleDateString('lt-LT', { month: '2-digit', day: '2-digit' })} su „{c.history.last_top_track}"</>
                             )}
@@ -639,7 +639,7 @@ function AdminTopInner() {
                                   <p className="text-xs text-gray-400 truncate">{e.tracks?.artists?.name ?? '—'}</p>
                                 </div>
                                 {e.is_new && (
-                                  <span className="text-[9px] font-extrabold tracking-wider px-1.5 py-0.5 rounded bg-amber-50 text-amber-600 border border-amber-200 flex-shrink-0">
+                                  <span className="text-[10px] font-extrabold tracking-wider px-1.5 py-0.5 rounded bg-amber-50 text-amber-600 border border-amber-200 flex-shrink-0">
                                     NEW
                                   </span>
                                 )}
@@ -649,7 +649,7 @@ function AdminTopInner() {
                           <td className="px-3 py-2.5 text-center">
                             <span
                               title={isLast ? 'Paskutinė savaitė tope (12/12)' : isWarning ? `Liko ${weeksLeft} savaitė(s) iki išėjimo` : `Šitos dainos savaičių tope: ${e.weeks_in_top || 0} iš 12`}
-                              className={`text-[11px] font-bold tabular-nums px-1.5 py-0.5 rounded ${
+                              className={`text-[12px] font-bold tabular-nums px-1.5 py-0.5 rounded ${
                                 isLast ? 'bg-red-50 text-red-600 border border-red-200' :
                                 isWarning ? 'bg-orange-50 text-orange-600 border border-orange-200' :
                                 'bg-gray-50 text-gray-500 border border-gray-200'

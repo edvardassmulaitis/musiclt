@@ -112,7 +112,7 @@ export default function ArtistAwardsAdminPanel({ artistId, refreshKey }: { artis
                 <div className="flex items-center gap-2 min-w-0">
                   <span className="text-xs">🏆</span>
                   <span className="text-xs font-bold text-[var(--text-primary)] truncate">{channelName}</span>
-                  <span className="text-[10px] text-[var(--text-faint)]">
+                  <span className="text-[11px] text-[var(--text-faint)]">
                     {items.length}
                     {wins > 0 && <> · <span className="text-green-700">{wins}W</span></>}
                     {noms > 0 && <> · <span className="text-blue-700">{noms}N</span></>}
@@ -126,13 +126,13 @@ export default function ArtistAwardsAdminPanel({ artistId, refreshKey }: { artis
                     const m = RESULT_META[it.result] || RESULT_META.other
                     const partial = it.participants_in_event === 1
                     return (
-                      <div key={it.id} className="flex items-center gap-2 text-[11px] py-0.5">
+                      <div key={it.id} className="flex items-center gap-2 text-[12px] py-0.5">
                         <span className="text-[var(--text-secondary)] tabular-nums w-10 shrink-0">{it.edition_year || '?'}</span>
                         <span className="flex-1 text-[var(--text-primary)] truncate">{it.event_name}</span>
                         {it.work && <span className="text-[var(--text-faint)] italic truncate max-w-[120px] hidden md:block">{it.work}</span>}
-                        <span className="text-[9px] font-bold px-1.5 py-0 rounded shrink-0" style={{ background: m.bg, color: m.fg }}>{m.label}</span>
+                        <span className="text-[10px] font-bold px-1.5 py-0 rounded shrink-0" style={{ background: m.bg, color: m.fg }}>{m.label}</span>
                         {partial && (
-                          <span title="Tik šis atlikėjas — co-nominees vėliau" className="text-amber-600 text-[10px] shrink-0">⚠</span>
+                          <span title="Tik šis atlikėjas — co-nominees vėliau" className="text-amber-600 text-[11px] shrink-0">⚠</span>
                         )}
                       </div>
                     )

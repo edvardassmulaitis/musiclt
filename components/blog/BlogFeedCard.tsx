@@ -85,12 +85,12 @@ export function BlogFeedCard({ post }: { post: FeedPost }) {
         <div className="flex-1 min-w-0">
           <div className="flex items-center gap-2 mb-1">
             {typeMeta && (
-              <span className="text-[9px] font-bold uppercase tracking-wider" style={{ color: '#5e7290' }}>
+              <span className="text-[10px] font-bold uppercase tracking-wider" style={{ color: '#5e7290' }}>
                 {typeMeta.label}
               </span>
             )}
             {post.post_type === 'review' && post.rating !== null && (
-              <span className="text-[9px] font-black tracking-wider" style={{ color: '#f97316' }}>
+              <span className="text-[10px] font-black tracking-wider" style={{ color: '#f97316' }}>
                 {post.rating}/10
               </span>
             )}
@@ -115,7 +115,7 @@ export function BlogFeedCard({ post }: { post: FeedPost }) {
             <div className="flex gap-1 flex-wrap mb-2">
               {post.tags.slice(0, 4).map(tag => (
                 <span key={tag}
-                  className="px-1.5 py-0.5 rounded text-[9px] font-semibold"
+                  className="px-1.5 py-0.5 rounded text-[10px] font-semibold"
                   style={{ background: 'rgba(255,255,255,0.04)', color: '#8aa8cc' }}>
                   #{tag}
                 </span>
@@ -123,7 +123,7 @@ export function BlogFeedCard({ post }: { post: FeedPost }) {
             </div>
           )}
 
-          <div className="flex items-center gap-2 text-[10px] flex-wrap" style={{ color: '#5e7290' }}>
+          <div className="flex items-center gap-2 text-[11px] flex-wrap" style={{ color: '#5e7290' }}>
             {profile && (
               <span className="font-semibold">{profile.full_name || profile.username}</span>
             )}

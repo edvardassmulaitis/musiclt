@@ -43,7 +43,7 @@ export async function generateMetadata({ params }: Props): Promise<Metadata> {
 }
 
 const SOCIAL = (label: string, href: string) => (
-  <a key={href} href={href} target="_blank" rel="noopener" className="text-[13px] font-semibold text-[#ec4899] no-underline hover:underline">
+  <a key={href} href={href} target="_blank" rel="noopener" className="text-[14px] font-semibold text-[#ec4899] no-underline hover:underline">
     {label}
   </a>
 )
@@ -76,13 +76,13 @@ export default async function Page({ params }: Props) {
           </div>
         )}
         <div className="min-w-0 flex-1">
-          <div className="font-['Outfit',sans-serif] text-[10px] font-extrabold uppercase tracking-[0.2em] text-[var(--text-muted)]">
+          <div className="font-['Outfit',sans-serif] text-[11px] font-extrabold uppercase tracking-[0.2em] text-[var(--text-muted)]">
             Fotografas
           </div>
           <h1 className="font-['Outfit',sans-serif] text-[28px] font-black leading-tight tracking-[-0.01em] text-[var(--text-primary)] sm:text-[34px]">
             {p.name}
           </h1>
-          <div className="mt-1 flex flex-wrap items-center gap-3 text-[12.5px] text-[var(--text-muted)]">
+          <div className="mt-1 flex flex-wrap items-center gap-3 text-[13.5px] text-[var(--text-muted)]">
             {reportages.length > 0 && <span>{ltCount(reportages.length, ['reportažas', 'reportažai', 'reportažų'])}</span>}
             {photos.length > 0 && <span>{ltCount(photos.length, ['nuotrauka', 'nuotraukos', 'nuotraukų'])}</span>}
             {socials}
@@ -106,14 +106,14 @@ export default async function Page({ params }: Props) {
                 {featured.coverUrl && <img src={featured.coverUrl} alt={featured.title} className="h-full w-full object-cover transition-transform duration-500 group-hover:scale-[1.03]" />}
                 <div className="absolute inset-0 bg-gradient-to-t from-black/80 via-black/20 to-transparent" />
                 {featured.photoCount > 0 && (
-                  <span className="absolute right-4 top-4 rounded-full bg-black/55 px-3 py-1 text-[12px] font-bold text-white backdrop-blur">📸 {featured.photoCount}</span>
+                  <span className="absolute right-4 top-4 rounded-full bg-black/55 px-3 py-1 text-[13px] font-bold text-white backdrop-blur">📸 {featured.photoCount}</span>
                 )}
                 <div className="absolute inset-x-0 bottom-0 p-5 sm:p-6">
-                  {featured.artistName && <div className="mb-1 font-['Outfit',sans-serif] text-[11px] font-extrabold uppercase tracking-[0.14em] text-[#ec4899]">{featured.artistName}</div>}
+                  {featured.artistName && <div className="mb-1 font-['Outfit',sans-serif] text-[12px] font-extrabold uppercase tracking-[0.14em] text-[#ec4899]">{featured.artistName}</div>}
                   <h3 className="font-['Outfit',sans-serif] text-[22px] font-black leading-tight text-white drop-shadow sm:text-[26px]">
                     {featured.title.replace(/^FOTO\s+(REPORTA[ŽZ]AS|GALERIJA)\s*\|\s*/i, '')}
                   </h3>
-                  <div className="mt-1 flex flex-wrap items-center gap-x-2.5 text-[12.5px] text-white/80">
+                  <div className="mt-1 flex flex-wrap items-center gap-x-2.5 text-[13.5px] text-white/80">
                     {reportagePlaceLine(featured) && <span>{reportagePlaceLine(featured)}</span>}
                     {formatEventDate(featured.eventDate) && <><span className="opacity-50">·</span><span>{formatEventDate(featured.eventDate)}</span></>}
                   </div>
@@ -149,8 +149,8 @@ export default async function Page({ params }: Props) {
                     <img src={proxyImgResized(ph.url, 500)} alt={artist?.name || ''} loading="lazy" className="block w-full object-cover transition-transform duration-500 group-hover:scale-[1.02]" />
                     {artist?.name && (
                       <div className="pointer-events-none absolute inset-x-0 bottom-0 bg-gradient-to-t from-black/80 via-black/25 to-transparent p-2.5">
-                        <div className="truncate font-['Outfit',sans-serif] text-[13px] font-bold text-white drop-shadow">{artist.name}</div>
-                        {year && <div className="font-['Outfit',sans-serif] text-[10px] font-bold text-white/70">{year}</div>}
+                        <div className="truncate font-['Outfit',sans-serif] text-[14px] font-bold text-white drop-shadow">{artist.name}</div>
+                        {year && <div className="font-['Outfit',sans-serif] text-[11px] font-bold text-white/70">{year}</div>}
                       </div>
                     )}
                   </div>

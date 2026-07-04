@@ -113,7 +113,7 @@ export default function AdminVenuesPage() {
                         {v.name}
                       </Link>
                       {v.legacy_id && (
-                        <span className="ml-2 text-[10px] text-[var(--text-faint)]">#{v.legacy_id}</span>
+                        <span className="ml-2 text-[11px] text-[var(--text-faint)]">#{v.legacy_id}</span>
                       )}
                     </td>
                     <td className="px-4 py-2 text-[var(--text-secondary)]">{v.city || '—'}</td>

@@ -80,7 +80,7 @@ function ArchiveColumn({
     <section>
       <div className="mb-3 flex items-baseline gap-2">
         <span
-          className="rounded-full px-2.5 py-0.5 text-[10px] font-bold uppercase tracking-wider text-white"
+          className="rounded-full px-2.5 py-0.5 text-[11px] font-bold uppercase tracking-wider text-white"
           style={{ background: accent }}
         >
           {label}

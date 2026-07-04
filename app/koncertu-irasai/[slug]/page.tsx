@@ -67,7 +67,7 @@ export default async function RecordingDetailPage({ params }: { params: Promise<
     <div className="page-shell">
       <script type="application/ld+json" dangerouslySetInnerHTML={{ __html: JSON.stringify(jsonLd) }} />
 
-      <nav className="mb-3 text-[13px] text-[var(--text-muted)]">
+      <nav className="mb-3 text-[14px] text-[var(--text-muted)]">
         <Link href="/koncertu-irasai" className="hover:text-[var(--accent-orange)]">Koncertų įrašai</Link>
         {rec.artist_slug && (
           <>
@@ -90,14 +90,14 @@ export default async function RecordingDetailPage({ params }: { params: Promise<
           </div>
 
           <div className="mt-4 flex flex-wrap items-center gap-2">
-            <span className="rounded-full bg-[var(--accent-orange)] px-2.5 py-0.5 text-[11px] font-extrabold uppercase tracking-wide text-white">
+            <span className="rounded-full bg-[var(--accent-orange)] px-2.5 py-0.5 text-[12px] font-extrabold uppercase tracking-wide text-white">
               {recordingTypeLabel(rec.recording_type)}
             </span>
             {rec.duration_seconds != null && (
-              <span className="text-[13px] font-bold tabular-nums text-[var(--text-muted)]">{formatDuration(rec.duration_seconds)}</span>
+              <span className="text-[14px] font-bold tabular-nums text-[var(--text-muted)]">{formatDuration(rec.duration_seconds)}</span>
             )}
             {rec.view_count != null && (
-              <span className="text-[13px] text-[var(--text-faint)]">{rec.view_count.toLocaleString('lt-LT')} peržiūrų</span>
+              <span className="text-[14px] text-[var(--text-faint)]">{rec.view_count.toLocaleString('lt-LT')} peržiūrų</span>
             )}
           </div>
 
@@ -121,14 +121,14 @@ export default async function RecordingDetailPage({ params }: { params: Promise<
         {/* ── Šoninė info ── */}
         <aside className="space-y-4">
           <div className="rounded-2xl border border-[var(--border-default)] bg-[var(--bg-surface)] p-4">
-            <h2 className="mb-2 font-['Outfit',sans-serif] text-[13px] font-extrabold uppercase tracking-wide text-[var(--text-muted)]">Apie įrašą</h2>
-            <dl className="space-y-1.5 text-[13.5px]">
+            <h2 className="mb-2 font-['Outfit',sans-serif] text-[14px] font-extrabold uppercase tracking-wide text-[var(--text-muted)]">Apie įrašą</h2>
+            <dl className="space-y-1.5 text-[14.5px]">
               {place && <InfoRow label="Vieta" value={place} />}
               {dateStr && <InfoRow label="Koncerto data" value={dateStr} />}
               {rec.duration_seconds != null && <InfoRow label="Trukmė" value={formatDuration(rec.duration_seconds)} />}
               {rec.channel && <InfoRow label="Kanalas" value={rec.channel} />}
             </dl>
-            <a href={rec.youtube_url} target="_blank" rel="noopener noreferrer" className="mt-3 inline-block text-[12.5px] font-semibold text-[var(--accent-link)]">
+            <a href={rec.youtube_url} target="_blank" rel="noopener noreferrer" className="mt-3 inline-block text-[13.5px] font-semibold text-[var(--accent-link)]">
               Žiūrėti YouTube ↗
             </a>
           </div>
@@ -136,7 +136,7 @@ export default async function RecordingDetailPage({ params }: { params: Promise<
           {rec.styles.length > 0 && (
             <div className="flex flex-wrap gap-1.5">
               {rec.styles.slice(0, 6).map((s) => (
-                <span key={s} className="rounded-full bg-[var(--bg-elevated)] px-2.5 py-1 text-[11.5px] font-semibold text-[var(--text-muted)]">{s}</span>
+                <span key={s} className="rounded-full bg-[var(--bg-elevated)] px-2.5 py-1 text-[12.5px] font-semibold text-[var(--text-muted)]">{s}</span>
               ))}
             </div>
           )}
@@ -158,13 +158,13 @@ export default async function RecordingDetailPage({ params }: { params: Promise<
                     <img src={r.thumbnail_url} alt={r.title} className="h-full w-full object-cover transition-transform group-hover:scale-[1.03]" referrerPolicy="no-referrer" loading="lazy" />
                   )}
                   {r.duration_seconds != null && (
-                    <span className="absolute bottom-1.5 right-1.5 rounded bg-black/80 px-1.5 py-0.5 text-[10.5px] font-bold tabular-nums text-white">
+                    <span className="absolute bottom-1.5 right-1.5 rounded bg-black/80 px-1.5 py-0.5 text-[11.5px] font-bold tabular-nums text-white">
                       {formatDuration(r.duration_seconds)}
                     </span>
                   )}
                 </div>
-                <h3 className="mt-1.5 line-clamp-2 text-[13px] font-bold leading-snug text-[var(--text-primary)] group-hover:text-[var(--accent-orange)]">{r.title}</h3>
-                {r.artist_name && <p className="text-[12px] text-[var(--text-muted)]">{r.artist_name}</p>}
+                <h3 className="mt-1.5 line-clamp-2 text-[14px] font-bold leading-snug text-[var(--text-primary)] group-hover:text-[var(--accent-orange)]">{r.title}</h3>
+                {r.artist_name && <p className="text-[13px] text-[var(--text-muted)]">{r.artist_name}</p>}
               </Link>
             ))}
           </div>

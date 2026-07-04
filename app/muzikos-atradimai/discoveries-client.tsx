@@ -217,7 +217,7 @@ function ArtistDiscoveriesModal({ src, items, likedSet, onClose }: {
             <span className="flex h-11 w-11 flex-shrink-0 items-center justify-center rounded-xl font-extrabold" style={{ background: `hsl(${hue(nm)},32%,20%)`, color: `hsl(${hue(nm)},52%,64%)` }}>{nm.charAt(0).toUpperCase()}</span>
           )}
           <div className="min-w-0 flex-1">
-            <div className="font-['Outfit',sans-serif] text-[10px] font-extrabold uppercase tracking-[0.15em] text-[var(--text-muted)]">Muzikos atradimai · {items.length}</div>
+            <div className="font-['Outfit',sans-serif] text-[11px] font-extrabold uppercase tracking-[0.15em] text-[var(--text-muted)]">Muzikos atradimai · {items.length}</div>
             {src.artist_slug
               ? <Link href={`/atlikejai/${src.artist_slug}`} className="block truncate font-['Outfit',sans-serif] text-[17px] font-extrabold text-[var(--text-primary)] no-underline hover:text-[var(--accent-orange)]">{nm}</Link>
               : <div className="truncate font-['Outfit',sans-serif] text-[17px] font-extrabold text-[var(--text-primary)]">{nm}</div>}
@@ -246,7 +246,7 @@ function ArtistDiscoveriesModal({ src, items, likedSet, onClose }: {
                     <Avatar src={d.author?.avatar_url} name={uname} size={28} />
                     <div className="flex min-w-0 flex-1 items-baseline gap-2">
                       {uname ? <Link href={`/@${uname}`} className="ma-nm">{uname}</Link> : <span className="ma-nm">Narys</span>}
-                      {when && <span className="text-[11px] text-[var(--text-muted)]">{when}</span>}
+                      {when && <span className="text-[12px] text-[var(--text-muted)]">{when}</span>}
                     </div>
                     <CardLike commentId={d.comment_id} count={d.like_count} liked={d.comment_id ? likedSet.has(d.comment_id) : false} />
                   </div>

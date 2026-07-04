@@ -27,7 +27,7 @@ type LineupItem = { artist_id: number; name: string; role: string }
 const STANDARD_TAGS = ['Žiūrovai', 'Atmosfera', 'Scena · Apšvietimas', 'Užkulisiai', 'Grupės muzikantai'] as const
 
 const inputCls = 'w-full rounded-lg border border-[var(--input-border)] bg-[var(--input-bg)] px-3 py-2 text-sm text-[var(--input-text)] placeholder:text-[var(--input-placeholder)] focus:border-blue-400 focus:outline-none'
-const labelCls = 'mb-1 block text-[12px] font-semibold text-[var(--text-muted)]'
+const labelCls = 'mb-1 block text-[13px] font-semibold text-[var(--text-muted)]'
 const btn = 'rounded-lg px-3.5 py-2 text-sm font-semibold transition-colors disabled:opacity-50'
 const btnPrimary = `${btn} bg-[#ec4899] text-white hover:bg-[#db2777]`
 const btnGhost = `${btn} border border-[var(--border-default)] text-[var(--text-secondary)] hover:bg-[var(--bg-hover)]`
@@ -102,7 +102,7 @@ function ReportagesTab({ reportages, photographers, venues, reload }: {
             </div>
             <div className="min-w-0 flex-1">
               <div className="truncate text-sm font-semibold text-[var(--text-primary)]">{r.title}</div>
-              <div className="truncate text-[12px] text-[var(--text-muted)]">
+              <div className="truncate text-[13px] text-[var(--text-muted)]">
                 {[r.artists?.name, r.photographers?.name, `${r.photo_count} foto`, r.is_published ? null : 'nepublikuota', r.is_featured ? '★' : null].filter(Boolean).join(' · ')}
               </div>
             </div>
@@ -207,9 +207,9 @@ function ReportageEditor({ id, photographers, venues, onClose, onSaved }: {
             <div className="mb-2 space-y-1.5">
               {d.artists.map((a, idx) => (
                 <div key={a.artist_id} className="flex items-center gap-2 rounded-lg border border-[var(--border-default)] bg-[var(--bg-elevated)] px-2.5 py-1.5">
-                  <span className="text-[11px] font-bold text-[var(--text-muted)]">{idx + 1}.</span>
+                  <span className="text-[12px] font-bold text-[var(--text-muted)]">{idx + 1}.</span>
                   <span className="min-w-0 flex-1 truncate text-sm font-semibold text-[var(--text-primary)]">{a.name}</span>
-                  <select className="rounded border border-[var(--input-border)] bg-[var(--input-bg)] px-1.5 py-1 text-[12px] text-[var(--input-text)]"
+                  <select className="rounded border border-[var(--input-border)] bg-[var(--input-bg)] px-1.5 py-1 text-[13px] text-[var(--input-text)]"
                     value={a.role}
                     onChange={(e) => setD({ ...d, artists: d.artists.map((x, i) => i === idx ? { ...x, role: e.target.value } : x) })}>
                     <option value="">— vaidmuo —</option>
@@ -264,14 +264,14 @@ function ReportageEditor({ id, photographers, venues, onClose, onSaved }: {
       <div className="mt-4 flex items-center gap-2">
         <button className={btnPrimary} onClick={save} disabled={saving}>{saving ? 'Saugoma…' : realId ? 'Išsaugoti' : 'Sukurti'}</button>
         {realId && <button className={btnGhost} onClick={del}>Pašalinti</button>}
-        {msg && <span className="text-[13px] text-[var(--text-muted)]">{msg}</span>}
+        {msg && <span className="text-[14px] text-[var(--text-muted)]">{msg}</span>}
       </div>
 
       {/* Nuotraukos — tik kai reportažas išsaugotas */}
       {realId ? (
         <PhotoManager reportageId={realId} photos={photos} lineup={d.artists} flickrUrl={d.flickr_album_url} onChange={reloadPhotos} setFlickrUrl={(u) => setD({ ...d, flickr_album_url: u })} />
       ) : (
-        <div className="mt-4 rounded-lg border border-dashed border-[var(--border-default)] p-4 text-center text-[13px] text-[var(--text-muted)]">
+        <div className="mt-4 rounded-lg border border-dashed border-[var(--border-default)] p-4 text-center text-[14px] text-[var(--text-muted)]">
           Pirmiausia išsaugok reportažą — tada galėsi pridėti nuotraukas.
         </div>
       )}
@@ -320,12 +320,12 @@ function EventLink({ reportageId, d, setD }: { reportageId: number | null; d: an
     <button type="button" onClick={() => link(e)}
       className="flex w-full items-center gap-2 rounded-lg border border-[var(--border-default)] bg-[var(--bg-elevated)] px-2.5 py-1.5 text-left hover:border-[#ec4899]/60">
       <span className="min-w-0 flex-1">
-        <span className="block truncate text-[13px] font-semibold text-[var(--text-primary)]">{e.title}</span>
-        <span className="block truncate text-[11px] text-[var(--text-muted)]">
+        <span className="block truncate text-[14px] font-semibold text-[var(--text-primary)]">{e.title}</span>
+        <span className="block truncate text-[12px] text-[var(--text-muted)]">
           {[e.start_date ? e.start_date.slice(0, 10) : null, e.city, e.lineup.slice(0, 3).map((a) => a.name).join(', ')].filter(Boolean).join(' · ')}
         </span>
       </span>
-      <span className="flex-none text-[11px] font-bold text-[#ec4899]">Susieti →</span>
+      <span className="flex-none text-[12px] font-bold text-[#ec4899]">Susieti →</span>
     </button>
   )
 
@@ -336,13 +336,13 @@ function EventLink({ reportageId, d, setD }: { reportageId: number | null; d: an
         <div className="flex items-center gap-2 rounded-lg border border-[#ec4899]/40 bg-[#ec4899]/5 px-3 py-2">
           <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="#ec4899" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><rect x="3" y="4" width="18" height="18" rx="2"/><path d="M16 2v4M8 2v4M3 10h18"/></svg>
           <span className="min-w-0 flex-1 truncate text-sm font-semibold text-[var(--text-primary)]">{d.event_title || 'Susietas renginys'}</span>
-          <button type="button" className="text-[12px] font-semibold text-[var(--text-muted)] hover:text-red-500" onClick={unlink}>Atsieti</button>
+          <button type="button" className="text-[13px] font-semibold text-[var(--text-muted)] hover:text-red-500" onClick={unlink}>Atsieti</button>
         </div>
       ) : (
         <>
           {suggest.length > 0 && (
             <div className="mb-2 space-y-1.5">
-              <div className="text-[11px] font-bold uppercase tracking-wide text-[var(--text-muted)]">Pasiūlymai</div>
+              <div className="text-[12px] font-bold uppercase tracking-wide text-[var(--text-muted)]">Pasiūlymai</div>
               {suggest.map((e) => <Row key={e.id} e={e} />)}
             </div>
           )}
@@ -365,7 +365,7 @@ function EventLink({ reportageId, d, setD }: { reportageId: number | null; d: an
 function groupControl(lineup: LineupItem[], value: string, onChange: (v: string) => void, tagValue: string, onTag: (v: string) => void) {
   return (
     <span className="inline-flex flex-wrap items-center gap-1.5">
-      <select className="rounded border border-[var(--input-border)] bg-[var(--input-bg)] px-1.5 py-1 text-[12px] text-[var(--input-text)]" value={value} onChange={(e) => onChange(e.target.value)}>
+      <select className="rounded border border-[var(--input-border)] bg-[var(--input-bg)] px-1.5 py-1 text-[13px] text-[var(--input-text)]" value={value} onChange={(e) => onChange(e.target.value)}>
         <option value="">Bendros (be grupės)</option>
         {lineup.length > 0 && (
           <optgroup label="Atlikėjai (iš renginio)">
@@ -378,7 +378,7 @@ function groupControl(lineup: LineupItem[], value: string, onChange: (v: string)
         <option value="t:__custom">Kita (laisvas)…</option>
       </select>
       {value === 't:__custom' && (
-        <input className="w-28 rounded border border-[var(--input-border)] bg-[var(--input-bg)] px-1.5 py-1 text-[12px] text-[var(--input-text)]" placeholder="laisvas tagas" value={tagValue} onChange={(e) => onTag(e.target.value)} />
+        <input className="w-28 rounded border border-[var(--input-border)] bg-[var(--input-bg)] px-1.5 py-1 text-[13px] text-[var(--input-text)]" placeholder="laisvas tagas" value={tagValue} onChange={(e) => onTag(e.target.value)} />
       )}
     </span>
   )
@@ -488,12 +488,12 @@ function PhotoManager({ reportageId, photos, lineup, flickrUrl, setFlickrUrl, on
     <div className="mt-5 border-t border-[var(--border-default)] pt-4">
       <div className="mb-2 flex items-center justify-between">
         <h4 className="font-['Outfit',sans-serif] text-sm font-bold text-[var(--text-primary)]">Nuotraukos ({photos.length})</h4>
-        {importing && <span className="text-[12px] text-[#ec4899]">{progress || 'Dirbama…'}</span>}
+        {importing && <span className="text-[13px] text-[#ec4899]">{progress || 'Dirbama…'}</span>}
       </div>
 
       {/* Batch grupė importui/upload'ui */}
       <div className="mb-3 flex flex-wrap items-center gap-2 rounded-lg bg-[var(--bg-elevated)] px-3 py-2">
-        <span className="text-[12px] font-semibold text-[var(--text-muted)]">Pridedamas naujas nuotraukas priskirti:</span>
+        <span className="text-[13px] font-semibold text-[var(--text-muted)]">Pridedamas naujas nuotraukas priskirti:</span>
         {groupControl(lineup, batchGroup, setBatchGroup, batchTag, setBatchTag)}
       </div>
 
@@ -507,7 +507,7 @@ function PhotoManager({ reportageId, photos, lineup, flickrUrl, setFlickrUrl, on
         </div>
         {found.length > 0 && (
           <>
-            <div className="mt-2 text-[12px] text-[var(--text-muted)]">Rasta {found.length} nuotraukų — importuojant bus perkeltos visos.</div>
+            <div className="mt-2 text-[13px] text-[var(--text-muted)]">Rasta {found.length} nuotraukų — importuojant bus perkeltos visos.</div>
             <div className="mt-1 flex flex-wrap gap-1.5">
               {found.map((p) => (
                 <img key={p.flickrId} src={p.url.replace(/_[a-z]\.jpg$/i, '_q.jpg')} alt="" loading="lazy"
@@ -528,7 +528,7 @@ function PhotoManager({ reportageId, photos, lineup, flickrUrl, setFlickrUrl, on
       {/* Pažymėtų priskyrimas grupei */}
       {sel.size > 0 && (
         <div className="mb-3 flex flex-wrap items-center gap-2 rounded-lg border border-[#ec4899]/40 bg-[#ec4899]/5 px-3 py-2">
-          <span className="text-[12px] font-semibold text-[var(--text-primary)]">Pažymėta {sel.size} — priskirti grupei:</span>
+          <span className="text-[13px] font-semibold text-[var(--text-primary)]">Pažymėta {sel.size} — priskirti grupei:</span>
           {groupControl(lineup, assignGroup, setAssignGroup, assignTag, setAssignTag)}
           <button className={btnPrimary} onClick={assignSelected} disabled={importing}>Priskirti</button>
           <button className={btnGhost} onClick={() => setSel(new Set())}>Išvalyti</button>
@@ -545,14 +545,14 @@ function PhotoManager({ reportageId, photos, lineup, flickrUrl, setFlickrUrl, on
               <div key={p.id} className={`group relative overflow-hidden rounded-lg border-2 ${selected ? 'border-[#ec4899]' : 'border-[var(--border-default)]'}`}>
                 <img src={p.thumb_url || p.url} alt="" className="aspect-square w-full cursor-pointer object-cover" onClick={() => toggleSel(p.id)} />
                 <input type="checkbox" checked={selected} onChange={() => toggleSel(p.id)} className="absolute left-1.5 top-1.5 h-4 w-4 accent-[#ec4899]" />
-                {gl && <span className="absolute inset-x-0 bottom-0 truncate bg-black/65 px-1.5 py-0.5 text-[10px] font-semibold text-white">{gl}</span>}
+                {gl && <span className="absolute inset-x-0 bottom-0 truncate bg-black/65 px-1.5 py-0.5 text-[11px] font-semibold text-white">{gl}</span>}
                 <button onClick={() => delPhoto(p.id)} className="absolute right-1 top-1 hidden h-6 w-6 items-center justify-center rounded-full bg-black/70 text-white group-hover:flex" title="Pašalinti">✕</button>
               </div>
             )
           })}
         </div>
       )}
-      {!progress && !importing && <p className="mt-2 text-[11px] text-[var(--text-muted)]">Flickr nuotraukos re-host'inamos į mūsų serverį (durable). Spausk nuotrauką → pažymėti → priskirti atlikėjui ar tagui (pvz. „Žiūrovai"). Pirma tampa viršeliu.</p>}
+      {!progress && !importing && <p className="mt-2 text-[12px] text-[var(--text-muted)]">Flickr nuotraukos re-host'inamos į mūsų serverį (durable). Spausk nuotrauką → pažymėti → priskirti atlikėjui ar tagui (pvz. „Žiūrovai"). Pirma tampa viršeliu.</p>}
     </div>
   )
 }
@@ -584,8 +584,8 @@ function PhotographerRow({ p, onSaved }: { p: AdminPhotographer; onSaved: () => 
           {p.avatar_url && <img src={p.avatar_url} alt="" className="h-full w-full object-cover" />}
         </div>
         <div className="min-w-0 flex-1">
-          <div className="truncate text-sm font-semibold text-[var(--text-primary)]">{p.name} {p.is_curated && <span className="ml-1 rounded bg-[#ec4899]/15 px-1.5 py-0.5 text-[10px] font-bold text-[#ec4899]">PUBLIC</span>}</div>
-          <div className="truncate text-[12px] text-[var(--text-muted)]">{p.role_title || p.source || 'fotografas'}</div>
+          <div className="truncate text-sm font-semibold text-[var(--text-primary)]">{p.name} {p.is_curated && <span className="ml-1 rounded bg-[#ec4899]/15 px-1.5 py-0.5 text-[11px] font-bold text-[#ec4899]">PUBLIC</span>}</div>
+          <div className="truncate text-[13px] text-[var(--text-muted)]">{p.role_title || p.source || 'fotografas'}</div>
         </div>
         <button className={btnGhost} onClick={toggleCurated}>{p.is_curated ? 'Slėpti' : 'Rodyti public'}</button>
         <button className={btnGhost} onClick={() => setOpen(!open)}>{open ? 'Uždaryti' : 'Redaguoti'}</button>
@@ -647,7 +647,7 @@ function PhotographerEditor({ existing, onClose, onSaved }: { existing?: AdminPh
       <div className="mt-3 flex items-center gap-2">
         <button className={btnPrimary} onClick={save} disabled={saving}>{saving ? 'Saugoma…' : 'Išsaugoti'}</button>
         <button className={btnGhost} onClick={onClose}>Uždaryti</button>
-        {msg && <span className="text-[13px] text-[var(--text-muted)]">{msg}</span>}
+        {msg && <span className="text-[14px] text-[var(--text-muted)]">{msg}</span>}
       </div>
     </div>
   )

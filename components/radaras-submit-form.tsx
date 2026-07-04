@@ -9,7 +9,7 @@ import Link from 'next/link'
 type State = 'idle' | 'sending' | 'done' | 'error'
 
 const lbl: React.CSSProperties = {
-  display: 'block', fontFamily: "'Outfit',sans-serif", fontSize: 12.5, fontWeight: 700,
+  display: 'block', fontFamily: "'Outfit',sans-serif", fontSize: 13.5, fontWeight: 700,
   color: 'var(--text-secondary)', marginBottom: 6,
 }
 const field: React.CSSProperties = {
@@ -113,7 +113,7 @@ export default function RadarSubmitForm() {
         <textarea id="message" name="message" rows={2} maxLength={1000} style={{ ...field, resize: 'vertical' }} placeholder="Pvz. ką tik išleidau singlą…" />
       </div>
 
-      {err && <div style={{ borderRadius: 10, background: 'rgba(248,113,113,0.12)', color: 'var(--accent-red)', padding: '10px 12px', fontSize: 13.5 }}>{err}</div>}
+      {err && <div style={{ borderRadius: 10, background: 'rgba(248,113,113,0.12)', color: 'var(--accent-red)', padding: '10px 12px', fontSize: 14.5 }}>{err}</div>}
 
       <button type="submit" disabled={state === 'sending'} style={{
         fontFamily: "'Outfit',sans-serif", fontWeight: 700, fontSize: 15, color: '#fff',
@@ -124,7 +124,7 @@ export default function RadarSubmitForm() {
         {state === 'sending' ? 'Siunčiama…' : 'Pateikti radarui'}
       </button>
 
-      <p style={{ fontSize: 11.5, color: 'var(--text-faint)', lineHeight: 1.5 }}>
+      <p style={{ fontSize: 12.5, color: 'var(--text-faint)', lineHeight: 1.5 }}>
         Pateikdami sutinkate, kad su jumis susisieksime nurodytu el. paštu. Pateikimai peržiūrimi rankiniu būdu.
       </p>
     </form>

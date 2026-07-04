@@ -74,7 +74,7 @@ export function EventTargetField({
 
   return (
     <div className="mb-6" ref={wrapRef}>
-      <label className="text-[10px] font-bold uppercase tracking-wider mb-2 block" style={{ color: 'var(--text-muted)', fontFamily: "'Outfit', sans-serif" }}>
+      <label className="text-[11px] font-bold uppercase tracking-wider mb-2 block" style={{ color: 'var(--text-muted)', fontFamily: "'Outfit', sans-serif" }}>
         Renginys
       </label>
 
@@ -117,7 +117,7 @@ export function EventTargetField({
                   className="block w-full text-left px-3 py-2 hover:bg-[var(--bg-hover)] transition"
                 >
                   <p className="text-sm font-semibold" style={{ color: 'var(--text-primary)' }}>{hit.title}</p>
-                  <p className="text-[10px]" style={{ color: 'var(--text-muted)' }}>
+                  <p className="text-[11px]" style={{ color: 'var(--text-muted)' }}>
                     {hit.start_date && new Date(hit.start_date).toLocaleDateString('lt-LT', { year: 'numeric', month: 'short', day: 'numeric' })}
                     {hit.city && ` · ${hit.city}`}
                   </p>

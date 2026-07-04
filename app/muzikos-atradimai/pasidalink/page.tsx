@@ -61,11 +61,11 @@ export default function PasidalinkAtradimuPage() {
         <div className="rounded-2xl border border-[var(--border-default)] bg-[var(--bg-surface)] p-8 text-center">
           <div className="mx-auto mb-3 flex h-12 w-12 items-center justify-center rounded-full bg-[rgba(34,197,94,0.15)] text-[22px]">✓</div>
           <p className="m-0 font-['Outfit',sans-serif] text-[17px] font-extrabold text-[var(--text-primary)]">Ačiū! Atradimas pridėtas.</p>
-          <p className="m-0 mt-1.5 text-[13px] text-[var(--text-muted)]">{done.linked ? 'Susiejome jį su atlikėju duombazėje.' : 'Atlikėją netrukus susiesime su duombaze.'}</p>
+          <p className="m-0 mt-1.5 text-[14px] text-[var(--text-muted)]">{done.linked ? 'Susiejome jį su atlikėju duombazėje.' : 'Atlikėją netrukus susiesime su duombaze.'}</p>
           <div className="mt-5 flex justify-center gap-3">
-            <Link href="/muzikos-atradimai" className="rounded-xl bg-[var(--accent-orange)] px-5 py-2.5 font-['Outfit',sans-serif] text-[13px] font-extrabold text-white no-underline">Visi atradimai →</Link>
+            <Link href="/muzikos-atradimai" className="rounded-xl bg-[var(--accent-orange)] px-5 py-2.5 font-['Outfit',sans-serif] text-[14px] font-extrabold text-white no-underline">Visi atradimai →</Link>
             <button type="button" onClick={() => { setDone(null); setStep(0); setUrl(''); setDesc(''); setArtist(''); setTrack('') }}
-              className="cursor-pointer rounded-xl border border-[var(--border-default)] bg-transparent px-5 py-2.5 font-['Outfit',sans-serif] text-[13px] font-bold text-[var(--text-secondary)]">+ Dar vienas</button>
+              className="cursor-pointer rounded-xl border border-[var(--border-default)] bg-transparent px-5 py-2.5 font-['Outfit',sans-serif] text-[14px] font-bold text-[var(--text-secondary)]">+ Dar vienas</button>
           </div>
         </div>
       ) : (
@@ -74,8 +74,8 @@ export default function PasidalinkAtradimuPage() {
           <div className="mb-6 flex items-center gap-2">
             {STEPS.map((s, i) => (
               <div key={s} className="flex flex-1 items-center gap-2">
-                <span className={`flex h-6 w-6 shrink-0 items-center justify-center rounded-full font-['Outfit',sans-serif] text-[11px] font-extrabold ${i <= step ? 'bg-[var(--accent-orange)] text-white' : 'bg-[var(--bg-active)] text-[var(--text-faint)]'}`}>{i + 1}</span>
-                <span className={`hidden text-[11.5px] font-bold sm:inline ${i <= step ? 'text-[var(--text-primary)]' : 'text-[var(--text-faint)]'}`}>{s}</span>
+                <span className={`flex h-6 w-6 shrink-0 items-center justify-center rounded-full font-['Outfit',sans-serif] text-[12px] font-extrabold ${i <= step ? 'bg-[var(--accent-orange)] text-white' : 'bg-[var(--bg-active)] text-[var(--text-faint)]'}`}>{i + 1}</span>
+                <span className={`hidden text-[12.5px] font-bold sm:inline ${i <= step ? 'text-[var(--text-primary)]' : 'text-[var(--text-faint)]'}`}>{s}</span>
                 {i < STEPS.length - 1 && <span className="h-px flex-1 bg-[var(--border-default)]" />}
               </div>
             ))}
@@ -83,7 +83,7 @@ export default function PasidalinkAtradimuPage() {
 
           {step === 0 && (
             <>
-              <label className="mb-2 block font-['Outfit',sans-serif] text-[12px] font-extrabold uppercase tracking-[0.06em] text-[var(--text-muted)]">YouTube arba Spotify nuoroda</label>
+              <label className="mb-2 block font-['Outfit',sans-serif] text-[13px] font-extrabold uppercase tracking-[0.06em] text-[var(--text-muted)]">YouTube arba Spotify nuoroda</label>
               <input value={url} onChange={e => setUrl(e.target.value)} placeholder="https://youtu.be/… arba https://open.spotify.com/track/…" className={input} style={{ fontSize: 16 }} />
               {ytId && (
                 <div className="mt-4 overflow-hidden rounded-xl border border-[var(--border-default)]">
@@ -91,17 +91,17 @@ export default function PasidalinkAtradimuPage() {
                   <img src={`https://img.youtube.com/vi/${ytId}/mqdefault.jpg`} alt="" className="block w-full object-cover" style={{ maxHeight: 220 }} />
                 </div>
               )}
-              {spId && <p className="m-0 mt-3 text-[12.5px] font-bold text-[#1db954]">✓ Spotify daina atpažinta</p>}
-              {url.trim() && !urlOk && <p className="m-0 mt-2 text-[12px] text-[var(--accent-red,#f87171)]">Neatpažinta nuoroda — tinka YouTube arba Spotify track linkai. Gali tęsti ir be nuorodos.</p>}
-              <p className="m-0 mt-3 text-[12px] text-[var(--text-faint)]">Neturi nuorodos? Nieko tokio — tęsk, užteks aprašymo.</p>
+              {spId && <p className="m-0 mt-3 text-[13.5px] font-bold text-[#1db954]">✓ Spotify daina atpažinta</p>}
+              {url.trim() && !urlOk && <p className="m-0 mt-2 text-[13px] text-[var(--accent-red,#f87171)]">Neatpažinta nuoroda — tinka YouTube arba Spotify track linkai. Gali tęsti ir be nuorodos.</p>}
+              <p className="m-0 mt-3 text-[13px] text-[var(--text-faint)]">Neturi nuorodos? Nieko tokio — tęsk, užteks aprašymo.</p>
             </>
           )}
 
           {step === 1 && (
             <>
-              <label className="mb-2 block font-['Outfit',sans-serif] text-[12px] font-extrabold uppercase tracking-[0.06em] text-[var(--text-muted)]">Kuo šis atradimas įdomus?</label>
+              <label className="mb-2 block font-['Outfit',sans-serif] text-[13px] font-extrabold uppercase tracking-[0.06em] text-[var(--text-muted)]">Kuo šis atradimas įdomus?</label>
               <textarea value={desc} onChange={e => setDesc(e.target.value)} rows={6} placeholder="Kaip atradai, kuo patiko, kam patiktų, koks stilius…" className={input + ' resize-none'} style={{ fontSize: 16 }} />
-              <p className="m-0 mt-2 text-[12px] text-[var(--text-faint)]">Geras aprašymas = daugiau perklausų. Bent sakinys-kitas apie tai, kodėl verta.</p>
+              <p className="m-0 mt-2 text-[13px] text-[var(--text-faint)]">Geras aprašymas = daugiau perklausų. Bent sakinys-kitas apie tai, kodėl verta.</p>
             </>
           )}
 
@@ -109,31 +109,31 @@ export default function PasidalinkAtradimuPage() {
             <>
               <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
                 <div>
-                  <label className="mb-2 block font-['Outfit',sans-serif] text-[12px] font-extrabold uppercase tracking-[0.06em] text-[var(--text-muted)]">Atlikėjas <span className="font-normal normal-case text-[var(--text-faint)]">(nebūtina)</span></label>
+                  <label className="mb-2 block font-['Outfit',sans-serif] text-[13px] font-extrabold uppercase tracking-[0.06em] text-[var(--text-muted)]">Atlikėjas <span className="font-normal normal-case text-[var(--text-faint)]">(nebūtina)</span></label>
                   <input value={artist} onChange={e => setArtist(e.target.value)} placeholder="pvz. Radiohead" className={input} style={{ fontSize: 16 }} />
                 </div>
                 <div>
-                  <label className="mb-2 block font-['Outfit',sans-serif] text-[12px] font-extrabold uppercase tracking-[0.06em] text-[var(--text-muted)]">Daina <span className="font-normal normal-case text-[var(--text-faint)]">(nebūtina)</span></label>
+                  <label className="mb-2 block font-['Outfit',sans-serif] text-[13px] font-extrabold uppercase tracking-[0.06em] text-[var(--text-muted)]">Daina <span className="font-normal normal-case text-[var(--text-faint)]">(nebūtina)</span></label>
                   <input value={track} onChange={e => setTrack(e.target.value)} placeholder="pvz. Creep" className={input} style={{ fontSize: 16 }} />
                 </div>
               </div>
-              <p className="m-0 mt-3 text-[12px] text-[var(--text-faint)]">Padės susieti atradimą su atlikėjo puslapiu — bet jei nežinai, paliksim adminams.</p>
+              <p className="m-0 mt-3 text-[13px] text-[var(--text-faint)]">Padės susieti atradimą su atlikėjo puslapiu — bet jei nežinai, paliksim adminams.</p>
             </>
           )}
 
-          {err && <p className="m-0 mt-4 text-[12.5px] font-bold text-[var(--accent-red,#f87171)]">{err}</p>}
-          {!session?.user && <p className="m-0 mt-4 text-[12.5px] text-[var(--text-muted)]">Pasidalinti gali tik prisijungę nariai — <Link href="/auth/signin" className="font-bold text-[var(--accent-orange)] no-underline">prisijunk →</Link></p>}
+          {err && <p className="m-0 mt-4 text-[13.5px] font-bold text-[var(--accent-red,#f87171)]">{err}</p>}
+          {!session?.user && <p className="m-0 mt-4 text-[13.5px] text-[var(--text-muted)]">Pasidalinti gali tik prisijungę nariai — <Link href="/auth/signin" className="font-bold text-[var(--accent-orange)] no-underline">prisijunk →</Link></p>}
 
           <div className="mt-6 flex items-center justify-between">
             {step > 0 ? (
-              <button type="button" onClick={() => setStep(s => s - 1)} className="cursor-pointer border-0 bg-transparent p-0 font-['Outfit',sans-serif] text-[13px] font-bold text-[var(--text-muted)]">← Atgal</button>
+              <button type="button" onClick={() => setStep(s => s - 1)} className="cursor-pointer border-0 bg-transparent p-0 font-['Outfit',sans-serif] text-[14px] font-bold text-[var(--text-muted)]">← Atgal</button>
             ) : <span />}
             {step < STEPS.length - 1 ? (
               <button type="button" disabled={!canNext} onClick={() => { setErr(''); setStep(s => s + 1) }}
-                className="cursor-pointer rounded-xl border-0 bg-[var(--accent-orange)] px-6 py-2.5 font-['Outfit',sans-serif] text-[13px] font-extrabold text-white shadow-[0_4px_16px_rgba(249,115,22,0.3)] disabled:opacity-50">Toliau →</button>
+                className="cursor-pointer rounded-xl border-0 bg-[var(--accent-orange)] px-6 py-2.5 font-['Outfit',sans-serif] text-[14px] font-extrabold text-white shadow-[0_4px_16px_rgba(249,115,22,0.3)] disabled:opacity-50">Toliau →</button>
             ) : (
               <button type="button" disabled={busy} onClick={submit}
-                className="cursor-pointer rounded-xl border-0 bg-[var(--accent-orange)] px-6 py-2.5 font-['Outfit',sans-serif] text-[13px] font-extrabold text-white shadow-[0_4px_16px_rgba(249,115,22,0.3)] disabled:opacity-50">{busy ? 'Siunčiama…' : 'Pasidalinti atradimu'}</button>
+                className="cursor-pointer rounded-xl border-0 bg-[var(--accent-orange)] px-6 py-2.5 font-['Outfit',sans-serif] text-[14px] font-extrabold text-white shadow-[0_4px_16px_rgba(249,115,22,0.3)] disabled:opacity-50">{busy ? 'Siunčiama…' : 'Pasidalinti atradimu'}</button>
             )}
           </div>
         </div>

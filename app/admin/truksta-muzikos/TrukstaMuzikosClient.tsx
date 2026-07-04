@@ -115,8 +115,8 @@ export default function TrukstaMuzikosClient() {
                     <div className="min-w-0 flex-1">
                       <div className="flex items-center gap-2 flex-wrap">
                         <span className="text-sm font-semibold text-gray-900">{it.raw_artist}</span>
-                        {!resolved && pl && <span className={`text-[10px] font-bold px-1.5 py-0.5 rounded uppercase tracking-wide ${plCls}`}>{pl} prioritetas</span>}
-                        {resolved && <span className="text-[11px] px-1.5 py-0.5 rounded bg-emerald-100 text-emerald-700">✓ Sutvarkyta</span>}
+                        {!resolved && pl && <span className={`text-[11px] font-bold px-1.5 py-0.5 rounded uppercase tracking-wide ${plCls}`}>{pl} prioritetas</span>}
+                        {resolved && <span className="text-[12px] px-1.5 py-0.5 rounded bg-emerald-100 text-emerald-700">✓ Sutvarkyta</span>}
                         {it.admin && <Ext href={it.admin} kind="admin" />}
                         {it.artist_web && <Ext href={it.artist_web} kind="web" />}
                       </div>
@@ -124,14 +124,14 @@ export default function TrukstaMuzikosClient() {
                       {evs.length > 0 ? (
                         <div className="flex items-center gap-1.5 flex-wrap mt-1.5">
                           {evs.slice(0, 4).map((ev, i) => (
-                            <span key={i} className={`inline-flex items-center gap-1 text-[11px] px-1.5 py-0.5 rounded border ${ev.upcoming ? 'bg-cyan-50 border-cyan-200 text-cyan-800' : 'bg-gray-50 border-gray-200 text-gray-500'}`} title={ev.upcoming ? 'Būsimas' : 'Praėjęs'}>
+                            <span key={i} className={`inline-flex items-center gap-1 text-[12px] px-1.5 py-0.5 rounded border ${ev.upcoming ? 'bg-cyan-50 border-cyan-200 text-cyan-800' : 'bg-gray-50 border-gray-200 text-gray-500'}`} title={ev.upcoming ? 'Būsimas' : 'Praėjęs'}>
                               {ev.is_festival ? '🎪' : '🎫'}
                               {ev.is_headliner && <span className="text-orange-500" title="Headlineris">★</span>}
                               <span className="font-medium">{ev.title}</span>
                               {ev.upcoming && <span className="text-cyan-600 font-bold">· būsimas</span>}
                             </span>
                           ))}
-                          {evs.length > 4 && <span className="text-[11px] text-gray-400">+{evs.length - 4}</span>}
+                          {evs.length > 4 && <span className="text-[12px] text-gray-400">+{evs.length - 4}</span>}
                         </div>
                       ) : (
                         <div className="text-xs text-gray-400 mt-1">Be muzikos ir nuotraukos · nesusietas su renginiais</div>
@@ -156,13 +156,13 @@ export default function TrukstaMuzikosClient() {
                   <div className="min-w-0 flex-1">
                     <div className="flex items-center gap-2 flex-wrap">
                       <span className="text-sm font-medium text-gray-800">{it.raw_title || it.raw_artist}</span>
-                      <span className="text-[11px] px-1.5 py-0.5 rounded bg-gray-100 text-gray-500">{SRC_LABEL[it.source] || it.source}</span>
-                      {it.kind_hint && <span className="text-[11px] px-1.5 py-0.5 rounded bg-gray-50 text-gray-400">{it.kind_hint}</span>}
+                      <span className="text-[12px] px-1.5 py-0.5 rounded bg-gray-100 text-gray-500">{SRC_LABEL[it.source] || it.source}</span>
+                      {it.kind_hint && <span className="text-[12px] px-1.5 py-0.5 rounded bg-gray-50 text-gray-400">{it.kind_hint}</span>}
                       {it.source === 'import' && !!it.followers && it.followers > 0 && (
-                        <span className="text-[11px] px-1.5 py-0.5 rounded bg-violet-100 text-violet-700" title="Tiek narių laukia šios muzikos — sutvarkius automatiškai atsiras jų profilyje">👤 {it.followers} laukia</span>
+                        <span className="text-[12px] px-1.5 py-0.5 rounded bg-violet-100 text-violet-700" title="Tiek narių laukia šios muzikos — sutvarkius automatiškai atsiras jų profilyje">👤 {it.followers} laukia</span>
                       )}
                       {resolved && it.matched_type && (
-                        <span className="text-[11px] px-1.5 py-0.5 rounded bg-emerald-100 text-emerald-700">✓ {it.matched_type}</span>
+                        <span className="text-[12px] px-1.5 py-0.5 rounded bg-emerald-100 text-emerald-700">✓ {it.matched_type}</span>
                       )}
                       {resolved && it.web && <Ext href={it.web} kind="web" />}
                       {resolved && it.admin && <Ext href={it.admin} kind="admin" />}

@@ -238,7 +238,7 @@ export default function AdminEventEditPage() {
               <label className={labelCls}>
                 Vieta {isAbroad ? '' : '*'}
                 {venueId && (
-                  <span className="ml-2 inline-flex items-center gap-1 px-1.5 py-0.5 text-[9px] font-black uppercase rounded-full bg-emerald-50 text-emerald-700 border border-emerald-200">
+                  <span className="ml-2 inline-flex items-center gap-1 px-1.5 py-0.5 text-[10px] font-black uppercase rounded-full bg-emerald-50 text-emerald-700 border border-emerald-200">
                     🔗 Susieta
                   </span>
                 )}
@@ -266,7 +266,7 @@ export default function AdminEventEditPage() {
                       <div className="px-3 py-2 text-xs text-[var(--text-muted)]">Kraunu vietas…</div>
                     ) : filteredVenues.length === 0 ? (
                       <>
-                        <div className="px-3 py-2 text-[10px] text-[var(--text-muted)] uppercase font-bold tracking-wide bg-[var(--bg-hover)] border-b border-[var(--border-subtle)]">
+                        <div className="px-3 py-2 text-[11px] text-[var(--text-muted)] uppercase font-bold tracking-wide bg-[var(--bg-hover)] border-b border-[var(--border-subtle)]">
                           Nerasta pagal „{venueName}" — galima naudoti laisvu tekstu arba išrinkti iš sąrašo:
                         </div>
                         {venueOptions.slice(0, 20).map(v => (
@@ -292,7 +292,7 @@ export default function AdminEventEditPage() {
                   </div>
                 )}
               </div>
-              {venueId && <div className="mt-1 text-[10px] text-emerald-700 font-semibold">FK → venues.id = {venueId}</div>}
+              {venueId && <div className="mt-1 text-[11px] text-emerald-700 font-semibold">FK → venues.id = {venueId}</div>}
             </div>
 
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
@@ -335,7 +335,7 @@ export default function AdminEventEditPage() {
                       </option>
                     ))}
                   </select>
-                  <p className="mt-1 text-[10px] text-[var(--text-muted)]">Kryptys valdomos /admin/verta-keliones</p>
+                  <p className="mt-1 text-[11px] text-[var(--text-muted)]">Kryptys valdomos /admin/verta-keliones</p>
                 </div>
                 <div>
                   <label className={labelCls}>Populiarumas (0–100)</label>
@@ -348,7 +348,7 @@ export default function AdminEventEditPage() {
                   className="w-full rounded-lg px-3 py-2 text-sm border border-orange-200 bg-[var(--bg-surface)] focus:outline-none focus:border-orange-300 text-[var(--text-primary)] resize-y"
                   placeholder="Pvz. vienintelis turo koncertas regione, pigus skrydis iš VNO..." />
               </div>
-              <p className="text-[11px] text-orange-700/80">Vieta nebūtina — užsienio koncertams pildoma laisvu tekstu. Festivaliui pridėk grojančius atlikėjus žemiau.</p>
+              <p className="text-[12px] text-orange-700/80">Vieta nebūtina — užsienio koncertams pildoma laisvu tekstu. Festivaliui pridėk grojančius atlikėjus žemiau.</p>
             </div>
           )}
 
@@ -401,10 +401,10 @@ export default function AdminEventEditPage() {
                     className={`flex items-center gap-2 px-3 py-2 bg-[var(--bg-elevated)] rounded-lg border transition ${dragIdx === i ? 'border-orange-300 opacity-60' : 'border-[var(--border-subtle)]'}`}
                   >
                     <span className="cursor-grab active:cursor-grabbing text-[var(--text-faint)] select-none flex-shrink-0" title="Tempk, kad pertvarkytum">⠿</span>
-                    <span className="text-[10px] font-bold text-[var(--text-faint)] w-4 flex-shrink-0 text-center">{i + 1}</span>
+                    <span className="text-[11px] font-bold text-[var(--text-faint)] w-4 flex-shrink-0 text-center">{i + 1}</span>
                     <span className="text-sm text-[var(--text-primary)] flex-1 truncate">{a.name}</span>
                     <button onClick={() => setArtists(artists.map(x => x.artist_id === a.artist_id ? { ...x, is_headliner: !x.is_headliner } : x))}
-                      className={`text-[10px] font-bold px-2 py-0.5 rounded-full transition flex-shrink-0 ${
+                      className={`text-[11px] font-bold px-2 py-0.5 rounded-full transition flex-shrink-0 ${
                         a.is_headliner ? 'bg-orange-50 text-orange-500 border border-orange-200' : 'text-gray-400 border border-gray-200 hover:text-orange-400'}`}>
                       {a.is_headliner ? '★ Headliner' : 'Headliner?'}
                     </button>
@@ -412,7 +412,7 @@ export default function AdminEventEditPage() {
                       className="text-gray-300 hover:text-red-500 text-xs transition flex-shrink-0 w-6 h-6 flex items-center justify-center">✕</button>
                   </div>
                 ))}
-                <p className="text-[11px] text-[var(--text-muted)] pt-1">Tempk ⠿ kad pertvarkytum eiliškumą — pirmi atlikėjai ir headlineriai naudojami homepage collage.</p>
+                <p className="text-[12px] text-[var(--text-muted)] pt-1">Tempk ⠿ kad pertvarkytum eiliškumą — pirmi atlikėjai ir headlineriai naudojami homepage collage.</p>
               </div>
             ) : (
               <p className="text-xs text-[var(--text-muted)]">Atlikėjų dar nėra. Ieškok ir pridėk — headlinerius pažymėk žvaigždute.</p>
@@ -485,10 +485,10 @@ function VenueRow({ v, highlighted, onPick }: {
     >
       <div className="font-semibold text-[var(--text-primary)] flex items-center gap-1">
         {v.name}
-        {highlighted && <span className="text-[9px] text-emerald-600 font-bold">✓ pasirinkta</span>}
+        {highlighted && <span className="text-[10px] text-emerald-600 font-bold">✓ pasirinkta</span>}
       </div>
       {(v.city || v.address) && (
-        <div className="text-[var(--text-muted)] text-[10px]">
+        <div className="text-[var(--text-muted)] text-[11px]">
           {v.city}{v.city && v.address ? ' · ' : ''}{v.address}
         </div>
       )}

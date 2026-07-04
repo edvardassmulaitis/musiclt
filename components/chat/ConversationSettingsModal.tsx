@@ -130,7 +130,7 @@ export function ConversationSettingsModal({ conversation, viewerId, onClose, onU
             />
             {isAdmin && (
               <button onClick={saveBasics} disabled={saving}
-                style={{ marginTop: 6, padding: '7px 14px', borderRadius: 8, background: 'var(--accent-orange)', color: '#fff', border: 'none', fontSize: 12, fontWeight: 700, cursor: 'pointer' }}>
+                style={{ marginTop: 6, padding: '7px 14px', borderRadius: 8, background: 'var(--accent-orange)', color: '#fff', border: 'none', fontSize: 13, fontWeight: 700, cursor: 'pointer' }}>
                 {saving ? 'Saugoma…' : 'Išsaugoti'}
               </button>
             )}
@@ -140,12 +140,12 @@ export function ConversationSettingsModal({ conversation, viewerId, onClose, onU
         {/* Members */}
         <div style={{ marginBottom: 14 }}>
           <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 8 }}>
-            <div style={{ fontSize: 12, fontWeight: 800, color: 'var(--text-muted)', textTransform: 'uppercase', letterSpacing: '0.08em' }}>
+            <div style={{ fontSize: 13, fontWeight: 800, color: 'var(--text-muted)', textTransform: 'uppercase', letterSpacing: '0.08em' }}>
               Dalyviai ({activeParticipants.length})
             </div>
             {isGroup && isAdmin && (
               <button onClick={() => setAddingMembers(s => !s)}
-                style={{ fontSize: 12, color: 'var(--accent-link)', background: 'transparent', border: 'none', cursor: 'pointer', fontWeight: 600 }}>
+                style={{ fontSize: 13, color: 'var(--accent-link)', background: 'transparent', border: 'none', cursor: 'pointer', fontWeight: 600 }}>
                 {addingMembers ? 'Atšaukti' : '+ Pridėti'}
               </button>
             )}
@@ -169,7 +169,7 @@ export function ConversationSettingsModal({ conversation, viewerId, onClose, onU
               />
               <div style={{ maxHeight: 180, overflowY: 'auto', border: '1px solid var(--border-subtle)', borderRadius: 8 }}>
                 {searchResults.length === 0 ? (
-                  <div style={{ padding: 14, fontSize: 12, color: 'var(--text-muted)', textAlign: 'center' }}>—</div>
+                  <div style={{ padding: 14, fontSize: 13, color: 'var(--text-muted)', textAlign: 'center' }}>—</div>
                 ) : searchResults.map((u: any) => (
                   <button key={u.id} onClick={() => addMember(u.id)}
                     style={{ width: '100%', textAlign: 'left', padding: 8, background: 'transparent', border: 'none', borderBottom: '1px solid var(--border-subtle)', cursor: 'pointer', display: 'flex', gap: 10, alignItems: 'center' }}
@@ -177,8 +177,8 @@ export function ConversationSettingsModal({ conversation, viewerId, onClose, onU
                     onMouseLeave={e => (e.currentTarget.style.background = 'transparent')}>
                     <ChatAvatar url={u.avatar_url} fallbackName={u.full_name || u.username} size={28} />
                     <div style={{ flex: 1 }}>
-                      <div style={{ fontSize: 12, fontWeight: 600, color: 'var(--text-primary)' }}>{u.full_name || u.username}</div>
-                      {u.username && u.full_name && <div style={{ fontSize: 10, color: 'var(--text-muted)' }}>@{u.username}</div>}
+                      <div style={{ fontSize: 13, fontWeight: 600, color: 'var(--text-primary)' }}>{u.full_name || u.username}</div>
+                      {u.username && u.full_name && <div style={{ fontSize: 11, color: 'var(--text-muted)' }}>@{u.username}</div>}
                     </div>
                     <span style={{ fontSize: 16, color: 'var(--accent-orange)' }}>+</span>
                   </button>
@@ -195,16 +195,16 @@ export function ConversationSettingsModal({ conversation, viewerId, onClose, onU
               }}>
                 <ChatAvatar url={p.profile?.avatar_url || null} fallbackName={p.profile?.full_name || p.profile?.username} size={32} />
                 <div style={{ flex: 1, minWidth: 0 }}>
-                  <div style={{ fontSize: 13, fontWeight: 700, color: 'var(--text-primary)' }}>
+                  <div style={{ fontSize: 14, fontWeight: 700, color: 'var(--text-primary)' }}>
                     {p.profile?.full_name || p.profile?.username || 'Vartotojas'}
-                    {p.user_id === viewerId && <span style={{ marginLeft: 6, fontSize: 10, color: 'var(--text-muted)' }}>(tu)</span>}
-                    {p.role === 'admin' && <span style={{ marginLeft: 6, fontSize: 9, padding: '1px 5px', borderRadius: 4, background: 'rgba(249,115,22,0.18)', color: 'var(--accent-orange)', fontWeight: 800 }}>ADMIN</span>}
+                    {p.user_id === viewerId && <span style={{ marginLeft: 6, fontSize: 11, color: 'var(--text-muted)' }}>(tu)</span>}
+                    {p.role === 'admin' && <span style={{ marginLeft: 6, fontSize: 10, padding: '1px 5px', borderRadius: 4, background: 'rgba(249,115,22,0.18)', color: 'var(--accent-orange)', fontWeight: 800 }}>ADMIN</span>}
                   </div>
-                  {p.profile?.username && <div style={{ fontSize: 11, color: 'var(--text-muted)' }}>@{p.profile.username}</div>}
+                  {p.profile?.username && <div style={{ fontSize: 12, color: 'var(--text-muted)' }}>@{p.profile.username}</div>}
                 </div>
                 {isGroup && isAdmin && p.user_id !== viewerId && (
                   <button onClick={() => removeMember(p.user_id)}
-                    style={{ padding: '4px 8px', fontSize: 11, color: 'var(--text-muted)', background: 'transparent', border: '1px solid var(--border-default)', borderRadius: 6, cursor: 'pointer' }}>
+                    style={{ padding: '4px 8px', fontSize: 12, color: 'var(--text-muted)', background: 'transparent', border: '1px solid var(--border-default)', borderRadius: 6, cursor: 'pointer' }}>
                     Pašalinti
                   </button>
                 )}
@@ -216,12 +216,12 @@ export function ConversationSettingsModal({ conversation, viewerId, onClose, onU
         {/* Actions */}
         <div style={{ display: 'flex', gap: 8, justifyContent: 'flex-end' }}>
           <button onClick={onClose}
-            style={{ padding: '8px 14px', borderRadius: 8, background: 'transparent', border: '1px solid var(--border-default)', color: 'var(--text-secondary)', fontSize: 13, fontWeight: 600, cursor: 'pointer' }}>
+            style={{ padding: '8px 14px', borderRadius: 8, background: 'transparent', border: '1px solid var(--border-default)', color: 'var(--text-secondary)', fontSize: 14, fontWeight: 600, cursor: 'pointer' }}>
             Uždaryti
           </button>
           {isGroup && (
             <button onClick={leaveConversation}
-              style={{ padding: '8px 14px', borderRadius: 8, background: 'transparent', border: '1px solid #ef4444', color: '#ef4444', fontSize: 13, fontWeight: 700, cursor: 'pointer' }}>
+              style={{ padding: '8px 14px', borderRadius: 8, background: 'transparent', border: '1px solid #ef4444', color: '#ef4444', fontSize: 14, fontWeight: 700, cursor: 'pointer' }}>
               Palikti grupę
             </button>
           )}
@@ -233,7 +233,7 @@ export function ConversationSettingsModal({ conversation, viewerId, onClose, onU
 
 function Label({ children }: { children: React.ReactNode }) {
   return (
-    <div style={{ fontSize: 11, fontWeight: 700, color: 'var(--text-muted)', textTransform: 'uppercase', letterSpacing: '0.08em', marginBottom: 4, marginTop: 8 }}>
+    <div style={{ fontSize: 12, fontWeight: 700, color: 'var(--text-muted)', textTransform: 'uppercase', letterSpacing: '0.08em', marginBottom: 4, marginTop: 8 }}>
       {children}
     </div>
   )

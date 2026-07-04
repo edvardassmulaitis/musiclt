@@ -326,28 +326,28 @@ export default async function AlbumsDebugPage({ params }: Props) {
 
       {/* Pending warning — jei yra music.lt-only albumų be Wiki canonical layer'io */}
       {albums.some(a => a.source === 'legacy_scrape_pending') && (
-        <div className="mb-4 rounded-lg border border-amber-500/30 bg-amber-500/5 p-4 text-[13px]">
+        <div className="mb-4 rounded-lg border border-amber-500/30 bg-amber-500/5 p-4 text-[14px]">
           <div className="font-extrabold text-amber-600 mb-1">⚠ Pending review albumai</div>
           <p className="text-[var(--text-secondary)]">
             Albumai su <code className="rounded bg-amber-500/15 px-1 text-amber-600">legacy_scrape_pending</code> šaltinį atėjo iš music.lt scrape, bet
             Wiki nepateikė canonical track listing'o. Šie albumai <strong>nematomi viešai</strong>. Pasirinkimai:
           </p>
-          <ul className="ml-4 list-disc text-[12px] text-[var(--text-muted)] space-y-0.5 mt-1.5">
+          <ul className="ml-4 list-disc text-[13px] text-[var(--text-muted)] space-y-0.5 mt-1.5">
             <li><strong>Aktyvuoti</strong>: per /admin/albums/[id] atviro album'ą, pridėti tracks rankiniu būdu / iš Wikipedia (jei yra atskiras albumo Wiki page'as) → pakeisti source į <code>legacy+wikipedia</code></li>
             <li><strong>Ištrinti</strong>: jei tai dublikatas (pvz. remix'ų albumas to paties pavadinimo) — /admin/albums/[id] → Trinti</li>
           </ul>
         </div>
       )}
-      <div className="mb-4 rounded-lg border border-[var(--border-default)] bg-[var(--bg-surface)] p-4 text-[13px]">
+      <div className="mb-4 rounded-lg border border-[var(--border-default)] bg-[var(--bg-surface)] p-4 text-[14px]">
         <div className="mb-1.5 font-extrabold uppercase tracking-wide text-[var(--text-primary)]">Data quality:</div>
-        <div className="grid grid-cols-2 gap-x-6 gap-y-1 sm:grid-cols-3 text-[12px]">
+        <div className="grid grid-cols-2 gap-x-6 gap-y-1 sm:grid-cols-3 text-[13px]">
           <div>Su year: {stat(withYear)}</div>
           <div>Su pilna data (Y-M-D): {stat(withFullDate)}</div>
           <div>Su viršeliu: {stat(withCover)}</div>
           <div>Su Spotify ID: {stat(withSpotify)}</div>
           <div>Su music.lt legacy: {stat(withLegacy)}</div>
         </div>
-        <div className="mt-3 grid grid-cols-2 gap-x-6 gap-y-1 sm:grid-cols-5 text-[12px] text-[var(--text-muted)]">
+        <div className="mt-3 grid grid-cols-2 gap-x-6 gap-y-1 sm:grid-cols-5 text-[13px] text-[var(--text-muted)]">
           <div><strong className="text-[var(--text-primary)]">{albums.length}</strong> albumų</div>
           <div><strong className="text-[var(--text-primary)]">{totalTracks}</strong> total tracks</div>
           <div><strong className="text-[var(--text-primary)]">{totalSingles}</strong> singles</div>
@@ -357,9 +357,9 @@ export default async function AlbumsDebugPage({ params }: Props) {
       </div>
 
       {/* PopBar formula explanation */}
-      <div className="mb-4 rounded-lg border border-[var(--border-default)] bg-[var(--bg-surface)] p-4 text-[13px]">
+      <div className="mb-4 rounded-lg border border-[var(--border-default)] bg-[var(--bg-surface)] p-4 text-[14px]">
         <div className="mb-1.5 font-extrabold uppercase tracking-wide text-[var(--text-primary)]">PopBar formulė (album lygis):</div>
-        <pre className="overflow-x-auto rounded bg-[var(--bg-elevated)] p-2 text-[11px] leading-relaxed text-[var(--text-secondary)]"><code>{`composite =
+        <pre className="overflow-x-auto rounded bg-[var(--bg-elevated)] p-2 text-[12px] leading-relaxed text-[var(--text-secondary)]"><code>{`composite =
     log10(agg_views + 1) × 30        // YouTube reach (dominant)
   + log10(track_likes_sum + 1) × 10  // fan response across tracks
   + album_likes × 5                  // direct album likes
@@ -371,8 +371,8 @@ PopBar = percentile(composite) per artist, 5 kvintiliai
       </div>
 
       <div className="overflow-x-auto rounded-lg border border-[var(--border-default)]">
-        <table className="w-full text-[12.5px]">
-          <thead className="sticky top-0 bg-[var(--bg-elevated)] text-left text-[11px] uppercase tracking-wider text-[var(--text-faint)]">
+        <table className="w-full text-[13.5px]">
+          <thead className="sticky top-0 bg-[var(--bg-elevated)] text-left text-[12px] uppercase tracking-wider text-[var(--text-faint)]">
             <tr>
               <th className="px-3 py-2.5">#</th>
               <th className="px-3 py-2.5">Album</th>
@@ -416,7 +416,7 @@ PopBar = percentile(composite) per artist, 5 kvintiliai
                   <td className="px-3 py-2 text-center tabular-nums text-[var(--text-muted)]" title={`year=${a.year} month=${a.month} day=${a.day}`}>
                     {fmtDate(a)}
                   </td>
-                  <td className="px-3 py-2 text-[10px] text-[var(--text-muted)]">{albumTypeBadges(a)}</td>
+                  <td className="px-3 py-2 text-[11px] text-[var(--text-muted)]">{albumTypeBadges(a)}</td>
                   {/* PopBar — 5 dashes orange tint pagal lygį */}
                   <td className="px-2 py-2 text-center" title={`PopBar level ${a.popbar}/5`}>
                     <span className="inline-flex gap-0.5">
@@ -428,15 +428,15 @@ PopBar = percentile(composite) per artist, 5 kvintiliai
                       ))}
                     </span>
                   </td>
-                  <td className="px-2 py-2 text-right tabular-nums text-[10.5px] text-[var(--text-secondary)]">
+                  <td className="px-2 py-2 text-right tabular-nums text-[11.5px] text-[var(--text-secondary)]">
                     {a.composite.toFixed(1)}
                   </td>
-                  <td className="px-2 py-2 text-right tabular-nums text-[10.5px] text-[var(--text-muted)]" title={`${a.agg_views.toLocaleString('lt-LT')} views`}>
+                  <td className="px-2 py-2 text-right tabular-nums text-[11.5px] text-[var(--text-muted)]" title={`${a.agg_views.toLocaleString('lt-LT')} views`}>
                     {a.agg_views >= 1_000_000 ? `${(a.agg_views / 1_000_000).toFixed(1)}M` : a.agg_views >= 1_000 ? `${(a.agg_views / 1_000).toFixed(1)}k` : (a.agg_views || '—')}
                   </td>
-                  <td className="px-2 py-2 text-right tabular-nums text-[10.5px] text-[var(--text-muted)]">{a.track_score_sum || '—'}</td>
-                  <td className="px-2 py-2 text-right tabular-nums text-[10.5px] text-[var(--text-muted)]">{a.track_likes_sum || '—'}</td>
-                  <td className="px-2 py-2 text-right tabular-nums text-[10.5px] text-[var(--text-muted)]">{a.score ?? '—'}</td>
+                  <td className="px-2 py-2 text-right tabular-nums text-[11.5px] text-[var(--text-muted)]">{a.track_score_sum || '—'}</td>
+                  <td className="px-2 py-2 text-right tabular-nums text-[11.5px] text-[var(--text-muted)]">{a.track_likes_sum || '—'}</td>
+                  <td className="px-2 py-2 text-right tabular-nums text-[11.5px] text-[var(--text-muted)]">{a.score ?? '—'}</td>
                   <td className="px-3 py-2 text-right tabular-nums">{a.track_count || '—'}</td>
                   <td className="px-3 py-2 text-right tabular-nums">{a.singles_count || '—'}</td>
                   <td className="px-3 py-2 text-right tabular-nums">{a.lyrics_count || '—'}</td>
@@ -447,20 +447,20 @@ PopBar = percentile(composite) per artist, 5 kvintiliai
                       // eslint-disable-next-line @next/next/no-img-element
                       <img src={a.cover_image_url || ''} alt="" className="inline-block w-6 h-6 rounded object-cover" />
                     ) : (
-                      <span className="text-[var(--text-faint)] text-[11px]">×</span>
+                      <span className="text-[var(--text-faint)] text-[12px]">×</span>
                     )}
                   </td>
                   <td className="px-3 py-2 text-center" title={a.spotify_id ? `spotify_id=${a.spotify_id}` : 'null'}>
                     {hasSpotify ? (
-                      <a href={`https://open.spotify.com/album/${a.spotify_id}`} target="_blank" rel="noreferrer" className="inline-flex items-center justify-center w-5 h-5 rounded bg-emerald-500/15 text-emerald-400 text-[11px] font-bold hover:bg-emerald-500/30">✓</a>
+                      <a href={`https://open.spotify.com/album/${a.spotify_id}`} target="_blank" rel="noreferrer" className="inline-flex items-center justify-center w-5 h-5 rounded bg-emerald-500/15 text-emerald-400 text-[12px] font-bold hover:bg-emerald-500/30">✓</a>
                     ) : (
-                      <span className="text-[var(--text-faint)] text-[11px]">×</span>
+                      <span className="text-[var(--text-faint)] text-[12px]">×</span>
                     )}
                   </td>
-                  <td className="px-3 py-2 text-center text-[10px] tabular-nums" title={a.legacy_id ? `music.lt legacy_id=${a.legacy_id}` : 'no music.lt mapping'}>
+                  <td className="px-3 py-2 text-center text-[11px] tabular-nums" title={a.legacy_id ? `music.lt legacy_id=${a.legacy_id}` : 'no music.lt mapping'}>
                     {a.legacy_id ? <span className="text-amber-500">#{a.legacy_id}</span> : <span className="text-[var(--text-faint)]">—</span>}
                   </td>
-                  <td className="px-3 py-2 text-center text-[10px]">
+                  <td className="px-3 py-2 text-center text-[11px]">
                     {isPending ? (
                       <span className="rounded bg-amber-500/20 px-1.5 py-0.5 font-bold text-amber-600" title="Music.lt only — nematomas viešai. Aktyvuoti per /admin/albums/[id] arba trinti.">
                         pending

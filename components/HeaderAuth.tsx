@@ -33,7 +33,7 @@ function ThemeToggleRow({ onDone }: { onDone?: () => void }) {
   return (
     <button
       onClick={() => { setTheme(dk ? 'light' : 'dark'); onDone?.() }}
-      className="flex w-full items-center gap-3 mx-1.5 px-2.5 py-2 rounded-lg text-[13.5px] font-medium transition-all text-left"
+      className="flex w-full items-center gap-3 mx-1.5 px-2.5 py-2 rounded-lg text-[14.5px] font-medium transition-all text-left"
       style={{ width: 'calc(100% - 0.75rem)', color: 'var(--text-secondary)' }}
       onMouseEnter={e => {
         const el = e.currentTarget as HTMLElement
@@ -153,7 +153,7 @@ function AuthModal({ onClose }: { onClose: () => void }) {
             <span style={{ color: 'var(--text-primary)' }}>music</span>
             <span style={{ color: 'var(--accent-orange)' }}>.lt</span>
           </div>
-          <p className="text-[13px]" style={{ color: 'var(--text-muted)' }}>Prisijunk prie Lietuvos muzikos bendruomenės</p>
+          <p className="text-[14px]" style={{ color: 'var(--text-muted)' }}>Prisijunk prie Lietuvos muzikos bendruomenės</p>
         </div>
 
         {emailSent ? (
@@ -177,7 +177,7 @@ function AuthModal({ onClose }: { onClose: () => void }) {
             <button
               onClick={() => handleOAuth('google')}
               disabled={loading !== null}
-              className="w-full h-11 rounded-xl text-[13px] font-semibold transition-all flex items-center justify-center gap-3 disabled:opacity-50"
+              className="w-full h-11 rounded-xl text-[14px] font-semibold transition-all flex items-center justify-center gap-3 disabled:opacity-50"
               style={{ background: 'white', color: '#1a1a1a' }}
               onMouseEnter={e => (e.currentTarget.style.background = '#f1f1f1')}
               onMouseLeave={e => (e.currentTarget.style.background = 'white')}
@@ -198,7 +198,7 @@ function AuthModal({ onClose }: { onClose: () => void }) {
 
             <div className="flex items-center gap-3 py-1">
               <div className="flex-1 h-px" style={{ background: 'var(--border-subtle)' }} />
-              <span className="text-[11px]" style={{ color: 'var(--text-faint)' }}>arba el. paštu</span>
+              <span className="text-[12px]" style={{ color: 'var(--text-faint)' }}>arba el. paštu</span>
               <div className="flex-1 h-px" style={{ background: 'var(--border-subtle)' }} />
             </div>
 
@@ -217,7 +217,7 @@ function AuthModal({ onClose }: { onClose: () => void }) {
               <button
                 type="submit"
                 disabled={loading !== null}
-                className="w-full h-11 rounded-xl font-black text-[13px] transition-all disabled:opacity-50 flex items-center justify-center gap-2"
+                className="w-full h-11 rounded-xl font-black text-[14px] transition-all disabled:opacity-50 flex items-center justify-center gap-2"
                 style={{ background: 'var(--accent-orange)', color: 'var(--text-primary)' }}
               >
                 {loading === 'email'
@@ -226,7 +226,7 @@ function AuthModal({ onClose }: { onClose: () => void }) {
               </button>
             </form>
 
-            <p className="text-center text-[11px] pt-1" style={{ color: 'var(--text-faint)' }}>
+            <p className="text-center text-[12px] pt-1" style={{ color: 'var(--text-faint)' }}>
               Prisijungdamas sutinki su{' '}
               <a href="/privatumas" className="transition-colors" style={{ color: 'var(--accent-link)' }}>privatumo politika</a>
             </p>
@@ -271,7 +271,7 @@ function UserMenu() {
       <Link
         href={href}
         onClick={() => setOpen(false)}
-        className="group/mi flex items-center gap-3 mx-1.5 px-2.5 py-2 rounded-lg text-[13.5px] font-medium transition-all"
+        className="group/mi flex items-center gap-3 mx-1.5 px-2.5 py-2 rounded-lg text-[14.5px] font-medium transition-all"
         style={{ color: fg }}
         onMouseEnter={e => {
           const el = e.currentTarget as HTMLElement
@@ -394,7 +394,7 @@ function UserMenu() {
               <div className="text-sm font-bold truncate" style={{ color: 'var(--text-primary)' }}>{session.user.name}</div>
               {isAdmin ? (
                 <span
-                  className="inline-flex items-center gap-1 mt-1 text-[10px] px-2 py-0.5 rounded-full font-bold"
+                  className="inline-flex items-center gap-1 mt-1 text-[11px] px-2 py-0.5 rounded-full font-bold"
                   style={{ background: 'rgba(249,115,22,0.15)', color: 'var(--accent-orange)' }}
                 >
                   <svg width="9" height="9" viewBox="0 0 24 24" fill="currentColor"><path d="M12 2l2.9 6.26L22 9.27l-5 4.87 1.18 6.88L12 17.77l-6.18 3.25L7 14.14l-5-4.87 7.1-1.01z"/></svg>
@@ -440,7 +440,7 @@ function UserMenu() {
           <div style={{ borderTop: '1px solid var(--border-subtle)' }} className="py-1.5">
             <button
               onClick={() => { setOpen(false); signOut({ callbackUrl: '/' }) }}
-              className="w-full flex items-center gap-3 mx-1.5 px-2.5 py-2 rounded-lg text-[13.5px] font-medium transition-all text-left"
+              className="w-full flex items-center gap-3 mx-1.5 px-2.5 py-2 rounded-lg text-[14.5px] font-medium transition-all text-left"
               style={{ width: 'calc(100% - 0.75rem)', color: 'var(--text-secondary)' }}
               onMouseEnter={e => {
                 const el = e.currentTarget as HTMLElement
@@ -489,7 +489,7 @@ export function HeaderAuth() {
         <ThemeToggleButton />
         <button
           onClick={() => setShowModal(true)}
-          className="flex-shrink-0 font-bold px-5 py-2 rounded-full text-[13px] transition-all shadow-md hover:scale-[1.02] whitespace-nowrap"
+          className="flex-shrink-0 font-bold px-5 py-2 rounded-full text-[14px] transition-all shadow-md hover:scale-[1.02] whitespace-nowrap"
           style={{ background: 'var(--accent-orange)', color: 'var(--text-primary)' }}
         >
           Prisijungti

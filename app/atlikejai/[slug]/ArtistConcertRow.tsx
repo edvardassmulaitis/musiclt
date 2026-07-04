@@ -38,7 +38,7 @@ export default function ArtistConcertRow({ recordings, artistName }: { recording
           Koncertų įrašai
           <span className="ml-2 text-[14px] font-bold text-[var(--text-faint)]">{recordings.length}</span>
         </h2>
-        <Link href="/koncertu-irasai" className="shrink-0 text-[12.5px] font-semibold text-[var(--accent-link)]">Visi įrašai →</Link>
+        <Link href="/koncertu-irasai" className="shrink-0 text-[13.5px] font-semibold text-[var(--accent-link)]">Visi įrašai →</Link>
       </div>
 
       {recordings.length === 1 ? (
@@ -61,19 +61,19 @@ export default function ArtistConcertRow({ recordings, artistName }: { recording
                     </div>
                   </button>
                   {rel && (
-                    <span className="pointer-events-none absolute left-2 top-2 inline-flex items-center gap-1 rounded-full bg-black/70 px-2 py-0.5 text-[10px] font-bold text-white backdrop-blur-sm">
+                    <span className="pointer-events-none absolute left-2 top-2 inline-flex items-center gap-1 rounded-full bg-black/70 px-2 py-0.5 text-[11px] font-bold text-white backdrop-blur-sm">
                       {fresh && <span className="h-1.5 w-1.5 rounded-full bg-emerald-400" />}{rel}
                     </span>
                   )}
                   {r.duration_seconds != null && (
-                    <span className="pointer-events-none absolute bottom-2 left-2 rounded bg-black/80 px-1.5 py-0.5 font-['Outfit',sans-serif] text-[11px] font-bold text-white">{formatDurationRough(r.duration_seconds)}</span>
+                    <span className="pointer-events-none absolute bottom-2 left-2 rounded bg-black/80 px-1.5 py-0.5 font-['Outfit',sans-serif] text-[12px] font-bold text-white">{formatDurationRough(r.duration_seconds)}</span>
                   )}
                   <button onClick={() => setActive(r)} aria-label="Groti" className="absolute bottom-2 right-2 flex h-10 w-10 items-center justify-center rounded-full bg-[var(--accent-orange)] text-white shadow-[0_6px_18px_rgba(249,115,22,0.5)] ring-2 ring-white/15 transition-transform hover:scale-110">
                     <svg width="16" height="16" viewBox="0 0 24 24" fill="currentColor"><path d="M8 5v14l11-7z" /></svg>
                   </button>
                 </div>
                 <button onClick={() => setActive(r)} className="mt-2 block w-full text-left">
-                  <h3 className="line-clamp-2 font-['Outfit',sans-serif] text-[13.5px] font-bold leading-snug text-[var(--text-primary)] group-hover:text-[var(--accent-orange)]">{r.title}</h3>
+                  <h3 className="line-clamp-2 font-['Outfit',sans-serif] text-[14.5px] font-bold leading-snug text-[var(--text-primary)] group-hover:text-[var(--accent-orange)]">{r.title}</h3>
                 </button>
                 <div className="mt-0.5"><PopBar views={r.view_count} /></div>
               </div>
@@ -95,12 +95,12 @@ function FeaturedPlayer({ rec }: { rec: ConcertRecording }) {
           allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture" allowFullScreen />
       </div>
       <div className="mt-3 flex flex-wrap items-center gap-3">
-        {rec.duration_seconds != null && <span className="text-[13px] font-bold text-[var(--text-muted)]">{formatDurationRough(rec.duration_seconds)}</span>}
-        {relativeAppeared(rec.uploaded_at) && <span className="text-[13px] text-[var(--text-faint)]">{relativeAppeared(rec.uploaded_at)}</span>}
+        {rec.duration_seconds != null && <span className="text-[14px] font-bold text-[var(--text-muted)]">{formatDurationRough(rec.duration_seconds)}</span>}
+        {relativeAppeared(rec.uploaded_at) && <span className="text-[14px] text-[var(--text-faint)]">{relativeAppeared(rec.uploaded_at)}</span>}
         <PopBar views={rec.view_count} />
       </div>
       <h3 className="mt-1.5 font-['Outfit',sans-serif] text-[17px] font-extrabold leading-tight text-[var(--text-primary)]">{rec.title}</h3>
-      {rec.recorded_year && <p className="mt-0.5 text-[13px] text-[var(--text-muted)]">{rec.recorded_year} m.</p>}
+      {rec.recorded_year && <p className="mt-0.5 text-[14px] text-[var(--text-muted)]">{rec.recorded_year} m.</p>}
     </div>
   )
 }
@@ -124,13 +124,13 @@ function ConcertModal({ rec, artistName, onClose }: { rec: ConcertRecording; art
         <div className="flex items-start justify-between gap-3 p-4">
           <div className="min-w-0">
             <div className="mb-1 flex items-center gap-3">
-              {rec.duration_seconds != null && <span className="text-[12px] font-bold text-[var(--text-muted)]">{formatDurationRough(rec.duration_seconds)}</span>}
-              {rel && <span className="text-[12px] text-[var(--text-faint)]">{rel}</span>}
+              {rec.duration_seconds != null && <span className="text-[13px] font-bold text-[var(--text-muted)]">{formatDurationRough(rec.duration_seconds)}</span>}
+              {rel && <span className="text-[13px] text-[var(--text-faint)]">{rel}</span>}
               <PopBar views={rec.view_count} />
             </div>
             <h2 className="font-['Outfit',sans-serif] text-[17px] font-extrabold leading-tight text-[var(--text-primary)]">{rec.title}</h2>
-            <div className="mt-1 text-[13px] text-[var(--text-muted)]"><span className="font-semibold">{artistName}</span></div>
-            <Link href={recordingHref(rec)} className="mt-2 inline-block text-[12.5px] font-semibold text-[var(--accent-link)]">Atskiras puslapis →</Link>
+            <div className="mt-1 text-[14px] text-[var(--text-muted)]"><span className="font-semibold">{artistName}</span></div>
+            <Link href={recordingHref(rec)} className="mt-2 inline-block text-[13.5px] font-semibold text-[var(--accent-link)]">Atskiras puslapis →</Link>
           </div>
           <button onClick={onClose} className="shrink-0 rounded-full bg-[var(--bg-elevated)] p-2 text-[var(--text-muted)] hover:text-[var(--text-primary)]" aria-label="Uždaryti">
             <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round"><path d="M18 6 6 18M6 6l12 12" /></svg>

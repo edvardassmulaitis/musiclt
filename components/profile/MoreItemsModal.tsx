@@ -145,7 +145,7 @@ export function MoreItemsModal({
           <h2 className="font-black text-base sm:text-lg leading-tight"
               style={{ fontFamily: "'Outfit', sans-serif", color: 'var(--text-primary)' }}>
             {title} <span className="font-bold" style={{ color: 'var(--text-muted)' }}>· {sourceItems.length}</span>
-            {loading && <span className="ml-2 text-[11px] font-bold align-middle" style={{ color: 'var(--text-faint)' }}>kraunama…</span>}
+            {loading && <span className="ml-2 text-[12px] font-bold align-middle" style={{ color: 'var(--text-faint)' }}>kraunama…</span>}
           </h2>
           <button
             type="button"
@@ -178,7 +178,7 @@ export function MoreItemsModal({
                 key={opt.mode}
                 type="button"
                 onClick={() => setSortMode(opt.mode)}
-                className="px-2.5 py-1 rounded text-[11px] font-extrabold uppercase tracking-wider transition"
+                className="px-2.5 py-1 rounded text-[12px] font-extrabold uppercase tracking-wider transition"
                 style={{
                   fontFamily: "'Outfit', sans-serif",
                   background: sortMode === opt.mode ? 'var(--accent-orange)' : 'transparent',
@@ -217,7 +217,7 @@ export function MoreItemsModal({
                   )}
                   <div className="absolute inset-0 bg-gradient-to-t from-black/85 via-black/15 to-transparent" />
                   {(a.affinity_score || 0) > 0 && (
-                    <div className="absolute top-1.5 right-1.5 px-1.5 py-0.5 rounded-full text-[9px] font-extrabold backdrop-blur-md"
+                    <div className="absolute top-1.5 right-1.5 px-1.5 py-0.5 rounded-full text-[10px] font-extrabold backdrop-blur-md"
                          style={{ background: 'rgba(0,0,0,0.5)', color: 'rgba(255,255,255,0.92)' }}>
                       ♥ {a.affinity_score}
                     </div>
@@ -246,14 +246,14 @@ export function MoreItemsModal({
                         <img src={al.cover_url} alt={al.title} className="w-full h-full object-cover" loading="lazy" />
                       ) : null}
                       {lc > 0 && (
-                        <div className="absolute top-1.5 right-1.5 px-1.5 py-0.5 rounded-full text-[9px] font-extrabold backdrop-blur-md"
+                        <div className="absolute top-1.5 right-1.5 px-1.5 py-0.5 rounded-full text-[10px] font-extrabold backdrop-blur-md"
                              style={{ background: 'rgba(0,0,0,0.55)', color: '#fbbf24' }}>
                           ♥ {lc} d.
                         </div>
                       )}
                     </div>
                     <div className="p-2">
-                      <div className="text-[10px] uppercase tracking-wider truncate"
+                      <div className="text-[11px] uppercase tracking-wider truncate"
                            style={{ fontFamily: "'Outfit', sans-serif", color: 'var(--text-muted)' }}>
                         {artist?.name || '—'}
                       </div>
@@ -276,7 +276,7 @@ export function MoreItemsModal({
                   <Link key={t.id} href={href} onClick={onClose}
                         className="group flex items-center gap-2.5 rounded-lg p-2 transition hover:bg-[var(--hover-bg)]"
                         style={{ background: 'var(--card-bg)', border: '1px solid var(--border-subtle)', contentVisibility: 'auto', containIntrinsicSize: '0 56px' }}>
-                    <div className="w-5 text-center text-[11px] font-bold tabular-nums flex-shrink-0"
+                    <div className="w-5 text-center text-[12px] font-bold tabular-nums flex-shrink-0"
                          style={{ color: 'var(--text-faint)', fontFamily: "'Outfit', sans-serif" }}>
                       {i + 1}
                     </div>
@@ -292,13 +292,13 @@ export function MoreItemsModal({
                            style={{ fontFamily: "'Outfit', sans-serif", color: 'var(--text-primary)' }}>
                         {t.title}
                       </div>
-                      <div className="text-[11px] truncate"
+                      <div className="text-[12px] truncate"
                            style={{ fontFamily: "'Outfit', sans-serif", color: 'var(--text-muted)' }}>
                         {artist?.name || '—'}
                       </div>
                     </div>
                     {t.like_count > 0 && (
-                      <div className="text-[10px] font-bold flex-shrink-0 pr-1"
+                      <div className="text-[11px] font-bold flex-shrink-0 pr-1"
                            style={{ color: 'var(--text-muted)', fontFamily: "'Outfit', sans-serif" }}>
                         ♥ {t.like_count}
                       </div>

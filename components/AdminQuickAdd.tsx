@@ -119,7 +119,7 @@ export default function AdminQuickAdd({ bare = false }: { bare?: boolean } = {})
         <h2 className="font-['Outfit',sans-serif] text-sm font-extrabold uppercase tracking-[0.12em] text-[var(--text-secondary)]">
           Greitas pridėjimas
         </h2>
-        <span className="text-[11px] text-[var(--text-faint)]">— {hint}</span>
+        <span className="text-[12px] text-[var(--text-faint)]">— {hint}</span>
       </div>
 
       {/* URL įvestis (rodome kol nėra preview/result) */}
@@ -144,13 +144,13 @@ export default function AdminQuickAdd({ bare = false }: { bare?: boolean } = {})
       )}
 
       {phase === 'previewing' && (
-        <p className="mt-2 text-[12px] text-[var(--text-muted)]">
+        <p className="mt-2 text-[13px] text-[var(--text-muted)]">
           {kind === 'album' ? 'Parsinu Wikipedia albumą…' : 'Tikrinu YouTube video…'}
         </p>
       )}
 
       {error && (
-        <div className="mt-3 rounded-lg border border-red-200 bg-red-50 px-3 py-2 text-[13px] text-red-700">{error}</div>
+        <div className="mt-3 rounded-lg border border-red-200 bg-red-50 px-3 py-2 text-[14px] text-red-700">{error}</div>
       )}
 
       {/* Redagavimo forma */}
@@ -166,7 +166,7 @@ export default function AdminQuickAdd({ bare = false }: { bare?: boolean } = {})
       {phase === 'done' && result?.ok && (
         <>
           <ResultCard result={result} />
-          <button onClick={reset} className="mt-3 text-[13px] font-medium text-music-blue hover:underline">
+          <button onClick={reset} className="mt-3 text-[14px] font-medium text-music-blue hover:underline">
             + Pridėti dar
           </button>
         </>
@@ -185,7 +185,7 @@ export default function AdminQuickAdd({ bare = false }: { bare?: boolean } = {})
 function Field({ label, children }: { label: string; children: React.ReactNode }) {
   return (
     <label className="flex flex-col gap-1">
-      <span className="text-[11px] font-semibold uppercase tracking-wide text-[var(--text-muted)]">{label}</span>
+      <span className="text-[12px] font-semibold uppercase tracking-wide text-[var(--text-muted)]">{label}</span>
       {children}
     </label>
   )
@@ -196,7 +196,7 @@ function Field({ label, children }: { label: string; children: React.ReactNode }
 function FieldBox({ label, children }: { label: string; children: React.ReactNode }) {
   return (
     <div className="flex flex-col gap-1">
-      <span className="text-[11px] font-semibold uppercase tracking-wide text-[var(--text-muted)]">{label}</span>
+      <span className="text-[12px] font-semibold uppercase tracking-wide text-[var(--text-muted)]">{label}</span>
       {children}
     </div>
   )
@@ -266,9 +266,9 @@ function ArtistPicker({ value, onChange }: { value: ArtistRef; onChange: (v: Art
   if (selected) {
     return (
       <div className="flex items-center gap-2 rounded-lg border border-[var(--input-border)] bg-[var(--bg-elevated)] px-3 py-2">
-        <span className="flex h-5 w-5 shrink-0 items-center justify-center rounded-full bg-green-100 text-[11px] text-green-700">✓</span>
+        <span className="flex h-5 w-5 shrink-0 items-center justify-center rounded-full bg-green-100 text-[12px] text-green-700">✓</span>
         <span className="truncate text-[14px] font-medium text-[var(--text-primary)]">{value.name}</span>
-        <button type="button" onClick={clear} className="ml-auto shrink-0 text-[12px] font-medium text-music-blue hover:underline">
+        <button type="button" onClick={clear} className="ml-auto shrink-0 text-[13px] font-medium text-music-blue hover:underline">
           keisti
         </button>
       </div>
@@ -286,21 +286,21 @@ function ArtistPicker({ value, onChange }: { value: ArtistRef; onChange: (v: Art
         onFocus={() => setOpen(true)}
         placeholder="Ieškok kataloge arba įvesk naują…"
       />
-      {value.name.trim() && <p className="mt-1 text-[11px] text-orange-600">Naujas atlikėjas — bus sukurtas</p>}
+      {value.name.trim() && <p className="mt-1 text-[12px] text-orange-600">Naujas atlikėjas — bus sukurtas</p>}
       {open && value.name.trim().length >= 2 && (
         <div className="absolute z-20 mt-1 max-h-64 w-full overflow-auto rounded-lg border border-[var(--border-subtle)] bg-[var(--bg-surface)] shadow-lg">
-          {loading && <div className="px-3 py-2 text-[12px] text-[var(--text-muted)]">Ieškoma…</div>}
+          {loading && <div className="px-3 py-2 text-[13px] text-[var(--text-muted)]">Ieškoma…</div>}
           {hits.map((h) => (
             <button
               key={h.id} type="button" onClick={() => pick(h)}
-              className="flex w-full items-center gap-2 px-3 py-2 text-left text-[13px] text-[var(--text-primary)] hover:bg-[var(--bg-hover)]"
+              className="flex w-full items-center gap-2 px-3 py-2 text-left text-[14px] text-[var(--text-primary)] hover:bg-[var(--bg-hover)]"
             >
               <span className="font-medium">{h.name}</span>
-              {h.country && <span className="text-[11px] text-[var(--text-faint)]">{h.country}</span>}
+              {h.country && <span className="text-[12px] text-[var(--text-faint)]">{h.country}</span>}
             </button>
           ))}
           {!loading && hits.length === 0 && (
-            <div className="px-3 py-2 text-[12px] text-[var(--text-muted)]">Kataloge nerasta — bus sukurtas naujas.</div>
+            <div className="px-3 py-2 text-[13px] text-[var(--text-muted)]">Kataloge nerasta — bus sukurtas naujas.</div>
           )}
         </div>
       )}
@@ -339,7 +339,7 @@ function FeaturingPicker({ value, onChange }: { value: ArtistRef[]; onChange: (v
           {value.map((f, i) => (
             <span
               key={`${f.name}-${i}`}
-              className={`inline-flex items-center gap-1 rounded-full border px-2 py-0.5 text-[12px] ${
+              className={`inline-flex items-center gap-1 rounded-full border px-2 py-0.5 text-[13px] ${
                 f.id != null
                   ? 'border-green-200 bg-green-100 text-green-700'
                   : 'border-orange-200 bg-orange-100 text-orange-700'
@@ -367,20 +367,20 @@ function FeaturingPicker({ value, onChange }: { value: ArtistRef[]; onChange: (v
       />
       {open && text.trim().length >= 2 && (
         <div className="absolute z-20 mt-1 max-h-64 w-full overflow-auto rounded-lg border border-[var(--border-subtle)] bg-[var(--bg-surface)] shadow-lg">
-          {loading && <div className="px-3 py-2 text-[12px] text-[var(--text-muted)]">Ieškoma…</div>}
+          {loading && <div className="px-3 py-2 text-[13px] text-[var(--text-muted)]">Ieškoma…</div>}
           {hits.map((h) => (
             <button
               key={h.id} type="button" onClick={() => add({ id: h.id, name: h.name })}
-              className="flex w-full items-center gap-2 px-3 py-2 text-left text-[13px] text-[var(--text-primary)] hover:bg-[var(--bg-hover)]"
+              className="flex w-full items-center gap-2 px-3 py-2 text-left text-[14px] text-[var(--text-primary)] hover:bg-[var(--bg-hover)]"
             >
               <span className="font-medium">{h.name}</span>
-              {h.country && <span className="text-[11px] text-[var(--text-faint)]">{h.country}</span>}
+              {h.country && <span className="text-[12px] text-[var(--text-faint)]">{h.country}</span>}
             </button>
           ))}
           {!loading && !exactHit && text.trim() && (
             <button
               type="button" onClick={() => add({ id: null, name: text.trim() })}
-              className="flex w-full items-center gap-2 border-t border-[var(--border-subtle)] px-3 py-2 text-left text-[13px] text-orange-700 hover:bg-[var(--bg-hover)]"
+              className="flex w-full items-center gap-2 border-t border-[var(--border-subtle)] px-3 py-2 text-left text-[14px] text-orange-700 hover:bg-[var(--bg-hover)]"
             >
               + Pridėti naują „{text.trim()}"
             </button>
@@ -398,7 +398,7 @@ function EditForm({ preview, form, setForm, committing, onCommit, onCancel }: an
 
   return (
     <div className="mt-3 rounded-lg border border-[var(--border-subtle)] bg-[var(--bg-elevated)] p-3">
-      <div className="mb-2 flex flex-wrap items-center gap-2 text-[12px] text-[var(--text-muted)]">
+      <div className="mb-2 flex flex-wrap items-center gap-2 text-[13px] text-[var(--text-muted)]">
         <span>{isTrack ? '🎵 Daina' : '💿 Albumas'}</span>
         {isTrack && preview.views != null && <span>· {Number(preview.views).toLocaleString('lt-LT')} views</span>}
         {isTrack && preview.embeddable === false && <span className="text-orange-600">· embed blokuotas</span>}
@@ -442,7 +442,7 @@ function EditForm({ preview, form, setForm, committing, onCommit, onCancel }: an
       </div>
 
       {!isTrack && (preview.track_titles || []).length > 0 && (
-        <details className="mt-2 text-[12px] text-[var(--text-muted)]">
+        <details className="mt-2 text-[13px] text-[var(--text-muted)]">
           <summary className="cursor-pointer">Tracklist ({preview.track_titles.length})</summary>
           <ol className="mt-1 list-decimal pl-5">
             {preview.track_titles.map((t: string, i: number) => <li key={i}>{t}</li>)}
@@ -469,7 +469,7 @@ function Chip({ children, tone = 'default' }: { children: React.ReactNode; tone?
     tone === 'ok' ? 'bg-green-100 text-green-700 border-green-200'
     : tone === 'warn' ? 'bg-orange-100 text-orange-700 border-orange-200'
     : 'bg-[var(--bg-elevated)] text-[var(--text-muted)] border-[var(--border-subtle)]'
-  return <span className={`rounded-full border px-2 py-0.5 text-[11px] font-medium ${cls}`}>{children}</span>
+  return <span className={`rounded-full border px-2 py-0.5 text-[12px] font-medium ${cls}`}>{children}</span>
 }
 
 function ResultCard({ result }: { result: any }) {
@@ -483,8 +483,8 @@ function ResultCard({ result }: { result: any }) {
       <div className="flex flex-wrap items-center gap-2">
         <span className="text-base">{isTrack ? '🎵' : '💿'}</span>
         <Link href={entityHref} className="font-semibold text-music-blue hover:underline">{entityTitle}</Link>
-        <span className="text-[13px] text-[var(--text-muted)]">·</span>
-        <Link href={`/admin/artists/${result.artist.id}`} className="text-[13px] text-[var(--text-secondary)] hover:underline">{result.artist.name}</Link>
+        <span className="text-[14px] text-[var(--text-muted)]">·</span>
+        <Link href={`/admin/artists/${result.artist.id}`} className="text-[14px] text-[var(--text-secondary)] hover:underline">{result.artist.name}</Link>
         {result.artist.created && <Chip tone="warn">naujas atlikėjas</Chip>}
       </div>
 
@@ -509,7 +509,7 @@ function ResultCard({ result }: { result: any }) {
       </div>
 
       {warnings.length > 0 && (
-        <ul className="mt-2 space-y-0.5 text-[12px] text-orange-700">
+        <ul className="mt-2 space-y-0.5 text-[13px] text-orange-700">
           {warnings.map((w, i) => <li key={i}>⚠ {w}</li>)}
         </ul>
       )}

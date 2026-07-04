@@ -49,7 +49,7 @@ export function MyListings({ initial }: { initial: Listing[] }) {
   }
 
   const smallBtn: React.CSSProperties = {
-    padding: '6px 11px', fontSize: 12.5, fontWeight: 700, borderRadius: 8, cursor: 'pointer',
+    padding: '6px 11px', fontSize: 13.5, fontWeight: 700, borderRadius: 8, cursor: 'pointer',
     background: 'var(--bg-surface)', border: '1px solid var(--border-default)', color: 'var(--text-secondary)',
   }
 
@@ -68,18 +68,18 @@ export function MyListings({ initial }: { initial: Listing[] }) {
                 // eslint-disable-next-line @next/next/no-img-element
                 <img src={proxyImg(l.photos[0], 160)} alt="" style={{ width: 64, height: 64, objectFit: 'cover', borderRadius: 9 }} />
               ) : (
-                <div style={{ width: 64, height: 64, borderRadius: 9, background: 'var(--bg-surface)', display: 'flex', alignItems: 'center', justifyContent: 'center', color: 'var(--text-faint)', fontSize: 12 }}>—</div>
+                <div style={{ width: 64, height: 64, borderRadius: 9, background: 'var(--bg-surface)', display: 'flex', alignItems: 'center', justifyContent: 'center', color: 'var(--text-faint)', fontSize: 13 }}>—</div>
               )}
             </Link>
 
             <div style={{ flex: '1 1 200px', minWidth: 0 }}>
               <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 3 }}>
-                <span style={{ fontSize: 11, fontWeight: 700, color: STATUS_COLOR[l.status] }}>{STATUS_LABEL[l.status] || l.status}</span>
-                <span style={{ fontSize: 11, color: 'var(--text-faint)' }}>· {LISTING_TYPES[l.type].label}</span>
+                <span style={{ fontSize: 12, fontWeight: 700, color: STATUS_COLOR[l.status] }}>{STATUS_LABEL[l.status] || l.status}</span>
+                <span style={{ fontSize: 12, color: 'var(--text-faint)' }}>· {LISTING_TYPES[l.type].label}</span>
               </div>
               <Link href={`/skelbimai/skelbimas/${l.id}`} style={{ fontSize: 15, fontWeight: 700, color: 'var(--text-primary)', textDecoration: 'none' }}>{l.title}</Link>
-              {price && <div style={{ fontSize: 13.5, fontWeight: 700, color: 'var(--accent-green)' }}>{price}</div>}
-              <div style={{ fontSize: 12, color: 'var(--text-faint)' }}>{l.save_count} įsiminta · {l.view_count} peržiūrų</div>
+              {price && <div style={{ fontSize: 14.5, fontWeight: 700, color: 'var(--accent-green)' }}>{price}</div>}
+              <div style={{ fontSize: 13, color: 'var(--text-faint)' }}>{l.save_count} įsiminta · {l.view_count} peržiūrų</div>
             </div>
 
             <div style={{ display: 'flex', gap: 6, flexWrap: 'wrap' }}>

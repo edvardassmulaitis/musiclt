@@ -168,7 +168,7 @@ export function ListEditorField({
         </>
       ) : (
         <div className="space-y-2">
-          <p className="text-[10px] font-bold uppercase tracking-wider" style={{ color: 'var(--text-muted)' }}>Įrašoma ranka</p>
+          <p className="text-[11px] font-bold uppercase tracking-wider" style={{ color: 'var(--text-muted)' }}>Įrašoma ranka</p>
           <input value={customTitle} onChange={e => setCustomTitle(e.target.value)} placeholder="Pavadinimas (privaloma)" autoFocus
             className="w-full px-2.5 py-2 rounded-lg text-sm outline-none focus:border-[#f97316]/40 transition"
             style={{ background: 'var(--bg-elevated)', border: '1px solid var(--border-subtle)', color: 'var(--text-primary)' }} />
@@ -196,7 +196,7 @@ export function ListEditorField({
     ) : (
       <div className="group relative h-2 flex items-center justify-center">
         <button type="button" onClick={() => { closeAdd(); setInsertAt(at) }} disabled={atMax}
-          className="opacity-0 group-hover:opacity-100 focus:opacity-100 transition text-[10px] font-bold px-2 py-0.5 rounded-full disabled:hidden"
+          className="opacity-0 group-hover:opacity-100 focus:opacity-100 transition text-[11px] font-bold px-2 py-0.5 rounded-full disabled:hidden"
           style={{ background: 'var(--bg-elevated)', border: '1px dashed var(--border-default)', color: 'var(--accent-orange)' }}>
           + Įterpti čia
         </button>
@@ -207,11 +207,11 @@ export function ListEditorField({
   return (
     <div className="mb-6">
       <div className="flex items-center justify-between mb-2">
-        <label className="text-[10px] font-bold uppercase tracking-wider block" style={{ color: 'var(--text-muted)', fontFamily: "'Outfit', sans-serif" }}>
+        <label className="text-[11px] font-bold uppercase tracking-wider block" style={{ color: 'var(--text-muted)', fontFamily: "'Outfit', sans-serif" }}>
           Sąrašas <span className="font-normal normal-case" style={{ color: 'var(--text-faint)' }}>({items.length}/{MAX_ITEMS})</span>
         </label>
         {items.length > 1 && (
-          <span className="text-[10px]" style={{ color: 'var(--text-faint)' }}>Tempk ⠿ kad pertvarkytum</span>
+          <span className="text-[11px]" style={{ color: 'var(--text-faint)' }}>Tempk ⠿ kad pertvarkytum</span>
         )}
       </div>
 
@@ -257,10 +257,10 @@ export function ListEditorField({
                   {/* Title + meta */}
                   <div className="flex-1 min-w-0">
                     <p className="text-sm font-bold truncate" style={{ color: 'var(--text-primary)', fontFamily: "'Outfit', sans-serif" }}>{item.title}</p>
-                    <p className="text-[11px] truncate flex items-center gap-1.5" style={{ color: 'var(--text-muted)' }}>
+                    <p className="text-[12px] truncate flex items-center gap-1.5" style={{ color: 'var(--text-muted)' }}>
                       {item.artist && <span className="truncate">{item.artist}</span>}
                       {item.type !== 'custom' && (
-                        <span className="px-1.5 py-0.5 rounded text-[9px] uppercase tracking-wide flex-shrink-0" style={{ background: 'var(--bg-elevated)', color: 'var(--text-faint)' }}>
+                        <span className="px-1.5 py-0.5 rounded text-[10px] uppercase tracking-wide flex-shrink-0" style={{ background: 'var(--bg-elevated)', color: 'var(--text-faint)' }}>
                           {TYPE_LABEL[item.type]}
                         </span>
                       )}
@@ -283,9 +283,9 @@ export function ListEditorField({
                 {/* Keisti susietą įrašą — komentaras ir pozicija išlieka */}
                 {replaceIdx === idx && (
                   <div className="mt-2.5 rounded-lg p-2.5" style={{ background: 'var(--bg-elevated)', border: '1px solid var(--border-default)' }}>
-                    <p className="text-[10px] font-bold uppercase tracking-wider mb-1.5" style={{ color: 'var(--text-muted)' }}>Pakeisti į kitą įrašą <span className="font-normal normal-case" style={{ color: 'var(--text-faint)' }}>· komentaras išliks</span></p>
+                    <p className="text-[11px] font-bold uppercase tracking-wider mb-1.5" style={{ color: 'var(--text-muted)' }}>Pakeisti į kitą įrašą <span className="font-normal normal-case" style={{ color: 'var(--text-faint)' }}>· komentaras išliks</span></p>
                     <MusicSearchPicker attached={[]} onAdd={replaceEntity} placeholder="Naujas atlikėjas, albumas ar daina…" compact />
-                    <button type="button" onClick={() => setReplaceIdx(null)} className="mt-1.5 text-[11px] hover:opacity-80 transition" style={{ color: 'var(--text-muted)' }}>Atšaukti</button>
+                    <button type="button" onClick={() => setReplaceIdx(null)} className="mt-1.5 text-[12px] hover:opacity-80 transition" style={{ color: 'var(--text-muted)' }}>Atšaukti</button>
                   </div>
                 )}
 
@@ -296,7 +296,7 @@ export function ListEditorField({
                   </div>
                 ) : (
                   <button type="button" onClick={() => setOpenComment(idx)}
-                    className="mt-2 text-[11px] font-semibold hover:opacity-80 transition flex items-center gap-1" style={{ color: 'var(--text-muted)' }}>
+                    className="mt-2 text-[12px] font-semibold hover:opacity-80 transition flex items-center gap-1" style={{ color: 'var(--text-muted)' }}>
                     <span style={{ color: 'var(--accent-orange)' }}>+</span> Komentaras
                   </button>
                 )}
@@ -311,7 +311,7 @@ export function ListEditorField({
       {!atMax && insertAt === null && (
         <div>
           {items.length === 0 && (
-            <p className="text-[10px] font-semibold mb-1.5" style={{ color: 'var(--text-muted)' }}>Pridėk pirmą įrašą</p>
+            <p className="text-[11px] font-semibold mb-1.5" style={{ color: 'var(--text-muted)' }}>Pridėk pirmą įrašą</p>
           )}
           {renderAddPanel(false)}
         </div>

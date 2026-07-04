@@ -53,7 +53,7 @@ export default function ReportageGallery({
       key={key}
       type="button"
       onClick={() => { setActive(key); setOpen(null) }}
-      className={`whitespace-nowrap rounded-full px-3.5 py-1.5 text-[13px] font-semibold transition-colors ${
+      className={`whitespace-nowrap rounded-full px-3.5 py-1.5 text-[14px] font-semibold transition-colors ${
         active === key
           ? 'bg-[var(--accent-orange)] text-white'
           : 'border border-[var(--border-default)] bg-[var(--card-bg)] text-[var(--text-secondary)] hover:border-[var(--accent-orange)]/50'
@@ -90,7 +90,7 @@ export default function ReportageGallery({
               className="absolute inset-0 h-full w-full object-cover transition-transform duration-500 hover:scale-[1.04]"
             />
             {p.groupLabel && p.groupKey !== 'all' && (
-              <span className="pointer-events-none absolute bottom-2 left-2 rounded-full bg-black/60 px-2 py-0.5 text-[10px] font-bold text-white backdrop-blur">
+              <span className="pointer-events-none absolute bottom-2 left-2 rounded-full bg-black/60 px-2 py-0.5 text-[11px] font-bold text-white backdrop-blur">
                 {p.groupLabel}
               </span>
             )}
@@ -117,7 +117,7 @@ export default function ReportageGallery({
           )}
           <figure className="flex max-h-full max-w-full flex-col items-center" onClick={(e) => e.stopPropagation()}>
             <img src={activePhoto.url} alt={activePhoto.caption || ''} className="max-h-[86vh] max-w-full rounded-lg object-contain" />
-            <figcaption className="mt-3 text-center text-[12px] text-white/70">
+            <figcaption className="mt-3 text-center text-[13px] text-white/70">
               {open! + 1} / {visible.length}
               {activePhoto.artistName ? ` · ${activePhoto.artistName}` : activePhoto.tag ? ` · ${activePhoto.tag}` : ''}
               {activePhoto.caption ? ` · ${activePhoto.caption}` : ''}

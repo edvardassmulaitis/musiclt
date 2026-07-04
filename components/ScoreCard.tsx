@@ -73,7 +73,7 @@ function Bar({ label, value, max, color, details }: {
       {details && (
         <div className="flex items-center gap-3 mt-0.5">
           <span className="w-28 shrink-0" />
-          <span className="text-[10px] text-[var(--text-faint)] leading-tight">{details}</span>
+          <span className="text-[11px] text-[var(--text-faint)] leading-tight">{details}</span>
         </div>
       )}
     </div>
@@ -145,7 +145,7 @@ export default function ScoreCard({
         <div className="flex items-center gap-2">
           <h3 className="text-sm font-bold text-[var(--text-primary)]">{titleByType[entityType]}</h3>
           {formulaTag && (
-            <span className="text-[10px] px-1.5 py-0.5 rounded bg-[var(--bg-elevated)] text-[var(--text-faint)] font-medium uppercase">
+            <span className="text-[11px] px-1.5 py-0.5 rounded bg-[var(--bg-elevated)] text-[var(--text-faint)] font-medium uppercase">
               {formulaTag}
             </span>
           )}
@@ -195,7 +195,7 @@ export default function ScoreCard({
           {rows.map(r => (
             <span
               key={r.key}
-              className="inline-flex items-center gap-1 px-2 py-0.5 rounded-md text-[10px] font-bold tabular-nums"
+              className="inline-flex items-center gap-1 px-2 py-0.5 rounded-md text-[11px] font-bold tabular-nums"
               style={{ background: `${r.color}15`, color: r.color }}
               title={r.details || `${r.label}: ${r.value}/${r.max}`}
             >

@@ -37,7 +37,7 @@ export function ImpersonationBanner() {
         padding: '8px 16px',
         background: '#b91c1c',
         color: '#fff',
-        fontSize: 13,
+        fontSize: 14,
         fontWeight: 600,
         boxShadow: '0 1px 4px rgba(0,0,0,0.2)',
       }}
@@ -66,7 +66,7 @@ export function ImpersonationBanner() {
           border: 'none',
           borderRadius: 6,
           padding: '4px 12px',
-          fontSize: 12,
+          fontSize: 13,
           fontWeight: 700,
           cursor: loading ? 'default' : 'pointer',
           opacity: loading ? 0.6 : 1,

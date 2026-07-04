@@ -25,7 +25,7 @@ export default async function NewListingPage({ searchParams }: { searchParams: P
 
   return (
     <div style={{ maxWidth: 720, margin: '0 auto', padding: '28px 20px 80px' }}>
-      <nav style={{ fontSize: 13, color: 'var(--text-muted)', marginBottom: 14 }}>
+      <nav style={{ fontSize: 14, color: 'var(--text-muted)', marginBottom: 14 }}>
         <Link href="/skelbimai" style={{ color: 'var(--text-muted)', textDecoration: 'none' }}>Skelbimai</Link>
         <span style={{ margin: '0 6px' }}>/</span>
         <span style={{ color: 'var(--text-secondary)' }}>Įdėti skelbimą</span>

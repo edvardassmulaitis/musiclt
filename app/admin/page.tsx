@@ -45,11 +45,11 @@ function Card({ card, summary }: { card: AdminSection; summary: Summary | null }
         <div className="flex min-w-0 flex-1 flex-col">
           <span className="truncate font-semibold text-[var(--text-primary)]">{card.label}</span>
           {card.hint && (
-            <span className="truncate text-[11px] text-[var(--text-muted)]">{card.hint}</span>
+            <span className="truncate text-[12px] text-[var(--text-muted)]">{card.hint}</span>
           )}
         </div>
         {showBadge ? (
-          <span className="shrink-0 rounded-full border border-orange-200 bg-orange-100 px-2 py-0.5 text-[10.5px] font-bold text-orange-700">
+          <span className="shrink-0 rounded-full border border-orange-200 bg-orange-100 px-2 py-0.5 text-[11.5px] font-bold text-orange-700">
             {badgeVal} {BADGE_SUFFIX[card.badgeKey!] || 'laukia'}
           </span>
         ) : countVal !== undefined ? (
@@ -77,7 +77,7 @@ function SectionTitle({ icon, label, hint }: { icon: string; label: string; hint
       <h2 className="font-['Outfit',sans-serif] text-sm font-extrabold uppercase tracking-[0.12em] text-[var(--text-secondary)]">
         {label}
       </h2>
-      {hint && <span className="text-[11px] text-[var(--text-faint)]">— {hint}</span>}
+      {hint && <span className="text-[12px] text-[var(--text-faint)]">— {hint}</span>}
     </div>
   )
 }
@@ -100,7 +100,7 @@ function CollapseButton({
         <span className="font-semibold text-[var(--text-primary)]">{label}</span>
       </div>
       {badge && (
-        <span className="shrink-0 rounded-full border border-orange-200 bg-orange-100 px-2 py-0.5 text-[10.5px] font-bold text-orange-700">
+        <span className="shrink-0 rounded-full border border-orange-200 bg-orange-100 px-2 py-0.5 text-[11.5px] font-bold text-orange-700">
           {badge}
         </span>
       )}
@@ -153,7 +153,7 @@ export default function AdminDashboardPage() {
           <h1 className="font-['Outfit',sans-serif] text-2xl font-extrabold text-[var(--text-primary)] sm:text-3xl">
             Admin dashboard
           </h1>
-          <p className="mt-1 text-[12.5px] text-[var(--text-muted)]">
+          <p className="mt-1 text-[13.5px] text-[var(--text-muted)]">
             Ką reikia padaryti dabar — peržiūra, turinys, bendruomenė.{!isFull && ' (Redaktoriaus rodinys)'}
           </p>
         </div>

@@ -66,19 +66,19 @@ export default function PerkeltiLanding() {
               <span className="inline-flex h-10 w-10 items-center justify-center rounded-xl text-[20px]" style={{ background: `${m.accent}1f` }}>{m.emoji}</span>
               <div>
                 <div className="text-[16px] font-black leading-none">{m.title}</div>
-                <div className="text-[11px] font-bold mt-1" style={{ color: 'var(--text-faint)' }}>{m.time}</div>
+                <div className="text-[12px] font-bold mt-1" style={{ color: 'var(--text-faint)' }}>{m.time}</div>
               </div>
             </div>
-            <p className="text-[12.5px] mb-3 mt-1.5" style={{ color: 'var(--text-muted)' }}>{m.tagline}</p>
+            <p className="text-[13.5px] mb-3 mt-1.5" style={{ color: 'var(--text-muted)' }}>{m.tagline}</p>
             <ol className="flex flex-col gap-2.5 flex-1">
               {m.steps.map(s => (
                 <li key={s.n} className="flex gap-2.5">
-                  <span className="shrink-0 mt-0.5 inline-flex h-5 w-5 items-center justify-center rounded-full text-[11px] font-black" style={{ background: 'var(--bg-elevated)', color: m.accent }}>{s.n}</span>
-                  <span className="text-[12.5px] leading-snug" style={{ color: 'var(--text-secondary)' }}>{s.text}</span>
+                  <span className="shrink-0 mt-0.5 inline-flex h-5 w-5 items-center justify-center rounded-full text-[12px] font-black" style={{ background: 'var(--bg-elevated)', color: m.accent }}>{s.n}</span>
+                  <span className="text-[13.5px] leading-snug" style={{ color: 'var(--text-secondary)' }}>{s.text}</span>
                 </li>
               ))}
             </ol>
-            <Link href={`/mano-muzika/importas?src=${m.id}`} className="mt-4 text-center rounded-full px-4 py-2.5 text-[12.5px] font-black text-white transition-opacity hover:opacity-90" style={{ background: 'var(--accent-orange)' }}>
+            <Link href={`/mano-muzika/importas?src=${m.id}`} className="mt-4 text-center rounded-full px-4 py-2.5 text-[13.5px] font-black text-white transition-opacity hover:opacity-90" style={{ background: 'var(--accent-orange)' }}>
               {m.cta} →
             </Link>
           </div>
@@ -88,12 +88,12 @@ export default function PerkeltiLanding() {
       {/* HOW MATCHING WORKS */}
       <div className="rounded-2xl p-5 sm:p-6" style={{ background: 'var(--bg-surface)', border: '1px solid var(--border-default)' }}>
         <h2 className="text-[16px] font-black mb-2">Kaip surandame tavo muziką?</h2>
-        <p className="text-[13px] leading-relaxed" style={{ color: 'var(--text-muted)' }}>
+        <p className="text-[14px] leading-relaxed" style={{ color: 'var(--text-muted)' }}>
           Iš pasirinkto šaltinio paimame atlikėjų, dainų ir albumų pavadinimus ir ieškome jų music.lt kataloge.
           Pavadinimą atpažįstame net jei rašyba šiek tiek skiriasi — pavyzdžiui, nesvarbu, ar yra lietuviškų raidžių, „feat." ar skyrybos ženklų.
           Tau parodome, ką radome (mažiau tikras atitiktis pažymime ženklu ≈), o ko nerandame — tiesiog praleidžiame. Prie tavo muzikos niekas nepridedama be tavo patvirtinimo.
         </p>
-        <div className="mt-4 flex flex-wrap gap-2 text-[11.5px]" style={{ color: 'var(--text-faint)' }}>
+        <div className="mt-4 flex flex-wrap gap-2 text-[12.5px]" style={{ color: 'var(--text-faint)' }}>
           <span className="rounded-full px-3 py-1" style={{ background: 'var(--bg-elevated)' }}>🔒 Failo turinys serveryje neįrašomas</span>
           <span className="rounded-full px-3 py-1" style={{ background: 'var(--bg-elevated)' }}>✋ Tu pats renkiesi, ką pridėti</span>
           <span className="rounded-full px-3 py-1" style={{ background: 'var(--bg-elevated)' }}>♻️ Gali kartoti bet kada</span>

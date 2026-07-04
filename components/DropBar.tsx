@@ -172,7 +172,7 @@ export default function DropBar({ trackId, initial, compact = false }: Props) {
             </span>
             <span
               className={[
-                "font-['Outfit',sans-serif] text-[11px] font-extrabold tabular-nums tracking-tight",
+                "font-['Outfit',sans-serif] text-[12px] font-extrabold tabular-nums tracking-tight",
                 selected ? 'text-white' : 'text-[var(--text-muted)]',
               ].join(' ')}
             >
@@ -182,7 +182,7 @@ export default function DropBar({ trackId, initial, compact = false }: Props) {
             {pulsing && (
               <span
                 aria-hidden
-                className="pointer-events-none absolute left-1/2 top-0 -translate-x-1/2 -translate-y-3 text-[10px] font-extrabold text-[var(--accent-orange)]"
+                className="pointer-events-none absolute left-1/2 top-0 -translate-x-1/2 -translate-y-3 text-[11px] font-extrabold text-[var(--accent-orange)]"
                 style={{ animation: 'dropbar-floatup 0.6s ease-out forwards' }}
               >
                 +1

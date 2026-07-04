@@ -77,7 +77,7 @@ function ScoreBar({ label, value, max, color, details }: {
       {details && (
         <div className="flex items-center gap-3 mt-0.5">
           <span className="w-24 shrink-0" />
-          <span className="text-[10px] text-[var(--text-faint)] leading-tight">{details}</span>
+          <span className="text-[11px] text-[var(--text-faint)] leading-tight">{details}</span>
         </div>
       )}
     </div>
@@ -167,7 +167,7 @@ export default function ScoreModal({ artistId, onClose }: { artistId: string; on
   const hasScore = data?.score !== null && data?.score !== undefined
 
   const formuleBadge = b ? (
-    <span className="text-[10px] px-1.5 py-0.5 rounded bg-[var(--bg-elevated)] text-[var(--text-faint)] font-medium uppercase">
+    <span className="text-[11px] px-1.5 py-0.5 rounded bg-[var(--bg-elevated)] text-[var(--text-faint)] font-medium uppercase">
       {b.type === 'lt' ? 'LT formulė' : 'INT formulė'}
     </span>
   ) : undefined
@@ -205,7 +205,7 @@ export default function ScoreModal({ artistId, onClose }: { artistId: string; on
                 <span className="text-lg text-[var(--text-faint)]">/100</span>
               </div>
               {data.updated_at && (
-                <p className="text-[10px] text-[var(--text-faint)] mt-1">
+                <p className="text-[11px] text-[var(--text-faint)] mt-1">
                   Atnaujinta {new Date(data.updated_at).toLocaleDateString('lt-LT')}
                 </p>
               )}
@@ -219,7 +219,7 @@ export default function ScoreModal({ artistId, onClose }: { artistId: string; on
                 <div className="text-sm font-bold text-[var(--text-primary)] tabular-nums mt-1">
                   {extra.page_views == null ? '—' : extra.page_views.toLocaleString('lt-LT')}
                 </div>
-                <div className="text-[9px] text-[var(--text-faint)] uppercase tracking-wide">peržiūrų</div>
+                <div className="text-[10px] text-[var(--text-faint)] uppercase tracking-wide">peržiūrų</div>
               </div>
               <div className="text-center bg-[var(--bg-elevated)] rounded-lg py-2"
                 title="Bendras albumų skaičius diskografijoje">
@@ -227,7 +227,7 @@ export default function ScoreModal({ artistId, onClose }: { artistId: string; on
                 <div className="text-sm font-bold text-[var(--text-primary)] tabular-nums mt-1">
                   {extra.album_count ?? '—'}
                 </div>
-                <div className="text-[9px] text-[var(--text-faint)] uppercase tracking-wide">albumai</div>
+                <div className="text-[10px] text-[var(--text-faint)] uppercase tracking-wide">albumai</div>
               </div>
               <div className="text-center bg-[var(--bg-elevated)] rounded-lg py-2"
                 title="Bendras dainų skaičius (visi albumai + singles)">
@@ -235,7 +235,7 @@ export default function ScoreModal({ artistId, onClose }: { artistId: string; on
                 <div className="text-sm font-bold text-[var(--text-primary)] tabular-nums mt-1">
                   {extra.track_count ?? '—'}
                 </div>
-                <div className="text-[9px] text-[var(--text-faint)] uppercase tracking-wide">dainos</div>
+                <div className="text-[10px] text-[var(--text-faint)] uppercase tracking-wide">dainos</div>
               </div>
             </div>
 

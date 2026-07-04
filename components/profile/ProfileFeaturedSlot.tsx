@@ -101,7 +101,7 @@ function TabButton({ active, onClick, children }: { active: boolean; onClick: ()
   return (
     <button
       onClick={onClick}
-      className={`flex-1 px-3 py-3 text-[11px] uppercase tracking-wider font-bold transition relative ${
+      className={`flex-1 px-3 py-3 text-[12px] uppercase tracking-wider font-bold transition relative ${
         active ? 'text-white' : 'text-[#5e7290] hover:text-[#b0bdd4]'
       }`}
       style={{ fontFamily: "'Outfit', sans-serif" }}
@@ -174,13 +174,13 @@ function MusicMeterEqualizer({ meter }: { meter: MeterEntry[] }) {
       <div className="flex justify-between gap-1 px-1 mb-3">
         {sorted.map((s) => (
           <div key={s.legacy_id} className="flex-1 min-w-0 text-center">
-            <div className="text-[9px] font-bold text-[#dde8f8] truncate" style={{ fontFamily: "'Outfit', sans-serif" }}>{s.name}</div>
-            <div className="text-[10px] text-[#5e7290] font-mono">{(s.percent || 0).toFixed(0)}%</div>
+            <div className="text-[10px] font-bold text-[#dde8f8] truncate" style={{ fontFamily: "'Outfit', sans-serif" }}>{s.name}</div>
+            <div className="text-[11px] text-[#5e7290] font-mono">{(s.percent || 0).toFixed(0)}%</div>
           </div>
         ))}
       </div>
 
-      <p className="text-[10px] text-[#5e7290] text-center mt-2" style={{ fontFamily: "'Outfit', sans-serif" }}>
+      <p className="text-[11px] text-[#5e7290] text-center mt-2" style={{ fontFamily: "'Outfit', sans-serif" }}>
         Klausymo profilio pasiskirstymas
       </p>
     </div>
@@ -210,7 +210,7 @@ function MoodSongCard({ track }: { track: MoodTrack }) {
         {/* Vinyl ring effect */}
         <div className="absolute -inset-1 rounded-2xl border-2 border-orange-500/30 animate-pulse pointer-events-none" />
       </div>
-      <div className="text-[10px] uppercase tracking-[0.2em] text-orange-400 font-bold mb-1" style={{ fontFamily: "'Outfit', sans-serif" }}>
+      <div className="text-[11px] uppercase tracking-[0.2em] text-orange-400 font-bold mb-1" style={{ fontFamily: "'Outfit', sans-serif" }}>
         ♬ Šio nario nuotaikos daina
       </div>
       <Link href={artist ? `/atlikejai/${artist.slug}` : '#'} className="group">

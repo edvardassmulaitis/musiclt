@@ -419,7 +419,7 @@ export default function TrackSuggestPicker({
             if (unmatched.length === 0) return null
             return (
               <div className="flex flex-wrap gap-1 mb-1 px-0.5">
-                <span className="text-[10px] text-gray-500 self-center">📰 Naujienoje paminėtos:</span>
+                <span className="text-[11px] text-gray-500 self-center">📰 Naujienoje paminėtos:</span>
                 {unmatched.slice(0, 6).map((m, i) => (
                   <button
                     key={i}
@@ -430,7 +430,7 @@ export default function TrackSuggestPicker({
                       runYtSearch(q)
                     }}
                     title={`Ieškoti „${m.title}" YouTube'e`}
-                    className="px-1.5 py-0.5 bg-blue-50 hover:bg-blue-100 text-blue-700 rounded-full text-[10px] font-medium border border-dashed border-blue-300">
+                    className="px-1.5 py-0.5 bg-blue-50 hover:bg-blue-100 text-blue-700 rounded-full text-[11px] font-medium border border-dashed border-blue-300">
                     {m.title}
                   </button>
                 ))}
@@ -438,7 +438,7 @@ export default function TrackSuggestPicker({
             )
           })()}
           {ytResults.length === 0 && !ytSearching && (
-            <p className="text-[10px] text-gray-400 italic px-1">Nieko nerasta. Pakeisk paieškos užklausą.</p>
+            <p className="text-[11px] text-gray-400 italic px-1">Nieko nerasta. Pakeisk paieškos užklausą.</p>
           )}
           {ytSearching && (
             <div className="flex justify-center py-2">
@@ -504,7 +504,7 @@ export default function TrackSuggestPicker({
               type="button"
               onClick={() => runYtSearch(ytLastQuery, ytNextPageToken)}
               disabled={ytLoadingMore}
-              className="w-full mt-1 px-2 py-1 text-[11px] text-blue-700 hover:bg-blue-50 rounded font-medium">
+              className="w-full mt-1 px-2 py-1 text-[12px] text-blue-700 hover:bg-blue-50 rounded font-medium">
               {ytLoadingMore ? 'Kraunama...' : '+ Rodyti daugiau YouTube rezultatų'}
             </button>
           )}
@@ -705,7 +705,7 @@ export default function TrackSuggestPicker({
 function SectionTight({ title, count, children }: { title: string; count: number | null; children: React.ReactNode }) {
   return (
     <div className="bg-white rounded-lg border border-gray-200">
-      <div className="px-2 py-1 text-[10px] font-semibold text-gray-600 uppercase tracking-wide bg-gray-50 border-b border-gray-100">
+      <div className="px-2 py-1 text-[11px] font-semibold text-gray-600 uppercase tracking-wide bg-gray-50 border-b border-gray-100">
         {title}{count !== null && <span className="ml-1 opacity-60">({count})</span>}
       </div>
       <div className="p-1 space-y-0.5">{children}</div>
@@ -722,7 +722,7 @@ function CollapsibleSection({ title, count, children, defaultOpen = false }: {
       <button
         type="button"
         onClick={() => setOpen(o => !o)}
-        className="w-full px-2 py-1 text-[10px] font-semibold text-gray-600 uppercase tracking-wide bg-gray-50 border-b border-gray-100 flex items-center justify-between">
+        className="w-full px-2 py-1 text-[11px] font-semibold text-gray-600 uppercase tracking-wide bg-gray-50 border-b border-gray-100 flex items-center justify-between">
         <span>{title}{count !== null && <span className="ml-1 opacity-60">({count})</span>}</span>
         <span className="text-gray-400">{open ? '▴' : '▾'}</span>
       </button>
@@ -741,7 +741,7 @@ function Badge({ type }: { type: 'db' | 'ai' | 'embed' | 'yt' | 'wiki' | 'manual
     manual: { label: 'MANUAL', cls: 'bg-gray-100 text-gray-700' },
   }
   const c = cfg[type]
-  return <span className={`px-1 py-0 rounded text-[9px] font-bold ${c.cls}`}>{c.label}</span>
+  return <span className={`px-1 py-0 rounded text-[10px] font-bold ${c.cls}`}>{c.label}</span>
 }
 
 function Row({ title, subtitle, badge, selected, disabled = false, onToggle, onTitleClick }: {
@@ -763,7 +763,7 @@ function Row({ title, subtitle, badge, selected, disabled = false, onToggle, onT
           title={onTitleClick ? 'Click → ieškoti YT' : undefined}>
           {title}
         </div>
-        <div className="text-[10px] text-gray-500 truncate">{subtitle}</div>
+        <div className="text-[11px] text-gray-500 truncate">{subtitle}</div>
       </div>
       <Badge type={badge} />
     </div>
@@ -785,7 +785,7 @@ function RowWithThumb({ thumb, title, subtitle, badge, selected, onToggle }: {
       <img src={thumb} alt="" className="w-10 h-7 object-cover rounded shrink-0 bg-gray-200" />
       <div className="flex-1 min-w-0">
         <div className="font-medium text-gray-800 truncate">{title}</div>
-        <div className="text-[10px] text-gray-500 truncate">{subtitle}</div>
+        <div className="text-[11px] text-gray-500 truncate">{subtitle}</div>
       </div>
       <Badge type={badge} />
     </div>

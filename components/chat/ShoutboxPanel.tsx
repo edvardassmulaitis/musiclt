@@ -112,7 +112,7 @@ export function ShoutboxPanel({ viewerId }: { viewerId: string }) {
         flexShrink: 0, padding: '10px 14px', borderBottom: '1px solid var(--border-subtle)',
         display: 'flex', alignItems: 'center', gap: 10,
       }}>
-        <div style={{ flex: 1, fontSize: 12, color: 'var(--text-muted)', lineHeight: 1.35 }}>
+        <div style={{ flex: 1, fontSize: 13, color: 'var(--text-muted)', lineHeight: 1.35 }}>
           Bendra visų narių pokalbių dėžutė.
         </div>
         <button
@@ -120,7 +120,7 @@ export function ShoutboxPanel({ viewerId }: { viewerId: string }) {
           style={{
             flexShrink: 0, display: 'inline-flex', alignItems: 'center', gap: 6,
             padding: '6px 11px', borderRadius: 8, cursor: 'pointer', fontFamily: 'inherit',
-            fontSize: 12, fontWeight: 700,
+            fontSize: 13, fontWeight: 700,
             border: '1px solid ' + (subscribed ? 'var(--accent-orange)' : 'var(--border-default)'),
             background: subscribed ? 'var(--accent-orange)' : 'transparent',
             color: subscribed ? '#fff' : 'var(--text-secondary)',
@@ -134,23 +134,23 @@ export function ShoutboxPanel({ viewerId }: { viewerId: string }) {
       {/* Žinutės */}
       <div ref={scrollerRef} style={{ flex: 1, overflowY: 'auto', padding: '10px 12px', minHeight: 0 }}>
         {loading && items.length === 0 ? (
-          <div style={{ padding: 24, fontSize: 13, color: 'var(--text-muted)', textAlign: 'center' }}>Kraunasi…</div>
+          <div style={{ padding: 24, fontSize: 14, color: 'var(--text-muted)', textAlign: 'center' }}>Kraunasi…</div>
         ) : items.length === 0 ? (
-          <div style={{ padding: '36px 16px', textAlign: 'center', fontSize: 13, color: 'var(--text-muted)' }}>Dar nieko nėra. Parašyk pirmas!</div>
+          <div style={{ padding: '36px 16px', textAlign: 'center', fontSize: 14, color: 'var(--text-muted)' }}>Dar nieko nėra. Parašyk pirmas!</div>
         ) : items.map(m => (
           <div key={m.id} style={{ display: 'flex', gap: 9, padding: '6px 4px', alignItems: 'flex-start' }}>
             <div style={{ flexShrink: 0, width: 30, height: 30, borderRadius: '50%', overflow: 'hidden', background: 'var(--bg-surface)', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
               {m.author_avatar
                 // eslint-disable-next-line @next/next/no-img-element
                 ? <img src={proxyImg(m.author_avatar)} alt="" loading="lazy" style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
-                : <span style={{ fontSize: 12, fontWeight: 800, color: 'var(--text-faint)' }}>{(m.author_name || '?')[0]?.toUpperCase()}</span>}
+                : <span style={{ fontSize: 13, fontWeight: 800, color: 'var(--text-faint)' }}>{(m.author_name || '?')[0]?.toUpperCase()}</span>}
             </div>
             <div style={{ flex: 1, minWidth: 0 }}>
               <div style={{ display: 'flex', alignItems: 'baseline', gap: 6 }}>
-                <span style={{ fontSize: 12.5, fontWeight: 700, color: 'var(--text-primary)' }}>{m.author_name || 'Narys'}</span>
-                <span style={{ fontSize: 10.5, color: 'var(--text-faint)' }}>{timeShort(m.created_at)}</span>
+                <span style={{ fontSize: 13.5, fontWeight: 700, color: 'var(--text-primary)' }}>{m.author_name || 'Narys'}</span>
+                <span style={{ fontSize: 11.5, color: 'var(--text-faint)' }}>{timeShort(m.created_at)}</span>
               </div>
-              <div style={{ fontSize: 13, color: 'var(--text-secondary)', wordBreak: 'break-word', lineHeight: 1.4 }}>{m.body}</div>
+              <div style={{ fontSize: 14, color: 'var(--text-secondary)', wordBreak: 'break-word', lineHeight: 1.4 }}>{m.body}</div>
             </div>
           </div>
         ))}

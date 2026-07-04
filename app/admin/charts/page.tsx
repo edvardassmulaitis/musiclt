@@ -291,8 +291,8 @@ export default function AdminChartsPage() {
                 <div className="flex flex-wrap items-center justify-between gap-3 border-b border-gray-100 px-4 py-3">
                   <div className="min-w-0">
                     <h2 className="truncate font-bold text-gray-900">{selected.title}</h2>
-                    <p className="text-[11px] text-gray-400">{selected.attribution} · {selected.period_label}</p>
-                    <p className="mt-0.5 flex flex-wrap items-center gap-x-2 text-[11px] text-gray-400">
+                    <p className="text-[12px] text-gray-400">{selected.attribution} · {selected.period_label}</p>
+                    <p className="mt-0.5 flex flex-wrap items-center gap-x-2 text-[12px] text-gray-400">
                       <span className="inline-flex items-center gap-1">
                         <span className="h-1.5 w-1.5 rounded-full bg-emerald-400" />
                         Atnaujinta {relDate(selected.fetched_at)}
@@ -320,12 +320,12 @@ export default function AdminChartsPage() {
 
                 {/* Pavadinimas + vėliavos šalis (vizualus header — /admin/topai) */}
                 <div className="flex flex-wrap items-center gap-2 border-b border-gray-100 bg-gray-50/60 px-4 py-2.5">
-                  <span className="text-[11px] font-semibold text-gray-500">Pavadinimas</span>
+                  <span className="text-[12px] font-semibold text-gray-500">Pavadinimas</span>
                   <input
                     value={titleEdit} onChange={e => setTitleEdit(e.target.value)}
                     className="min-w-[180px] flex-1 rounded-md border border-gray-200 px-2.5 py-1 text-sm outline-none focus:border-violet-400"
                   />
-                  <span className="text-[11px] font-semibold text-gray-500">Vėliava</span>
+                  <span className="text-[12px] font-semibold text-gray-500">Vėliava</span>
                   <select value={countryEdit} onChange={e => setCountryEdit(e.target.value)}
                     className="rounded-md border border-gray-200 px-2 py-1 text-xs outline-none focus:border-violet-400">
                     <option value="">— nėra —</option>
@@ -365,7 +365,7 @@ function ChartGroup({ label, charts, selectedId, onOpen, accentBadge }: {
   if (charts.length === 0) return null
   return (
     <div className="mb-3">
-      {label && <p className="mb-1 px-1 text-[10px] font-bold uppercase tracking-wider text-gray-400">{label}</p>}
+      {label && <p className="mb-1 px-1 text-[11px] font-bold uppercase tracking-wider text-gray-400">{label}</p>}
       <div className="overflow-hidden rounded-xl border border-gray-200 bg-white">
         {charts.map(c => {
           const ct = c.counts || { total: 0, matched: 0, created: 0, text_only: 0, pending: 0 }
@@ -377,14 +377,14 @@ function ChartGroup({ label, charts, selectedId, onOpen, accentBadge }: {
               className={`flex w-full items-center gap-2 border-b border-gray-100 px-3 py-2 text-left last:border-b-0 transition-colors ${isSel ? 'bg-violet-50' : 'hover:bg-gray-50'}`}>
               <span className="h-2 w-2 shrink-0 rounded-full" style={{ background: c.accent }} />
               {accentBadge
-                ? <span className="shrink-0 rounded bg-violet-100 px-1 text-[9px] font-bold text-violet-600">Σ</span>
-                : <span className="w-12 shrink-0 truncate text-[9px] font-bold uppercase tracking-wide text-gray-400">{SCOPE_LT[c.scope] || c.scope}</span>}
+                ? <span className="shrink-0 rounded bg-violet-100 px-1 text-[10px] font-bold text-violet-600">Σ</span>
+                : <span className="w-12 shrink-0 truncate text-[10px] font-bold uppercase tracking-wide text-gray-400">{SCOPE_LT[c.scope] || c.scope}</span>}
               <span className="min-w-0 flex-1 truncate text-sm font-semibold text-gray-800">{c.title}</span>
               <span className="hidden h-1.5 w-12 shrink-0 overflow-hidden rounded-full bg-gray-100 sm:block">
                 <span className="block h-full rounded-full bg-emerald-400" style={{ width: `${pct}%` }} />
               </span>
-              <span className="shrink-0 text-[11px] tabular-nums text-gray-500">{resolved}/{ct.total}</span>
-              {ct.pending > 0 && <span className="shrink-0 rounded bg-amber-100 px-1.5 py-0.5 text-[10px] font-semibold text-amber-700">{ct.pending}</span>}
+              <span className="shrink-0 text-[12px] tabular-nums text-gray-500">{resolved}/{ct.total}</span>
+              {ct.pending > 0 && <span className="shrink-0 rounded bg-amber-100 px-1.5 py-0.5 text-[11px] font-semibold text-amber-700">{ct.pending}</span>}
             </button>
           )
         })}
@@ -414,7 +414,7 @@ function ArtistChip({ artist, prefix, onCreate, busy }: {
       <span className="text-gray-500">{artist.name}</span>
       <button onClick={onCreate} disabled={busy}
         title={`Sukurti atlikėją „${artist.name}" (be dainos)`}
-        className="rounded bg-amber-50 px-1.5 py-0.5 text-[10px] font-semibold text-amber-700 hover:bg-amber-100 disabled:opacity-50">
+        className="rounded bg-amber-50 px-1.5 py-0.5 text-[11px] font-semibold text-amber-700 hover:bg-amber-100 disabled:opacity-50">
         + Sukurti
       </button>
     </span>
@@ -488,7 +488,7 @@ function EntryRow({ entry, isAlbum, onUpdate }: { entry: Entry; isAlbum: boolean
             )}
           </div>
           <button onClick={() => act('unlink')} disabled={busy}
-            className="mt-0.5 shrink-0 rounded px-2 py-1 text-[11px] font-medium text-gray-400 hover:bg-gray-100 hover:text-gray-700 disabled:opacity-50">Atrišti</button>
+            className="mt-0.5 shrink-0 rounded px-2 py-1 text-[12px] font-medium text-gray-400 hover:bg-gray-100 hover:text-gray-700 disabled:opacity-50">Atrišti</button>
         </div>
       </div>
     )
@@ -504,7 +504,7 @@ function EntryRow({ entry, isAlbum, onUpdate }: { entry: Entry; isAlbum: boolean
             <span>{entry.title}</span>
             <button onClick={() => act('create')} disabled={busy}
               title="Sukurti dainą IR atlikėją (pilnas praturtinimas: YouTube, žodžiai, Spotify)"
-              className="rounded bg-blue-50 px-1.5 py-0.5 text-[10px] font-semibold text-blue-600 hover:bg-blue-100 disabled:opacity-50">
+              className="rounded bg-blue-50 px-1.5 py-0.5 text-[11px] font-semibold text-blue-600 hover:bg-blue-100 disabled:opacity-50">
               + Sukurti {isAlbum ? 'albumą' : 'dainą'}
             </button>
           </p>
@@ -570,7 +570,7 @@ function LinkSearch({ defaultQuery, isAlbum, onPick, busy }: { defaultQuery: str
               <span className="block truncate text-sm font-medium text-gray-800">{h.title}</span>
               <span className="block truncate text-xs text-gray-400">{h.artist}</span>
             </span>
-            <span className="shrink-0 text-[11px] font-semibold text-violet-600">Susieti</span>
+            <span className="shrink-0 text-[12px] font-semibold text-violet-600">Susieti</span>
           </button>
         ))}
       </div>

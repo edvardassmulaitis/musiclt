@@ -86,7 +86,7 @@ export function ProfileEditModal({ profile, onClose }: { profile: any; onClose: 
 
   const field = 'w-full px-3 py-2 rounded-lg text-sm'
   const fieldStyle: React.CSSProperties = { fontFamily: "'Outfit', sans-serif", background: 'var(--card-bg)', border: '1px solid var(--border-default)', color: 'var(--text-primary)' }
-  const label = 'block text-[11px] font-extrabold uppercase tracking-wider mb-1.5'
+  const label = 'block text-[12px] font-extrabold uppercase tracking-wider mb-1.5'
   const labelStyle: React.CSSProperties = { color: 'var(--text-muted)', fontFamily: "'Outfit', sans-serif" }
   const cityKnown = !city || CITY_OPTIONS.includes(city)
 
@@ -113,7 +113,7 @@ export function ProfileEditModal({ profile, onClose }: { profile: any; onClose: 
                 <div className="w-16 h-16 rounded-2xl flex items-center justify-center text-xl font-black flex-shrink-0" style={{ background: 'var(--card-bg)', border: '1px solid var(--border-default)', color: 'var(--text-muted)' }}>{(profile.username || '?')[0]?.toUpperCase()}</div>
               )}
               <button type="button" onClick={() => setPickerOpen(true)}
-                      className="px-4 py-2 rounded-lg text-[13px] font-bold transition hover:opacity-85"
+                      className="px-4 py-2 rounded-lg text-[14px] font-bold transition hover:opacity-85"
                       style={{ fontFamily: "'Outfit', sans-serif", background: 'var(--card-bg)', border: '1px solid var(--border-default)', color: 'var(--text-secondary)' }}>
                 Keisti avatarą
               </button>
@@ -166,11 +166,11 @@ export function ProfileEditModal({ profile, onClose }: { profile: any; onClose: 
                   {/* eslint-disable-next-line @next/next/no-img-element */}
                   <img src={p.thumb_url || p.url} alt="" className="w-full h-full object-cover" />
                   <button type="button" onClick={() => setPhotos((arr) => arr.filter((_, j) => j !== i))}
-                          className="absolute top-1 right-1 w-6 h-6 rounded-full flex items-center justify-center text-[12px] text-white" style={{ background: 'rgba(0,0,0,0.6)' }} aria-label="Pašalinti">✕</button>
+                          className="absolute top-1 right-1 w-6 h-6 rounded-full flex items-center justify-center text-[13px] text-white" style={{ background: 'rgba(0,0,0,0.6)' }} aria-label="Pašalinti">✕</button>
                 </div>
               ))}
               <button type="button" onClick={() => photoInput.current?.click()} disabled={uploading === 'photo'}
-                      className="aspect-square rounded-lg flex flex-col items-center justify-center text-[11px] font-bold transition hover:opacity-85 disabled:opacity-60"
+                      className="aspect-square rounded-lg flex flex-col items-center justify-center text-[12px] font-bold transition hover:opacity-85 disabled:opacity-60"
                       style={{ background: 'var(--card-bg)', border: '1px dashed var(--border-default)', color: 'var(--accent-orange)', fontFamily: "'Outfit', sans-serif" }}>
                 {uploading === 'photo' ? '…' : '+ Įkelti'}
               </button>
@@ -178,14 +178,14 @@ export function ProfileEditModal({ profile, onClose }: { profile: any; onClose: 
             </div>
           </div>
 
-          {err && <p className="text-[13px] font-semibold" style={{ color: '#ef4444', fontFamily: "'Outfit', sans-serif" }}>{err}</p>}
+          {err && <p className="text-[14px] font-semibold" style={{ color: '#ef4444', fontFamily: "'Outfit', sans-serif" }}>{err}</p>}
         </div>
 
         <footer className="flex items-center justify-end gap-2.5 px-5 sm:px-6 py-4 flex-shrink-0" style={{ borderTop: '1px solid var(--border-subtle)' }}>
-          <button type="button" onClick={onClose} className="px-4 py-2 rounded-full text-[13px] font-bold transition hover:opacity-80"
+          <button type="button" onClick={onClose} className="px-4 py-2 rounded-full text-[14px] font-bold transition hover:opacity-80"
                   style={{ fontFamily: "'Outfit', sans-serif", background: 'var(--card-bg)', border: '1px solid var(--border-default)', color: 'var(--text-secondary)' }}>Atšaukti</button>
           <button type="button" onClick={save} disabled={busy || !!uploading}
-                  className="px-5 py-2 rounded-full text-[13px] font-extrabold transition hover:opacity-90 disabled:opacity-60"
+                  className="px-5 py-2 rounded-full text-[14px] font-extrabold transition hover:opacity-90 disabled:opacity-60"
                   style={{ fontFamily: "'Outfit', sans-serif", background: 'var(--accent-orange)', color: '#fff' }}>{busy ? 'Saugoma…' : 'Išsaugoti'}</button>
         </footer>
       </div>
@@ -223,14 +223,14 @@ function AvatarPickerModal({ current, username, onPick, onUpload, onClose }: {
         <header className="flex items-center justify-between gap-3 px-5 py-4 flex-shrink-0" style={{ borderBottom: '1px solid var(--border-subtle)' }}>
           <h3 className="font-black text-base" style={{ fontFamily: "'Outfit', sans-serif", color: 'var(--text-primary)' }}>Pasirink avatarą</h3>
           <button type="button" onClick={() => inp.current?.click()} disabled={uploading}
-                  className="px-3 py-1.5 rounded-full text-[12px] font-bold transition hover:opacity-85 disabled:opacity-60"
+                  className="px-3 py-1.5 rounded-full text-[13px] font-bold transition hover:opacity-85 disabled:opacity-60"
                   style={{ fontFamily: "'Outfit', sans-serif", background: 'var(--accent-orange)', color: '#fff' }}>
             {uploading ? 'Keliama…' : '+ Įkelti savo'}
           </button>
           <input ref={inp} type="file" accept="image/*" className="hidden" onChange={doUpload} />
         </header>
         <div className="flex-1 overflow-y-auto p-4">
-          {err && <p className="text-[13px] mb-2" style={{ color: '#ef4444' }}>{err}</p>}
+          {err && <p className="text-[14px] mb-2" style={{ color: '#ef4444' }}>{err}</p>}
           <div className="grid grid-cols-4 sm:grid-cols-6 gap-2.5">
             {AVATAR_COLLECTION.map((u) => {
               const on = current === u
@@ -246,7 +246,7 @@ function AvatarPickerModal({ current, username, onPick, onUpload, onClose }: {
           </div>
         </div>
         <footer className="px-5 py-3 flex-shrink-0" style={{ borderTop: '1px solid var(--border-subtle)' }}>
-          <button type="button" onClick={onClose} className="w-full text-center py-2 rounded-full text-[13px] font-bold transition hover:opacity-80"
+          <button type="button" onClick={onClose} className="w-full text-center py-2 rounded-full text-[14px] font-bold transition hover:opacity-80"
                   style={{ fontFamily: "'Outfit', sans-serif", background: 'var(--card-bg)', border: '1px solid var(--border-default)', color: 'var(--text-secondary)' }}>Uždaryti</button>
         </footer>
       </div>

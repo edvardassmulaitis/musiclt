@@ -16,7 +16,7 @@ export const metadata: Metadata = {
 export default function RadarSubmitPage() {
   return (
     <div style={{ maxWidth: 680, margin: '0 auto', padding: '28px 20px 90px' }}>
-      <nav style={{ fontSize: 13, color: 'var(--text-muted)', marginBottom: 16 }}>
+      <nav style={{ fontSize: 14, color: 'var(--text-muted)', marginBottom: 16 }}>
         <Link href="/nauji-atlikejai" style={{ color: 'var(--text-muted)', textDecoration: 'none' }}>Naujos muzikos radaras</Link>
         <span style={{ margin: '0 6px' }}>/</span>
         <span style={{ color: 'var(--text-secondary)' }}>Pasiūlyk atlikėją</span>

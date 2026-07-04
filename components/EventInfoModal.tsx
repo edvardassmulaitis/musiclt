@@ -134,7 +134,7 @@ export default function EventInfoModal({
         {/* Header */}
         <div className="flex shrink-0 items-center gap-2.5 border-b border-[var(--border-subtle)] px-4 py-2">
           <div className="min-w-0 flex-1">
-            <div className="font-['Outfit',sans-serif] text-[10px] font-extrabold uppercase tracking-[0.18em] text-[var(--text-muted)]">
+            <div className="font-['Outfit',sans-serif] text-[11px] font-extrabold uppercase tracking-[0.18em] text-[var(--text-muted)]">
               Renginys
             </div>
             <div className="truncate font-['Outfit',sans-serif] text-[15px] font-extrabold leading-tight text-[var(--text-primary)] sm:text-[16px]">
@@ -178,16 +178,16 @@ export default function EventInfoModal({
         {/* Body */}
         <div ref={bodyScrollRef} className="flex-1 min-h-0 overflow-y-auto overscroll-contain px-4 py-4 sm:px-5">
           {/* Meta strip */}
-          <div className="mb-4 flex flex-wrap items-center gap-2 text-[12px]">
+          <div className="mb-4 flex flex-wrap items-center gap-2 text-[13px]">
             {dateLabel && (
-              <span className="inline-flex items-center gap-1.5 rounded-full border border-[var(--border-subtle)] bg-[var(--card-bg)] px-3 py-1 font-['Outfit',sans-serif] text-[11.5px] font-bold text-[var(--text-primary)]">
+              <span className="inline-flex items-center gap-1.5 rounded-full border border-[var(--border-subtle)] bg-[var(--card-bg)] px-3 py-1 font-['Outfit',sans-serif] text-[12.5px] font-bold text-[var(--text-primary)]">
                 <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><rect x="3" y="4" width="18" height="18" rx="2"/><line x1="16" y1="2" x2="16" y2="6"/><line x1="8" y1="2" x2="8" y2="6"/><line x1="3" y1="10" x2="21" y2="10"/></svg>
                 {dateLabel}
                 {timeLabel && <span className="ml-1 text-[var(--text-muted)]">· {timeLabel}</span>}
               </span>
             )}
             {venue && (
-              <span className="inline-flex items-center gap-1.5 rounded-full border border-[var(--border-subtle)] bg-[var(--card-bg)] px-3 py-1 font-['Outfit',sans-serif] text-[11.5px] font-bold text-[var(--text-primary)]">
+              <span className="inline-flex items-center gap-1.5 rounded-full border border-[var(--border-subtle)] bg-[var(--card-bg)] px-3 py-1 font-['Outfit',sans-serif] text-[12.5px] font-bold text-[var(--text-primary)]">
                 <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M21 10c0 7-9 13-9 13s-9-6-9-13a9 9 0 0 1 18 0z"/><circle cx="12" cy="10" r="3"/></svg>
                 {venue}
                 {city && <span className="ml-1 text-[var(--text-muted)]">· {city}</span>}
@@ -197,7 +197,7 @@ export default function EventInfoModal({
 
           {/* Description */}
           {loading && !details ? (
-            <div className="rounded-xl border border-dashed border-[var(--border-subtle)] bg-[var(--bg-elevated)] px-4 py-10 text-center text-[12px] text-[var(--text-faint)]">
+            <div className="rounded-xl border border-dashed border-[var(--border-subtle)] bg-[var(--bg-elevated)] px-4 py-10 text-center text-[13px] text-[var(--text-faint)]">
               Kraunama…
             </div>
           ) : details?.description ? (
@@ -206,13 +206,13 @@ export default function EventInfoModal({
               dangerouslySetInnerHTML={{ __html: details.description }}
             />
           ) : (
-            <div className="text-[13px] text-[var(--text-faint)]">Aprašymo nėra.</div>
+            <div className="text-[14px] text-[var(--text-faint)]">Aprašymo nėra.</div>
           )}
 
           {/* Artists */}
           {details?.artists && details.artists.length > 0 && (
             <div className="mt-5 border-t border-[var(--border-subtle)] pt-4">
-              <div className="mb-2 font-['Outfit',sans-serif] text-[11px] font-extrabold uppercase tracking-[0.18em] text-[var(--text-muted)]">
+              <div className="mb-2 font-['Outfit',sans-serif] text-[12px] font-extrabold uppercase tracking-[0.18em] text-[var(--text-muted)]">
                 Dalyvauja
               </div>
               <div className="flex flex-wrap items-center gap-1.5">
@@ -220,7 +220,7 @@ export default function EventInfoModal({
                   <Link
                     key={a.id}
                     href={`/atlikejai/${a.slug}`}
-                    className="inline-flex items-center rounded-full border border-[var(--border-subtle)] bg-[var(--card-bg)] px-3 py-1 font-['Outfit',sans-serif] text-[12px] font-bold text-[var(--text-secondary)] no-underline transition-colors hover:border-[var(--accent-orange)] hover:text-[var(--accent-orange)]"
+                    className="inline-flex items-center rounded-full border border-[var(--border-subtle)] bg-[var(--card-bg)] px-3 py-1 font-['Outfit',sans-serif] text-[13px] font-bold text-[var(--text-secondary)] no-underline transition-colors hover:border-[var(--accent-orange)] hover:text-[var(--accent-orange)]"
                   >
                     {a.name}
                   </Link>
@@ -236,7 +236,7 @@ export default function EventInfoModal({
                 href={details.source_url}
                 target="_blank"
                 rel="noopener noreferrer"
-                className="inline-flex items-center gap-1.5 font-['Outfit',sans-serif] text-[12px] font-bold text-[var(--accent-orange)] no-underline hover:underline"
+                className="inline-flex items-center gap-1.5 font-['Outfit',sans-serif] text-[13px] font-bold text-[var(--accent-orange)] no-underline hover:underline"
               >
                 Originalus šaltinis
                 <svg viewBox="0 0 24 24" width={11} height={11} fill="none" stroke="currentColor" strokeWidth={2} strokeLinecap="round" strokeLinejoin="round">

@@ -195,7 +195,7 @@ export default async function GhostUserPage({ params }: Props) {
               </h1>
               <LegacyBadge label="ghost vartotojas" />
             </div>
-            <div style={{ fontSize: 12, color: 'var(--text-muted)', display: 'flex', gap: 10, flexWrap: 'wrap' }}>
+            <div style={{ fontSize: 13, color: 'var(--text-muted)', display: 'flex', gap: 10, flexWrap: 'wrap' }}>
               {activity.user_rank && (
                 <span>
                   <span style={{ color: 'var(--text-faint)' }}>music.lt rank:</span>{' '}
@@ -222,7 +222,7 @@ export default async function GhostUserPage({ params }: Props) {
             {user.is_claimed ? (
               <div
                 style={{
-                  fontSize: 11,
+                  fontSize: 12,
                   fontWeight: 700,
                   color: 'var(--text-muted)',
                   padding: '6px 12px',
@@ -245,7 +245,7 @@ export default async function GhostUserPage({ params }: Props) {
                   borderRadius: 999,
                   background: 'var(--accent-orange)',
                   color: '#fff',
-                  fontSize: 12,
+                  fontSize: 13,
                   fontWeight: 800,
                   textDecoration: 'none',
                   fontFamily: 'Outfit,sans-serif',
@@ -286,7 +286,7 @@ export default async function GhostUserPage({ params }: Props) {
             borderRadius: 10,
             background: 'rgba(251,191,36,.04)',
             border: '1px solid rgba(251,191,36,.14)',
-            fontSize: 12,
+            fontSize: 13,
             color: 'var(--text-secondary)',
             lineHeight: 1.5,
           }}
@@ -336,7 +336,7 @@ export default async function GhostUserPage({ params }: Props) {
                     {a.name[0]?.toUpperCase()}
                   </div>
                 )}
-                <div style={{ fontSize: 12, fontWeight: 700, color: 'var(--text-primary)', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis', width: '100%' }}>
+                <div style={{ fontSize: 13, fontWeight: 700, color: 'var(--text-primary)', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis', width: '100%' }}>
                   {a.name}
                 </div>
               </Link>
@@ -378,10 +378,10 @@ export default async function GhostUserPage({ params }: Props) {
                   )}
                 </div>
                 <div style={{ padding: '8px 10px' }}>
-                  <div style={{ fontSize: 11, fontWeight: 700, color: 'var(--text-primary)', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
+                  <div style={{ fontSize: 12, fontWeight: 700, color: 'var(--text-primary)', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
                     {a.title}
                   </div>
-                  <div style={{ fontSize: 10, color: 'var(--text-muted)', marginTop: 1, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
+                  <div style={{ fontSize: 11, color: 'var(--text-muted)', marginTop: 1, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
                     {a.artist?.name}
                     {a.year ? ` · ${a.year}` : ''}
                   </div>
@@ -422,16 +422,16 @@ export default async function GhostUserPage({ params }: Props) {
                   <svg width="12" height="12" viewBox="0 0 24 24" fill="currentColor"><path d="M12 3v10.55c-.59-.34-1.27-.55-2-.55-2.21 0-4 1.79-4 4s1.79 4 4 4 4-1.79 4-4V7h4V3h-6z" /></svg>
                 </div>
                 <div style={{ flex: 1, minWidth: 0 }}>
-                  <div style={{ fontSize: 12, fontWeight: 700, color: 'var(--text-primary)', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
+                  <div style={{ fontSize: 13, fontWeight: 700, color: 'var(--text-primary)', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
                     {t.title}
                   </div>
                   {t.artist && (
-                    <div style={{ fontSize: 10, color: 'var(--text-muted)', marginTop: 1 }}>
+                    <div style={{ fontSize: 11, color: 'var(--text-muted)', marginTop: 1 }}>
                       {t.artist.name}
                     </div>
                   )}
                 </div>
-                <span style={{ fontSize: 11, color: 'var(--accent-orange)', fontWeight: 700, fontFamily: 'Outfit,sans-serif', flexShrink: 0 }}>→</span>
+                <span style={{ fontSize: 12, color: 'var(--accent-orange)', fontWeight: 700, fontFamily: 'Outfit,sans-serif', flexShrink: 0 }}>→</span>
               </Link>
             ))}
           </div>
@@ -469,7 +469,7 @@ function StatTile({ label, value }: { label: string; value: number }) {
       </div>
       <div
         style={{
-          fontSize: 9,
+          fontSize: 10,
           fontWeight: 800,
           textTransform: 'uppercase',
           letterSpacing: '.1em',
@@ -500,7 +500,7 @@ function SectionBlock({
       <div
         style={{
           fontFamily: 'Outfit,sans-serif',
-          fontSize: 10,
+          fontSize: 11,
           fontWeight: 800,
           textTransform: 'uppercase',
           letterSpacing: '.14em',
@@ -522,7 +522,7 @@ function SectionBlock({
             background: 'var(--card-bg)',
             border: '1px dashed var(--border-default)',
             textAlign: 'center',
-            fontSize: 12,
+            fontSize: 13,
             color: 'var(--text-faint)',
           }}
         >

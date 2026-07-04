@@ -181,7 +181,7 @@ export default function PhotoGallery({ photos, onChange, artistName, artistId }:
                 <img src={proxyImg(photo.url)} alt="" className="w-full h-full object-cover" referrerPolicy="no-referrer" />
                 {/* Year badge — top-left, kad iškart matytum ar metai užfiksuoti */}
                 {year && (
-                  <div className="absolute left-1.5 top-1.5 rounded-md bg-black/70 px-1.5 py-0.5 text-[10px] font-bold text-white backdrop-blur-sm pointer-events-none">
+                  <div className="absolute left-1.5 top-1.5 rounded-md bg-black/70 px-1.5 py-0.5 text-[11px] font-bold text-white backdrop-blur-sm pointer-events-none">
                     {year}
                   </div>
                 )}
@@ -205,7 +205,7 @@ export default function PhotoGallery({ photos, onChange, artistName, artistId }:
                   type="button"
                   onClick={() => openEditor(i)}
                   title="Redaguoti autorių/datą/licenciją"
-                  className="absolute bottom-0 left-0 right-0 px-1.5 py-0.5 bg-black/40 hover:bg-black/70 text-white text-[10px] truncate text-left cursor-pointer transition-colors"
+                  className="absolute bottom-0 left-0 right-0 px-1.5 py-0.5 bg-black/40 hover:bg-black/70 text-white text-[11px] truncate text-left cursor-pointer transition-colors"
                 >
                   © {photo.author || 'Be autoriaus — paspausk redaguoti'}
                 </button>
@@ -324,64 +324,64 @@ export default function PhotoGallery({ photos, onChange, artistName, artistId }:
                   Anksciau buvo input[type=date] kuris reikalavo pilnos datos —
                   daug fotografų tik metus žino. API parse'ina į ISO automatiškai. */}
               <div>
-                <label className="text-[11px] font-bold uppercase tracking-wider text-gray-500 block mb-1">Nuotraukos data</label>
+                <label className="text-[12px] font-bold uppercase tracking-wider text-gray-500 block mb-1">Nuotraukos data</label>
                 <input
                   type="text"
                   value={(editDraft.takenAt || '').slice(0, 10)}
                   onChange={(e) => setEditDraft({ ...editDraft, takenAt: e.target.value || undefined })}
                   placeholder="2016 ARBA 2016-09 ARBA 2016-09-27"
-                  className="w-full rounded-lg border border-gray-200 px-3 py-2 text-[13px] outline-none focus:border-blue-400"
+                  className="w-full rounded-lg border border-gray-200 px-3 py-2 text-[14px] outline-none focus:border-blue-400"
                 />
-                <div className="text-[10px] text-gray-400 mt-0.5">Tik metai, metai+mėnuo arba pilna data. Galerijoje bus rodomi metai.</div>
+                <div className="text-[11px] text-gray-400 mt-0.5">Tik metai, metai+mėnuo arba pilna data. Galerijoje bus rodomi metai.</div>
               </div>
               {/* Place — NEW */}
               <div>
-                <label className="text-[11px] font-bold uppercase tracking-wider text-gray-500 block mb-1">Vieta (optional)</label>
+                <label className="text-[12px] font-bold uppercase tracking-wider text-gray-500 block mb-1">Vieta (optional)</label>
                 <input
                   type="text"
                   value={editDraft.place || ''}
                   onChange={(e) => setEditDraft({ ...editDraft, place: e.target.value })}
                   placeholder="Pvz., Roundhouse, London"
-                  className="w-full rounded-lg border border-gray-200 px-3 py-2 text-[13px] outline-none focus:border-blue-400"
+                  className="w-full rounded-lg border border-gray-200 px-3 py-2 text-[14px] outline-none focus:border-blue-400"
                 />
               </div>
               {/* Author */}
               <div>
-                <label className="text-[11px] font-bold uppercase tracking-wider text-gray-500 block mb-1">Autorius</label>
+                <label className="text-[12px] font-bold uppercase tracking-wider text-gray-500 block mb-1">Autorius</label>
                 <input
                   type="text"
                   value={editDraft.author || ''}
                   onChange={(e) => setEditDraft({ ...editDraft, author: e.target.value })}
                   placeholder="Pvz., John Doe"
-                  className="w-full rounded-lg border border-gray-200 px-3 py-2 text-[13px] outline-none focus:border-blue-400"
+                  className="w-full rounded-lg border border-gray-200 px-3 py-2 text-[14px] outline-none focus:border-blue-400"
                 />
               </div>
               {/* License */}
               <div>
-                <label className="text-[11px] font-bold uppercase tracking-wider text-gray-500 block mb-1">Licencija</label>
+                <label className="text-[12px] font-bold uppercase tracking-wider text-gray-500 block mb-1">Licencija</label>
                 <input
                   type="text"
                   value={editDraft.license || ''}
                   onChange={(e) => setEditDraft({ ...editDraft, license: e.target.value })}
                   placeholder="Pvz., CC BY-SA 4.0"
-                  className="w-full rounded-lg border border-gray-200 px-3 py-2 text-[13px] outline-none focus:border-blue-400"
+                  className="w-full rounded-lg border border-gray-200 px-3 py-2 text-[14px] outline-none focus:border-blue-400"
                 />
               </div>
               {/* Source URL */}
               <div>
-                <label className="text-[11px] font-bold uppercase tracking-wider text-gray-500 block mb-1">Šaltinis (URL)</label>
+                <label className="text-[12px] font-bold uppercase tracking-wider text-gray-500 block mb-1">Šaltinis (URL)</label>
                 <input
                   type="url"
                   value={editDraft.sourceUrl || ''}
                   onChange={(e) => setEditDraft({ ...editDraft, sourceUrl: e.target.value })}
                   placeholder="https://commons.wikimedia.org/wiki/File:..."
-                  className="w-full rounded-lg border border-gray-200 px-3 py-2 text-[13px] outline-none focus:border-blue-400"
+                  className="w-full rounded-lg border border-gray-200 px-3 py-2 text-[14px] outline-none focus:border-blue-400"
                 />
               </div>
             </div>
             <div className="flex justify-end gap-2 border-t border-gray-100 px-5 py-3 bg-gray-50">
-              <button onClick={closeEditor} className="px-3 py-1.5 rounded-lg text-[13px] font-medium text-gray-600 hover:bg-gray-100">Atšaukti</button>
-              <button onClick={saveEditor} className="px-4 py-1.5 rounded-lg bg-blue-600 text-white text-[13px] font-medium hover:bg-blue-700">Išsaugoti</button>
+              <button onClick={closeEditor} className="px-3 py-1.5 rounded-lg text-[14px] font-medium text-gray-600 hover:bg-gray-100">Atšaukti</button>
+              <button onClick={saveEditor} className="px-4 py-1.5 rounded-lg bg-blue-600 text-white text-[14px] font-medium hover:bg-blue-700">Išsaugoti</button>
             </div>
           </div>
         </div>

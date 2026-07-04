@@ -38,7 +38,7 @@ export default async function CategoryPage({ params }: { params: Promise<{ tipas
 
   return (
     <div className="page-shell">
-      <nav style={{ fontSize: 13, color: 'var(--text-muted)', marginBottom: 12 }}>
+      <nav style={{ fontSize: 14, color: 'var(--text-muted)', marginBottom: 12 }}>
         <Link href="/skelbimai" style={{ color: 'var(--text-muted)', textDecoration: 'none' }}>Skelbimai</Link>
         <span style={{ margin: '0 6px' }}>/</span>
         <span style={{ color: 'var(--text-secondary)' }}>{meta.label}</span>

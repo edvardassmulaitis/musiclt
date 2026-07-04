@@ -222,17 +222,17 @@ export default function ErosAdminPage({ params }: { params: Promise<{ id: string
         <h1 className="text-2xl font-black text-[var(--text-primary)]">
           Eros — {artistName}
         </h1>
-        <span className="rounded-full bg-[var(--bg-elevated)] px-2 py-0.5 text-[11px] font-bold text-[var(--text-muted)]">
+        <span className="rounded-full bg-[var(--bg-elevated)] px-2 py-0.5 text-[12px] font-bold text-[var(--text-muted)]">
           {eras.length} eras
         </span>
       </div>
 
-      <div className="mb-4 rounded-lg border border-[var(--border-default)] bg-[var(--bg-surface)] p-4 text-[13px] text-[var(--text-secondary)]">
+      <div className="mb-4 rounded-lg border border-[var(--border-default)] bg-[var(--bg-surface)] p-4 text-[14px] text-[var(--text-secondary)]">
         <p>
           Atlikėjo karjeros laikotarpiai — keičia, kaip albumai grupuojami
           public puslapyje (<code>/atlikejai/{artistName.toLowerCase().replace(/\s/g, '-')}</code>).
         </p>
-        <p className="mt-1.5 text-[12px] text-[var(--text-muted)]">
+        <p className="mt-1.5 text-[13px] text-[var(--text-muted)]">
           • Bent <strong>2 eros</strong> reikia, kad grupavimas suveiktų. 1 era → tas pats kaip nieko (flat).<br />
           • <code>year_end = NULL</code> → „dabar" (ongoing era).<br />
           • <code>sort_order=0</code> → viršuje (naujausia).<br />
@@ -263,7 +263,7 @@ export default function ErosAdminPage({ params }: { params: Promise<{ id: string
           ↺ Auto iš dekadų ({albums.length} albumų)
         </button>
         <div className="ml-auto flex items-center gap-2">
-          {error && <span className="text-[12px] text-red-500">{error}</span>}
+          {error && <span className="text-[13px] text-red-500">{error}</span>}
           <button
             onClick={save}
             disabled={saving}
@@ -290,7 +290,7 @@ export default function ErosAdminPage({ params }: { params: Promise<{ id: string
             </div>
             <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
               <label className="sm:col-span-2">
-                <span className="block text-[10px] font-bold uppercase tracking-wider text-[var(--text-muted)]">Pavadinimas *</span>
+                <span className="block text-[11px] font-bold uppercase tracking-wider text-[var(--text-muted)]">Pavadinimas *</span>
                 <input
                   type="text"
                   autoFocus
@@ -301,7 +301,7 @@ export default function ErosAdminPage({ params }: { params: Promise<{ id: string
                 />
               </label>
               <label>
-                <span className="block text-[10px] font-bold uppercase tracking-wider text-[var(--text-muted)]">Metai nuo *</span>
+                <span className="block text-[11px] font-bold uppercase tracking-wider text-[var(--text-muted)]">Metai nuo *</span>
                 <input
                   type="number"
                   value={draftEra.year_start}
@@ -310,7 +310,7 @@ export default function ErosAdminPage({ params }: { params: Promise<{ id: string
                 />
               </label>
               <label>
-                <span className="block text-[10px] font-bold uppercase tracking-wider text-[var(--text-muted)]">Metai iki (tuščia = „dabar")</span>
+                <span className="block text-[11px] font-bold uppercase tracking-wider text-[var(--text-muted)]">Metai iki (tuščia = „dabar")</span>
                 <input
                   type="number"
                   value={draftEra.year_end ?? ''}
@@ -320,7 +320,7 @@ export default function ErosAdminPage({ params }: { params: Promise<{ id: string
                 />
               </label>
               <label className="sm:col-span-2">
-                <span className="block text-[10px] font-bold uppercase tracking-wider text-[var(--text-muted)]">Aprašymas</span>
+                <span className="block text-[11px] font-bold uppercase tracking-wider text-[var(--text-muted)]">Aprašymas</span>
                 <textarea
                   value={draftEra.description || ''}
                   onChange={ev => setDraftEra(d => ({ ...d, description: ev.target.value }))}
@@ -358,11 +358,11 @@ export default function ErosAdminPage({ params }: { params: Promise<{ id: string
               <h2 className="text-lg font-extrabold text-[var(--text-primary)]">✨ Generuoti eras su Claude AI</h2>
               <button onClick={() => !aiLoading && setShowAIModal(false)} aria-label="Uždaryti" className="text-[18px] text-[var(--text-muted)]" disabled={aiLoading}>✕</button>
             </div>
-            <p className="mb-3 text-[12.5px] text-[var(--text-secondary)]">
+            <p className="mb-3 text-[13.5px] text-[var(--text-secondary)]">
               Claude AI iš savo žinių sukurs atlikėjo karjeros laikotarpius su LT pavadinimais ir aprašymais. Atlikėjo vardas paimtas iš DB — gali jį pakeisti, jei reikia.
             </p>
             <label className="block">
-              <span className="block text-[10px] font-bold uppercase tracking-wider text-[var(--text-muted)]">Atlikėjo vardas</span>
+              <span className="block text-[11px] font-bold uppercase tracking-wider text-[var(--text-muted)]">Atlikėjo vardas</span>
               <input
                 type="text"
                 value={aiWikiUrl}
@@ -373,7 +373,7 @@ export default function ErosAdminPage({ params }: { params: Promise<{ id: string
               />
             </label>
             {aiError && (
-              <div className="mt-3 max-h-[200px] overflow-auto rounded border border-red-500/30 bg-red-500/5 p-2 text-[11px] text-red-500">
+              <div className="mt-3 max-h-[200px] overflow-auto rounded border border-red-500/30 bg-red-500/5 p-2 text-[12px] text-red-500">
                 <pre className="whitespace-pre-wrap break-words font-mono">{aiError}</pre>
               </div>
             )}
@@ -382,16 +382,16 @@ export default function ErosAdminPage({ params }: { params: Promise<{ id: string
                 <div className="mb-2 font-bold text-[var(--text-primary)]">AI rezultatai ({aiPreview.length} eras):</div>
                 <div className="max-h-[300px] space-y-2 overflow-y-auto rounded border border-[var(--border-subtle)] p-2">
                   {aiPreview.map((e, i) => (
-                    <div key={i} className="rounded bg-[var(--bg-elevated)] p-2 text-[12px]">
+                    <div key={i} className="rounded bg-[var(--bg-elevated)] p-2 text-[13px]">
                       <div className="flex items-baseline gap-2">
                         <strong>{e.title}</strong>
-                        <span className="text-[11px] text-[var(--text-muted)]">{e.year_start}{e.year_end ? `–${e.year_end}` : '–dabar'}</span>
+                        <span className="text-[12px] text-[var(--text-muted)]">{e.year_start}{e.year_end ? `–${e.year_end}` : '–dabar'}</span>
                       </div>
                       {e.description && <div className="mt-1 text-[var(--text-secondary)]">{e.description}</div>}
                     </div>
                   ))}
                 </div>
-                <p className="mt-2 text-[11px] italic text-[var(--text-faint)]">
+                <p className="mt-2 text-[12px] italic text-[var(--text-faint)]">
                   ⚠ Pritaikius šituos rezultatus, esami eras bus pakeisti naujais (bet dar reikės paspausti „Išsaugoti" lentos lygyje).
                 </p>
               </div>
@@ -439,32 +439,32 @@ export default function ErosAdminPage({ params }: { params: Promise<{ id: string
               className="rounded-lg border border-[var(--border-default)] bg-[var(--bg-surface)] p-4"
             >
               <div className="mb-2 flex items-center gap-2">
-                <span className="rounded-full bg-[var(--bg-elevated)] px-2 py-0.5 text-[10px] font-bold text-[var(--text-muted)]">
+                <span className="rounded-full bg-[var(--bg-elevated)] px-2 py-0.5 text-[11px] font-bold text-[var(--text-muted)]">
                   #{i + 1}
                 </span>
                 <div className="ml-auto flex gap-1">
                   <button
                     onClick={() => move(i, -1)}
                     disabled={i === 0}
-                    className="rounded px-2 py-1 text-[12px] text-[var(--text-muted)] hover:bg-[var(--bg-hover)] disabled:opacity-30"
+                    className="rounded px-2 py-1 text-[13px] text-[var(--text-muted)] hover:bg-[var(--bg-hover)] disabled:opacity-30"
                     aria-label="Į viršų"
                   >↑</button>
                   <button
                     onClick={() => move(i, 1)}
                     disabled={i === eras.length - 1}
-                    className="rounded px-2 py-1 text-[12px] text-[var(--text-muted)] hover:bg-[var(--bg-hover)] disabled:opacity-30"
+                    className="rounded px-2 py-1 text-[13px] text-[var(--text-muted)] hover:bg-[var(--bg-hover)] disabled:opacity-30"
                     aria-label="Į apačią"
                   >↓</button>
                   <button
                     onClick={() => removeEra(i)}
-                    className="rounded px-2 py-1 text-[12px] text-red-500 hover:bg-red-50"
+                    className="rounded px-2 py-1 text-[13px] text-red-500 hover:bg-red-50"
                     aria-label="Trinti"
                   >✕</button>
                 </div>
               </div>
               <div className="grid grid-cols-1 gap-3 sm:grid-cols-12">
                 <label className="sm:col-span-6">
-                  <span className="block text-[10px] font-bold uppercase tracking-wider text-[var(--text-muted)]">Pavadinimas</span>
+                  <span className="block text-[11px] font-bold uppercase tracking-wider text-[var(--text-muted)]">Pavadinimas</span>
                   <input
                     type="text"
                     value={e.title}
@@ -474,7 +474,7 @@ export default function ErosAdminPage({ params }: { params: Promise<{ id: string
                   />
                 </label>
                 <label className="sm:col-span-6">
-                  <span className="block text-[10px] font-bold uppercase tracking-wider text-[var(--text-muted)]">Paantraštė (opt)</span>
+                  <span className="block text-[11px] font-bold uppercase tracking-wider text-[var(--text-muted)]">Paantraštė (opt)</span>
                   <input
                     type="text"
                     value={e.subtitle || ''}
@@ -484,7 +484,7 @@ export default function ErosAdminPage({ params }: { params: Promise<{ id: string
                   />
                 </label>
                 <label className="sm:col-span-3">
-                  <span className="block text-[10px] font-bold uppercase tracking-wider text-[var(--text-muted)]">Metai nuo</span>
+                  <span className="block text-[11px] font-bold uppercase tracking-wider text-[var(--text-muted)]">Metai nuo</span>
                   <input
                     type="number"
                     value={e.year_start}
@@ -493,7 +493,7 @@ export default function ErosAdminPage({ params }: { params: Promise<{ id: string
                   />
                 </label>
                 <label className="sm:col-span-3">
-                  <span className="block text-[10px] font-bold uppercase tracking-wider text-[var(--text-muted)]">Metai iki (tuščia = „dabar")</span>
+                  <span className="block text-[11px] font-bold uppercase tracking-wider text-[var(--text-muted)]">Metai iki (tuščia = „dabar")</span>
                   <input
                     type="number"
                     value={e.year_end ?? ''}
@@ -503,7 +503,7 @@ export default function ErosAdminPage({ params }: { params: Promise<{ id: string
                   />
                 </label>
                 <label className="sm:col-span-6">
-                  <span className="block text-[10px] font-bold uppercase tracking-wider text-[var(--text-muted)]">Šaltinis</span>
+                  <span className="block text-[11px] font-bold uppercase tracking-wider text-[var(--text-muted)]">Šaltinis</span>
                   <input
                     type="text"
                     value={e.source || 'manual'}
@@ -512,7 +512,7 @@ export default function ErosAdminPage({ params }: { params: Promise<{ id: string
                   />
                 </label>
                 <label className="sm:col-span-12">
-                  <span className="block text-[10px] font-bold uppercase tracking-wider text-[var(--text-muted)]">Aprašymas (1-2 sakiniai)</span>
+                  <span className="block text-[11px] font-bold uppercase tracking-wider text-[var(--text-muted)]">Aprašymas (1-2 sakiniai)</span>
                   <textarea
                     value={e.description || ''}
                     onChange={ev => update(i, { description: ev.target.value || null })}
@@ -526,10 +526,10 @@ export default function ErosAdminPage({ params }: { params: Promise<{ id: string
               {(() => {
                 const inEra = albums.filter(a => a.year && a.year >= e.year_start && (e.year_end === null || a.year <= e.year_end))
                 if (inEra.length === 0) return (
-                  <div className="mt-2 text-[11px] italic text-[var(--text-faint)]">Šioj erai albumų nėra (year_start={e.year_start} / year_end={e.year_end ?? '∞'})</div>
+                  <div className="mt-2 text-[12px] italic text-[var(--text-faint)]">Šioj erai albumų nėra (year_start={e.year_start} / year_end={e.year_end ?? '∞'})</div>
                 )
                 return (
-                  <div className="mt-2 text-[11px] text-[var(--text-muted)]">
+                  <div className="mt-2 text-[12px] text-[var(--text-muted)]">
                     <strong>{inEra.length} albumai:</strong> {inEra.slice(0, 6).map(a => `${a.title} (${a.year})`).join(', ')}{inEra.length > 6 ? ` … +${inEra.length - 6}` : ''}
                   </div>
                 )

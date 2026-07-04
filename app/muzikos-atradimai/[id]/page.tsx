@@ -49,7 +49,7 @@ export default async function DiscoveryDetailPage({ params }: Props) {
 
   return (
     <div className="page-shell" style={{ maxWidth: 760 }}>
-      <Link href="/muzikos-atradimai" style={{ display: 'inline-flex', alignItems: 'center', gap: 6, color: 'var(--text-muted)', textDecoration: 'none', fontSize: 13, fontWeight: 600, marginBottom: 16 }}>
+      <Link href="/muzikos-atradimai" style={{ display: 'inline-flex', alignItems: 'center', gap: 6, color: 'var(--text-muted)', textDecoration: 'none', fontSize: 14, fontWeight: 600, marginBottom: 16 }}>
         <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="m15 18-6-6 6-6"/></svg>
         Visi atradimai
       </Link>
@@ -59,7 +59,7 @@ export default async function DiscoveryDetailPage({ params }: Props) {
           <Avatar src={d.author?.avatar_url} name={uname} />
           <div style={{ display: 'flex', flexDirection: 'column', lineHeight: 1.3 }}>
             {uname ? <Link href={`/@${uname}`} style={{ fontSize: 15, fontWeight: 700, color: 'var(--text-primary)', textDecoration: 'none' }}>{uname}</Link> : <span style={{ fontSize: 15, fontWeight: 700 }}>Narys</span>}
-            {when && <span style={{ color: 'var(--text-muted)', fontSize: 12.5 }}>{when}</span>}
+            {when && <span style={{ color: 'var(--text-muted)', fontSize: 13.5 }}>{when}</span>}
           </div>
         </div>
 
@@ -74,7 +74,7 @@ export default async function DiscoveryDetailPage({ params }: Props) {
         <DetailMedia d={d} />
 
         {d.track_slug && (
-          <Link href={`/dainos/${d.track_slug}`} style={{ display: 'inline-flex', alignItems: 'center', gap: 6, fontSize: 12.5, fontWeight: 700, color: 'var(--accent-orange)', textDecoration: 'none', marginBottom: 8 }}>
+          <Link href={`/dainos/${d.track_slug}`} style={{ display: 'inline-flex', alignItems: 'center', gap: 6, fontSize: 13.5, fontWeight: 700, color: 'var(--accent-orange)', textDecoration: 'none', marginBottom: 8 }}>
             ♪ Klausyti music.lt grotuve →
           </Link>
         )}
@@ -83,7 +83,7 @@ export default async function DiscoveryDetailPage({ params }: Props) {
 
         {d.tags.length > 0 && (
           <div style={{ display: 'flex', gap: 7, flexWrap: 'wrap', marginBottom: 14 }}>
-            {d.tags.map(t => <span key={t} style={{ background: 'var(--bg-hover)', color: 'var(--text-muted)', fontSize: 11.5, padding: '3px 10px', borderRadius: 14 }}>{t}</span>)}
+            {d.tags.map(t => <span key={t} style={{ background: 'var(--bg-hover)', color: 'var(--text-muted)', fontSize: 12.5, padding: '3px 10px', borderRadius: 14 }}>{t}</span>)}
           </div>
         )}
 
@@ -95,7 +95,7 @@ export default async function DiscoveryDetailPage({ params }: Props) {
           Atsakymai{replies.length > 0 ? ` (${replies.length})` : ''}
         </h2>
         {replies.length === 0 ? (
-          <p style={{ color: 'var(--text-muted)', fontSize: 13.5 }}>Atsakymų dar nėra.</p>
+          <p style={{ color: 'var(--text-muted)', fontSize: 14.5 }}>Atsakymų dar nėra.</p>
         ) : (
           <div style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
             {replies.map(r => {
@@ -106,10 +106,10 @@ export default async function DiscoveryDetailPage({ params }: Props) {
                   <Avatar src={r.author?.avatar_url} name={rn} size={30} />
                   <div style={{ minWidth: 0, flex: 1 }}>
                     <div style={{ display: 'flex', alignItems: 'baseline', gap: 8 }}>
-                      {rn ? <Link href={`/@${rn}`} style={{ fontSize: 13, fontWeight: 700, color: 'var(--text-primary)', textDecoration: 'none' }}>{rn}</Link> : <span style={{ fontSize: 13, fontWeight: 700 }}>Narys</span>}
-                      {rw && <span style={{ color: 'var(--text-faint)', fontSize: 11.5 }}>{rw}</span>}
+                      {rn ? <Link href={`/@${rn}`} style={{ fontSize: 14, fontWeight: 700, color: 'var(--text-primary)', textDecoration: 'none' }}>{rn}</Link> : <span style={{ fontSize: 14, fontWeight: 700 }}>Narys</span>}
+                      {rw && <span style={{ color: 'var(--text-faint)', fontSize: 12.5 }}>{rw}</span>}
                     </div>
-                    {r.body && <p style={{ fontSize: 13.5, lineHeight: 1.55, color: 'var(--text-secondary)', margin: '4px 0 0', whiteSpace: 'pre-wrap' }}>{r.body}</p>}
+                    {r.body && <p style={{ fontSize: 14.5, lineHeight: 1.55, color: 'var(--text-secondary)', margin: '4px 0 0', whiteSpace: 'pre-wrap' }}>{r.body}</p>}
                   </div>
                 </div>
               )

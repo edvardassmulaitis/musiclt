@@ -212,7 +212,7 @@ export default function LikesModal({
                     display: 'inline-flex', alignItems: 'center', gap: 8,
                     padding: '8px 14px', borderRadius: 100,
                     background: 'var(--accent-orange)', color: '#fff',
-                    fontFamily: 'Outfit,sans-serif', fontSize: 12, fontWeight: 800,
+                    fontFamily: 'Outfit,sans-serif', fontSize: 13, fontWeight: 800,
                     textDecoration: 'none', flexShrink: 0,
                     boxShadow: '0 4px 14px rgba(249,115,22,0.3)',
                   }}
@@ -259,7 +259,7 @@ export default function LikesModal({
         >
           {sortedUsers.length === 0 ? (
             loading ? <EqualizerLoader /> : (
-              <div style={{ textAlign: 'center', padding: '40px 20px', color: 'var(--text-muted)', fontSize: 13 }}>
+              <div style={{ textAlign: 'center', padding: '40px 20px', color: 'var(--text-muted)', fontSize: 14 }}>
                 {count > 0
                   ? `Patiko ${count.toLocaleString('lt-LT')} ${count === 1 ? 'nariui' : 'nariams'} — pamėgusiųjų sąrašas dar perkeliamas.`
                   : 'Dar niekas nepaspaudė.'}
@@ -291,7 +291,7 @@ export default function LikesModal({
                     <UserAvatar user={u} size={36} />
                     <div style={{ minWidth: 0, flex: 1 }}>
                       <div style={{
-                        fontSize: 13, fontWeight: 700, color: 'var(--text-primary)',
+                        fontSize: 14, fontWeight: 700, color: 'var(--text-primary)',
                         overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap',
                         fontFamily: 'Outfit,sans-serif',
                       }}>{u.user_username}</div>
@@ -301,7 +301,7 @@ export default function LikesModal({
                 ))}
               </div>
               {shown < sortedUsers.length && (
-                <div style={{ padding: '14px 0 2px', textAlign: 'center', color: 'var(--text-muted)', fontSize: 11 }}>
+                <div style={{ padding: '14px 0 2px', textAlign: 'center', color: 'var(--text-muted)', fontSize: 12 }}>
                   Rodoma {shown.toLocaleString('lt-LT')} iš {sortedUsers.length.toLocaleString('lt-LT')} · scrollink žemyn
                 </div>
               )}
@@ -416,7 +416,7 @@ function EqualizerLoader() {
           />
         ))}
       </div>
-      <div style={{ fontSize: 11, color: 'var(--text-faint)' }}>Kraunama…</div>
+      <div style={{ fontSize: 12, color: 'var(--text-faint)' }}>Kraunama…</div>
       <style jsx>{`
         @keyframes eqBar {
           0%   { transform: scaleY(0.18); }

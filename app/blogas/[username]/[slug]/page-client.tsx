@@ -495,7 +495,7 @@ export default function BlogPostPageClient(props: Props) {
                   )}
                   <span style={{ display: 'flex', flexDirection: 'column', gap: 2 }}>
                     <span style={{ fontWeight: 800 }}>📸 Nuotraukos iš renginio</span>
-                    <span style={{ fontSize: 13, color: 'var(--text-muted)' }}>
+                    <span style={{ fontSize: 14, color: 'var(--text-muted)' }}>
                       Foto galerija{gallery.photoCount ? ` · ${gallery.photoCount} nuotr.` : ''}
                     </span>
                   </span>
@@ -615,12 +615,12 @@ function PlayerCard({ tracks, levelOf, active, setActive, playing, setPlaying }:
                     isActive ? 'bg-[rgba(249,115,22,0.08)]' : 'hover:bg-[var(--bg-hover)]',
                   ].join(' ')}
                 >
-                  <span className={['w-5 shrink-0 text-center font-["Outfit",sans-serif] text-[12px] font-bold tabular-nums', isActive ? 'text-[var(--accent-orange)]' : 'text-[var(--text-faint)]'].join(' ')} aria-hidden>
+                  <span className={['w-5 shrink-0 text-center font-["Outfit",sans-serif] text-[13px] font-bold tabular-nums', isActive ? 'text-[var(--accent-orange)]' : 'text-[var(--text-faint)]'].join(' ')} aria-hidden>
                     {i + 1}
                   </span>
 
                   <div className="flex min-w-0 flex-1 flex-col items-start">
-                    <div className={['flex w-full items-center gap-1.5 font-["Outfit",sans-serif] text-[13px] font-bold leading-tight', isActive ? 'text-[var(--accent-orange)]' : 'text-[var(--text-primary)]'].join(' ')}>
+                    <div className={['flex w-full items-center gap-1.5 font-["Outfit",sans-serif] text-[14px] font-bold leading-tight', isActive ? 'text-[var(--accent-orange)]' : 'text-[var(--text-primary)]'].join(' ')}>
                       {href ? (
                         <a href={href} onClick={(e) => e.preventDefault()} className="truncate text-inherit no-underline hover:underline">{t.title}</a>
                       ) : (
@@ -634,7 +634,7 @@ function PlayerCard({ tracks, levelOf, active, setActive, playing, setPlaying }:
                         ))}
                       </span>
                     )}
-                    {t.artist_name && <span className="mt-0.5 truncate text-[10.5px] text-[var(--text-muted)]">{t.artist_name}</span>}
+                    {t.artist_name && <span className="mt-0.5 truncate text-[11.5px] text-[var(--text-muted)]">{t.artist_name}</span>}
                   </div>
 
                   {href && (
@@ -706,8 +706,8 @@ function MobileStickyPlayer({ tracks, active, setActive, playing, setPlaying, on
           : <span className="flex h-[42px] w-[42px] shrink-0 items-center justify-center rounded-[9px] bg-[var(--bg-hover)] text-[20px] text-[var(--text-muted)]">♪</span>
         }
         <div className="min-w-0 flex-1">
-          <p className="truncate font-['Outfit',sans-serif] text-[13px] font-extrabold text-[var(--text-primary)]">{cur?.title || 'Takelis'}</p>
-          {cur?.artist_name && <p className="truncate text-[11px] text-[var(--text-muted)]">{cur.artist_name}</p>}
+          <p className="truncate font-['Outfit',sans-serif] text-[14px] font-extrabold text-[var(--text-primary)]">{cur?.title || 'Takelis'}</p>
+          {cur?.artist_name && <p className="truncate text-[12px] text-[var(--text-muted)]">{cur.artist_name}</p>}
         </div>
 
         <button type="button" onClick={() => setPlaying(!playing)} aria-label={playing ? 'Pristabdyti' : 'Leisti'}
@@ -869,13 +869,13 @@ function EnrichedProse({ html }: { html: string }) {
               : <div style={{ width: 56, height: 56, borderRadius: 9, background: 'var(--card-bg)', flexShrink: 0 }} />}
             <div style={{ minWidth: 0, flex: 1 }}>
               <div style={{ fontFamily: "'Outfit',sans-serif", fontWeight: 800, fontSize: 14, color: 'var(--text-primary)', lineHeight: 1.2, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{hover.data.title}</div>
-              {hover.data.subtitle && <div style={{ fontSize: 11.5, color: 'var(--text-muted)', marginTop: 2 }}>{hover.data.subtitle}</div>}
+              {hover.data.subtitle && <div style={{ fontSize: 12.5, color: 'var(--text-muted)', marginTop: 2 }}>{hover.data.subtitle}</div>}
               {hover.data.genres.length > 0 && (
                 <div style={{ display: 'flex', flexWrap: 'wrap', gap: 4, marginTop: 6 }}>
-                  {hover.data.genres.slice(0, 3).map((g, i) => <span key={i} style={{ fontSize: 9.5, color: 'var(--text-secondary)', background: 'var(--card-bg)', borderRadius: 100, padding: '1px 7px' }}>{g}</span>)}
+                  {hover.data.genres.slice(0, 3).map((g, i) => <span key={i} style={{ fontSize: 10.5, color: 'var(--text-secondary)', background: 'var(--card-bg)', borderRadius: 100, padding: '1px 7px' }}>{g}</span>)}
                 </div>
               )}
-              <div style={{ fontSize: 11, color: 'var(--accent-orange)', marginTop: 6, fontWeight: 600 }}>♥ {hover.data.metric.toLocaleString('lt-LT')} {hover.data.metric_label}</div>
+              <div style={{ fontSize: 12, color: 'var(--accent-orange)', marginTop: 6, fontWeight: 600 }}>♥ {hover.data.metric.toLocaleString('lt-LT')} {hover.data.metric_label}</div>
             </div>
           </div>
         </div>
@@ -955,7 +955,7 @@ function TopasList({ items }: { items: any[] }) {
 function ReviewTrackList({ items }: { items: any[] }) {
   return (
     <div style={{ marginTop: 28, display: 'flex', flexDirection: 'column', gap: 8 }}>
-      <p style={{ fontFamily: "'Outfit', sans-serif", fontWeight: 800, fontSize: 13, textTransform: 'uppercase', letterSpacing: '.06em', color: 'var(--text-faint, #5e7290)', marginBottom: 4 }}>
+      <p style={{ fontFamily: "'Outfit', sans-serif", fontWeight: 800, fontSize: 14, textTransform: 'uppercase', letterSpacing: '.06em', color: 'var(--text-faint, #5e7290)', marginBottom: 4 }}>
         Įvertintos dainos
       </p>
       {items.map((item, idx) => {
@@ -971,7 +971,7 @@ function ReviewTrackList({ items }: { items: any[] }) {
               : <span style={{ width: 40, height: 40, borderRadius: 8, background: 'var(--card-bg)', flexShrink: 0 }} />}
             <div style={{ flex: 1, minWidth: 0 }}>
               <p style={{ fontFamily: "'Outfit', sans-serif", fontWeight: 700, fontSize: 15, color: 'var(--text-primary)', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{item.title}</p>
-              {item.comment && <p style={{ fontSize: 13, color: 'var(--text-secondary)', marginTop: 2 }}>{item.comment}</p>}
+              {item.comment && <p style={{ fontSize: 14, color: 'var(--text-secondary)', marginTop: 2 }}>{item.comment}</p>}
             </div>
             {item.rating !== null && item.rating !== undefined && (
               <span style={{ flexShrink: 0, background: 'rgba(249,115,22,0.15)', color: 'var(--accent-orange)', borderRadius: 8, padding: '3px 9px', fontWeight: 800, fontSize: 14, fontFamily: "'Outfit', sans-serif" }}>{item.rating}</span>
@@ -1011,10 +1011,10 @@ function TargetEntityCard({ target, postType }: { target: any; postType: BlogPos
         : <div style={{ width: 56, height: 56, borderRadius: 10, background: 'var(--card-bg)', flexShrink: 0 }} />
       }
       <div style={{ flex: 1, minWidth: 0 }}>
-        <p style={{ fontFamily: "'Outfit',sans-serif", fontSize: 10, fontWeight: 900, letterSpacing: '.14em', textTransform: 'uppercase', color: 'var(--accent-orange)', margin: 0 }}>{entity.kind}</p>
+        <p style={{ fontFamily: "'Outfit',sans-serif", fontSize: 11, fontWeight: 900, letterSpacing: '.14em', textTransform: 'uppercase', color: 'var(--accent-orange)', margin: 0 }}>{entity.kind}</p>
         <p style={{ fontFamily: "'Outfit',sans-serif", fontSize: 15, fontWeight: 800, color: 'var(--text-primary)', margin: '2px 0 0', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{entity.name}</p>
         {entity.subname && (
-          <p style={{ fontSize: 12, color: 'var(--text-muted)', margin: '2px 0 0', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{entity.subname}</p>
+          <p style={{ fontSize: 13, color: 'var(--text-muted)', margin: '2px 0 0', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{entity.subname}</p>
         )}
       </div>
       <span style={{ color: 'var(--text-muted)', fontSize: 18, flexShrink: 0 }}>→</span>

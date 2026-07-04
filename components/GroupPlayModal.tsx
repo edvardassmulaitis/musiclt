@@ -51,9 +51,9 @@ export function GroupPlayModal({ artistId, artistName, onClose }: { artistId: nu
   return (
     <HomeListModal open onClose={onClose} title={artistName} subtitle="Grupės dainos">
       {tracks === null ? (
-        <div className="py-10 text-center text-[12px] text-[var(--text-muted)]">Kraunama…</div>
+        <div className="py-10 text-center text-[13px] text-[var(--text-muted)]">Kraunama…</div>
       ) : tracks.length === 0 ? (
-        <div className="py-10 text-center text-[13px] text-[var(--text-muted)]">Šios grupės dainų su vaizdo įrašu kol kas nėra.</div>
+        <div className="py-10 text-center text-[14px] text-[var(--text-muted)]">Šios grupės dainų su vaizdo įrašu kol kas nėra.</div>
       ) : (
         <div className="grid gap-4 sm:grid-cols-[1.3fr_1fr]">
           {/* Kairė: grotuvas (mažesnis) + dabar grojama */}
@@ -62,7 +62,7 @@ export function GroupPlayModal({ artistId, artistName, onClose }: { artistId: nu
               <ChartYtPlayer videoId={curVid} playing={playing} posterUrl={poster} title={current?.title} onActivate={() => setPlaying(true)} />
             </div>
             {current && (
-              <p className="m-0 mt-2.5 px-0.5 text-[13.5px] font-bold text-[var(--text-primary)]">
+              <p className="m-0 mt-2.5 px-0.5 text-[14.5px] font-bold text-[var(--text-primary)]">
                 {current.title}
                 {current.artists?.name && <span className="ml-1.5 font-medium text-[var(--text-muted)]">· {current.artists.name}</span>}
               </p>
@@ -75,12 +75,12 @@ export function GroupPlayModal({ artistId, artistName, onClose }: { artistId: nu
               return (
                 <button key={t.id} type="button" onClick={() => { setCur(i); setPlaying(true) }}
                   className={`flex cursor-pointer items-center gap-2.5 rounded-lg border-0 px-2 py-1.5 text-left transition-colors ${active ? 'bg-[rgba(249,115,22,0.12)]' : 'bg-transparent hover:bg-[var(--card-hover)]'}`}>
-                  <span className={`w-5 shrink-0 text-center font-['Outfit',sans-serif] text-[12px] font-black ${active ? 'text-[var(--accent-orange)]' : 'text-[var(--text-faint)]'}`}>{i + 1}</span>
+                  <span className={`w-5 shrink-0 text-center font-['Outfit',sans-serif] text-[13px] font-black ${active ? 'text-[var(--accent-orange)]' : 'text-[var(--text-faint)]'}`}>{i + 1}</span>
                   {t.cover_url ? (
                     // eslint-disable-next-line @next/next/no-img-element
                     <img src={proxyImg(t.cover_url)} alt="" loading="lazy" className="h-9 w-9 shrink-0 rounded-md object-cover" />
                   ) : <div className="h-9 w-9 shrink-0 rounded-md bg-[var(--cover-placeholder)]" />}
-                  <span className="min-w-0 flex-1 truncate text-[12.5px] font-semibold text-[var(--text-primary)]">{t.title}</span>
+                  <span className="min-w-0 flex-1 truncate text-[13.5px] font-semibold text-[var(--text-primary)]">{t.title}</span>
                   <svg width="15" height="15" viewBox="0 0 24 24" fill="currentColor" className={`shrink-0 ${active ? 'text-[var(--accent-orange)]' : 'text-[var(--text-faint)]'}`}><polygon points="6 4 20 12 6 20 6 4" /></svg>
                 </button>
               )

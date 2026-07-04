@@ -144,13 +144,13 @@ export default async function UserMigrationDetailPage({ params }: Props) {
             {s.legacy_karma_points && <span>· karma <b style={{ color: 'var(--text-primary)' }}>{s.legacy_karma_points.toLocaleString('lt-LT')}</b></span>}
             {s.joined_legacy_at && <span>· narys nuo {s.joined_legacy_at}</span>}
             {s.is_claimed
-              ? <span className="px-1.5 py-0.5 rounded text-[10px] font-bold" style={{ background: 'rgba(34,197,94,0.15)', color: '#16a34a' }}>CLAIM&apos;intas</span>
-              : <span className="px-1.5 py-0.5 rounded text-[10px] font-bold" style={{ background: 'rgba(217,119,6,0.15)', color: '#d97706' }}>GHOST</span>
+              ? <span className="px-1.5 py-0.5 rounded text-[11px] font-bold" style={{ background: 'rgba(34,197,94,0.15)', color: '#16a34a' }}>CLAIM&apos;intas</span>
+              : <span className="px-1.5 py-0.5 rounded text-[11px] font-bold" style={{ background: 'rgba(217,119,6,0.15)', color: '#d97706' }}>GHOST</span>
             }
           </div>
         </div>
         <div className="text-right">
-          <div className="text-[11px] uppercase tracking-wider" style={{ color: 'var(--text-muted)' }}>Fazės pasiektos</div>
+          <div className="text-[12px] uppercase tracking-wider" style={{ color: 'var(--text-muted)' }}>Fazės pasiektos</div>
           <div className="text-3xl font-extrabold tabular-nums"
                style={{ color: s.phases_touched >= 5 ? '#16a34a' : s.phases_touched >= 2 ? '#d97706' : '#dc2626' }}>
             {s.phases_touched}<span style={{ color: 'var(--text-faint)', fontSize: 18 }}>/7</span>
@@ -163,7 +163,7 @@ export default async function UserMigrationDetailPage({ params }: Props) {
            style={{ background: 'var(--card-bg)', border: '1px solid var(--border-default)' }}>
         <div>
           <div className="text-xs font-semibold mb-0.5">Iš naujo paleisti visas fazes</div>
-          <code className="text-[11px]" style={{ color: 'var(--text-muted)' }}>{cliAll}</code>
+          <code className="text-[12px]" style={{ color: 'var(--text-muted)' }}>{cliAll}</code>
         </div>
         <CopyButton text={cliAll} label="Kopijuoti" />
       </div>
@@ -202,7 +202,7 @@ export default async function UserMigrationDetailPage({ params }: Props) {
         {(styles.data || []).length > 0 && (
           <div className="flex flex-wrap gap-1.5 mt-2">
             {(styles.data as StyleRow[]).slice(0, 14).map((st) => (
-              <span key={st.legacy_style_id} className="text-[11px] px-2 py-0.5 rounded-full"
+              <span key={st.legacy_style_id} className="text-[12px] px-2 py-0.5 rounded-full"
                     style={{ background: 'var(--bg-page)', border: '1px solid var(--border-subtle)', color: 'var(--text-muted)' }}>
                 {st.style_name}
               </span>
@@ -224,7 +224,7 @@ export default async function UserMigrationDetailPage({ params }: Props) {
         </div>
         <details className="mt-3">
           <summary className="text-xs cursor-pointer" style={{ color: 'var(--text-muted)' }}>Naujausi likes pavyzdžiai</summary>
-          <div className="grid grid-cols-3 gap-3 mt-2 text-[11px]">
+          <div className="grid grid-cols-3 gap-3 mt-2 text-[12px]">
             <LikesSample title="Atlikėjai" rows={(likesArtists.data || []) as LikeRow[]} />
             <LikesSample title="Albumai"   rows={(likesAlbums.data  || []) as LikeRow[]} />
             <LikesSample title="Dainos"    rows={(likesTracks.data  || []) as LikeRow[]} />
@@ -245,7 +245,7 @@ export default async function UserMigrationDetailPage({ params }: Props) {
           <Stat label="Topai" value={`${s.topas_count}`} />
         </div>
         {(blogPosts.data || []).length > 0 && (
-          <table className="w-full text-[11px]">
+          <table className="w-full text-[12px]">
             <thead>
               <tr style={{ color: 'var(--text-muted)' }}>
                 <th className="text-left py-1 px-2">Įrašas</th>
@@ -289,7 +289,7 @@ export default async function UserMigrationDetailPage({ params }: Props) {
           <Stat label="Laukia tracks importo" value={`${s.daily_picks_count - s.daily_picks_resolved}`} />
         </div>
         {(dailyPicks.data || []).length > 0 && (
-          <table className="w-full text-[11px]">
+          <table className="w-full text-[12px]">
             <thead>
               <tr style={{ color: 'var(--text-muted)' }}>
                 <th className="text-left py-1 px-2 w-24">Data</th>
@@ -332,7 +332,7 @@ export default async function UserMigrationDetailPage({ params }: Props) {
               if (!fr) return null
               return (
                 <Link key={i} href={`/@${fr.username}`}
-                      className="text-[11px] px-2 py-0.5 rounded-full"
+                      className="text-[12px] px-2 py-0.5 rounded-full"
                       style={{ background: 'var(--bg-page)', border: '1px solid var(--border-subtle)' }}>
                   {fr.username}
                 </Link>
@@ -349,7 +349,7 @@ export default async function UserMigrationDetailPage({ params }: Props) {
         cliCmd="# import_artist.py pipeline tvarko per canonical pipeline (forum_lib.py)"
       >
         <Stat label="Iš viso komentarų" value={`${s.comments_count}`} />
-        <div className="text-[11px] mt-2" style={{ color: 'var(--text-muted)' }}>
+        <div className="text-[12px] mt-2" style={{ color: 'var(--text-muted)' }}>
           Komentarai importuojami per kanoninį forum pipeline'ą (forum_lib.py), ne per ugc_user_scrape.py.
         </div>
       </PhaseCard>
@@ -373,7 +373,7 @@ function PhaseCard({ title, status, children, cliCmd }: {
           {title}
         </h2>
         <div className="flex items-center gap-2">
-          <code className="text-[10px] px-2 py-1 rounded"
+          <code className="text-[11px] px-2 py-1 rounded"
                 style={{ background: 'var(--bg-page)', color: 'var(--text-muted)' }}>
             {cliCmd}
           </code>
@@ -389,7 +389,7 @@ function Stat({ label, value }: { label: string; value: string | number }) {
   return (
     <div className="p-2 rounded-lg"
          style={{ background: 'var(--bg-page)', border: '1px solid var(--border-subtle)' }}>
-      <div className="text-[10px] uppercase tracking-wider" style={{ color: 'var(--text-muted)' }}>{label}</div>
+      <div className="text-[11px] uppercase tracking-wider" style={{ color: 'var(--text-muted)' }}>{label}</div>
       <div className="text-sm font-bold tabular-nums">{value}</div>
     </div>
   )
@@ -403,19 +403,19 @@ function LikesBucket({ kind, resolved, pending, expected }: {
   const completePct = expectedNum > 0 ? Math.round((total / expectedNum) * 100) : 100
   return (
     <div className="p-2 rounded-lg" style={{ background: 'var(--bg-page)', border: '1px solid var(--border-subtle)' }}>
-      <div className="text-[10px] uppercase tracking-wider" style={{ color: 'var(--text-muted)' }}>{kind}</div>
+      <div className="text-[11px] uppercase tracking-wider" style={{ color: 'var(--text-muted)' }}>{kind}</div>
       <div className="text-sm font-bold tabular-nums">
         <span style={{ color: 'var(--text-primary)' }}>{resolved.toLocaleString('lt-LT')}</span>
-        <span className="text-[10px] mx-1" style={{ color: 'var(--text-faint)' }}>resolved</span>
+        <span className="text-[11px] mx-1" style={{ color: 'var(--text-faint)' }}>resolved</span>
         {pending > 0 && (
           <>
             <span style={{ color: 'var(--text-muted)' }}>· {pending.toLocaleString('lt-LT')}</span>
-            <span className="text-[10px] mx-1" style={{ color: 'var(--text-faint)' }}>pending</span>
+            <span className="text-[11px] mx-1" style={{ color: 'var(--text-faint)' }}>pending</span>
           </>
         )}
       </div>
       {expectedNum > 0 && (
-        <div className="text-[10px] mt-0.5" style={{ color: completePct >= 90 ? '#16a34a' : completePct >= 50 ? '#d97706' : '#dc2626' }}>
+        <div className="text-[11px] mt-0.5" style={{ color: completePct >= 90 ? '#16a34a' : completePct >= 50 ? '#d97706' : '#dc2626' }}>
           {completePct}% (laukta {expectedNum.toLocaleString('lt-LT')})
         </div>
       )}
@@ -426,7 +426,7 @@ function LikesBucket({ kind, resolved, pending, expected }: {
 function LikesSample({ title, rows }: { title: string; rows: LikeRow[] }) {
   return (
     <div>
-      <div className="text-[10px] uppercase tracking-wider mb-1" style={{ color: 'var(--text-muted)' }}>{title}</div>
+      <div className="text-[11px] uppercase tracking-wider mb-1" style={{ color: 'var(--text-muted)' }}>{title}</div>
       <ul className="space-y-0.5">
         {rows.length === 0 && <li style={{ color: 'var(--text-faint)' }}>—</li>}
         {rows.map((l) => (

@@ -61,7 +61,7 @@ export function DetailLike({ commentId, count }: { commentId: number | null; cou
   return (
     <button onClick={toggle} title={hint ? 'Reikia prisijungti' : 'Patinka'}
       style={{ display: 'inline-flex', alignItems: 'center', gap: 6, padding: '7px 14px', borderRadius: 100, cursor: 'pointer',
-        fontFamily: "'Outfit',sans-serif", fontWeight: 700, fontSize: 13, background: liked ? 'rgba(249,115,22,0.14)' : 'var(--bg-hover)',
+        fontFamily: "'Outfit',sans-serif", fontWeight: 700, fontSize: 14, background: liked ? 'rgba(249,115,22,0.14)' : 'var(--bg-hover)',
         border: '1px solid ' + (liked ? 'rgba(249,115,22,0.4)' : 'var(--border-default)'), color: liked ? 'var(--accent-orange)' : 'var(--text-secondary)' }}>
       <svg width="16" height="16" viewBox="0 0 24 24" fill={liked ? 'currentColor' : 'none'} stroke="currentColor" strokeWidth="2"><path d="M20.8 4.6a5.5 5.5 0 0 0-7.8 0L12 5.7l-1-1.1a5.5 5.5 0 0 0-7.8 7.8l1.1 1L12 21l7.7-7.6 1.1-1a5.5 5.5 0 0 0 0-7.8z"/></svg>
       Patinka{n > 0 ? ` · ${n}` : ''}

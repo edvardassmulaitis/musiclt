@@ -362,7 +362,7 @@ function MuzikaPanel({ data, accent }: { data: NavPreview | null; accent: string
   // Juostos antraštė — „liepsna" ikona (= trending, be žodžio) + pavadinimas + Daugiau.
   const head = (label: string, href: string, hot = false) => (
     <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 8, marginBottom: 7 }}>
-      <span style={{ display: 'flex', alignItems: 'center', gap: 6, fontFamily: "'Outfit', sans-serif", fontSize: 13, fontWeight: 800, color: 'var(--text-primary)' }}>
+      <span style={{ display: 'flex', alignItems: 'center', gap: 6, fontFamily: "'Outfit', sans-serif", fontSize: 14, fontWeight: 800, color: 'var(--text-primary)' }}>
         {hot ? <span className="sh-hot-ic" aria-hidden>{I.flame}</span> : null}
         {label}
       </span>
@@ -514,7 +514,7 @@ function quickSlug(s: string): string {
 }
 
 const SEC_HEAD: React.CSSProperties = {
-  fontFamily: "'Outfit', sans-serif", fontSize: 11, fontWeight: 800,
+  fontFamily: "'Outfit', sans-serif", fontSize: 12, fontWeight: 800,
   textTransform: 'uppercase', letterSpacing: '0.1em', color: 'var(--text-muted)',
 }
 
@@ -527,11 +527,11 @@ function TopMiniRow({ entry, fallbackHref, hex }: { entry: TopMini; fallbackHref
     >
       <span style={{ width: 18, textAlign: 'center', fontWeight: 900, fontSize: 14, color: entry.position === 1 ? hex : 'var(--text-muted)', flexShrink: 0, fontVariantNumeric: 'tabular-nums' }}>{entry.position}</span>
       <span style={{ width: 34, height: 34, borderRadius: 7, overflow: 'hidden', flexShrink: 0, background: 'var(--bg-elevated)', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-        {entry.image ? <img src={proxyImg(entry.image)} alt="" style={{ width: '100%', height: '100%', objectFit: 'cover' }} /> : <span style={{ fontSize: 12, opacity: 0.45 }}>♪</span>}
+        {entry.image ? <img src={proxyImg(entry.image)} alt="" style={{ width: '100%', height: '100%', objectFit: 'cover' }} /> : <span style={{ fontSize: 13, opacity: 0.45 }}>♪</span>}
       </span>
       <span style={{ minWidth: 0, flex: 1, display: 'flex', flexDirection: 'column' }}>
-        <span style={{ fontSize: 12.5, fontWeight: 700, color: 'var(--text-primary)', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{entry.title}</span>
-        <span style={{ fontSize: 11, color: 'var(--text-muted)', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{entry.artist}</span>
+        <span style={{ fontSize: 13.5, fontWeight: 700, color: 'var(--text-primary)', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{entry.title}</span>
+        <span style={{ fontSize: 12, color: 'var(--text-muted)', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{entry.artist}</span>
       </span>
     </Link>
   )
@@ -594,7 +594,7 @@ function TopaiPanel({ data, accent }: { data: NavPreview | null; accent: string 
   const itemStrip = (items: SongItem[], kind: 'lt' | 'world', label: string, more: string, glyph: React.ReactNode, emptyLabel: string) => (
     <div>
       <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 8, marginBottom: 7 }}>
-        <span style={{ fontFamily: "'Outfit', sans-serif", fontSize: 13, fontWeight: 800, color: 'var(--text-primary)' }}>{label}</span>
+        <span style={{ fontFamily: "'Outfit', sans-serif", fontSize: 14, fontWeight: 800, color: 'var(--text-primary)' }}>{label}</span>
         <Link href={more} className="sh-more-link">Daugiau →</Link>
       </div>
       <div className="sh-strip-wrap">
@@ -694,7 +694,7 @@ function TopaiPanel({ data, accent }: { data: NavPreview | null; accent: string 
         {sec === 'nariu' && (
           <div>
             <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 10 }}>
-              <span style={{ fontFamily: "'Outfit', sans-serif", fontSize: 13, fontWeight: 800, color: 'var(--text-primary)' }}>Narių sudaryti topai</span>
+              <span style={{ fontFamily: "'Outfit', sans-serif", fontSize: 14, fontWeight: 800, color: 'var(--text-primary)' }}>Narių sudaryti topai</span>
               <Link href="/topai/nariu" className="sh-more-link">Daugiau →</Link>
             </div>
             <div className="sh-strip-wrap">
@@ -723,14 +723,14 @@ function TopaiPanel({ data, accent }: { data: NavPreview | null; accent: string 
                     <span style={{ width: 28, height: 28, borderRadius: 7, overflow: 'hidden', flexShrink: 0, display: 'flex', alignItems: 'center', justifyContent: 'center', background: 'var(--bg-hover)', color: 'var(--text-secondary)' }}>
                       {v.image ? <img src={proxyImg(v.image)} alt="" style={{ width: '100%', height: '100%', objectFit: 'cover' }} /> : I.award}
                     </span>
-                    <span style={{ fontSize: 13, fontWeight: 700, color: 'var(--text-primary)', whiteSpace: 'nowrap' }}>{v.name}</span>
+                    <span style={{ fontSize: 14, fontWeight: 700, color: 'var(--text-primary)', whiteSpace: 'nowrap' }}>{v.name}</span>
                   </Link>
                 ))}
               </div>
             ) : (
               <Link href="/balsavimai" style={{ display: 'inline-flex', alignItems: 'center', gap: 8, padding: '8px 14px', borderRadius: 10, border: '1px solid var(--border-default)', textDecoration: 'none' }}>
                 <span style={{ color: 'var(--text-secondary)' }}>{I.award}</span>
-                <span style={{ fontSize: 13, fontWeight: 700, color: 'var(--text-primary)' }}>Balsavimai ir apdovanojimai</span>
+                <span style={{ fontSize: 14, fontWeight: 700, color: 'var(--text-primary)' }}>Balsavimai ir apdovanojimai</span>
               </Link>
             )}
           </div>
@@ -767,7 +767,7 @@ function RenginiaiPanel({ data, accent }: { data: NavPreview | null; accent: str
 
   const head = (label: string, href: string) => (
     <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 10 }}>
-      <span style={{ fontFamily: "'Outfit', sans-serif", fontSize: 13, fontWeight: 800, color: 'var(--text-primary)' }}>{label}</span>
+      <span style={{ fontFamily: "'Outfit', sans-serif", fontSize: 14, fontWeight: 800, color: 'var(--text-primary)' }}>{label}</span>
       <Link href={href} className="sh-more-link">Daugiau →</Link>
     </div>
   )
@@ -794,7 +794,7 @@ function RenginiaiPanel({ data, accent }: { data: NavPreview | null; accent: str
               : <ImageBox src={it?.image} accent={accent} glyph={glyph} className={`sh-vimg${contain ? ' sh-vimg--contain' : ''}`} />}
             {evFlag(it?.flag)}
           </span>
-          <span style={{ fontFamily: "'Outfit', sans-serif", fontSize: 12, fontWeight: 600, lineHeight: 1.3, color: 'var(--text-primary)', display: '-webkit-box', WebkitLineClamp: 2, WebkitBoxOrient: 'vertical', overflow: 'hidden' }}>{it?.title || <span style={{ opacity: 0.45 }}>{emptyLabel}</span>}</span>
+          <span style={{ fontFamily: "'Outfit', sans-serif", fontSize: 13, fontWeight: 600, lineHeight: 1.3, color: 'var(--text-primary)', display: '-webkit-box', WebkitLineClamp: 2, WebkitBoxOrient: 'vertical', overflow: 'hidden' }}>{it?.title || <span style={{ opacity: 0.45 }}>{emptyLabel}</span>}</span>
           {it?.meta ? <span className="sh-vmeta">{it.meta}</span> : null}
         </Link>
       ))}
@@ -888,7 +888,7 @@ function BendruomenePanel({ data, accent }: { data: NavPreview | null; accent: s
 
   const head = (label: string, href: string) => (
     <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 10 }}>
-      <span style={{ fontFamily: "'Outfit', sans-serif", fontSize: 13, fontWeight: 800, color: 'var(--text-primary)' }}>{label}</span>
+      <span style={{ fontFamily: "'Outfit', sans-serif", fontSize: 14, fontWeight: 800, color: 'var(--text-primary)' }}>{label}</span>
       <Link href={href} className="sh-more-link">Daugiau →</Link>
     </div>
   )
@@ -900,7 +900,7 @@ function BendruomenePanel({ data, accent }: { data: NavPreview | null; accent: s
         <Link key={it?.href || `c-${i}`} href={it?.href || more} className="sh-vcard" title={it?.title || ''}>
           <ImageBox src={it?.image} accent={accent} glyph={glyph} className="sh-vimg" />
           {it?.tag ? <span className="sh-tag">{it.tag}</span> : null}
-          <span style={{ fontFamily: "'Outfit', sans-serif", fontSize: 12, fontWeight: 600, lineHeight: 1.3, color: 'var(--text-primary)', display: '-webkit-box', WebkitLineClamp: 2, WebkitBoxOrient: 'vertical', overflow: 'hidden' }}>{it?.title || <span style={{ opacity: 0.45 }}>{emptyLabel}</span>}</span>
+          <span style={{ fontFamily: "'Outfit', sans-serif", fontSize: 13, fontWeight: 600, lineHeight: 1.3, color: 'var(--text-primary)', display: '-webkit-box', WebkitLineClamp: 2, WebkitBoxOrient: 'vertical', overflow: 'hidden' }}>{it?.title || <span style={{ opacity: 0.45 }}>{emptyLabel}</span>}</span>
           {it?.meta ? <span className="sh-vmeta">{it.meta}</span> : null}
         </Link>
       ))}
@@ -961,7 +961,7 @@ function BendruomenePanel({ data, accent }: { data: NavPreview | null; accent: s
 // greitos nuorodos. Vientisa su /muzika ir /naujienos puslapiu.
 const SECTION_HEAD: React.CSSProperties = {
   display: 'flex', alignItems: 'center', gap: 6, fontFamily: "'Outfit', sans-serif",
-  fontSize: 11, fontWeight: 800, textTransform: 'uppercase', letterSpacing: '0.1em',
+  fontSize: 12, fontWeight: 800, textTransform: 'uppercase', letterSpacing: '0.1em',
   color: 'var(--text-muted)', marginBottom: 8,
 }
 // Stilių trumpi NOMINATYVAI (vienas aiškus žodis) — Naujienų „Pagal stilių" gridui.
@@ -1001,7 +1001,7 @@ function NaujienosPanel({ data, accent }: { data: NavPreview | null; accent: str
 
   const head = (label: string, href: string) => (
     <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 10 }}>
-      <span style={{ fontFamily: "'Outfit', sans-serif", fontSize: 13, fontWeight: 800, color: 'var(--text-primary)' }}>{label}</span>
+      <span style={{ fontFamily: "'Outfit', sans-serif", fontSize: 14, fontWeight: 800, color: 'var(--text-primary)' }}>{label}</span>
       <Link href={href} className="sh-more-link">Daugiau →</Link>
     </div>
   )
@@ -1021,7 +1021,7 @@ function NaujienosPanel({ data, accent }: { data: NavPreview | null; accent: str
           <Link key={n?.id || `n-${i}`} href={n ? `/news/${n.slug}` : href} className="sh-vcard" title={n?.title || ''}>
             <ImageBox src={n?.image} accent={accent} glyph={I.news} className="sh-vimg" />
             {tag ? <span className="sh-tag">{tag}</span> : null}
-            <span style={{ fontFamily: "'Outfit', sans-serif", fontSize: 12, fontWeight: 600, lineHeight: 1.3, color: 'var(--text-primary)', display: '-webkit-box', WebkitLineClamp: 3, WebkitBoxOrient: 'vertical', overflow: 'hidden' }}>{n?.title || <span style={{ opacity: 0.45 }}>Naujiena</span>}</span>
+            <span style={{ fontFamily: "'Outfit', sans-serif", fontSize: 13, fontWeight: 600, lineHeight: 1.3, color: 'var(--text-primary)', display: '-webkit-box', WebkitLineClamp: 3, WebkitBoxOrient: 'vertical', overflow: 'hidden' }}>{n?.title || <span style={{ opacity: 0.45 }}>Naujiena</span>}</span>
           </Link>
         )
       })}
@@ -1083,7 +1083,7 @@ function SkelbimaiPanel({ data, accent }: { data: NavPreview | null; accent: str
     <div className="sh-panel">
       {/* ── Naujausi skelbimai — realūs itemai (juosta kaip Muzika/Topai) ── */}
       <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 10 }}>
-        <span style={{ display: 'flex', alignItems: 'center', gap: 6, fontFamily: "'Outfit', sans-serif", fontSize: 11, fontWeight: 800, textTransform: 'uppercase', letterSpacing: '0.1em', color: 'var(--text-muted)' }}>
+        <span style={{ display: 'flex', alignItems: 'center', gap: 6, fontFamily: "'Outfit', sans-serif", fontSize: 12, fontWeight: 800, textTransform: 'uppercase', letterSpacing: '0.1em', color: 'var(--text-muted)' }}>
           <span className="sh-trending-glyph">{I.market}</span>
           Naujausi skelbimai
         </span>
@@ -1110,13 +1110,13 @@ function SkelbimaiPanel({ data, accent }: { data: NavPreview | null; accent: str
           border: '1px dashed var(--border-default)', background: 'var(--bg-surface)', textDecoration: 'none',
         }}>
           <span style={{ color: '#10b981', display: 'flex' }}>{I.market}</span>
-          <span style={{ fontSize: 13, color: 'var(--text-muted)' }}>Skelbimų dar nėra — <span style={{ color: 'var(--accent-green)', fontWeight: 700 }}>įdėk pirmas</span></span>
+          <span style={{ fontSize: 14, color: 'var(--text-muted)' }}>Skelbimų dar nėra — <span style={{ color: 'var(--accent-green)', fontWeight: 700 }}>įdėk pirmas</span></span>
         </Link>
       )}
 
       {/* ── Kategorijos — realūs skelbimų tipai ── */}
       <div style={{ marginTop: 16, paddingTop: 14, borderTop: '1px solid var(--border-default)' }}>
-        <div style={{ fontFamily: "'Outfit', sans-serif", fontSize: 11, fontWeight: 800, textTransform: 'uppercase', letterSpacing: '0.1em', color: 'var(--text-muted)', marginBottom: 8 }}>Kategorijos</div>
+        <div style={{ fontFamily: "'Outfit', sans-serif", fontSize: 12, fontWeight: 800, textTransform: 'uppercase', letterSpacing: '0.1em', color: 'var(--text-muted)', marginBottom: 8 }}>Kategorijos</div>
         <div className="sh-chiprow sh-chiprow-fill">
           {LISTING_TYPE_ORDER.map(t => {
             const meta = LISTING_TYPES[t]
@@ -1154,7 +1154,7 @@ function MobileExpansion({
         <div style={{
           display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 6,
           fontFamily: "'Outfit', sans-serif",
-          fontSize: 11, fontWeight: 800,
+          fontSize: 12, fontWeight: 800,
           textTransform: 'uppercase', letterSpacing: '0.1em',
           color: 'var(--text-muted)',
           marginBottom: 8,
@@ -1214,7 +1214,7 @@ function MobileExpansion({
         <div style={{ paddingTop: 12, borderTop: '1px solid var(--border-default)' }}>
           <div style={{
             fontFamily: "'Outfit', sans-serif",
-            fontSize: 11, fontWeight: 800,
+            fontSize: 12, fontWeight: 800,
             textTransform: 'uppercase', letterSpacing: '0.1em',
             color: 'var(--text-muted)',
             marginBottom: 8,
@@ -1263,7 +1263,7 @@ function MobileExpansion({
     // Horizontaliai scroll'inama dainų juosta (kaip desktop) — be Lietuva/Pasaulis badge'o.
     const mSongStrip = (title: string, href: string, hex: string, kind: 'lt' | 'world', entries: TopMini[]) => (
       <div style={{ ['--it-rgb' as any]: hexToRgb(hex) }}>
-        <div style={{ fontFamily: "'Outfit',sans-serif", fontSize: 13, fontWeight: 800, color: 'var(--text-primary)', marginBottom: 4 }}>{title}</div>
+        <div style={{ fontFamily: "'Outfit',sans-serif", fontSize: 14, fontWeight: 800, color: 'var(--text-primary)', marginBottom: 4 }}>{title}</div>
         <div className="sh-strip-wrap">
           <RowStripe kind={kind} />
           <div className="sh-strip">
@@ -1275,8 +1275,8 @@ function MobileExpansion({
                     ? <img src={proxyImg(e.image)} alt="" style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
                     : <span style={{ color: 'var(--text-muted)', opacity: 0.5 }}>{I.music}</span>}
                 </span>
-                <span style={{ fontSize: 11.5, fontWeight: 700, color: 'var(--text-primary)', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{e?.title || '—'}</span>
-                <span style={{ fontSize: 10, color: 'var(--text-muted)', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis', marginTop: -2 }}>{e?.artist || ''}</span>
+                <span style={{ fontSize: 12.5, fontWeight: 700, color: 'var(--text-primary)', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{e?.title || '—'}</span>
+                <span style={{ fontSize: 11, color: 'var(--text-muted)', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis', marginTop: -2 }}>{e?.artist || ''}</span>
               </Link>
             ))}
           </div>
@@ -1468,9 +1468,9 @@ function MobileExpansion({
           <span className="sh-trending-glyph" title="Naujienos">{I.news}</span>
           Naujausios naujienos
         </div>
-        <div style={{ fontFamily: "'Outfit',sans-serif", fontSize: 13, fontWeight: 800, color: 'var(--text-primary)', margin: '0 0 4px' }}>Lietuva</div>
+        <div style={{ fontFamily: "'Outfit',sans-serif", fontSize: 14, fontWeight: 800, color: 'var(--text-primary)', margin: '0 0 4px' }}>Lietuva</div>
         {mNewsRow('lt', '/naujienos/lietuva', mNewsLt)}
-        <div style={{ fontFamily: "'Outfit',sans-serif", fontSize: 13, fontWeight: 800, color: 'var(--text-primary)', margin: '10px 0 4px' }}>Pasaulis</div>
+        <div style={{ fontFamily: "'Outfit',sans-serif", fontSize: 14, fontWeight: 800, color: 'var(--text-primary)', margin: '10px 0 4px' }}>Pasaulis</div>
         {mNewsRow('world', '/naujienos/pasaulis', mNewsWorld)}
 
         {/* Pagal tipą */}
@@ -3348,7 +3348,7 @@ export function SiteHeader() {
                   style={{
                     alignItems: 'center', gap: 6, padding: '0 6px', height: 34,
                     color: mmActive ? 'var(--accent-orange)' : 'var(--text-secondary)',
-                    fontSize: 13, fontWeight: 600, textDecoration: 'none', whiteSpace: 'nowrap',
+                    fontSize: 14, fontWeight: 600, textDecoration: 'none', whiteSpace: 'nowrap',
                     transition: 'color .15s',
                   }}
                   onMouseEnter={e => { if (!mmActive) e.currentTarget.style.color = 'var(--text-primary)' }}

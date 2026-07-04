@@ -258,7 +258,7 @@ function DiscussionPane({
             <div style={{ fontSize: 14, fontWeight: 700, color: 'var(--text-primary)', marginBottom: 6 }}>
               Dar nėra atsakymų
             </div>
-            <div style={{ fontSize: 12, color: 'var(--text-muted)' }}>
+            <div style={{ fontSize: 13, color: 'var(--text-muted)' }}>
               Parašyk pirmą atsakymą diskusijai.
             </div>
           </div>
@@ -283,7 +283,7 @@ function DiscussionPane({
       </div>
 
       {discussion.is_locked ? (
-        <div style={{ padding: '14px 16px', background: 'var(--bg-surface)', borderTop: '1px solid var(--border-default)', textAlign: 'center', color: 'var(--text-muted)', fontSize: 13 }}>
+        <div style={{ padding: '14px 16px', background: 'var(--bg-surface)', borderTop: '1px solid var(--border-default)', textAlign: 'center', color: 'var(--text-muted)', fontSize: 14 }}>
           🔒 Diskusija užrakinta — naujų komentarų rašyti negalima.
         </div>
       ) : (
@@ -338,13 +338,13 @@ function DiscussionHeader({ discussion, onMobileBack }: { discussion: Discussion
         }}>
           {discussion.title}
         </div>
-        <div style={{ fontSize: 11.5, color: 'var(--text-muted)' }}>
+        <div style={{ fontSize: 12.5, color: 'var(--text-muted)' }}>
           Diskusija · {discussion.comment_count} {discussion.comment_count === 1 ? 'atsakymas' : 'atsakymai'}
         </div>
       </div>
       <Link href={`/diskusijos/${discussion.slug}`}
         style={{
-          fontSize: 11, color: 'var(--text-muted)', textDecoration: 'none',
+          fontSize: 12, color: 'var(--text-muted)', textDecoration: 'none',
           padding: '5px 10px', borderRadius: 6,
           border: '1px solid var(--border-default)',
         }}
@@ -368,10 +368,10 @@ function DiscussionRoot({ discussion }: { discussion: DiscussionRow }) {
       <div style={{ display: 'flex', gap: 10, alignItems: 'center', marginBottom: 8 }}>
         <ChatAvatar url={discussion.author_avatar} fallbackName={discussion.author_name} size={28} />
         <div style={{ flex: 1, minWidth: 0 }}>
-          <div style={{ fontSize: 13, fontWeight: 700, color: 'var(--text-primary)' }}>
+          <div style={{ fontSize: 14, fontWeight: 700, color: 'var(--text-primary)' }}>
             {discussion.author_name || 'Anonimas'}
           </div>
-          <div style={{ fontSize: 10.5, color: 'var(--text-muted)' }}>
+          <div style={{ fontSize: 11.5, color: 'var(--text-muted)' }}>
             Diskusijos pradžia
           </div>
         </div>
@@ -388,7 +388,7 @@ function DiscussionRoot({ discussion }: { discussion: DiscussionRow }) {
         <div style={{ marginTop: 8, display: 'flex', flexWrap: 'wrap', gap: 4 }}>
           {discussion.tags.map((t, i) => (
             <span key={i} style={{
-              fontSize: 10, padding: '2px 7px', borderRadius: 4,
+              fontSize: 11, padding: '2px 7px', borderRadius: 4,
               background: 'rgba(139, 92, 246, 0.18)', color: '#c4b5fd',
               textTransform: 'lowercase',
             }}>#{t}</span>
@@ -403,7 +403,7 @@ function DateSep({ label }: { label: string }) {
   return (
     <div style={{ display: 'flex', alignItems: 'center', gap: 12, padding: '14px 16px 6px' }}>
       <div style={{ flex: 1, height: 1, background: 'var(--border-subtle)' }}/>
-      <div style={{ fontSize: 10.5, fontWeight: 700, color: 'var(--text-muted)', textTransform: 'uppercase', letterSpacing: '0.08em' }}>
+      <div style={{ fontSize: 11.5, fontWeight: 700, color: 'var(--text-muted)', textTransform: 'uppercase', letterSpacing: '0.08em' }}>
         {label}
       </div>
       <div style={{ flex: 1, height: 1, background: 'var(--border-subtle)' }}/>

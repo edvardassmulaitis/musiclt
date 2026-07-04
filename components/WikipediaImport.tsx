@@ -870,12 +870,12 @@ function WikipediaImportCore({ onImport, initialSearch }: Props) {
                     : 'border-transparent text-gray-500 hover:text-gray-700'
                 }`}
               >
-                <span className={`w-5 h-5 rounded text-[10px] font-bold flex items-center justify-center leading-none ${tab.badgeCls}`}>{tab.badge}</span>
+                <span className={`w-5 h-5 rounded text-[11px] font-bold flex items-center justify-center leading-none ${tab.badgeCls}`}>{tab.badge}</span>
                 <span className="hidden sm:inline">{tab.label}</span>
                 {tab.loading
                   ? <span className="text-gray-400 animate-spin text-xs">⟳</span>
                   : tab.count > 0
-                  ? <span className="text-[10px] bg-gray-200 text-gray-600 rounded-full px-1.5">{tab.count}</span>
+                  ? <span className="text-[11px] bg-gray-200 text-gray-600 rounded-full px-1.5">{tab.count}</span>
                   : null
                 }
               </button>
@@ -957,10 +957,10 @@ function WikipediaImportCore({ onImport, initialSearch }: Props) {
             <div className="flex flex-col items-end gap-1">
               {similarArtists.length > 0 && (
                 <div className="text-right">
-                  <p className="text-[11px] font-semibold text-amber-600">⚠️ Panašūs jau yra:</p>
+                  <p className="text-[12px] font-semibold text-amber-600">⚠️ Panašūs jau yra:</p>
                   {similarArtists.map(d => (
                     <a key={d.id} href={`/admin/artists/${d.id}`} target="_blank" rel="noreferrer"
-                      className="block text-[11px] text-amber-700 hover:text-blue-600 hover:underline">
+                      className="block text-[12px] text-amber-700 hover:text-blue-600 hover:underline">
                       {d.name} ({d.type === 'group' ? 'Grupė' : 'Solo'})
                     </a>
                   ))}
@@ -983,7 +983,7 @@ function WikipediaImportCore({ onImport, initialSearch }: Props) {
               <div className="flex flex-wrap items-center gap-1.5">
                 {p.genre && <span className="text-gray-600 font-medium">{p.genre}</span>}
                 {p.substyles && p.substyles.map(s => (
-                  <span key={s} className="px-1.5 py-0.5 bg-gray-100 text-gray-500 rounded text-[11px]">{s}</span>
+                  <span key={s} className="px-1.5 py-0.5 bg-gray-100 text-gray-500 rounded text-[12px]">{s}</span>
                 ))}
               </div>
             )}
@@ -1007,7 +1007,7 @@ function WikipediaImportCore({ onImport, initialSearch }: Props) {
                 )}
                 {foundSocialKeys.map(k => (
                   <a key={k} href={(p as any)[k]} target="_blank" rel="noopener noreferrer" title={(p as any)[k]}
-                    className="px-1.5 py-0.5 bg-blue-50 text-blue-600 border border-blue-100 rounded text-[11px] hover:bg-blue-100 transition-colors">
+                    className="px-1.5 py-0.5 bg-blue-50 text-blue-600 border border-blue-100 rounded text-[12px] hover:bg-blue-100 transition-colors">
                     {k}
                   </a>
                 ))}
@@ -1028,13 +1028,13 @@ function WikipediaImportCore({ onImport, initialSearch }: Props) {
                             <span key={m.wikiTitle}>
                               {i > 0 && <span className="text-gray-300 mx-0.5">·</span>}
                               <span className={m.existingId ? 'text-green-600' : 'text-gray-700'}>{m.name}</span>
-                              {m.existingId && <span className="text-green-400 ml-0.5 text-[10px]">✓</span>}
+                              {m.existingId && <span className="text-green-400 ml-0.5 text-[11px]">✓</span>}
                             </span>
                           ))}
                         </span>
                       )}
                       {pastMembers.length > 0 && (
-                        <span className="text-gray-400 text-[11px]">
+                        <span className="text-gray-400 text-[12px]">
                           {currentMembers.length > 0 && <span className="mx-1 text-gray-300">|</span>}
                           Buvę: {pastMembers.map((m, i) => (
                             <span key={m.wikiTitle}>
@@ -1045,7 +1045,7 @@ function WikipediaImportCore({ onImport, initialSearch }: Props) {
                         </span>
                       )}
                       {currentMembers.some(m => !m.existingId) && (
-                        <span className="text-[11px] text-amber-500 ml-1">· trūkstami bus sukurti išsaugant</span>
+                        <span className="text-[12px] text-amber-500 ml-1">· trūkstami bus sukurti išsaugant</span>
                       )}
                     </>
                 }
@@ -1066,8 +1066,8 @@ function WikipediaImportCore({ onImport, initialSearch }: Props) {
                     }
                     <span className={g.id ? 'text-green-600' : 'text-gray-700'}>{g.name}</span>
                     {g.id
-                      ? <span className="text-green-400 text-[10px]">✓</span>
-                      : <span className="text-amber-500 text-[10px]">+</span>
+                      ? <span className="text-green-400 text-[11px]">✓</span>
+                      : <span className="text-amber-500 text-[11px]">+</span>
                     }
                   </span>
                 ))}
@@ -1094,12 +1094,12 @@ function WikipediaImportCore({ onImport, initialSearch }: Props) {
                 </div>
                 <div className="flex items-center gap-3 mt-1">
                   <button type="button"
-                    className="text-[11px] text-gray-400 hover:text-gray-600"
+                    className="text-[12px] text-gray-400 hover:text-gray-600"
                     onClick={() => setPreview(prev => prev ? { ...prev, _descExpanded: !(prev as any)._descExpanded } as any : prev)}>
                     {(preview as any)?._descExpanded ? '▲ Sutraukti' : '▼ Rodyti visą'}
                   </button>
                   <button type="button"
-                    className="text-[11px] text-blue-500 hover:text-blue-700"
+                    className="text-[12px] text-blue-500 hover:text-blue-700"
                     onClick={() => setPreview(prev => prev ? { ...prev, _descEditing: true, _descExpanded: true } as any : prev)}>
                     ✎ Redaguoti
                   </button>
@@ -1116,7 +1116,7 @@ function WikipediaImportCore({ onImport, initialSearch }: Props) {
                         setPreview(prev => prev ? { ...prev, description: html, _descEditing: false } : prev)
                       }}
                     />
-                    <div className="text-[10px] text-gray-400 mt-0.5">Pastraipos skiriamos tuščia eilute. Paspauskit kitur kad išsaugoti.</div>
+                    <div className="text-[11px] text-gray-400 mt-0.5">Pastraipos skiriamos tuščia eilute. Paspauskit kitur kad išsaugoti.</div>
                   </div>
                 )}
               </div>
@@ -1150,7 +1150,7 @@ function WikipediaImportCore({ onImport, initialSearch }: Props) {
                 }
                 setStep('')
               }}
-              className="mt-1.5 text-[11px] text-blue-500 hover:text-blue-700 underline"
+              className="mt-1.5 text-[12px] text-blue-500 hover:text-blue-700 underline"
             >
               {step === 'Generuojamas aprašymas...' ? '⏳ Generuojama...' : p.description ? '↺ Regeneruoti aprašymą' : '✦ Generuoti aprašymą'}
             </button>
@@ -1163,7 +1163,7 @@ function WikipediaImportCore({ onImport, initialSearch }: Props) {
 
 function MemberChip({ member, past }: { member: BandMember; past?: boolean }) {
   return (
-    <div className={`inline-flex items-center gap-1 px-1.5 py-0.5 rounded border text-[11px] ${
+    <div className={`inline-flex items-center gap-1 px-1.5 py-0.5 rounded border text-[12px] ${
       past ? 'bg-gray-50 border-gray-200 text-gray-400'
            : member.existingId ? 'bg-green-50 border-green-200 text-green-700'
                                : 'bg-blue-50 border-blue-200 text-blue-700'

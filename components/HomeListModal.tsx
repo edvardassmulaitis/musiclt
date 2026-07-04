@@ -84,7 +84,7 @@ export function HomeListModal({
             </h2>
             {subtitle && (
               <p
-                className="m-0 mt-0.5 truncate text-[12px]"
+                className="m-0 mt-0.5 truncate text-[13px]"
                 style={{ color: 'var(--text-muted)', fontFamily: "'Outfit', sans-serif" }}
               >
                 {subtitle}

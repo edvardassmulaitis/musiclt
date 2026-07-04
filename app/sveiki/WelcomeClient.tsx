@@ -98,7 +98,7 @@ export default function WelcomeClient({
           <section style={{ marginBottom: 36 }}>
             <div style={{ display: 'flex', alignItems: 'baseline', justifyContent: 'space-between', marginBottom: 16 }}>
               <h2 style={{ fontFamily: 'Outfit,sans-serif', fontSize: 18, fontWeight: 800, margin: 0, color: 'var(--text-primary)' }}>Tavo mėgstami atlikėjai</h2>
-              <Link href="/mano-muzika" style={{ fontSize: 13, fontWeight: 700, color: 'var(--accent-orange)', textDecoration: 'none' }}>Visa mano muzika {Ic.arrow}</Link>
+              <Link href="/mano-muzika" style={{ fontSize: 14, fontWeight: 700, color: 'var(--accent-orange)', textDecoration: 'none' }}>Visa mano muzika {Ic.arrow}</Link>
             </div>
             <div style={{ display: 'flex', gap: 18, overflowX: 'auto', paddingBottom: 4 }}>
               {likedArtists.map((a) => (
@@ -109,7 +109,7 @@ export default function WelcomeClient({
                       <img src={a.cover} alt={a.name} loading="lazy" referrerPolicy="no-referrer" style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
                     )}
                   </div>
-                  <div style={{ fontSize: 12, fontWeight: 600, color: 'var(--text-secondary)', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{a.name}</div>
+                  <div style={{ fontSize: 13, fontWeight: 600, color: 'var(--text-secondary)', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{a.name}</div>
                 </Link>
               ))}
             </div>
@@ -120,7 +120,7 @@ export default function WelcomeClient({
               <div style={{ flexShrink: 0, color: 'var(--accent-orange)' }}>{Ic.sparkle}</div>
               <div style={{ flex: 1 }}>
                 <div style={{ fontFamily: 'Outfit,sans-serif', fontSize: 16, fontWeight: 800, color: 'var(--text-primary)' }}>Susidėk savo muziką</div>
-                <div style={{ fontSize: 13, color: 'var(--text-muted)', marginTop: 2 }}>Per minutę pasirink mėgstamus atlikėjus — ir profilis atgis.</div>
+                <div style={{ fontSize: 14, color: 'var(--text-muted)', marginTop: 2 }}>Per minutę pasirink mėgstamus atlikėjus — ir profilis atgis.</div>
               </div>
               <span style={{ color: 'var(--accent-orange)', fontWeight: 800 }}>{Ic.arrow}</span>
             </Link>
@@ -135,7 +135,7 @@ export default function WelcomeClient({
               <Link key={f.href} href={f.href} style={{ display: 'flex', flexDirection: 'column', gap: 9, padding: '20px 18px', borderRadius: 16, border: '1px solid rgba(249,115,22,.28)', background: 'var(--card-bg)', textDecoration: 'none' }}>
                 <div style={{ color: 'var(--accent-orange)' }}>{f.icon}</div>
                 <div style={{ fontFamily: 'Outfit,sans-serif', fontSize: 16, fontWeight: 800, color: 'var(--text-primary)', lineHeight: 1.25 }}>{f.title}</div>
-                <div style={{ fontSize: 13, color: 'var(--text-muted)', lineHeight: 1.45 }}>{f.desc}</div>
+                <div style={{ fontSize: 14, color: 'var(--text-muted)', lineHeight: 1.45 }}>{f.desc}</div>
               </Link>
             ))}
           </div>
@@ -148,7 +148,7 @@ export default function WelcomeClient({
             {sections.map((s) => (
               <Link key={s.href} href={s.href} style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 8, padding: '16px 10px', borderRadius: 12, border: '1px solid var(--border-default)', background: 'var(--card-bg)', textDecoration: 'none' }}>
                 <div style={{ color: 'var(--text-secondary)' }}>{s.icon}</div>
-                <div style={{ fontSize: 13, fontWeight: 600, color: 'var(--text-primary)' }}>{s.label}</div>
+                <div style={{ fontSize: 14, fontWeight: 600, color: 'var(--text-primary)' }}>{s.label}</div>
               </Link>
             ))}
           </div>

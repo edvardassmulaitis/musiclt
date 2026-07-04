@@ -223,7 +223,7 @@ function TrackRow({ track, onDelete, onEnriched }: { track: any; onDelete?: () =
       {hasVideo && <span className="text-blue-400 text-xs shrink-0" title={track.video_url}>▶</span>}
       {views && (
         <span
-          className="text-[10px] text-[var(--text-muted)] tabular-nums shrink-0"
+          className="text-[11px] text-[var(--text-muted)] tabular-nums shrink-0"
           title={
             `${track.video_views?.toLocaleString?.('lt-LT') || track.video_views} peržiūrų`
             + (track.video_views_checked_at ? ` (patikrinta ${new Date(track.video_views_checked_at).toLocaleDateString('lt-LT')})` : '')
@@ -253,7 +253,7 @@ function TrackRow({ track, onDelete, onEnriched }: { track: any; onDelete?: () =
       {trackId && (
         <button onClick={e => { e.stopPropagation(); runYtEnrich() }}
           disabled={ytStatus === 'running'}
-          className={`shrink-0 px-1 py-0.5 text-[10px] rounded transition-all ${
+          className={`shrink-0 px-1 py-0.5 text-[11px] rounded transition-all ${
             ytStatus === 'found' ? 'bg-green-100 text-green-700 opacity-100'
             : ytStatus === 'skipped' ? 'bg-amber-100 text-amber-700 opacity-100'
             : ytStatus === 'error' ? 'bg-red-100 text-red-700 opacity-100'
@@ -266,8 +266,8 @@ function TrackRow({ track, onDelete, onEnriched }: { track: any; onDelete?: () =
       {onDelete && trackId && (
         confirmDel ? (
           <div className="flex items-center gap-1 shrink-0" onClick={e => e.stopPropagation()}>
-            <button onClick={() => { onDelete(); setConfirmDel(false) }} className="px-1.5 py-0.5 text-[10px] bg-red-500 text-white rounded hover:bg-red-600">Taip</button>
-            <button onClick={() => setConfirmDel(false)} className="px-1.5 py-0.5 text-[10px] text-[var(--text-muted)] hover:text-[var(--text-secondary)]">Ne</button>
+            <button onClick={() => { onDelete(); setConfirmDel(false) }} className="px-1.5 py-0.5 text-[11px] bg-red-500 text-white rounded hover:bg-red-600">Taip</button>
+            <button onClick={() => setConfirmDel(false)} className="px-1.5 py-0.5 text-[11px] text-[var(--text-muted)] hover:text-[var(--text-secondary)]">Ne</button>
           </div>
         ) : (
           <button onClick={e => { e.stopPropagation(); setConfirmDel(true) }}
@@ -416,7 +416,7 @@ function SingleRow({ track, onDelete }: { track: any; onDelete: () => void }) {
           {track.has_lyrics && <span className="text-green-500 text-xs font-bold shrink-0">T</span>}
           {views && (
             <span
-              className="text-[10px] text-[var(--text-muted)] tabular-nums shrink-0"
+              className="text-[11px] text-[var(--text-muted)] tabular-nums shrink-0"
               title={
                 `${track.video_views?.toLocaleString?.('lt-LT') || track.video_views} peržiūrų`
                 + (track.video_views_checked_at ? ` (patikrinta ${new Date(track.video_views_checked_at).toLocaleDateString('lt-LT')})` : '')
@@ -443,7 +443,7 @@ function SingleRow({ track, onDelete }: { track: any; onDelete: () => void }) {
             </span>
           )}
         </div>
-        {track.albums_list?.[0] && <div className="text-[11px] text-[var(--text-muted)] truncate">{track.albums_list[0].title}</div>}
+        {track.albums_list?.[0] && <div className="text-[12px] text-[var(--text-muted)] truncate">{track.albums_list[0].title}</div>}
       </div>
       {confirmDelete ? (
         <div className="flex items-center gap-1 shrink-0">
@@ -588,12 +588,12 @@ function DiscographyPanel({ artistId, artistName, artistType, refreshKey, onImpo
           <div className="shrink-0 flex items-center gap-0.5 px-3 py-1.5 border-b border-[var(--border-subtle)] bg-[var(--bg-elevated)]/30 overflow-x-auto">
             {tabs.map(t => (
               <button key={t.id} onClick={() => setActiveTab(t.id)}
-                className={`shrink-0 px-2 py-1 rounded-md text-[11px] font-medium transition-colors ${
+                className={`shrink-0 px-2 py-1 rounded-md text-[12px] font-medium transition-colors ${
                   activeTab === t.id
                     ? 'bg-blue-600 text-white'
                     : 'text-[var(--text-muted)] hover:bg-[var(--bg-hover)] hover:text-[var(--text-secondary)]'
                 }`}>
-                {t.label} <span className={`ml-1 px-1 rounded text-[10px] font-bold ${activeTab === t.id ? 'bg-white/20' : 'bg-[var(--bg-elevated)]'}`}>{t.count}</span>
+                {t.label} <span className={`ml-1 px-1 rounded text-[11px] font-bold ${activeTab === t.id ? 'bg-white/20' : 'bg-[var(--bg-elevated)]'}`}>{t.count}</span>
               </button>
             ))}
           </div>
@@ -814,12 +814,12 @@ function ScrapeCommandFullRow({ artistId, artistName, onOpenChange }: { artistId
             <p className="text-[var(--text-secondary)]">
               Sandbox negali pasiekti music.lt (region/agent block'ai), todėl scrape paleidžiamas iš tavo Mac'o terminalu. Viena komanda apima visus žingsnius — auto detekcija pagal artist country:
             </p>
-            <ul className="ml-4 list-disc text-[12px] text-[var(--text-muted)] space-y-0.5">
+            <ul className="ml-4 list-disc text-[13px] text-[var(--text-muted)] space-y-0.5">
               <li><strong>LT atlikėjai</strong>: pilnas <code>group_deep_scrape</code> (artist meta + photos + albums + tracks + threads)</li>
               <li><strong>INTL atlikėjai</strong> (country ≠ Lietuva): Wiki canonical lieka, tik <code>match_legacy_overlay</code> + artist likes/discussions/news</li>
               <li>+ news bodies, events, members, lyrics, YT enrich — abiem atvejais</li>
             </ul>
-            <div className="rounded-xl bg-[var(--bg-elevated)] border border-[var(--border-subtle)] p-3 font-mono text-[12px] text-[var(--text-primary)] whitespace-pre-wrap break-all">
+            <div className="rounded-xl bg-[var(--bg-elevated)] border border-[var(--border-subtle)] p-3 font-mono text-[13px] text-[var(--text-primary)] whitespace-pre-wrap break-all">
               {cmd}
             </div>
             <div className="flex gap-2">
@@ -832,7 +832,7 @@ function ScrapeCommandFullRow({ artistId, artistName, onOpenChange }: { artistId
                 Uždaryti
               </button>
             </div>
-            <p className="text-[11px] text-[var(--text-muted)]">
+            <p className="text-[12px] text-[var(--text-muted)]">
               Trunka 5–15 min priklausomai nuo content kiekio. Po to admin'e nieko spausti nereikia — duomenys + YT enrich automatiškai.
             </p>
           </div>
@@ -1085,7 +1085,7 @@ function YtEnrichResults({ summary }: { summary: YtEnrichSummary }) {
                 <div className="font-medium text-[var(--text-primary)] truncate">{d.trackTitle || `#${d.trackId}`}</div>
                 <div className="text-xs text-[var(--text-muted)] truncate">→ {d.videoTitle} <span className="text-[var(--text-faint)]">· {d.videoChannel}</span></div>
                 {(d.warnings || []).map((w, i) => (
-                  <div key={i} className="text-[11px] text-amber-700 truncate">⚠ {w}</div>
+                  <div key={i} className="text-[12px] text-amber-700 truncate">⚠ {w}</div>
                 ))}
               </div>
               {d.matchScore !== undefined && d.matchScore !== null && <span className="text-xs tabular-nums text-green-700 shrink-0">score {d.matchScore}</span>}
@@ -1098,7 +1098,7 @@ function YtEnrichResults({ summary }: { summary: YtEnrichSummary }) {
 
       {skipped.length > 0 && (
         <Section title={`↷ Praleista — žemo confidence (${skipped.length})`} tone="amber">
-          <p className="px-3 py-1 text-[11px] text-amber-800/70">
+          <p className="px-3 py-1 text-[12px] text-amber-800/70">
             Pirmas YouTube paieškos kandidatas neatitiko match threshold'o (artist/track tokenai title/channel'yje, duration sanity). Track liko be video_url — galima rankiniu būdu suvesti per /admin/tracks/[id].
           </p>
           {skipped.map(d => (
@@ -1106,7 +1106,7 @@ function YtEnrichResults({ summary }: { summary: YtEnrichSummary }) {
               <div className="min-w-0 flex-1">
                 <div className="font-medium text-[var(--text-primary)] truncate">{d.trackTitle || `#${d.trackId}`}</div>
                 <div className="text-xs text-[var(--text-muted)] truncate">{d.skipReason}</div>
-                {d.videoTitle && <div className="text-[11px] text-[var(--text-faint)] truncate">top kandidatas: {d.videoTitle} · {d.videoChannel}</div>}
+                {d.videoTitle && <div className="text-[12px] text-[var(--text-faint)] truncate">top kandidatas: {d.videoTitle} · {d.videoChannel}</div>}
               </div>
               {d.matchScore !== undefined && d.matchScore !== null && <span className="text-xs tabular-nums text-amber-700 shrink-0">score {d.matchScore}</span>}
             </Row>
@@ -1139,7 +1139,7 @@ function YtEnrichResults({ summary }: { summary: YtEnrichSummary }) {
               <div className="min-w-0 flex-1">
                 <div className="font-medium text-[var(--text-primary)] truncate">{d.trackTitle || `#${d.trackId}`}</div>
                 {(d.warnings || []).map((w, i) => (
-                  <div key={i} className="text-[11px] text-red-700 truncate">⚠ {w}</div>
+                  <div key={i} className="text-[12px] text-red-700 truncate">⚠ {w}</div>
                 ))}
               </div>
             </Row>
@@ -1158,7 +1158,7 @@ function Stat({ label, value, tone }: { label: string; value: number; tone?: 'gr
   const toneCls = tone === 'green' ? 'text-green-700' : tone === 'amber' ? 'text-amber-700' : tone === 'blue' ? 'text-blue-700' : 'text-[var(--text-primary)]'
   return (
     <div className="bg-white border border-[var(--input-border)] rounded-lg p-2">
-      <div className="text-[10px] uppercase tracking-wide text-[var(--text-faint)]">{label}</div>
+      <div className="text-[11px] uppercase tracking-wide text-[var(--text-faint)]">{label}</div>
       <div className={`text-lg font-bold tabular-nums ${toneCls}`}>{value}</div>
     </div>
   )
@@ -1328,7 +1328,7 @@ function YoutubeClearButton({ artistId, onDone }: { artistId: string; onDone?: (
   if (status === 'confirm') {
     return (
       <div className="flex items-center gap-1">
-        <span className="text-[11px] text-red-700 font-medium">Tikrai išvalyti?</span>
+        <span className="text-[12px] text-red-700 font-medium">Tikrai išvalyti?</span>
         <button onClick={run} className="px-2 py-1 rounded-lg text-xs font-medium bg-red-600 hover:bg-red-700 text-white">Taip</button>
         <button onClick={() => setStatus('idle')} className="px-2 py-1 rounded-lg text-xs font-medium text-[var(--text-muted)] hover:bg-[var(--bg-hover)]">Ne</button>
       </div>

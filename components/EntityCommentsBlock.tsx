@@ -223,7 +223,7 @@ function LegacyChain({
         <button
           type="button"
           onClick={() => setExpanded(v => !v)}
-          className="ml-1 inline-flex items-center gap-1 text-[11px] font-bold text-[var(--text-faint)] transition-colors hover:text-[var(--accent-orange)]"
+          className="ml-1 inline-flex items-center gap-1 text-[12px] font-bold text-[var(--text-faint)] transition-colors hover:text-[var(--accent-orange)]"
         >
           <svg width="9" height="9" viewBox="0 0 12 12" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round"
                style={{ transform: expanded ? 'rotate(180deg)' : 'none', transition: 'transform 150ms' }}>
@@ -430,7 +430,7 @@ function CommentLike({
             onClick={onOpenModal}
             title="Pamatyk kam patinka"
             className={[
-              "flex items-center border-l px-2 py-1 font-['Outfit',sans-serif] text-[10.5px] font-extrabold tabular-nums tracking-wide transition-colors",
+              "flex items-center border-l px-2 py-1 font-['Outfit',sans-serif] text-[11.5px] font-extrabold tabular-nums tracking-wide transition-colors",
               filled ? 'border-white/30 hover:opacity-90' : 'border-[var(--border-subtle)] hover:bg-[var(--bg-hover)]',
             ].join(' ')}
           >
@@ -439,7 +439,7 @@ function CommentLike({
         ) : (
           <span
             className={[
-              "flex items-center border-l px-2 py-1 font-['Outfit',sans-serif] text-[10.5px] font-extrabold tabular-nums tracking-wide",
+              "flex items-center border-l px-2 py-1 font-['Outfit',sans-serif] text-[11.5px] font-extrabold tabular-nums tracking-wide",
               filled ? 'border-white/30' : 'border-[var(--border-subtle)]',
             ].join(' ')}
           >
@@ -886,7 +886,7 @@ export default function EntityCommentsBlock({
       type="button"
       onClick={() => setSort(k)}
       className={[
-        "rounded-full px-2.5 py-1 font-['Outfit',sans-serif] text-[10.5px] font-extrabold transition-colors",
+        "rounded-full px-2.5 py-1 font-['Outfit',sans-serif] text-[11.5px] font-extrabold transition-colors",
         sort === k
           ? 'bg-[var(--accent-orange)] text-white'
           : 'border border-[var(--border-subtle)] bg-transparent text-[var(--text-muted)] hover:border-[var(--border-strong)] hover:text-[var(--text-primary)]',
@@ -916,7 +916,7 @@ export default function EntityCommentsBlock({
                   <img src={proxyImg(hit.image_url)} alt="" referrerPolicy="no-referrer" className="h-full w-full object-cover" />
                 ) : null}
               </span>
-              <span className="font-['Outfit',sans-serif] text-[11.5px] font-bold">{hit.title}</span>
+              <span className="font-['Outfit',sans-serif] text-[12.5px] font-bold">{hit.title}</span>
               <button
                 type="button"
                 onClick={() => setAttached(a => a.filter((_, idx) => idx !== i))}
@@ -948,7 +948,7 @@ export default function EntityCommentsBlock({
           onClick={() => setPickerOpen(true)}
           aria-label="Pridėti muzikos"
           className={[
-            "inline-flex items-center gap-1.5 rounded-full border px-3 py-1.5 font-['Outfit',sans-serif] text-[11px] font-extrabold transition-colors",
+            "inline-flex items-center gap-1.5 rounded-full border px-3 py-1.5 font-['Outfit',sans-serif] text-[12px] font-extrabold transition-colors",
             attached.length > 0
               ? 'border-[var(--accent-orange)] bg-[rgba(249,115,22,0.12)] text-[var(--accent-orange)]'
               : 'border-[var(--border-subtle)] bg-transparent text-[var(--text-muted)] hover:border-[var(--border-strong)] hover:text-[var(--text-primary)]',
@@ -961,7 +961,7 @@ export default function EntityCommentsBlock({
           type="button"
           onClick={submit}
           disabled={(!draft.trim() && attached.length === 0) || posting || !session?.user?.id}
-          className="inline-flex items-center gap-1.5 rounded-full bg-[var(--accent-orange)] px-4 py-1.5 font-['Outfit',sans-serif] text-[11.5px] font-extrabold text-white transition-opacity hover:opacity-90 disabled:cursor-not-allowed disabled:opacity-40"
+          className="inline-flex items-center gap-1.5 rounded-full bg-[var(--accent-orange)] px-4 py-1.5 font-['Outfit',sans-serif] text-[12.5px] font-extrabold text-white transition-opacity hover:opacity-90 disabled:cursor-not-allowed disabled:opacity-40"
         >
           {posting ? 'Siunčiama…' : (
             <>
@@ -972,10 +972,10 @@ export default function EntityCommentsBlock({
         </button>
       </div>
       {error && (
-        <div className="mt-2 text-[11px] font-bold text-[#ef4444]">{error}</div>
+        <div className="mt-2 text-[12px] font-bold text-[#ef4444]">{error}</div>
       )}
       {!session?.user?.id && (
-        <div className="mt-2 text-[11px] text-[var(--text-faint)]">
+        <div className="mt-2 text-[12px] text-[var(--text-faint)]">
           <Link href="/auth/signin" className="font-bold text-[var(--accent-orange)] no-underline hover:underline">
             Prisijunk
           </Link>
@@ -997,7 +997,7 @@ export default function EntityCommentsBlock({
           className="fixed left-1/2 top-6 z-[10001] -translate-x-1/2 animate-in fade-in slide-in-from-top-2"
         >
           <div
-            className="flex items-center gap-2 rounded-full px-4 py-2 text-[12.5px] font-bold shadow-2xl"
+            className="flex items-center gap-2 rounded-full px-4 py-2 text-[13.5px] font-bold shadow-2xl"
             style={{
               background: toast.kind === 'success' ? 'rgba(34,197,94,0.15)' : 'var(--bg-elevated)',
               border: `1px solid ${toast.kind === 'success' ? 'rgba(34,197,94,0.45)' : 'var(--border-default)'}`,
@@ -1018,7 +1018,7 @@ export default function EntityCommentsBlock({
       <div className="flex flex-wrap items-center justify-between gap-2">
         <h3
           className={compact
-            ? "font-['Outfit',sans-serif] text-[11px] font-extrabold uppercase tracking-[0.18em] text-[var(--text-muted)]"
+            ? "font-['Outfit',sans-serif] text-[12px] font-extrabold uppercase tracking-[0.18em] text-[var(--text-muted)]"
             : "font-['Outfit',sans-serif] font-black tracking-[-0.01em] text-[var(--text-primary)]"
           }
           style={compact ? undefined : { fontSize: headerSize }}
@@ -1048,8 +1048,8 @@ export default function EntityCommentsBlock({
         </div>
       ) : sortedAll.length === 0 ? (
         <div className="rounded-xl border border-dashed border-[var(--border-default)] px-4 py-6 text-center">
-          <div className="text-[12.5px] font-bold text-[var(--text-muted)]">Komentarų dar nėra</div>
-          <div className="mt-1 text-[11px] text-[var(--text-faint)]">
+          <div className="text-[13.5px] font-bold text-[var(--text-muted)]">Komentarų dar nėra</div>
+          <div className="mt-1 text-[12px] text-[var(--text-faint)]">
             {session?.user?.id ? 'Būk pirmas — parašyk viršuje.' : 'Prisijunk ir būk pirmas.'}
           </div>
         </div>
@@ -1167,7 +1167,7 @@ export default function EntityCommentsBlock({
                       </span>
                       {rel && (
                         <span
-                          className="text-[11px] font-semibold text-[var(--text-muted)]"
+                          className="text-[12px] font-semibold text-[var(--text-muted)]"
                           title={c.created_at || undefined}
                         >
                           {rel}
@@ -1179,10 +1179,10 @@ export default function EntityCommentsBlock({
                         styling from artist-profile-client. */}
                     {quoteAuthor && quoteText && (
                       <div className="mt-1.5 rounded border-l-[3px] border-[var(--accent-orange)] bg-[var(--bg-elevated)] px-2.5 py-1.5">
-                        <div className="font-['Outfit',sans-serif] text-[10.5px] font-extrabold text-[var(--text-secondary)]">
+                        <div className="font-['Outfit',sans-serif] text-[11.5px] font-extrabold text-[var(--text-secondary)]">
                           {quoteAuthor} rašė:
                         </div>
-                        <div className="mt-0.5 line-clamp-3 text-[11.5px] italic text-[var(--text-muted)]">
+                        <div className="mt-0.5 line-clamp-3 text-[12.5px] italic text-[var(--text-muted)]">
                           {quoteText}
                         </div>
                       </div>
@@ -1253,11 +1253,11 @@ export default function EntityCommentsBlock({
                                   <img src={proxyImg(a.image_url)} alt="" referrerPolicy="no-referrer" className="h-full w-full object-cover" />
                                 )}
                               </span>
-                              <span className="font-['Outfit',sans-serif] text-[11.5px] font-bold text-[var(--text-primary)]">
+                              <span className="font-['Outfit',sans-serif] text-[12.5px] font-bold text-[var(--text-primary)]">
                                 {a.title}
                               </span>
                               {a.artist && a.type !== 'grupe' && (
-                                <span className="text-[10px] text-[var(--text-muted)]">· {a.artist}</span>
+                                <span className="text-[11px] text-[var(--text-muted)]">· {a.artist}</span>
                               )}
                               {/* External-link icon — signal to user that
                                   click opens in new window. */}
@@ -1322,14 +1322,14 @@ export default function EntityCommentsBlock({
                               text: rest.slice(0, 240),
                             })
                           }}
-                          className="inline-flex items-center gap-1 font-['Outfit',sans-serif] text-[11px] font-extrabold text-[var(--text-muted)] transition-colors hover:text-[var(--accent-orange)]"
+                          className="inline-flex items-center gap-1 font-['Outfit',sans-serif] text-[12px] font-extrabold text-[var(--text-muted)] transition-colors hover:text-[var(--accent-orange)]"
                         >
                           <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2"><polyline points="9 14 4 9 9 4" /><path d="M20 20v-7a4 4 0 0 0-4-4H4" /></svg>
                           Atsakyti
                         </button>
                       )}
                       {isDeleted && (
-                        <span className="inline-flex items-center gap-1 rounded-full border border-[var(--border-subtle)] bg-[var(--bg-elevated)] px-2 py-0.5 font-['Outfit',sans-serif] text-[10px] font-extrabold uppercase tracking-wider text-[var(--text-muted)]">
+                        <span className="inline-flex items-center gap-1 rounded-full border border-[var(--border-subtle)] bg-[var(--bg-elevated)] px-2 py-0.5 font-['Outfit',sans-serif] text-[11px] font-extrabold uppercase tracking-wider text-[var(--text-muted)]">
                           Paslėpta
                         </span>
                       )}
@@ -1346,7 +1346,7 @@ export default function EntityCommentsBlock({
                             onClick={() => restoreComment(c.id)}
                             aria-label="Atstatyti komentarą"
                             title="Atstatyti komentarą (admin)"
-                            className="inline-flex items-center gap-1 rounded-full border border-[var(--accent-orange)]/40 bg-[var(--accent-orange)]/10 px-2 py-0.5 font-['Outfit',sans-serif] text-[10.5px] font-extrabold text-[var(--accent-orange)] transition-colors hover:bg-[var(--accent-orange)]/20"
+                            className="inline-flex items-center gap-1 rounded-full border border-[var(--accent-orange)]/40 bg-[var(--accent-orange)]/10 px-2 py-0.5 font-['Outfit',sans-serif] text-[11.5px] font-extrabold text-[var(--accent-orange)] transition-colors hover:bg-[var(--accent-orange)]/20"
                           >
                             <svg width="9" height="9" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.4" strokeLinecap="round" strokeLinejoin="round">
                               <path d="M3 12a9 9 0 1 0 3-6.7L3 8" />
@@ -1386,7 +1386,7 @@ export default function EntityCommentsBlock({
                             onClick={onClick}
                             aria-label={label}
                             title={isAdminUser ? `${label} (admin)` : label}
-                            className="ml-auto inline-flex items-center gap-1 rounded-full border border-[rgba(239,68,68,0.3)] bg-[rgba(239,68,68,0.08)] px-2 py-0.5 font-['Outfit',sans-serif] text-[10.5px] font-extrabold text-[#ef4444] transition-colors hover:border-[#ef4444] hover:bg-[rgba(239,68,68,0.16)]"
+                            className="ml-auto inline-flex items-center gap-1 rounded-full border border-[rgba(239,68,68,0.3)] bg-[rgba(239,68,68,0.08)] px-2 py-0.5 font-['Outfit',sans-serif] text-[11.5px] font-extrabold text-[#ef4444] transition-colors hover:border-[#ef4444] hover:bg-[rgba(239,68,68,0.16)]"
                           >
                             <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2"><path d="M3 6h18M8 6V4a2 2 0 012-2h4a2 2 0 012 2v2m-9 0v14a2 2 0 002 2h6a2 2 0 002-2V6" /></svg>
                             {label}
@@ -1472,10 +1472,10 @@ export default function EntityCommentsBlock({
             {/* Parent quote */}
             <div className="px-4 pt-3">
               <div className="rounded-lg border-l-[3px] border-[var(--accent-orange)] bg-[var(--bg-elevated)] px-3 py-2">
-                <div className="font-['Outfit',sans-serif] text-[10px] font-extrabold uppercase tracking-wider text-[var(--text-secondary)]">
+                <div className="font-['Outfit',sans-serif] text-[11px] font-extrabold uppercase tracking-wider text-[var(--text-secondary)]">
                   {modalReplyTo.name} rašė:
                 </div>
-                <div className="mt-1 line-clamp-4 text-[12px] italic text-[var(--text-muted)]">
+                <div className="mt-1 line-clamp-4 text-[13px] italic text-[var(--text-muted)]">
                   {modalReplyTo.text}
                 </div>
               </div>
@@ -1499,7 +1499,7 @@ export default function EntityCommentsBlock({
                   {replyAttached.map((a, i) => (
                     <div
                       key={`${a.type}-${a.id}-${i}`}
-                      className="inline-flex items-center gap-1 rounded-full border border-[var(--border-subtle)] bg-[var(--bg-elevated)] px-2 py-1 text-[11px]"
+                      className="inline-flex items-center gap-1 rounded-full border border-[var(--border-subtle)] bg-[var(--bg-elevated)] px-2 py-1 text-[12px]"
                     >
                       <span className="text-[var(--accent-orange)]">♪</span>
                       <span className="text-[var(--text-primary)]">{a.title}</span>
@@ -1516,7 +1516,7 @@ export default function EntityCommentsBlock({
               )}
 
               {replyError && (
-                <div className="mt-2 rounded-md border border-red-500/30 bg-red-500/10 px-2 py-1 text-[11px] text-red-400">
+                <div className="mt-2 rounded-md border border-red-500/30 bg-red-500/10 px-2 py-1 text-[12px] text-red-400">
                   {replyError}
                 </div>
               )}
@@ -1525,17 +1525,17 @@ export default function EntityCommentsBlock({
                 <button
                   type="button"
                   onClick={() => setReplyPickerOpen(true)}
-                  className="inline-flex items-center gap-1 rounded-full border border-[var(--border-default)] bg-[var(--bg-elevated)] px-3 py-1.5 text-[11px] font-bold text-[var(--text-secondary)] hover:bg-[var(--bg-hover)]"
+                  className="inline-flex items-center gap-1 rounded-full border border-[var(--border-default)] bg-[var(--bg-elevated)] px-3 py-1.5 text-[12px] font-bold text-[var(--text-secondary)] hover:bg-[var(--bg-hover)]"
                 >
                   ♪ Pridėti dainos
                 </button>
                 <div className="flex items-center gap-2">
-                  <span className="text-[10px] text-[var(--text-faint)]">⌘+Enter siųsti</span>
+                  <span className="text-[11px] text-[var(--text-faint)]">⌘+Enter siųsti</span>
                   <button
                     type="button"
                     onClick={submitReply}
                     disabled={replyPosting || (!replyDraft.trim() && replyAttached.length === 0)}
-                    className="rounded-full bg-[var(--accent-orange)] px-4 py-1.5 text-[12px] font-bold text-white shadow-md transition-opacity hover:opacity-90 disabled:opacity-40"
+                    className="rounded-full bg-[var(--accent-orange)] px-4 py-1.5 text-[13px] font-bold text-white shadow-md transition-opacity hover:opacity-90 disabled:opacity-40"
                   >
                     {replyPosting ? 'Siunčia…' : 'Siųsti'}
                   </button>

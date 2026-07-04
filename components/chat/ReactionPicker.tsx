@@ -46,7 +46,7 @@ export function ReactionPicker({ onSelect, compact }: Props) {
       {GROUPS.map((g, i) => (
         <div key={g.label} style={{ marginTop: i === 0 ? 0 : 10 }}>
           <div style={{
-            fontSize: 9, fontWeight: 800, color: 'var(--text-muted)',
+            fontSize: 10, fontWeight: 800, color: 'var(--text-muted)',
             letterSpacing: '0.08em', textTransform: 'uppercase',
             padding: '4px 6px 4px',
           }}>

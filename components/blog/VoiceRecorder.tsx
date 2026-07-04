@@ -323,7 +323,7 @@ export function VoiceRecorder({
               ⏹ Stabdyti
             </span>
           </button>
-          <span className="text-[10px]" style={{ color: '#5e7290' }}>
+          <span className="text-[11px]" style={{ color: '#5e7290' }}>
             Spausk „Stabdyti", kai baigsi
           </span>
         </div>
@@ -339,7 +339,7 @@ export function VoiceRecorder({
           <button
             type="button"
             onClick={reset}
-            className="text-[11px] font-bold transition hover:opacity-80"
+            className="text-[12px] font-bold transition hover:opacity-80"
             style={{ color: '#6889a8' }}
           >
             Atšaukti

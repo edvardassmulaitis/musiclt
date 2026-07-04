@@ -111,13 +111,13 @@ export function DailyPickCard({ pick }: { pick: Pick }) {
         {/* Data — top-left pill */}
         <div className="absolute top-1.5 left-1.5 px-1.5 py-0.5 rounded-md backdrop-blur-sm flex items-baseline gap-1"
              style={{ background: 'rgba(0,0,0,0.55)' }}>
-          <span className="text-[12px] font-black leading-none text-white" style={{ fontFamily: "'Outfit', sans-serif" }}>{day}</span>
-          <span className="text-[8.5px] uppercase tracking-wider text-white/75 font-bold">{monthShort} {String(year).slice(2)}</span>
+          <span className="text-[13px] font-black leading-none text-white" style={{ fontFamily: "'Outfit', sans-serif" }}>{day}</span>
+          <span className="text-[9.5px] uppercase tracking-wider text-white/75 font-bold">{monthShort} {String(year).slice(2)}</span>
         </div>
 
         {/* Likes — top-right */}
         {likes > 0 && (
-          <div className="absolute top-1.5 right-1.5 px-1.5 py-0.5 rounded-md backdrop-blur-sm text-[10px] font-extrabold text-white flex items-center gap-1"
+          <div className="absolute top-1.5 right-1.5 px-1.5 py-0.5 rounded-md backdrop-blur-sm text-[11px] font-extrabold text-white flex items-center gap-1"
                style={{ background: 'rgba(0,0,0,0.55)' }}>
             <svg width="9" height="9" viewBox="0 0 24 24" fill="currentColor" aria-hidden>
               <path d="M12 21.35l-1.45-1.32C5.4 15.36 2 12.28 2 8.5 2 5.42 4.42 3 7.5 3c1.74 0 3.41.81 4.5 2.09C13.09 3.81 14.76 3 16.5 3 19.58 3 22 5.42 22 8.5c0 3.78-3.4 6.86-8.55 11.54L12 21.35z" />
@@ -131,21 +131,21 @@ export function DailyPickCard({ pick }: { pick: Pick }) {
       <div className="mt-1.5 px-0.5">
         {known ? (
           <>
-            <p className="m-0 truncate font-['Outfit',sans-serif] text-[13px] font-extrabold text-[var(--text-primary)] transition-colors group-hover:text-[var(--accent-orange)]">
+            <p className="m-0 truncate font-['Outfit',sans-serif] text-[14px] font-extrabold text-[var(--text-primary)] transition-colors group-hover:text-[var(--accent-orange)]">
               {sanitizeTitle(track!.title)}
             </p>
-            <p className="m-0 mt-0.5 truncate text-[11.5px] text-[var(--text-muted)]">{artist?.name || 'Atlikėjas'}</p>
+            <p className="m-0 mt-0.5 truncate text-[12.5px] text-[var(--text-muted)]">{artist?.name || 'Atlikėjas'}</p>
           </>
         ) : (
           <>
-            <p className="m-0 font-['Outfit',sans-serif] text-[10px] font-extrabold uppercase tracking-wider text-[var(--text-faint)]">
+            <p className="m-0 font-['Outfit',sans-serif] text-[11px] font-extrabold uppercase tracking-wider text-[var(--text-faint)]">
               Laukia importavimo
             </p>
-            <p className="m-0 mt-0.5 text-[11px] font-mono text-[var(--text-muted)]">music.lt #{pick.legacy_track_id}</p>
+            <p className="m-0 mt-0.5 text-[12px] font-mono text-[var(--text-muted)]">music.lt #{pick.legacy_track_id}</p>
           </>
         )}
         {pick.comment && (
-          <p className="m-0 mt-1 line-clamp-2 text-[10.5px] italic leading-snug text-[var(--text-muted)]" title={pick.comment}>
+          <p className="m-0 mt-1 line-clamp-2 text-[11.5px] italic leading-snug text-[var(--text-muted)]" title={pick.comment}>
             „{pick.comment}"
           </p>
         )}

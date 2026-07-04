@@ -64,7 +64,7 @@ export function NewListingForm({ initialType }: Props) {
     background: 'var(--bg-elevated)', border: '1px solid var(--border-default)',
     color: 'var(--text-primary)', outline: 'none',
   }
-  const labelStyle: React.CSSProperties = { display: 'block', fontSize: 13.5, fontWeight: 700, color: 'var(--text-secondary)', marginBottom: 6 }
+  const labelStyle: React.CSSProperties = { display: 'block', fontSize: 14.5, fontWeight: 700, color: 'var(--text-secondary)', marginBottom: 6 }
 
   async function handleFiles(files: FileList | null) {
     if (!files || !files.length) return
@@ -148,7 +148,7 @@ export function NewListingForm({ initialType }: Props) {
         {['Tipas', 'Detalės', 'Nuotraukos', 'Peržiūra'].map((lbl, i) => (
           <div key={lbl} style={{ flex: 1, textAlign: 'center' }}>
             <div style={{ height: 4, borderRadius: 2, background: i <= step ? 'var(--accent-orange)' : 'var(--border-default)', marginBottom: 6 }} />
-            <span style={{ fontSize: 11.5, color: i <= step ? 'var(--text-secondary)' : 'var(--text-faint)', fontWeight: i === step ? 700 : 500 }}>{lbl}</span>
+            <span style={{ fontSize: 12.5, color: i <= step ? 'var(--text-secondary)' : 'var(--text-faint)', fontWeight: i === step ? 700 : 500 }}>{lbl}</span>
           </div>
         ))}
       </div>
@@ -178,7 +178,7 @@ export function NewListingForm({ initialType }: Props) {
                 }}>{TYPE_ICON[t]}</span>
                 <span style={{ minWidth: 0 }}>
                   <strong style={{ fontSize: 16, color: 'var(--text-primary)', display: 'block' }}>{m.label}</strong>
-                  <span style={{ fontSize: 12.5, color: 'var(--text-muted)' }}>{m.subtitle}</span>
+                  <span style={{ fontSize: 13.5, color: 'var(--text-muted)' }}>{m.subtitle}</span>
                 </span>
                 <svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="var(--text-faint)" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" style={{ marginLeft: 'auto', flexShrink: 0 }}><polyline points="9 18 15 12 9 6" /></svg>
               </button>
@@ -424,13 +424,13 @@ export function NewListingForm({ initialType }: Props) {
         <div style={{ display: 'grid', gap: 16 }}>
           <h2 style={{ fontSize: 18, fontWeight: 800, color: 'var(--text-primary)', margin: 0 }}>Peržiūra</h2>
           <div style={{ border: '1px solid var(--border-subtle)', borderRadius: 12, padding: 16 }}>
-            <div style={{ fontSize: 12, fontWeight: 700, color: 'var(--accent-link)', marginBottom: 6 }}>{meta.label}</div>
+            <div style={{ fontSize: 13, fontWeight: 700, color: 'var(--accent-link)', marginBottom: 6 }}>{meta.label}</div>
             <h3 style={{ fontSize: 18, fontWeight: 800, color: 'var(--text-primary)', margin: '0 0 8px' }}>{title}</h3>
             {!isFree && price && type === 'paslaugos' && <div style={{ fontWeight: 800, color: 'var(--accent-green)', marginBottom: 8 }}>{price} €/{priceUnit === 'val' ? 'val.' : priceUnit}</div>}
             {!isFree && price && SALE_TYPES.includes(type) && <div style={{ fontWeight: 800, color: 'var(--accent-green)', marginBottom: 8 }}>{price} €</div>}
             {isFree && <div style={{ fontWeight: 800, color: 'var(--accent-green)', marginBottom: 8 }}>Nemokama</div>}
             {description && <p style={{ fontSize: 14.5, color: 'var(--text-secondary)', whiteSpace: 'pre-wrap', margin: '0 0 8px' }}>{description}</p>}
-            <div style={{ fontSize: 13, color: 'var(--text-muted)' }}>{[city, genre].filter(Boolean).join(' · ')}</div>
+            <div style={{ fontSize: 14, color: 'var(--text-muted)' }}>{[city, genre].filter(Boolean).join(' · ')}</div>
             {photos.length > 0 && (
               <div style={{ display: 'flex', gap: 6, marginTop: 10, flexWrap: 'wrap' }}>
                 {/* eslint-disable-next-line @next/next/no-img-element */}
@@ -438,7 +438,7 @@ export function NewListingForm({ initialType }: Props) {
               </div>
             )}
           </div>
-          <p style={{ fontSize: 13, color: 'var(--text-muted)', margin: 0 }}>Susisiekimas vyks per žinutes — kiti vartotojai galės parašyti tau tiesiogiai.</p>
+          <p style={{ fontSize: 14, color: 'var(--text-muted)', margin: 0 }}>Susisiekimas vyks per žinutes — kiti vartotojai galės parašyti tau tiesiogiai.</p>
           <div style={{ display: 'flex', gap: 10 }}>
             <button onClick={() => setStep(2)} style={btnGhost}>Atgal</button>
             <button onClick={submit} disabled={submitting} style={{ ...btnPrimary, opacity: submitting ? 0.7 : 1 }}>

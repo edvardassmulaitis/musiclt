@@ -19,7 +19,7 @@ function CategoryBadge({ category }: { category: string | null }) {
   if (!c || c.key === 'naujiena') return null
   return (
     <span
-      className="inline-flex items-center gap-1.5 rounded-md px-2 py-1 text-[10px] font-bold uppercase tracking-wide backdrop-blur-sm"
+      className="inline-flex items-center gap-1.5 rounded-md px-2 py-1 text-[11px] font-bold uppercase tracking-wide backdrop-blur-sm"
       style={{ background: 'rgba(0,0,0,0.55)', color: '#fff' }}
     >
       <span className="inline-block h-1.5 w-1.5 rounded-full" style={{ background: c.accent }} />
@@ -83,11 +83,11 @@ export default function NewsCard({
           <div className="flex flex-wrap items-center gap-2">
             <CategoryBadge category={item.category} />
             {item.isLT && (
-              <span className="rounded-full bg-white/15 px-2 py-0.5 text-[10px] font-bold uppercase tracking-wide text-white backdrop-blur">🇱🇹 Lietuva</span>
+              <span className="rounded-full bg-white/15 px-2 py-0.5 text-[11px] font-bold uppercase tracking-wide text-white backdrop-blur">🇱🇹 Lietuva</span>
             )}
           </div>
           <h2 className="max-w-3xl text-2xl font-black leading-tight text-white sm:text-4xl">{item.title}</h2>
-          <div className="flex flex-wrap items-center gap-2 text-[13px] text-white/80">
+          <div className="flex flex-wrap items-center gap-2 text-[14px] text-white/80">
             {item.artistName && <span className="font-semibold text-white">{item.artistName}</span>}
             {item.artistName && item.date && <span>·</span>}
             {item.date && <span>{fmtNewsDate(item.date)}</span>}
@@ -113,7 +113,7 @@ export default function NewsCard({
           <div className="absolute left-3 top-3 flex flex-wrap gap-1.5">
             <CategoryBadge category={item.category} />
             {item.isLT && (
-              <span className="rounded-md bg-black/55 px-2 py-1 text-[10px] font-bold uppercase tracking-wide text-white backdrop-blur-sm">🇱🇹 Lietuva</span>
+              <span className="rounded-md bg-black/55 px-2 py-1 text-[11px] font-bold uppercase tracking-wide text-white backdrop-blur-sm">🇱🇹 Lietuva</span>
             )}
           </div>
         </div>
@@ -121,7 +121,7 @@ export default function NewsCard({
           <h2 className="line-clamp-3 text-[16px] font-bold leading-[1.3] text-[var(--text-primary)] transition-colors group-hover:text-[var(--accent-orange,#f59e0b)]">
             {item.title}
           </h2>
-          <div className="mt-auto flex items-center justify-between gap-2 text-[12px] text-[var(--text-faint)]">
+          <div className="mt-auto flex items-center justify-between gap-2 text-[13px] text-[var(--text-faint)]">
             <span className="flex min-w-0 items-center gap-1.5">
               {item.artistName && <span className="truncate font-semibold text-[var(--text-secondary)]">{item.artistName}</span>}
               {item.artistName && item.date && <span className="shrink-0 opacity-50">·</span>}
@@ -146,8 +146,8 @@ export default function NewsCard({
           )}
         </div>
         <div className="min-w-0 flex-1">
-          <h3 className="line-clamp-2 text-[13px] font-bold leading-snug text-[var(--text-primary)] group-hover:text-[var(--accent-orange,#f59e0b)]">{item.title}</h3>
-          <div className="mt-0.5 flex items-center gap-1.5 text-[11px] text-[var(--text-faint)]">
+          <h3 className="line-clamp-2 text-[14px] font-bold leading-snug text-[var(--text-primary)] group-hover:text-[var(--accent-orange,#f59e0b)]">{item.title}</h3>
+          <div className="mt-0.5 flex items-center gap-1.5 text-[12px] text-[var(--text-faint)]">
             {item.artistName && <span className="truncate font-medium text-[var(--text-secondary)]">{item.artistName}</span>}
             {item.artistName && item.date && <span>·</span>}
             {item.date && <span className="shrink-0">{relNewsDate(item.date)}</span>}
@@ -177,7 +177,7 @@ export default function NewsCard({
         <h2 className="line-clamp-3 min-h-[3.85em] text-[14px] font-bold leading-[1.28] text-[var(--text-primary)] transition-colors group-hover:text-[var(--accent-orange,#f59e0b)]">
           {item.title}
         </h2>
-        <div className="flex items-center justify-between gap-2 text-[11px] text-[var(--text-faint)]">
+        <div className="flex items-center justify-between gap-2 text-[12px] text-[var(--text-faint)]">
           <span className="flex min-w-0 items-center gap-1.5">
             {item.artistName && <span className="truncate font-semibold text-[var(--text-secondary)]">{item.artistName}</span>}
             {item.artistName && item.date && <span className="shrink-0 opacity-50">·</span>}

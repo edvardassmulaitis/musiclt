@@ -36,7 +36,7 @@ export default async function GalleryPage() {
       {reportages.length === 0 ? (
         <div className="rounded-2xl border border-dashed border-[var(--border-default)] p-12 text-center">
           <div className="text-[15px] font-semibold text-[var(--text-primary)]">Reportažų dar nėra</div>
-          <p className="mx-auto mt-1.5 max-w-sm text-[13px] text-[var(--text-muted)]">
+          <p className="mx-auto mt-1.5 max-w-sm text-[14px] text-[var(--text-muted)]">
             Netrukus čia atsiras koncertų foto reportažai. Tuo tarpu užsuk į{' '}
             <Link href="/koncertai" className="text-[var(--accent-orange)] hover:underline">koncertus</Link>.
           </p>
@@ -56,25 +56,25 @@ export default async function GalleryPage() {
                   <div className="h-full w-full bg-gradient-to-br from-[var(--accent-orange)]/20 to-[#8b5cf6]/20" />
                 )}
                 {hero.photoCount > 0 && (
-                  <span className="absolute left-4 top-4 rounded-full bg-black/65 px-3 py-1 text-[12px] font-bold text-white backdrop-blur">
+                  <span className="absolute left-4 top-4 rounded-full bg-black/65 px-3 py-1 text-[13px] font-bold text-white backdrop-blur">
                     📸 {hero.photoCount} nuotraukos
                   </span>
                 )}
               </div>
               <div className="flex flex-col justify-center p-6 sm:p-8">
-                <div className="mb-2 font-['Outfit',sans-serif] text-[11px] font-extrabold uppercase tracking-[0.18em] text-[var(--accent-orange)]">
+                <div className="mb-2 font-['Outfit',sans-serif] text-[12px] font-extrabold uppercase tracking-[0.18em] text-[var(--accent-orange)]">
                   Koncerto nuotraukos
                 </div>
                 <h2 className="font-['Outfit',sans-serif] text-[22px] font-black leading-tight tracking-[-0.01em] text-[var(--text-primary)] sm:text-[26px]">
                   {hero.title.replace(/^FOTO\s+(REPORTA[ŽZ]AS|GALERIJA)\s*\|\s*/i, '')}
                 </h2>
-                <div className="mt-2.5 flex flex-wrap items-center gap-x-3 gap-y-1 text-[13px] text-[var(--text-muted)]">
+                <div className="mt-2.5 flex flex-wrap items-center gap-x-3 gap-y-1 text-[14px] text-[var(--text-muted)]">
                   {hero.artistName && <span className="font-semibold text-[var(--text-secondary)]">{hero.artistName}</span>}
                   {reportagePlaceLine(hero) && <span>{reportagePlaceLine(hero)}</span>}
                   {formatEventDate(hero.eventDate) && <span>{formatEventDate(hero.eventDate)}</span>}
                 </div>
                 {hero.photographerName && (
-                  <div className="mt-2 text-[13px] text-[var(--text-secondary)]">
+                  <div className="mt-2 text-[14px] text-[var(--text-secondary)]">
                     Fotografas: <span className="font-semibold">{hero.photographerName}</span>
                   </div>
                 )}

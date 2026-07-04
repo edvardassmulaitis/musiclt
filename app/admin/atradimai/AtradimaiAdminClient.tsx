@@ -20,7 +20,7 @@ function embedUrl(t: string | null, id: string | null) {
   return `https://open.spotify.com/${kind}/${id}`
 }
 
-const btn: React.CSSProperties = { fontSize: 12.5, fontWeight: 700, padding: '6px 12px', borderRadius: 8, border: '1px solid #e6e3df', background: '#fff', cursor: 'pointer' }
+const btn: React.CSSProperties = { fontSize: 13.5, fontWeight: 700, padding: '6px 12px', borderRadius: 8, border: '1px solid #e6e3df', background: '#fff', cursor: 'pointer' }
 const card: React.CSSProperties = { background: '#fff', border: '1px solid #e6e3df', borderRadius: 12, padding: 14 }
 
 async function patch(payload: any) {
@@ -33,10 +33,10 @@ function Samples({ samples }: { samples: Sample[] }) {
       {samples.map(s => {
         const u = embedUrl(s.embed_type, s.embed_id)
         return (
-          <div key={s.id} style={{ fontSize: 12.5, color: '#4b463f', lineHeight: 1.5 }}>
+          <div key={s.id} style={{ fontSize: 13.5, color: '#4b463f', lineHeight: 1.5 }}>
             {s.track_name && <span style={{ fontWeight: 700, color: '#1a1a1a' }}>{s.track_name} · </span>}
             {s.body || <span style={{ color: '#9c978d' }}>(be teksto)</span>}
-            {u && <a href={u} target="_blank" rel="noopener noreferrer" style={{ marginLeft: 6, color: '#2563eb', fontSize: 11.5, whiteSpace: 'nowrap' }}>{s.embed_type === 'youtube' ? '▶ klausyti' : '♫ klausyti'}</a>}
+            {u && <a href={u} target="_blank" rel="noopener noreferrer" style={{ marginLeft: 6, color: '#2563eb', fontSize: 12.5, whiteSpace: 'nowrap' }}>{s.embed_type === 'youtube' ? '▶ klausyti' : '♫ klausyti'}</a>}
           </div>
         )
       })}
@@ -46,7 +46,7 @@ function Samples({ samples }: { samples: Sample[] }) {
 
 function ExpandToggle({ open, set, count }: { open: boolean; set: (v: boolean) => void; count: number }) {
   return (
-    <button onClick={() => set(!open)} style={{ ...btn, border: 'none', background: 'transparent', color: '#6b675f', padding: '4px 0', fontSize: 12 }}>
+    <button onClick={() => set(!open)} style={{ ...btn, border: 'none', background: 'transparent', color: '#6b675f', padding: '4px 0', fontSize: 13 }}>
       {open ? '▾ Slėpti' : `▸ Rodyti komentarus (${count})`}
     </button>
   )
@@ -66,16 +66,16 @@ function LinkArtist({ rawName, ids, onLinked }: { rawName: string; ids?: number[
   return (
     <div style={{ position: 'relative', flex: 1, minWidth: 200 }}>
       <input autoFocus value={q} onChange={e => search(e.target.value)} placeholder="Ieškoti atlikėjo DB…"
-        style={{ width: '100%', padding: '7px 10px', borderRadius: 8, border: '1px solid #e6e3df', fontSize: 13, outline: 'none' }} />
+        style={{ width: '100%', padding: '7px 10px', borderRadius: 8, border: '1px solid #e6e3df', fontSize: 14, outline: 'none' }} />
       {res.length > 0 && (
         <div style={{ position: 'absolute', top: '100%', left: 0, right: 0, zIndex: 20, marginTop: 4, background: '#fff', border: '1px solid #e6e3df', borderRadius: 10, boxShadow: '0 10px 30px rgba(0,0,0,.15)', maxHeight: 240, overflowY: 'auto' }}>
           {res.map(a => (
             <button key={a.id} disabled={busy} onClick={() => link(a)}
-              style={{ display: 'flex', alignItems: 'center', gap: 8, width: '100%', textAlign: 'left', padding: '8px 10px', border: 'none', borderBottom: '1px solid #f1efec', background: 'transparent', cursor: 'pointer', fontSize: 13 }}>
+              style={{ display: 'flex', alignItems: 'center', gap: 8, width: '100%', textAlign: 'left', padding: '8px 10px', border: 'none', borderBottom: '1px solid #f1efec', background: 'transparent', cursor: 'pointer', fontSize: 14 }}>
               {/* eslint-disable-next-line @next/next/no-img-element */}
               {a.cover_image_url ? <img src={a.cover_image_url} alt="" width={24} height={24} style={{ borderRadius: 5, objectFit: 'cover' }} /> : <span style={{ width: 24, height: 24, borderRadius: 5, background: '#eee', display: 'inline-block' }} />}
               <span style={{ fontWeight: 700 }}>{a.name}</span>
-              {a.country && <span style={{ color: '#9c978d', fontSize: 11 }}>{a.country}</span>}
+              {a.country && <span style={{ color: '#9c978d', fontSize: 12 }}>{a.country}</span>}
             </button>
           ))}
         </div>
@@ -90,7 +90,7 @@ function PendingCard({ g, onGone }: { g: PendingGroup; onGone: () => void }) {
     <div style={card}>
       <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'baseline', gap: 8 }}>
         <strong style={{ fontSize: 15 }}>{g.artist_name}</strong>
-        <span style={{ fontSize: 11, color: '#9c978d', fontWeight: 700 }}>{g.count}×</span>
+        <span style={{ fontSize: 12, color: '#9c978d', fontWeight: 700 }}>{g.count}×</span>
       </div>
       <ExpandToggle open={open} set={setOpen} count={g.count} />
       {open && <Samples samples={g.samples} />}
@@ -111,9 +111,9 @@ function LinkedCard({ g, onUnlinked }: { g: LinkedGroup; onUnlinked: () => void 
       <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'baseline', gap: 8 }}>
         <div style={{ minWidth: 0 }}>
           {g.slug ? <Link href={`/atlikejai/${g.slug}`} target="_blank" style={{ fontSize: 15, fontWeight: 800, color: '#16a34a', textDecoration: 'none' }}>{g.db_name}</Link> : <strong style={{ fontSize: 15 }}>{g.db_name}</strong>}
-          {mismatch && <span style={{ fontSize: 11.5, color: '#b45309', marginLeft: 6 }}>(tekste: „{g.raw_name}")</span>}
+          {mismatch && <span style={{ fontSize: 12.5, color: '#b45309', marginLeft: 6 }}>(tekste: „{g.raw_name}")</span>}
         </div>
-        <span style={{ fontSize: 11, color: '#9c978d', fontWeight: 700 }}>{g.count}×</span>
+        <span style={{ fontSize: 12, color: '#9c978d', fontWeight: 700 }}>{g.count}×</span>
       </div>
       <ExpandToggle open={open} set={setOpen} count={g.count} />
       {open && <Samples samples={g.samples} />}
@@ -159,10 +159,10 @@ export default function AtradimaiAdminClient({ pendingGroups, linkedGroups, repo
         {reps.length === 0 ? <p style={{ color: '#6b675f' }}>Naujų pranešimų nėra.</p> : reps.map(r => (
           <div key={r.id} style={{ ...card, display: 'flex', justifyContent: 'space-between', gap: 12, alignItems: 'flex-start' }}>
             <div style={{ minWidth: 0 }}>
-              <span style={{ fontSize: 10.5, fontWeight: 800, textTransform: 'uppercase', color: '#9c978d', letterSpacing: '.04em' }}>{r.kind}</span>
+              <span style={{ fontSize: 11.5, fontWeight: 800, textTransform: 'uppercase', color: '#9c978d', letterSpacing: '.04em' }}>{r.kind}</span>
               <div style={{ fontSize: 15, fontWeight: 700 }}>{r.name}</div>
-              {r.note && <div style={{ fontSize: 13, color: '#6b675f', marginTop: 2 }}>{r.note}</div>}
-              {r.source_url && <a href={r.source_url} target="_blank" rel="noopener noreferrer" style={{ fontSize: 12, color: '#2563eb' }}>{r.source_url}</a>}
+              {r.note && <div style={{ fontSize: 14, color: '#6b675f', marginTop: 2 }}>{r.note}</div>}
+              {r.source_url && <a href={r.source_url} target="_blank" rel="noopener noreferrer" style={{ fontSize: 13, color: '#2563eb' }}>{r.source_url}</a>}
             </div>
             <div style={{ display: 'flex', gap: 6, flexShrink: 0 }}>
               <button style={{ ...btn, color: '#16a34a', borderColor: '#16a34a44' }} onClick={() => { patch({ type: 'report', id: r.id, status: 'handled' }); setReps(x => x.filter(y => y.id !== r.id)) }}>Sutvarkyta</button>

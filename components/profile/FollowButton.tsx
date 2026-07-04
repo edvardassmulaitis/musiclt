@@ -86,7 +86,7 @@ export function FollowButton({
     }
   }
 
-  // Dydis kaip „Dalintis" (ShareButton): px-3 py-1 text-[11px], 12px ikona.
+  // Dydis kaip „Dalintis" (ShareButton): px-3 py-1 text-[12px], 12px ikona.
   // Stilius kaip atlikėjų „Sekti" širdelė: užpildytas oranžinis kai sekama,
   // subtilus translucent (ghost) / card pill kai dar ne.
   void count; void loaded
@@ -97,7 +97,7 @@ export function FollowButton({
   const compactCircle = keepLabel ? false : (iconOnly || following)
   const base = compactCircle
     ? 'inline-flex items-center justify-center rounded-full transition hover:opacity-90 active:scale-[0.97] disabled:opacity-60'
-    : 'inline-flex items-center gap-1.5 rounded-full px-3 py-1 text-[11px] font-bold transition hover:opacity-90 active:scale-[0.97] disabled:opacity-60'
+    : 'inline-flex items-center gap-1.5 rounded-full px-3 py-1 text-[12px] font-bold transition hover:opacity-90 active:scale-[0.97] disabled:opacity-60'
 
   let style: React.CSSProperties
   if (compactCircle) {

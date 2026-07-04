@@ -137,7 +137,7 @@ export default async function BlogPage({ params, searchParams }: Props) {
             <Link
               key={t}
               href={buildUrl(1, t)}
-              className={`text-[12px] px-3 py-1 rounded-full transition border ${
+              className={`text-[13px] px-3 py-1 rounded-full transition border ${
                 currentType === t
                   ? 'bg-[var(--accent-orange)]/15 text-[var(--accent-orange)] border-[var(--accent-orange)]/60'
                   : 'bg-transparent text-[#b0bdd4] border-white/[.08] hover:border-white/[.18] hover:bg-white/[.04]'

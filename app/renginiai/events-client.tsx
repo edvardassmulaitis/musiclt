@@ -158,11 +158,11 @@ function RangeCalendar({ from, to, onPick }: { from: Date | null; to: Date | nul
     <div style={{ width: '100%' }}>
       <div className="flex items-center justify-between mb-2">
         <button type="button" onClick={() => setView(new Date(y, m - 1, 1))} className="ev-cal-nav">{Icon.arrowL}</button>
-        <span style={{ fontSize: 13, fontWeight: 800, color: 'var(--text-primary)' }}>{MONTHS_FULL[m]} {y}</span>
+        <span style={{ fontSize: 14, fontWeight: 800, color: 'var(--text-primary)' }}>{MONTHS_FULL[m]} {y}</span>
         <button type="button" onClick={() => setView(new Date(y, m + 1, 1))} className="ev-cal-nav">{Icon.arrowR}</button>
       </div>
       <div className="grid grid-cols-7 gap-0.5 mb-1">
-        {WEEKDAYS.map(w => <div key={w} style={{ textAlign: 'center', fontSize: 10, fontWeight: 700, padding: '3px 0', color: 'var(--text-faint)' }}>{w}</div>)}
+        {WEEKDAYS.map(w => <div key={w} style={{ textAlign: 'center', fontSize: 11, fontWeight: 700, padding: '3px 0', color: 'var(--text-faint)' }}>{w}</div>)}
       </div>
       <div className="grid grid-cols-7 gap-0.5">
         {cells.map((day, i) => {

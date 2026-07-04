@@ -249,8 +249,8 @@ export default function NaujienuTriage() {
               {/* Antraštė + meta */}
               <div className="min-w-0 flex-1">
                 <div className="flex items-center gap-2">
-                  <span className={`shrink-0 px-1.5 py-0.5 rounded text-[10px] font-bold ${STATUS_COLOR[it.status]}`}>{STATUS_LABEL[it.status]}</span>
-                  {!it.has_text && <span className="shrink-0 px-1.5 py-0.5 rounded text-[10px] bg-gray-100 text-gray-500">tik antraštė</span>}
+                  <span className={`shrink-0 px-1.5 py-0.5 rounded text-[11px] font-bold ${STATUS_COLOR[it.status]}`}>{STATUS_LABEL[it.status]}</span>
+                  {!it.has_text && <span className="shrink-0 px-1.5 py-0.5 rounded text-[11px] bg-gray-100 text-gray-500">tik antraštė</span>}
                   <a href={it.source_url || '#'} target="_blank" rel="noreferrer"
                     className="truncate text-sm font-semibold hover:underline" style={{ color: 'var(--text-primary)' }}>{it.title}</a>
                 </div>
@@ -270,7 +270,7 @@ export default function NaujienuTriage() {
                 {it.author_raw ? (
                   <div className="text-sm">
                     <span style={{ color: 'var(--text-primary)' }}>{it.author_raw}</span>
-                    <span className="ml-1 text-[10px]" style={{ color: 'var(--text-muted)' }}>
+                    <span className="ml-1 text-[11px]" style={{ color: 'var(--text-muted)' }}>
                       {it.parse_method}{it.parse_conf != null ? ` ${Math.round(it.parse_conf * 100)}%` : ''}
                     </span>
                   </div>

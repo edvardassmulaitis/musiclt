@@ -330,7 +330,7 @@ export function ProfileClient(props: any) {
 
               {bioSnippet && (
                 <p
-                  className="text-[13px] leading-relaxed line-clamp-3 pf-hero-bio"
+                  className="text-[14px] leading-relaxed line-clamp-3 pf-hero-bio"
                   style={{ fontFamily: "'Outfit', sans-serif" }}
                 >
                   {bioSnippet}
@@ -343,7 +343,7 @@ export function ProfileClient(props: any) {
                 <FollowButton targetId={profile.id} variant="ghost" size="sm" />
                 {isOwner && (
                   <button type="button" onClick={() => setEditOpen(true)}
-                          className="inline-flex items-center gap-1.5 rounded-full px-3 py-1 text-[11px] font-bold transition hover:opacity-90"
+                          className="inline-flex items-center gap-1.5 rounded-full px-3 py-1 text-[12px] font-bold transition hover:opacity-90"
                           style={{ fontFamily: "'Outfit', sans-serif", background: 'var(--hero-tag-bg)', color: 'var(--hero-name)', border: '1px solid var(--hero-tag-border)' }}>
                     <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round" aria-hidden><path d="M12 20h9"/><path d="M16.5 3.5a2.12 2.12 0 0 1 3 3L7 19l-4 1 1-4Z"/></svg>
                     Redaguoti
@@ -602,7 +602,7 @@ function MobileProfileView(props: any) {
               po equalizer/nuotaikos elementais — kad username turėtų visą plotį ── */}
           <div className="mt-2.5 flex items-start gap-3">
             {bioSnippet ? (
-              <p className="flex-1 min-w-0 text-[12px] leading-[1.45] line-clamp-3 pf-hero-bio"
+              <p className="flex-1 min-w-0 text-[13px] leading-[1.45] line-clamp-3 pf-hero-bio"
                  style={{ fontFamily: "'Outfit', sans-serif" }}>
                 {bioSnippet}
               </p>
@@ -737,7 +737,7 @@ function PostsFeed({ lanes, blogSlug }: { lanes: any[]; blogSlug: string }) {
           const isActive = filter === tg.key
           return (
             <button key={tg.key ?? 'all'} type="button" onClick={() => setFilter(tg.key)}
-                    className="flex-shrink-0 inline-flex items-center gap-1 rounded-full px-3 py-1 text-[12px] font-bold transition"
+                    className="flex-shrink-0 inline-flex items-center gap-1 rounded-full px-3 py-1 text-[13px] font-bold transition"
                     style={{
                       fontFamily: "'Outfit', sans-serif",
                       background: isActive ? 'rgba(249,115,22,0.16)' : 'var(--card-bg)',
@@ -784,7 +784,7 @@ function PostFeedRow({ post, blogSlug }: { post: any; blogSlug: string }) {
           </div>
         )}
         <div className="min-w-0 flex-1">
-          <div className="text-[9px] font-extrabold uppercase tracking-wider mb-0.5"
+          <div className="text-[10px] font-extrabold uppercase tracking-wider mb-0.5"
                style={{ fontFamily: "'Outfit', sans-serif", color: 'var(--accent-orange)' }}>
             {kicker}
           </div>
@@ -793,7 +793,7 @@ function PostFeedRow({ post, blogSlug }: { post: any; blogSlug: string }) {
             {post.title}
           </h4>
           {isTranslation ? (
-            post.summary && <p className="mt-0.5 text-[11.5px] truncate" style={{ color: 'var(--text-muted)' }}>{post.summary}</p>
+            post.summary && <p className="mt-0.5 text-[12.5px] truncate" style={{ color: 'var(--text-muted)' }}>{post.summary}</p>
           ) : (
             <PostMetaRow date={post.published_at} likes={post.like_count || 0} comments={post.comment_count || 0} tone="muted" />
           )}
@@ -841,18 +841,18 @@ function LikedMiniCard({ item }: { item: any }) {
         ) : (
           <div className="w-full h-full flex items-center justify-center text-xl" style={{ color: 'var(--text-faint)' }}>{isTrack ? '♬' : '⬚'}</div>
         )}
-        <div className="absolute top-1 left-1 px-1.5 py-0.5 rounded-md text-[8px] font-extrabold uppercase tracking-wide backdrop-blur-sm"
+        <div className="absolute top-1 left-1 px-1.5 py-0.5 rounded-md text-[9px] font-extrabold uppercase tracking-wide backdrop-blur-sm"
              style={{ background: 'rgba(0,0,0,0.55)', color: '#fff' }}>
           {isTrack ? 'Daina' : 'Albumas'}
         </div>
       </div>
       <div className="p-1.5">
-        <div className="text-[11px] font-bold leading-tight line-clamp-2"
+        <div className="text-[12px] font-bold leading-tight line-clamp-2"
              style={{ fontFamily: "'Outfit', sans-serif", color: 'var(--text-primary)' }}>
           {item.title}
         </div>
         {artist && (
-          <div className="text-[9.5px] truncate mt-0.5" style={{ color: 'var(--text-muted)', fontFamily: "'Outfit', sans-serif" }}>
+          <div className="text-[10.5px] truncate mt-0.5" style={{ color: 'var(--text-muted)', fontFamily: "'Outfit', sans-serif" }}>
             {artist.name}
           </div>
         )}
@@ -879,22 +879,22 @@ function RecentItemRow({ item }: { item: any }) {
         )}
         <div className="min-w-0 flex-1">
           <div className="flex items-center gap-1.5 mb-0.5">
-            <span className="text-[9px] font-extrabold uppercase tracking-wider truncate"
+            <span className="text-[10px] font-extrabold uppercase tracking-wider truncate"
                   style={{ fontFamily: "'Outfit', sans-serif", color: item.accent }}>
               {item.kicker}
             </span>
             <span aria-hidden style={{ color: 'var(--text-faint)' }}>·</span>
-            <span className="text-[10px] uppercase tracking-wider font-bold flex-shrink-0"
+            <span className="text-[11px] uppercase tracking-wider font-bold flex-shrink-0"
                   style={{ color: 'var(--text-faint)', fontFamily: "'Outfit', sans-serif" }}>
               {date}
             </span>
           </div>
-          <h4 className="text-[13.5px] font-bold leading-tight line-clamp-2 group-hover:text-[var(--accent-orange)] transition"
+          <h4 className="text-[14.5px] font-bold leading-tight line-clamp-2 group-hover:text-[var(--accent-orange)] transition"
               style={{ fontFamily: "'Outfit', sans-serif", color: 'var(--text-primary)' }}>
             {item.title}
           </h4>
           {item.subtitle && (
-            <p className="mt-0.5 text-[11.5px] line-clamp-1"
+            <p className="mt-0.5 text-[12.5px] line-clamp-1"
                style={{ color: 'var(--text-muted)', fontFamily: "'Outfit', sans-serif" }}>
               {item.kind === 'comment' ? `„${item.subtitle}"` : item.subtitle}
             </p>
@@ -1054,14 +1054,14 @@ function MoodCard({ track }: { track: any }) {
       </div>
       {/* Text */}
       <div className="px-1.5 py-1 flex flex-col gap-0">
-        <span className="text-[9px] font-bold uppercase tracking-wide" style={{ color: 'rgba(249,115,22,0.9)', fontFamily: "'Outfit', sans-serif" }}>
+        <span className="text-[10px] font-bold uppercase tracking-wide" style={{ color: 'rgba(249,115,22,0.9)', fontFamily: "'Outfit', sans-serif" }}>
           Nuotaikos daina
         </span>
-        <span className="text-[10px] font-bold leading-tight line-clamp-1" style={{ color: 'rgba(255,255,255,0.9)', fontFamily: "'Outfit', sans-serif" }}>
+        <span className="text-[11px] font-bold leading-tight line-clamp-1" style={{ color: 'rgba(255,255,255,0.9)', fontFamily: "'Outfit', sans-serif" }}>
           {track.title}
         </span>
         {artist && (
-          <span className="text-[9px] leading-tight truncate" style={{ color: 'rgba(255,255,255,0.55)', fontFamily: "'Outfit', sans-serif" }}>
+          <span className="text-[10px] leading-tight truncate" style={{ color: 'rgba(255,255,255,0.55)', fontFamily: "'Outfit', sans-serif" }}>
             {artist.name}
           </span>
         )}
@@ -1114,7 +1114,7 @@ function MergedFeed({
   return (
     <div>
       {visible.length === 0 ? (
-        <p className="text-[13px] text-center py-8" style={{ color: 'var(--text-faint)' }}>Nėra įrašų</p>
+        <p className="text-[14px] text-center py-8" style={{ color: 'var(--text-faint)' }}>Nėra įrašų</p>
       ) : (
         <div className="flex flex-col gap-3">
           {visible.length > 0 && renderItem(visible[0])}
@@ -1194,7 +1194,7 @@ function ShareButton({ username, iconOnly = false }: { username: string; iconOnl
       type="button"
       onClick={onClick}
       aria-label="Dalintis profiliu"
-      className="inline-flex items-center gap-1.5 rounded-full px-3 py-1 text-[11px] font-bold transition hover:opacity-90"
+      className="inline-flex items-center gap-1.5 rounded-full px-3 py-1 text-[12px] font-bold transition hover:opacity-90"
       style={{ fontFamily: "'Outfit', sans-serif", background: 'var(--hero-tag-bg)', color: 'var(--hero-name)', border: '1px solid var(--hero-tag-border)' }}
     >
       <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round" aria-hidden>
@@ -1242,18 +1242,18 @@ function MobileMoodPill({ track, fill = false }: { track: any; fill?: boolean })
           <img src={cover} alt="" className="relative w-7 h-7 rounded-full object-cover border border-white/15"
                style={{ animation: 'moodSpinV11 36s linear infinite' }} />
         ) : (
-          <div className="relative w-7 h-7 rounded-full bg-gradient-to-br from-orange-500/30 to-rose-600/30 flex items-center justify-center text-[10px]">♬</div>
+          <div className="relative w-7 h-7 rounded-full bg-gradient-to-br from-orange-500/30 to-rose-600/30 flex items-center justify-center text-[11px]">♬</div>
         )}
         <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-1 h-1 rounded-full"
              style={{ background: 'var(--bg-body)' }} />
       </div>
       <div className="min-w-0 flex flex-col leading-[1.12]">
-        <span className="text-[11.5px] font-bold text-white truncate"
+        <span className="text-[12.5px] font-bold text-white truncate"
               style={{ fontFamily: "'Outfit', sans-serif" }}>
           {track.title}
         </span>
         {artist && (
-          <span className="text-[9px] font-semibold truncate"
+          <span className="text-[10px] font-semibold truncate"
                 style={{ fontFamily: "'Outfit', sans-serif", color: 'rgba(255,255,255,0.6)' }}>
             {artist.name}
           </span>
@@ -1290,7 +1290,7 @@ function MoodSongHeroCard({ track, count = 1, onOpen }: { track: any; count?: nu
           className="font-extrabold uppercase"
           style={{
             fontFamily: "'Outfit', sans-serif",
-            fontSize: '10px',
+            fontSize: '11px',
             letterSpacing: '0.22em',
             color: 'var(--accent-orange)',
           }}
@@ -1299,7 +1299,7 @@ function MoodSongHeroCard({ track, count = 1, onOpen }: { track: any; count?: nu
         </div>
         <div className="flex items-center gap-1">
           {count > 1 && (
-            <span className="text-[10px] font-extrabold px-1.5 py-0.5 rounded-full" style={{ background: 'rgba(249,115,22,0.14)', color: 'var(--accent-orange)', fontFamily: "'Outfit', sans-serif" }}>{count}</span>
+            <span className="text-[11px] font-extrabold px-1.5 py-0.5 rounded-full" style={{ background: 'rgba(249,115,22,0.14)', color: 'var(--accent-orange)', fontFamily: "'Outfit', sans-serif" }}>{count}</span>
           )}
           <button
             type="button"
@@ -1350,7 +1350,7 @@ function MoodSongHeroCard({ track, count = 1, onOpen }: { track: any; count?: nu
             {track.title}
           </div>
           {artist && (
-            <div className="mt-1 font-semibold text-[12px] sm:text-[13px] leading-snug line-clamp-2"
+            <div className="mt-1 font-semibold text-[13px] sm:text-[14px] leading-snug line-clamp-2"
                  style={{ fontFamily: "'Outfit', sans-serif", color: 'var(--text-secondary)' }}>
               {artist.name}
             </div>
@@ -1375,11 +1375,11 @@ function MoodSongPlaceholder() {
       }}
     >
       <span className="text-2xl mb-1.5" style={{ opacity: 0.4 }}>♬</span>
-      <span className="text-[10px] font-extrabold uppercase tracking-wider"
+      <span className="text-[11px] font-extrabold uppercase tracking-wider"
             style={{ color: 'var(--text-faint)', fontFamily: "'Outfit', sans-serif" }}>
         Nuotaikos daina
       </span>
-      <span className="mt-1 text-[11px] leading-snug"
+      <span className="mt-1 text-[12px] leading-snug"
             style={{ color: 'var(--text-muted)', fontFamily: "'Outfit', sans-serif" }}>
         Narys dar nepasirinko
       </span>
@@ -1400,11 +1400,11 @@ function EqualizerPlaceholder({ onClick }: { onClick: () => void }) {
       }}
     >
       <span className="text-2xl mb-1.5" style={{ opacity: 0.4 }}>📊</span>
-      <span className="text-[10px] font-extrabold uppercase tracking-wider"
+      <span className="text-[11px] font-extrabold uppercase tracking-wider"
             style={{ color: 'var(--text-faint)', fontFamily: "'Outfit', sans-serif" }}>
         Muzikinis skonis
       </span>
-      <span className="mt-1 text-[11px] leading-snug"
+      <span className="mt-1 text-[12px] leading-snug"
             style={{ color: 'var(--text-muted)', fontFamily: "'Outfit', sans-serif" }}>
         Skonio matas dar nesurinktas
       </span>
@@ -1573,7 +1573,7 @@ function PostTypeTagBar({
               key={it.key ?? 'all'}
               type="button"
               onClick={() => onChange(it.key)}
-              className="inline-flex items-center rounded-full px-3 py-1 text-[12px] font-semibold transition hover:opacity-90"
+              className="inline-flex items-center rounded-full px-3 py-1 text-[13px] font-semibold transition hover:opacity-90"
               style={{
                 fontFamily: "'Outfit', sans-serif",
                 background: isActive ? `${typeColor}26` : 'transparent',
@@ -1608,7 +1608,7 @@ function SectionHeader({ title, meta, link }: {
           {title}
         </h2>
         {meta && (
-          <p className="text-[11px] sm:text-xs mt-1" style={{ fontFamily: "'Outfit', sans-serif", color: 'var(--text-muted)' }}>
+          <p className="text-[12px] sm:text-xs mt-1" style={{ fontFamily: "'Outfit', sans-serif", color: 'var(--text-muted)' }}>
             {meta}
           </p>
         )}
@@ -1684,14 +1684,14 @@ function AlbumsFullWidth({
                   <img src={al.cover_url} alt={al.title} className="w-full h-full object-cover transition group-hover:scale-105" loading="lazy" />
                 ) : null}
                 {lc > 0 && (
-                  <div className="absolute top-2 right-2 px-2 py-0.5 rounded-full backdrop-blur-md text-[10px] font-extrabold"
+                  <div className="absolute top-2 right-2 px-2 py-0.5 rounded-full backdrop-blur-md text-[11px] font-extrabold"
                        style={{ background: 'rgba(0,0,0,0.55)', color: '#fbbf24', border: '1px solid rgba(251,191,36,0.35)' }}>
                     ♥ {lc} dn.
                   </div>
                 )}
               </div>
               <div className="p-2.5">
-                <div className="text-[10px] uppercase tracking-wider truncate"
+                <div className="text-[11px] uppercase tracking-wider truncate"
                      style={{ fontFamily: "'Outfit', sans-serif", color: 'var(--text-muted)' }}>
                   {artist?.name || '—'}
                 </div>
@@ -1722,7 +1722,7 @@ function MoreTile({ remaining, onOpenMore }: { remaining: number; onOpenMore: ()
       <span className="text-xl font-black leading-none" style={{ fontFamily: "'Outfit', sans-serif", color: 'var(--accent-orange)' }}>
         +{remaining.toLocaleString('lt-LT')}
       </span>
-      <span className="mt-1.5 text-[10px] font-extrabold uppercase tracking-wider" style={{ fontFamily: "'Outfit', sans-serif", color: 'var(--text-muted)' }}>
+      <span className="mt-1.5 text-[11px] font-extrabold uppercase tracking-wider" style={{ fontFamily: "'Outfit', sans-serif", color: 'var(--text-muted)' }}>
         Visi →
       </span>
     </button>
@@ -1757,14 +1757,14 @@ function TracksFullWidth({
                 )}
                 <div className="absolute inset-0 bg-gradient-to-t from-black/40 to-transparent" />
                 {t.like_count > 0 && (
-                  <div className="absolute top-2 right-2 px-2 py-0.5 rounded-full backdrop-blur-md text-[10px] font-extrabold"
+                  <div className="absolute top-2 right-2 px-2 py-0.5 rounded-full backdrop-blur-md text-[11px] font-extrabold"
                        style={{ background: 'rgba(0,0,0,0.55)', color: 'rgba(255,255,255,0.92)', border: '1px solid rgba(255,255,255,0.15)' }}>
                     ♥ {t.like_count}
                   </div>
                 )}
               </div>
               <div className="p-2.5">
-                <div className="text-[10px] uppercase tracking-wider truncate"
+                <div className="text-[11px] uppercase tracking-wider truncate"
                      style={{ fontFamily: "'Outfit', sans-serif", color: 'var(--text-muted)' }}>
                   {artist?.name || '—'}
                 </div>
@@ -1814,7 +1814,7 @@ function DailyPicksScrollRow({
             <span className="text-2xl sm:text-3xl font-black" style={{ fontFamily: "'Outfit', sans-serif", color: 'var(--accent-orange)' }}>
               +{remaining.toLocaleString('lt-LT')}
             </span>
-            <span className="mt-1 text-[10px] font-bold uppercase tracking-wider text-center" style={{ fontFamily: "'Outfit', sans-serif" }}>
+            <span className="mt-1 text-[11px] font-bold uppercase tracking-wider text-center" style={{ fontFamily: "'Outfit', sans-serif" }}>
               Visa istorija
             </span>
           </Link>
@@ -1850,7 +1850,7 @@ function PostMetaRow({
 }) {
   const color = tone === 'light' ? 'rgba(255,255,255,0.72)' : 'var(--text-faint)'
   return (
-    <div className="mt-2 flex items-center gap-3 text-[10px] uppercase tracking-wider font-bold"
+    <div className="mt-2 flex items-center gap-3 text-[11px] uppercase tracking-wider font-bold"
          style={{ color, fontFamily: "'Outfit', sans-serif" }}>
       <span>{feedDateLabel(date)}</span>
       {likes > 0 && (
@@ -1933,7 +1933,7 @@ function PostLane({ lane, blogSlug }: { lane: { type: string; count: number; pos
               <span className="text-2xl font-black" style={{ fontFamily: "'Outfit', sans-serif", color: 'var(--accent-orange)' }}>
                 +{remaining.toLocaleString('lt-LT')}
               </span>
-              <span className="mt-1 text-[10px] font-bold uppercase tracking-wider text-center" style={{ fontFamily: "'Outfit', sans-serif" }}>
+              <span className="mt-1 text-[11px] font-bold uppercase tracking-wider text-center" style={{ fontFamily: "'Outfit', sans-serif" }}>
                 Visi įrašai
               </span>
             </Link>
@@ -1978,18 +1978,18 @@ function PostLaneCard({ post, blogSlug, laneType }: { post: any; blogSlug: strin
                style={{ fontFamily: "'Outfit', sans-serif", color: 'var(--text-faint)' }}>{initial}</div>
         )}
         <div className="pointer-events-none absolute inset-0 bg-gradient-to-t from-[rgba(249,115,22,0.10)] to-transparent opacity-0 transition-opacity duration-300 group-hover:opacity-100" />
-        <div className="absolute top-1.5 left-1.5 px-1.5 py-0.5 rounded-md backdrop-blur-sm text-[9px] font-extrabold uppercase tracking-wider text-white truncate max-w-[88%]"
+        <div className="absolute top-1.5 left-1.5 px-1.5 py-0.5 rounded-md backdrop-blur-sm text-[10px] font-extrabold uppercase tracking-wider text-white truncate max-w-[88%]"
              style={{ background: 'rgba(0,0,0,0.55)' }}>
           {kicker}
         </div>
       </div>
       <div className="mt-1.5 px-0.5">
-        <p className="m-0 line-clamp-2 font-['Outfit',sans-serif] text-[13px] font-extrabold leading-tight text-[var(--text-primary)] transition-colors group-hover:text-[var(--accent-orange)]">
+        <p className="m-0 line-clamp-2 font-['Outfit',sans-serif] text-[14px] font-extrabold leading-tight text-[var(--text-primary)] transition-colors group-hover:text-[var(--accent-orange)]">
           {post.title}
         </p>
         {isTranslation ? (
           post.summary && (
-            <p className="m-0 mt-1 truncate text-[11px] text-[var(--text-muted)]">{post.summary}</p>
+            <p className="m-0 mt-1 truncate text-[12px] text-[var(--text-muted)]">{post.summary}</p>
           )
         ) : (
           <PostMetaRow date={post.published_at} likes={post.like_count || 0} comments={post.comment_count || 0} tone="muted" />
@@ -2044,7 +2044,7 @@ function FeaturedPostCard({ post, blogSlug }: { post: any; blogSlug: string }) {
         <div aria-hidden className="absolute inset-0 bg-gradient-to-t from-black/85 via-black/20 to-transparent" />
 
         {typeLabel && (
-          <div className="absolute top-3 left-3 px-2 py-1 rounded-full backdrop-blur-md text-[10px] font-extrabold uppercase tracking-wider"
+          <div className="absolute top-3 left-3 px-2 py-1 rounded-full backdrop-blur-md text-[11px] font-extrabold uppercase tracking-wider"
                style={{ background: `${typeColor}40`, color: typeColor, border: `1px solid ${typeColor}60` }}>
             {typeLabel}{itemsCount ? ` · ${itemsCount}` : ''}
           </div>
@@ -2100,7 +2100,7 @@ function SidePostCard({ post, blogSlug }: { post: any; blogSlug: string }) {
         </div>
       )}
       <div className="min-w-0 flex-1">
-        <div className="text-[9px] font-extrabold uppercase tracking-wider mb-1"
+        <div className="text-[10px] font-extrabold uppercase tracking-wider mb-1"
              style={{ fontFamily: "'Outfit', sans-serif", color: typeColor }}>
           {typeLabel}
         </div>
@@ -2109,7 +2109,7 @@ function SidePostCard({ post, blogSlug }: { post: any; blogSlug: string }) {
           {post.title}
         </h4>
         {post.summary && (
-          <p className="text-[11px] mt-1 line-clamp-1"
+          <p className="text-[12px] mt-1 line-clamp-1"
              style={{ color: 'var(--text-muted)' }}>
             {post.summary}
           </p>
@@ -2159,18 +2159,18 @@ function RecentCommentsList({ comments }: { comments: any[] }) {
               )}
               <div className="min-w-0 flex-1">
                 <div className="flex items-baseline gap-1.5 flex-wrap mb-0.5">
-                  <span className="text-[9px] font-extrabold uppercase tracking-wider"
+                  <span className="text-[10px] font-extrabold uppercase tracking-wider"
                         style={{ fontFamily: "'Outfit', sans-serif", color: 'var(--accent-orange)' }}>
                     {kind}
                   </span>
                   <span aria-hidden style={{ color: 'var(--text-faint)' }}>·</span>
-                  <span className="text-[10px] uppercase tracking-wider font-bold" style={{ color: 'var(--text-faint)', fontFamily: "'Outfit', sans-serif" }}>
+                  <span className="text-[11px] uppercase tracking-wider font-bold" style={{ color: 'var(--text-faint)', fontFamily: "'Outfit', sans-serif" }}>
                     {date}
                   </span>
                   {c.like_count > 0 && (
                     <>
                       <span aria-hidden style={{ color: 'var(--text-faint)' }}>·</span>
-                      <span className="text-[10px] font-bold" style={{ color: 'var(--text-muted)' }}>♥ {c.like_count}</span>
+                      <span className="text-[11px] font-bold" style={{ color: 'var(--text-muted)' }}>♥ {c.like_count}</span>
                     </>
                   )}
                 </div>
@@ -2181,7 +2181,7 @@ function RecentCommentsList({ comments }: { comments: any[] }) {
                   </h4>
                 )}
                 {snippet && (
-                  <p className="mt-1 text-[12px] line-clamp-2"
+                  <p className="mt-1 text-[13px] line-clamp-2"
                      style={{ color: 'var(--text-secondary)', fontFamily: "'Outfit', sans-serif" }}>
                     „{snippet}"
                   </p>
@@ -2583,7 +2583,7 @@ function ProfileBodyDesktop(props: any) {
                   <div ref={feedSentinelRef} aria-hidden className="h-px w-full" />
                   {/* Fallback mygtukas (jei observer'is nepalaikomas / JS išjungtas) */}
                   <button type="button" onClick={() => setShownCount((c) => c + FEED_PAGE)}
-                          className="block w-full text-center rounded-full py-3 text-[13px] font-extrabold transition hover:opacity-85"
+                          className="block w-full text-center rounded-full py-3 text-[14px] font-extrabold transition hover:opacity-85"
                           style={{ fontFamily: "'Outfit', sans-serif", background: 'var(--card-bg)', border: '1px solid var(--border-default)', color: 'var(--accent-orange)' }}>
                     Daugiau įrašų ({visible.length - shownCount})
                   </button>
@@ -2675,7 +2675,7 @@ function FeedPostCard({ post, laneType, blogSlug, compact = false }: {
         <span aria-hidden className="w-[3px] shrink-0 self-stretch" style={{ background: typeColor }} />
         <div className="flex min-w-0 flex-1 flex-col px-5 py-4">
           <div className="flex flex-wrap items-center gap-2.5">
-            <span className="px-2 py-0.5 rounded-md text-[10px] font-extrabold uppercase tracking-wider text-white"
+            <span className="px-2 py-0.5 rounded-md text-[11px] font-extrabold uppercase tracking-wider text-white"
                   style={{ background: typeColor, fontFamily: "'Outfit', sans-serif" }}>
               Topas{listCount ? ` · ${listCount}` : ''}
             </span>
@@ -2694,12 +2694,12 @@ function FeedPostCard({ post, laneType, blogSlug, compact = false }: {
                   ) : (
                     <div className="absolute inset-0 flex items-center justify-center text-lg" style={{ background: `${typeColor}14`, color: typeColor }}>♬</div>
                   )}
-                  <span className="absolute left-1.5 top-1.5 flex h-[20px] min-w-[20px] items-center justify-center rounded-md px-1 text-[11px] font-black text-white"
+                  <span className="absolute left-1.5 top-1.5 flex h-[20px] min-w-[20px] items-center justify-center rounded-md px-1 text-[12px] font-black text-white"
                         style={{ background: i === 0 ? typeColor : 'rgba(0,0,0,0.65)', fontFamily: "'Outfit', sans-serif" }}>{i + 1}</span>
                 </div>
                 <div className="min-w-0">
-                  <p className="m-0 truncate text-[12px] font-bold leading-tight" style={{ fontFamily: "'Outfit', sans-serif", color: 'var(--text-primary)' }}>{it.title || '—'}</p>
-                  {it.artist && <p className="m-0 truncate text-[10.5px]" style={{ color: 'var(--text-muted)' }}>{it.artist}</p>}
+                  <p className="m-0 truncate text-[13px] font-bold leading-tight" style={{ fontFamily: "'Outfit', sans-serif", color: 'var(--text-primary)' }}>{it.title || '—'}</p>
+                  {it.artist && <p className="m-0 truncate text-[11.5px]" style={{ color: 'var(--text-muted)' }}>{it.artist}</p>}
                 </div>
               </div>
             ))}
@@ -2709,7 +2709,7 @@ function FeedPostCard({ post, laneType, blogSlug, compact = false }: {
                      style={{ border: '1px dashed var(--border-default)', background: 'var(--card-bg)' }}>
                   <span className="text-base font-black leading-none" style={{ color: 'var(--accent-orange)', fontFamily: "'Outfit', sans-serif" }}>+{listCount - entries.length}</span>
                 </div>
-                <p className="m-0 truncate text-[12px] font-bold" style={{ fontFamily: "'Outfit', sans-serif", color: 'var(--accent-orange)' }}>Daugiau →</p>
+                <p className="m-0 truncate text-[13px] font-bold" style={{ fontFamily: "'Outfit', sans-serif", color: 'var(--accent-orange)' }}>Daugiau →</p>
               </div>
             )}
           </div>
@@ -2725,13 +2725,13 @@ function FeedPostCard({ post, laneType, blogSlug, compact = false }: {
   if (isTranslation) {
     return (
       <Link href={url} className="group block rounded-2xl p-4 transition hover:-translate-y-0.5 border border-[var(--border-default)] bg-[var(--bg-surface)] hover:border-[var(--border-strong)]">
-        <span className="inline-block px-2 py-0.5 rounded-md text-[10px] font-extrabold uppercase tracking-wider text-white mb-2"
+        <span className="inline-block px-2 py-0.5 rounded-md text-[11px] font-extrabold uppercase tracking-wider text-white mb-2"
               style={{ background: typeColor, fontFamily: "'Outfit', sans-serif" }}>Vertimas</span>
         <h3 className="text-[15.5px] font-extrabold leading-tight group-hover:text-[var(--accent-orange)] transition"
             style={{ fontFamily: "'Outfit', sans-serif", color: 'var(--text-primary)' }}>
           {post.title}
         </h3>
-        {post.summary && <p className="mt-1 text-[12.5px] truncate" style={{ color: 'var(--text-muted)' }}>{post.summary}</p>}
+        {post.summary && <p className="mt-1 text-[13.5px] truncate" style={{ color: 'var(--text-muted)' }}>{post.summary}</p>}
         <PostMetaRow date={post.published_at} likes={post.like_count || 0} comments={post.comment_count || 0} tone="muted" />
       </Link>
     )
@@ -2750,7 +2750,7 @@ function FeedPostCard({ post, laneType, blogSlug, compact = false }: {
         </div>
         <div className="flex min-w-0 flex-1 flex-col px-4 py-4 sm:px-5">
           {typeLabel && (
-            <span className="self-start px-2 py-0.5 rounded-md text-[10px] font-extrabold uppercase tracking-wider text-white"
+            <span className="self-start px-2 py-0.5 rounded-md text-[11px] font-extrabold uppercase tracking-wider text-white"
                   style={{ background: typeColor, fontFamily: "'Outfit', sans-serif" }}>
               {typeLabel}
             </span>
@@ -2760,7 +2760,7 @@ function FeedPostCard({ post, laneType, blogSlug, compact = false }: {
             {post.title}
           </h3>
           {post.summary && (
-            <p className="mt-1.5 text-[13px] leading-relaxed line-clamp-3 sm:line-clamp-4" style={{ color: 'var(--text-secondary)' }}>
+            <p className="mt-1.5 text-[14px] leading-relaxed line-clamp-3 sm:line-clamp-4" style={{ color: 'var(--text-secondary)' }}>
               {post.summary}
             </p>
           )}
@@ -2777,7 +2777,7 @@ function FeedPostCard({ post, laneType, blogSlug, compact = false }: {
     return (
       <Link href={url} className="group block rounded-2xl p-5 transition hover:-translate-y-0.5"
             style={{ background: 'var(--card-bg)', border: `1px solid ${typeColor}30` }}>
-        <span className="inline-block px-2 py-0.5 rounded-md text-[10px] font-extrabold uppercase tracking-wider text-white mb-2.5"
+        <span className="inline-block px-2 py-0.5 rounded-md text-[11px] font-extrabold uppercase tracking-wider text-white mb-2.5"
               style={{ background: typeColor, fontFamily: "'Outfit', sans-serif" }}>
           {post.creation_subtype ? `Kūryba · ${post.creation_subtype}` : 'Kūryba'}
         </span>
@@ -2791,7 +2791,7 @@ function FeedPostCard({ post, laneType, blogSlug, compact = false }: {
             {post.summary}
           </p>
         )}
-        <div aria-hidden className="text-center mt-3 text-[13px]" style={{ color: typeColor, opacity: 0.5, letterSpacing: '8px' }}>⁂</div>
+        <div aria-hidden className="text-center mt-3 text-[14px]" style={{ color: typeColor, opacity: 0.5, letterSpacing: '8px' }}>⁂</div>
         <PostMetaRow date={post.published_at} likes={post.like_count || 0} comments={post.comment_count || 0} tone="muted" />
       </Link>
     )
@@ -2806,7 +2806,7 @@ function FeedPostCard({ post, laneType, blogSlug, compact = false }: {
         <span aria-hidden className="absolute top-1 left-4 text-[72px] leading-none font-bold text-white"
               style={{ fontFamily: "Georgia, serif", opacity: 0.2 }}>„</span>
         {typeLabel && (
-          <span className="relative inline-block px-2 py-0.5 rounded-md text-[10px] font-extrabold uppercase tracking-wider mb-2.5 text-white"
+          <span className="relative inline-block px-2 py-0.5 rounded-md text-[11px] font-extrabold uppercase tracking-wider mb-2.5 text-white"
                 style={{ background: 'rgba(0,0,0,0.25)', fontFamily: "'Outfit', sans-serif" }}>
             {typeLabel}
           </span>
@@ -2862,12 +2862,12 @@ function DdModalRow({ p, onPlay, playing }: { p: any; onPlay: (vid: string) => v
       <div className="min-w-0 flex-1">
         <Link href={href} className="block min-w-0 line-clamp-2 text-[14px] font-bold leading-tight transition hover:text-[var(--accent-orange)]"
               style={{ fontFamily: "'Outfit', sans-serif", color: win ? 'var(--accent-orange)' : 'var(--text-primary)' }}>{track?.title || 'Daina'}</Link>
-        <div className="truncate text-[11.5px] mt-0.5" style={{ color: win ? 'rgba(249,115,22,0.85)' : 'var(--text-muted)' }}>
+        <div className="truncate text-[12.5px] mt-0.5" style={{ color: win ? 'rgba(249,115,22,0.85)' : 'var(--text-muted)' }}>
           {artist ? `${artist.name} · ${dateShort}` : dateShort}
         </div>
-        {p.comment && <div className="mt-1 text-[12px] leading-snug" style={{ color: 'var(--text-secondary)' }}>{p.comment}</div>}
+        {p.comment && <div className="mt-1 text-[13px] leading-snug" style={{ color: 'var(--text-secondary)' }}>{p.comment}</div>}
       </div>
-      {(p.like_count || 0) > 0 && <span className="text-[11px] font-bold flex-shrink-0 mt-1" style={{ color: win ? 'var(--accent-orange)' : 'var(--text-faint)' }}>♥ {p.like_count}</span>}
+      {(p.like_count || 0) > 0 && <span className="text-[12px] font-bold flex-shrink-0 mt-1" style={{ color: win ? 'var(--accent-orange)' : 'var(--text-faint)' }}>♥ {p.like_count}</span>}
     </div>
   )
 }
@@ -2922,14 +2922,14 @@ function DdPickTile({ p }: { p: any }) {
           <div className="absolute inset-0 flex items-center justify-center text-xl" style={{ color: 'var(--accent-orange)' }}>♬</div>
         )}
         {((p.like_count || 0) > 0 || p.is_winner) && (
-          <span className="absolute right-1 top-1 px-1.5 py-0.5 rounded-full text-[9px] font-extrabold backdrop-blur-md"
+          <span className="absolute right-1 top-1 px-1.5 py-0.5 rounded-full text-[10px] font-extrabold backdrop-blur-md"
                 title={p.is_winner ? 'Dienos dainos laimėtoja' : undefined}
                 style={{ background: p.is_winner ? 'var(--accent-orange)' : 'rgba(0,0,0,0.55)', color: '#fff' }}>♥ {p.like_count || 0}</span>
         )}
       </div>
       <div className="min-w-0">
-        <div className="line-clamp-2 text-[12px] font-bold leading-tight group-hover:text-[var(--accent-orange)] transition" style={{ fontFamily: "'Outfit', sans-serif", color: 'var(--text-primary)' }}>{track?.title || 'Daina'}</div>
-        {artist && <div className="truncate text-[10.5px] mt-0.5" style={{ color: 'var(--text-muted)' }}>{artist.name}</div>}
+        <div className="line-clamp-2 text-[13px] font-bold leading-tight group-hover:text-[var(--accent-orange)] transition" style={{ fontFamily: "'Outfit', sans-serif", color: 'var(--text-primary)' }}>{track?.title || 'Daina'}</div>
+        {artist && <div className="truncate text-[11.5px] mt-0.5" style={{ color: 'var(--text-muted)' }}>{artist.name}</div>}
       </div>
     </Link>
   )
@@ -2946,14 +2946,14 @@ function DdWeekCard({ picks, label, username, streak }: {
     <div className="rounded-2xl overflow-hidden" style={{ background: 'var(--card-bg)', border: '1px solid var(--border-subtle)' }}>
       {/* Antraštė klikuojama — atidaro pilną mėnesio modalą (ir kai nėra „Daugiau" boxo). */}
       <button type="button" onClick={() => setAllOpen(true)} className="group flex w-full items-center gap-2.5 px-5 pt-4 pb-2 flex-wrap text-left">
-        <span className="px-2 py-0.5 rounded-md text-[10px] font-extrabold uppercase tracking-wider text-white"
+        <span className="px-2 py-0.5 rounded-md text-[11px] font-extrabold uppercase tracking-wider text-white"
               style={{ background: 'var(--accent-orange)', fontFamily: "'Outfit', sans-serif" }}>
           Dienos dainos
         </span>
         <h3 className="text-[15.5px] font-extrabold group-hover:text-[var(--accent-orange)] transition" style={{ fontFamily: "'Outfit', sans-serif", color: 'var(--text-primary)' }}>
           {label}
         </h3>
-        <span className="ml-auto text-[11px] font-bold" style={{ color: 'var(--text-faint)' }}>{picks.length} →</span>
+        <span className="ml-auto text-[12px] font-bold" style={{ color: 'var(--text-faint)' }}>{picks.length} →</span>
       </button>
       {/* Horizontali juosta: mobile scroll'inasi, desktop telpa + „Daugiau" boxas. */}
       <div className="flex gap-2.5 px-5 pb-4 overflow-x-auto [scrollbar-width:none] [&::-webkit-scrollbar]:hidden">
@@ -2964,7 +2964,7 @@ function DdWeekCard({ picks, label, username, streak }: {
                  style={{ aspectRatio: '16 / 9', border: '1px dashed var(--border-default)', background: 'var(--card-bg)' }}>
               <span className="text-lg font-black leading-none" style={{ color: 'var(--accent-orange)', fontFamily: "'Outfit', sans-serif" }}>+{remaining}</span>
             </div>
-            <div className="truncate text-[12px] font-bold" style={{ color: 'var(--accent-orange)', fontFamily: "'Outfit', sans-serif" }}>Daugiau →</div>
+            <div className="truncate text-[13px] font-bold" style={{ color: 'var(--accent-orange)', fontFamily: "'Outfit', sans-serif" }}>Daugiau →</div>
           </button>
         )}
       </div>
@@ -2981,7 +2981,7 @@ function LikesClusterCard({ likes, label, onOpenMore }: {
   return (
     <div className="rounded-2xl overflow-hidden" style={{ background: 'var(--card-bg)', border: '1px solid var(--border-subtle)' }}>
       <div className="flex items-center gap-2.5 px-5 pt-4 pb-2 flex-wrap">
-        <span className="px-2 py-0.5 rounded-md text-[10px] font-extrabold uppercase tracking-wider text-white"
+        <span className="px-2 py-0.5 rounded-md text-[11px] font-extrabold uppercase tracking-wider text-white"
               style={{ background: '#e11d48', fontFamily: "'Outfit', sans-serif" }}>♥ Pamėgta muzika</span>
         <h3 className="text-[15.5px] font-extrabold" style={{ fontFamily: "'Outfit', sans-serif", color: 'var(--text-primary)' }}>{label}</h3>
       </div>
@@ -3005,13 +3005,13 @@ function LikesClusterCard({ likes, label, onOpenMore }: {
                 ) : (
                   <div className="w-full h-full flex items-center justify-center text-xl" style={{ color: 'var(--text-faint)' }}>♬</div>
                 )}
-                <span className="absolute top-1 left-1 px-1.5 py-0.5 rounded text-[8px] font-extrabold uppercase tracking-wide text-white"
+                <span className="absolute top-1 left-1 px-1.5 py-0.5 rounded text-[9px] font-extrabold uppercase tracking-wide text-white"
                       style={{ background: 'rgba(0,0,0,0.55)' }}>
                   {KIND_LABEL[it._kind]}
                 </span>
               </div>
               <div className="p-1.5">
-                <div className="text-[11px] font-bold leading-tight line-clamp-1" style={{ fontFamily: "'Outfit', sans-serif", color: 'var(--text-primary)' }}>
+                <div className="text-[12px] font-bold leading-tight line-clamp-1" style={{ fontFamily: "'Outfit', sans-serif", color: 'var(--text-primary)' }}>
                   {isArtist ? it.name : it.title}
                 </div>
               </div>
@@ -3020,7 +3020,7 @@ function LikesClusterCard({ likes, label, onOpenMore }: {
         })}
       </div>
       <button type="button" onClick={() => onOpenMore('track')}
-              className="block w-[calc(100%-40px)] mx-5 mb-3.5 text-center text-[12px] font-bold rounded-lg py-2 transition hover:opacity-85"
+              className="block w-[calc(100%-40px)] mx-5 mb-3.5 text-center text-[13px] font-bold rounded-lg py-2 transition hover:opacity-85"
               style={{ color: '#e11d48', background: 'rgba(225,29,72,0.07)', fontFamily: "'Outfit', sans-serif" }}>
         Visa mėgstama muzika →
       </button>
@@ -3077,7 +3077,7 @@ function RecentLikesCard({
   if (horizontal) {
     return (
       <div className="rounded-2xl p-4" style={{ background: 'var(--card-bg)', border: '1px solid var(--border-subtle)' }}>
-        <h4 className="flex items-center gap-1.5 text-[11px] font-extrabold uppercase tracking-wider mb-2 px-1"
+        <h4 className="flex items-center gap-1.5 text-[12px] font-extrabold uppercase tracking-wider mb-2 px-1"
             style={{ color: 'var(--text-muted)', fontFamily: "'Outfit', sans-serif" }}>
           <HeartOutlineIcon size={12} />
           {heading}
@@ -3096,7 +3096,7 @@ function RecentLikesCard({
                 ) : (
                   <div className={`w-[88px] h-[88px] flex items-center justify-center text-xl ${isArtist ? 'rounded-full' : 'rounded-lg'}`} style={{ background: 'var(--bg-elevated)', color: 'var(--text-muted)' }}>♬</div>
                 )}
-                <div className="truncate text-[11.5px] font-bold leading-tight group-hover:text-[var(--accent-orange)] transition" style={{ fontFamily: "'Outfit', sans-serif", color: 'var(--text-primary)' }}>{isArtist ? it.name : it.title}</div>
+                <div className="truncate text-[12.5px] font-bold leading-tight group-hover:text-[var(--accent-orange)] transition" style={{ fontFamily: "'Outfit', sans-serif", color: 'var(--text-primary)' }}>{isArtist ? it.name : it.title}</div>
               </Link>
             )
           })}
@@ -3106,7 +3106,7 @@ function RecentLikesCard({
                  style={{ border: '1px dashed var(--border-default)', background: 'var(--card-bg)' }}>
               <span className="text-base font-black leading-none" style={{ color: 'var(--accent-orange)', fontFamily: "'Outfit', sans-serif" }}>→</span>
             </div>
-            <div className="truncate text-[11.5px] font-bold" style={{ color: 'var(--accent-orange)', fontFamily: "'Outfit', sans-serif" }}>Daugiau</div>
+            <div className="truncate text-[12.5px] font-bold" style={{ color: 'var(--accent-orange)', fontFamily: "'Outfit', sans-serif" }}>Daugiau</div>
           </button>
         </div>
       </div>
@@ -3115,7 +3115,7 @@ function RecentLikesCard({
 
   return (
     <div className="rounded-2xl p-4" style={{ background: 'var(--card-bg)', border: '1px solid var(--border-subtle)' }}>
-      <h4 className="flex items-center gap-1.5 text-[11px] font-extrabold uppercase tracking-wider mb-2 px-1"
+      <h4 className="flex items-center gap-1.5 text-[12px] font-extrabold uppercase tracking-wider mb-2 px-1"
           style={{ color: 'var(--text-muted)', fontFamily: "'Outfit', sans-serif" }}>
         <HeartOutlineIcon size={12} />
         {heading}
@@ -3144,12 +3144,12 @@ function RecentLikesCard({
                        style={{ background: 'var(--bg-elevated)', color: 'var(--text-muted)' }}>♬</div>
                 )}
                 <div className="min-w-0 flex-1">
-                  <div className="text-[13px] font-bold leading-tight truncate group-hover:text-[var(--accent-orange)] transition"
+                  <div className="text-[14px] font-bold leading-tight truncate group-hover:text-[var(--accent-orange)] transition"
                        style={{ fontFamily: "'Outfit', sans-serif", color: 'var(--text-primary)' }}>
                     {isArtist ? it.name : it.title}
                   </div>
                   {subtitle && (
-                    <div className="text-[11px] truncate mt-0.5" style={{ color: 'var(--text-muted)' }}>
+                    <div className="text-[12px] truncate mt-0.5" style={{ color: 'var(--text-muted)' }}>
                       {subtitle}
                     </div>
                   )}
@@ -3159,7 +3159,7 @@ function RecentLikesCard({
           })}
         </div>
       ) : (
-        <p className="text-[12px] py-2 px-1" style={{ color: 'var(--text-muted)' }}>Pamėgtos muzikos dar nėra</p>
+        <p className="text-[13px] py-2 px-1" style={{ color: 'var(--text-muted)' }}>Pamėgtos muzikos dar nėra</p>
       )}
     </div>
   )
@@ -3173,7 +3173,7 @@ function FollowCtaCard({ profile }: { profile: any }) {
       <div className="text-[15.5px] font-extrabold text-white mb-1" style={{ fontFamily: "'Outfit', sans-serif" }}>
         Patinka, ką rašo @{profile.username}?
       </div>
-      <div className="text-[12.5px] mb-3.5" style={{ color: 'rgba(255,255,255,0.6)', fontFamily: "'Outfit', sans-serif" }}>
+      <div className="text-[13.5px] mb-3.5" style={{ color: 'rgba(255,255,255,0.6)', fontFamily: "'Outfit', sans-serif" }}>
         Sek ir gauk pranešimą apie kiekvieną naują įrašą
       </div>
       <div className="flex justify-center">

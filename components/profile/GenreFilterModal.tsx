@@ -85,7 +85,7 @@ export function GenreFilterModal({
             </h2>
             {genreFilter && (
               <button type="button" onClick={() => setGenreFilter(null)}
-                className="flex-shrink-0 w-6 h-6 flex items-center justify-center rounded-full text-[11px] transition hover:opacity-80"
+                className="flex-shrink-0 w-6 h-6 flex items-center justify-center rounded-full text-[12px] transition hover:opacity-80"
                 style={{ background: 'rgba(255,255,255,0.10)', border: '1px solid rgba(255,255,255,0.18)', color: 'var(--text-secondary)' }}
                 aria-label="Atstatyti filtrą">✕</button>
             )}
@@ -117,14 +117,14 @@ export function GenreFilterModal({
           {/* Detaliau — horizontal scroll */}
           {styles && styles.length > 0 && (
             <div className="mb-4">
-              <p className="text-[10px] font-extrabold uppercase tracking-[0.18em] mb-2"
+              <p className="text-[11px] font-extrabold uppercase tracking-[0.18em] mb-2"
                  style={{ fontFamily: "'Outfit', sans-serif", color: 'var(--text-muted)' }}>Detaliau</p>
               <div className="flex gap-1.5 overflow-x-auto pb-1 [scrollbar-width:none] [&::-webkit-scrollbar]:hidden">
                 {styles.map((s, i) => {
                   const isSelected = selectedSubstyle === s.legacy_style_id
-                  const sz = i < 3 ? { fontSize: '13px', fontWeight: 800 }
-                           : i < 7 ? { fontSize: '12px', fontWeight: 700 }
-                           : { fontSize: '11px', fontWeight: 600 }
+                  const sz = i < 3 ? { fontSize: '14px', fontWeight: 800 }
+                           : i < 7 ? { fontSize: '13px', fontWeight: 700 }
+                           : { fontSize: '12px', fontWeight: 600 }
                   return (
                     <button key={s.legacy_style_id} type="button"
                       onClick={() => setSelectedSubstyle(isSelected ? null : s.legacy_style_id)}
@@ -161,7 +161,7 @@ export function GenreFilterModal({
 
             {filteredArtists.length > 0 && (
               <div className="mt-1">
-                <p className="text-[10px] font-extrabold uppercase tracking-widest mb-2.5"
+                <p className="text-[11px] font-extrabold uppercase tracking-widest mb-2.5"
                    style={{ color: 'var(--text-muted)', fontFamily: "'Outfit', sans-serif" }}>Atlikėjai</p>
                 <div className="grid grid-cols-3 sm:grid-cols-4 lg:grid-cols-6 gap-2 sm:gap-2.5">
                   {filteredArtists.slice(0, 18).map((a: any) => (
@@ -180,7 +180,7 @@ export function GenreFilterModal({
                       )}
                       <div className="absolute inset-0 bg-gradient-to-t from-black/85 via-black/15 to-transparent" />
                       <div className="absolute bottom-0 left-0 right-0 p-2">
-                        <p className="text-[11px] font-extrabold text-white leading-tight truncate"
+                        <p className="text-[12px] font-extrabold text-white leading-tight truncate"
                            style={{ fontFamily: "'Outfit', sans-serif" }}>{a.name}</p>
                       </div>
                     </Link>
@@ -191,7 +191,7 @@ export function GenreFilterModal({
 
             {filteredPicks.length > 0 && (
               <div className="mt-5">
-                <p className="text-[10px] font-extrabold uppercase tracking-widest mb-2.5"
+                <p className="text-[11px] font-extrabold uppercase tracking-widest mb-2.5"
                    style={{ color: 'var(--text-muted)', fontFamily: "'Outfit', sans-serif" }}>Dienos dainos</p>
                 <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 gap-2 sm:gap-2.5">
                   {filteredPicks.slice(0, 12).map((p: any) => {
@@ -209,7 +209,7 @@ export function GenreFilterModal({
                         )}
                         <div className="absolute inset-0 bg-gradient-to-t from-black/90 via-black/20 to-transparent" />
                         <div className="absolute bottom-0 left-0 right-0 p-2">
-                          <p className="text-[9px] font-extrabold uppercase tracking-widest text-orange-300 truncate"
+                          <p className="text-[10px] font-extrabold uppercase tracking-widest text-orange-300 truncate"
                              style={{ fontFamily: "'Outfit', sans-serif" }}>{artist?.name || ''}</p>
                           <h3 className="text-xs font-bold text-white leading-tight line-clamp-2"
                               style={{ fontFamily: "'Outfit', sans-serif" }}>{t?.title || '—'}</h3>

@@ -55,7 +55,7 @@ type Draft = {
 
 const inputCls =
   'w-full rounded-lg border border-[var(--input-border)] bg-[var(--input-bg)] px-3 py-2 text-sm text-[var(--input-text)] placeholder:text-[var(--input-placeholder)] focus:border-blue-400 focus:outline-none'
-const labelCls = 'mb-1 block text-[12px] font-semibold text-[var(--text-muted)]'
+const labelCls = 'mb-1 block text-[13px] font-semibold text-[var(--text-muted)]'
 
 export default function KoncertuIrasaiAdminClient({ initialRecordings }: { initialRecordings: AdminRecording[] }) {
   const [url, setUrl] = useState('')
@@ -250,7 +250,7 @@ export default function KoncertuIrasaiAdminClient({ initialRecordings }: { initi
                 // eslint-disable-next-line @next/next/no-img-element
                 <img src={draft.thumbnail_url} alt="" className="aspect-video w-full rounded-lg object-cover" referrerPolicy="no-referrer" />
               )}
-              <div className="mt-2 space-y-0.5 text-[12px] text-[var(--text-muted)]">
+              <div className="mt-2 space-y-0.5 text-[13px] text-[var(--text-muted)]">
                 {draft.duration_seconds != null && <div>⏱ Trukmė: <b>{formatDuration(draft.duration_seconds)}</b></div>}
                 {draft.channel && <div>📺 {draft.channel}</div>}
                 {draft.uploaded_at && <div>⬆️ Įkelta: {new Date(draft.uploaded_at).toLocaleDateString('lt-LT')}</div>}
@@ -354,7 +354,7 @@ export default function KoncertuIrasaiAdminClient({ initialRecordings }: { initi
                     // eslint-disable-next-line @next/next/no-img-element
                     <img src={editForm.thumbnail_url} alt="" className="aspect-video w-full rounded-lg object-cover" referrerPolicy="no-referrer" />
                   )}
-                  <div className="mt-2 space-y-0.5 text-[12px] text-[var(--text-muted)]">
+                  <div className="mt-2 space-y-0.5 text-[13px] text-[var(--text-muted)]">
                     {editForm.uploaded_at && <div>⬆️ Įkelta: {new Date(editForm.uploaded_at).toLocaleDateString('lt-LT')}</div>}
                     {editForm.view_count != null && <div>👁 {editForm.view_count.toLocaleString('lt-LT')} perž.</div>}
                   </div>
@@ -439,7 +439,7 @@ export default function KoncertuIrasaiAdminClient({ initialRecordings }: { initi
               ) : <div className="h-12 w-20 shrink-0 rounded bg-[var(--bg-elevated)]" />}
               <div className="min-w-0 flex-1">
                 <p className="truncate text-sm font-semibold text-[var(--text-primary)]">{it.title}</p>
-                <p className="truncate text-[12px] text-[var(--text-muted)]">
+                <p className="truncate text-[13px] text-[var(--text-muted)]">
                   {it.artist_name_cached || '—'} · {recordingTypeLabel(it.recording_type)}
                   {it.duration_seconds ? ` · ${formatDuration(it.duration_seconds)}` : ''}
                   {it.venue ? ` · ${it.venue}` : ''}
@@ -450,16 +450,16 @@ export default function KoncertuIrasaiAdminClient({ initialRecordings }: { initi
                 <button
                   onClick={() => patchItem(it.id, { is_featured: !it.is_featured })}
                   title="★ Featured — rodyti homepage feed'e (1 LT + 1 užsienio)"
-                  className={`rounded px-2 py-1 text-[11px] font-bold ${it.is_featured ? 'bg-amber-500 text-white' : 'bg-[var(--bg-elevated)] text-[var(--text-muted)]'}`}
+                  className={`rounded px-2 py-1 text-[12px] font-bold ${it.is_featured ? 'bg-amber-500 text-white' : 'bg-[var(--bg-elevated)] text-[var(--text-muted)]'}`}
                 >★</button>
                 <button
                   onClick={() => patchItem(it.id, { is_published: !it.is_published })}
                   title="Publikuota"
-                  className={`rounded px-2 py-1 text-[11px] font-bold ${it.is_published ? 'bg-green-600 text-white' : 'bg-[var(--bg-elevated)] text-[var(--text-muted)]'}`}
+                  className={`rounded px-2 py-1 text-[12px] font-bold ${it.is_published ? 'bg-green-600 text-white' : 'bg-[var(--bg-elevated)] text-[var(--text-muted)]'}`}
                 >{it.is_published ? 'Live' : 'Off'}</button>
-                <button onClick={() => startEdit(it)} title="Redaguoti" className="rounded bg-[var(--bg-elevated)] px-2 py-1 text-[11px] font-bold text-[var(--text-muted)]">✎</button>
-                <a href={`/koncertu-irasai/${it.slug}`} target="_blank" rel="noopener noreferrer" className="rounded bg-[var(--bg-elevated)] px-2 py-1 text-[11px] font-bold text-[var(--text-muted)]">↗</a>
-                <button onClick={() => deleteItem(it.id)} title="Ištrinti" className="rounded bg-red-500/10 px-2 py-1 text-[11px] font-bold text-red-500">✕</button>
+                <button onClick={() => startEdit(it)} title="Redaguoti" className="rounded bg-[var(--bg-elevated)] px-2 py-1 text-[12px] font-bold text-[var(--text-muted)]">✎</button>
+                <a href={`/koncertu-irasai/${it.slug}`} target="_blank" rel="noopener noreferrer" className="rounded bg-[var(--bg-elevated)] px-2 py-1 text-[12px] font-bold text-[var(--text-muted)]">↗</a>
+                <button onClick={() => deleteItem(it.id)} title="Ištrinti" className="rounded bg-red-500/10 px-2 py-1 text-[12px] font-bold text-red-500">✕</button>
               </div>
             </div>
           )

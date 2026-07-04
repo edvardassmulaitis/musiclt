@@ -129,7 +129,7 @@ export function ThreadPanel({ messageId, conversationId, viewerId, onClose }: Pr
       }}>
         <div>
           <div style={{ fontSize: 14, fontWeight: 800, color: 'var(--text-primary)' }}>Thread</div>
-          <div style={{ fontSize: 11, color: 'var(--text-muted)' }}>
+          <div style={{ fontSize: 12, color: 'var(--text-muted)' }}>
             {replies.length} {replies.length === 1 ? 'atsakymas' : 'atsakymai'}
           </div>
         </div>
@@ -152,7 +152,7 @@ export function ThreadPanel({ messageId, conversationId, viewerId, onClose }: Pr
 
       <div style={{ flex: 1, overflowY: 'auto', background: 'var(--bg-body)' }}>
         {loading ? (
-          <div style={{ padding: 24, textAlign: 'center', fontSize: 12, color: 'var(--text-muted)' }}>Kraunasi…</div>
+          <div style={{ padding: 24, textAlign: 'center', fontSize: 13, color: 'var(--text-muted)' }}>Kraunasi…</div>
         ) : root ? (
           <>
             <MessageItem
@@ -162,7 +162,7 @@ export function ThreadPanel({ messageId, conversationId, viewerId, onClose }: Pr
             />
             {replies.length > 0 && (
               <div style={{ display: 'flex', alignItems: 'center', gap: 8, padding: '8px 16px' }}>
-                <div style={{ fontSize: 11, fontWeight: 700, color: 'var(--text-muted)' }}>
+                <div style={{ fontSize: 12, fontWeight: 700, color: 'var(--text-muted)' }}>
                   {replies.length} {replies.length === 1 ? 'atsakymas' : 'atsakymai'}
                 </div>
                 <div style={{ flex: 1, height: 1, background: 'var(--border-subtle)' }}/>
@@ -177,7 +177,7 @@ export function ThreadPanel({ messageId, conversationId, viewerId, onClose }: Pr
             <div ref={bottomRef} />
           </>
         ) : (
-          <div style={{ padding: 24, textAlign: 'center', fontSize: 12, color: 'var(--text-muted)' }}>
+          <div style={{ padding: 24, textAlign: 'center', fontSize: 13, color: 'var(--text-muted)' }}>
             Nepavyko įkelti
           </div>
         )}

@@ -162,7 +162,7 @@ export function NewConversationModal({ onClose }: Props) {
                 style={{
                   padding: '8px 14px', borderRadius: 8,
                   background: 'transparent', border: '1px solid var(--border-default)',
-                  color: 'var(--text-secondary)', fontSize: 13, fontWeight: 600, cursor: 'pointer',
+                  color: 'var(--text-secondary)', fontSize: 14, fontWeight: 600, cursor: 'pointer',
                 }}
               >
                 Atšaukti
@@ -195,7 +195,7 @@ export function NewConversationModal({ onClose }: Props) {
                 style={{
                   padding: '8px 16px', borderRadius: 8,
                   background: (discTitle.trim().length < 5 || discBody.trim().length < 10) ? 'var(--bg-hover)' : 'var(--accent-orange)',
-                  border: 'none', color: '#fff', fontSize: 13, fontWeight: 700,
+                  border: 'none', color: '#fff', fontSize: 14, fontWeight: 700,
                   cursor: (discTitle.trim().length < 5 || discBody.trim().length < 10) ? 'not-allowed' : 'pointer',
                 }}
               >
@@ -240,7 +240,7 @@ export function NewConversationModal({ onClose }: Props) {
                   display: 'inline-flex', alignItems: 'center', gap: 6,
                   padding: '4px 4px 4px 4px', borderRadius: 16,
                   background: 'var(--bg-elevated)', border: '1px solid var(--border-default)',
-                  fontSize: 12, color: 'var(--text-primary)', cursor: 'pointer',
+                  fontSize: 13, color: 'var(--text-primary)', cursor: 'pointer',
                 }}
               >
                 <ChatAvatar url={u.avatar_url} fallbackName={u.full_name || u.username} size={20} />
@@ -279,7 +279,7 @@ export function NewConversationModal({ onClose }: Props) {
 
         <div style={{ maxHeight: 320, overflowY: 'auto', borderRadius: 8, border: '1px solid var(--border-subtle)' }}>
           {results.length === 0 ? (
-            <div style={{ padding: 24, textAlign: 'center', fontSize: 12, color: 'var(--text-muted)' }}>
+            <div style={{ padding: 24, textAlign: 'center', fontSize: 13, color: 'var(--text-muted)' }}>
               {query ? 'Niekas neatitiko' : 'Pradėk vesti vartotojo vardą…'}
             </div>
           ) : (
@@ -303,11 +303,11 @@ export function NewConversationModal({ onClose }: Props) {
                 >
                   <ChatAvatar url={u.avatar_url} fallbackName={u.full_name || u.username} size={32} />
                   <div style={{ flex: 1, minWidth: 0 }}>
-                    <div style={{ fontSize: 13, fontWeight: 700, color: 'var(--text-primary)', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+                    <div style={{ fontSize: 14, fontWeight: 700, color: 'var(--text-primary)', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
                       {u.full_name || u.username || 'Vartotojas'}
                     </div>
                     {u.username && u.full_name && (
-                      <div style={{ fontSize: 11, color: 'var(--text-muted)' }}>@{u.username}</div>
+                      <div style={{ fontSize: 12, color: 'var(--text-muted)' }}>@{u.username}</div>
                     )}
                   </div>
                   {sel && (
@@ -327,7 +327,7 @@ export function NewConversationModal({ onClose }: Props) {
               style={{
                 padding: '8px 14px', borderRadius: 8,
                 background: 'transparent', border: '1px solid var(--border-default)',
-                color: 'var(--text-secondary)', fontSize: 13, fontWeight: 600, cursor: 'pointer',
+                color: 'var(--text-secondary)', fontSize: 14, fontWeight: 600, cursor: 'pointer',
               }}
             >
               Atšaukti
@@ -338,7 +338,7 @@ export function NewConversationModal({ onClose }: Props) {
               style={{
                 padding: '8px 16px', borderRadius: 8,
                 background: selected.length === 0 ? 'var(--bg-hover)' : 'var(--accent-orange)',
-                border: 'none', color: '#fff', fontSize: 13, fontWeight: 700,
+                border: 'none', color: '#fff', fontSize: 14, fontWeight: 700,
                 cursor: selected.length === 0 ? 'not-allowed' : 'pointer',
               }}
             >
@@ -361,7 +361,7 @@ function ModeButton({ active, children, onClick }: { active: boolean; children: 
         flex: 1, padding: '7px 12px', borderRadius: 6, border: 'none',
         background: active ? 'var(--bg-surface)' : 'transparent',
         color: active ? 'var(--text-primary)' : 'var(--text-muted)',
-        fontSize: 12, fontWeight: 700, cursor: 'pointer',
+        fontSize: 13, fontWeight: 700, cursor: 'pointer',
         boxShadow: active ? '0 1px 3px rgba(0,0,0,0.2)' : 'none',
         transition: 'all .12s',
       }}

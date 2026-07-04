@@ -678,10 +678,10 @@ export default function AdminInboxPage() {
                           žemiau, kad būtų paleistas Sonnet rewrite'as. */}
                       {cand.status === 'preview' && (
                         <div className="flex items-center gap-2 mb-2">
-                          <span className="text-[10px] uppercase font-semibold text-amber-700 bg-amber-100 border border-amber-200 px-1.5 py-0.5 rounded">
+                          <span className="text-[11px] uppercase font-semibold text-amber-700 bg-amber-100 border border-amber-200 px-1.5 py-0.5 rounded">
                             Juodraštis
                           </span>
-                          <span className="text-[11px] text-[var(--text-muted)]">
+                          <span className="text-[12px] text-[var(--text-muted)]">
                             {cand.source_portal === 'gmail'
                               ? 'Tekstas performuluojamas paspaudus „Perrašyti"'
                               : 'LT versija sugeneruojama paspaudus „Perrašyti"'}
@@ -736,7 +736,7 @@ export default function AdminInboxPage() {
                                 />
                                 {/* Metadata overlay — bottom strip */}
                                 {(att.photographer || att.copyright || att.year_taken) && (
-                                  <div className="absolute bottom-0 left-0 right-0 bg-black/70 text-white text-[9px] px-1 py-0.5 rounded-b leading-tight truncate">
+                                  <div className="absolute bottom-0 left-0 right-0 bg-black/70 text-white text-[10px] px-1 py-0.5 rounded-b leading-tight truncate">
                                     {att.photographer && <span>📷 {att.photographer}</span>}
                                     {att.photographer && att.year_taken && <span> · </span>}
                                     {att.year_taken && <span>{att.year_taken}</span>}
@@ -752,7 +752,7 @@ export default function AdminInboxPage() {
                           </div>
                           {/* Copyright warning'as jeigu visi attachment'ai be metadata */}
                           {cand.attachments.every(a => !a.photographer && !a.copyright) && (
-                            <div className="text-[10px] text-amber-600 mt-1.5">
+                            <div className="text-[11px] text-amber-600 mt-1.5">
                               ⚠ EXIF metadata nerasta — prieš publikuojant pridėk autorių/copyright per peržiūros modal'ą.
                             </div>
                           )}
@@ -771,10 +771,10 @@ export default function AdminInboxPage() {
                               {a.cover_image_url ? (
                                 <img src={a.cover_image_url} alt="" className="w-5 h-5 rounded-full object-cover bg-blue-100" />
                               ) : (
-                                <span className="w-5 h-5 rounded-full bg-blue-200 flex items-center justify-center text-[10px]">🎤</span>
+                                <span className="w-5 h-5 rounded-full bg-blue-200 flex items-center justify-center text-[11px]">🎤</span>
                               )}
                               <span>{a.name}</span>
-                              <span className="text-[10px] text-blue-500 font-normal">❤ {formatLikes(a.legacy_likes)}</span>
+                              <span className="text-[11px] text-blue-500 font-normal">❤ {formatLikes(a.legacy_likes)}</span>
                             </Link>
                           ))}
                           {extraArtistsCount > 0 && (
@@ -920,7 +920,7 @@ export default function AdminInboxPage() {
               <div className="flex items-center justify-between gap-2">
                 <div className="flex flex-col min-w-0 flex-1">
                   <h2 className="text-sm sm:text-base font-bold text-[var(--text-primary)] leading-tight">✎ Redaguoti naujieną</h2>
-                  <div className="flex items-center gap-1.5 text-[10px] text-[var(--text-muted)]">
+                  <div className="flex items-center gap-1.5 text-[11px] text-[var(--text-muted)]">
                     {editing.source_portal && (
                       <a href={editing.source_url || '#'} target="_blank" rel="noopener" className="hover:underline truncate">
                         {editing.source_portal} ↗
@@ -936,7 +936,7 @@ export default function AdminInboxPage() {
                   <button
                     type="button"
                     onClick={() => setPreviewOpen(v => !v)}
-                    className="text-[10px] sm:text-xs px-2 py-1 bg-blue-50 hover:bg-blue-100 text-blue-700 rounded font-medium shrink-0">
+                    className="text-[11px] sm:text-xs px-2 py-1 bg-blue-50 hover:bg-blue-100 text-blue-700 rounded font-medium shrink-0">
                     {previewOpen ? '▴ Slėpti peržiūrą' : '▾ Peržiūra'}
                   </button>
                 )}
@@ -973,7 +973,7 @@ export default function AdminInboxPage() {
                           ? 'bg-emerald-50 text-emerald-700'
                           : 'bg-[var(--bg-elevated)] text-[var(--text-muted)]'
                     }`}>
-                    <span className={`flex h-4 w-4 items-center justify-center rounded-full text-[10px] font-bold ${
+                    <span className={`flex h-4 w-4 items-center justify-center rounded-full text-[11px] font-bold ${
                       editStep === s.n ? 'bg-white/25' : editStep > s.n ? 'bg-emerald-600 text-white' : 'bg-[var(--bg-active)]'
                     }`}>{editStep > s.n ? '✓' : s.n}</span>
                     <span>{s.label}</span>
@@ -1010,7 +1010,7 @@ export default function AdminInboxPage() {
                           {a.cover_image_url ? (
                             <img src={a.cover_image_url} alt="" className="w-4 h-4 rounded-full object-cover" />
                           ) : (
-                            <span className="w-4 h-4 rounded-full bg-blue-200 flex items-center justify-center text-[9px]">🎤</span>
+                            <span className="w-4 h-4 rounded-full bg-blue-200 flex items-center justify-center text-[10px]">🎤</span>
                           )}
                           <span>{isPrimary ? '★ ' : ''}{a.name}</span>
                         </button>
@@ -1033,7 +1033,7 @@ export default function AdminInboxPage() {
                         {a.cover_image_url ? (
                           <img src={a.cover_image_url} alt="" className="w-4 h-4 rounded-full object-cover opacity-60" />
                         ) : (
-                          <span className="w-4 h-4 rounded-full bg-[var(--bg-active)] flex items-center justify-center text-[9px]">🎤</span>
+                          <span className="w-4 h-4 rounded-full bg-[var(--bg-active)] flex items-center justify-center text-[10px]">🎤</span>
                         )}
                         <span>+ {a.name}</span>
                       </button>
@@ -1077,7 +1077,7 @@ export default function AdminInboxPage() {
                       window.open(`/admin/artists/new?name=${encodeURIComponent(name.trim())}`, '_blank')
                     }}
                     title="Sukurti naują atlikėją DB'oje su Wikipedia importu"
-                    className="inline-flex items-center gap-0.5 px-1.5 py-0.5 rounded-full text-[10px] bg-emerald-50 hover:bg-emerald-100 text-emerald-700 border border-dashed border-emerald-300">
+                    className="inline-flex items-center gap-0.5 px-1.5 py-0.5 rounded-full text-[11px] bg-emerald-50 hover:bg-emerald-100 text-emerald-700 border border-dashed border-emerald-300">
                     + Naujas atlikėjas
                   </button>
                 </div>
@@ -1116,14 +1116,14 @@ export default function AdminInboxPage() {
                               {thumb ? (
                                 <img src={thumb} alt="" className="w-16 h-10 rounded object-cover bg-black" />
                               ) : (
-                                <div className="w-16 h-10 rounded bg-black/80 flex items-center justify-center text-white text-[10px]">{isSpotify ? 'Spotify' : 'Video'}</div>
+                                <div className="w-16 h-10 rounded bg-black/80 flex items-center justify-center text-white text-[11px]">{isSpotify ? 'Spotify' : 'Video'}</div>
                               )}
-                              <span className="text-[10px] text-[var(--text-muted)]">{isSpotify ? '🎧' : '🎬'} embed</span>
+                              <span className="text-[11px] text-[var(--text-muted)]">{isSpotify ? '🎧' : '🎬'} embed</span>
                             </div>
                           )
                         })}
                       </div>
-                      <p className="mt-1.5 text-[10px] text-[var(--text-muted)]">
+                      <p className="mt-1.5 text-[11px] text-[var(--text-muted)]">
                         Šie video įterpiami automatiškai. Katalogo dainas (jei reikia) pridėk žemiau.
                       </p>
                     </div>
@@ -1143,20 +1143,20 @@ export default function AdminInboxPage() {
                           onClick={() => openTrackPicker('')}
                           disabled={editArtistIds.length === 0}
                           title={editArtistIds.length === 0 ? 'Pirma priskirk atlikėją' : ''}
-                          className="px-2 py-0.5 bg-blue-50 hover:bg-blue-100 disabled:opacity-50 text-blue-700 rounded text-[10px] font-medium normal-case tracking-normal">
+                          className="px-2 py-0.5 bg-blue-50 hover:bg-blue-100 disabled:opacity-50 text-blue-700 rounded text-[11px] font-medium normal-case tracking-normal">
                             {selectedCount > 0
                               ? '🎵 Tvarkyti'
                               : '🎬 Surasti video'}
                         </button>
                       </div>
                       {selectedTracks.length === 0 ? (
-                        <p className="text-[11px] text-[var(--text-muted)] italic">
+                        <p className="text-[12px] text-[var(--text-muted)] italic">
                           Nepridėta dainų.
                         </p>
                       ) : (
                         <div className="flex flex-wrap gap-1">
                           {selectedTracks.map(t => (
-                            <div key={t.id} className="inline-flex items-center gap-1 px-1.5 py-0.5 bg-emerald-50 border border-emerald-200 rounded-full text-[11px]">
+                            <div key={t.id} className="inline-flex items-center gap-1 px-1.5 py-0.5 bg-emerald-50 border border-emerald-200 rounded-full text-[12px]">
                               <span className="truncate max-w-[180px]">{t.title}</span>
                               <button
                                 type="button"
@@ -1216,13 +1216,13 @@ export default function AdminInboxPage() {
                             onError={e => ((e.target as HTMLImageElement).style.display = 'none')}
                           />
                           {isSelected && (
-                            <div className={`absolute top-1 left-1 w-5 h-5 rounded-full flex items-center justify-center text-[10px] font-bold text-white ${
+                            <div className={`absolute top-1 left-1 w-5 h-5 rounded-full flex items-center justify-center text-[11px] font-bold text-white ${
                               isPrimary ? 'bg-emerald-600' : 'bg-blue-600'
                             }`}>
                               {orderIdx + 1}
                             </div>
                           )}
-                          <div className="absolute bottom-0 left-0 right-0 bg-gradient-to-t from-black/90 via-black/70 to-transparent text-white text-[10px] px-1.5 py-1">
+                          <div className="absolute bottom-0 left-0 right-0 bg-gradient-to-t from-black/90 via-black/70 to-transparent text-white text-[11px] px-1.5 py-1">
                             <div className="font-semibold opacity-90 leading-tight">
                               {opt.source === 'email_attachment' && '📧 Press foto'}
                               {opt.source === 'artist_photo' && '📸 Galerija'}
@@ -1233,11 +1233,11 @@ export default function AdminInboxPage() {
                             {/* Email attachment — photographer/copyright/year */}
                             {opt.source === 'email_attachment' && opt.meta ? (
                               <>
-                                <div className="opacity-95 leading-tight truncate text-[9px]">
+                                <div className="opacity-95 leading-tight truncate text-[10px]">
                                   {opt.meta.caption && <span>{opt.meta.caption}</span>}
                                   {!opt.meta.caption && opt.meta.photographer && <span>📷 {opt.meta.photographer}</span>}
                                 </div>
-                                <div className="opacity-70 leading-tight truncate text-[9px]">
+                                <div className="opacity-70 leading-tight truncate text-[10px]">
                                   {opt.meta.photographer && opt.meta.caption && <span>📷 {opt.meta.photographer}</span>}
                                   {opt.meta.year_taken && <span> · {opt.meta.year_taken}</span>}
                                   {opt.meta.copyright && <span> · © {opt.meta.copyright}</span>}
@@ -1250,7 +1250,7 @@ export default function AdminInboxPage() {
                                 <div className="opacity-95 leading-tight truncate" title={opt.yt_meta.title || ''}>
                                   {opt.yt_meta.title || opt.label}
                                 </div>
-                                <div className="opacity-70 leading-tight truncate text-[9px]">
+                                <div className="opacity-70 leading-tight truncate text-[10px]">
                                   {opt.yt_meta.channel_title && <span>{opt.yt_meta.channel_title}</span>}
                                   {opt.yt_meta.view_count && <span> · 👁 {formatViewCount(opt.yt_meta.view_count)}</span>}
                                   {opt.yt_meta.uploaded_at && <span> · {ytAgeShort(opt.yt_meta.uploaded_at)}</span>}

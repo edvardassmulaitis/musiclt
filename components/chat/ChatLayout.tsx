@@ -205,7 +205,7 @@ function EmptyState({ onNew }: { onNew: () => void }) {
         <h2 style={{ fontSize: 20, fontWeight: 800, color: 'var(--text-primary)', marginBottom: 6 }}>
           Pasirink pokalbį
         </h2>
-        <p style={{ fontSize: 13, color: 'var(--text-muted)', lineHeight: 1.5, marginBottom: 18 }}>
+        <p style={{ fontSize: 14, color: 'var(--text-muted)', lineHeight: 1.5, marginBottom: 18 }}>
           Pasirink pokalbį iš kairės arba pradėk naują žinutę su kitu nariu / sukurk grupę.
         </p>
         <button
@@ -213,7 +213,7 @@ function EmptyState({ onNew }: { onNew: () => void }) {
           style={{
             padding: '10px 18px', borderRadius: 9, border: 'none',
             background: 'var(--accent-orange)', color: '#fff',
-            fontSize: 13, fontWeight: 700, cursor: 'pointer',
+            fontSize: 14, fontWeight: 700, cursor: 'pointer',
           }}
         >
           Naujas pokalbis

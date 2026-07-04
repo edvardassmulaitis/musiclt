@@ -136,7 +136,7 @@ function PromptModal({
             {title}
           </div>
           {hint && (
-            <div className="mt-0.5 text-[11.5px] text-[var(--text-muted)]">
+            <div className="mt-0.5 text-[12.5px] text-[var(--text-muted)]">
               {hint}
             </div>
           )}
@@ -151,19 +151,19 @@ function PromptModal({
             value={value}
             onChange={(e) => setValue(e.target.value)}
             placeholder={placeholder}
-            className="w-full rounded-lg border border-[var(--border-subtle)] bg-[var(--bg-surface)] px-3 py-2 text-[13.5px] text-[var(--text-primary)] outline-none transition-colors placeholder:text-[var(--text-faint)] focus:border-[var(--accent-orange)]"
+            className="w-full rounded-lg border border-[var(--border-subtle)] bg-[var(--bg-surface)] px-3 py-2 text-[14.5px] text-[var(--text-primary)] outline-none transition-colors placeholder:text-[var(--text-faint)] focus:border-[var(--accent-orange)]"
           />
           <div className="mt-3 flex items-center justify-end gap-2">
             <button
               type="button"
               onClick={onCancel}
-              className="rounded-full border border-[var(--border-subtle)] bg-transparent px-3.5 py-1.5 text-[11.5px] font-bold text-[var(--text-muted)] transition-colors hover:border-[var(--border-strong)] hover:text-[var(--text-primary)]"
+              className="rounded-full border border-[var(--border-subtle)] bg-transparent px-3.5 py-1.5 text-[12.5px] font-bold text-[var(--text-muted)] transition-colors hover:border-[var(--border-strong)] hover:text-[var(--text-primary)]"
             >
               Atšaukti
             </button>
             <button
               type="submit"
-              className="rounded-full bg-[var(--accent-orange)] px-4 py-1.5 text-[11.5px] font-extrabold text-white transition-opacity hover:opacity-90"
+              className="rounded-full bg-[var(--accent-orange)] px-4 py-1.5 text-[12.5px] font-extrabold text-white transition-opacity hover:opacity-90"
             >
               Gerai
             </button>
@@ -402,7 +402,7 @@ const CommentEditor = forwardRef<CommentEditorHandle, Props>(function CommentEdi
           </I>
         </Btn>
 
-        <span className="ml-auto whitespace-nowrap text-[10px] text-[var(--text-faint)]">
+        <span className="ml-auto whitespace-nowrap text-[11px] text-[var(--text-faint)]">
           {onSubmit ? '⌘+Enter siųsti' : ''}
         </span>
       </div>
@@ -419,7 +419,7 @@ const CommentEditor = forwardRef<CommentEditorHandle, Props>(function CommentEdi
       />
 
       {/* Editor content area — paste'inant YT URL, auto-konvertuoja į iframe. */}
-      <div className="px-3 py-2 text-[13.5px] leading-snug text-[var(--text-primary)]">
+      <div className="px-3 py-2 text-[14.5px] leading-snug text-[var(--text-primary)]">
         <EditorContent editor={editor} />
       </div>
 

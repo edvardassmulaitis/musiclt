@@ -985,7 +985,7 @@ function PlayerCard({
                 <rect x="1" y="5" width="15" height="14" rx="2" ry="2" />
               </svg>
             </div>
-            <div className="font-['Outfit',sans-serif] text-[12px] font-extrabold uppercase tracking-[0.15em] text-white/60">
+            <div className="font-['Outfit',sans-serif] text-[13px] font-extrabold uppercase tracking-[0.15em] text-white/60">
               Video dar nėra
             </div>
           </div>
@@ -996,7 +996,7 @@ function PlayerCard({
           Order: Visos | Singlai | Naujausios. Visos/Naujausios feminine
           plural (matches „dainos"), Singlai masculine (atskira reikšmė). */}
       <div className="flex justify-center border-b border-[var(--border-default)] bg-[var(--bg-surface)] px-3 py-2">
-        <div className="inline-flex overflow-hidden rounded-full border border-[var(--border-default)] bg-[var(--card-bg)] font-['Outfit',sans-serif] text-[11.5px] font-bold">
+        <div className="inline-flex overflow-hidden rounded-full border border-[var(--border-default)] bg-[var(--card-bg)] font-['Outfit',sans-serif] text-[12.5px] font-bold">
           <button
             onClick={() => setFilter('all')}
             className={[
@@ -1051,8 +1051,8 @@ function PlayerCard({
       >
         {list.length === 0 ? (
           <div className="flex min-h-[160px] flex-col items-center justify-center gap-1 px-6 py-8 text-center">
-            <div className="font-['Outfit',sans-serif] text-[12px] font-extrabold uppercase tracking-wider text-[var(--text-muted)]">Nieko</div>
-            <div className="text-[11px] text-[var(--text-faint)]">
+            <div className="font-['Outfit',sans-serif] text-[13px] font-extrabold uppercase tracking-wider text-[var(--text-muted)]">Nieko</div>
+            <div className="text-[12px] text-[var(--text-faint)]">
               {filter === 'new' ? 'Per 2 metus naujų nebuvo' : filter === 'singles' ? 'Singlų nėra' : 'Dainų nėra'}
             </div>
           </div>
@@ -1100,7 +1100,7 @@ function PlayerCard({
                     {/* Position number */}
                     <span
                       className={[
-                        'w-5 shrink-0 text-center font-["Outfit",sans-serif] text-[12px] font-bold tabular-nums',
+                        'w-5 shrink-0 text-center font-["Outfit",sans-serif] text-[13px] font-bold tabular-nums',
                         isActive ? 'text-[var(--accent-orange)]' : 'text-[var(--text-faint)]',
                       ].join(' ')}
                       aria-hidden
@@ -1112,7 +1112,7 @@ function PlayerCard({
                         bubble'ina į row'ą. Release date badge ant svežių. */}
                     <div className="flex min-w-0 flex-1 flex-col items-start">
                       <div className={[
-                        'flex w-full items-center gap-1.5 font-["Outfit",sans-serif] text-[13px] font-bold leading-tight',
+                        'flex w-full items-center gap-1.5 font-["Outfit",sans-serif] text-[14px] font-bold leading-tight',
                         isActive ? 'text-[var(--accent-orange)]' : 'text-[var(--text-primary)]',
                       ].join(' ')}>
                         {/* SEO: title kaip <a href> — crawler sees a real link
@@ -1139,7 +1139,7 @@ function PlayerCard({
                             if (!yr) return null
                             return (
                               <span
-                                className="shrink-0 rounded bg-[rgba(34,197,94,0.16)] px-1.5 py-0.5 font-['Outfit',sans-serif] text-[9.5px] font-extrabold tabular-nums tracking-wider text-[var(--accent-green)]"
+                                className="shrink-0 rounded bg-[rgba(34,197,94,0.16)] px-1.5 py-0.5 font-['Outfit',sans-serif] text-[10.5px] font-extrabold tabular-nums tracking-wider text-[var(--accent-green)]"
                                 title={`Išleista ${yr}`}
                               >
                                 {yr}
@@ -1238,7 +1238,7 @@ function PlayerCard({
         )}
       </div>
       {!hasAnyVideo && (
-        <div className="border-t border-[var(--border-default)] bg-[var(--bg-elevated)] px-4 py-2 text-center font-['Outfit',sans-serif] text-[10px] font-bold uppercase tracking-[0.12em] text-[var(--text-muted)]">
+        <div className="border-t border-[var(--border-default)] bg-[var(--bg-elevated)] px-4 py-2 text-center font-['Outfit',sans-serif] text-[11px] font-bold uppercase tracking-[0.12em] text-[var(--text-muted)]">
           💡 Pridėk YouTube nuorodas dainoms
         </div>
       )}
@@ -1478,7 +1478,7 @@ function TabButton({ active, disabled, onClick, children }: {
       onClick={onClick}
       disabled={disabled}
       className={[
-        'relative border-0 bg-transparent px-4 py-3 font-["Outfit",sans-serif] text-[12px] font-extrabold uppercase tracking-[0.14em] transition-colors',
+        'relative border-0 bg-transparent px-4 py-3 font-["Outfit",sans-serif] text-[13px] font-extrabold uppercase tracking-[0.14em] transition-colors',
         active ? 'text-[var(--accent-orange)]' : 'text-[var(--text-muted)] hover:text-[var(--text-primary)]',
         disabled ? 'cursor-not-allowed opacity-30' : 'cursor-pointer',
       ].join(' ')}
@@ -1502,7 +1502,7 @@ function FilterChipMini({ active, onClick, children }: {
     <button
       onClick={onClick}
       className={[
-        'inline-flex items-center gap-1 rounded-full border px-2.5 py-1 font-["Outfit",sans-serif] text-[11px] font-bold transition-all',
+        'inline-flex items-center gap-1 rounded-full border px-2.5 py-1 font-["Outfit",sans-serif] text-[12px] font-bold transition-all',
         active
           ? 'border-[var(--accent-orange)] bg-[var(--accent-orange)] text-white shadow-[0_2px_8px_rgba(249,115,22,0.25)]'
           : 'border-[var(--border-default)] bg-[var(--card-bg)] text-[var(--text-secondary)] hover:border-[var(--border-strong)] hover:bg-[var(--bg-hover)]',
@@ -1854,7 +1854,7 @@ function Hero({
                             : `Top atlikėjai: ${genres[0].name}${artist.country ? `, ${artist.country}` : ''}`)
                         : `${artist.country} top atlikėjai ir grupės`
                     }
-                    className="inline-flex shrink-0 items-center gap-2 rounded-full border border-[rgba(249,115,22,0.35)] bg-[rgba(249,115,22,0.12)] py-1.5 pl-2.5 pr-2.5 font-['Outfit',sans-serif] text-[13px] font-extrabold tracking-tight text-[var(--accent-orange)] transition-colors hover:border-[var(--accent-orange)] hover:bg-[rgba(249,115,22,0.22)] lg:bg-[rgba(249,115,22,0.18)] lg:backdrop-blur-md lg:hover:bg-[rgba(249,115,22,0.28)]"
+                    className="inline-flex shrink-0 items-center gap-2 rounded-full border border-[rgba(249,115,22,0.35)] bg-[rgba(249,115,22,0.12)] py-1.5 pl-2.5 pr-2.5 font-['Outfit',sans-serif] text-[14px] font-extrabold tracking-tight text-[var(--accent-orange)] transition-colors hover:border-[var(--accent-orange)] hover:bg-[rgba(249,115,22,0.22)] lg:bg-[rgba(249,115,22,0.18)] lg:backdrop-blur-md lg:hover:bg-[rgba(249,115,22,0.28)]"
                   >
                     {flag && artist.country && (
                       <span aria-hidden className="text-[16px] leading-none">{flag}</span>
@@ -1862,7 +1862,7 @@ function Hero({
                     {genres[0] && <span>{genres[0].name}</span>}
                     {genres[0] && primaryRank && primaryRank.rank > 0 && (
                       <span
-                        className="inline-flex items-center rounded-full bg-[var(--accent-orange)] px-1.5 py-0.5 font-['Outfit',sans-serif] text-[10.5px] font-black tabular-nums text-white"
+                        className="inline-flex items-center rounded-full bg-[var(--accent-orange)] px-1.5 py-0.5 font-['Outfit',sans-serif] text-[11.5px] font-black tabular-nums text-white"
                       >
                         #{primaryRank.rank}
                       </span>
@@ -1875,7 +1875,7 @@ function Hero({
                     key={s.name}
                     onClick={() => onOpenTopArtists?.({ genre: s.name })}
                     title={`Top atlikėjai: ${s.name}`}
-                    className="aphchip inline-flex shrink-0 items-center rounded-full border border-[var(--border-subtle)] bg-transparent px-2.5 py-1 font-['Outfit',sans-serif] text-[11px] font-medium text-[var(--text-muted)] transition-colors hover:border-[var(--text-muted)] hover:text-[var(--text-primary)] lg:border-white/15 lg:text-white/65 lg:backdrop-blur-md lg:hover:border-white/40 lg:hover:bg-white/10 lg:hover:text-white/95"
+                    className="aphchip inline-flex shrink-0 items-center rounded-full border border-[var(--border-subtle)] bg-transparent px-2.5 py-1 font-['Outfit',sans-serif] text-[12px] font-medium text-[var(--text-muted)] transition-colors hover:border-[var(--text-muted)] hover:text-[var(--text-primary)] lg:border-white/15 lg:text-white/65 lg:backdrop-blur-md lg:hover:border-white/40 lg:hover:bg-white/10 lg:hover:text-white/95"
                   >
                     {s.name}
                   </button>
@@ -1900,7 +1900,7 @@ function Hero({
             // Vidinis `flex-col` su `flex-1` ant kortelės wrapper'io
             // perduoda aukštį žemyn į pačią kortelę.
             <div className="hidden flex-col gap-2 lg:flex lg:self-stretch">
-              <div className="font-['Outfit',sans-serif] text-[10px] font-extrabold uppercase tracking-[0.18em] text-white/85">
+              <div className="font-['Outfit',sans-serif] text-[11px] font-extrabold uppercase tracking-[0.18em] text-white/85">
                 Artimiausi renginiai
               </div>
               {/* flex-1 wrapper'is — kad kortelė augintų aukštį iki
@@ -1914,7 +1914,7 @@ function Hero({
                 <button
                   type="button"
                   onClick={onOpenEventsModal}
-                  className="flex items-center justify-center gap-2 rounded-xl border border-dashed border-[rgba(249,115,22,0.4)] bg-[rgba(249,115,22,0.06)] px-3 py-2 text-[11px] font-extrabold text-[var(--accent-orange)] transition-all hover:border-[rgba(249,115,22,0.7)] hover:bg-[rgba(249,115,22,0.10)]"
+                  className="flex items-center justify-center gap-2 rounded-xl border border-dashed border-[rgba(249,115,22,0.4)] bg-[rgba(249,115,22,0.06)] px-3 py-2 text-[12px] font-extrabold text-[var(--accent-orange)] transition-all hover:border-[rgba(249,115,22,0.7)] hover:bg-[rgba(249,115,22,0.10)]"
                 >
                   Žiūrėti visus +{overflow}
                 </button>
@@ -1961,7 +1961,7 @@ function Hero({
           Desktop'e events yra grid'o 2-oje kolonoje, todėl čia paslėpta. */}
       {upcomingEvents.length > 0 && (
         <div className="mx-auto max-w-[1400px] px-4 pb-4 sm:px-6 lg:hidden">
-          <div className="mb-2 font-['Outfit',sans-serif] text-[10px] font-extrabold uppercase tracking-[0.18em] text-[var(--accent-orange)]">
+          <div className="mb-2 font-['Outfit',sans-serif] text-[11px] font-extrabold uppercase tracking-[0.18em] text-[var(--accent-orange)]">
             Artimiausi renginiai
           </div>
           <div
@@ -2084,7 +2084,7 @@ function TopArtistsModal({
               {title}
             </h2>
             {myRank && currentArtistName && (
-              <div className="mt-0.5 font-['Outfit',sans-serif] text-[12px] font-bold text-[var(--accent-orange)]">
+              <div className="mt-0.5 font-['Outfit',sans-serif] text-[13px] font-bold text-[var(--accent-orange)]">
                 {currentArtistName} — #{myRank.rank}
                 <span className="ml-1 font-medium text-[var(--text-muted)]">iš {myRank.total.toLocaleString('lt-LT')}</span>
               </div>
@@ -2101,13 +2101,13 @@ function TopArtistsModal({
         </div>
         <div className="flex-1 overflow-y-auto px-2 py-2">
           {loading && (
-            <div className="flex items-center justify-center py-10 text-[13px] text-[var(--text-muted)]">Kraunama…</div>
+            <div className="flex items-center justify-center py-10 text-[14px] text-[var(--text-muted)]">Kraunama…</div>
           )}
           {error && !loading && (
-            <div className="flex items-center justify-center py-10 text-[13px] text-red-500">Klaida: {error}</div>
+            <div className="flex items-center justify-center py-10 text-[14px] text-red-500">Klaida: {error}</div>
           )}
           {!loading && !error && items.length === 0 && (
-            <div className="flex items-center justify-center py-10 text-[13px] text-[var(--text-muted)]">Nieko nerasta</div>
+            <div className="flex items-center justify-center py-10 text-[14px] text-[var(--text-muted)]">Nieko nerasta</div>
           )}
           {!loading && !error && items.length > 0 && (
             <ul className="flex flex-col">
@@ -2140,7 +2140,7 @@ function TopArtistsModal({
                             style={{ objectPosition: `${pos.x}% ${pos.y}%` }}
                           />
                         ) : (
-                          <span className="flex h-full w-full items-center justify-center text-[12px] font-bold uppercase text-[var(--text-faint)]">
+                          <span className="flex h-full w-full items-center justify-center text-[13px] font-bold uppercase text-[var(--text-faint)]">
                             {a.name.charAt(0)}
                           </span>
                         )}
@@ -2155,7 +2155,7 @@ function TopArtistsModal({
                           )}
                         </span>
                         {a.country && (
-                          <span className="font-['Outfit',sans-serif] text-[11.5px] font-medium text-[var(--text-muted)]">
+                          <span className="font-['Outfit',sans-serif] text-[12.5px] font-medium text-[var(--text-muted)]">
                             {flagFor(a.country) || '🌍'} {a.country}
                           </span>
                         )}
@@ -2227,7 +2227,7 @@ function ShareButton({ url, title, fullWidth = false }: { url: string; title: st
         <line x1="8.59" y1="13.51" x2="15.42" y2="17.49" />
         <line x1="15.41" y1="6.51" x2="8.59" y2="10.49" />
       </svg>
-      <span className="font-['Outfit',sans-serif] text-[13px] font-extrabold tracking-tight">
+      <span className="font-['Outfit',sans-serif] text-[14px] font-extrabold tracking-tight">
         {copied ? 'Nukopijuota!' : 'Dalintis'}
       </span>
     </button>
@@ -2296,7 +2296,7 @@ function FollowPill({
           onClick={onOpenModal}
           title="Pamatyk kas seka"
           className={[
-            'flex items-center border-l px-3.5 py-2 font-["Outfit",sans-serif] text-[13px] font-extrabold tabular-nums tracking-wide transition-colors',
+            'flex items-center border-l px-3.5 py-2 font-["Outfit",sans-serif] text-[14px] font-extrabold tabular-nums tracking-wide transition-colors',
             heartFilled
               ? 'border-white/30 hover:opacity-90'
               : 'border-[var(--border-subtle)] hover:bg-[var(--bg-hover)]',
@@ -2306,7 +2306,7 @@ function FollowPill({
         </button>
       ) : (
         <span className={[
-          'flex items-center border-l px-3.5 py-2 font-["Outfit",sans-serif] text-[13px] font-extrabold tabular-nums tracking-wide',
+          'flex items-center border-l px-3.5 py-2 font-["Outfit",sans-serif] text-[14px] font-extrabold tabular-nums tracking-wide',
           heartFilled ? 'border-white/30' : 'border-[var(--border-subtle)] opacity-70',
         ].join(' ')}>
           0
@@ -2410,19 +2410,19 @@ function BioFactsInline({
     <div className="mt-5 flex flex-col gap-2 sm:flex-row sm:flex-wrap sm:gap-x-8 sm:gap-y-2">
       {showActive && (
         <div className="flex items-baseline gap-2">
-          <span className="font-['Outfit',sans-serif] text-[11px] font-bold uppercase tracking-[0.15em] text-[var(--text-muted)]">Veikla</span>
+          <span className="font-['Outfit',sans-serif] text-[12px] font-bold uppercase tracking-[0.15em] text-[var(--text-muted)]">Veikla</span>
           <span className="font-['Outfit',sans-serif] text-[14px] font-bold text-[var(--text-primary)]">{yearsActiveRange}</span>
           {yearsActiveTail && (
-            <span className="font-medium text-[12.5px] text-[var(--text-muted)]">({yearsActiveTail})</span>
+            <span className="font-medium text-[13.5px] text-[var(--text-muted)]">({yearsActiveTail})</span>
           )}
         </div>
       )}
       {birthInfo && (
         <div className="flex items-baseline gap-2">
-          <span className="font-['Outfit',sans-serif] text-[11px] font-bold uppercase tracking-[0.15em] text-[var(--text-muted)]">Gimė</span>
+          <span className="font-['Outfit',sans-serif] text-[12px] font-bold uppercase tracking-[0.15em] text-[var(--text-muted)]">Gimė</span>
           <span className="font-['Outfit',sans-serif] text-[14px] font-bold text-[var(--text-primary)]">{birthInfo.date}</span>
           {birthInfo.ageTail && (
-            <span className="font-medium text-[12.5px] text-[var(--text-muted)]">({birthInfo.ageTail})</span>
+            <span className="font-medium text-[13.5px] text-[var(--text-muted)]">({birthInfo.ageTail})</span>
           )}
           {birthInfo.zodiac && (
             onOpenTopArtists ? (
@@ -2449,10 +2449,10 @@ function BioFactsInline({
       )}
       {deathInfo && (
         <div className="flex items-baseline gap-2">
-          <span className="font-['Outfit',sans-serif] text-[11px] font-bold uppercase tracking-[0.15em] text-[var(--text-muted)]">Mirė</span>
+          <span className="font-['Outfit',sans-serif] text-[12px] font-bold uppercase tracking-[0.15em] text-[var(--text-muted)]">Mirė</span>
           <span className="font-['Outfit',sans-serif] text-[14px] font-bold text-[var(--text-primary)]">{deathInfo.date}</span>
           {deathInfo.livedTail && (
-            <span className="font-medium text-[12.5px] text-[var(--text-muted)]">({deathInfo.livedTail})</span>
+            <span className="font-medium text-[13.5px] text-[var(--text-muted)]">({deathInfo.livedTail})</span>
           )}
         </div>
       )}
@@ -2631,7 +2631,7 @@ function SideInfo({
                 <span className="flex h-6 w-6 shrink-0 items-center justify-center">
                   <svg viewBox="0 0 24 24" fill={p.c || 'currentColor'} width="14" height="14" className={p.c ? '' : 'text-[var(--text-primary)]'}><path d={p.d} /></svg>
                 </span>
-                <span className="font-['Outfit',sans-serif] text-[12.5px] font-bold tracking-tight">{p.l}</span>
+                <span className="font-['Outfit',sans-serif] text-[13.5px] font-bold tracking-tight">{p.l}</span>
               </a>
             )
           })}
@@ -2649,7 +2649,7 @@ function SideInfo({
                 <span className="flex h-6 w-6 shrink-0 items-center justify-center text-[var(--text-muted)]">
                   <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><circle cx="12" cy="12" r="10" /><path d="M2 12h20M12 2a15 15 0 0 1 0 20M12 2a15 15 0 0 0 0 20" /></svg>
                 </span>
-                <span className="font-['Outfit',sans-serif] text-[12.5px] font-bold tracking-tight">Svetainė</span>
+                <span className="font-['Outfit',sans-serif] text-[13.5px] font-bold tracking-tight">Svetainė</span>
               </a>
             )
           })()}
@@ -2693,7 +2693,7 @@ function SideInfo({
               type="button"
               onClick={onOpenSocialModal}
               title="Visi linkai"
-              className="flex h-9 shrink-0 items-center gap-1 rounded-full border border-dashed border-[var(--border-default)] bg-transparent px-2.5 font-['Outfit',sans-serif] text-[11px] font-extrabold text-[var(--text-secondary)] transition-colors hover:border-[var(--accent-orange)] hover:bg-[rgba(249,115,22,0.08)] hover:text-[var(--accent-orange)]"
+              className="flex h-9 shrink-0 items-center gap-1 rounded-full border border-dashed border-[var(--border-default)] bg-transparent px-2.5 font-['Outfit',sans-serif] text-[12px] font-extrabold text-[var(--text-secondary)] transition-colors hover:border-[var(--accent-orange)] hover:bg-[rgba(249,115,22,0.08)] hover:text-[var(--accent-orange)]"
             >
               +{overflowCount + (website ? 1 : 0)}
             </button>
@@ -2769,7 +2769,7 @@ function BioPreview({ html, onOpen, maxChars = 700 }: { html: string; onOpen: ()
           {' '}
           <button
             onClick={onOpen}
-            className="inline-flex items-center gap-1 font-['Outfit',sans-serif] text-[13px] font-bold text-[var(--accent-orange)] transition-colors hover:text-[color-mix(in_srgb,var(--accent-orange)_80%,#fff)]"
+            className="inline-flex items-center gap-1 font-['Outfit',sans-serif] text-[14px] font-bold text-[var(--accent-orange)] transition-colors hover:text-[color-mix(in_srgb,var(--accent-orange)_80%,#fff)]"
           >
             Skaityti daugiau →
           </button>
@@ -2804,14 +2804,14 @@ function MembersInline({ members }: { members: Member[] }) {
     <>
       <div className="mt-5">
         <div className="mb-2 flex items-baseline justify-between">
-          <div className="font-['Outfit',sans-serif] text-[11px] font-bold uppercase tracking-[0.15em] text-[var(--text-muted)]">
+          <div className="font-['Outfit',sans-serif] text-[12px] font-bold uppercase tracking-[0.15em] text-[var(--text-muted)]">
             Nariai
           </div>
           {showAllTrigger && (
             <button
               type="button"
               onClick={() => setModalOpen(true)}
-              className="font-['Outfit',sans-serif] text-[11px] font-bold uppercase tracking-[0.1em] text-[var(--accent-orange)] transition-colors hover:text-[color-mix(in_srgb,var(--accent-orange)_80%,#fff)]"
+              className="font-['Outfit',sans-serif] text-[12px] font-bold uppercase tracking-[0.1em] text-[var(--accent-orange)] transition-colors hover:text-[color-mix(in_srgb,var(--accent-orange)_80%,#fff)]"
             >
               Visi ({total}) →
             </button>
@@ -2836,10 +2836,10 @@ function MembersInline({ members }: { members: Member[] }) {
               style={{ scrollSnapAlign: 'start' }}
               className="flex shrink-0 items-center gap-2.5 rounded-xl border border-dashed border-[var(--border-default)] bg-transparent p-2.5 text-[var(--text-muted)] transition-all hover:border-[var(--accent-orange)] hover:text-[var(--accent-orange)]"
             >
-              <span className="flex h-11 w-11 shrink-0 items-center justify-center rounded-full border border-current font-['Outfit',sans-serif] text-[13px] font-black">
+              <span className="flex h-11 w-11 shrink-0 items-center justify-center rounded-full border border-current font-['Outfit',sans-serif] text-[14px] font-black">
                 {total}
               </span>
-              <span className="font-['Outfit',sans-serif] text-[12px] font-bold leading-tight">Visi nariai</span>
+              <span className="font-['Outfit',sans-serif] text-[13px] font-bold leading-tight">Visi nariai</span>
             </button>
           )}
         </div>
@@ -2881,20 +2881,20 @@ function MemberCard({ m, variant }: { m: Member; variant: 'prominent' | 'compact
         />
       ) : (
         <div className={`flex shrink-0 items-center justify-center rounded-full bg-[var(--cover-placeholder)] font-['Outfit',sans-serif] font-black text-[var(--text-faint)] ${
-          isProm ? 'h-11 w-11 text-[15px]' : 'h-9 w-9 text-[13px]'
+          isProm ? 'h-11 w-11 text-[15px]' : 'h-9 w-9 text-[14px]'
         }`}>
           {m.name[0]}
         </div>
       )}
       <div className="min-w-0 flex-1">
         <div className={`truncate font-['Outfit',sans-serif] font-bold leading-tight text-[var(--text-primary)] ${
-          isProm ? 'text-[13px]' : 'text-[12px]'
+          isProm ? 'text-[14px]' : 'text-[13px]'
         }`}>
           {m.name}
         </div>
         {m.member_from && (
           <div className={`mt-0.5 truncate tabular-nums font-semibold text-[var(--text-muted)] ${
-            isProm ? 'text-[10.5px]' : 'text-[10px]'
+            isProm ? 'text-[11.5px]' : 'text-[11px]'
           }`}>
             {m.member_from}–{m.member_until || 'dabar'}
           </div>
@@ -2910,7 +2910,7 @@ function MemberCard({ m, variant }: { m: Member; variant: 'prominent' | 'compact
 function MemberSeparator() {
   return (
     <div className="flex shrink-0 flex-col items-center justify-center self-stretch px-1" aria-hidden>
-      <span className="font-['Outfit',sans-serif] text-[10px] font-bold uppercase tracking-[0.15em] text-[var(--text-faint)] whitespace-nowrap">
+      <span className="font-['Outfit',sans-serif] text-[11px] font-bold uppercase tracking-[0.15em] text-[var(--text-faint)] whitespace-nowrap">
         Buvę
       </span>
       <div className="mt-1 h-px w-8 bg-[var(--border-subtle)]" />
@@ -2967,7 +2967,7 @@ function MembersModal({ current, former, onClose }: {
 
         {current.length > 0 && (
           <section>
-            <h3 className="mb-3 font-['Outfit',sans-serif] text-[11px] font-bold uppercase tracking-[0.15em] text-[var(--text-muted)]">
+            <h3 className="mb-3 font-['Outfit',sans-serif] text-[12px] font-bold uppercase tracking-[0.15em] text-[var(--text-muted)]">
               Esami nariai ({current.length})
             </h3>
             <div className="grid grid-cols-2 gap-3 sm:grid-cols-3 lg:grid-cols-4">
@@ -2978,7 +2978,7 @@ function MembersModal({ current, former, onClose }: {
 
         {former.length > 0 && (
           <section className={current.length > 0 ? 'mt-7' : ''}>
-            <h3 className="mb-3 font-['Outfit',sans-serif] text-[11px] font-bold uppercase tracking-[0.15em] text-[var(--text-muted)]">
+            <h3 className="mb-3 font-['Outfit',sans-serif] text-[12px] font-bold uppercase tracking-[0.15em] text-[var(--text-muted)]">
               Buvę nariai ({former.length})
             </h3>
             <div className="grid grid-cols-2 gap-3 sm:grid-cols-3 lg:grid-cols-4">
@@ -3011,11 +3011,11 @@ function MemberModalCard({ m }: { m: Member }) {
         </div>
       )}
       <div className="min-w-0 flex-1">
-        <div className="line-clamp-2 font-['Outfit',sans-serif] text-[13px] font-bold leading-tight text-[var(--text-primary)]">
+        <div className="line-clamp-2 font-['Outfit',sans-serif] text-[14px] font-bold leading-tight text-[var(--text-primary)]">
           {m.name}
         </div>
         {m.member_from && (
-          <div className="mt-0.5 text-[11px] font-semibold tabular-nums text-[var(--text-muted)]">
+          <div className="mt-0.5 text-[12px] font-semibold tabular-nums text-[var(--text-muted)]">
             {m.member_from}–{m.member_until || 'dabar'}
           </div>
         )}
@@ -3117,8 +3117,8 @@ function SocialLinksModal({
                       <svg viewBox="0 0 24 24" fill={p.c || 'currentColor'} width="16" height="16" className={p.c ? '' : 'text-[var(--text-primary)]'}><path d={p.d} /></svg>
                     </span>
                     <div className="min-w-0 flex-1">
-                      <div className="font-['Outfit',sans-serif] text-[13.5px] font-bold text-[var(--text-primary)]">{p.l}</div>
-                      <div className="truncate font-['DM_Sans',sans-serif] text-[11.5px] text-[var(--text-muted)]">{domain}</div>
+                      <div className="font-['Outfit',sans-serif] text-[14.5px] font-bold text-[var(--text-primary)]">{p.l}</div>
+                      <div className="truncate font-['DM_Sans',sans-serif] text-[12.5px] text-[var(--text-muted)]">{domain}</div>
                     </div>
                     <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" className="shrink-0 text-[var(--text-faint)]" aria-hidden>
                       <path d="M7 17L17 7M9 7h8v8" />
@@ -3137,8 +3137,8 @@ function SocialLinksModal({
                     <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><circle cx="12" cy="12" r="10" /><path d="M2 12h20M12 2a15 15 0 0 1 0 20M12 2a15 15 0 0 0 0 20" /></svg>
                   </span>
                   <div className="min-w-0 flex-1">
-                    <div className="font-['Outfit',sans-serif] text-[13.5px] font-bold text-[var(--text-primary)]">Oficiali svetainė</div>
-                    <div className="truncate font-['DM_Sans',sans-serif] text-[11.5px] text-[var(--text-muted)]">{websiteDomain}</div>
+                    <div className="font-['Outfit',sans-serif] text-[14.5px] font-bold text-[var(--text-primary)]">Oficiali svetainė</div>
+                    <div className="truncate font-['DM_Sans',sans-serif] text-[12.5px] text-[var(--text-muted)]">{websiteDomain}</div>
                   </div>
                   <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" className="shrink-0 text-[var(--text-faint)]" aria-hidden>
                     <path d="M7 17L17 7M9 7h8v8" />
@@ -3166,7 +3166,7 @@ function MemberOfInline({ groups }: { groups: Member[] }) {
   return (
     <div className="mt-5">
       <div className="mb-2 flex items-baseline justify-between">
-        <div className="font-['Outfit',sans-serif] text-[11px] font-bold uppercase tracking-[0.15em] text-[var(--text-muted)]">
+        <div className="font-['Outfit',sans-serif] text-[12px] font-bold uppercase tracking-[0.15em] text-[var(--text-muted)]">
           Grupės
         </div>
       </div>
@@ -3280,7 +3280,7 @@ function PhotoCredit({ photo }: { photo: Photo }) {
 
   if (!author && !sourceUrl && !parsed.plain && !year) return null
   return (
-    <div className="mt-3 flex flex-wrap items-center justify-center gap-x-3 gap-y-1 text-[12px] text-white/60">
+    <div className="mt-3 flex flex-wrap items-center justify-center gap-x-3 gap-y-1 text-[13px] text-white/60">
       {parsed.plain && <span>{parsed.plain}</span>}
       {author && (
         authorHref ? (
@@ -3386,7 +3386,7 @@ function Lightbox({
           ›
         </button>
       )}
-      <div className="absolute bottom-4 left-1/2 -translate-x-1/2 font-['Outfit',sans-serif] text-[12px] font-bold text-white/40">
+      <div className="absolute bottom-4 left-1/2 -translate-x-1/2 font-['Outfit',sans-serif] text-[13px] font-bold text-white/40">
         {index + 1}/{photos.length}
       </div>
       {/* Year badge — top-left, jei photo turi datą */}
@@ -3394,7 +3394,7 @@ function Lightbox({
         const d = new Date(photos[index].taken_at!)
         if (isNaN(d.getTime())) return null
         return (
-          <div className="absolute left-4 top-4 rounded-md bg-black/70 px-2.5 py-1 font-['Outfit',sans-serif] text-[11px] font-bold text-white backdrop-blur-sm">
+          <div className="absolute left-4 top-4 rounded-md bg-black/70 px-2.5 py-1 font-['Outfit',sans-serif] text-[12px] font-bold text-white backdrop-blur-sm">
             {d.getFullYear()}
           </div>
         )
@@ -3444,7 +3444,7 @@ function MasonryGallery({ photos, onOpen }: { photos: Photo[]; onOpen: (i: numbe
           className="block w-full cursor-zoom-in object-cover transition-transform duration-500 group-hover:scale-[1.02]"
         />
         {year && (
-          <span className="absolute bottom-1.5 right-1.5 rounded-md bg-black/70 px-1.5 py-0.5 font-['Outfit',sans-serif] text-[10px] font-bold text-white backdrop-blur-sm">
+          <span className="absolute bottom-1.5 right-1.5 rounded-md bg-black/70 px-1.5 py-0.5 font-['Outfit',sans-serif] text-[11px] font-bold text-white backdrop-blur-sm">
             {year}
           </span>
         )}
@@ -3479,7 +3479,7 @@ function MasonryGallery({ photos, onOpen }: { photos: Photo[]; onOpen: (i: numbe
       )}
       <span className="absolute inset-0 flex flex-col items-center justify-center gap-1 bg-black/55 text-white transition-colors group-hover:bg-black/45">
         <span className="font-['Outfit',sans-serif] text-[22px] font-black leading-none">+{hiddenCount}</span>
-        <span className="font-['Outfit',sans-serif] text-[12px] font-bold uppercase tracking-[0.12em]">daugiau</span>
+        <span className="font-['Outfit',sans-serif] text-[13px] font-bold uppercase tracking-[0.12em]">daugiau</span>
       </span>
     </button>
   ) : null
@@ -3550,11 +3550,11 @@ function EventVerticalCard({ e, href, hasCover, setCoverFailed, d, venue }: {
         )}
       </div>
       <div className="flex shrink-0 flex-col gap-1.5 px-3.5 py-3">
-        <div className="font-['Outfit',sans-serif] text-[11px] font-extrabold uppercase tracking-[0.08em] text-[var(--accent-orange)]">
+        <div className="font-['Outfit',sans-serif] text-[12px] font-extrabold uppercase tracking-[0.08em] text-[var(--accent-orange)]">
           {formatLtDate(d)}
         </div>
         <div className="line-clamp-2 font-['Outfit',sans-serif] text-[14px] font-bold leading-snug text-[var(--text-primary)]">{e.title}</div>
-        {venue && <div className="flex items-center gap-1 text-[12px] text-[var(--text-secondary)]"><svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="inline-block shrink-0 text-[var(--text-faint)]" aria-hidden><path d="M21 10c0 7-9 13-9 13s-9-6-9-13a9 9 0 0 1 18 0z"/><circle cx="12" cy="10" r="3"/></svg><span className="line-clamp-1">{venue}</span></div>}
+        {venue && <div className="flex items-center gap-1 text-[13px] text-[var(--text-secondary)]"><svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="inline-block shrink-0 text-[var(--text-faint)]" aria-hidden><path d="M21 10c0 7-9 13-9 13s-9-6-9-13a9 9 0 0 1 18 0z"/><circle cx="12" cy="10" r="3"/></svg><span className="line-clamp-1">{venue}</span></div>}
       </div>
     </Link>
   )
@@ -3582,15 +3582,15 @@ function EventCard({ e, variant = 'upcoming', onOpen }: { e: any; variant?: 'upc
         className="flex items-center gap-3 rounded-xl border border-[var(--border-subtle)] bg-[var(--bg-surface)] p-3 no-underline transition-all hover:border-[var(--border-strong)] hover:bg-[var(--bg-hover)]"
       >
         <div className="flex min-w-[64px] flex-col items-center justify-center rounded-lg bg-[var(--card-bg)] px-2 py-1.5 text-center">
-          <span className="font-['Outfit',sans-serif] text-[9px] font-bold leading-tight text-[var(--text-muted)]">{d.getFullYear()}</span>
-          <span className="font-['Outfit',sans-serif] text-[10px] font-bold capitalize leading-tight text-[var(--text-muted)]">{monthShort}</span>
+          <span className="font-['Outfit',sans-serif] text-[10px] font-bold leading-tight text-[var(--text-muted)]">{d.getFullYear()}</span>
+          <span className="font-['Outfit',sans-serif] text-[11px] font-bold capitalize leading-tight text-[var(--text-muted)]">{monthShort}</span>
           <span className="font-['Outfit',sans-serif] text-[20px] font-black leading-none text-[var(--text-primary)]">{d.getDate()}</span>
         </div>
         <div className="min-w-0 flex-1">
           <div className="truncate text-[14px] font-bold leading-tight text-[var(--text-primary)]">{e.title}</div>
-          {venue && <div className="mt-0.5 truncate text-[12px] text-[var(--text-muted)]">{venue}</div>}
+          {venue && <div className="mt-0.5 truncate text-[13px] text-[var(--text-muted)]">{venue}</div>}
           {(ac > 0 || cc > 0) && (
-            <div className="mt-1 flex items-center gap-3 text-[11px] text-[var(--text-muted)]">
+            <div className="mt-1 flex items-center gap-3 text-[12px] text-[var(--text-muted)]">
               {ac > 0 && (
                 <span className="inline-flex items-center gap-1" title="Eis (dalyviai)">
                   <svg width="11" height="11" viewBox="0 0 24 24" fill="currentColor">
@@ -3630,19 +3630,19 @@ function EventCard({ e, variant = 'upcoming', onOpen }: { e: any; variant?: 'upc
         style={{ background: 'linear-gradient(135deg, rgba(249,115,22,0.18), rgba(249,115,22,0.04) 70%), var(--bg-elevated)' }}
       >
         <div className="flex min-w-[62px] flex-col items-center justify-center rounded-xl bg-[rgba(249,115,22,0.15)] px-2 py-2 text-center">
-          <span className="font-['Outfit',sans-serif] text-[10px] font-extrabold uppercase leading-tight text-[var(--accent-orange)]">{monthShort}</span>
+          <span className="font-['Outfit',sans-serif] text-[11px] font-extrabold uppercase leading-tight text-[var(--accent-orange)]">{monthShort}</span>
           <span className="font-['Outfit',sans-serif] text-[26px] font-black leading-none text-[var(--text-primary)]">{d.getDate()}</span>
-          <span className="mt-0.5 font-['Outfit',sans-serif] text-[9px] font-bold text-[var(--text-muted)]">{d.getFullYear()}</span>
+          <span className="mt-0.5 font-['Outfit',sans-serif] text-[10px] font-bold text-[var(--text-muted)]">{d.getFullYear()}</span>
         </div>
         <div className="flex min-w-0 flex-1 flex-col justify-center">
-          <div className="font-['Outfit',sans-serif] text-[10px] font-extrabold uppercase tracking-[0.12em] text-[var(--accent-orange)]">
+          <div className="font-['Outfit',sans-serif] text-[11px] font-extrabold uppercase tracking-[0.12em] text-[var(--accent-orange)]">
             Artimiausias renginys
           </div>
           <div className="mt-1 line-clamp-2 font-['Outfit',sans-serif] text-[14px] font-bold leading-snug text-[var(--text-primary)]">
             {e.title}
           </div>
           {venue && (
-            <div className="mt-1 flex items-center gap-1 text-[12px] text-[var(--text-secondary)]"><svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="inline-block shrink-0 text-[var(--text-faint)]" aria-hidden><path d="M21 10c0 7-9 13-9 13s-9-6-9-13a9 9 0 0 1 18 0z"/><circle cx="12" cy="10" r="3"/></svg><span className="truncate">{venue}</span></div>
+            <div className="mt-1 flex items-center gap-1 text-[13px] text-[var(--text-secondary)]"><svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="inline-block shrink-0 text-[var(--text-faint)]" aria-hidden><path d="M21 10c0 7-9 13-9 13s-9-6-9-13a9 9 0 0 1 18 0z"/><circle cx="12" cy="10" r="3"/></svg><span className="truncate">{venue}</span></div>
           )}
         </div>
       </Link>
@@ -3697,14 +3697,14 @@ function EventCard({ e, variant = 'upcoming', onOpen }: { e: any; variant?: 'upc
       {/* Right: date + title + venue. Extra vertical padding keeps the card
           from feeling squashed while still remaining compact. */}
       <div className="flex min-w-0 flex-1 flex-col justify-center gap-1.5 px-4 py-4 sm:px-5">
-        <div className="font-['Outfit',sans-serif] text-[11px] font-extrabold uppercase tracking-[0.08em] text-[var(--accent-orange)]">
+        <div className="font-['Outfit',sans-serif] text-[12px] font-extrabold uppercase tracking-[0.08em] text-[var(--accent-orange)]">
           {formatLtDate(d)}
         </div>
         <div className="line-clamp-2 font-['Outfit',sans-serif] text-[14px] font-bold leading-snug text-[var(--text-primary)] sm:text-[15px]">
           {e.title}
         </div>
         {venue && (
-          <div className="line-clamp-2 text-[12px] leading-snug text-[var(--text-secondary)]">
+          <div className="line-clamp-2 text-[13px] leading-snug text-[var(--text-secondary)]">
             <span className="inline-flex items-center gap-1"><svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="inline-block shrink-0 text-[var(--text-faint)]" aria-hidden><path d="M21 10c0 7-9 13-9 13s-9-6-9-13a9 9 0 0 1 18 0z"/><circle cx="12" cy="10" r="3"/></svg>{venue}</span>
           </div>
         )}
@@ -3734,7 +3734,7 @@ function MoreEventsTile({ count, onClick }: { count: number; onClick: () => void
         <span className="block font-['Outfit',sans-serif] text-[15px] font-extrabold text-[var(--accent-orange)]">
           +{count}
         </span>
-        <span className="block text-[11px] uppercase tracking-[0.12em] text-[var(--text-muted)]">
+        <span className="block text-[12px] uppercase tracking-[0.12em] text-[var(--text-muted)]">
           daugiau renginių
         </span>
       </span>
@@ -3767,7 +3767,7 @@ function EventsModal({
       <div className="flex max-h-[90vh] w-full max-w-[1100px] flex-col overflow-hidden rounded-2xl border border-[var(--border-default)] bg-[var(--bg-surface)] shadow-[0_40px_80px_-20px_rgba(0,0,0,0.6)]">
         <div className="flex items-center justify-between gap-3 border-b border-[var(--border-subtle)] px-5 py-4">
           <div>
-            <div className="font-['Outfit',sans-serif] text-[10px] font-extrabold uppercase tracking-[0.2em] text-[var(--text-muted)]">
+            <div className="font-['Outfit',sans-serif] text-[11px] font-extrabold uppercase tracking-[0.2em] text-[var(--text-muted)]">
               Artimiausi renginiai
             </div>
             <div className="mt-0.5 font-['Outfit',sans-serif] text-[17px] font-extrabold text-[var(--text-primary)]">
@@ -3833,11 +3833,11 @@ function EventBigCard({ e, onOpen }: { e: any; onOpen?: (e: any) => void }) {
         </div>
       )}
       <div className="p-4">
-        <div className="font-['Outfit',sans-serif] text-[11px] font-extrabold uppercase tracking-[0.1em] text-[var(--accent-orange)]">
+        <div className="font-['Outfit',sans-serif] text-[12px] font-extrabold uppercase tracking-[0.1em] text-[var(--accent-orange)]">
           {longDate}
         </div>
         <div className="mt-1 line-clamp-2 font-['Outfit',sans-serif] text-[15px] font-bold leading-snug text-[var(--text-primary)] sm:text-[16px]">{e.title}</div>
-        {venue && <div className="mt-1 flex items-center gap-1 text-[12px] text-[var(--text-secondary)] sm:text-[13px]"><svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="inline-block shrink-0 text-[var(--text-faint)]" aria-hidden><path d="M21 10c0 7-9 13-9 13s-9-6-9-13a9 9 0 0 1 18 0z"/><circle cx="12" cy="10" r="3"/></svg><span className="truncate">{venue}</span></div>}
+        {venue && <div className="mt-1 flex items-center gap-1 text-[13px] text-[var(--text-secondary)] sm:text-[14px]"><svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="inline-block shrink-0 text-[var(--text-faint)]" aria-hidden><path d="M21 10c0 7-9 13-9 13s-9-6-9-13a9 9 0 0 1 18 0z"/><circle cx="12" cy="10" r="3"/></svg><span className="truncate">{venue}</span></div>}
       </div>
     </Link>
   )
@@ -3872,7 +3872,7 @@ function MobileFilterRow({
     <button
       onClick={() => onToggle(item.key)}
       className={[
-        'inline-flex items-center gap-1.5 rounded-full border px-3 py-1.5 font-["Outfit",sans-serif] text-[12px] font-bold transition-all',
+        'inline-flex items-center gap-1.5 rounded-full border px-3 py-1.5 font-["Outfit",sans-serif] text-[13px] font-bold transition-all',
         active
           ? 'border-[var(--accent-orange)] bg-[var(--accent-orange)] text-white shadow-[0_4px_12px_rgba(249,115,22,0.3)]'
           : 'border-[var(--border-default)] bg-[var(--card-bg)] text-[var(--text-secondary)] hover:border-[var(--border-strong)] hover:bg-[var(--bg-hover)]',
@@ -3970,7 +3970,7 @@ function YTFacade({ track }: { track: Track }) {
               <svg width="14" height="14" viewBox="0 0 24 24" fill="#fff" aria-hidden><path d="M8 5v14l11-7z" /></svg>
             </span>
           </span>
-          <span className="absolute inset-x-0 bottom-0 truncate bg-gradient-to-t from-black/85 to-transparent px-2 pb-1.5 pt-3 text-left font-['Outfit',sans-serif] text-[11px] font-semibold text-white">
+          <span className="absolute inset-x-0 bottom-0 truncate bg-gradient-to-t from-black/85 to-transparent px-2 pb-1.5 pt-3 text-left font-['Outfit',sans-serif] text-[12px] font-semibold text-white">
             {track.title}
           </span>
         </button>
@@ -4000,10 +4000,10 @@ function SpotlightAlbumRow({ album, artistSlug, topTracks, topVideoTracks = [], 
   return (
     <div className="mb-6 overflow-hidden rounded-2xl border border-[var(--border-default)] bg-gradient-to-r from-[rgba(249,115,22,0.08)] via-[var(--bg-surface)] to-[var(--bg-surface)] p-3 sm:mb-8 sm:p-5">
       <div className="mb-2 flex items-center gap-2">
-        <span className="inline-flex h-5 items-center rounded-full bg-[var(--accent-green)] px-2 font-['Outfit',sans-serif] text-[9.5px] font-extrabold uppercase tracking-[0.15em] text-white">
+        <span className="inline-flex h-5 items-center rounded-full bg-[var(--accent-green)] px-2 font-['Outfit',sans-serif] text-[10.5px] font-extrabold uppercase tracking-[0.15em] text-white">
           Naujausias
         </span>
-        <span className="font-['Outfit',sans-serif] text-[10.5px] font-bold uppercase tracking-[0.15em] text-[var(--text-muted)]">
+        <span className="font-['Outfit',sans-serif] text-[11.5px] font-bold uppercase tracking-[0.15em] text-[var(--text-muted)]">
           {type}
         </span>
       </div>
@@ -4041,11 +4041,11 @@ function SpotlightAlbumRow({ album, artistSlug, topTracks, topVideoTracks = [], 
               {album.title}
             </div>
           </a>
-          <div className="mt-1 font-['Outfit',sans-serif] text-[12px] font-bold text-[var(--text-muted)] sm:text-[13px]">
+          <div className="mt-1 font-['Outfit',sans-serif] text-[13px] font-bold text-[var(--text-muted)] sm:text-[14px]">
             {album.year || '—'}
           </div>
           {topTracks.length > 0 && (
-            <div className="mt-3 flex flex-wrap items-center gap-x-2 gap-y-1 font-['Outfit',sans-serif] text-[12px] font-medium text-[var(--text-secondary)] sm:text-[13px]">
+            <div className="mt-3 flex flex-wrap items-center gap-x-2 gap-y-1 font-['Outfit',sans-serif] text-[13px] font-medium text-[var(--text-secondary)] sm:text-[14px]">
               {topTracks.slice(0, 4).map((t, i) => (
                 <span key={t.id} className="inline-flex items-center">
                   {i > 0 && <span aria-hidden className="mr-2 text-[var(--text-muted)]">·</span>}
@@ -4065,7 +4065,7 @@ function SpotlightAlbumRow({ album, artistSlug, topTracks, topVideoTracks = [], 
               <button
                 type="button"
                 onClick={() => onPlayTrack(firstTrack)}
-                className="inline-flex items-center gap-1.5 rounded-full bg-[var(--accent-orange)] px-3.5 py-1.5 font-['Outfit',sans-serif] text-[12px] font-extrabold text-white shadow-[0_4px_14px_rgba(249,115,22,0.35)] transition-transform hover:scale-105"
+                className="inline-flex items-center gap-1.5 rounded-full bg-[var(--accent-orange)] px-3.5 py-1.5 font-['Outfit',sans-serif] text-[13px] font-extrabold text-white shadow-[0_4px_14px_rgba(249,115,22,0.35)] transition-transform hover:scale-105"
               >
                 <svg width="11" height="11" viewBox="0 0 24 24" fill="#fff" aria-hidden><path d="M8 5v14l11-7z" /></svg>
                 Klausyti
@@ -4074,7 +4074,7 @@ function SpotlightAlbumRow({ album, artistSlug, topTracks, topVideoTracks = [], 
             <button
               type="button"
               onClick={onOpen}
-              className="inline-flex items-center gap-1.5 rounded-full border border-[var(--border-default)] bg-[var(--card-bg)] px-3.5 py-1.5 font-['Outfit',sans-serif] text-[12px] font-bold text-[var(--text-secondary)] transition-colors hover:border-[var(--accent-orange)] hover:text-[var(--accent-orange)]"
+              className="inline-flex items-center gap-1.5 rounded-full border border-[var(--border-default)] bg-[var(--card-bg)] px-3.5 py-1.5 font-['Outfit',sans-serif] text-[13px] font-bold text-[var(--text-secondary)] transition-colors hover:border-[var(--accent-orange)] hover:text-[var(--accent-orange)]"
             >
               Albumas
             </button>
@@ -4121,22 +4121,22 @@ function AlbumGroupBox({ title, subtitle, description, rangeLabel, count, childr
             {title}
           </h3>
           {subtitle && (
-            <span className="truncate font-['Outfit',sans-serif] text-[12px] font-medium text-[var(--text-secondary)]">
+            <span className="truncate font-['Outfit',sans-serif] text-[13px] font-medium text-[var(--text-secondary)]">
               — {subtitle}
             </span>
           )}
           {rangeLabel && (
-            <span className="shrink-0 font-['Outfit',sans-serif] text-[11px] font-bold text-[var(--text-muted)]">
+            <span className="shrink-0 font-['Outfit',sans-serif] text-[12px] font-bold text-[var(--text-muted)]">
               · {rangeLabel}
             </span>
           )}
         </div>
-        <span className="shrink-0 font-['Outfit',sans-serif] text-[10.5px] font-bold uppercase tracking-wider text-[var(--text-muted)]">
+        <span className="shrink-0 font-['Outfit',sans-serif] text-[11.5px] font-bold uppercase tracking-wider text-[var(--text-muted)]">
           {count} {count === 1 ? 'albumas' : count < 10 ? 'albumai' : 'albumų'}
         </span>
       </div>
       {description && (
-        <p className="mb-3 max-w-prose font-['Outfit',sans-serif] text-[12px] font-medium leading-snug text-[var(--text-secondary)]">
+        <p className="mb-3 max-w-prose font-['Outfit',sans-serif] text-[13px] font-medium leading-snug text-[var(--text-secondary)]">
           {description}
         </p>
       )}
@@ -4227,18 +4227,18 @@ function AlbumCard({ a, popularity, artistSlug, maxPop, onOpen, topTracks, weigh
           <div className="pointer-events-none absolute inset-0 bg-gradient-to-t from-[rgba(249,115,22,0.12)] to-transparent opacity-0 transition-opacity duration-300 group-hover:opacity-100" />
         </div>
         {type !== 'Studijinis' && (
-          <span className="absolute left-1.5 top-1.5 rounded bg-black/70 px-1.5 py-0.5 font-['Outfit',sans-serif] text-[8px] font-extrabold uppercase tracking-wider text-white backdrop-blur-sm">
+          <span className="absolute left-1.5 top-1.5 rounded bg-black/70 px-1.5 py-0.5 font-['Outfit',sans-serif] text-[9px] font-extrabold uppercase tracking-wider text-white backdrop-blur-sm">
             {type}
           </span>
         )}
         {a.year && (
-          <span className="absolute bottom-1.5 right-1.5 rounded bg-black/70 px-1.5 py-0.5 font-['Outfit',sans-serif] text-[9px] font-bold text-white backdrop-blur-sm">
+          <span className="absolute bottom-1.5 right-1.5 rounded bg-black/70 px-1.5 py-0.5 font-['Outfit',sans-serif] text-[10px] font-bold text-white backdrop-blur-sm">
             {a.year}
           </span>
         )}
       </div>
       <div className="mt-1.5 px-0.5">
-        <div className="truncate font-['Outfit',sans-serif] text-[11px] font-bold text-[var(--text-primary)] sm:text-[12px]">{a.title}</div>
+        <div className="truncate font-['Outfit',sans-serif] text-[12px] font-bold text-[var(--text-primary)] sm:text-[13px]">{a.title}</div>
         {albumPop > 0 && <PopBar level={albumPop} />}
         {/* Top tracks strip — 2–3 dainos su video peak views. Kiekvienas
             track pavadinimas yra `<a href>` (SEO + middle-click new tab) +
@@ -4251,7 +4251,7 @@ function AlbumCard({ a, popularity, artistSlug, maxPop, onOpen, topTracks, weigh
             separator'ių — kortelė tampa skaitytelnesnė. */}
         {topTracks && topTracks.length > 0 && (
           <div
-            className="mt-1 hidden flex-col gap-0.5 font-['Outfit',sans-serif] text-[11px] font-medium leading-snug text-[var(--text-secondary)] sm:flex sm:text-[11.5px]"
+            className="mt-1 hidden flex-col gap-0.5 font-['Outfit',sans-serif] text-[12px] font-medium leading-snug text-[var(--text-secondary)] sm:flex sm:text-[12.5px]"
             onClick={(e) => e.stopPropagation()}
           >
             {topTracks.slice(0, 3).map((t) => (
@@ -4349,7 +4349,7 @@ function TrackRow({ t, popularity, artistSlug, onOpen }: { t: Track; popularity?
         )}
       </div>
       <div className="min-w-0 flex-1">
-        <div className="truncate font-['Outfit',sans-serif] text-[12px] font-bold text-[var(--text-primary)] sm:text-[13px]">
+        <div className="truncate font-['Outfit',sans-serif] text-[13px] font-bold text-[var(--text-primary)] sm:text-[14px]">
           {t.title}
         </div>
         {typeof popularity === 'number' && <PopBar level={popularity} />}
@@ -4422,7 +4422,7 @@ function DiscussionRow({ t, onOpen }: { t: LegacyThread; isLast?: boolean; onOpe
       {/* Title — fixed 2-line block (min-h reserves space) so visually
           all cards align even when title is single-line. */}
       <div
-        className="font-['Outfit',sans-serif] text-[13.5px] font-bold leading-snug text-[var(--text-primary)] line-clamp-2"
+        className="font-['Outfit',sans-serif] text-[14.5px] font-bold leading-snug text-[var(--text-primary)] line-clamp-2"
         style={{ minHeight: '2.6em' }}
       >
         {title}
@@ -4435,7 +4435,7 @@ function DiscussionRow({ t, onOpen }: { t: LegacyThread; isLast?: boolean; onOpe
       <div className="flex flex-1 flex-col gap-2">
         {recent.length === 0 ? (
           pc === 0
-            ? <div className="text-[11.5px] leading-tight text-[var(--text-faint)]">Dar nekomentuota</div>
+            ? <div className="text-[12.5px] leading-tight text-[var(--text-faint)]">Dar nekomentuota</div>
             : null
         ) : (
           recent.map((p, i) => {
@@ -4445,10 +4445,10 @@ function DiscussionRow({ t, onOpen }: { t: LegacyThread; isLast?: boolean; onOpe
               <div key={i} className="flex items-start gap-2 border-t border-[var(--border-subtle)] pt-2 first:border-t-0 first:pt-0">
                 <UserAvatar name={author} avatarUrl={p.author_avatar_url} size={20} />
                 <div className="min-w-0 flex-1">
-                  <div className="truncate font-['Outfit',sans-serif] text-[10.5px] font-bold text-[var(--text-secondary)]">
+                  <div className="truncate font-['Outfit',sans-serif] text-[11.5px] font-bold text-[var(--text-secondary)]">
                     {author}
                   </div>
-                  <div className="line-clamp-2 text-[11.5px] leading-snug text-[var(--text-muted)]">
+                  <div className="line-clamp-2 text-[12.5px] leading-snug text-[var(--text-muted)]">
                     {text}
                   </div>
                 </div>
@@ -4462,7 +4462,7 @@ function DiscussionRow({ t, onOpen }: { t: LegacyThread; isLast?: boolean; onOpe
           aiškus call to action į pilną diskusiją. */}
       {pc > 0 && (
         <div className="border-t border-[var(--border-subtle)] pt-2">
-          <span className="font-['Outfit',sans-serif] text-[11.5px] font-extrabold text-[var(--accent-orange)] group-hover:underline">
+          <span className="font-['Outfit',sans-serif] text-[12.5px] font-extrabold text-[var(--accent-orange)] group-hover:underline">
             {pc} {pc === 1 ? 'komentaras' : (pc < 10 ? 'komentarai' : 'komentarų')} →
           </span>
         </div>
@@ -4545,7 +4545,7 @@ function DiscussionFollowHeart({ discussionId }: { discussionId?: number }) {
         <path d="M20.84 4.61a5.5 5.5 0 0 0-7.78 0L12 5.67l-1.06-1.06a5.5 5.5 0 0 0-7.78 7.78l1.06 1.06L12 21.23l7.78-7.78 1.06-1.06a5.5 5.5 0 0 0 0-7.78z" />
       </svg>
       {shown > 0 && (
-        <span className="font-['Outfit',sans-serif] text-[12px] font-extrabold tabular-nums">{shown.toLocaleString('lt-LT')}</span>
+        <span className="font-['Outfit',sans-serif] text-[13px] font-extrabold tabular-nums">{shown.toLocaleString('lt-LT')}</span>
       )}
     </button>
   )
@@ -4659,7 +4659,7 @@ function DiscussionThreadModal({
       type="button"
       onClick={() => setSort(k)}
       className={[
-        'rounded-full px-3 py-1 font-["Outfit",sans-serif] text-[11px] font-extrabold transition-colors',
+        'rounded-full px-3 py-1 font-["Outfit",sans-serif] text-[12px] font-extrabold transition-colors',
         sort === k
           ? 'bg-[var(--accent-orange)] text-white'
           : 'border border-[var(--border-subtle)] bg-transparent text-[var(--text-muted)] hover:border-[var(--border-strong)] hover:text-[var(--text-primary)]',
@@ -4728,14 +4728,14 @@ function DiscussionThreadModal({
         <div className="flex-1 min-h-0 overflow-y-auto overscroll-contain px-5 py-5 sm:px-6">
           {/* Hero — title + count */}
           <div className="mb-4 border-b border-[var(--border-subtle)] pb-4">
-            <div className="font-['Outfit',sans-serif] text-[10px] font-extrabold uppercase tracking-[0.18em] text-[var(--text-muted)]">
+            <div className="font-['Outfit',sans-serif] text-[11px] font-extrabold uppercase tracking-[0.18em] text-[var(--text-muted)]">
               Diskusija
             </div>
             <h1 className="mt-2 font-['Outfit',sans-serif] text-[20px] font-black leading-[1.15] text-[var(--text-primary)] sm:text-[24px]">
               {title}
             </h1>
             {pc > 0 && (
-              <div className="mt-2 font-['Outfit',sans-serif] text-[12px] font-bold text-[var(--text-muted)]">
+              <div className="mt-2 font-['Outfit',sans-serif] text-[13px] font-bold text-[var(--text-muted)]">
                 <span className="text-[var(--accent-orange)]">{pc.toLocaleString()}</span>{' '}
                 {pc === 1 ? 'komentaras' : (pc < 10 ? 'komentarai' : 'komentarų')}
               </div>
@@ -4753,7 +4753,7 @@ function DiscussionThreadModal({
               title=""
             />
           ) : (
-            <div className="rounded-xl border border-dashed border-[var(--border-subtle)] bg-[var(--bg-elevated)] px-4 py-8 text-center text-[12px] text-[var(--text-faint)]">
+            <div className="rounded-xl border border-dashed border-[var(--border-subtle)] bg-[var(--bg-elevated)] px-4 py-8 text-center text-[13px] text-[var(--text-faint)]">
               Diskusija dar nemigracinta į naują formatą.{' '}
               <a
                 href={`/diskusijos/tema/${thread.legacy_id}`}
@@ -4813,7 +4813,7 @@ function DiscussionsModal({
       <div className="flex max-h-[90vh] w-full max-w-[1100px] flex-col overflow-hidden rounded-2xl border border-[var(--border-default)] bg-[var(--bg-surface)] shadow-[0_40px_80px_-20px_rgba(0,0,0,0.6)]">
         <div className="flex items-center justify-between gap-3 border-b border-[var(--border-subtle)] px-5 py-4">
           <div>
-            <div className="font-['Outfit',sans-serif] text-[10px] font-extrabold uppercase tracking-[0.2em] text-[var(--text-muted)]">
+            <div className="font-['Outfit',sans-serif] text-[11px] font-extrabold uppercase tracking-[0.2em] text-[var(--text-muted)]">
               Diskusijos
             </div>
             <div className="mt-0.5 font-['Outfit',sans-serif] text-[17px] font-extrabold text-[var(--text-primary)]">
@@ -4913,7 +4913,7 @@ function DiscoveryLike({ commentId, count, liked }: { commentId: number | null; 
       type="button"
       onClick={toggle}
       disabled={pending || !commentId}
-      className="inline-flex shrink-0 items-center gap-1.5 rounded-full border border-[var(--border-subtle)] bg-[var(--bg-hover)] px-2.5 py-1 font-['Outfit',sans-serif] text-[11.5px] font-bold transition-colors"
+      className="inline-flex shrink-0 items-center gap-1.5 rounded-full border border-[var(--border-subtle)] bg-[var(--bg-hover)] px-2.5 py-1 font-['Outfit',sans-serif] text-[12.5px] font-bold transition-colors"
       style={{ color: self ? 'var(--accent-orange)' : 'var(--text-muted)', cursor: commentId ? 'pointer' : 'default' }}
     >
       <svg width="12" height="12" viewBox="0 0 24 24" fill={self ? 'currentColor' : 'none'} stroke="currentColor" strokeWidth="2"><path d="M20.8 4.6a5.5 5.5 0 0 0-7.8 0L12 5.6l-1-1a5.5 5.5 0 0 0-7.8 7.8l1 1L12 21.2l7.8-7.8 1-1a5.5 5.5 0 0 0 0-7.8z"/></svg>
@@ -4933,7 +4933,7 @@ function DiscoveryFullCard({ d, liked }: { d: DiscoveryItem; liked: boolean }) {
         <span className="flex h-5 w-5 shrink-0 items-center justify-center rounded-full" style={{ background: 'rgba(249,115,22,0.14)', color: 'var(--accent-orange)' }}>
           <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><circle cx="12" cy="12" r="10"/><path d="m16.2 7.8-2 6.3-6.3 2 2-6.3z"/></svg>
         </span>
-        <span className="font-['Outfit',sans-serif] text-[10px] font-extrabold uppercase tracking-[0.1em] text-[var(--accent-orange)]">
+        <span className="font-['Outfit',sans-serif] text-[11px] font-extrabold uppercase tracking-[0.1em] text-[var(--accent-orange)]">
           Muzikos atradimas
         </span>
         <span className="ml-auto"><DiscoveryLike commentId={d.comment_id} count={d.like_count} liked={liked} /></span>
@@ -4942,21 +4942,21 @@ function DiscoveryFullCard({ d, liked }: { d: DiscoveryItem; liked: boolean }) {
         <UserAvatar name={uname || 'Narys'} avatarUrl={d.author?.avatar_url} size={26} />
         <div className="flex min-w-0 flex-1 items-baseline gap-2 leading-tight">
           {uname
-            ? <Link href={`/@${uname}`} className="truncate text-[12.5px] font-bold text-[var(--text-primary)] no-underline hover:text-[var(--accent-orange)]">{uname}</Link>
-            : <span className="text-[12.5px] font-bold text-[var(--text-primary)]">Narys</span>}
-          {when && <span className="shrink-0 text-[10.5px] text-[var(--text-muted)]">{when}</span>}
+            ? <Link href={`/@${uname}`} className="truncate text-[13.5px] font-bold text-[var(--text-primary)] no-underline hover:text-[var(--accent-orange)]">{uname}</Link>
+            : <span className="text-[13.5px] font-bold text-[var(--text-primary)]">Narys</span>}
+          {when && <span className="shrink-0 text-[11.5px] text-[var(--text-muted)]">{when}</span>}
         </div>
       </div>
       {d.embed_id && <div className="px-3.5"><DiscoveryEmbed d={d} /></div>}
       <div className="flex-1 px-3.5 pb-3.5 pt-2.5">
         {d.track_name && (
-          <div className="mb-1 font-['Outfit',sans-serif] text-[13.5px] font-extrabold text-[var(--text-primary)]">
+          <div className="mb-1 font-['Outfit',sans-serif] text-[14.5px] font-extrabold text-[var(--text-primary)]">
             {d.track_slug
               ? <Link href={`/dainos/${d.track_slug}`} className="no-underline hover:text-[var(--accent-orange)]" style={{ color: 'inherit' }}>{d.track_name} ♪</Link>
               : <>{d.track_name}</>}
           </div>
         )}
-        {d.body && <p className="m-0 whitespace-pre-wrap break-words text-[12.5px] leading-relaxed text-[var(--text-secondary)]">{d.body}</p>}
+        {d.body && <p className="m-0 whitespace-pre-wrap break-words text-[13.5px] leading-relaxed text-[var(--text-secondary)]">{d.body}</p>}
       </div>
     </article>
   )
@@ -4986,7 +4986,7 @@ function ArtistDiscoveries({ discoveries }: { discoveries: DiscoveryItem[] }) {
         <div className="mt-3 flex justify-center">
           <button
             onClick={() => setShowAll(true)}
-            className="rounded-full border border-[var(--border-default)] bg-[var(--bg-surface)] px-4 py-2 font-['Outfit',sans-serif] text-[12px] font-bold text-[var(--text-secondary)] transition-colors hover:border-[var(--accent-orange)] hover:text-[var(--text-primary)]"
+            className="rounded-full border border-[var(--border-default)] bg-[var(--bg-surface)] px-4 py-2 font-['Outfit',sans-serif] text-[13px] font-bold text-[var(--text-secondary)] transition-colors hover:border-[var(--accent-orange)] hover:text-[var(--text-primary)]"
           >
             Rodyti visus atradimus ({discoveries.length})
           </button>
@@ -5966,10 +5966,10 @@ export default function ArtistProfileClient({
               <line x1="12" y1="16" x2="12.01" y2="16" />
             </svg>
             <div className="min-w-0 flex-1">
-              <div className="mb-1 font-['Outfit',sans-serif] text-[13px] font-extrabold text-[var(--text-primary)]">
+              <div className="mb-1 font-['Outfit',sans-serif] text-[14px] font-extrabold text-[var(--text-primary)]">
                 Patinka neišsaugotas
               </div>
-              <div className="text-[12px] leading-[1.5] text-[var(--text-secondary)]">
+              <div className="text-[13px] leading-[1.5] text-[var(--text-secondary)]">
                 {likeErrorMsg}
               </div>
             </div>
@@ -5994,15 +5994,15 @@ export default function ArtistProfileClient({
               </svg>
             </div>
             <div className="min-w-0 flex-1">
-              <div className="mb-1 font-['Outfit',sans-serif] text-[13px] font-extrabold text-[var(--text-primary)]">
+              <div className="mb-1 font-['Outfit',sans-serif] text-[14px] font-extrabold text-[var(--text-primary)]">
                 Tavo „Patinka" užskaitytas ✓
               </div>
-              <div className="text-[12px] leading-[1.5] text-[var(--text-secondary)]">
+              <div className="text-[13px] leading-[1.5] text-[var(--text-secondary)]">
                 Jei prisijungsi, tavo balsas turės didesnę vertę rank'uose ir visoje bendruomenėje.
               </div>
               <a
                 href="/auth/signin"
-                className="mt-2 inline-flex items-center gap-1 font-['Outfit',sans-serif] text-[12px] font-bold text-[var(--accent-orange)] hover:underline"
+                className="mt-2 inline-flex items-center gap-1 font-['Outfit',sans-serif] text-[13px] font-bold text-[var(--accent-orange)] hover:underline"
               >
                 Prisijungti →
               </a>
@@ -6113,14 +6113,14 @@ export default function ArtistProfileClient({
                       sąrašo. */}
                   {solo && displayRoles.length > 0 && (
                     <div className="mt-5">
-                      <div className="mb-2 font-['Outfit',sans-serif] text-[11px] font-bold uppercase tracking-[0.15em] text-[var(--text-muted)]">
+                      <div className="mb-2 font-['Outfit',sans-serif] text-[12px] font-bold uppercase tracking-[0.15em] text-[var(--text-muted)]">
                         Veiklos sritys
                       </div>
                       <div className="flex flex-wrap items-center gap-1.5">
                         {displayRoles.map(r => (
                           <span
                             key={r}
-                            className="inline-flex items-center rounded-full border border-[var(--border-subtle)] bg-[var(--card-bg)] px-2.5 py-1 font-['Outfit',sans-serif] text-[11.5px] font-bold text-[var(--text-secondary)]"
+                            className="inline-flex items-center rounded-full border border-[var(--border-subtle)] bg-[var(--card-bg)] px-2.5 py-1 font-['Outfit',sans-serif] text-[12.5px] font-bold text-[var(--text-secondary)]"
                           >{r}</span>
                         ))}
                       </div>
@@ -6145,7 +6145,7 @@ export default function ArtistProfileClient({
                     if (!hasMobileSocials) return null
                     return (
                       <div className="mt-5 lg:hidden">
-                        <div className="mb-2 font-['Outfit',sans-serif] text-[11px] font-bold uppercase tracking-[0.15em] text-[var(--text-muted)]">
+                        <div className="mb-2 font-['Outfit',sans-serif] text-[12px] font-bold uppercase tracking-[0.15em] text-[var(--text-muted)]">
                           Daugiau
                         </div>
                         <div className="flex flex-col gap-2.5">
@@ -6223,7 +6223,7 @@ export default function ArtistProfileClient({
               <button
                 onClick={() => toggleFilter(k)}
                 className={[
-                  'inline-flex items-center gap-1.5 rounded-full border px-3 py-1.5 font-["Outfit",sans-serif] text-[12px] font-bold transition-all',
+                  'inline-flex items-center gap-1.5 rounded-full border px-3 py-1.5 font-["Outfit",sans-serif] text-[13px] font-bold transition-all',
                   active
                     ? 'border-[var(--accent-orange)] bg-[var(--accent-orange)] text-white shadow-[0_4px_12px_rgba(249,115,22,0.3)]'
                     : 'border-[var(--border-default)] bg-[var(--card-bg)] text-[var(--text-secondary)] hover:border-[var(--border-strong)] hover:bg-[var(--bg-hover)]',
@@ -6414,7 +6414,7 @@ export default function ArtistProfileClient({
                 return (
                   <div className={visibleAlbums.length > 0 ? 'mt-6' : ''}>
                     {visibleAlbums.length > 0 && (
-                      <div className="mb-2.5 font-['Outfit',sans-serif] text-[11px] font-extrabold uppercase tracking-[0.15em] text-[var(--text-muted)]">
+                      <div className="mb-2.5 font-['Outfit',sans-serif] text-[12px] font-extrabold uppercase tracking-[0.15em] text-[var(--text-muted)]">
                         Kitos dainos
                       </div>
                     )}
@@ -6432,7 +6432,7 @@ export default function ArtistProfileClient({
                         <button
                           type="button"
                           onClick={() => setOrphanModalOpen(true)}
-                          className="flex items-center justify-center rounded-xl border border-[rgba(249,115,22,0.35)] bg-[rgba(249,115,22,0.12)] p-2 font-['Outfit',sans-serif] text-[12.5px] font-extrabold tracking-tight text-[var(--accent-orange)] transition-colors hover:border-[var(--accent-orange)] hover:bg-[rgba(249,115,22,0.22)]"
+                          className="flex items-center justify-center rounded-xl border border-[rgba(249,115,22,0.35)] bg-[rgba(249,115,22,0.12)] p-2 font-['Outfit',sans-serif] text-[13.5px] font-extrabold tracking-tight text-[var(--accent-orange)] transition-colors hover:border-[var(--accent-orange)] hover:bg-[rgba(249,115,22,0.22)]"
                           aria-label={`Atidaryti visas dainas (${orphanTracks.length})`}
                         >
                           +{extraOrphans} daugiau
@@ -6489,7 +6489,7 @@ export default function ArtistProfileClient({
                 {overflow > 0 && (
                   <button
                     onClick={() => setDiscussionsModalOpen(true)}
-                    className="ml-2 inline-flex items-center gap-1.5 rounded-full border border-[var(--border-default)] bg-[var(--bg-surface)] px-3 py-1.5 text-[11px] font-bold text-[var(--text-muted)] transition-colors hover:border-[var(--border-strong)] hover:text-[var(--text-primary)]"
+                    className="ml-2 inline-flex items-center gap-1.5 rounded-full border border-[var(--border-default)] bg-[var(--bg-surface)] px-3 py-1.5 text-[12px] font-bold text-[var(--text-muted)] transition-colors hover:border-[var(--border-strong)] hover:text-[var(--text-primary)]"
                   >
                     Žiūrėti visas (+{overflow})
                   </button>
@@ -6503,7 +6503,7 @@ export default function ArtistProfileClient({
               {mainDiscussion && mainDiscussion.comment_count > 0 && mainDiscussion.topComments.length > 0 ? (
                 <div className="mb-4 rounded-2xl border border-[var(--border-default)] bg-[var(--bg-surface)] p-4 sm:p-5">
                   <div className="mb-3 flex items-center justify-between">
-                    <div className="font-['Outfit',sans-serif] text-[11px] font-extrabold uppercase tracking-[0.18em] text-[var(--text-muted)]">
+                    <div className="font-['Outfit',sans-serif] text-[12px] font-extrabold uppercase tracking-[0.18em] text-[var(--text-muted)]">
                       Komentarai · {mainDiscussion.comment_count.toLocaleString('lt-LT')}
                     </div>
                   </div>
@@ -6515,24 +6515,24 @@ export default function ArtistProfileClient({
                             // eslint-disable-next-line @next/next/no-img-element
                             <img src={proxyImg(c.author_avatar)} alt="" referrerPolicy="no-referrer" className="h-7 w-7 shrink-0 rounded-full object-cover" />
                           ) : (
-                            <div className="flex h-7 w-7 shrink-0 items-center justify-center rounded-full bg-[var(--bg-elevated)] font-['Outfit',sans-serif] text-[12px] font-black text-[var(--text-muted)]">
+                            <div className="flex h-7 w-7 shrink-0 items-center justify-center rounded-full bg-[var(--bg-elevated)] font-['Outfit',sans-serif] text-[13px] font-black text-[var(--text-muted)]">
                               {(c.author_username || '?')[0]?.toUpperCase()}
                             </div>
                           )}
-                          <div className="min-w-0 font-['Outfit',sans-serif] text-[13px] font-bold text-[var(--text-primary)]">
+                          <div className="min-w-0 font-['Outfit',sans-serif] text-[14px] font-bold text-[var(--text-primary)]">
                             {c.author_username || 'Vartotojas'}
                           </div>
                           {c.created_at && (
-                            <div className="text-[11px] text-[var(--text-faint)]">{relativeLt(c.created_at)}</div>
+                            <div className="text-[12px] text-[var(--text-faint)]">{relativeLt(c.created_at)}</div>
                           )}
                           {c.like_count > 0 && (
-                            <div className="ml-auto inline-flex items-center gap-1 text-[11px] font-bold text-[var(--text-muted)]">
+                            <div className="ml-auto inline-flex items-center gap-1 text-[12px] font-bold text-[var(--text-muted)]">
                               <svg viewBox="0 0 24 24" width="12" height="12" fill="currentColor" aria-hidden><path d="M20.84 4.61a5.5 5.5 0 0 0-7.78 0L12 5.67l-1.06-1.06a5.5 5.5 0 0 0-7.78 7.78l1.06 1.06L12 21.23l7.78-7.78 1.06-1.06a5.5 5.5 0 0 0 0-7.78z" /></svg>
                               {c.like_count}
                             </div>
                           )}
                         </div>
-                        <div className="whitespace-pre-wrap break-words font-['Outfit',sans-serif] text-[13.5px] leading-relaxed text-[var(--text-secondary)] line-clamp-4">
+                        <div className="whitespace-pre-wrap break-words font-['Outfit',sans-serif] text-[14.5px] leading-relaxed text-[var(--text-secondary)] line-clamp-4">
                           {c.body}
                         </div>
                       </div>
@@ -6550,7 +6550,7 @@ export default function ArtistProfileClient({
                         post_count: mainDiscussion.comment_count,
                         canonical_slug: mainDiscussion.slug,
                       } as LegacyThread)}
-                      className="group inline-flex items-center gap-1.5 rounded-full px-3 py-1.5 font-['Outfit',sans-serif] text-[12.5px] font-bold text-[var(--accent-orange)] transition-colors hover:bg-[rgba(249,115,22,0.1)]"
+                      className="group inline-flex items-center gap-1.5 rounded-full px-3 py-1.5 font-['Outfit',sans-serif] text-[13.5px] font-bold text-[var(--accent-orange)] transition-colors hover:bg-[rgba(249,115,22,0.1)]"
                     >
                       Visi {mainDiscussion.comment_count.toLocaleString('lt-LT')} komentarai
                       <svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" strokeWidth="2.4" strokeLinecap="round" strokeLinejoin="round" className="transition-transform group-hover:translate-x-0.5" aria-hidden><path d="M5 12h14M13 6l6 6-6 6" /></svg>
@@ -6576,7 +6576,7 @@ export default function ArtistProfileClient({
                 <>
                   {/* Antraštė kitoms temoms — kad atskirtų nuo viršuje esančio
                       inline komentaro bloko. */}
-                  <div className="mb-3 mt-2 font-['Outfit',sans-serif] text-[11px] font-extrabold uppercase tracking-[0.15em] text-[var(--text-muted)]">
+                  <div className="mb-3 mt-2 font-['Outfit',sans-serif] text-[12px] font-extrabold uppercase tracking-[0.15em] text-[var(--text-muted)]">
                     Kitos temos
                   </div>
                   <div className="grid auto-rows-fr grid-cols-1 gap-3 sm:grid-cols-2">
@@ -6610,7 +6610,7 @@ export default function ArtistProfileClient({
                       </div>
                     )}
                   </div>
-                  <div className="truncate font-['Outfit',sans-serif] text-[13px] font-bold text-[var(--text-primary)]">{a.name}</div>
+                  <div className="truncate font-['Outfit',sans-serif] text-[14px] font-bold text-[var(--text-primary)]">{a.name}</div>
                 </Link>
               ))}
             </div>

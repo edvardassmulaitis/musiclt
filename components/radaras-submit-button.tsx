@@ -73,7 +73,7 @@ export default function RadarSubmitButton() {
               <div style={{ textAlign: 'center', padding: '8px 0 6px' }}>
                 <div style={{ fontSize: 32 }}>✅</div>
                 <h3 style={{ fontFamily: "'Outfit',sans-serif", fontWeight: 800, fontSize: 18, color: 'var(--text-primary)', marginTop: 6 }}>Ačiū! Gavome.</h3>
-                <p style={{ color: 'var(--text-muted)', fontSize: 13.5, marginTop: 8, lineHeight: 1.5 }}>
+                <p style={{ color: 'var(--text-muted)', fontSize: 14.5, marginTop: 8, lineHeight: 1.5 }}>
                   Peržiūrėsime ir, jei tinka, įtrauksime į radarą.
                 </p>
                 <button onClick={close} className="rd-btn rd-btn-primary" style={{ marginTop: 16 }}>Gerai</button>
@@ -99,7 +99,7 @@ export default function RadarSubmitButton() {
                   <input name="contact_email" type="email" style={field} placeholder="El. paštas (nebūtina, bet padės susisiekti)" />
                 )}
 
-                {err && <div style={{ borderRadius: 10, background: 'rgba(248,113,113,0.12)', color: 'var(--accent-red)', padding: '9px 12px', fontSize: 13 }}>{err}</div>}
+                {err && <div style={{ borderRadius: 10, background: 'rgba(248,113,113,0.12)', color: 'var(--accent-red)', padding: '9px 12px', fontSize: 14 }}>{err}</div>}
 
                 <button type="submit" disabled={state === 'sending'} className="rd-btn rd-btn-primary" style={{ opacity: state === 'sending' ? 0.6 : 1 }}>
                   {state === 'sending' ? 'Siunčiama…' : 'Pateikti'}

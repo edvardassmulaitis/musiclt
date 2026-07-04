@@ -11,7 +11,7 @@ export default function EditMyMusicFab({ profileId }: { profileId: string }) {
   return (
     <Link
       href="/mano-muzika"
-      className="fixed right-4 z-[60] inline-flex items-center gap-2 rounded-full px-4 py-3 text-[13px] font-black text-white shadow-lg transition-transform hover:scale-[1.04]"
+      className="fixed right-4 z-[60] inline-flex items-center gap-2 rounded-full px-4 py-3 text-[14px] font-black text-white shadow-lg transition-transform hover:scale-[1.04]"
       style={{ background: 'var(--accent-orange)', bottom: 'calc(env(safe-area-inset-bottom, 0px) + 76px)' }}
     >
       <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round">

@@ -63,7 +63,7 @@ export function AdminQuickActions({ variant = 'public' }: { variant?: 'public' |
   const ghost: React.CSSProperties = {
     display: 'flex', alignItems: 'center', gap: 6, height: 34, padding: '0 12px',
     border: '1px solid var(--border-default)', borderRadius: 18, background: 'transparent',
-    color: 'var(--text-secondary)', fontFamily: 'inherit', fontSize: 13, fontWeight: 700,
+    color: 'var(--text-secondary)', fontFamily: 'inherit', fontSize: 14, fontWeight: 700,
     cursor: 'pointer', whiteSpace: 'nowrap', textDecoration: 'none',
     transition: 'color .15s, background .15s, border-color .15s',
   }

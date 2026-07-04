@@ -155,9 +155,9 @@ export default function DienosDainaArchive() {
       <div className="mb-3 flex flex-wrap items-end justify-between gap-2">
         <div>
           <h2 className="m-0 font-['Outfit',sans-serif] text-[19px] font-extrabold tracking-[-0.01em] text-[var(--text-primary)]">Visų laikų archyvas</h2>
-          <p className="m-0 mt-0.5 text-[12.5px] text-[var(--text-muted)]">Kiekvienos dienos laimėtojas — spustelėk dieną dalyviams ir komentarams pamatyti.</p>
+          <p className="m-0 mt-0.5 text-[13.5px] text-[var(--text-muted)]">Kiekvienos dienos laimėtojas — spustelėk dieną dalyviams ir komentarams pamatyti.</p>
         </div>
-        {total > 0 && <span className="text-[12px] font-semibold text-[var(--text-muted)]">{total.toLocaleString('lt-LT')} dienų</span>}
+        {total > 0 && <span className="text-[13px] font-semibold text-[var(--text-muted)]">{total.toLocaleString('lt-LT')} dienų</span>}
       </div>
 
       {/* filtrai */}
@@ -165,7 +165,7 @@ export default function DienosDainaArchive() {
         <div className="relative">
           <svg className="pointer-events-none absolute left-3 top-1/2 -translate-y-1/2 text-[var(--text-muted)]" width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round"><circle cx="11" cy="11" r="7" /><path d="m21 21-4.3-4.3" /></svg>
           <input value={qInput} onChange={e => setQInput(e.target.value)} placeholder="Ieškoti dainos ar atlikėjo…"
-            className="w-full rounded-[10px] border border-[var(--border-default)] bg-[var(--bg-surface)] py-2 pl-9 pr-3 text-[13.5px] text-[var(--text-primary)] outline-none placeholder:text-[var(--text-muted)] focus:border-[var(--accent-orange)]" />
+            className="w-full rounded-[10px] border border-[var(--border-default)] bg-[var(--bg-surface)] py-2 pl-9 pr-3 text-[14.5px] text-[var(--text-primary)] outline-none placeholder:text-[var(--text-muted)] focus:border-[var(--accent-orange)]" />
         </div>
         {years.length > 0 && (
           <div className="flex gap-1.5 overflow-x-auto pb-1 [&::-webkit-scrollbar]:hidden" style={{ scrollbarWidth: 'none' }}>
@@ -182,7 +182,7 @@ export default function DienosDainaArchive() {
           ))}
         </div>
       ) : winners.length === 0 ? (
-        <div className="rounded-[12px] border border-[var(--border-subtle)] bg-[var(--bg-surface)] py-10 text-center text-[13px] text-[var(--text-muted)]">
+        <div className="rounded-[12px] border border-[var(--border-subtle)] bg-[var(--bg-surface)] py-10 text-center text-[14px] text-[var(--text-muted)]">
           {q || year ? 'Pagal filtrą nieko nerasta.' : 'Archyvas tuščias.'}
         </div>
       ) : (
@@ -203,15 +203,15 @@ export default function DienosDainaArchive() {
                       <div className="flex items-center gap-1.5">
                         <span className="truncate font-['Outfit',sans-serif] text-[14px] font-extrabold text-[var(--text-primary)]">{sani(t.title)}</span>
                       </div>
-                      <span className="block truncate text-[12px] text-[var(--text-muted)]">{t.artists?.name}</span>
-                      <div className="mt-0.5 flex flex-wrap items-center gap-x-2 gap-y-0.5 text-[11px] text-[var(--text-faint,var(--text-muted))]">
+                      <span className="block truncate text-[13px] text-[var(--text-muted)]">{t.artists?.name}</span>
+                      <div className="mt-0.5 flex flex-wrap items-center gap-x-2 gap-y-0.5 text-[12px] text-[var(--text-faint,var(--text-muted))]">
                         <span>{fmtDate(w.date)}</span>
                         {w.proposer && <span>· siūlė <b className="font-semibold text-[var(--text-muted)]">{uname(w.proposer)}</b></span>}
                         {pts > 0 && <span>· {pts} {ptsWord(pts)}</span>}
                       </div>
                     </div>
                     <div className="flex shrink-0 items-center gap-2">
-                      {nc > 1 && <span className="hidden rounded-full bg-[var(--bg-elevated,rgba(127,127,127,0.12))] px-2 py-0.5 text-[10.5px] font-bold text-[var(--text-muted)] sm:inline">{nc} dalyviai</span>}
+                      {nc > 1 && <span className="hidden rounded-full bg-[var(--bg-elevated,rgba(127,127,127,0.12))] px-2 py-0.5 text-[11.5px] font-bold text-[var(--text-muted)] sm:inline">{nc} dalyviai</span>}
                       <svg className={`text-[var(--text-muted)] transition-transform ${isOpen ? 'rotate-180' : ''}`} width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><path d="m6 9 6 6 6-6" /></svg>
                     </div>
                   </button>
@@ -221,15 +221,15 @@ export default function DienosDainaArchive() {
                 {isOpen && (
                   <div className="border-t border-[var(--border-subtle)] px-3 py-3">
                     {w.winning_comment && (
-                      <p className="m-0 mb-3 rounded-[10px] bg-[var(--bg-elevated,rgba(127,127,127,0.08))] px-3 py-2 text-[13px] italic leading-relaxed text-[var(--text-secondary,var(--text-muted))]">„{sani(w.winning_comment)}"</p>
+                      <p className="m-0 mb-3 rounded-[10px] bg-[var(--bg-elevated,rgba(127,127,127,0.08))] px-3 py-2 text-[14px] italic leading-relaxed text-[var(--text-secondary,var(--text-muted))]">„{sani(w.winning_comment)}"</p>
                     )}
                     {nc === 0 ? (
-                      <p className="m-0 text-[12px] text-[var(--text-muted)]">Archyvinė diena — atskirų dalyvių duomenų neišliko.</p>
+                      <p className="m-0 text-[13px] text-[var(--text-muted)]">Archyvinė diena — atskirų dalyvių duomenų neišliko.</p>
                     ) : p === 'loading' || p === undefined ? (
-                      <p className="m-0 text-[12px] text-[var(--text-muted)]">Kraunama…</p>
+                      <p className="m-0 text-[13px] text-[var(--text-muted)]">Kraunama…</p>
                     ) : (
                       <div className="flex flex-col gap-1.5">
-                        <span className="mb-0.5 font-['Outfit',sans-serif] text-[10.5px] font-extrabold uppercase tracking-[0.13em] text-[var(--text-muted)]">Tos dienos dalyviai</span>
+                        <span className="mb-0.5 font-['Outfit',sans-serif] text-[11.5px] font-extrabold uppercase tracking-[0.13em] text-[var(--text-muted)]">Tos dienos dalyviai</span>
                         {p.map((n, i) => {
                           const nt = n.tracks!
                           const isWinner = !!n.is_winner
@@ -238,21 +238,21 @@ export default function DienosDainaArchive() {
                           const voterNames = (n.voters || []).map(uname)
                           return (
                             <div key={n.id} className={`flex items-center gap-2.5 rounded-[9px] border px-2.5 py-2 ${isWinner ? 'border-[rgba(251,191,36,0.45)] bg-[rgba(251,191,36,0.08)]' : 'border-[var(--border-subtle)] bg-[var(--bg-primary)]'}`}>
-                              <span className="w-4 shrink-0 text-center font-['Outfit',sans-serif] text-[12px] font-black text-[var(--text-muted)]">{i + 1}</span>
+                              <span className="w-4 shrink-0 text-center font-['Outfit',sans-serif] text-[13px] font-black text-[var(--text-muted)]">{i + 1}</span>
                               {n.proposer && <span title={uname(n.proposer)} className="flex shrink-0"><Avatar src={n.proposer.avatar_url} name={uname(n.proposer)} size={22} /></span>}
                               <Thumb t={nt} size={34} onClick={(e) => { e.stopPropagation(); openTrack(nt) }} />
                               <button type="button" onClick={() => openTrack(nt)} className="min-w-0 flex-1 cursor-pointer border-0 bg-transparent p-0 text-left">
-                                <span className="block truncate text-[12.5px] font-bold text-[var(--text-primary)]">{sani(nt.title)}</span>
-                                <span className="block truncate text-[11px] text-[var(--text-muted)]">{nt.artists?.name}{n.proposer ? ` · ${uname(n.proposer)}` : ''}</span>
-                                {n.comment && <span className="mt-0.5 block truncate text-[11px] italic text-[var(--text-muted)]">„{sani(n.comment)}"</span>}
-                                {voterNames.length > 0 && <span className="mt-0.5 block truncate text-[10.5px] text-[var(--text-faint,var(--text-muted))]">balsavo: {voterNames.join(', ')}{n.anon_votes ? `, +${n.anon_votes}` : ''}</span>}
+                                <span className="block truncate text-[13.5px] font-bold text-[var(--text-primary)]">{sani(nt.title)}</span>
+                                <span className="block truncate text-[12px] text-[var(--text-muted)]">{nt.artists?.name}{n.proposer ? ` · ${uname(n.proposer)}` : ''}</span>
+                                {n.comment && <span className="mt-0.5 block truncate text-[12px] italic text-[var(--text-muted)]">„{sani(n.comment)}"</span>}
+                                {voterNames.length > 0 && <span className="mt-0.5 block truncate text-[11.5px] text-[var(--text-faint,var(--text-muted))]">balsavo: {voterNames.join(', ')}{n.anon_votes ? `, +${n.anon_votes}` : ''}</span>}
                               </button>
                               <span className="flex shrink-0 items-center gap-1.5">
-                                {isWinner && <span className="rounded-full bg-[rgba(251,191,36,0.18)] px-2 py-0.5 text-[9.5px] font-extrabold uppercase tracking-wide text-[#d99e16]">Laimėjo</span>}
+                                {isWinner && <span className="rounded-full bg-[rgba(251,191,36,0.18)] px-2 py-0.5 text-[10.5px] font-extrabold uppercase tracking-wide text-[#d99e16]">Laimėjo</span>}
                                 {np > 0 && (
                                   isLikes
-                                    ? <span className="flex items-center gap-1 text-[11px] font-bold text-[var(--text-muted)]"><svg width="11" height="11" viewBox="0 0 24 24" fill="currentColor"><path d="M20.8 4.6a5.5 5.5 0 0 0-7.8 0L12 5.7l-1-1.1a5.5 5.5 0 0 0-7.8 7.8l8.8 8.9 8.8-8.9a5.5 5.5 0 0 0 0-7.8z" /></svg>{np}</span>
-                                    : <span className="text-[11px] font-bold text-[var(--text-muted)]">{np} {ptsWord(np)}</span>
+                                    ? <span className="flex items-center gap-1 text-[12px] font-bold text-[var(--text-muted)]"><svg width="11" height="11" viewBox="0 0 24 24" fill="currentColor"><path d="M20.8 4.6a5.5 5.5 0 0 0-7.8 0L12 5.7l-1-1.1a5.5 5.5 0 0 0-7.8 7.8l8.8 8.9 8.8-8.9a5.5 5.5 0 0 0 0-7.8z" /></svg>{np}</span>
+                                    : <span className="text-[12px] font-bold text-[var(--text-muted)]">{np} {ptsWord(np)}</span>
                                 )}
                               </span>
                             </div>
@@ -268,7 +268,7 @@ export default function DienosDainaArchive() {
 
           {hasMore && (
             <button type="button" onClick={loadMore} disabled={loadingMore}
-              className="mt-2 self-center rounded-full border border-[var(--border-default)] bg-[var(--bg-surface)] px-6 py-2.5 font-['Outfit',sans-serif] text-[13px] font-extrabold text-[var(--text-primary)] transition-colors hover:border-[var(--accent-orange)] hover:text-[var(--accent-orange)] disabled:opacity-50">
+              className="mt-2 self-center rounded-full border border-[var(--border-default)] bg-[var(--bg-surface)] px-6 py-2.5 font-['Outfit',sans-serif] text-[14px] font-extrabold text-[var(--text-primary)] transition-colors hover:border-[var(--accent-orange)] hover:text-[var(--accent-orange)] disabled:opacity-50">
               {loadingMore ? 'Kraunama…' : 'Rodyti daugiau'}
             </button>
           )}
@@ -283,7 +283,7 @@ export default function DienosDainaArchive() {
 function Chip({ active, onClick, children }: { active: boolean; onClick: () => void; children: React.ReactNode }) {
   return (
     <button type="button" onClick={onClick}
-      className={`shrink-0 cursor-pointer rounded-full border px-3.5 py-1.5 font-['Outfit',sans-serif] text-[12.5px] font-bold transition-colors ${
+      className={`shrink-0 cursor-pointer rounded-full border px-3.5 py-1.5 font-['Outfit',sans-serif] text-[13.5px] font-bold transition-colors ${
         active ? 'border-[var(--accent-orange)] bg-[var(--accent-orange)] text-white' : 'border-[var(--border-default)] bg-[var(--bg-surface)] text-[var(--text-muted)] hover:border-[var(--accent-orange)] hover:text-[var(--text-primary)]'
       }`}>
       {children}

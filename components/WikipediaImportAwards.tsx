@@ -232,7 +232,7 @@ export default function WikipediaImportAwards({
                                 {entry.workType === 'self' ? '—' : entry.work}
                               </span>
                               <span
-                                className="text-[10px] font-bold px-1.5 py-0.5 rounded shrink-0"
+                                className="text-[11px] font-bold px-1.5 py-0.5 rounded shrink-0"
                                 style={{ background: `${meta.color}15`, color: meta.color }}
                               >
                                 {meta.label}
@@ -283,7 +283,7 @@ export default function WikipediaImportAwards({
               {stats.errors.length > 0 && (
                 <div className="bg-red-50 border border-red-200 rounded-lg p-3">
                   <p className="text-xs font-bold text-red-700 mb-1">Klaidos ({stats.errors.length}):</p>
-                  <ul className="text-[10px] text-red-600 space-y-0.5">
+                  <ul className="text-[11px] text-red-600 space-y-0.5">
                     {stats.errors.slice(0, 10).map((e, i) => <li key={i}>{e}</li>)}
                   </ul>
                 </div>

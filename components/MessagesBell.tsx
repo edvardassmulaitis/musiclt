@@ -175,7 +175,7 @@ export function MessagesBell() {
             position: 'absolute', top: 2, right: 2,
             minWidth: 16, height: 16, padding: '0 4px',
             borderRadius: 8, background: 'var(--accent-orange)', color: '#fff',
-            fontSize: 10, fontWeight: 800,
+            fontSize: 11, fontWeight: 800,
             display: 'flex', alignItems: 'center', justifyContent: 'center',
             lineHeight: 1, border: '2px solid var(--bg-body)',
           }}>
@@ -269,7 +269,7 @@ function renderDropdownContent(p: {
               style={{
                 flex: 1, padding: '12px 14px',
                 border: 'none', background: 'transparent', cursor: 'pointer',
-                fontSize: 12.5, fontWeight: 700,
+                fontSize: 13.5, fontWeight: 700,
                 color: active ? 'var(--text-primary)' : 'var(--text-muted)',
                 borderBottom: active ? '2px solid var(--accent-orange)' : '2px solid transparent',
                 transition: 'color .12s, border-color .12s',
@@ -281,7 +281,7 @@ function renderDropdownContent(p: {
                 <span style={{
                   minWidth: 16, height: 16, padding: '0 4px', borderRadius: 8,
                   background: 'var(--accent-orange)', color: '#fff',
-                  fontSize: 9, fontWeight: 800,
+                  fontSize: 10, fontWeight: 800,
                   display: 'inline-flex', alignItems: 'center', justifyContent: 'center',
                   lineHeight: 1,
                 }}>
@@ -296,14 +296,14 @@ function renderDropdownContent(p: {
       <div style={{ flex: 1, overflowY: 'auto', WebkitOverflowScrolling: 'touch' as any }}>
         {tab === 'personal' ? (
           loading && conversations.length === 0 ? (
-            <div style={{ padding: 32, textAlign: 'center', color: 'var(--text-muted)', fontSize: 13 }}>Kraunasi…</div>
+            <div style={{ padding: 32, textAlign: 'center', color: 'var(--text-muted)', fontSize: 14 }}>Kraunasi…</div>
           ) : conversations.length === 0 ? (
             <div style={{ padding: '36px 24px', textAlign: 'center' }}>
               <div style={{ fontSize: 32, marginBottom: 8 }}>💬</div>
-              <div style={{ fontSize: 13, fontWeight: 600, color: 'var(--text-secondary)', marginBottom: 4 }}>
+              <div style={{ fontSize: 14, fontWeight: 600, color: 'var(--text-secondary)', marginBottom: 4 }}>
                 Pokalbių dar nėra
               </div>
-              <div style={{ fontSize: 12, color: 'var(--text-muted)' }}>
+              <div style={{ fontSize: 13, color: 'var(--text-muted)' }}>
                 Pradėk privačią žinutę arba grupę.
               </div>
             </div>
@@ -314,14 +314,14 @@ function renderDropdownContent(p: {
           )
         ) : (
           shoutLoading && shoutMsgs.length === 0 ? (
-            <div style={{ padding: 32, textAlign: 'center', color: 'var(--text-muted)', fontSize: 13 }}>Kraunasi…</div>
+            <div style={{ padding: 32, textAlign: 'center', color: 'var(--text-muted)', fontSize: 14 }}>Kraunasi…</div>
           ) : shoutMsgs.length === 0 ? (
             <div style={{ padding: '36px 24px', textAlign: 'center' }}>
               <div style={{ fontSize: 32, marginBottom: 8 }}>📣</div>
-              <div style={{ fontSize: 13, fontWeight: 600, color: 'var(--text-secondary)', marginBottom: 4 }}>
+              <div style={{ fontSize: 14, fontWeight: 600, color: 'var(--text-secondary)', marginBottom: 4 }}>
                 Bendra diskusija tyli
               </div>
-              <div style={{ fontSize: 12, color: 'var(--text-muted)' }}>
+              <div style={{ fontSize: 13, color: 'var(--text-muted)' }}>
                 Užsuk į bendruomenę ir įmesk pirmą žinutę.
               </div>
             </div>
@@ -335,7 +335,7 @@ function renderDropdownContent(p: {
         <Link
           href={tab === 'personal' ? '/pokalbiai' : '/bendruomene'}
           onClick={() => setOpen(false)}
-          style={{ fontSize: 12, fontWeight: 600, color: 'var(--text-muted)', textDecoration: 'none' }}
+          style={{ fontSize: 13, fontWeight: 600, color: 'var(--text-muted)', textDecoration: 'none' }}
         >
           {tab === 'personal' ? 'Visi pokalbiai →' : 'Pilna bendruomenė →'}
         </Link>
@@ -371,7 +371,7 @@ function ShoutRow({ m }: { m: ShoutMsg }) {
             width: 28, height: 28, borderRadius: '50%', flexShrink: 0,
             background: `hsl(${hue},32%,18%)`,
             display: 'flex', alignItems: 'center', justifyContent: 'center',
-            color: `hsl(${hue},48%,55%)`, fontSize: 12, fontWeight: 800,
+            color: `hsl(${hue},48%,55%)`, fontSize: 13, fontWeight: 800,
             fontFamily: 'Outfit, sans-serif',
           }}
         >
@@ -380,12 +380,12 @@ function ShoutRow({ m }: { m: ShoutMsg }) {
       )}
       <div style={{ flex: 1, minWidth: 0 }}>
         <div style={{ display: 'flex', gap: 6, alignItems: 'baseline', marginBottom: 2 }}>
-          <span style={{ fontSize: 12, fontWeight: 700, color: 'var(--accent-link)' }}>{m.author_name}</span>
-          <span style={{ fontSize: 10, color: 'var(--text-faint)' }}>{shortAgo(m.created_at)}</span>
+          <span style={{ fontSize: 13, fontWeight: 700, color: 'var(--accent-link)' }}>{m.author_name}</span>
+          <span style={{ fontSize: 11, color: 'var(--text-faint)' }}>{shortAgo(m.created_at)}</span>
         </div>
         <p
           style={{
-            fontSize: 12.5, color: 'var(--text-secondary)',
+            fontSize: 13.5, color: 'var(--text-secondary)',
             margin: 0, lineHeight: 1.4,
             overflow: 'hidden',
             display: '-webkit-box', WebkitLineClamp: 2, WebkitBoxOrient: 'vertical',
@@ -441,17 +441,17 @@ function ConversationRow({ c, viewerId, onClick }: { c: ConversationListItem; vi
         <div style={{ flex: 1, minWidth: 0 }}>
           <div style={{ display: 'flex', justifyContent: 'space-between', gap: 6 }}>
             <div style={{
-              flex: 1, fontSize: 13, fontWeight: isUnread ? 800 : 600,
+              flex: 1, fontSize: 14, fontWeight: isUnread ? 800 : 600,
               color: 'var(--text-primary)',
               overflow: 'hidden', whiteSpace: 'nowrap', textOverflow: 'ellipsis',
             }}>{name}</div>
-            <div style={{ fontSize: 10.5, color: isUnread ? 'var(--accent-orange)' : 'var(--text-muted)' }}>
+            <div style={{ fontSize: 11.5, color: isUnread ? 'var(--accent-orange)' : 'var(--text-muted)' }}>
               {formatSidebarTime(c.last_message_at)}
             </div>
           </div>
           <div style={{ display: 'flex', justifyContent: 'space-between', gap: 6, marginTop: 2 }}>
             <div style={{
-              flex: 1, fontSize: 12,
+              flex: 1, fontSize: 13,
               color: isUnread ? 'var(--text-primary)' : 'var(--text-muted)',
               fontWeight: isUnread ? 600 : 400,
               overflow: 'hidden', whiteSpace: 'nowrap', textOverflow: 'ellipsis',
@@ -460,7 +460,7 @@ function ConversationRow({ c, viewerId, onClick }: { c: ConversationListItem; vi
               <span style={{
                 minWidth: 16, height: 16, padding: '0 4px', borderRadius: 8,
                 background: 'var(--accent-orange)', color: '#fff',
-                fontSize: 10, fontWeight: 800,
+                fontSize: 11, fontWeight: 800,
                 display: 'inline-flex', alignItems: 'center', justifyContent: 'center',
                 lineHeight: 1,
               }}>{c.unread_count > 99 ? '99+' : c.unread_count}</span>

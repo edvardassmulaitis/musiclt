@@ -244,7 +244,7 @@ function EntityPane({
             <div style={{ fontSize: 14, fontWeight: 700, color: 'var(--text-primary)', marginBottom: 6 }}>
               Dar nėra komentarų
             </div>
-            <div style={{ fontSize: 12, color: 'var(--text-muted)' }}>
+            <div style={{ fontSize: 13, color: 'var(--text-muted)' }}>
               Parašyk pirmą komentarą.
             </div>
           </div>
@@ -320,13 +320,13 @@ function EntityHeader({
         }}>
           {entity.title}
         </div>
-        <div style={{ fontSize: 11.5, color: 'var(--text-muted)' }}>
+        <div style={{ fontSize: 12.5, color: 'var(--text-muted)' }}>
           {TYPE_LABEL[entityType]}{entity.subtitle ? ` · ${entity.subtitle}` : ''}
         </div>
       </div>
       <Link href={entityFullUrl}
         style={{
-          fontSize: 11, color: 'var(--text-muted)', textDecoration: 'none',
+          fontSize: 12, color: 'var(--text-muted)', textDecoration: 'none',
           padding: '5px 10px', borderRadius: 6,
           border: '1px solid var(--border-default)',
         }}
@@ -367,7 +367,7 @@ function EntityRoot({ entityType, entity, entityFullUrl }: { entityType: EntityT
       )}
       <div style={{ flex: 1, minWidth: 0 }}>
         <div style={{
-          fontSize: 9, fontWeight: 800, padding: '1px 6px', borderRadius: 4,
+          fontSize: 10, fontWeight: 800, padding: '1px 6px', borderRadius: 4,
           background: 'rgba(139, 92, 246, 0.18)', color: '#c4b5fd',
           textTransform: 'uppercase', letterSpacing: '0.05em',
           display: 'inline-block', marginBottom: 4,
@@ -380,7 +380,7 @@ function EntityRoot({ entityType, entity, entityFullUrl }: { entityType: EntityT
           </div>
         </Link>
         {entity.subtitle && (
-          <div style={{ fontSize: 12, color: 'var(--text-muted)' }}>{entity.subtitle}</div>
+          <div style={{ fontSize: 13, color: 'var(--text-muted)' }}>{entity.subtitle}</div>
         )}
       </div>
     </div>
@@ -391,7 +391,7 @@ function DateSep({ label }: { label: string }) {
   return (
     <div style={{ display: 'flex', alignItems: 'center', gap: 12, padding: '14px 16px 6px' }}>
       <div style={{ flex: 1, height: 1, background: 'var(--border-subtle)' }}/>
-      <div style={{ fontSize: 10.5, fontWeight: 700, color: 'var(--text-muted)', textTransform: 'uppercase', letterSpacing: '0.08em' }}>
+      <div style={{ fontSize: 11.5, fontWeight: 700, color: 'var(--text-muted)', textTransform: 'uppercase', letterSpacing: '0.08em' }}>
         {label}
       </div>
       <div style={{ flex: 1, height: 1, background: 'var(--border-subtle)' }}/>

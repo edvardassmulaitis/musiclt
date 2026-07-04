@@ -305,12 +305,12 @@ export default async function TracksDebugPage({ params }: Props) {
           kurie tracks neateina iš pilno Wiki canonical sąrašo arba neturi
           albumo priskirimo. */}
       {(pendingTracks.length > 0 || unassignedTracks.length > 0) && (
-        <div className="mb-4 rounded-lg border border-amber-500/30 bg-amber-500/5 p-4 text-[13px]">
+        <div className="mb-4 rounded-lg border border-amber-500/30 bg-amber-500/5 p-4 text-[14px]">
           <div className="font-extrabold text-amber-600 mb-1">⚠ Po scrape neimportuoti / neaprašyti dainos</div>
           {pendingTracks.length > 0 && (
             <div className="text-[var(--text-secondary)] mb-1">
               <strong className="text-amber-600">{pendingTracks.length}</strong> dainos su <code className="rounded bg-amber-500/15 px-1 text-amber-600">legacy_scrape_pending</code> — music.lt scrape rado, bet Wiki canonical sąraše nėra.
-              <span className="text-[var(--text-muted)] text-[11px] ml-2">Aktyvuoti per <Link href="/admin/pending" className="text-blue-500 hover:underline">/admin/pending</Link> arba priskirti albumui per <Link href={`/admin/artists/${id}/orphans`} className="text-blue-500 hover:underline">orphan tracks</Link>.</span>
+              <span className="text-[var(--text-muted)] text-[12px] ml-2">Aktyvuoti per <Link href="/admin/pending" className="text-blue-500 hover:underline">/admin/pending</Link> arba priskirti albumui per <Link href={`/admin/artists/${id}/orphans`} className="text-blue-500 hover:underline">orphan tracks</Link>.</span>
             </div>
           )}
           {unassignedTracks.length > 0 && (
@@ -325,43 +325,43 @@ export default async function TracksDebugPage({ params }: Props) {
           likes/komentarai/diskusijos prie pačio artist'o, source. Padeda
           debug'inti ar Wiki + scrape importavimas pilnai užfilling'ino
           visą metadatos sluoksnį. */}
-      <div className="mb-4 grid grid-cols-2 gap-3 rounded-lg border border-[var(--border-default)] bg-[var(--bg-surface)] p-4 text-[12px] md:grid-cols-4">
+      <div className="mb-4 grid grid-cols-2 gap-3 rounded-lg border border-[var(--border-default)] bg-[var(--bg-surface)] p-4 text-[13px] md:grid-cols-4">
         <div>
-          <div className="text-[10px] uppercase tracking-wide text-[var(--text-faint)]">Aktyvumas</div>
+          <div className="text-[11px] uppercase tracking-wide text-[var(--text-faint)]">Aktyvumas</div>
           <div className="font-bold text-[var(--text-primary)]">{fmtArtistDates}</div>
           {a?.country && <div className="text-[var(--text-muted)]">{a.country}</div>}
         </div>
         <div>
-          <div className="text-[10px] uppercase tracking-wide text-[var(--text-faint)]">Artist likes</div>
+          <div className="text-[11px] uppercase tracking-wide text-[var(--text-faint)]">Artist likes</div>
           <div className={`font-bold ${stats.artistLikes > 0 ? 'text-emerald-400' : 'text-red-400'}`}>{stats.artistLikes}</div>
           <div className="text-[var(--text-muted)]">Track likes total: {totalTrackLikes}</div>
         </div>
         <div>
-          <div className="text-[10px] uppercase tracking-wide text-[var(--text-faint)]">Komentarai</div>
+          <div className="text-[11px] uppercase tracking-wide text-[var(--text-faint)]">Komentarai</div>
           <div className={`font-bold ${stats.artistComments > 0 ? 'text-emerald-400' : 'text-red-400'}`}>{stats.artistComments} artist</div>
           <div className="text-[var(--text-muted)]">{totalComments} track</div>
         </div>
         <div>
-          <div className="text-[10px] uppercase tracking-wide text-[var(--text-faint)]">Diskusijos</div>
+          <div className="text-[11px] uppercase tracking-wide text-[var(--text-faint)]">Diskusijos</div>
           <div className={`font-bold ${stats.discussionCount > 0 ? 'text-emerald-400' : 'text-red-400'}`}>{stats.discussionCount}</div>
           <div className="text-[var(--text-muted)]">source: {a?.source || '—'}</div>
         </div>
       </div>
 
-      <div className="mb-6 rounded-lg border border-[var(--border-default)] bg-[var(--bg-surface)] p-4 text-[13px] text-[var(--text-muted)]">
+      <div className="mb-6 rounded-lg border border-[var(--border-default)] bg-[var(--bg-surface)] p-4 text-[14px] text-[var(--text-muted)]">
         <p className="mb-2">
           <strong className="text-[var(--text-primary)]">Composite formulė (views-dominant v2, 2026-05-10):</strong>{' '}
-          <code className="rounded bg-[var(--bg-elevated)] px-1.5 py-0.5 text-[12px]">
+          <code className="rounded bg-[var(--bg-elevated)] px-1.5 py-0.5 text-[13px]">
             views_log×50 + likes_log×10 + (single ? 10 : 0) + (video ? 5 : 0)
           </code>
         </p>
-        <ul className="mb-2 ml-4 list-disc space-y-0.5 text-[12px]">
+        <ul className="mb-2 ml-4 list-disc space-y-0.5 text-[13px]">
           <li><code>views_log</code> = log₁₀(video_views + 1) × 50 — dominantas (1.3B views ≈ 456 pts)</li>
           <li><code>likes_log</code> = log₁₀(like_count + 1) × 10 — small bonus (200 likes ≈ 23 pts)</li>
           <li><code>single</code> = is_single ? +10 : 0</li>
           <li><code>video</code> = video_url ? +5 : 0 (playable bonus)</li>
         </ul>
-        <p className="mb-2 text-[12px]">
+        <p className="mb-2 text-[13px]">
           <em className="text-[var(--text-faint)]">Pašalinta v2: <code>score × 0.2</code> (uniform per artist)
           ir <code>year_recency</code> (penalizuoja klasikus, depend nuo missing year).</em>
         </p>
@@ -383,7 +383,7 @@ export default async function TracksDebugPage({ params }: Props) {
             return <span className={`tabular-nums font-bold ${color}`}>{n}/{totalTracks} ({pct}%)</span>
           }
           return (
-            <div className="mt-3 rounded border border-[var(--border-subtle)] bg-[var(--bg-elevated)] p-3 text-[12px]">
+            <div className="mt-3 rounded border border-[var(--border-subtle)] bg-[var(--bg-elevated)] p-3 text-[13px]">
               <div className="mb-1.5 font-extrabold uppercase tracking-wide text-[var(--text-primary)]">Data quality:</div>
               <div className="grid grid-cols-2 gap-x-6 gap-y-1 sm:grid-cols-3">
                 <div>Su likes: {stat(withLikes)}</div>
@@ -410,8 +410,8 @@ export default async function TracksDebugPage({ params }: Props) {
       </div>
 
       <div className="overflow-x-auto rounded-lg border border-[var(--border-default)]">
-        <table className="w-full text-[12.5px]">
-          <thead className="sticky top-0 bg-[var(--bg-elevated)] text-left text-[11px] uppercase tracking-wider text-[var(--text-faint)]">
+        <table className="w-full text-[13.5px]">
+          <thead className="sticky top-0 bg-[var(--bg-elevated)] text-left text-[12px] uppercase tracking-wider text-[var(--text-faint)]">
             <tr>
               <th className="px-3 py-2.5">#</th>
               <th className="px-3 py-2.5">Track</th>
@@ -459,7 +459,7 @@ export default async function TracksDebugPage({ params }: Props) {
                       {t.title}
                     </Link>
                   </td>
-                  <td className="px-3 py-2 text-[11px] text-[var(--text-muted)] max-w-[180px] truncate" title={t.album_titles}>
+                  <td className="px-3 py-2 text-[12px] text-[var(--text-muted)] max-w-[180px] truncate" title={t.album_titles}>
                     {t.album_titles || '—'}
                   </td>
                   <td className="px-3 py-2 text-right tabular-nums">
@@ -477,7 +477,7 @@ export default async function TracksDebugPage({ params }: Props) {
                   </td>
                   <td className="px-3 py-2 text-center tabular-nums">
                     {t.is_single ? (
-                      <span className="rounded bg-[rgba(59,130,246,0.16)] px-1.5 py-0.5 text-[10px] font-bold text-[#60a5fa]">
+                      <span className="rounded bg-[rgba(59,130,246,0.16)] px-1.5 py-0.5 text-[11px] font-bold text-[#60a5fa]">
                         +10
                       </span>
                     ) : (
@@ -486,7 +486,7 @@ export default async function TracksDebugPage({ params }: Props) {
                   </td>
                   <td className="px-3 py-2 text-center tabular-nums">
                     {hasVideo ? (
-                      <span className="rounded bg-[rgba(249,115,22,0.16)] px-1.5 py-0.5 text-[10px] font-bold text-[var(--accent-orange)]">
+                      <span className="rounded bg-[rgba(249,115,22,0.16)] px-1.5 py-0.5 text-[11px] font-bold text-[var(--accent-orange)]">
                         +5
                       </span>
                     ) : (
@@ -496,31 +496,31 @@ export default async function TracksDebugPage({ params }: Props) {
                   <td className="px-3 py-2 text-center tabular-nums text-[var(--text-muted)]" title={t.release_year ? `release_year=${t.release_year} release_month=${t.release_month ?? 'null'} release_day=${t.release_day ?? 'null'}` : 'release_year=null'}>
                     {fmtReleaseDate(t)}
                   </td>
-                  <td className="px-3 py-2 text-center tabular-nums text-[10px] text-[var(--text-muted)]">
+                  <td className="px-3 py-2 text-center tabular-nums text-[11px] text-[var(--text-muted)]">
                     {ytDate}
                   </td>
                   <td className="px-3 py-2 text-center" title={t.spotify_id ? `spotify_id=${t.spotify_id}` : 'null'}>
                     {hasSpotify ? (
-                      <a href={`https://open.spotify.com/track/${t.spotify_id}`} target="_blank" rel="noreferrer" className="inline-flex items-center justify-center w-5 h-5 rounded bg-emerald-500/15 text-emerald-400 text-[11px] font-bold hover:bg-emerald-500/30">✓</a>
+                      <a href={`https://open.spotify.com/track/${t.spotify_id}`} target="_blank" rel="noreferrer" className="inline-flex items-center justify-center w-5 h-5 rounded bg-emerald-500/15 text-emerald-400 text-[12px] font-bold hover:bg-emerald-500/30">✓</a>
                     ) : (
-                      <span className="text-[var(--text-faint)] text-[11px]">×</span>
+                      <span className="text-[var(--text-faint)] text-[12px]">×</span>
                     )}
                   </td>
-                  <td className="px-3 py-2 text-center text-[10px] tabular-nums" title={hasLyrics ? `${t.lyrics?.length || 0} chars` : 'no lyrics'}>
+                  <td className="px-3 py-2 text-center text-[11px] tabular-nums" title={hasLyrics ? `${t.lyrics?.length || 0} chars` : 'no lyrics'}>
                     {hasLyrics ? (
                       <span className="rounded bg-blue-500/15 px-1.5 py-0.5 text-blue-400 font-bold">{Math.round((t.lyrics?.length || 0) / 100) / 10}k</span>
                     ) : (
                       <span className="text-[var(--text-faint)]">×</span>
                     )}
                   </td>
-                  <td className="px-3 py-2 text-center text-[10px] tabular-nums" title={t.legacy_id ? `music.lt legacy_id=${t.legacy_id}` : 'no music.lt mapping'}>
+                  <td className="px-3 py-2 text-center text-[11px] tabular-nums" title={t.legacy_id ? `music.lt legacy_id=${t.legacy_id}` : 'no music.lt mapping'}>
                     {t.legacy_id ? (
                       <span className="text-amber-500">#{t.legacy_id}</span>
                     ) : (
                       <span className="text-[var(--text-faint)]">—</span>
                     )}
                   </td>
-                  <td className="px-3 py-2 text-center text-[10px]" title={`source=${t.source || 'null'}, imported_at=${t.imported_at || 'null'}`}>
+                  <td className="px-3 py-2 text-center text-[11px]" title={`source=${t.source || 'null'}, imported_at=${t.imported_at || 'null'}`}>
                     {isPending ? (
                       <span className="rounded bg-amber-500/20 px-1.5 py-0.5 font-bold text-amber-600" title="legacy_scrape_pending — Wiki neturi, music.lt rado. Reikia aktyvuoti per /admin/pending arba priskirti albumui.">pending</span>
                     ) : (
@@ -542,7 +542,7 @@ export default async function TracksDebugPage({ params }: Props) {
                         />
                       ))}
                     </div>
-                    <div className="text-[10px] text-[var(--text-faint)] tabular-nums">{level}/5</div>
+                    <div className="text-[11px] text-[var(--text-faint)] tabular-nums">{level}/5</div>
                   </td>
                 </tr>
               )
@@ -551,7 +551,7 @@ export default async function TracksDebugPage({ params }: Props) {
         </table>
       </div>
 
-      <div className="mt-6 text-[12px] text-[var(--text-muted)]">
+      <div className="mt-6 text-[13px] text-[var(--text-muted)]">
         Public artist page'as naudoja same composite sort. PopBar dashes
         prikabinami pagal popInfo signal'ą (likes prioritetu, jei bent
         vienas track turi like; kitaip score; kitaip log10(views)).

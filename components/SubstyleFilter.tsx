@@ -10,7 +10,7 @@ import Link from 'next/link'
 type Sub = { substyle_id: number; name: string; slug: string; n: number; genre: string }
 
 const headStyle: React.CSSProperties = {
-  fontFamily: "'Outfit', sans-serif", fontSize: 12, fontWeight: 800,
+  fontFamily: "'Outfit', sans-serif", fontSize: 13, fontWeight: 800,
   textTransform: 'uppercase', letterSpacing: '0.08em',
   color: 'var(--accent-orange)', marginBottom: 9,
 }
@@ -49,7 +49,7 @@ export default function SubstyleFilter({ subs, genreOrder }: { subs: Sub[]; genr
         <div className="mz-pills" style={{ marginTop: 14 }}>
           {filtered.map(pill)}
           {filtered.length === 0 && (
-            <p style={{ color: 'var(--text-muted)', fontSize: 13 }}>Pagal „{q}" nieko nerasta.</p>
+            <p style={{ color: 'var(--text-muted)', fontSize: 14 }}>Pagal „{q}" nieko nerasta.</p>
           )}
         </div>
       </div>
