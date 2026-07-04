@@ -815,8 +815,6 @@ function ReaderSlide({ slide, active, seen, dk, scrollTopSignal, onScrolledChang
   const [blogTopas, setBlogTopas] = useState<any[] | null>(null)
   const [blogIntro, setBlogIntro] = useState<string | null>(null)
   const [blogOutro, setBlogOutro] = useState<string | null>(null)
-  const [liked, setLiked] = useState(false)
-  const [likeBusy, setLikeBusy] = useState(false)
 
   const isChart = slide.type === 'chart_lt' || slide.type === 'chart_world'
   const isDaily = slide.type === 'daily'
@@ -894,19 +892,6 @@ function ReaderSlide({ slide, active, seen, dk, scrollTopSignal, onScrolledChang
     if (!id) return
     setReqVideoId(id)
     requestAnimationFrame(() => embedsRef.current?.scrollIntoView({ behavior: 'smooth', block: 'center' }))
-  }
-
-  const toggleLike = async () => {
-    if (!slide.newsId || likeBusy) return
-    setLikeBusy(true)
-    const prev = liked
-    setLiked(!prev)
-    try {
-      const r = await fetch(`/api/news/${slide.newsId}/like`, { method: 'POST' })
-      if (r.status === 401) { setLiked(prev); window.location.href = '/auth/signin'; return }
-      const d = await r.json()
-      if (typeof d.liked === 'boolean') setLiked(d.liked)
-    } catch { setLiked(prev) } finally { setLikeBusy(false) }
   }
 
   const place = slide.metaLine || (isChart ? '' : slide.subtitle) || ''
@@ -1031,30 +1016,28 @@ function ReaderSlide({ slide, active, seen, dk, scrollTopSignal, onScrolledChang
 
         {slide.authorName && <p className="rdr-author">— {slide.authorName}</p>}
 
-        {/* Vieningas kortelės pabaigos blokas — kontekstas (atlikėjas/lineup + ♥)
+        {/* Vieningas kortelės pabaigos blokas — kontekstas (atlikėjas/lineup)
             ir veiksmai (CTA + Bilietai) VIENODU stiliumi visiems tipams. */}
-        <CardFooter slide={slide} liked={liked} onToggleLike={toggleLike} onNavLink={onNavLink} />
+        <CardFooter slide={slide} onNavLink={onNavLink} />
       </div>
     </div>
   )
 }
 
 /** Vieningas kortelės pabaigos blokas (footer) — VIENODAS visiems slide tipams,
- *  scrollinasi su turiniu (ne sticky). Eilutė 1 (jei yra konteksto): atlikėjo
- *  avataras+vardas ARBA renginio lineup'as kairėje, ♥ (news) dešinėje.
+ *  PASKUTINIS kortelės elementas (scrollinasi su turiniu, po jo tik nedidelis
+ *  tarpas). Eilutė 1 (TIK jei yra konteksto): atlikėjo avataras+vardas ARBA
+ *  renginio lineup'as; be konteksto — jokios tuščios eilutės/skirtuko.
  *  Eilutė 2: pilno pločio solid CTA (+ „Bilietai" outlined, jei yra ticketUrl). */
-function CardFooter({ slide, liked, onToggleLike, onNavLink }: {
+function CardFooter({ slide, onNavLink }: {
   slide: HeroSlide
-  liked: boolean
-  onToggleLike: () => void
   onNavLink: () => void
 }) {
   const isNews = slide.type === 'news'
   const isChart = slide.type === 'chart_lt' || slide.type === 'chart_world'
   const showLineup = !!(slide.lineup && slide.lineup.length)
   const showArtist = !showLineup && !!slide.artist && slide.type !== 'event' && !isChart && slide.type !== 'daily'
-  const showLike = !!(slide.likeable && slide.newsId)
-  const hasCtx = showLineup || showArtist || showLike
+  const hasCtx = showLineup || showArtist
   // Vieninga CTA etikečių logika — tipas → aiškus veiksmas, fallback ctaLabel.
   const ctaLabel = isNews ? 'Pilna versija ir komentarai'
     : isChart ? 'Visas topas'
@@ -1078,20 +1061,13 @@ function CardFooter({ slide, liked, onToggleLike, onNavLink }: {
                   </Link>
                 ))}
               </div>
-            ) : showArtist ? (
+            ) : (
               <Link href={`/atlikejai/${slide.artist!.slug}`} onClick={onNavLink} className="rdr-foot-artist">
                 {slide.artist!.image
                   ? <img src={proxyImg(slide.artist!.image)} alt="" />
                   : <span className="rdr-foot-ph">{slide.artist!.name[0]}</span>}
                 <span>{slide.artist!.name}</span>
               </Link>
-            ) : (
-              <span style={{ flex: 1 }} />
-            )}
-            {showLike && (
-              <button className={`rdr-foot-like${liked ? ' on' : ''}`} onClick={onToggleLike} aria-label="Patinka">
-                <svg width="18" height="18" viewBox="0 0 24 24" fill={liked ? '#f43f5e' : 'none'} stroke={liked ? '#f43f5e' : 'currentColor'} strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M20.8 4.6a5.5 5.5 0 0 0-7.8 0L12 5.6l-1-1a5.5 5.5 0 1 0-7.8 7.8l1 1L12 21l7.8-7.6 1-1a5.5 5.5 0 0 0 0-7.8z" /></svg>
-              </button>
             )}
           </div>
           <div className="rdr-foot-div" />
@@ -3482,15 +3458,14 @@ export default function HomeClient({ initialLatest, initialHero }: { initialLate
         .hp-reels.light .rdr-foot{background:var(--bg-elevated);border-color:var(--border-default)}
         .hp-reels.light .rdr-foot-artist span{color:var(--text-primary)}
         .hp-reels.light .rdr-foot-div{background:var(--border-default)}
-        .hp-reels.light .rdr-foot-like{background:var(--bg-hover);border-color:var(--border-default);color:var(--text-primary)}
         .hp-reels.light .rdr-foot-ticket{border-color:var(--border-default);color:var(--text-primary)}
         .hp-reels.light .rdr-uptop{background:var(--bg-elevated);border-color:var(--border-default);color:var(--text-primary)}
         .hp-reels.light .rdr-chart-info b,.hp-reels.light .rdr-top-title{color:var(--text-primary)}
         .hp-reels.light .rdr-toplist .rdr-top-comment,.hp-reels.light .rdr-chart-info i,.hp-reels.light .rdr-top-artist{color:var(--text-muted)}
 
-        /* Turinys — apačioje safe-area tarpas (footer'is scrollinasi su turiniu,
-           nebe sticky juosta), kad jo nenukirstų home indikatorius. */
-        .rdr-content{padding:16px 20px calc(24px + env(safe-area-inset-bottom))}
+        /* Turinys — footer'is yra PASKUTINIS elementas; apačioje tik nedidelis
+           tarpas + safe-area, kad kortelė baigtųsi švariai (be tuščio scroll'o). */
+        .rdr-content{padding:16px 20px calc(16px + env(safe-area-inset-bottom))}
         .rdr-chip{display:inline-block;padding:4px 12px;border-radius:16px;font-size:10px;font-weight:900;color:#fff;font-family:'Outfit',sans-serif;letter-spacing:0.08em;text-transform:uppercase}
         .rdr-title{font-family:'Outfit',sans-serif;font-size:23px;font-weight:900;color:#fff;line-height:1.14;letter-spacing:-0.02em;margin:0 0 8px;display:block}
         a.rdr-title-link{text-decoration:none}
@@ -3591,15 +3566,13 @@ export default function HomeClient({ initialLatest, initialHero }: { initialLate
         /* ── Vieningas kortelės pabaigos blokas (footer) — vienas konteineris:
            konteksto eilutė (atlikėjas/lineup + ♥), skirtukas, veiksmų eilutė
            (pilno pločio CTA + „Bilietai"). Scrollinasi su turiniu. ── */
-        .rdr-foot{margin:22px 0 0;border-radius:18px;background:rgba(255,255,255,0.06);border:1px solid rgba(255,255,255,0.10);overflow:hidden}
+        .rdr-foot{margin:20px 0 0;border-radius:18px;background:rgba(255,255,255,0.06);border:1px solid rgba(255,255,255,0.10);overflow:hidden}
         .rdr-foot-ctx{display:flex;align-items:center;gap:10px;min-height:44px;padding:6px 10px}
         .rdr-foot-artist{display:inline-flex;align-items:center;gap:8px;text-decoration:none;min-width:0;flex:1}
         .rdr-foot-artist img,.rdr-foot-ph{width:30px;height:30px;border-radius:50%;object-fit:cover;flex-shrink:0;background:var(--accent-orange);display:flex;align-items:center;justify-content:center;color:#fff;font-weight:800;font-size:13px;text-transform:uppercase}
         .rdr-foot-artist span{font-size:13px;font-weight:700;color:#fff;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
         .rdr-foot-lineup{display:flex;align-items:center;gap:6px;overflow-x:auto;scrollbar-width:none;min-width:0;flex:1}
         .rdr-foot-lineup::-webkit-scrollbar{display:none}
-        .rdr-foot-like{margin-left:auto;width:38px;height:38px;flex-shrink:0;border-radius:12px;background:rgba(255,255,255,0.08);border:1px solid rgba(255,255,255,0.14);color:#fff;display:flex;align-items:center;justify-content:center;cursor:pointer;transition:background .2s}
-        .rdr-foot-like.on{background:rgba(244,63,94,0.16);border-color:rgba(244,63,94,0.4)}
         .rdr-foot-div{height:1px;background:rgba(255,255,255,0.08)}
         .rdr-foot-actions{display:flex;gap:8px;padding:10px}
         .rdr-foot-cta{flex:1;display:flex;align-items:center;justify-content:center;gap:7px;height:46px;border-radius:12px;background:var(--accent-orange);color:#fff;font-family:'Outfit',sans-serif;font-size:14.5px;font-weight:800;letter-spacing:-0.01em;text-decoration:none;min-width:0}
