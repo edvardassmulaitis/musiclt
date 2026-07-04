@@ -499,6 +499,25 @@ html, body {
   transition: background .25s ease, color .25s ease;
 }
 
+/* ── Fono „gylio" sluoksnis (dizaino elementas) ──
+   Subtilus, viewport'e fiksuotas šiltas švytėjimas iš viršaus (tarsi scenos
+   šviesa) — kad fonas nebūtų plokščia siena. Tamsoje aiškiau juntamas ir prideda
+   gylio; šviesoje — vos vos. Kompozuojamas ANT bazinės --bg-body spalvos, todėl
+   turinys/kortelės piešiasi virš jo įprastai. Lengvai keičiamas/išimamas. */
+[data-theme="dark"] body {
+  background:
+    radial-gradient(135% 52% at 50% -8%, rgba(249,115,22,0.06), transparent 58%),
+    linear-gradient(180deg, rgba(255,255,255,0.022), transparent 22%) fixed,
+    var(--bg-body);
+  background-attachment: fixed, fixed, fixed;
+}
+[data-theme="light"] body {
+  background:
+    radial-gradient(135% 50% at 50% -10%, rgba(234,108,10,0.035), transparent 58%) fixed,
+    var(--bg-body);
+  background-attachment: fixed, fixed;
+}
+
 /* ═══════════════════════════════════════════════════════════════════
    PAGE LAYOUT SYSTEM — vienos taisyklės VISIEMS puslapiams.
 
