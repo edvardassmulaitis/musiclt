@@ -327,11 +327,11 @@ export function HomeListContent({ type, lane = 'lt', onOpenTrack, onOpenAlbum, o
                     </div>
                     <div className="mt-2 px-0.5">
                       {validDate && (
-                        <p className="m-0 mb-0.5 font-['Outfit',sans-serif] text-[14px] font-extrabold uppercase tracking-[0.03em] text-[var(--accent-orange)]">
+                        <p className="m-0 mb-0.5 font-['Outfit',sans-serif] text-[16px] font-extrabold uppercase tracking-[0.03em] text-[var(--accent-orange)]">
                           {d!.getDate()} {MONTHS_LT[d!.getMonth()]}. {d!.getFullYear()}
                         </p>
                       )}
-                      <p className="m-0 line-clamp-2 font-['Outfit',sans-serif] text-[14px] font-extrabold leading-snug text-[var(--text-primary)] transition-colors group-hover:text-[var(--accent-orange)]">{label}</p>
+                      <p className="m-0 line-clamp-2 font-['Outfit',sans-serif] text-[16px] font-extrabold leading-snug text-[var(--text-primary)] transition-colors group-hover:text-[var(--accent-orange)]">{label}</p>
                       {venue && <p className="m-0 mt-1 truncate text-[14px] text-[var(--text-muted)]">{venue}</p>}
                     </div>
                   </Link>
@@ -382,7 +382,7 @@ export function HomeListContent({ type, lane = 'lt', onOpenTrack, onOpenAlbum, o
                           (Edvardo prašymu 2026-06-02 — vienoda su istorijos
                           albumų modalu). */}
                       {pop > 0 && <span className="mb-1 flex"><PopBar level={pop} /></span>}
-                      <p className="m-0 truncate font-['Outfit',sans-serif] text-[14px] font-extrabold text-[var(--text-primary)] transition-colors group-hover:text-[var(--accent-orange)]">{title}</p>
+                      <p className="m-0 truncate font-['Outfit',sans-serif] text-[16px] font-extrabold text-[var(--text-primary)] transition-colors group-hover:text-[var(--accent-orange)]">{title}</p>
                       <div className="mt-1 flex items-center gap-2">
                         <p className="m-0 min-w-0 flex-1 truncate text-[14px] text-[var(--text-muted)]">{artistName}</p>
                         {likes > 0 && (
@@ -435,7 +435,7 @@ export function HomeListContent({ type, lane = 'lt', onOpenTrack, onOpenAlbum, o
                     <button
                       type="button"
                       onClick={() => { onClose(); setTimeout(() => onOpenTrack?.(it), 40) }}
-                      className="m-0 block max-w-full truncate border-0 bg-transparent p-0 text-left font-['Outfit',sans-serif] text-[14px] font-extrabold text-[var(--text-primary)] transition-colors hover:text-[var(--accent-orange)]"
+                      className="m-0 block max-w-full truncate border-0 bg-transparent p-0 text-left font-['Outfit',sans-serif] text-[16px] font-extrabold text-[var(--text-primary)] transition-colors hover:text-[var(--accent-orange)]"
                     >
                       {title}
                     </button>

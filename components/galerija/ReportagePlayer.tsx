@@ -121,7 +121,7 @@ export default function ReportagePlayer({ items }: { items: PlaylistItem[] }) {
             </span>
           </span>
           <span className="min-w-0 flex-1">
-            <span className="block text-[14px] font-extrabold text-[var(--text-primary)]">Pasiklausyk atlikėjų</span>
+            <span className="block text-[16px] font-extrabold text-[var(--text-primary)]">Pasiklausyk atlikėjų</span>
             <span className="block truncate text-[14px] text-[var(--text-muted)]">{cur.artistName} ir kt. · {items.length} dainos</span>
           </span>
           <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="var(--accent-orange)" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round" className="flex-none"><path d="m9 18 6-6-6-6" /></svg>

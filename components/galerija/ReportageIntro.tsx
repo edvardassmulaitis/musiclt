@@ -60,7 +60,7 @@ export default function ReportageIntro({ html }: { html: string }) {
           <div className="absolute inset-0 bg-black/55 backdrop-blur-sm" onClick={() => setOpen(false)} />
           <div className="relative z-10 max-h-[85vh] w-full max-w-2xl overflow-hidden rounded-t-2xl bg-[var(--bg-surface)] shadow-2xl sm:rounded-2xl">
             <div className="flex items-center justify-between border-b border-[var(--border-default)] px-5 py-3">
-              <span className="font-['Outfit',sans-serif] text-[14px] font-extrabold uppercase tracking-[0.12em] text-[var(--accent-orange)]">Reportažas</span>
+              <span className="font-['Outfit',sans-serif] text-[16px] font-extrabold uppercase tracking-[0.12em] text-[var(--accent-orange)]">Reportažas</span>
               <button onClick={() => setOpen(false)} aria-label="Uždaryti" className="flex h-8 w-8 items-center justify-center rounded-full text-[var(--text-muted)] hover:bg-[var(--bg-hover)] hover:text-[var(--text-primary)]">
                 <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.4" strokeLinecap="round"><line x1="18" y1="6" x2="6" y2="18" /><line x1="6" y1="6" x2="18" y2="18" /></svg>
               </button>

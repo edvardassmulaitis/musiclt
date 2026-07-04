@@ -610,7 +610,7 @@ function StyleSection({ coll, styles, setStyles, meterRaw, onStyleReorder, onUnl
         </div>
       ) : dist.length > 0 ? (
         <div className="mb-5 rounded-2xl p-4 sm:p-5" style={{ background: 'var(--bg-surface)', border: '1px solid var(--border-default)' }}>
-          <div className="text-[14px] font-extrabold uppercase tracking-[0.2em] mb-3" style={{ color: 'var(--accent-orange)' }}>Muzikinis skonis <span className="font-medium normal-case tracking-normal" style={{ color: 'var(--text-muted)' }}>· spustelėk ir tvarkyk to stiliaus topą</span></div>
+          <div className="text-[16px] font-extrabold uppercase tracking-[0.2em] mb-3" style={{ color: 'var(--accent-orange)' }}>Muzikinis skonis <span className="font-medium normal-case tracking-normal" style={{ color: 'var(--text-muted)' }}>· spustelėk ir tvarkyk to stiliaus topą</span></div>
           <StyleLedBars top={top} maxCount={maxCount} selName={broadSelName} onPick={(name) => setSel(broadSelName === name ? null : makeBroad(name))} colorOf={colorOf} />
         </div>
       ) : (

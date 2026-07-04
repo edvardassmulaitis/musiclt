@@ -409,7 +409,7 @@ export function TrackInfoModal({
         className="max-h-[80vh] w-full max-w-[520px] overflow-auto rounded-2xl border border-[var(--border-default)] bg-[var(--bg-surface)]"
       >
         <div className="flex items-center justify-between border-b border-[var(--border-subtle)] px-4 py-3">
-          <div className="font-['Outfit',sans-serif] text-[14px] font-extrabold">
+          <div className="font-['Outfit',sans-serif] text-[16px] font-extrabold">
             Dainą mėgstantys nariai
             {likersUsers && <span className="ml-2 text-[14px] text-[var(--text-muted)]">({likersUsers.length})</span>}
           </div>
@@ -672,7 +672,7 @@ export function TrackInfoModal({
                       </span>
                       <div className="min-w-0 flex-1">
                         <div className="font-['Outfit',sans-serif] text-[12px] font-extrabold uppercase tracking-[0.14em] text-[var(--text-muted)]">Iš albumo</div>
-                        <div className="truncate font-['Outfit',sans-serif] text-[14px] font-extrabold leading-tight text-[var(--text-primary)] group-hover:text-[var(--accent-orange)]">{primaryAlbum.title}</div>
+                        <div className="truncate font-['Outfit',sans-serif] text-[16px] font-extrabold leading-tight text-[var(--text-primary)] group-hover:text-[var(--accent-orange)]">{primaryAlbum.title}</div>
                         {primaryAlbum.year && (
                           <div className="text-[14px] font-semibold text-[var(--text-muted)]">{primaryAlbum.year} m.</div>
                         )}
@@ -706,7 +706,7 @@ export function TrackInfoModal({
                                 )}
                               </span>
                               <span className="min-w-0 flex-1">
-                                <span className="block truncate font-['Outfit',sans-serif] text-[14px] font-extrabold leading-tight text-[var(--text-primary)]">{t.title}</span>
+                                <span className="block truncate font-['Outfit',sans-serif] text-[16px] font-extrabold leading-tight text-[var(--text-primary)]">{t.title}</span>
                                 <span className="block truncate font-['Outfit',sans-serif] text-[12px] font-semibold text-[var(--text-faint)]">{t.artistName}</span>
                               </span>
                             </Link>
@@ -821,7 +821,7 @@ export function TrackInfoModal({
                 {lyricsText ? (
                   <>
                     <div className="mb-4 flex items-baseline gap-2">
-                      <div className="font-['Outfit',sans-serif] text-[14px] font-extrabold uppercase tracking-[0.18em] text-[var(--text-muted)]">
+                      <div className="font-['Outfit',sans-serif] text-[16px] font-extrabold uppercase tracking-[0.18em] text-[var(--text-muted)]">
                         Dainos tekstas
                       </div>
                       <span className="font-['Outfit',sans-serif] text-[12px] font-extrabold uppercase tracking-wider text-[var(--accent-orange)]">
@@ -832,12 +832,12 @@ export function TrackInfoModal({
                   </>
                 ) : lyricsSubmitted ? (
                   <div className="rounded-xl border border-[var(--border-subtle)] bg-[var(--bg-elevated)] px-4 py-8 text-center">
-                    <div className="text-[14px] font-extrabold text-[var(--text-primary)]">Ačiū! Tekstas išsiųstas peržiūrai.</div>
+                    <div className="text-[16px] font-extrabold text-[var(--text-primary)]">Ačiū! Tekstas išsiųstas peržiūrai.</div>
                     <div className="mt-1 text-[14px] text-[var(--text-muted)]">Administratoriui patvirtinus, jis atsiras čia.</div>
                   </div>
                 ) : isLoggedIn ? (
                   <div>
-                    <div className="mb-3 font-['Outfit',sans-serif] text-[14px] font-extrabold uppercase tracking-[0.18em] text-[var(--text-muted)]">
+                    <div className="mb-3 font-['Outfit',sans-serif] text-[16px] font-extrabold uppercase tracking-[0.18em] text-[var(--text-muted)]">
                       Dainos tekstas
                     </div>
                     <p className="mb-2 text-[14px] leading-[1.5] text-[var(--text-muted)]">
@@ -855,16 +855,16 @@ export function TrackInfoModal({
                       type="button"
                       onClick={submitLyrics}
                       disabled={lyricsSubmitting}
-                      className="mt-2 rounded-xl bg-[var(--accent-orange)] px-4 py-2 font-['Outfit',sans-serif] text-[14px] font-extrabold text-white disabled:opacity-50"
+                      className="mt-2 rounded-xl bg-[var(--accent-orange)] px-4 py-2 font-['Outfit',sans-serif] text-[16px] font-extrabold text-white disabled:opacity-50"
                     >
                       {lyricsSubmitting ? 'Siunčiama…' : 'Pasiūlyti tekstą'}
                     </button>
                   </div>
                 ) : (
                   <div className="rounded-xl border border-dashed border-[var(--border-subtle)] bg-[var(--bg-elevated)] px-4 py-8 text-center">
-                    <div className="text-[14px] font-extrabold text-[var(--text-primary)]">Šios dainos teksto dar nėra</div>
+                    <div className="text-[16px] font-extrabold text-[var(--text-primary)]">Šios dainos teksto dar nėra</div>
                     <p className="mt-1 text-[14px] text-[var(--text-muted)]">Prisijunk, kad galėtum pasiūlyti tekstą.</p>
-                    <Link href="/auth/signin" className="mt-3 inline-block rounded-xl bg-[var(--accent-orange)] px-4 py-2 font-['Outfit',sans-serif] text-[14px] font-extrabold text-white no-underline">Prisijungti</Link>
+                    <Link href="/auth/signin" className="mt-3 inline-block rounded-xl bg-[var(--accent-orange)] px-4 py-2 font-['Outfit',sans-serif] text-[16px] font-extrabold text-white no-underline">Prisijungti</Link>
                   </div>
                 )}
                 {/* Susijusi muzika — mobile (cross-artist, kaip desktop'e).

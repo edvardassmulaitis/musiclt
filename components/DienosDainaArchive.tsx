@@ -201,7 +201,7 @@ export default function DienosDainaArchive() {
                   <button type="button" onClick={() => toggle(w)} className="flex min-w-0 flex-1 cursor-pointer items-center gap-3 border-0 bg-transparent p-0 text-left">
                     <div className="min-w-0 flex-1">
                       <div className="flex items-center gap-1.5">
-                        <span className="truncate font-['Outfit',sans-serif] text-[14px] font-extrabold text-[var(--text-primary)]">{sani(t.title)}</span>
+                        <span className="truncate font-['Outfit',sans-serif] text-[16px] font-extrabold text-[var(--text-primary)]">{sani(t.title)}</span>
                       </div>
                       <span className="block truncate text-[14px] text-[var(--text-muted)]">{t.artists?.name}</span>
                       <div className="mt-0.5 flex flex-wrap items-center gap-x-2 gap-y-0.5 text-[14px] text-[var(--text-faint,var(--text-muted))]">
@@ -268,7 +268,7 @@ export default function DienosDainaArchive() {
 
           {hasMore && (
             <button type="button" onClick={loadMore} disabled={loadingMore}
-              className="mt-2 self-center rounded-full border border-[var(--border-default)] bg-[var(--bg-surface)] px-6 py-2.5 font-['Outfit',sans-serif] text-[14px] font-extrabold text-[var(--text-primary)] transition-colors hover:border-[var(--accent-orange)] hover:text-[var(--accent-orange)] disabled:opacity-50">
+              className="mt-2 self-center rounded-full border border-[var(--border-default)] bg-[var(--bg-surface)] px-6 py-2.5 font-['Outfit',sans-serif] text-[16px] font-extrabold text-[var(--text-primary)] transition-colors hover:border-[var(--accent-orange)] hover:text-[var(--accent-orange)] disabled:opacity-50">
               {loadingMore ? 'Kraunama…' : 'Rodyti daugiau'}
             </button>
           )}

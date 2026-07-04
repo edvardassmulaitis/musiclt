@@ -73,7 +73,7 @@ export function MusicTasteShowcase({ favoriteStyles, musicMeter }: Props) {
 
             {/* Eyebrow + meta */}
             <div className="flex items-center justify-between mb-6 sm:mb-10">
-              <div className="text-[12px] sm:text-[14px] font-extrabold uppercase tracking-[0.22em] text-[#f97316]" style={{ fontFamily: "'Outfit', sans-serif" }}>
+              <div className="text-[12px] sm:text-[16px] font-extrabold uppercase tracking-[0.22em] text-[#f97316]" style={{ fontFamily: "'Outfit', sans-serif" }}>
                 Muzikinis skonis
               </div>
               <div className="text-[12px] sm:text-[14px] text-[#5e7290] font-bold uppercase tracking-wider" style={{ fontFamily: "'Outfit', sans-serif" }}>

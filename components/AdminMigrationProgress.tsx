@@ -103,7 +103,7 @@ export default function AdminMigrationProgress() {
       >
         <div className="flex items-baseline gap-2">
           <span className="text-base">📊</span>
-          <h2 className="font-['Outfit',sans-serif] text-[14px] font-extrabold uppercase tracking-[0.1em] text-[var(--text-primary)]">
+          <h2 className="font-['Outfit',sans-serif] text-[16px] font-extrabold uppercase tracking-[0.1em] text-[var(--text-primary)]">
             Migracijos progresas
           </h2>
           {totalPct > 0 && (

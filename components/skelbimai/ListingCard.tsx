@@ -87,8 +87,8 @@ export function ListingCard({ listing }: { listing: Listing }) {
 
       {/* Turinys */}
       <div className="flex flex-1 flex-col p-3">
-        <p className="m-0 line-clamp-2 font-['Outfit',sans-serif] text-[14px] font-extrabold leading-snug text-[var(--text-primary)] transition-colors group-hover:text-[var(--accent-orange)]">{listing.title}</p>
-        {price && <p className="m-0 mt-1.5 font-['Outfit',sans-serif] text-[14px] font-extrabold text-[var(--accent-green)]">{price}</p>}
+        <p className="m-0 line-clamp-2 font-['Outfit',sans-serif] text-[16px] font-extrabold leading-snug text-[var(--text-primary)] transition-colors group-hover:text-[var(--accent-orange)]">{listing.title}</p>
+        {price && <p className="m-0 mt-1.5 font-['Outfit',sans-serif] text-[16px] font-extrabold text-[var(--accent-green)]">{price}</p>}
 
         <div className="mt-auto flex items-center gap-2 pt-2.5">
           {artist?.cover_image_url ? (

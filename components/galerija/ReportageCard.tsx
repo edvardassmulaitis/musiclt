@@ -47,7 +47,7 @@ export function ReportageCard({ r, priority = false }: { r: Reportage; priority?
       </div>
       <div className="p-3.5">
         {r.artistName && (
-          <div className="mb-1 truncate font-['Outfit',sans-serif] text-[14px] font-extrabold uppercase tracking-[0.12em] text-[var(--accent-orange)]">
+          <div className="mb-1 truncate font-['Outfit',sans-serif] text-[16px] font-extrabold uppercase tracking-[0.12em] text-[var(--accent-orange)]">
             {r.artistName}
           </div>
         )}

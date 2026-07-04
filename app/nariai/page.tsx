@@ -39,7 +39,7 @@ function MemberCard({ m }: { m: Member }) {
           {m.isNew && <span title="Naujas narys" className="absolute -bottom-0.5 -right-0.5 h-3 w-3 rounded-full border-2 border-[var(--card-bg)] bg-[#22c55e]" />}
         </div>
         <div className="min-w-0 flex-1">
-          <p className="m-0 truncate font-['Outfit',sans-serif] text-[14px] font-extrabold text-[var(--text-primary)] group-hover:text-[var(--accent-orange)]">{m.username}</p>
+          <p className="m-0 truncate font-['Outfit',sans-serif] text-[16px] font-extrabold text-[var(--text-primary)] group-hover:text-[var(--accent-orange)]">{m.username}</p>
           {m.isNew ? (
             <p className="m-0 text-[12px] font-bold uppercase tracking-[0.08em] text-[#22c55e]">naujas narys</p>
           ) : m.headline ? (

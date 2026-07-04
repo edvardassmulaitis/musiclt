@@ -339,7 +339,7 @@ function DienosDainaWidget() {
         </div>
         <Link
           href="/dienos-daina"
-          className="shrink-0 rounded-[20px] bg-[var(--accent-orange)] px-3.5 py-[7px] text-[14px] font-extrabold text-white no-underline shadow-[0_3px_14px_rgba(249,115,22,0.35)] transition-transform hover:-translate-y-px"
+          className="shrink-0 rounded-[20px] bg-[var(--accent-orange)] px-3.5 py-[7px] text-[16px] font-extrabold text-white no-underline shadow-[0_3px_14px_rgba(249,115,22,0.35)] transition-transform hover:-translate-y-px"
         >
           Balsuoti
         </Link>
@@ -520,7 +520,7 @@ function ZmonesSection() {
           </div>
         )) : items.length === 0 ? (
           <div className="hp-card flex shrink-0 flex-col justify-center px-4 py-3" style={{ width: 360 }}>
-            <p className="m-0 font-['Outfit',sans-serif] text-[14px] font-extrabold text-[var(--text-primary)]">Žmonių zona — netrukus</p>
+            <p className="m-0 font-['Outfit',sans-serif] text-[16px] font-extrabold text-[var(--text-primary)]">Žmonių zona — netrukus</p>
             <p className="m-0 mt-1 text-[14px] text-[var(--text-muted)]">
               Čia atsiras autorių blogai, vertimai, kūryba ir aktyviausios diskusijos. Pirmas tampi autoriumi <Link href="/blogai/naujas" className="text-[var(--accent-link)] no-underline">čia</Link>.
             </p>
@@ -542,7 +542,7 @@ function ZmonesSection() {
               )}
               <span className="ml-auto text-[12px] text-[var(--text-faint)]">{timeAgo(it.created_at)}</span>
             </div>
-            <p className="m-0 line-clamp-2 font-['Outfit',sans-serif] text-[14px] font-extrabold leading-snug text-[var(--text-primary)] transition-colors group-hover:text-[var(--accent-orange)]">
+            <p className="m-0 line-clamp-2 font-['Outfit',sans-serif] text-[16px] font-extrabold leading-snug text-[var(--text-primary)] transition-colors group-hover:text-[var(--accent-orange)]">
               {it.title}
             </p>
             {it.excerpt && (
@@ -1373,7 +1373,7 @@ function ChartVoteCTA({ className = '' }: { className?: string }) {
   return (
     <Link
       href="/top40"
-      className={`mt-2.5 flex items-center justify-center rounded-[10px] bg-[var(--accent-orange)] p-2.5 font-['Outfit',sans-serif] text-[14px] font-extrabold text-white no-underline shadow-[0_2px_12px_rgba(249,115,22,0.3)] transition-all hover:-translate-y-px hover:shadow-[0_4px_18px_rgba(249,115,22,0.45)] ${className}`}
+      className={`mt-2.5 flex items-center justify-center rounded-[10px] bg-[var(--accent-orange)] p-2.5 font-['Outfit',sans-serif] text-[16px] font-extrabold text-white no-underline shadow-[0_2px_12px_rgba(249,115,22,0.3)] transition-all hover:-translate-y-px hover:shadow-[0_4px_18px_rgba(249,115,22,0.45)] ${className}`}
     >
       Balsuok
     </Link>
@@ -1412,7 +1412,7 @@ function CommunityDiscussionsCard() {
   return (
     <div className="flex h-full flex-col overflow-hidden rounded-2xl border border-[var(--border-default)] bg-[var(--bg-surface)]">
       <div className="flex shrink-0 items-center justify-between border-b border-[var(--border-subtle)] px-4 py-2.5">
-        <span className="font-['Outfit',sans-serif] text-[14px] font-extrabold text-[var(--text-primary)]">Diskusijos</span>
+        <span className="font-['Outfit',sans-serif] text-[16px] font-extrabold text-[var(--text-primary)]">Diskusijos</span>
         <Link href="/diskusijos" className="text-[14px] font-bold text-[var(--accent-link)] no-underline">Visos →</Link>
       </div>
       <div className="flex-1 overflow-y-auto">
@@ -1455,7 +1455,7 @@ function CommunityChatCard() {
   return (
     <div className="flex h-full flex-col overflow-hidden rounded-2xl border border-[var(--border-default)] bg-[var(--bg-surface)]">
       <div className="flex items-center justify-between border-b border-[var(--border-subtle)] px-4 py-3">
-        <span className="font-['Outfit',sans-serif] text-[14px] font-extrabold text-[var(--text-primary)]">Pokalbiai</span>
+        <span className="font-['Outfit',sans-serif] text-[16px] font-extrabold text-[var(--text-primary)]">Pokalbiai</span>
         <Link href="/pokalbiai" className="text-[14px] font-bold text-[var(--accent-link)] no-underline">Atidaryti →</Link>
       </div>
       <div className="flex-1 overflow-hidden">
@@ -1500,7 +1500,7 @@ function CommunityUserPostsCard() {
   return (
     <div className="flex h-full flex-col overflow-hidden rounded-2xl border border-[var(--border-default)] bg-[var(--bg-surface)]">
       <div className="flex items-center justify-between border-b border-[var(--border-subtle)] px-4 py-3">
-        <span className="font-['Outfit',sans-serif] text-[14px] font-extrabold text-[var(--text-primary)]">Vartotojų įrašai</span>
+        <span className="font-['Outfit',sans-serif] text-[16px] font-extrabold text-[var(--text-primary)]">Vartotojų įrašai</span>
         <Link href="/blogai" className="text-[14px] font-bold text-[var(--accent-link)] no-underline">Visi →</Link>
       </div>
       <div className="flex-1">
@@ -1660,7 +1660,7 @@ function IstorijaSection({ onOpenAlbum }: { onOpenAlbum?: (id: number, preview: 
   if (items.length === 0) {
     return (
       <div className="hp-card flex flex-col items-center justify-center p-6 text-center" style={{ minHeight: 130 }}>
-        <p className="m-0 font-['Outfit',sans-serif] text-[14px] font-extrabold text-[var(--text-primary)]">Šiandien istorijos kalendoriuje tylu</p>
+        <p className="m-0 font-['Outfit',sans-serif] text-[16px] font-extrabold text-[var(--text-primary)]">Šiandien istorijos kalendoriuje tylu</p>
         <p className="m-0 mt-1 text-[14px] text-[var(--text-muted)]">Nepamiršk — kiekvieną dieną čia atsiras gimtadieniai, jubiliejai ir sukaktys.</p>
       </div>
     )
@@ -1693,7 +1693,7 @@ function IstorijaSection({ onOpenAlbum }: { onOpenAlbum?: (id: number, preview: 
               <div className="mb-2.5 flex items-center justify-between gap-2">
                 <div className="flex items-center gap-2">
                   <span style={{ width: 3, height: 16, borderRadius: 2, background: accent }} />
-                  <h3 className="m-0 font-['Outfit',sans-serif] text-[14px] font-extrabold tracking-[-0.01em] text-[var(--text-primary)]">{cfg.label}</h3>
+                  <h3 className="m-0 font-['Outfit',sans-serif] text-[16px] font-extrabold tracking-[-0.01em] text-[var(--text-primary)]">{cfg.label}</h3>
                   <span className="text-[14px] font-bold text-[var(--text-faint)]">{list.length}</span>
                 </div>
                 <button type="button" onClick={() => setOpenCat(t)} aria-label={`Daugiau: ${cfg.label}`} className="font-['Outfit',sans-serif] text-[14px] font-bold text-[var(--accent-orange)] transition-opacity hover:opacity-70">Daugiau →</button>
@@ -1734,7 +1734,7 @@ function IstorijaSection({ onOpenAlbum }: { onOpenAlbum?: (id: number, preview: 
                     // Tekstinė dalis po cover'iu (skiriasi pagal tipą).
                     const textBlock = (
                       <div className="mt-2 px-0.5">
-                        <p className={`m-0 font-['Outfit',sans-serif] text-[14px] font-extrabold leading-snug text-[var(--text-primary)] transition-colors group-hover:text-[var(--accent-orange)] ${it.type === 'album_anniversary' ? 'truncate' : 'line-clamp-2'}`}>{it.title}</p>
+                        <p className={`m-0 font-['Outfit',sans-serif] text-[16px] font-extrabold leading-snug text-[var(--text-primary)] transition-colors group-hover:text-[var(--accent-orange)] ${it.type === 'album_anniversary' ? 'truncate' : 'line-clamp-2'}`}>{it.title}</p>
                         {it.type === 'album_anniversary' && it.artist && (
                           <p className="m-0 mt-1 truncate text-[14px] text-[var(--text-muted)]">{it.artist}</p>
                         )}
@@ -1794,7 +1794,7 @@ function IstorijaSection({ onOpenAlbum }: { onOpenAlbum?: (id: number, preview: 
                 </div>
                 <div className="mt-2 px-0.5">
                   {(it.pop ?? 0) > 0 && <span className="mb-1 flex"><IstPopBar level={it.pop} /></span>}
-                  <p className="m-0 truncate font-['Outfit',sans-serif] text-[14px] font-extrabold text-[var(--text-primary)] transition-colors group-hover:text-[var(--accent-orange)]">{it.title}</p>
+                  <p className="m-0 truncate font-['Outfit',sans-serif] text-[16px] font-extrabold text-[var(--text-primary)] transition-colors group-hover:text-[var(--accent-orange)]">{it.title}</p>
                   <div className="mt-1 flex items-center gap-2">
                     <p className="m-0 min-w-0 flex-1 truncate text-[14px] text-[var(--text-muted)]">{it.artist}</p>
                     {(it.likeCount ?? 0) > 0 && (
@@ -1820,7 +1820,7 @@ function IstorijaSection({ onOpenAlbum }: { onOpenAlbum?: (id: number, preview: 
               >
                 <IstThumb cover={it.cover} name={it.title} size={52} radius={10} gray={it.type === 'death_anniversary' || it.deceased} />
                 <div className="min-w-0 flex-1">
-                  <p className="m-0 line-clamp-1 font-['Outfit',sans-serif] text-[14px] font-extrabold text-[var(--text-primary)] transition-colors group-hover:text-[var(--accent-orange)]">{it.title}</p>
+                  <p className="m-0 line-clamp-1 font-['Outfit',sans-serif] text-[16px] font-extrabold text-[var(--text-primary)] transition-colors group-hover:text-[var(--accent-orange)]">{it.title}</p>
                   {it.type === 'death_anniversary' && it.subtitle && (
                     <p className="m-0 mt-0.5 line-clamp-1 text-[14px] text-[var(--text-muted)]">{it.subtitle}</p>
                   )}
@@ -3911,7 +3911,7 @@ export default function HomeClient({ initialLatest, initialHero }: { initialLate
                           {rel && (<span className={`absolute bottom-1.5 right-1.5 rounded px-1.5 py-0.5 font-['Outfit',sans-serif] text-[12px] font-bold backdrop-blur-sm ${highlight ? 'bg-[var(--accent-orange)] text-white' : 'bg-black/70 text-white'}`}>{rel}</span>)}
                           {isFresh24(t.created_at) && <FreshDot />}
                         </div>
-                        <p className="m-0 mt-1.5 truncate font-['Outfit',sans-serif] text-[14px] font-extrabold text-[var(--text-primary)] transition-colors group-hover:text-[var(--accent-orange)]">{sanitizeTitle(t.title)}</p>
+                        <p className="m-0 mt-1.5 truncate font-['Outfit',sans-serif] text-[16px] font-extrabold text-[var(--text-primary)] transition-colors group-hover:text-[var(--accent-orange)]">{sanitizeTitle(t.title)}</p>
                         <p className="m-0 truncate text-[14px] text-[var(--text-muted)]">{t.artists?.name}</p>
                       </button>
                     )
@@ -3921,7 +3921,7 @@ export default function HomeClient({ initialLatest, initialHero }: { initialLate
                       {boxes.map(box => (
                         <div key={box.lane} className={`rounded-2xl border border-[var(--border-subtle)] bg-[var(--bg-surface)] p-4 border-t-[3px] ${box.lane === 'lt' ? 'border-t-[var(--accent-orange)]' : 'border-t-[var(--accent-blue)]'}`}>
                           <div className="mb-3 flex items-center justify-between">
-                            <span className="font-['Outfit',sans-serif] text-[14px] font-extrabold text-[var(--text-primary)]">{box.label}</span>
+                            <span className="font-['Outfit',sans-serif] text-[16px] font-extrabold text-[var(--text-primary)]">{box.label}</span>
                             <button type="button" onClick={() => setListModal(`tracks-${box.lane}`)} className={`font-['Outfit',sans-serif] text-[14px] font-bold transition-opacity hover:opacity-70 ${box.lane === 'lt' ? 'text-[var(--accent-orange)]' : 'text-[var(--accent-blue)]'}`}>Daugiau →</button>
                           </div>
                           <div className="flex gap-3 overflow-x-auto pb-1 [scrollbar-width:none] [&::-webkit-scrollbar]:hidden lg:grid lg:gap-3 lg:overflow-visible lg:pb-0 lg:grid-cols-3">
@@ -3966,7 +3966,7 @@ export default function HomeClient({ initialLatest, initialHero }: { initialLate
                           {label && (<span className={`absolute bottom-1 right-1 rounded px-1.5 py-0.5 font-['Outfit',sans-serif] text-[12px] font-bold backdrop-blur-sm ${highlight ? 'bg-[var(--accent-orange)] text-white' : 'bg-black/70 text-white'}`}>{label}</span>)}
                           {isFresh24(a.created_at) && <FreshDot />}
                         </div>
-                        <p className="m-0 mt-1.5 truncate font-['Outfit',sans-serif] text-[14px] font-extrabold text-[var(--text-primary)] transition-colors group-hover:text-[var(--accent-orange)]">{sanitizeTitle(a.title)}</p>
+                        <p className="m-0 mt-1.5 truncate font-['Outfit',sans-serif] text-[16px] font-extrabold text-[var(--text-primary)] transition-colors group-hover:text-[var(--accent-orange)]">{sanitizeTitle(a.title)}</p>
                         <p className="m-0 truncate text-[12px] text-[var(--text-muted)]">{a.artists?.name}</p>
                       </button>
                     )
@@ -3976,7 +3976,7 @@ export default function HomeClient({ initialLatest, initialHero }: { initialLate
                       {boxes.map(box => (
                         <div key={box.lane} className={`rounded-2xl border border-[var(--border-subtle)] bg-[var(--bg-surface)] p-4 border-t-[3px] ${box.lane === 'lt' ? 'border-t-[var(--accent-orange)]' : 'border-t-[var(--accent-blue)]'}`}>
                           <div className="mb-3 flex items-center justify-between">
-                            <span className="font-['Outfit',sans-serif] text-[14px] font-extrabold text-[var(--text-primary)]">{box.label}</span>
+                            <span className="font-['Outfit',sans-serif] text-[16px] font-extrabold text-[var(--text-primary)]">{box.label}</span>
                             <button type="button" onClick={() => setListModal(`albums-${box.lane}`)} className={`font-['Outfit',sans-serif] text-[14px] font-bold transition-opacity hover:opacity-70 ${box.lane === 'lt' ? 'text-[var(--accent-orange)]' : 'text-[var(--accent-blue)]'}`}>Daugiau →</button>
                           </div>
                           <div className="flex gap-3 overflow-x-auto pb-1 [scrollbar-width:none] [&::-webkit-scrollbar]:hidden lg:grid lg:gap-3 lg:overflow-visible lg:pb-0 lg:grid-cols-3">
@@ -4037,7 +4037,7 @@ export default function HomeClient({ initialLatest, initialHero }: { initialLate
                             {isFresh24((a as any).created_at) && <FreshDot />}
                           </div>
                           <div className="mt-2 px-0.5">
-                            <p className="m-0 truncate font-['Outfit',sans-serif] text-[14px] font-extrabold text-[var(--text-primary)] transition-colors group-hover:text-[var(--accent-orange)]">
+                            <p className="m-0 truncate font-['Outfit',sans-serif] text-[16px] font-extrabold text-[var(--text-primary)] transition-colors group-hover:text-[var(--accent-orange)]">
                               {sanitizeTitle(a.title)}
                             </p>
                             <p className="m-0 mt-1 truncate text-[14px] text-[var(--text-muted)]">
@@ -4331,7 +4331,7 @@ export default function HomeClient({ initialLatest, initialHero }: { initialLate
                       )}
                     </div>
                     <div className="flex min-w-0 flex-1 flex-col justify-center px-3 py-2.5">
-                      <p className="m-0 line-clamp-3 font-['Outfit',sans-serif] text-[14px] font-extrabold leading-snug text-[var(--text-primary)]">{sanitizeTitle(n.title)}</p>
+                      <p className="m-0 line-clamp-3 font-['Outfit',sans-serif] text-[16px] font-extrabold leading-snug text-[var(--text-primary)]">{sanitizeTitle(n.title)}</p>
                       {n.artist?.name && <p className="m-0 mt-1 truncate text-[14px] text-[var(--text-muted)]">{n.artist.name}</p>}
                     </div>
                   </Link>

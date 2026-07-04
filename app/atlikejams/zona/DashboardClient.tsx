@@ -76,7 +76,7 @@ export default function DashboardClient({ artist, genres, songs, photos, events,
   const fld = 'flex-1 min-w-0 flex items-center gap-2 rounded-xl border border-[var(--border-default)] bg-[var(--bg-surface)] px-3 py-2.5'
   const inp = 'flex-1 min-w-0 bg-transparent outline-none text-sm text-[var(--text-primary)] placeholder:text-[var(--text-faint)]'
   const addb = 'shrink-0 inline-flex items-center gap-1.5 rounded-xl bg-[#f97316] px-4 text-sm font-bold text-white font-[Outfit,sans-serif] disabled:opacity-60'
-  const gt = "mt-7 mb-3 flex items-center gap-2 text-[14px] font-extrabold uppercase tracking-wider text-[var(--text-faint)] font-[Outfit,sans-serif]"
+  const gt = "mt-7 mb-3 flex items-center gap-2 text-[16px] font-extrabold uppercase tracking-wider text-[var(--text-faint)] font-[Outfit,sans-serif]"
 
   return (
     <div>

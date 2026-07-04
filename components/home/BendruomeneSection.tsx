@@ -300,7 +300,7 @@ function BlogCard({ it }: { it: CommunityItem }) {
       <Badge meta={meta} />
       <Cover url={it.cover} alt={it.author_name || it.title} hue={h} iconType={isCreative ? it.subtype! : 'blog'} />
       <div className="flex min-h-0 flex-1 flex-col gap-1.5 px-3 pb-2 pt-2.5">
-        <p className="m-0 line-clamp-2 text-[14px] font-extrabold leading-snug text-[var(--text-primary)] transition-colors group-hover:text-[var(--accent-orange)]"
+        <p className="m-0 line-clamp-2 text-[16px] font-extrabold leading-snug text-[var(--text-primary)] transition-colors group-hover:text-[var(--accent-orange)]"
            style={{ fontFamily: "'Outfit',sans-serif" }}>{it.title}</p>
         {isCreative ? (
           // Eilėraštis — tikros eilutės (poem_lines), kiekviena atskiroje eilutėje.
@@ -334,7 +334,7 @@ function TopasCard({ it }: { it: CommunityItem }) {
     <Link href={it.href} className="hp-card group relative flex flex-col overflow-hidden p-0 no-underline" style={{ width: CARD_W, minHeight: CARD_MIN_H, flexShrink: 0 }}>
       <Badge meta={meta} />
       <div className="flex flex-col gap-1 px-3 pb-1 pt-9">
-        <p className="m-0 line-clamp-2 text-[14px] font-extrabold leading-snug text-[var(--text-primary)] transition-colors group-hover:text-[var(--accent-orange)]"
+        <p className="m-0 line-clamp-2 text-[16px] font-extrabold leading-snug text-[var(--text-primary)] transition-colors group-hover:text-[var(--accent-orange)]"
            style={{ fontFamily: "'Outfit',sans-serif" }}>{it.title}</p>
         {entries.length > 0 && (
           <div className="mt-1 flex flex-col">
@@ -395,7 +395,7 @@ function DiscCard({ it }: { it: CommunityItem }) {
         <div className="px-3 pt-3"><span className="rounded-[7px] px-2 py-1 font-['Outfit',sans-serif] text-[12px] font-extrabold uppercase tracking-[0.08em] text-white" style={{ background: meta.color }}>{meta.label}</span></div>
       )}
       <div className="flex flex-col gap-1.5 px-3 pb-3 pt-2.5">
-        <p className="m-0 line-clamp-2 text-[14px] font-extrabold leading-snug text-[var(--text-primary)] transition-colors group-hover:text-[var(--accent-orange)]"
+        <p className="m-0 line-clamp-2 text-[16px] font-extrabold leading-snug text-[var(--text-primary)] transition-colors group-hover:text-[var(--accent-orange)]"
            style={{ fontFamily: "'Outfit',sans-serif" }}>{it.title}</p>
         {comments.map((c, i) => (
           <CommentBubbleEl key={i} c={c} clamp={comments.length > 1 ? 3 : 4} />
@@ -419,10 +419,10 @@ function AtradimasCard({ it }: { it: CommunityItem }) {
       <Cover url={it.cover} alt={artistName} hue={h} iconType="atradimas" />
       <div className="flex flex-col gap-1 px-3 pb-2 pt-2.5">
         {trackName ? (
-          <p className="m-0 line-clamp-2 text-[14px] font-extrabold leading-snug text-[var(--text-primary)] transition-colors group-hover:text-[var(--accent-orange)]"
+          <p className="m-0 line-clamp-2 text-[16px] font-extrabold leading-snug text-[var(--text-primary)] transition-colors group-hover:text-[var(--accent-orange)]"
              style={{ fontFamily: "'Outfit',sans-serif" }}>{trackName}</p>
         ) : (
-          <p className="m-0 line-clamp-2 text-[14px] font-extrabold leading-snug text-[var(--text-primary)] transition-colors group-hover:text-[var(--accent-orange)]"
+          <p className="m-0 line-clamp-2 text-[16px] font-extrabold leading-snug text-[var(--text-primary)] transition-colors group-hover:text-[var(--accent-orange)]"
              style={{ fontFamily: "'Outfit',sans-serif" }}>{it.title}</p>
         )}
         {artistName && trackName && (

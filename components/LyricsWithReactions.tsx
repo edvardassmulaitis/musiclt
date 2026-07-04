@@ -498,7 +498,7 @@ export default function LyricsWithReactions({ trackId, lyrics, compact = false }
                   type="button"
                   onClick={submitComment}
                   disabled={saving || !draft.trim()}
-                  className="self-end inline-flex items-center gap-1 rounded-full bg-[var(--accent-orange)] px-3 py-1.5 font-['Outfit',sans-serif] text-[14px] font-extrabold text-white transition-opacity hover:opacity-90 disabled:opacity-40"
+                  className="self-end inline-flex items-center gap-1 rounded-full bg-[var(--accent-orange)] px-3 py-1.5 font-['Outfit',sans-serif] text-[16px] font-extrabold text-white transition-opacity hover:opacity-90 disabled:opacity-40"
                 >
                   <svg width="11" height="11" viewBox="0 0 24 24" fill="currentColor"><path d="M2 21l21-9L2 3v7l15 2-15 2z" /></svg>
                   Siųsti
@@ -536,7 +536,7 @@ export default function LyricsWithReactions({ trackId, lyrics, compact = false }
                   <MiniAvatar name={g.authorName} url={g.authorAvatarUrl} size={22} />
                   <div className="min-w-0 flex-1">
                     <div className="flex flex-wrap items-center gap-1.5">
-                      <span className="font-['Outfit',sans-serif] text-[14px] font-extrabold text-[var(--text-secondary)]">
+                      <span className="font-['Outfit',sans-serif] text-[16px] font-extrabold text-[var(--text-secondary)]">
                         {g.authorName}
                       </span>
                       {g.hasLike && (

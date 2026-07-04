@@ -157,7 +157,7 @@ export default function NewsInfoModal({
             <div className="font-['Outfit',sans-serif] text-[12px] font-extrabold uppercase tracking-[0.18em] text-[var(--text-muted)]">
               Naujiena
             </div>
-            <div className="line-clamp-2 font-['Outfit',sans-serif] text-[14px] font-extrabold leading-tight text-[var(--text-primary)] sm:text-[16px]">
+            <div className="line-clamp-2 font-['Outfit',sans-serif] text-[16px] font-extrabold leading-tight text-[var(--text-primary)] sm:text-[16px]">
               {titleNow}
             </div>
             {dateLabel && (
@@ -243,7 +243,7 @@ export default function NewsInfoModal({
             {/* Related artists */}
             {(details?.artist || details?.artist2) && (
               <div className="mt-5 border-t border-[var(--border-subtle)] pt-4">
-                <div className="mb-2 font-['Outfit',sans-serif] text-[14px] font-extrabold uppercase tracking-[0.18em] text-[var(--text-muted)]">
+                <div className="mb-2 font-['Outfit',sans-serif] text-[16px] font-extrabold uppercase tracking-[0.18em] text-[var(--text-muted)]">
                   Susiję atlikėjai
                 </div>
                 <div className="flex flex-wrap items-center gap-1.5">

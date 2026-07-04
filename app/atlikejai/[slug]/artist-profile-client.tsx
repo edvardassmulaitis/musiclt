@@ -985,7 +985,7 @@ function PlayerCard({
                 <rect x="1" y="5" width="15" height="14" rx="2" ry="2" />
               </svg>
             </div>
-            <div className="font-['Outfit',sans-serif] text-[14px] font-extrabold uppercase tracking-[0.15em] text-white/60">
+            <div className="font-['Outfit',sans-serif] text-[16px] font-extrabold uppercase tracking-[0.15em] text-white/60">
               Video dar nėra
             </div>
           </div>
@@ -1051,7 +1051,7 @@ function PlayerCard({
       >
         {list.length === 0 ? (
           <div className="flex min-h-[160px] flex-col items-center justify-center gap-1 px-6 py-8 text-center">
-            <div className="font-['Outfit',sans-serif] text-[14px] font-extrabold uppercase tracking-wider text-[var(--text-muted)]">Nieko</div>
+            <div className="font-['Outfit',sans-serif] text-[16px] font-extrabold uppercase tracking-wider text-[var(--text-muted)]">Nieko</div>
             <div className="text-[14px] text-[var(--text-faint)]">
               {filter === 'new' ? 'Per 2 metus naujų nebuvo' : filter === 'singles' ? 'Singlų nėra' : 'Dainų nėra'}
             </div>
@@ -1478,7 +1478,7 @@ function TabButton({ active, disabled, onClick, children }: {
       onClick={onClick}
       disabled={disabled}
       className={[
-        'relative border-0 bg-transparent px-4 py-3 font-["Outfit",sans-serif] text-[14px] font-extrabold uppercase tracking-[0.14em] transition-colors',
+        'relative border-0 bg-transparent px-4 py-3 font-["Outfit",sans-serif] text-[16px] font-extrabold uppercase tracking-[0.14em] transition-colors',
         active ? 'text-[var(--accent-orange)]' : 'text-[var(--text-muted)] hover:text-[var(--text-primary)]',
         disabled ? 'cursor-not-allowed opacity-30' : 'cursor-pointer',
       ].join(' ')}
@@ -1854,7 +1854,7 @@ function Hero({
                             : `Top atlikėjai: ${genres[0].name}${artist.country ? `, ${artist.country}` : ''}`)
                         : `${artist.country} top atlikėjai ir grupės`
                     }
-                    className="inline-flex shrink-0 items-center gap-2 rounded-full border border-[rgba(249,115,22,0.35)] bg-[rgba(249,115,22,0.12)] py-1.5 pl-2.5 pr-2.5 font-['Outfit',sans-serif] text-[14px] font-extrabold tracking-tight text-[var(--accent-orange)] transition-colors hover:border-[var(--accent-orange)] hover:bg-[rgba(249,115,22,0.22)] lg:bg-[rgba(249,115,22,0.18)] lg:backdrop-blur-md lg:hover:bg-[rgba(249,115,22,0.28)]"
+                    className="inline-flex shrink-0 items-center gap-2 rounded-full border border-[rgba(249,115,22,0.35)] bg-[rgba(249,115,22,0.12)] py-1.5 pl-2.5 pr-2.5 font-['Outfit',sans-serif] text-[16px] font-extrabold tracking-tight text-[var(--accent-orange)] transition-colors hover:border-[var(--accent-orange)] hover:bg-[rgba(249,115,22,0.22)] lg:bg-[rgba(249,115,22,0.18)] lg:backdrop-blur-md lg:hover:bg-[rgba(249,115,22,0.28)]"
                   >
                     {flag && artist.country && (
                       <span aria-hidden className="text-[16px] leading-none">{flag}</span>
@@ -1914,7 +1914,7 @@ function Hero({
                 <button
                   type="button"
                   onClick={onOpenEventsModal}
-                  className="flex items-center justify-center gap-2 rounded-xl border border-dashed border-[rgba(249,115,22,0.4)] bg-[rgba(249,115,22,0.06)] px-3 py-2 text-[14px] font-extrabold text-[var(--accent-orange)] transition-all hover:border-[rgba(249,115,22,0.7)] hover:bg-[rgba(249,115,22,0.10)]"
+                  className="flex items-center justify-center gap-2 rounded-xl border border-dashed border-[rgba(249,115,22,0.4)] bg-[rgba(249,115,22,0.06)] px-3 py-2 text-[16px] font-extrabold text-[var(--accent-orange)] transition-all hover:border-[rgba(249,115,22,0.7)] hover:bg-[rgba(249,115,22,0.10)]"
                 >
                   Žiūrėti visus +{overflow}
                 </button>
@@ -2126,7 +2126,7 @@ function TopArtistsModal({
                           : 'hover:bg-[var(--bg-hover)]',
                       ].join(' ')}
                     >
-                      <span className="w-7 shrink-0 text-right font-['Outfit',sans-serif] text-[14px] font-extrabold tabular-nums text-[var(--text-faint)] group-hover:text-[var(--accent-orange)]">
+                      <span className="w-7 shrink-0 text-right font-['Outfit',sans-serif] text-[16px] font-extrabold tabular-nums text-[var(--text-faint)] group-hover:text-[var(--accent-orange)]">
                         {i + 1}
                       </span>
                       <span className="relative h-12 w-12 shrink-0 overflow-hidden rounded-full bg-[var(--card-bg)]">
@@ -2227,7 +2227,7 @@ function ShareButton({ url, title, fullWidth = false }: { url: string; title: st
         <line x1="8.59" y1="13.51" x2="15.42" y2="17.49" />
         <line x1="15.41" y1="6.51" x2="8.59" y2="10.49" />
       </svg>
-      <span className="font-['Outfit',sans-serif] text-[14px] font-extrabold tracking-tight">
+      <span className="font-['Outfit',sans-serif] text-[16px] font-extrabold tracking-tight">
         {copied ? 'Nukopijuota!' : 'Dalintis'}
       </span>
     </button>
@@ -2296,7 +2296,7 @@ function FollowPill({
           onClick={onOpenModal}
           title="Pamatyk kas seka"
           className={[
-            'flex items-center border-l px-3.5 py-2 font-["Outfit",sans-serif] text-[14px] font-extrabold tabular-nums tracking-wide transition-colors',
+            'flex items-center border-l px-3.5 py-2 font-["Outfit",sans-serif] text-[16px] font-extrabold tabular-nums tracking-wide transition-colors',
             heartFilled
               ? 'border-white/30 hover:opacity-90'
               : 'border-[var(--border-subtle)] hover:bg-[var(--bg-hover)]',
@@ -2306,7 +2306,7 @@ function FollowPill({
         </button>
       ) : (
         <span className={[
-          'flex items-center border-l px-3.5 py-2 font-["Outfit",sans-serif] text-[14px] font-extrabold tabular-nums tracking-wide',
+          'flex items-center border-l px-3.5 py-2 font-["Outfit",sans-serif] text-[16px] font-extrabold tabular-nums tracking-wide',
           heartFilled ? 'border-white/30' : 'border-[var(--border-subtle)] opacity-70',
         ].join(' ')}>
           0
@@ -2693,7 +2693,7 @@ function SideInfo({
               type="button"
               onClick={onOpenSocialModal}
               title="Visi linkai"
-              className="flex h-9 shrink-0 items-center gap-1 rounded-full border border-dashed border-[var(--border-default)] bg-transparent px-2.5 font-['Outfit',sans-serif] text-[14px] font-extrabold text-[var(--text-secondary)] transition-colors hover:border-[var(--accent-orange)] hover:bg-[rgba(249,115,22,0.08)] hover:text-[var(--accent-orange)]"
+              className="flex h-9 shrink-0 items-center gap-1 rounded-full border border-dashed border-[var(--border-default)] bg-transparent px-2.5 font-['Outfit',sans-serif] text-[16px] font-extrabold text-[var(--text-secondary)] transition-colors hover:border-[var(--accent-orange)] hover:bg-[rgba(249,115,22,0.08)] hover:text-[var(--accent-orange)]"
             >
               +{overflowCount + (website ? 1 : 0)}
             </button>
@@ -3550,7 +3550,7 @@ function EventVerticalCard({ e, href, hasCover, setCoverFailed, d, venue }: {
         )}
       </div>
       <div className="flex shrink-0 flex-col gap-1.5 px-3.5 py-3">
-        <div className="font-['Outfit',sans-serif] text-[14px] font-extrabold uppercase tracking-[0.08em] text-[var(--accent-orange)]">
+        <div className="font-['Outfit',sans-serif] text-[16px] font-extrabold uppercase tracking-[0.08em] text-[var(--accent-orange)]">
           {formatLtDate(d)}
         </div>
         <div className="line-clamp-2 font-['Outfit',sans-serif] text-[14px] font-bold leading-snug text-[var(--text-primary)]">{e.title}</div>
@@ -3697,7 +3697,7 @@ function EventCard({ e, variant = 'upcoming', onOpen }: { e: any; variant?: 'upc
       {/* Right: date + title + venue. Extra vertical padding keeps the card
           from feeling squashed while still remaining compact. */}
       <div className="flex min-w-0 flex-1 flex-col justify-center gap-1.5 px-4 py-4 sm:px-5">
-        <div className="font-['Outfit',sans-serif] text-[14px] font-extrabold uppercase tracking-[0.08em] text-[var(--accent-orange)]">
+        <div className="font-['Outfit',sans-serif] text-[16px] font-extrabold uppercase tracking-[0.08em] text-[var(--accent-orange)]">
           {formatLtDate(d)}
         </div>
         <div className="line-clamp-2 font-['Outfit',sans-serif] text-[14px] font-bold leading-snug text-[var(--text-primary)] sm:text-[16px]">
@@ -3833,7 +3833,7 @@ function EventBigCard({ e, onOpen }: { e: any; onOpen?: (e: any) => void }) {
         </div>
       )}
       <div className="p-4">
-        <div className="font-['Outfit',sans-serif] text-[14px] font-extrabold uppercase tracking-[0.1em] text-[var(--accent-orange)]">
+        <div className="font-['Outfit',sans-serif] text-[16px] font-extrabold uppercase tracking-[0.1em] text-[var(--accent-orange)]">
           {longDate}
         </div>
         <div className="mt-1 line-clamp-2 font-['Outfit',sans-serif] text-[16px] font-bold leading-snug text-[var(--text-primary)] sm:text-[16px]">{e.title}</div>
@@ -4065,7 +4065,7 @@ function SpotlightAlbumRow({ album, artistSlug, topTracks, topVideoTracks = [], 
               <button
                 type="button"
                 onClick={() => onPlayTrack(firstTrack)}
-                className="inline-flex items-center gap-1.5 rounded-full bg-[var(--accent-orange)] px-3.5 py-1.5 font-['Outfit',sans-serif] text-[14px] font-extrabold text-white shadow-[0_4px_14px_rgba(249,115,22,0.35)] transition-transform hover:scale-105"
+                className="inline-flex items-center gap-1.5 rounded-full bg-[var(--accent-orange)] px-3.5 py-1.5 font-['Outfit',sans-serif] text-[16px] font-extrabold text-white shadow-[0_4px_14px_rgba(249,115,22,0.35)] transition-transform hover:scale-105"
               >
                 <svg width="11" height="11" viewBox="0 0 24 24" fill="#fff" aria-hidden><path d="M8 5v14l11-7z" /></svg>
                 Klausyti
@@ -4117,7 +4117,7 @@ function AlbumGroupBox({ title, subtitle, description, rangeLabel, count, childr
     <div className="rounded-xl border border-[var(--border-subtle)] bg-[var(--bg-surface)] p-3 sm:p-4">
       <div className="mb-3 flex items-baseline justify-between gap-3">
         <div className="flex min-w-0 items-baseline gap-2">
-          <h3 className="truncate font-['Outfit',sans-serif] text-[14px] font-extrabold text-[var(--text-primary)] sm:text-[16px]">
+          <h3 className="truncate font-['Outfit',sans-serif] text-[16px] font-extrabold text-[var(--text-primary)] sm:text-[16px]">
             {title}
           </h3>
           {subtitle && (
@@ -4462,7 +4462,7 @@ function DiscussionRow({ t, onOpen }: { t: LegacyThread; isLast?: boolean; onOpe
           aiškus call to action į pilną diskusiją. */}
       {pc > 0 && (
         <div className="border-t border-[var(--border-subtle)] pt-2">
-          <span className="font-['Outfit',sans-serif] text-[14px] font-extrabold text-[var(--accent-orange)] group-hover:underline">
+          <span className="font-['Outfit',sans-serif] text-[16px] font-extrabold text-[var(--accent-orange)] group-hover:underline">
             {pc} {pc === 1 ? 'komentaras' : (pc < 10 ? 'komentarai' : 'komentarų')} →
           </span>
         </div>
@@ -4545,7 +4545,7 @@ function DiscussionFollowHeart({ discussionId }: { discussionId?: number }) {
         <path d="M20.84 4.61a5.5 5.5 0 0 0-7.78 0L12 5.67l-1.06-1.06a5.5 5.5 0 0 0-7.78 7.78l1.06 1.06L12 21.23l7.78-7.78 1.06-1.06a5.5 5.5 0 0 0 0-7.78z" />
       </svg>
       {shown > 0 && (
-        <span className="font-['Outfit',sans-serif] text-[14px] font-extrabold tabular-nums">{shown.toLocaleString('lt-LT')}</span>
+        <span className="font-['Outfit',sans-serif] text-[16px] font-extrabold tabular-nums">{shown.toLocaleString('lt-LT')}</span>
       )}
     </button>
   )
@@ -4659,7 +4659,7 @@ function DiscussionThreadModal({
       type="button"
       onClick={() => setSort(k)}
       className={[
-        'rounded-full px-3 py-1 font-["Outfit",sans-serif] text-[14px] font-extrabold transition-colors',
+        'rounded-full px-3 py-1 font-["Outfit",sans-serif] text-[16px] font-extrabold transition-colors',
         sort === k
           ? 'bg-[var(--accent-orange)] text-white'
           : 'border border-[var(--border-subtle)] bg-transparent text-[var(--text-muted)] hover:border-[var(--border-strong)] hover:text-[var(--text-primary)]',
@@ -4950,7 +4950,7 @@ function DiscoveryFullCard({ d, liked }: { d: DiscoveryItem; liked: boolean }) {
       {d.embed_id && <div className="px-3.5"><DiscoveryEmbed d={d} /></div>}
       <div className="flex-1 px-3.5 pb-3.5 pt-2.5">
         {d.track_name && (
-          <div className="mb-1 font-['Outfit',sans-serif] text-[14px] font-extrabold text-[var(--text-primary)]">
+          <div className="mb-1 font-['Outfit',sans-serif] text-[16px] font-extrabold text-[var(--text-primary)]">
             {d.track_slug
               ? <Link href={`/dainos/${d.track_slug}`} className="no-underline hover:text-[var(--accent-orange)]" style={{ color: 'inherit' }}>{d.track_name} ♪</Link>
               : <>{d.track_name}</>}
@@ -5966,7 +5966,7 @@ export default function ArtistProfileClient({
               <line x1="12" y1="16" x2="12.01" y2="16" />
             </svg>
             <div className="min-w-0 flex-1">
-              <div className="mb-1 font-['Outfit',sans-serif] text-[14px] font-extrabold text-[var(--text-primary)]">
+              <div className="mb-1 font-['Outfit',sans-serif] text-[16px] font-extrabold text-[var(--text-primary)]">
                 Patinka neišsaugotas
               </div>
               <div className="text-[14px] leading-[1.5] text-[var(--text-secondary)]">
@@ -5994,7 +5994,7 @@ export default function ArtistProfileClient({
               </svg>
             </div>
             <div className="min-w-0 flex-1">
-              <div className="mb-1 font-['Outfit',sans-serif] text-[14px] font-extrabold text-[var(--text-primary)]">
+              <div className="mb-1 font-['Outfit',sans-serif] text-[16px] font-extrabold text-[var(--text-primary)]">
                 Tavo „Patinka" užskaitytas ✓
               </div>
               <div className="text-[14px] leading-[1.5] text-[var(--text-secondary)]">
@@ -6414,7 +6414,7 @@ export default function ArtistProfileClient({
                 return (
                   <div className={visibleAlbums.length > 0 ? 'mt-6' : ''}>
                     {visibleAlbums.length > 0 && (
-                      <div className="mb-2.5 font-['Outfit',sans-serif] text-[14px] font-extrabold uppercase tracking-[0.15em] text-[var(--text-muted)]">
+                      <div className="mb-2.5 font-['Outfit',sans-serif] text-[16px] font-extrabold uppercase tracking-[0.15em] text-[var(--text-muted)]">
                         Kitos dainos
                       </div>
                     )}
@@ -6432,7 +6432,7 @@ export default function ArtistProfileClient({
                         <button
                           type="button"
                           onClick={() => setOrphanModalOpen(true)}
-                          className="flex items-center justify-center rounded-xl border border-[rgba(249,115,22,0.35)] bg-[rgba(249,115,22,0.12)] p-2 font-['Outfit',sans-serif] text-[14px] font-extrabold tracking-tight text-[var(--accent-orange)] transition-colors hover:border-[var(--accent-orange)] hover:bg-[rgba(249,115,22,0.22)]"
+                          className="flex items-center justify-center rounded-xl border border-[rgba(249,115,22,0.35)] bg-[rgba(249,115,22,0.12)] p-2 font-['Outfit',sans-serif] text-[16px] font-extrabold tracking-tight text-[var(--accent-orange)] transition-colors hover:border-[var(--accent-orange)] hover:bg-[rgba(249,115,22,0.22)]"
                           aria-label={`Atidaryti visas dainas (${orphanTracks.length})`}
                         >
                           +{extraOrphans} daugiau
@@ -6503,7 +6503,7 @@ export default function ArtistProfileClient({
               {mainDiscussion && mainDiscussion.comment_count > 0 && mainDiscussion.topComments.length > 0 ? (
                 <div className="mb-4 rounded-2xl border border-[var(--border-default)] bg-[var(--bg-surface)] p-4 sm:p-5">
                   <div className="mb-3 flex items-center justify-between">
-                    <div className="font-['Outfit',sans-serif] text-[14px] font-extrabold uppercase tracking-[0.18em] text-[var(--text-muted)]">
+                    <div className="font-['Outfit',sans-serif] text-[16px] font-extrabold uppercase tracking-[0.18em] text-[var(--text-muted)]">
                       Komentarai · {mainDiscussion.comment_count.toLocaleString('lt-LT')}
                     </div>
                   </div>
@@ -6576,7 +6576,7 @@ export default function ArtistProfileClient({
                 <>
                   {/* Antraštė kitoms temoms — kad atskirtų nuo viršuje esančio
                       inline komentaro bloko. */}
-                  <div className="mb-3 mt-2 font-['Outfit',sans-serif] text-[14px] font-extrabold uppercase tracking-[0.15em] text-[var(--text-muted)]">
+                  <div className="mb-3 mt-2 font-['Outfit',sans-serif] text-[16px] font-extrabold uppercase tracking-[0.15em] text-[var(--text-muted)]">
                     Kitos temos
                   </div>
                   <div className="grid auto-rows-fr grid-cols-1 gap-3 sm:grid-cols-2">

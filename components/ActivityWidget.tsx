@@ -77,7 +77,7 @@ function Row({ e, inModal = false }: { e: Ev; inModal?: boolean }) {
         // eslint-disable-next-line @next/next/no-img-element
         <img src={proxyImg(e.actor_avatar)} alt="" className={`mt-0.5 ${av} shrink-0 rounded-full object-cover`} />
       ) : (
-        <div className={`mt-0.5 flex ${av} shrink-0 items-center justify-center rounded-full text-[14px] font-extrabold`} style={{ background: `hsl(${strHue(name)},32%,20%)`, color: `hsl(${strHue(name)},48%,58%)` }}>{name.charAt(0).toUpperCase()}</div>
+        <div className={`mt-0.5 flex ${av} shrink-0 items-center justify-center rounded-full text-[16px] font-extrabold`} style={{ background: `hsl(${strHue(name)},32%,20%)`, color: `hsl(${strHue(name)},48%,58%)` }}>{name.charAt(0).toUpperCase()}</div>
       )}
       <div className="min-w-0 flex-1">
         <p className={`m-0 leading-snug text-[var(--text-secondary)] ${inModal ? 'text-[14px]' : 'text-[14px]'}`}>
@@ -140,7 +140,7 @@ export function ActivityModal({ events, onClose }: { events: Ev[]; onClose: () =
     <div onClick={e => { if (e.target === e.currentTarget) onClose() }} className="fixed inset-0 z-[1300] flex items-end justify-center bg-black/60 backdrop-blur-sm sm:items-center">
       <div className="flex w-full max-w-[520px] flex-col overflow-hidden rounded-t-2xl bg-[var(--bg-surface)] shadow-[0_24px_60px_-10px_rgba(0,0,0,0.5)] sm:mx-4 sm:rounded-2xl" style={{ height: 'min(80vh, 640px)' }}>
         <div className="flex shrink-0 items-center justify-between border-b border-[var(--border-subtle)] px-4 py-3">
-          <span className="font-['Outfit',sans-serif] text-[14px] font-extrabold text-[var(--text-primary)]">Kas vyksta</span>
+          <span className="font-['Outfit',sans-serif] text-[16px] font-extrabold text-[var(--text-primary)]">Kas vyksta</span>
           <button onClick={onClose} aria-label="Uždaryti" className="flex h-7 w-7 items-center justify-center rounded-full bg-[var(--bg-active)] text-[var(--text-secondary)]">✕</button>
         </div>
         <div className="flex-1 overflow-y-auto py-1">
@@ -173,7 +173,7 @@ export function ActivityCard({ e }: { e: Ev }) {
           // eslint-disable-next-line @next/next/no-img-element
           <img src={proxyImg(e.actor_avatar)} alt="" className="h-6 w-6 shrink-0 rounded-full object-cover" />
         ) : (
-          <span className="flex h-6 w-6 shrink-0 items-center justify-center rounded-full text-[14px] font-extrabold" style={{ background: `hsl(${strHue(name)},32%,20%)`, color: `hsl(${strHue(name)},48%,58%)` }}>{name.charAt(0).toUpperCase()}</span>
+          <span className="flex h-6 w-6 shrink-0 items-center justify-center rounded-full text-[16px] font-extrabold" style={{ background: `hsl(${strHue(name)},32%,20%)`, color: `hsl(${strHue(name)},48%,58%)` }}>{name.charAt(0).toUpperCase()}</span>
         )}
         <div className="min-w-0 flex-1">
           <p className="m-0 truncate text-[14px] font-bold text-[var(--text-secondary)]">{name}</p>
@@ -200,7 +200,7 @@ export function ActivityWidget() {
   return (
     <div className="flex h-full flex-col overflow-hidden rounded-2xl border border-[var(--border-default)] bg-[var(--bg-surface)]">
       <div className="flex shrink-0 items-center justify-between border-b border-[var(--border-subtle)] px-3.5 py-2.5">
-        <span className="flex items-center gap-2 font-['Outfit',sans-serif] text-[14px] font-extrabold text-[var(--text-primary)]">
+        <span className="flex items-center gap-2 font-['Outfit',sans-serif] text-[16px] font-extrabold text-[var(--text-primary)]">
           <span className="relative flex h-2 w-2 shrink-0" aria-hidden title="Gyvas srautas">
             <span className="absolute inline-flex h-full w-full animate-ping rounded-full bg-[#22c55e] opacity-70" />
             <span className="relative inline-flex h-2 w-2 rounded-full bg-[#22c55e]" />

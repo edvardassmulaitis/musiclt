@@ -94,7 +94,7 @@ export function ArtistOverviewCard({
           </p>
           <Link
             href={href}
-            className="mt-2 inline-flex items-center gap-1 font-['Outfit',sans-serif] text-[14px] font-extrabold text-[var(--accent-orange)] no-underline hover:underline"
+            className="mt-2 inline-flex items-center gap-1 font-['Outfit',sans-serif] text-[16px] font-extrabold text-[var(--accent-orange)] no-underline hover:underline"
           >
             Daugiau apie atlikėją
             <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.6" strokeLinecap="round" strokeLinejoin="round" aria-hidden>

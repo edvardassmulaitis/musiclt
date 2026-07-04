@@ -244,7 +244,7 @@ export default function BlogIndexPage() {
         ))}
         <span className="ml-auto" />
         <Link href="/blogas/mano" className="shrink-0 rounded-full border border-[var(--border-default)] bg-[var(--card-bg)] px-3.5 py-1.5 font-['Outfit',sans-serif] text-[14px] font-bold text-[var(--text-secondary)] no-underline hover:border-[var(--border-strong)]">Mano įrašai</Link>
-        <Link href="/blogas/rasyti" className="shrink-0 rounded-xl bg-[var(--accent-orange)] px-4 py-2 font-['Outfit',sans-serif] text-[14px] font-extrabold text-white no-underline shadow-[0_4px_16px_rgba(249,115,22,0.3)] transition-transform hover:-translate-y-px">+ Rašyti</Link>
+        <Link href="/blogas/rasyti" className="shrink-0 rounded-xl bg-[var(--accent-orange)] px-4 py-2 font-['Outfit',sans-serif] text-[16px] font-extrabold text-white no-underline shadow-[0_4px_16px_rgba(249,115,22,0.3)] transition-transform hover:-translate-y-px">+ Rašyti</Link>
       </div>
 
       {posts === null ? (
@@ -264,7 +264,7 @@ export default function BlogIndexPage() {
           {((posts.length > shown) || hasMore) && (
             <div className="mt-6 flex justify-center">
               <button type="button" onClick={more} disabled={loadingMore}
-                className="cursor-pointer rounded-full border border-[var(--border-default)] bg-[var(--card-bg)] px-9 py-2.5 font-['Outfit',sans-serif] text-[14px] font-extrabold text-[var(--text-secondary)] transition-colors hover:border-[var(--accent-orange)] hover:text-[var(--accent-orange)] disabled:opacity-50">
+                className="cursor-pointer rounded-full border border-[var(--border-default)] bg-[var(--card-bg)] px-9 py-2.5 font-['Outfit',sans-serif] text-[16px] font-extrabold text-[var(--text-secondary)] transition-colors hover:border-[var(--accent-orange)] hover:text-[var(--accent-orange)] disabled:opacity-50">
                 {loadingMore ? 'Kraunama…' : 'Rodyti daugiau ↓'}
               </button>
             </div>

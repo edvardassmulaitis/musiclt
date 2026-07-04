@@ -172,7 +172,7 @@ export default function DropBar({ trackId, initial, compact = false }: Props) {
             </span>
             <span
               className={[
-                "font-['Outfit',sans-serif] text-[14px] font-extrabold tabular-nums tracking-tight",
+                "font-['Outfit',sans-serif] text-[16px] font-extrabold tabular-nums tracking-tight",
                 selected ? 'text-white' : 'text-[var(--text-muted)]',
               ].join(' ')}
             >

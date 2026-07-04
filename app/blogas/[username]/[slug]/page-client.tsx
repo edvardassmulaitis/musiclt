@@ -706,7 +706,7 @@ function MobileStickyPlayer({ tracks, active, setActive, playing, setPlaying, on
           : <span className="flex h-[42px] w-[42px] shrink-0 items-center justify-center rounded-[9px] bg-[var(--bg-hover)] text-[20px] text-[var(--text-muted)]">♪</span>
         }
         <div className="min-w-0 flex-1">
-          <p className="truncate font-['Outfit',sans-serif] text-[14px] font-extrabold text-[var(--text-primary)]">{cur?.title || 'Takelis'}</p>
+          <p className="truncate font-['Outfit',sans-serif] text-[16px] font-extrabold text-[var(--text-primary)]">{cur?.title || 'Takelis'}</p>
           {cur?.artist_name && <p className="truncate text-[14px] text-[var(--text-muted)]">{cur.artist_name}</p>}
         </div>
 

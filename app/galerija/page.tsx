@@ -62,7 +62,7 @@ export default async function GalleryPage() {
                 )}
               </div>
               <div className="flex flex-col justify-center p-6 sm:p-8">
-                <div className="mb-2 font-['Outfit',sans-serif] text-[14px] font-extrabold uppercase tracking-[0.18em] text-[var(--accent-orange)]">
+                <div className="mb-2 font-['Outfit',sans-serif] text-[16px] font-extrabold uppercase tracking-[0.18em] text-[var(--accent-orange)]">
                   Koncerto nuotraukos
                 </div>
                 <h2 className="font-['Outfit',sans-serif] text-[22px] font-black leading-tight tracking-[-0.01em] text-[var(--text-primary)] sm:text-[26px]">

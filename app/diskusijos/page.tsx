@@ -136,7 +136,7 @@ function NewDiscussionModal({ onClose, onCreated }: { onClose: () => void; onCre
             placeholder="Parašyk diskusijos turinį…" rows={6} style={{ fontSize: 16 }}
             className="w-full resize-none rounded-xl border border-[var(--border-default)] bg-[var(--bg-hover)] px-4 py-3 text-[var(--text-primary)] outline-none placeholder:text-[var(--text-faint)] focus:border-[var(--accent-orange)]" />
           <div>
-            <p className="m-0 mb-2 font-['Outfit',sans-serif] text-[14px] font-extrabold uppercase tracking-[0.08em] text-[var(--text-muted)]">Kategorija</p>
+            <p className="m-0 mb-2 font-['Outfit',sans-serif] text-[16px] font-extrabold uppercase tracking-[0.08em] text-[var(--text-muted)]">Kategorija</p>
             <div className="flex flex-wrap gap-2">
               {ALL_CATEGORIES.map(c => (
                 <button key={c} type="button" onClick={() => setCat(c)}
@@ -154,7 +154,7 @@ function NewDiscussionModal({ onClose, onCreated }: { onClose: () => void; onCre
             <p className="m-0 rounded-xl border border-[rgba(239,68,68,0.25)] bg-[rgba(239,68,68,0.08)] px-3 py-2 text-[14px] text-[var(--accent-red,#f87171)]">{error}</p>
           )}
           <button onClick={submit} disabled={sending || title.trim().length < 5 || text.trim().length < 10}
-            className="w-full cursor-pointer rounded-xl border-0 bg-[var(--accent-orange)] py-3.5 font-['Outfit',sans-serif] text-[14px] font-extrabold text-white shadow-[0_4px_16px_rgba(249,115,22,0.3)] transition-transform hover:-translate-y-px disabled:opacity-40">
+            className="w-full cursor-pointer rounded-xl border-0 bg-[var(--accent-orange)] py-3.5 font-['Outfit',sans-serif] text-[16px] font-extrabold text-white shadow-[0_4px_16px_rgba(249,115,22,0.3)] transition-transform hover:-translate-y-px disabled:opacity-40">
             {sending ? 'Kuriama…' : 'Sukurti diskusiją'}
           </button>
         </div>
@@ -180,7 +180,7 @@ function DiscussionRow({ d }: { d: Discussion }) {
       {/* Balsavimo / score rail */}
       <div className="flex w-[44px] shrink-0 flex-col items-center justify-start gap-0.5 border-r border-[var(--border-subtle)] bg-[var(--bg-hover)] py-2.5">
         <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.4" strokeLinecap="round" strokeLinejoin="round" className="text-[var(--text-faint)] group-hover:text-[var(--accent-orange)]"><path d="M12 19V5M5 12l7-7 7 7"/></svg>
-        <span className="font-['Outfit',sans-serif] text-[14px] font-extrabold leading-none text-[var(--text-primary)]">{d.like_count || 0}</span>
+        <span className="font-['Outfit',sans-serif] text-[16px] font-extrabold leading-none text-[var(--text-primary)]">{d.like_count || 0}</span>
       </div>
 
       {/* Turinys */}

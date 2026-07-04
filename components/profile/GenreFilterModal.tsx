@@ -180,7 +180,7 @@ export function GenreFilterModal({
                       )}
                       <div className="absolute inset-0 bg-gradient-to-t from-black/85 via-black/15 to-transparent" />
                       <div className="absolute bottom-0 left-0 right-0 p-2">
-                        <p className="text-[14px] font-extrabold text-white leading-tight truncate"
+                        <p className="text-[16px] font-extrabold text-white leading-tight truncate"
                            style={{ fontFamily: "'Outfit', sans-serif" }}>{a.name}</p>
                       </div>
                     </Link>

@@ -252,7 +252,7 @@ function ArtistDiscoveriesModal({ src, items, likedSet, onClose }: {
                   </div>
                   {d.embed_id && <div className="mb-2.5"><Embed d={d} /></div>}
                   {d.track_name && (
-                    <div className="mb-1 font-['Outfit',sans-serif] text-[14px] font-extrabold text-[var(--text-primary)]">
+                    <div className="mb-1 font-['Outfit',sans-serif] text-[16px] font-extrabold text-[var(--text-primary)]">
                       {d.track_slug
                         ? <Link href={`/dainos/${d.track_slug}`} className="no-underline hover:text-[var(--accent-orange)]" style={{ color: 'inherit' }}>{d.track_name} ♪</Link>
                         : <>{d.track_name}</>}

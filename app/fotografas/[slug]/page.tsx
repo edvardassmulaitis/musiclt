@@ -109,7 +109,7 @@ export default async function Page({ params }: Props) {
                   <span className="absolute right-4 top-4 rounded-full bg-black/55 px-3 py-1 text-[14px] font-bold text-white backdrop-blur">📸 {featured.photoCount}</span>
                 )}
                 <div className="absolute inset-x-0 bottom-0 p-5 sm:p-6">
-                  {featured.artistName && <div className="mb-1 font-['Outfit',sans-serif] text-[14px] font-extrabold uppercase tracking-[0.14em] text-[#ec4899]">{featured.artistName}</div>}
+                  {featured.artistName && <div className="mb-1 font-['Outfit',sans-serif] text-[16px] font-extrabold uppercase tracking-[0.14em] text-[#ec4899]">{featured.artistName}</div>}
                   <h3 className="font-['Outfit',sans-serif] text-[22px] font-black leading-tight text-white drop-shadow sm:text-[26px]">
                     {featured.title.replace(/^FOTO\s+(REPORTA[ŽZ]AS|GALERIJA)\s*\|\s*/i, '')}
                   </h3>

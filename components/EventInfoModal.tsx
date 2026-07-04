@@ -212,7 +212,7 @@ export default function EventInfoModal({
           {/* Artists */}
           {details?.artists && details.artists.length > 0 && (
             <div className="mt-5 border-t border-[var(--border-subtle)] pt-4">
-              <div className="mb-2 font-['Outfit',sans-serif] text-[14px] font-extrabold uppercase tracking-[0.18em] text-[var(--text-muted)]">
+              <div className="mb-2 font-['Outfit',sans-serif] text-[16px] font-extrabold uppercase tracking-[0.18em] text-[var(--text-muted)]">
                 Dalyvauja
               </div>
               <div className="flex flex-wrap items-center gap-1.5">

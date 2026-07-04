@@ -52,7 +52,7 @@ export default function MusicSearchModal({ open, onClose, attached, onAdd, onRem
         className="flex w-full max-w-[560px] flex-col gap-3 rounded-2xl border border-[var(--border-default)] bg-[var(--bg-surface)] p-4 shadow-[0_24px_60px_-12px_rgba(0,0,0,0.55)]"
       >
         <div className="flex items-center justify-between">
-          <h3 className="font-['Outfit',sans-serif] text-[14px] font-extrabold tracking-[-0.01em] text-[var(--text-primary)]">
+          <h3 className="font-['Outfit',sans-serif] text-[16px] font-extrabold tracking-[-0.01em] text-[var(--text-primary)]">
             Pridėti muzikos
           </h3>
           <button
@@ -86,7 +86,7 @@ export default function MusicSearchModal({ open, onClose, attached, onAdd, onRem
           <button
             type="button"
             onClick={onClose}
-            className="rounded-lg bg-[var(--accent-orange)] px-4 py-2 font-['Outfit',sans-serif] text-[14px] font-extrabold text-white transition-opacity hover:opacity-90"
+            className="rounded-lg bg-[var(--accent-orange)] px-4 py-2 font-['Outfit',sans-serif] text-[16px] font-extrabold text-white transition-opacity hover:opacity-90"
           >
             Gerai
           </button>

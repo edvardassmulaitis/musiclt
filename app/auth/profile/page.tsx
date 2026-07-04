@@ -455,7 +455,7 @@ export default function SettingsPage() {
               <div className="flex items-center justify-end gap-3 mt-6 pt-4" style={{ borderTop: '1px solid var(--border-subtle)' }}>
                 {savedProfile && <span className="inline-flex items-center gap-1 text-[14px] font-bold" style={{ color: '#34d399' }}><IcCheck className="h-3.5 w-3.5" /> Išsaugota</span>}
                 <button type="button" onClick={saveProfile} disabled={savingProfile || !!uploading}
-                  className="px-5 py-2.5 rounded-xl text-[14px] font-extrabold transition hover:opacity-90 disabled:opacity-60"
+                  className="px-5 py-2.5 rounded-xl text-[16px] font-extrabold transition hover:opacity-90 disabled:opacity-60"
                   style={{ background: 'var(--accent-orange)', color: '#fff' }}>
                   {savingProfile ? 'Saugoma…' : 'Išsaugoti pakeitimus'}
                 </button>
@@ -550,7 +550,7 @@ export default function SettingsPage() {
                           className="rounded-xl px-4 py-2 text-[14px] font-bold transition hover:opacity-85"
                           style={{ background: 'var(--bg-elevated)', border: '1px solid var(--border-default)', color: 'var(--text-secondary)' }}>Atšaukti</button>
                         <button type="button" disabled={!deactAck || deactBusy} onClick={() => setAnketaActive(false)}
-                          className="rounded-xl px-4 py-2 text-[14px] font-extrabold transition hover:opacity-90 disabled:opacity-50"
+                          className="rounded-xl px-4 py-2 text-[16px] font-extrabold transition hover:opacity-90 disabled:opacity-50"
                           style={{ background: '#f43f5e', color: '#fff' }}>{deactBusy ? 'Vykdoma…' : 'Patvirtinti deaktyvavimą'}</button>
                       </div>
                     </div>
@@ -559,7 +559,7 @@ export default function SettingsPage() {
                   <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 rounded-xl p-4" style={{ background: 'var(--bg-elevated)', border: '1px solid var(--border-default)' }}>
                     <div className="text-[14px]" style={{ color: 'var(--text-muted)' }}>Anketa deaktyvuota. Profilis ir įrašai paslėpti nuo kitų.</div>
                     <button type="button" disabled={deactBusy} onClick={() => setAnketaActive(true)}
-                      className="shrink-0 rounded-xl px-4 py-2 text-[14px] font-extrabold transition hover:opacity-90 disabled:opacity-60"
+                      className="shrink-0 rounded-xl px-4 py-2 text-[16px] font-extrabold transition hover:opacity-90 disabled:opacity-60"
                       style={{ background: 'var(--accent-orange)', color: '#fff' }}>{deactBusy ? 'Vykdoma…' : 'Vėl aktyvuoti'}</button>
                   </div>
                 )}
@@ -601,7 +601,7 @@ function CardHead({ title, sub, right }: { title: string; sub?: string; right?: 
   )
 }
 function Label({ children }: { children: ReactNode }) {
-  return <span className="block text-[14px] font-extrabold uppercase tracking-wider mb-1.5" style={{ color: 'var(--text-muted)' }}>{children}</span>
+  return <span className="block text-[16px] font-extrabold uppercase tracking-wider mb-1.5" style={{ color: 'var(--text-muted)' }}>{children}</span>
 }
 function Hint({ children }: { children: ReactNode }) {
   return <span className="block text-[14px] mt-1 truncate" style={{ color: 'var(--text-faint)' }}>{children}</span>
@@ -675,7 +675,7 @@ function NotificationsBody({ prefs, savingPref, toggleNotif, masterNotif, pushSt
 
       {(['reactions', 'comments', 'community', 'system'] as const).map(g => grouped[g] && (
         <div key={g}>
-          <div className="text-[14px] font-extrabold uppercase tracking-wider mb-2 px-1" style={{ color: 'var(--text-muted)' }}>{GROUP_LABEL[g]}</div>
+          <div className="text-[16px] font-extrabold uppercase tracking-wider mb-2 px-1" style={{ color: 'var(--text-muted)' }}>{GROUP_LABEL[g]}</div>
           <div className="rounded-xl overflow-hidden" style={{ background: 'var(--bg-elevated)', border: '1px solid var(--border-default)' }}>
             {grouped[g].map((t, i) => (
               <div key={t.type} className="px-4 py-3.5 flex items-center justify-between gap-4" style={{ borderTop: i === 0 ? 'none' : '1px solid var(--border-subtle)' }}>

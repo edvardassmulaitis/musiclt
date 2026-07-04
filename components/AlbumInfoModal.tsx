@@ -593,7 +593,7 @@ export default function AlbumInfoModal({
                     </div>
                   </Link>
                   <div className="min-w-0 flex-1">
-                    <Link href={`/atlikejai/${artist.slug}`} className="font-['Outfit',sans-serif] text-[14px] font-extrabold text-[var(--text-primary)] no-underline hover:text-[var(--accent-orange)]">
+                    <Link href={`/atlikejai/${artist.slug}`} className="font-['Outfit',sans-serif] text-[16px] font-extrabold text-[var(--text-primary)] no-underline hover:text-[var(--accent-orange)]">
                       {artist.name}
                     </Link>
                     {artistGenres.length > 0 && (

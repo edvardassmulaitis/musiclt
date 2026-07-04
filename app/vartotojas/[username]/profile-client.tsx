@@ -1984,7 +1984,7 @@ function PostLaneCard({ post, blogSlug, laneType }: { post: any; blogSlug: strin
         </div>
       </div>
       <div className="mt-1.5 px-0.5">
-        <p className="m-0 line-clamp-2 font-['Outfit',sans-serif] text-[14px] font-extrabold leading-tight text-[var(--text-primary)] transition-colors group-hover:text-[var(--accent-orange)]">
+        <p className="m-0 line-clamp-2 font-['Outfit',sans-serif] text-[16px] font-extrabold leading-tight text-[var(--text-primary)] transition-colors group-hover:text-[var(--accent-orange)]">
           {post.title}
         </p>
         {isTranslation ? (
@@ -2583,7 +2583,7 @@ function ProfileBodyDesktop(props: any) {
                   <div ref={feedSentinelRef} aria-hidden className="h-px w-full" />
                   {/* Fallback mygtukas (jei observer'is nepalaikomas / JS išjungtas) */}
                   <button type="button" onClick={() => setShownCount((c) => c + FEED_PAGE)}
-                          className="block w-full text-center rounded-full py-3 text-[14px] font-extrabold transition hover:opacity-85"
+                          className="block w-full text-center rounded-full py-3 text-[16px] font-extrabold transition hover:opacity-85"
                           style={{ fontFamily: "'Outfit', sans-serif", background: 'var(--card-bg)', border: '1px solid var(--border-default)', color: 'var(--accent-orange)' }}>
                     Daugiau įrašų ({visible.length - shownCount})
                   </button>
@@ -3077,7 +3077,7 @@ function RecentLikesCard({
   if (horizontal) {
     return (
       <div className="rounded-2xl p-4" style={{ background: 'var(--card-bg)', border: '1px solid var(--border-subtle)' }}>
-        <h4 className="flex items-center gap-1.5 text-[14px] font-extrabold uppercase tracking-wider mb-2 px-1"
+        <h4 className="flex items-center gap-1.5 text-[16px] font-extrabold uppercase tracking-wider mb-2 px-1"
             style={{ color: 'var(--text-muted)', fontFamily: "'Outfit', sans-serif" }}>
           <HeartOutlineIcon size={12} />
           {heading}
@@ -3115,7 +3115,7 @@ function RecentLikesCard({
 
   return (
     <div className="rounded-2xl p-4" style={{ background: 'var(--card-bg)', border: '1px solid var(--border-subtle)' }}>
-      <h4 className="flex items-center gap-1.5 text-[14px] font-extrabold uppercase tracking-wider mb-2 px-1"
+      <h4 className="flex items-center gap-1.5 text-[16px] font-extrabold uppercase tracking-wider mb-2 px-1"
           style={{ color: 'var(--text-muted)', fontFamily: "'Outfit', sans-serif" }}>
         <HeartOutlineIcon size={12} />
         {heading}

@@ -149,7 +149,7 @@ export function DainaSuggestModal({ onClose, onDone }: { onClose: () => void; on
     <div onClick={e => { if (e.target === e.currentTarget) onClose() }} className="fixed inset-0 z-[1300] flex items-end justify-center bg-black/60 backdrop-blur-sm sm:items-center">
       <div className="flex w-full max-w-[480px] flex-col overflow-hidden rounded-t-2xl bg-[var(--bg-surface)] shadow-[0_24px_60px_-10px_rgba(0,0,0,0.5)] sm:mx-4 sm:rounded-2xl" style={{ maxHeight: 'min(85vh, 640px)' }}>
         <div className="flex shrink-0 items-center justify-between border-b border-[var(--border-subtle)] px-4 py-3">
-          <span className="font-['Outfit',sans-serif] text-[14px] font-extrabold text-[var(--text-primary)]">Pasiūlyti dieną dainą</span>
+          <span className="font-['Outfit',sans-serif] text-[16px] font-extrabold text-[var(--text-primary)]">Pasiūlyti dieną dainą</span>
           <button onClick={onClose} aria-label="Uždaryti" className="flex h-7 w-7 items-center justify-center rounded-full bg-[var(--bg-active)] text-[var(--text-secondary)]">✕</button>
         </div>
         <div className="flex-1 overflow-y-auto p-4">
@@ -200,7 +200,7 @@ export function DainaSuggestModal({ onClose, onDone }: { onClose: () => void; on
               <div className="flex items-center gap-2.5 rounded-lg border border-[var(--accent-orange)]/30 bg-[var(--accent-orange)]/10 p-2.5">
                 <Cover src={selected.image_url} artistSrc={selected.image_url} alt={sanitizeTitle(selected.title || '')} size={40} radius={8} />
                 <div className="min-w-0 flex-1">
-                  <p className="m-0 truncate text-[14px] font-extrabold text-[var(--text-primary)]">{sanitizeTitle(selected.title || '')}</p>
+                  <p className="m-0 truncate text-[16px] font-extrabold text-[var(--text-primary)]">{sanitizeTitle(selected.title || '')}</p>
                   <p className="m-0 truncate text-[14px] text-[var(--text-muted)]">{selected.artist_name || ''}</p>
                 </div>
                 <button onClick={() => setSelected(null)} className="shrink-0 text-[14px] text-[var(--text-faint)] hover:text-[var(--text-primary)]">Keisti</button>
@@ -217,7 +217,7 @@ export function DainaSuggestModal({ onClose, onDone }: { onClose: () => void; on
               <button
                 onClick={submit}
                 disabled={sending}
-                className="mt-3 w-full rounded-xl bg-[var(--accent-orange)] py-3 text-[14px] font-extrabold text-white shadow-[0_3px_14px_rgba(249,115,22,0.35)] transition-transform hover:-translate-y-px disabled:opacity-50"
+                className="mt-3 w-full rounded-xl bg-[var(--accent-orange)] py-3 text-[16px] font-extrabold text-white shadow-[0_3px_14px_rgba(249,115,22,0.35)] transition-transform hover:-translate-y-px disabled:opacity-50"
               >
                 {sending ? 'Siunčiama…' : 'Pasiūlyti dainą'}
               </button>
@@ -256,7 +256,7 @@ function DainaWinnerCard({ w, onOpenTrack, maxVotes = 1, compact = false }: { w:
         </div>
         {!compact && <DainaPopBar level={level} />}
         <div className={compact ? 'mt-1.5 px-0.5' : 'mt-1 px-0.5'}>
-          <p className="m-0 truncate font-['Outfit',sans-serif] text-[14px] font-extrabold text-[var(--text-primary)] transition-colors group-hover:text-[var(--accent-orange)]">{sanitizeTitle(t.title)}</p>
+          <p className="m-0 truncate font-['Outfit',sans-serif] text-[16px] font-extrabold text-[var(--text-primary)] transition-colors group-hover:text-[var(--accent-orange)]">{sanitizeTitle(t.title)}</p>
           <p className="m-0 mt-0.5 truncate text-[14px] text-[var(--text-muted)]">{t.artists?.name}</p>
         </div>
       </button>
@@ -293,7 +293,7 @@ function PastNomCard({ n, onOpenTrack, maxVotes = 1, compact = false }: { n: Nom
         </div>
         {!compact && <DainaPopBar level={level} />}
         <div className={compact ? 'mt-1.5 px-0.5' : 'mt-1 px-0.5'}>
-          <p className="m-0 truncate font-['Outfit',sans-serif] text-[14px] font-extrabold text-[var(--text-primary)] transition-colors group-hover:text-[var(--accent-orange)]">{sanitizeTitle(t.title)}</p>
+          <p className="m-0 truncate font-['Outfit',sans-serif] text-[16px] font-extrabold text-[var(--text-primary)] transition-colors group-hover:text-[var(--accent-orange)]">{sanitizeTitle(t.title)}</p>
           <p className="m-0 mt-0.5 truncate text-[14px] text-[var(--text-muted)]">{t.artists?.name}</p>
         </div>
       </button>
@@ -470,7 +470,7 @@ export function DienosDainaSection({ onOpenTrack, variant = 'inline', headerVari
           </div>
           {!compact && <DainaPopBar level={level} />}
           <div className={compact ? 'mt-1.5 px-0.5' : 'mt-1 px-0.5'}>
-            <p className="m-0 truncate font-['Outfit',sans-serif] text-[14px] font-extrabold text-[var(--text-primary)] transition-colors group-hover:text-[var(--accent-orange)]">{sanitizeTitle(t.title)}</p>
+            <p className="m-0 truncate font-['Outfit',sans-serif] text-[16px] font-extrabold text-[var(--text-primary)] transition-colors group-hover:text-[var(--accent-orange)]">{sanitizeTitle(t.title)}</p>
             <p className="m-0 mt-0.5 truncate text-[14px] text-[var(--text-muted)]">{t.artists?.name}</p>
           </div>
         </button>
@@ -508,7 +508,7 @@ export function DienosDainaSection({ onOpenTrack, variant = 'inline', headerVari
       style={{ width: 188, minHeight: 178 }}
     >
       <span className="flex h-11 w-11 items-center justify-center rounded-full bg-[rgba(249,115,22,0.12)] font-['Outfit',sans-serif] text-[24px] font-bold leading-none text-[var(--accent-orange)] transition-colors group-hover:bg-[var(--accent-orange)] group-hover:text-white">+</span>
-      <span className="px-3 font-['Outfit',sans-serif] text-[14px] font-extrabold text-[var(--text-primary)]">Pasiūlyti dainą</span>
+      <span className="px-3 font-['Outfit',sans-serif] text-[16px] font-extrabold text-[var(--text-primary)]">Pasiūlyti dainą</span>
       <span className="px-3 text-[12px] text-[var(--text-muted)]">Pridėk savo kandidatą</span>
     </button>
   ) : null
@@ -620,7 +620,7 @@ export function DienosDainaSection({ onOpenTrack, variant = 'inline', headerVari
         <HomeListModal open onClose={() => setModalOpen(false)} title="Dienos daina" subtitle="Šiandienos kandidatai pagal balsus">
           {winner?.tracks && (
             <div className="mb-4">
-              <p className="mb-2 font-['Outfit',sans-serif] text-[14px] font-extrabold uppercase tracking-[0.08em] text-[var(--accent-orange)]">Vakar laimėjo</p>
+              <p className="mb-2 font-['Outfit',sans-serif] text-[16px] font-extrabold uppercase tracking-[0.08em] text-[var(--accent-orange)]">Vakar laimėjo</p>
               <DainaWinnerCard w={winner} onOpenTrack={(t) => { setModalOpen(false); openTrack(t) }} maxVotes={maxVotes} />
             </div>
           )}
@@ -642,7 +642,7 @@ export function DienosDainaSection({ onOpenTrack, variant = 'inline', headerVari
                       {idx < 3 && <span className="absolute -left-1 -top-1 flex h-5 w-5 items-center justify-center rounded-full bg-[var(--accent-orange)] text-[12px] font-black text-white">{idx + 1}</span>}
                     </div>
                     <div className="min-w-0 flex-1">
-                      <p className="m-0 line-clamp-1 font-['Outfit',sans-serif] text-[14px] font-extrabold text-[var(--text-primary)] transition-colors group-hover:text-[var(--accent-orange)]">{sanitizeTitle(t.title)}</p>
+                      <p className="m-0 line-clamp-1 font-['Outfit',sans-serif] text-[16px] font-extrabold text-[var(--text-primary)] transition-colors group-hover:text-[var(--accent-orange)]">{sanitizeTitle(t.title)}</p>
                       <p className="m-0 truncate text-[14px] text-[var(--text-muted)]">{t.artists?.name}</p>
                       <div className="mt-1 flex items-center gap-2">
                         <span className="flex items-center gap-[3px]" aria-hidden>
@@ -683,7 +683,7 @@ export function DienosDainaSection({ onOpenTrack, variant = 'inline', headerVari
                       type="button"
                       onClick={() => handleVote(n.id)}
                       disabled={isVotedThis || voting !== null}
-                      className={`shrink-0 self-center rounded-lg px-3 py-2 font-['Outfit',sans-serif] text-[14px] font-extrabold transition-all ${
+                      className={`shrink-0 self-center rounded-lg px-3 py-2 font-['Outfit',sans-serif] text-[16px] font-extrabold transition-all ${
                         isVotedThis ? 'cursor-default' : voting !== null ? 'opacity-60' : 'hover:-translate-y-px'
                       }`}
                       style={{
@@ -722,7 +722,7 @@ export function DienosDainaSection({ onOpenTrack, variant = 'inline', headerVari
                   >
                     <Cover src={t.cover_url} ytId={extractYouTubeId(t.video_url)} artistSrc={t.artists?.cover_image_url} alt={sanitizeTitle(t.title)} size={56} radius={8} />
                     <div className="min-w-0 flex-1">
-                      <p className="m-0 line-clamp-1 font-['Outfit',sans-serif] text-[14px] font-extrabold text-[var(--text-primary)] transition-colors group-hover:text-[var(--accent-orange)]">{sanitizeTitle(t.title)}{idx === 0 && <span className="ml-1.5 rounded-full bg-[var(--accent-orange)] px-1.5 py-0.5 text-[12px] font-extrabold uppercase text-white">Laimėjo</span>}</p>
+                      <p className="m-0 line-clamp-1 font-['Outfit',sans-serif] text-[16px] font-extrabold text-[var(--text-primary)] transition-colors group-hover:text-[var(--accent-orange)]">{sanitizeTitle(t.title)}{idx === 0 && <span className="ml-1.5 rounded-full bg-[var(--accent-orange)] px-1.5 py-0.5 text-[12px] font-extrabold uppercase text-white">Laimėjo</span>}</p>
                       <p className="m-0 truncate text-[14px] text-[var(--text-muted)]">{t.artists?.name}</p>
                       <p className="m-0 mt-1 text-[14px] font-bold text-[var(--text-secondary)]">{votes} {votes === 1 ? 'taškas' : votes < 10 ? 'taškai' : 'taškų'}</p>
                       <div className="mt-1"><ProposerLine p={n.proposer} /></div>

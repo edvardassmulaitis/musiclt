@@ -948,7 +948,7 @@ export default function EntityCommentsBlock({
           onClick={() => setPickerOpen(true)}
           aria-label="Pridėti muzikos"
           className={[
-            "inline-flex items-center gap-1.5 rounded-full border px-3 py-1.5 font-['Outfit',sans-serif] text-[14px] font-extrabold transition-colors",
+            "inline-flex items-center gap-1.5 rounded-full border px-3 py-1.5 font-['Outfit',sans-serif] text-[16px] font-extrabold transition-colors",
             attached.length > 0
               ? 'border-[var(--accent-orange)] bg-[rgba(249,115,22,0.12)] text-[var(--accent-orange)]'
               : 'border-[var(--border-subtle)] bg-transparent text-[var(--text-muted)] hover:border-[var(--border-strong)] hover:text-[var(--text-primary)]',
@@ -961,7 +961,7 @@ export default function EntityCommentsBlock({
           type="button"
           onClick={submit}
           disabled={(!draft.trim() && attached.length === 0) || posting || !session?.user?.id}
-          className="inline-flex items-center gap-1.5 rounded-full bg-[var(--accent-orange)] px-4 py-1.5 font-['Outfit',sans-serif] text-[14px] font-extrabold text-white transition-opacity hover:opacity-90 disabled:cursor-not-allowed disabled:opacity-40"
+          className="inline-flex items-center gap-1.5 rounded-full bg-[var(--accent-orange)] px-4 py-1.5 font-['Outfit',sans-serif] text-[16px] font-extrabold text-white transition-opacity hover:opacity-90 disabled:cursor-not-allowed disabled:opacity-40"
         >
           {posting ? 'Siunčiama…' : (
             <>
@@ -1018,7 +1018,7 @@ export default function EntityCommentsBlock({
       <div className="flex flex-wrap items-center justify-between gap-2">
         <h3
           className={compact
-            ? "font-['Outfit',sans-serif] text-[14px] font-extrabold uppercase tracking-[0.18em] text-[var(--text-muted)]"
+            ? "font-['Outfit',sans-serif] text-[16px] font-extrabold uppercase tracking-[0.18em] text-[var(--text-muted)]"
             : "font-['Outfit',sans-serif] font-black tracking-[-0.01em] text-[var(--text-primary)]"
           }
           style={compact ? undefined : { fontSize: headerSize }}
@@ -1322,7 +1322,7 @@ export default function EntityCommentsBlock({
                               text: rest.slice(0, 240),
                             })
                           }}
-                          className="inline-flex items-center gap-1 font-['Outfit',sans-serif] text-[14px] font-extrabold text-[var(--text-muted)] transition-colors hover:text-[var(--accent-orange)]"
+                          className="inline-flex items-center gap-1 font-['Outfit',sans-serif] text-[16px] font-extrabold text-[var(--text-muted)] transition-colors hover:text-[var(--accent-orange)]"
                         >
                           <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2"><polyline points="9 14 4 9 9 4" /><path d="M20 20v-7a4 4 0 0 0-4-4H4" /></svg>
                           Atsakyti

@@ -616,7 +616,7 @@ export default function TrackPageClient({
                   <rect x="1" y="5" width="15" height="14" rx="2" ry="2" />
                 </svg>
               </div>
-              <div className="font-['Outfit',sans-serif] text-[14px] font-extrabold uppercase tracking-[0.18em] text-[var(--text-muted)]">
+              <div className="font-['Outfit',sans-serif] text-[16px] font-extrabold uppercase tracking-[0.18em] text-[var(--text-muted)]">
                 Vaizdo įrašo nėra
               </div>
             </div>
@@ -658,7 +658,7 @@ export default function TrackPageClient({
                   {/* Dainos aprašymas, jei įdėtas. */}
                   {desc && (
                     <div className="rounded-xl border border-[var(--border-subtle)] bg-[var(--card-bg)] p-4">
-                      <div className="mb-2 font-['Outfit',sans-serif] text-[14px] font-extrabold uppercase tracking-[0.18em] text-[var(--text-muted)]">
+                      <div className="mb-2 font-['Outfit',sans-serif] text-[16px] font-extrabold uppercase tracking-[0.18em] text-[var(--text-muted)]">
                         Apie dainą
                       </div>
                       <p className="whitespace-pre-line font-['Outfit',sans-serif] text-[14px] leading-[1.7] text-[var(--text-secondary)]">
@@ -682,7 +682,7 @@ export default function TrackPageClient({
                         </span>
                         <div className="min-w-0 flex-1">
                           <div className="font-['Outfit',sans-serif] text-[12px] font-extrabold uppercase tracking-[0.14em] text-[var(--text-muted)]">Iš albumo</div>
-                          <div className="truncate font-['Outfit',sans-serif] text-[14px] font-extrabold leading-tight text-[var(--text-primary)] group-hover:text-[var(--accent-orange)]">{primaryAlbum.title}</div>
+                          <div className="truncate font-['Outfit',sans-serif] text-[16px] font-extrabold leading-tight text-[var(--text-primary)] group-hover:text-[var(--accent-orange)]">{primaryAlbum.title}</div>
                           {primaryAlbum.year && (
                             <div className="text-[14px] font-semibold text-[var(--text-muted)]">{primaryAlbum.year} m.</div>
                           )}
@@ -721,7 +721,7 @@ export default function TrackPageClient({
                         </span>
                         <div className="min-w-0 flex-1">
                           <div className="font-['Outfit',sans-serif] text-[12px] font-extrabold uppercase tracking-[0.14em] text-[var(--text-muted)]">Atlikėjas</div>
-                          <div className="truncate font-['Outfit',sans-serif] text-[14px] font-extrabold leading-tight text-[var(--text-primary)] group-hover:text-[var(--accent-orange)]">{artist.name}</div>
+                          <div className="truncate font-['Outfit',sans-serif] text-[16px] font-extrabold leading-tight text-[var(--text-primary)] group-hover:text-[var(--accent-orange)]">{artist.name}</div>
                           {artistBio && (
                             <p className="mt-1 line-clamp-3 whitespace-pre-line text-[14px] leading-[1.5] text-[var(--text-secondary)]">{artistBio}</p>
                           )}
@@ -864,7 +864,7 @@ export default function TrackPageClient({
             mobileTab === 'lyrics' ? 'block' : 'hidden',
           ].join(' ')}>
             <div className="mb-4 flex items-baseline gap-2">
-              <div className="font-['Outfit',sans-serif] text-[14px] font-extrabold uppercase tracking-[0.18em] text-[var(--text-muted)]">
+              <div className="font-['Outfit',sans-serif] text-[16px] font-extrabold uppercase tracking-[0.18em] text-[var(--text-muted)]">
                 Dainos tekstas
               </div>
               {hasLyrics && (
@@ -902,7 +902,7 @@ export default function TrackPageClient({
               )
             ) : lyricsSubmitted ? (
               <div className="rounded-xl border border-[var(--border-subtle)] bg-[var(--bg-elevated)] px-4 py-8 text-center">
-                <div className="text-[14px] font-extrabold text-[var(--text-primary)]">Ačiū! Tekstas išsiųstas peržiūrai.</div>
+                <div className="text-[16px] font-extrabold text-[var(--text-primary)]">Ačiū! Tekstas išsiųstas peržiūrai.</div>
                 <div className="mt-1 text-[14px] text-[var(--text-muted)]">Administratoriui patvirtinus, jis atsiras čia.</div>
               </div>
             ) : isLoggedIn ? (
@@ -922,16 +922,16 @@ export default function TrackPageClient({
                   type="button"
                   onClick={submitLyrics}
                   disabled={lyricsSubmitting}
-                  className="mt-2 rounded-xl bg-[var(--accent-orange)] px-4 py-2 font-['Outfit',sans-serif] text-[14px] font-extrabold text-white disabled:opacity-50"
+                  className="mt-2 rounded-xl bg-[var(--accent-orange)] px-4 py-2 font-['Outfit',sans-serif] text-[16px] font-extrabold text-white disabled:opacity-50"
                 >
                   {lyricsSubmitting ? 'Siunčiama…' : 'Pasiūlyti tekstą'}
                 </button>
               </div>
             ) : (
               <div className="rounded-xl border border-dashed border-[var(--border-subtle)] bg-[var(--bg-elevated)] px-4 py-8 text-center">
-                <div className="text-[14px] font-extrabold text-[var(--text-primary)]">Šios dainos teksto dar nėra</div>
+                <div className="text-[16px] font-extrabold text-[var(--text-primary)]">Šios dainos teksto dar nėra</div>
                 <p className="mt-1 text-[14px] text-[var(--text-muted)]">Prisijunk, kad galėtum pasiūlyti tekstą.</p>
-                <Link href="/auth/signin" className="mt-3 inline-block rounded-xl bg-[var(--accent-orange)] px-4 py-2 font-['Outfit',sans-serif] text-[14px] font-extrabold text-white no-underline">Prisijungti</Link>
+                <Link href="/auth/signin" className="mt-3 inline-block rounded-xl bg-[var(--accent-orange)] px-4 py-2 font-['Outfit',sans-serif] text-[16px] font-extrabold text-white no-underline">Prisijungti</Link>
               </div>
             )}
           </div>
@@ -962,7 +962,7 @@ export default function TrackPageClient({
       {relatedTracks.length > 0 && (
         <section className="border-t border-[var(--border-subtle)] bg-[var(--bg-surface)]">
           <div className="mx-auto w-full max-w-[1400px] px-4 py-5 sm:px-5">
-            <div className="mb-3 font-['Outfit',sans-serif] text-[14px] font-extrabold uppercase tracking-[0.18em] text-[var(--text-muted)]">
+            <div className="mb-3 font-['Outfit',sans-serif] text-[16px] font-extrabold uppercase tracking-[0.18em] text-[var(--text-muted)]">
               Susijusi muzika
             </div>
             <div className="flex gap-3 overflow-x-auto pb-2 [scrollbar-width:thin]">
@@ -980,7 +980,7 @@ export default function TrackPageClient({
                       )}
                     </div>
                     <div className="px-1 pb-0.5">
-                      <div className="truncate font-['Outfit',sans-serif] text-[14px] font-extrabold leading-tight text-[var(--text-primary)] group-hover:text-[var(--accent-orange)]">{t.title}</div>
+                      <div className="truncate font-['Outfit',sans-serif] text-[16px] font-extrabold leading-tight text-[var(--text-primary)] group-hover:text-[var(--accent-orange)]">{t.title}</div>
                       <div className="truncate font-['Outfit',sans-serif] text-[12px] font-semibold text-[var(--text-faint)]">{t.artistName}</div>
                     </div>
                   </Link>

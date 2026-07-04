@@ -190,7 +190,7 @@ function WinnersModal({ onClose, onOpenTrack }: { onClose: () => void; onOpenTra
                   <img src={proxyImg(img)} alt="" loading="lazy" className="h-12 w-12 shrink-0 rounded-lg object-cover" />
                 ) : <div className="h-12 w-12 shrink-0 rounded-lg" style={{ background: `hsl(${hue(t.title)},30%,18%)` }} />}
                 <div className="min-w-0 flex-1">
-                  <p className="m-0 truncate font-['Outfit',sans-serif] text-[14px] font-extrabold text-[var(--text-primary)] group-hover:text-[var(--accent-orange)]">{sani(t.title)}</p>
+                  <p className="m-0 truncate font-['Outfit',sans-serif] text-[16px] font-extrabold text-[var(--text-primary)] group-hover:text-[var(--accent-orange)]">{sani(t.title)}</p>
                   <p className="m-0 truncate text-[14px] text-[var(--text-muted)]">{t.artists?.name}</p>
                   <p className="m-0 mt-0.5 text-[12px] text-[var(--text-faint)]">{w.date}{meta ? ` · ${meta}` : ''}</p>
                 </div>
@@ -324,7 +324,7 @@ export function DienosDainaHero({ fullPage = false }: { fullPage?: boolean }) {
           <span className="shrink-0 rounded-lg border border-dashed border-[var(--border-strong)] px-2.5 py-1 font-['Outfit',sans-serif] text-[12px] font-bold text-[var(--text-muted)]">Tavo</span>
         ) : (
           <button type="button" onClick={() => handleVote(n.id)} disabled={voted || voting !== null}
-            className={`flex shrink-0 items-center gap-1.5 rounded-lg border px-2.5 py-1.5 font-['Outfit',sans-serif] text-[14px] font-extrabold transition-colors ${
+            className={`flex shrink-0 items-center gap-1.5 rounded-lg border px-2.5 py-1.5 font-['Outfit',sans-serif] text-[16px] font-extrabold transition-colors ${
               voted ? 'border-[rgba(249,115,22,0.5)] bg-[rgba(249,115,22,0.16)] text-[var(--accent-orange)]' : 'border-[var(--border-strong)] text-[var(--text-secondary)] hover:border-[var(--accent-orange)] hover:text-[var(--accent-orange)]'
             }`}>
             <Ic d={I.heart} size={11} filled={voted} /> {voting === n.id ? '…' : voted ? 'Balsuota' : 'Balsuok'}
@@ -433,7 +433,7 @@ export function DienosDainaHero({ fullPage = false }: { fullPage?: boolean }) {
                   <PopBar level={Math.max(1, Math.round(((leader.weighted_votes || leader.votes || 0) / maxVotes) * 5))} onDark />
                   {!leader.own && (
                     <button type="button" onClick={() => handleVote(leader.id)} disabled={votedIds.has(leader.id) || voting !== null}
-                      className={`flex shrink-0 items-center gap-1.5 rounded-lg border px-3 py-1.5 font-['Outfit',sans-serif] text-[14px] font-extrabold transition-colors ${
+                      className={`flex shrink-0 items-center gap-1.5 rounded-lg border px-3 py-1.5 font-['Outfit',sans-serif] text-[16px] font-extrabold transition-colors ${
                         votedIds.has(leader.id) ? 'border-[rgba(249,115,22,0.5)] bg-[rgba(249,115,22,0.16)] text-[var(--accent-orange)]' : 'border-[var(--border-strong)] text-[var(--text-secondary)] hover:border-[var(--accent-orange)] hover:text-[var(--accent-orange)]'
                       }`}>
                       <Ic d={I.heart} size={12} filled={votedIds.has(leader.id)} /> {voting === leader.id ? '…' : votedIds.has(leader.id) ? 'Balsuota' : 'Balsuok'}
@@ -450,7 +450,7 @@ export function DienosDainaHero({ fullPage = false }: { fullPage?: boolean }) {
               <span className="ml-auto flex items-center gap-1.5 text-[12px] font-bold normal-case tracking-normal text-[var(--text-muted)]"><Ic d={I.clock} size={11} /> liko <Countdown /></span>
             </div>
             <p className="m-0 text-[16px] font-bold leading-snug text-[var(--text-primary)]">Šiandien dar nėra pasiūlymų — tavo daina gali būti pirma.</p>
-            <button type="button" onClick={() => setSuggestOpen(true)} className="mt-1 cursor-pointer rounded-xl border-0 bg-[var(--accent-orange)] px-5 py-2.5 font-['Outfit',sans-serif] text-[14px] font-extrabold text-white shadow-[0_6px_20px_rgba(249,115,22,0.35)]">+ Pasiūlyti dainą</button>
+            <button type="button" onClick={() => setSuggestOpen(true)} className="mt-1 cursor-pointer rounded-xl border-0 bg-[var(--accent-orange)] px-5 py-2.5 font-['Outfit',sans-serif] text-[16px] font-extrabold text-white shadow-[0_6px_20px_rgba(249,115,22,0.35)]">+ Pasiūlyti dainą</button>
           </div>
         )}
       </div>

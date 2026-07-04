@@ -376,7 +376,7 @@ function FeaturedSlide({ it, onOpenDiscovery }: { it: FeatItem; onOpenDiscovery:
           ) : (
             <div className="absolute inset-0" style={{ background: `linear-gradient(135deg, hsl(${hue(d.title)},34%,22%), hsl(${(hue(d.title) + 40) % 360},30%,12%))` }} />
           )}
-          {d.artist_name && <span className="absolute bottom-2.5 left-3 font-['Outfit',sans-serif] text-[14px] font-extrabold uppercase tracking-[0.06em] text-white/90" style={{ textShadow: '0 1px 4px rgba(0,0,0,0.7)' }}>{d.artist_name}</span>}
+          {d.artist_name && <span className="absolute bottom-2.5 left-3 font-['Outfit',sans-serif] text-[16px] font-extrabold uppercase tracking-[0.06em] text-white/90" style={{ textShadow: '0 1px 4px rgba(0,0,0,0.7)' }}>{d.artist_name}</span>}
         </div>
         <FeatTextPanel>
           <FeatLabel />
@@ -697,7 +697,7 @@ function ShoutPane({ tall = false }: { tall?: boolean }) {
               <Avatar src={m.author_avatar} name={name} size={24} />
               <div className="min-w-0 flex-1 rounded-[4px_12px_12px_12px] border border-[var(--border-subtle)] bg-[rgba(255,255,255,0.05)] px-2.5 py-1.5">
                 <div className="flex items-baseline gap-1.5">
-                  <span className="truncate text-[14px] font-extrabold text-[var(--accent-link)]">{name}</span>
+                  <span className="truncate text-[16px] font-extrabold text-[var(--accent-link)]">{name}</span>
                   <span className="shrink-0 text-[12px] text-[var(--text-faint)]">{timeAgo(m.created_at)}</span>
                 </div>
                 <p className="m-0 break-words text-[12px] leading-snug text-[var(--text-secondary)]">{m.body}</p>
@@ -783,11 +783,11 @@ function HappeningArea() {
       <div className="hidden h-full flex-col overflow-hidden rounded-2xl border border-[var(--border-default)] bg-[var(--bg-surface)] lg:flex">
         <div className="flex shrink-0 border-b border-[var(--border-subtle)]">
           <button type="button" onClick={() => setTab('act')}
-            className={`flex flex-1 cursor-pointer items-center justify-center gap-2 border-0 bg-transparent px-2 pb-2.5 pt-3 font-['Outfit',sans-serif] text-[14px] font-extrabold transition-colors ${tab === 'act' ? 'text-[var(--text-primary)] shadow-[inset_0_-2px_0_var(--accent-orange)]' : 'text-[var(--text-muted)]'}`}>
+            className={`flex flex-1 cursor-pointer items-center justify-center gap-2 border-0 bg-transparent px-2 pb-2.5 pt-3 font-['Outfit',sans-serif] text-[16px] font-extrabold transition-colors ${tab === 'act' ? 'text-[var(--text-primary)] shadow-[inset_0_-2px_0_var(--accent-orange)]' : 'text-[var(--text-muted)]'}`}>
             <span className="h-1.5 w-1.5 animate-pulse rounded-full bg-[#22c55e]" /> Kas vyksta
           </button>
           <button type="button" onClick={() => setTab('shout')}
-            className={`flex flex-1 cursor-pointer items-center justify-center gap-2 border-0 bg-transparent px-2 pb-2.5 pt-3 font-['Outfit',sans-serif] text-[14px] font-extrabold transition-colors ${tab === 'shout' ? 'text-[var(--text-primary)] shadow-[inset_0_-2px_0_var(--accent-orange)]' : 'text-[var(--text-muted)]'}`}>
+            className={`flex flex-1 cursor-pointer items-center justify-center gap-2 border-0 bg-transparent px-2 pb-2.5 pt-3 font-['Outfit',sans-serif] text-[16px] font-extrabold transition-colors ${tab === 'shout' ? 'text-[var(--text-primary)] shadow-[inset_0_-2px_0_var(--accent-orange)]' : 'text-[var(--text-muted)]'}`}>
             <Ic d={I.comment} size={13} /> Pokalbiai
           </button>
         </div>
@@ -814,7 +814,7 @@ function HappeningArea() {
         <button type="button" onClick={() => setActModal(true)}
           className="relative flex cursor-pointer flex-col items-start gap-2 rounded-2xl border border-[var(--border-default)] bg-[var(--bg-surface)] px-3.5 py-3 text-left">
           <span className="absolute right-2.5 top-2.5 text-[var(--text-faint)]"><Ic d="M15 3h6v6M9 21H3v-6M21 3l-7 7M3 21l7-7" size={13} /></span>
-          <span className="flex items-center gap-2 font-['Outfit',sans-serif] text-[14px] font-extrabold text-[var(--text-primary)]">
+          <span className="flex items-center gap-2 font-['Outfit',sans-serif] text-[16px] font-extrabold text-[var(--text-primary)]">
             <span className="h-1.5 w-1.5 animate-pulse rounded-full bg-[#22c55e]" /> Kas vyksta
           </span>
           {ev0 ? (
@@ -837,7 +837,7 @@ function HappeningArea() {
         <button type="button" onClick={() => setShoutModal(true)}
           className="relative flex cursor-pointer flex-col items-start gap-2 rounded-2xl border border-[var(--border-default)] bg-[var(--bg-surface)] px-3.5 py-3 text-left">
           <span className="absolute right-2.5 top-2.5 text-[var(--text-faint)]"><Ic d="M15 3h6v6M9 21H3v-6M21 3l-7 7M3 21l7-7" size={13} /></span>
-          <span className="flex items-center gap-2 font-['Outfit',sans-serif] text-[14px] font-extrabold text-[var(--text-primary)]">
+          <span className="flex items-center gap-2 font-['Outfit',sans-serif] text-[16px] font-extrabold text-[var(--text-primary)]">
             <Ic d={I.comment} size={14} /> Pokalbiai
           </span>
           {lastShoutMsg ? (
@@ -1351,7 +1351,7 @@ function PulsasSection() {
           <div className="mt-6 flex flex-wrap items-center justify-center gap-3">
             {hasMore && (
               <button type="button" onClick={more} disabled={loadingMore}
-                className="cursor-pointer rounded-full border border-[var(--border-default)] bg-[var(--card-bg)] px-9 py-2.5 font-['Outfit',sans-serif] text-[14px] font-extrabold text-[var(--text-secondary)] transition-colors hover:border-[var(--accent-orange)] hover:text-[var(--accent-orange)] disabled:opacity-50">
+                className="cursor-pointer rounded-full border border-[var(--border-default)] bg-[var(--card-bg)] px-9 py-2.5 font-['Outfit',sans-serif] text-[16px] font-extrabold text-[var(--text-secondary)] transition-colors hover:border-[var(--accent-orange)] hover:text-[var(--accent-orange)] disabled:opacity-50">
                 {loadingMore ? 'Kraunama…' : 'Rodyti daugiau ↓'}
               </button>
             )}
@@ -1509,7 +1509,7 @@ function KornerSection() {
             {ordered.map(p => <KornerCard key={p.id} p={p} />)}
             <Link href="/blogas/rasyti?type=creation" className="group flex w-[280px] shrink-0 snap-start flex-col items-center justify-center gap-2 rounded-[15px] border border-dashed border-[var(--border-strong)] p-4 text-center no-underline transition-colors hover:border-[var(--accent-orange)]" style={{ minHeight: 250 }}>
               <span className="flex h-9 w-9 items-center justify-center rounded-full bg-[rgba(249,115,22,0.15)] text-[var(--accent-orange)]"><Ic d={I.plus} size={15} /></span>
-              <b className="font-['Outfit',sans-serif] text-[14px] font-extrabold text-[var(--text-primary)]">Įkelk savo kūrybą</b>
+              <b className="font-['Outfit',sans-serif] text-[16px] font-extrabold text-[var(--text-primary)]">Įkelk savo kūrybą</b>
               <span className="text-[14px] text-[var(--text-muted)]">eilėraštį, vertimą ar mintis</span>
             </Link>
           </>
@@ -1557,7 +1557,7 @@ function NariaiSection() {
                 {m.isNew && <span title="Naujas narys" className="absolute -bottom-0.5 -right-0.5 h-3 w-3 rounded-full border-2 border-[var(--card-bg)] bg-[#22c55e]" />}
               </div>
               <div className="min-w-0 flex-1">
-                <p className="m-0 truncate font-['Outfit',sans-serif] text-[14px] font-extrabold text-[var(--text-primary)] group-hover:text-[var(--accent-orange)]">{capName(m.username)}</p>
+                <p className="m-0 truncate font-['Outfit',sans-serif] text-[16px] font-extrabold text-[var(--text-primary)] group-hover:text-[var(--accent-orange)]">{capName(m.username)}</p>
                 {m.isNew && <p className="m-0 text-[12px] font-bold uppercase tracking-[0.08em] text-[#22c55e]">naujas narys</p>}
               </div>
             </div>
@@ -1581,7 +1581,7 @@ function NariaiSection() {
         {/* „Daugiau" — į pilną narių sąrašą. */}
         <Link href="/nariai" className="group flex w-[150px] shrink-0 snap-start flex-col items-center justify-center gap-2 rounded-[15px] border border-dashed border-[var(--border-strong)] p-4 text-center no-underline transition-colors hover:border-[var(--accent-orange)] hover:bg-[rgba(249,115,22,0.05)]">
           <span className="flex h-10 w-10 items-center justify-center rounded-full bg-[rgba(59,130,246,0.14)] text-[#3b82f6]"><Ic d="M9 6l6 6-6 6" size={18} /></span>
-          <b className="font-['Outfit',sans-serif] text-[14px] font-extrabold text-[var(--text-primary)] group-hover:text-[var(--accent-orange)]">Daugiau narių</b>
+          <b className="font-['Outfit',sans-serif] text-[16px] font-extrabold text-[var(--text-primary)] group-hover:text-[var(--accent-orange)]">Daugiau narių</b>
           <span className="text-[12px] text-[var(--text-muted)]">visi bendruomenės nariai</span>
         </Link>
         </>)}
@@ -1610,7 +1610,7 @@ function InviteCTA() {
       <div className="flex flex-col items-center gap-4 rounded-2xl border border-[var(--border-default)] bg-[var(--bg-surface)] px-5 py-5 sm:flex-row sm:justify-between sm:px-7">
         <h3 className="m-0 text-center font-['Outfit',sans-serif] text-[16px] font-extrabold tracking-[-0.01em] text-[var(--text-primary)] sm:text-left sm:text-[16px]">Pakviesk draugus į Music.lt</h3>
         <button type="button" onClick={share}
-          className={`flex shrink-0 cursor-pointer items-center gap-2 rounded-xl border-0 px-5 py-2.5 font-['Outfit',sans-serif] text-[14px] font-extrabold text-white transition-transform hover:scale-[1.02] ${copied ? 'bg-[#22c55e]' : 'bg-[var(--accent-orange)]'}`}>
+          className={`flex shrink-0 cursor-pointer items-center gap-2 rounded-xl border-0 px-5 py-2.5 font-['Outfit',sans-serif] text-[16px] font-extrabold text-white transition-transform hover:scale-[1.02] ${copied ? 'bg-[#22c55e]' : 'bg-[var(--accent-orange)]'}`}>
           {copied ? (
             <><Ic d="M20 6L9 17l-5-5" size={15} /> Nukopijuota!</>
           ) : (

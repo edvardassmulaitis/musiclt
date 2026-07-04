@@ -132,7 +132,7 @@ function PromptModal({
         }}
       >
         <div className="border-b border-[var(--border-subtle)] px-4 py-3">
-          <div className="font-['Outfit',sans-serif] text-[14px] font-extrabold text-[var(--text-primary)]">
+          <div className="font-['Outfit',sans-serif] text-[16px] font-extrabold text-[var(--text-primary)]">
             {title}
           </div>
           {hint && (
@@ -163,7 +163,7 @@ function PromptModal({
             </button>
             <button
               type="submit"
-              className="rounded-full bg-[var(--accent-orange)] px-4 py-1.5 text-[14px] font-extrabold text-white transition-opacity hover:opacity-90"
+              className="rounded-full bg-[var(--accent-orange)] px-4 py-1.5 text-[16px] font-extrabold text-white transition-opacity hover:opacity-90"
             >
               Gerai
             </button>

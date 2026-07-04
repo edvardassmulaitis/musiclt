@@ -86,7 +86,7 @@ export function ProfileEditModal({ profile, onClose }: { profile: any; onClose: 
 
   const field = 'w-full px-3 py-2 rounded-lg text-sm'
   const fieldStyle: React.CSSProperties = { fontFamily: "'Outfit', sans-serif", background: 'var(--card-bg)', border: '1px solid var(--border-default)', color: 'var(--text-primary)' }
-  const label = 'block text-[14px] font-extrabold uppercase tracking-wider mb-1.5'
+  const label = 'block text-[16px] font-extrabold uppercase tracking-wider mb-1.5'
   const labelStyle: React.CSSProperties = { color: 'var(--text-muted)', fontFamily: "'Outfit', sans-serif" }
   const cityKnown = !city || CITY_OPTIONS.includes(city)
 
@@ -185,7 +185,7 @@ export function ProfileEditModal({ profile, onClose }: { profile: any; onClose: 
           <button type="button" onClick={onClose} className="px-4 py-2 rounded-full text-[14px] font-bold transition hover:opacity-80"
                   style={{ fontFamily: "'Outfit', sans-serif", background: 'var(--card-bg)', border: '1px solid var(--border-default)', color: 'var(--text-secondary)' }}>Atšaukti</button>
           <button type="button" onClick={save} disabled={busy || !!uploading}
-                  className="px-5 py-2 rounded-full text-[14px] font-extrabold transition hover:opacity-90 disabled:opacity-60"
+                  className="px-5 py-2 rounded-full text-[16px] font-extrabold transition hover:opacity-90 disabled:opacity-60"
                   style={{ fontFamily: "'Outfit', sans-serif", background: 'var(--accent-orange)', color: '#fff' }}>{busy ? 'Saugoma…' : 'Išsaugoti'}</button>
         </footer>
       </div>

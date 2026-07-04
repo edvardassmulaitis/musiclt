@@ -178,7 +178,7 @@ export function MoreItemsModal({
                 key={opt.mode}
                 type="button"
                 onClick={() => setSortMode(opt.mode)}
-                className="px-2.5 py-1 rounded text-[14px] font-extrabold uppercase tracking-wider transition"
+                className="px-2.5 py-1 rounded text-[16px] font-extrabold uppercase tracking-wider transition"
                 style={{
                   fontFamily: "'Outfit', sans-serif",
                   background: sortMode === opt.mode ? 'var(--accent-orange)' : 'transparent',

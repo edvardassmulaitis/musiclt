@@ -269,7 +269,7 @@ function MusicPlayer({ songs }: { songs: SongEntry[] }) {
                 <span className="flex h-14 w-14 items-center justify-center rounded-full bg-white/5 ring-1 ring-white/10">
                   <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" className="text-white/50"><path d="M23 7l-7 5 7 5V7z" /><rect x="1" y="5" width="15" height="14" rx="2" ry="2" /></svg>
                 </span>
-                <span className="font-['Outfit',sans-serif] text-[14px] font-extrabold uppercase tracking-[0.15em] text-white/60">Video dar nėra</span>
+                <span className="font-['Outfit',sans-serif] text-[16px] font-extrabold uppercase tracking-[0.15em] text-white/60">Video dar nėra</span>
               </span>
             )}
           </button>

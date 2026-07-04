@@ -136,7 +136,7 @@ export default function AdminLyricsSuggestions() {
                   <button
                     onClick={() => act(it.id, 'approve')}
                     disabled={busy === it.id}
-                    className="rounded-lg bg-[var(--accent-orange)] px-3.5 py-1.5 font-['Outfit',sans-serif] text-[14px] font-extrabold text-white disabled:opacity-50"
+                    className="rounded-lg bg-[var(--accent-orange)] px-3.5 py-1.5 font-['Outfit',sans-serif] text-[16px] font-extrabold text-white disabled:opacity-50"
                   >
                     {busy === it.id ? '…' : '✓ Patvirtinti'}
                   </button>

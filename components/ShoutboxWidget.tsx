@@ -37,7 +37,7 @@ function MsgRow({ m, isAdmin, onDelete }: { m: Msg; isAdmin: boolean; onDelete: 
       )}
       <div className="min-w-0 flex-1">
         <div className="flex items-baseline gap-1.5">
-          <span className="truncate text-[14px] font-extrabold text-[var(--accent-link)]">{name}</span>
+          <span className="truncate text-[16px] font-extrabold text-[var(--accent-link)]">{name}</span>
           <span className="shrink-0 text-[12px] text-[var(--text-faint)]">{timeAgoShort(m.created_at)}</span>
           {isAdmin && (
             <button onClick={() => onDelete(m.id)} title="Ištrinti" className="ml-auto shrink-0 text-[12px] text-[var(--text-faint)] opacity-0 transition-opacity hover:text-[var(--accent-red)] group-hover:opacity-100">✕</button>
@@ -99,7 +99,7 @@ function Composer({ onSent, big = false }: { onSent: () => void; big?: boolean }
           placeholder="Parašyk žinutę…"
           className={`min-w-0 flex-1 rounded-lg border border-[var(--border-default)] bg-[var(--bg-surface)] px-3 text-[var(--text-primary)] outline-none focus:border-[var(--accent-orange)] ${big ? 'py-2.5 text-[14px]' : 'py-2 text-[14px]'}`}
         />
-        <button onClick={send} disabled={sending || !text.trim()} className="shrink-0 rounded-lg bg-[var(--accent-orange)] px-3 py-2 text-[14px] font-extrabold text-white disabled:opacity-40">→</button>
+        <button onClick={send} disabled={sending || !text.trim()} className="shrink-0 rounded-lg bg-[var(--accent-orange)] px-3 py-2 text-[16px] font-extrabold text-white disabled:opacity-40">→</button>
       </div>
       {err && <p className="m-0 mt-1 text-[12px] text-[var(--accent-red)]">{err}</p>}
     </div>
@@ -120,7 +120,7 @@ function ShoutboxModal({ onClose }: { onClose: () => void }) {
       <div className="flex w-full max-w-[520px] flex-col overflow-hidden rounded-t-2xl bg-[var(--bg-surface)] shadow-[0_24px_60px_-10px_rgba(0,0,0,0.5)] sm:mx-4 sm:rounded-2xl" style={{ height: 'min(80vh, 640px)' }}>
         <div className="flex shrink-0 items-center justify-between border-b border-[var(--border-subtle)] px-4 py-3">
           <div className="flex items-center gap-2">
-            <span className="font-['Outfit',sans-serif] text-[14px] font-extrabold text-[var(--text-primary)]">Pokalbiai</span>
+            <span className="font-['Outfit',sans-serif] text-[16px] font-extrabold text-[var(--text-primary)]">Pokalbiai</span>
             <span className="h-1.5 w-1.5 rounded-full bg-[#22c55e]" style={{ boxShadow: '0 0 6px #22c55e' }} />
           </div>
           <button onClick={onClose} aria-label="Uždaryti" className="flex h-7 w-7 items-center justify-center rounded-full bg-[var(--bg-active)] text-[var(--text-secondary)]">✕</button>
@@ -151,7 +151,7 @@ export function ShoutboxWidget() {
     <div className="flex h-full flex-col overflow-hidden rounded-2xl border border-[var(--border-default)] bg-[var(--bg-surface)]">
       <div className="flex shrink-0 items-center justify-between border-b border-[var(--border-subtle)] px-3.5 py-2.5">
         <div className="flex items-center gap-1.5">
-          <span className="font-['Outfit',sans-serif] text-[14px] font-extrabold text-[var(--text-primary)]">Pokalbiai</span>
+          <span className="font-['Outfit',sans-serif] text-[16px] font-extrabold text-[var(--text-primary)]">Pokalbiai</span>
           <span className="h-1.5 w-1.5 rounded-full bg-[#22c55e]" style={{ boxShadow: '0 0 6px #22c55e' }} />
         </div>
         <button onClick={() => setModalOpen(true)} aria-label="Atverti visą pokalbį" title="Atverti visą pokalbį" className="flex h-6 w-6 items-center justify-center rounded-md text-[var(--text-muted)] transition-colors hover:bg-[var(--bg-hover)] hover:text-[var(--accent-orange)]">

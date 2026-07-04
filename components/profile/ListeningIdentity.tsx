@@ -65,7 +65,7 @@ export function ListeningIdentity({ favoriteStyles, musicMeter, username }: Prop
         <div className="relative rounded-3xl overflow-hidden bg-gradient-to-br from-[#111822] via-[#0a1018] to-[#080c12] border border-white/[.06]">
           {/* Top eyebrow */}
           <div className="absolute top-5 sm:top-8 left-5 sm:left-10 right-5 sm:right-10 flex items-center justify-between">
-            <div className="text-[12px] sm:text-[14px] font-extrabold uppercase tracking-[0.22em] text-[#f97316]" style={{ fontFamily: "'Outfit', sans-serif" }}>
+            <div className="text-[12px] sm:text-[16px] font-extrabold uppercase tracking-[0.22em] text-[#f97316]" style={{ fontFamily: "'Outfit', sans-serif" }}>
               Klausymo identitetas
             </div>
             <div className="text-[12px] text-[#5e7290] uppercase tracking-wider font-bold" style={{ fontFamily: "'Outfit', sans-serif" }}>
@@ -92,7 +92,7 @@ export function ListeningIdentity({ favoriteStyles, musicMeter, username }: Prop
             <div className="flex flex-col justify-center">
               {top3.length > 0 ? (
                 <>
-                  <div className="text-[14px] font-extrabold uppercase tracking-widest text-[#5e7290] mb-4" style={{ fontFamily: "'Outfit', sans-serif" }}>
+                  <div className="text-[16px] font-extrabold uppercase tracking-widest text-[#5e7290] mb-4" style={{ fontFamily: "'Outfit', sans-serif" }}>
                     Pagrindiniai stiliai
                   </div>
                   <div className="space-y-1 sm:space-y-2">
@@ -142,7 +142,7 @@ export function ListeningIdentity({ favoriteStyles, musicMeter, username }: Prop
             {/* RIGHT — equalizer */}
             {hasMeter && (
               <div className="flex flex-col justify-end">
-                <div className="text-[14px] font-extrabold uppercase tracking-widest text-[#5e7290] mb-3 lg:text-right" style={{ fontFamily: "'Outfit', sans-serif" }}>
+                <div className="text-[16px] font-extrabold uppercase tracking-widest text-[#5e7290] mb-3 lg:text-right" style={{ fontFamily: "'Outfit', sans-serif" }}>
                   Klausymo pasiskirstymas
                 </div>
                 <div className="flex items-end justify-between gap-1 h-[180px] sm:h-[220px]">

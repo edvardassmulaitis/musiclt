@@ -131,7 +131,7 @@ export function DailyPickCard({ pick }: { pick: Pick }) {
       <div className="mt-1.5 px-0.5">
         {known ? (
           <>
-            <p className="m-0 truncate font-['Outfit',sans-serif] text-[14px] font-extrabold text-[var(--text-primary)] transition-colors group-hover:text-[var(--accent-orange)]">
+            <p className="m-0 truncate font-['Outfit',sans-serif] text-[16px] font-extrabold text-[var(--text-primary)] transition-colors group-hover:text-[var(--accent-orange)]">
               {sanitizeTitle(track!.title)}
             </p>
             <p className="m-0 mt-0.5 truncate text-[14px] text-[var(--text-muted)]">{artist?.name || 'Atlikėjas'}</p>

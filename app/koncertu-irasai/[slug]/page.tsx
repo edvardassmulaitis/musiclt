@@ -90,7 +90,7 @@ export default async function RecordingDetailPage({ params }: { params: Promise<
           </div>
 
           <div className="mt-4 flex flex-wrap items-center gap-2">
-            <span className="rounded-full bg-[var(--accent-orange)] px-2.5 py-0.5 text-[14px] font-extrabold uppercase tracking-wide text-white">
+            <span className="rounded-full bg-[var(--accent-orange)] px-2.5 py-0.5 text-[16px] font-extrabold uppercase tracking-wide text-white">
               {recordingTypeLabel(rec.recording_type)}
             </span>
             {rec.duration_seconds != null && (
@@ -121,7 +121,7 @@ export default async function RecordingDetailPage({ params }: { params: Promise<
         {/* ── Šoninė info ── */}
         <aside className="space-y-4">
           <div className="rounded-2xl border border-[var(--border-default)] bg-[var(--bg-surface)] p-4">
-            <h2 className="mb-2 font-['Outfit',sans-serif] text-[14px] font-extrabold uppercase tracking-wide text-[var(--text-muted)]">Apie įrašą</h2>
+            <h2 className="mb-2 font-['Outfit',sans-serif] text-[16px] font-extrabold uppercase tracking-wide text-[var(--text-muted)]">Apie įrašą</h2>
             <dl className="space-y-1.5 text-[14px]">
               {place && <InfoRow label="Vieta" value={place} />}
               {dateStr && <InfoRow label="Koncerto data" value={dateStr} />}

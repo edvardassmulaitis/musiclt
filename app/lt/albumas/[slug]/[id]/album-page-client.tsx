@@ -229,7 +229,7 @@ export default function AlbumPageClient({
   const Tracklist = (
     <div>
       <div className="mb-3 flex items-baseline gap-2">
-        <div className="font-['Outfit',sans-serif] text-[14px] font-extrabold uppercase tracking-[0.18em] text-[var(--text-muted)]">
+        <div className="font-['Outfit',sans-serif] text-[16px] font-extrabold uppercase tracking-[0.18em] text-[var(--text-muted)]">
           Dainos
         </div>
         {tracks.length > 0 && (
@@ -477,7 +477,7 @@ export default function AlbumPageClient({
               <button
                 type="button"
                 onClick={() => setMobileTab('comments')}
-                className="flex w-full items-center justify-center gap-2 rounded-xl border-2 border-[var(--accent-orange)] bg-[rgba(249,115,22,0.08)] px-3 py-2.5 font-['Outfit',sans-serif] text-[14px] font-extrabold text-[var(--accent-orange)] transition-colors hover:bg-[rgba(249,115,22,0.15)]"
+                className="flex w-full items-center justify-center gap-2 rounded-xl border-2 border-[var(--accent-orange)] bg-[rgba(249,115,22,0.08)] px-3 py-2.5 font-['Outfit',sans-serif] text-[16px] font-extrabold text-[var(--accent-orange)] transition-colors hover:bg-[rgba(249,115,22,0.15)]"
               >
                 <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5"><path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"/></svg>
                 {commentTotal > 0 ? `Komentarai (${commentTotal})` : 'Pasidalink nuomone'}
@@ -561,7 +561,7 @@ export default function AlbumPageClient({
           {otherAlbums.length > 0 && (
             <div>
               <div className="mb-3 flex items-baseline justify-between">
-                <div className="font-['Outfit',sans-serif] text-[14px] font-extrabold uppercase tracking-[0.18em] text-[var(--text-muted)]">
+                <div className="font-['Outfit',sans-serif] text-[16px] font-extrabold uppercase tracking-[0.18em] text-[var(--text-muted)]">
                   Daugiau {artist.name}
                 </div>
                 <Link
@@ -586,7 +586,7 @@ export default function AlbumPageClient({
           )}
           {similarAlbums.length > 0 && (
             <div>
-              <div className="mb-3 font-['Outfit',sans-serif] text-[14px] font-extrabold uppercase tracking-[0.18em] text-[var(--text-muted)]">
+              <div className="mb-3 font-['Outfit',sans-serif] text-[16px] font-extrabold uppercase tracking-[0.18em] text-[var(--text-muted)]">
                 Panaši muzika
               </div>
               <div className="grid grid-cols-3 gap-2.5 sm:grid-cols-4 lg:grid-cols-6">
