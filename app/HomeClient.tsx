@@ -637,31 +637,6 @@ function cleanBlogHtml(html?: string | null): string {
  *  VIENĄ kartą, visi kvietėjai gauna tą patį promise. Reikalingas „vieno tap'o"
  *  grojimui: iš anksto sukurtas cued grotuvas + playVideo() SINCHRONIŠKAI
  *  paspaudimo handler'yje išlaiko user activation (iOS Safari įsk.). */
-let ytApiPromise: Promise<any> | null = null
-function loadYT(): Promise<any> {
-  if (typeof window === 'undefined') return Promise.reject(new Error('ssr'))
-  const w = window as any
-  if (w.YT && w.YT.Player) return Promise.resolve(w.YT)
-  if (ytApiPromise) return ytApiPromise
-  ytApiPromise = new Promise((resolve, reject) => {
-    const prev = w.onYouTubeIframeAPIReady
-    w.onYouTubeIframeAPIReady = () => { try { prev?.() } catch {}; resolve(w.YT) }
-    const s = document.createElement('script')
-    s.src = 'https://www.youtube.com/iframe_api'
-    s.async = true
-    s.onerror = () => { ytApiPromise = null; reject(new Error('yt-api-load')) }
-    document.head.appendChild(s)
-    // Saugiklis: jei API per 8s neatsiliepė — atmetam (kvietėjas naudos fallback
-    // <iframe> kelią); vėlesnis bandymas galės kurti promise iš naujo.
-    setTimeout(() => { if (!(w.YT && w.YT.Player)) { ytApiPromise = null; reject(new Error('yt-api-timeout')) } }, 8000)
-  })
-  return ytApiPromise
-}
-
-/** Viena istorija reader'yje. Pati valdo savo VERTIKALŲ scroll'ą (pauzina
- *  auto-advance kai nuscrollinta žemyn — „skaitymo režimas"), video iframe'o
- *  mount'ą (tik aktyvi kortelė groja), news pilno body lazy-fetch'ą, ♥ ir
- *  apatinę veiksmų juostą. */
 /** Pozicijos pokyčio ženkliukas topo eilutėje: ▲n pakilo / ▼n nukrito / = ta
  *  pati vieta / N — naujokas. Duomenys iš /api/top/entries (prev_position, is_new). */
 function TrendBadge({ prev, pos, isNew }: { prev?: number | null; pos: number; isNew?: boolean }) {
@@ -674,7 +649,7 @@ function TrendBadge({ prev, pos, isNew }: { prev?: number | null; pos: number; i
 
 /** Inline topas reader'yje — visas sąrašas, balsavimas KAIP regular topo psl.
  *  („+" mygtukas, daug kartų iki 10/daina, votes_per_track), grojimas per
- *  bendrą viršutinį sticky grotuvą (onPlay). */
+ *  „Muzika" embed sekciją žemiau (onPlay). */
 function ChartVoteList({ topType, accent, onPlay }: { topType: 'lt_top30' | 'top40'; accent: string; onPlay: (videoId: string, meta?: { title?: string | null; artist?: string | null; cover?: string | null }) => void }) {
   const WEEKLY = 10
   const [entries, setEntries] = useState<any[]>([])
@@ -749,7 +724,7 @@ function ChartVoteList({ topType, accent, onPlay }: { topType: 'lt_top30' | 'top
 }
 
 /** Šiandienos dienos dainos kandidatai — balsavimas (1×/daina) + popbar
- *  (lyderis VISADA max) + siūlymas. Grojimas per bendrą viršutinį grotuvą. */
+ *  (lyderis VISADA max) + siūlymas. Grojimas per „Muzika" embed sekciją žemiau. */
 function DailyCandidates({ onPlay }: { onPlay: (videoId: string, meta?: { title?: string | null; artist?: string | null; cover?: string | null }) => void }) {
   const [noms, setNoms] = useState<any[]>([])
   const [voted, setVoted] = useState<Set<number>>(new Set())
@@ -811,6 +786,10 @@ function DailyCandidates({ onPlay }: { onPlay: (videoId: string, meta?: { title?
   )
 }
 
+/** Viena istorija reader'yje. Pati valdo savo VERTIKALŲ scroll'ą (pauzina
+ *  auto-advance kai nuscrollinta žemyn — „skaitymo režimas"), news pilno body
+ *  lazy-fetch'ą, ♥ ir apatinę veiksmų juostą. Muzika — STANDARTINIAI YouTube
+ *  embed'ai „Muzika" sekcijoje po tekstu (jokio custom grotuvo). */
 function ReaderSlide({ slide, active, seen, dk, scrollTopSignal, onScrolledChange, onPlayingChange, onClose, onChartVote, onDailyVote, onNavLink }: {
   slide: HeroSlide
   active: boolean
@@ -825,22 +804,10 @@ function ReaderSlide({ slide, active, seen, dk, scrollTopSignal, onScrolledChang
   onNavLink: () => void
 }) {
   const scrollRef = useRef<HTMLDivElement>(null)
-  const [videoOn, setVideoOn] = useState(false)
-  const [curVideoId, setCurVideoId] = useState<string | null>(slide.videoId || null)
-  const [playToken, setPlayToken] = useState(0)          // tik fallback <iframe> keliui
-  const [fallbackOn, setFallbackOn] = useState(false)    // YT API neužsikrovė → senas autoplay iframe
-  const [playingUi, setPlayingUi] = useState(false)      // realus grotuvo state (chip ▶/eq animacijai)
-  const [playerLive, setPlayerLive] = useState(false)    // grotuvas sukurtas (media konteinerio mount'ui)
-  // „Dabar groja" chip'o metaduomenys — keičiasi renkantis dainą iš playlist'o/topo.
-  const [npMeta, setNpMeta] = useState<{ title: string | null; artist: string | null; cover: string | null }>({
-    title: slide.songTitle || null, artist: slide.songArtist || null, cover: slide.songCover || slide.bgImg || null,
-  })
-  // YT IFrame API grotuvas — kuriamas TIK aktyviai kortelei, naikinamas unmount'e.
-  const playerRef = useRef<any>(null)
-  const playerReadyRef = useRef(false)
-  const loadedIdRef = useRef<string | null>(null)
-  const ytFailedRef = useRef(false)
-  const ytHostRef = useRef<HTMLDivElement>(null)
+  const embedsRef = useRef<HTMLDivElement>(null)
+  // Vienintelis grojimo state'as: iš topo/kandidatų eilutės paprašytas video —
+  // jo embed'as „Muzika" sekcijoje perkraunamas su autoplay=1.
+  const [reqVideoId, setReqVideoId] = useState<string | null>(null)
   const [body, setBody] = useState<string | null>(
     slide.body || (slide.newsId ? newsBodyCache.get(slide.newsId) || null : null)
   )
@@ -856,69 +823,22 @@ function ReaderSlide({ slide, active, seen, dk, scrollTopSignal, onScrolledChang
   const isNews = slide.type === 'news'
   const isRecording = slide.type === 'recording'
   const isBlog = slide.type === 'blog'
-  const hasVideo = !!slide.videoId
 
-  // Ref'ai grotuvo event'ams (onStateChange nesikabina iš naujo kas render).
-  const activeRef = useRef(active); activeRef.current = active
-  const onPlayingChangeRef = useRef(onPlayingChange); onPlayingChangeRef.current = onPlayingChange
-
-  /* Aktyvi kortelė su muzika — IŠ ANKSTO sukuriam PASLĖPTĄ cued YT grotuvą
-   * (posteris lieka viršuje). Tap'as tada tik atskleidžia + playVideo() tame
-   * pačiame geste → groja iš PIRMO palietimo (iOS įsk.). Neaktyvi — stopVideo
-   * ir paslepiam. Grotuvas kuriamas TIK aktyviai kortelei (perf). */
+  /* Neaktyvi kortelė — grįžtam į viršų ir nuimam autoplay užklausą. Embed'ai
+   * mount'inami tik aktyvioj kortelėj (žr. „Muzika" sekciją), tad sunkūs
+   * iframe'ai patys išsivalo keičiant istoriją. */
   useEffect(() => {
-    if (active) {
-      if (playerRef.current || ytFailedRef.current) return
-      // Grotuvas reikalingas ir chart/daily kortelėms (grojimas iš sąrašo eilučių),
-      // net jei pati kortelė neturi videoId (daily) — kuriam tuščią, loadVideoById gestu.
-      if (!(slide.videoId || slide.type === 'chart_lt' || slide.type === 'chart_world' || slide.type === 'daily')) return
-      let cancelled = false
-      loadYT().then((YT) => {
-        if (cancelled || playerRef.current || !ytHostRef.current) return
-        try {
-          playerRef.current = new YT.Player(ytHostRef.current, {
-            width: '100%', height: '100%',
-            videoId: slide.videoId || undefined,
-            playerVars: { playsinline: 1, rel: 0, modestbranding: 1 },
-            events: {
-              onReady: () => { playerReadyRef.current = true },
-              onStateChange: (ev: any) => {
-                const st = ev?.data
-                if (st === 1) { setPlayingUi(true); if (activeRef.current) onPlayingChangeRef.current(true) }
-                else if (st === 2 || st === 0) { setPlayingUi(false); if (activeRef.current) onPlayingChangeRef.current(false) }
-              },
-            },
-          })
-          loadedIdRef.current = slide.videoId || null
-          setPlayerLive(true)
-        } catch { ytFailedRef.current = true }
-      }).catch(() => { ytFailedRef.current = true })
-      return () => { cancelled = true }
-    } else {
-      // Išeinant iš kortelės — stop + paslepiam grotuvą, grįžtam į viršų. JOKIO auto-play.
-      try { playerRef.current?.stopVideo?.() } catch {}
-      setVideoOn(false)
-      setFallbackOn(false)
-      setPlayingUi(false)
+    if (!active) {
+      setReqVideoId(null)
       if (scrollRef.current) scrollRef.current.scrollTop = 0
     }
-  }, [active]) // eslint-disable-line
+  }, [active])
 
-  /* Unmount — grotuvo instancija sunaikinama (perf: gyvi tik idx±1 slide'ai). */
-  useEffect(() => () => {
-    try { playerRef.current?.destroy?.() } catch {}
-    playerRef.current = null
-  }, [])
   /* „Į viršų" rodyklė (reels) — tėvas didina signalą, aktyvi kortelė nuslenka į
    *  viršų ir auto-slide vėl pradeda eiti (scrolled → false). */
   useEffect(() => {
     if (active && scrollTopSignal > 0) scrollRef.current?.scrollTo({ top: 0, behavior: 'smooth' })
   }, [scrollTopSignal]) // eslint-disable-line
-
-  /* Pranešam tėvui apie grojimą (groja → auto-advance stoja). */
-  useEffect(() => {
-    if (active) onPlayingChange(videoOn)
-  }, [videoOn, active]) // eslint-disable-line
 
   /* Pilno news body lazy-fetch. */
   useEffect(() => {
@@ -965,44 +885,15 @@ function ReaderSlide({ slide, active, seen, dk, scrollTopSignal, onScrolledChang
     onScrolledChange(top > 4)
   }
 
-  /* Bendras grotuvo paleidimas. SVARBU: playVideo()/loadVideoById() kviečiami
-   *  SINCHRONIŠKAI paspaudimo handler'yje ant IŠ ANKSTO sukurto YT grotuvo —
-   *  išlieka „user activation" ir groja SU GARSU iš pirmo tap'o (iOS įsk.).
-   *  Fallback: jei YT API neužsikrovė — senas autoplay <iframe> kelias. */
-  const play = (vid?: string, meta?: { title?: string | null; artist?: string | null; cover?: string | null }) => {
+  /* Grojimas iš topo/kandidatų eilutės (▶) — atitinkamas embed'as „Muzika"
+   *  sekcijoje perkraunamas su autoplay=1 ir nuscrollinama iki jo. Jokio custom
+   *  grotuvo — standartinis YouTube embed'as (iOS gali dar paprašyti YT tap'o —
+   *  sąmoningai priimtina dėl paprastumo). */
+  const play = (vid?: string, _meta?: { title?: string | null; artist?: string | null; cover?: string | null }) => {
     const id = vid || slide.videoId
     if (!id) return
-    setCurVideoId(id)
-    if (meta) setNpMeta(m => ({ title: meta.title ?? m.title, artist: meta.artist ?? m.artist, cover: meta.cover ?? m.cover }))
-    const p = playerRef.current
-    if (p && playerReadyRef.current && !ytFailedRef.current) {
-      try {
-        if (loadedIdRef.current !== id) { p.loadVideoById(id); loadedIdRef.current = id }
-        p.playVideo()
-        setFallbackOn(false)
-        setVideoOn(true)
-        return
-      } catch {}
-    }
-    // Fallback — šviežias native <iframe> su autoplay (kaip iki YT API integracijos).
-    setFallbackOn(true)
-    setVideoOn(true)
-    setPlayToken(t => t + 1)
-  }
-
-  /* Chip ▶/⏸ — pauzė/grojimas per API grotuvą; fallback atveju — stop/play. */
-  const togglePlay = () => {
-    const p = playerRef.current
-    if (p && playerReadyRef.current && !fallbackOn) {
-      if (videoOn) {
-        try { if (p.getPlayerState?.() === 1) p.pauseVideo(); else p.playVideo() } catch {}
-        return
-      }
-      play(curVideoId || undefined)
-      return
-    }
-    if (fallbackOn && videoOn) { setFallbackOn(false); setVideoOn(false) }
-    else play(curVideoId || undefined)
+    setReqVideoId(id)
+    requestAnimationFrame(() => embedsRef.current?.scrollIntoView({ behavior: 'smooth', block: 'center' }))
   }
 
   const toggleLike = async () => {
@@ -1021,55 +912,31 @@ function ReaderSlide({ slide, active, seen, dk, scrollTopSignal, onScrolledChang
   const place = slide.metaLine || (isChart ? '' : slide.subtitle) || ''
   const artistName = slide.artist?.name || null
   const showArtistRow = !!artistName && slide.type !== 'event' && !isChart && !isDaily
-  const showMedia = videoOn || slide.bgImg || hasVideo
   // Trumpo turinio kortelės (be body teksto) — aukštesnis posteris, kad kortelė
   // neatrodytų pustuštė (daily_winner/event/verta/discovery/recording).
   const tallPoster = !body && !bodyLoading && !isChart && !isDaily && !isNews && !isBlog
-  // daily_winner: pirminis veiksmas — GROTI vietoje (ne navigacija į puslapį).
-  const playInPlace = slide.type === 'daily_winner' && hasVideo
+
+  /* „Muzika" sekcijos embed'ai (max 3): slide.songs arba vienas slide.videoId.
+   * Jei iš sąrašo paprašytas video nėra tarp jų — įterpiam pirmu. */
+  const embeds: { videoId: string; title?: string | null; artist?: string | null }[] = []
+  if (slide.songs && slide.songs.length) {
+    for (const s of slide.songs.slice(0, 3)) embeds.push({ videoId: s.videoId, title: s.title, artist: s.artist || null })
+  } else if (slide.videoId) {
+    embeds.push({ videoId: slide.videoId, title: slide.songTitle || null, artist: slide.songArtist || null })
+  }
+  if (reqVideoId && !embeds.some(e => e.videoId === reqVideoId)) {
+    embeds.unshift({ videoId: reqVideoId })
+    if (embeds.length > 3) embeds.length = 3
+  }
 
   return (
     <div ref={scrollRef} className="rdr-slide" onScroll={onScroll}>
-      {/* ── Media / grotuvas viršuje. Play = oranžinis mygtukas (ne auto), apatiniam
-          dešiniam kampe. Scrollinant grojantis video lieka sticky (minimizuojasi). ── */}
-      {/* Grotuvo konteineris — visada kai kortelė aktyvi (iframe įdedamas imperatyviai
-          paspaudimo metu). Paslėptas kol negroja. */}
-      {(hasVideo || videoOn || (isDaily && (active || playerLive))) ? (
-        <div className={`rdr-media rdr-media-video${tallPoster && !videoOn ? ' rdr-media-tall' : ''}${isDaily && !videoOn ? ' rdr-media-collapsed' : ''}`}>
-          {/* YT IFrame API grotuvo lizdas — sukuriamas PASLĖPTAS/cued kai kortelė
-              aktyvi (posteris viršuje). Tap'as atskleidžia + playVideo() tame
-              pačiame geste → vieno palietimo grojimas (iOS įsk.). */}
-          <div className={`rdr-ytwrap${videoOn && !fallbackOn ? ' on' : ''}`}>
-            <div ref={ytHostRef} />
-          </div>
-          {/* Fallback: YT API neužsikrovė — senas autoplay <iframe> (šviežias kas paleidimą). */}
-          {fallbackOn && videoOn && active && curVideoId ? (
-            <iframe
-              key={`${curVideoId}-${playToken}`}
-              className="rdr-ytslot"
-              src={`https://www.youtube.com/embed/${curVideoId}?autoplay=1&playsinline=1&rel=0&modestbranding=1`}
-              allow="autoplay; encrypted-media; picture-in-picture; fullscreen"
-              allowFullScreen
-              title="grotuvas"
-            />
-          ) : null}
-          {!videoOn && (
-            <div className="rdr-poster-layer">
-              {slide.bgImg
-                ? <><span className="rdr-poster-bg" style={{ backgroundImage: `url(${proxyImg(slide.bgImg)})` }} /><img className="rdr-poster-img" src={proxyImg(slide.bgImg)} alt="" draggable={false} /></>
-                : <span className="rdr-poster-ph" />}
-              <div className="rdr-media-fade" />
-              <button className="rdr-playbtn" onClick={(e) => { e.stopPropagation(); play() }} aria-label="Groti">
-                <svg width="22" height="22" viewBox="0 0 24 24" fill="#fff"><path d="M8 5v14l11-7z" /></svg>
-              </button>
-            </div>
-          )}
-        </div>
-      ) : showMedia && !videoOn ? (
-        <div className="rdr-media">
-          {slide.bgImg
-            ? <><span className="rdr-poster-bg" style={{ backgroundImage: `url(${proxyImg(slide.bgImg)})` }} /><img className="rdr-poster-img" src={proxyImg(slide.bgImg)} alt="" draggable={false} /></>
-            : <div className="rdr-media-img" style={{ background: 'linear-gradient(135deg,#0a1428,#162040)' }} />}
+      {/* ── Viršuje VISADA tik statinė nuotrauka (blur-fill posteris). Muzika —
+          standartiniai YouTube embed'ai „Muzika" sekcijoje po tekstu. ── */}
+      {slide.bgImg ? (
+        <div className={`rdr-media${tallPoster ? ' rdr-media-tall' : ''}`}>
+          <span className="rdr-poster-bg" style={{ backgroundImage: `url(${proxyImg(slide.bgImg)})` }} />
+          <img className="rdr-poster-img" src={proxyImg(slide.bgImg)} alt="" draggable={false} />
           <div className="rdr-media-fade" />
         </div>
       ) : null}
@@ -1133,6 +1000,32 @@ function ReaderSlide({ slide, active, seen, dk, scrollTopSignal, onScrolledChang
           <p className="rdr-excerpt">{slide.excerpt || slide.subtitle}</p>
         ) : null}
 
+        {/* ── „Muzika" — standartiniai YouTube embed'ai (16/9). Grojimą paleidžia
+            pats YouTube mygtukas iframe'e (vienas tap'as visur, jokio custom
+            grotuvo). Mount'inam tik aktyvioj kortelėj (perf — sunkūs iframe'ai).
+            Iš topo/kandidatų eilutės paprašytas video (reqVideoId) gauna autoplay=1. ── */}
+        {active && embeds.length > 0 && (
+          <div className="rdr-embeds" ref={embedsRef}>
+            <span className="rdr-embeds-head">Muzika</span>
+            {embeds.map(e => (
+              <div key={e.videoId} className="rdr-embed">
+                {(e.title || e.artist) && (
+                  <p className="rdr-embed-cap"><b>{e.title}</b>{e.artist ? <i> — {e.artist}</i> : null}</p>
+                )}
+                <div className="rdr-embed-frame">
+                  <iframe
+                    src={`https://www.youtube.com/embed/${e.videoId}?playsinline=1&rel=0${reqVideoId === e.videoId ? '&autoplay=1' : ''}`}
+                    loading="lazy"
+                    allow="autoplay; encrypted-media; fullscreen; picture-in-picture"
+                    allowFullScreen
+                    title={e.title || 'YouTube grotuvas'}
+                  />
+                </div>
+              </div>
+            ))}
+          </div>
+        )}
+
         {/* Renginio lineup'as — avatarai + vardai, kiekvienas → atlikėjo puslapis. */}
         {slide.lineup && slide.lineup.length > 0 && (
           <div className="rdr-lineup">
@@ -1172,65 +1065,21 @@ function ReaderSlide({ slide, active, seen, dk, scrollTopSignal, onScrolledChang
         <div style={{ height: 92 }} />
       </div>
 
-      {/* ── Apatinė zona (sticky): mini-playlist (news su keliom dainom) +
-          vieninga veiksmų juosta — KAIRĖJE „dabar groja" chip'as (kai kortelė
-          turi muziką), toliau pirminis CTA, ♥ (news), Bilietai. Koncertų
-          įrašams jos NĖRA — title yra aktyvi nuoroda. ── */}
+      {/* ── Apatinė zona (sticky): TIK veiksmai — pirminis CTA, ♥ (news),
+          Bilietai. Koncertų įrašams jos NĖRA — title yra aktyvi nuoroda. ── */}
       {!isRecording && (
         <div className="rdr-bottom" onClick={(e) => e.stopPropagation()}>
-          {slide.songs && slide.songs.length > 1 && (
-            <div className="rdr-playlist">
-              {slide.songs.map(s => (
-                <button
-                  key={s.videoId}
-                  className={`rdr-pl-pill${curVideoId === s.videoId && videoOn ? ' on' : ''}`}
-                  onClick={() => play(s.videoId, { title: s.title, artist: s.artist || null })}
-                >
-                  {curVideoId === s.videoId && videoOn && playingUi
-                    ? <span className="rdr-eq"><span /><span /><span /></span>
-                    : <svg width="11" height="11" viewBox="0 0 24 24" fill="currentColor"><path d="M8 5v14l11-7z" /></svg>}
-                  <span>{s.title}</span>
-                </button>
-              ))}
-            </div>
-          )}
           <div className="rdr-actions">
-            {(hasVideo || !!curVideoId) && (
-              /* „Dabar groja" chip'as — visas tap'inamas: play/pause. Grojant — EQ animacija. */
-              <button className="rdr-chip-np" onClick={togglePlay} aria-label={playingUi ? 'Pauzė' : 'Groti'}>
-                {npMeta.cover
-                  ? <img src={proxyImg(npMeta.cover)} alt="" />
-                  : <span className="rdr-chip-np-ph" />}
-                <span className="rdr-chip-np-txt">
-                  <b>{npMeta.title || 'Klausyk'}</b>
-                  {npMeta.artist && <i>{npMeta.artist}</i>}
-                </span>
-                {playingUi
-                  ? <span className="rdr-eq"><span /><span /><span /></span>
-                  : videoOn && !fallbackOn
-                    ? <svg width="15" height="15" viewBox="0 0 24 24" fill="var(--accent-orange)"><path d="M6 4h4v16H6zM14 4h4v16h-4z" /></svg>
-                    : <svg width="15" height="15" viewBox="0 0 24 24" fill="var(--accent-orange)"><path d="M8 5v14l11-7z" /></svg>}
-              </button>
-            )}
             {slide.likeable && slide.newsId && (
               <button className={`rdr-like${liked ? ' on' : ''}`} onClick={toggleLike} aria-label="Patinka">
                 <svg width="20" height="20" viewBox="0 0 24 24" fill={liked ? '#f43f5e' : 'none'} stroke={liked ? '#f43f5e' : 'currentColor'} strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M20.8 4.6a5.5 5.5 0 0 0-7.8 0L12 5.6l-1-1a5.5 5.5 0 1 0-7.8 7.8l1 1L12 21l7.8-7.6 1-1a5.5 5.5 0 0 0 0-7.8z" /></svg>
               </button>
             )}
-            {playInPlace ? (
-              /* daily_winner: grojimas „čia pat" per chip'ą/naują grotuvą; CTA —
-                 subtili nuoroda į dienos dainos puslapį. */
-              <Link href={slide.href} onClick={onNavLink} className="rdr-cta subtle">
-                Dienos daina
-                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.4" strokeLinecap="round" strokeLinejoin="round"><path d="M5 12h14M12 5l7 7-7 7" /></svg>
-              </Link>
-            ) : (
             <Link href={slide.href} onClick={onNavLink} className={`rdr-cta${isNews ? ' subtle' : ''}`}
               style={isNews ? undefined : { background: seen ? 'rgba(255,255,255,0.18)' : (isChart ? (slide.type === 'chart_lt' ? 'var(--accent-orange)' : '#3b82f6') : isDaily ? '#f59e0b' : 'var(--accent-orange)') }}>
               {(isNews ? 'Pilna versija ir komentarai' : slide.ctaLabel) || (isChart ? 'Visas topas' : isDaily ? 'Dienos daina' : 'Skaityti')}
               <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.4" strokeLinecap="round" strokeLinejoin="round"><path d="M5 12h14M12 5l7 7-7 7" /></svg>
             </Link>
-            )}
             {slide.ticketUrl && (
               <a href={slide.ticketUrl} target="_blank" rel="noopener noreferrer" className="rdr-ticket">
                 <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M3 7v3a2 2 0 0 1 0 4v3a1 1 0 0 0 1 1h16a1 1 0 0 0 1-1v-3a2 2 0 0 1 0-4V7a1 1 0 0 0-1-1H4a1 1 0 0 0-1 1z" /></svg>
@@ -1258,7 +1107,7 @@ function ReelsOverlay({ slides, initialIdx, seenSlides, onSeen, onClose, onChart
 }) {
   const [idx, setIdx] = useState(initialIdx)
   const [scrolled, setScrolled] = useState(false)   // aktyvi kortelė nuscrollinta žemyn
-  const [playing, setPlaying] = useState(false)      // aktyvioj kortelėj groja video
+  const [playing, setPlaying] = useState(false)      // legacy: grojimas nebe sekamas (standartiniai YT embed'ai) — lieka false
   const [scrollTopReq, setScrollTopReq] = useState(0) // „į viršų" rodyklės signalas aktyviai kortelei
 
   // PERF PERDARYMAS (2026-07-03): progresas ir braukimas — per ref'us + tiesioginį
@@ -3336,7 +3185,8 @@ export default function HomeClient({ initialLatest, initialHero }: { initialLate
           songTitle: tr.title || null,
           songArtist: tr.artists?.name || null,
           artist: tr.artists ? { name: tr.artists.name, slug: tr.artists.slug || '', image: tr.artists.cover_image_url || null } : null,
-          ctaLabel: 'Klausyti',
+          // CTA — nuoroda į /dienos-daina (grojimas nebe „vietoje", o per embed'ą kortelėj).
+          ctaLabel: 'Dienos daina',
         })
       }
     }
@@ -3577,8 +3427,9 @@ export default function HomeClient({ initialLatest, initialHero }: { initialLate
         .hp-mobile-chart{display:none}
         @media(max-width:960px){.hp-feed-strip{display:flex}.hp-mobile-chart{display:block}}
 
-        /* ── Reels reader v3 — horizontal istorijos, vertikalus skaitymas ── */
-        .hp-reels{position:fixed;inset:0;z-index:300;background:#000;overflow:hidden}
+        /* ── Reels reader v3 — horizontal istorijos, vertikalus skaitymas.
+           z-index VIRŠ site header'io — overlay dengia visą ekraną (fullscreen). ── */
+        .hp-reels{position:fixed;inset:0;z-index:9999;background:#000;overflow:hidden}
         .hp-reels-track{height:100%;display:flex;flex-direction:row;will-change:transform}
         .hp-reels-slide{height:100dvh;width:100vw;flex-shrink:0;position:relative;overflow:hidden;background:#000}
 
@@ -3586,39 +3437,13 @@ export default function HomeClient({ initialLatest, initialHero }: { initialLate
         .rdr-slide{height:100%;overflow-y:auto;overflow-x:hidden;-webkit-overflow-scrolling:touch;touch-action:pan-y;scrollbar-width:none}
         .rdr-slide::-webkit-scrollbar{display:none}
 
-        /* Media viršuje (matosi iškart) */
-        .rdr-media{position:relative;width:100%;aspect-ratio:4/5;max-height:60vh;background:#0a0a0a;overflow:hidden}
-        .rdr-media-img{position:absolute;inset:0;width:100%;height:100%;object-fit:cover;display:block}
-        .rdr-video{width:100%;height:100%;border:none;display:block;background:#000}
+        /* Media viršuje — VISADA tik statinė nuotrauka (contain + blur fonas) */
+        .rdr-media{position:relative;width:100%;aspect-ratio:16/10;max-height:60vh;background:#0a0a0a;overflow:hidden}
         .rdr-media-fade{position:absolute;left:0;right:0;bottom:0;height:42%;background:linear-gradient(to top,#000,transparent);pointer-events:none;z-index:1}
-        /* Native oranžinis play (paleidžia mini-grotuvą; auto-play IŠJUNGTAS) */
-        .rdr-playbtn{position:absolute;right:14px;bottom:14px;width:54px;height:54px;border-radius:50%;background:var(--accent-orange);border:none;display:flex;align-items:center;justify-content:center;cursor:pointer;padding-left:3px;z-index:3;box-shadow:0 6px 22px rgba(249,115,22,0.55)}
-        .rdr-playbtn:active{transform:scale(0.94)}
-        /* Grotuvo apvalkalas — pilnas viršuje; scrollinant lieka sticky kampe
-           (sticky, NE fixed — kad neišsikraipytų dėl track transform). Garsas tęsiasi. */
-        .rdr-vwrap{position:sticky;top:0;z-index:30;width:100%;aspect-ratio:16/10;background:#000;overflow:hidden;transition:width .25s ease,height .25s ease,border-radius .25s ease}
-        .rdr-vwrap iframe{width:100%;height:100%;border:none;display:block}
-        .rdr-vwrap.mini{top:8px;width:172px;height:97px;aspect-ratio:auto;margin:0 8px 0 auto;border-radius:12px;box-shadow:0 10px 30px rgba(0,0,0,0.6);border:1px solid rgba(255,255,255,0.18);cursor:pointer}
-        .rdr-vwrap.mini iframe{pointer-events:none}
-        .rdr-vclose{position:absolute;top:3px;right:3px;width:22px;height:22px;border-radius:50%;background:rgba(0,0,0,0.65);border:none;color:#fff;font-size:11px;line-height:1;cursor:pointer;z-index:2;display:flex;align-items:center;justify-content:center}
-
-        /* YT IFrame slotas (pre-created player) + posteris (contain + blur fonas) */
-        .rdr-ytslot{position:absolute;inset:0;width:100%;height:100%;border:0;display:block;background:#000;z-index:1}
-        /* YT IFrame API grotuvo apvalkalas — grotuvas gyvena DOM'e paslėptas
-           (visibility, NE display:none — kad playVideo() gestu veiktų iOS) */
-        .rdr-ytwrap{position:absolute;inset:0;z-index:1;visibility:hidden;background:#000}
-        .rdr-ytwrap.on{visibility:visible}
-        .rdr-ytwrap iframe{width:100%;height:100%;border:0;display:block}
-        /* daily kortelės grotuvas iki paleidimo — sulankstytas (0 aukščio) */
-        .rdr-media-collapsed{aspect-ratio:auto;height:0;min-height:0}
-        /* Video kortelės media — 16/10, NORMALUS srautas (NE sticky → scrollinasi su tekstu) */
-        .rdr-media-video{aspect-ratio:16/10;max-height:none}
+        /* Trumpo turinio kortelės — aukštesnis posteris */
         .rdr-media-tall{aspect-ratio:4/5;max-height:60vh}
-        .rdr-poster-layer{position:absolute;inset:0;z-index:2}
-        .rdr-poster{position:absolute;inset:0;z-index:2;border:0;padding:0;margin:0;cursor:pointer;background:#000;display:block;width:100%;height:100%}
         .rdr-poster-bg{position:absolute;inset:0;background-size:cover;background-position:center;filter:blur(26px) brightness(0.55);transform:scale(1.18)}
         .rdr-poster-img{position:absolute;inset:0;width:100%;height:100%;object-fit:contain;z-index:1}
-        .rdr-poster-ph{position:absolute;inset:0;background:linear-gradient(135deg,#0a1428,#162040)}
         /* Antraštės galvutė: badge + data vienoj eilutėj (kompaktiška) */
         .rdr-head{display:flex;align-items:center;gap:8px;flex-wrap:wrap;margin-bottom:10px}
         .rdr-date{font-size:12px;font-weight:600;color:rgba(255,255,255,0.5);font-family:'Outfit',sans-serif}
@@ -3636,12 +3461,10 @@ export default function HomeClient({ initialLatest, initialHero }: { initialLate
         .hp-reels.light .rdr-artist span{color:var(--text-primary)}
         .hp-reels.light .rdr-author{color:var(--text-muted)}
         .hp-reels.light .rdr-bottom{background:linear-gradient(to top,var(--bg-body) 62%,transparent)}
-        .hp-reels.light .rdr-chip-np{background:var(--bg-hover);border-color:var(--border-default)}
-        .hp-reels.light .rdr-chip-np-txt b{color:var(--text-primary)}
-        .hp-reels.light .rdr-chip-np-txt i{color:var(--text-muted)}
-        .hp-reels.light .rdr-pl-pill{background:var(--bg-hover);border-color:var(--border-default);color:var(--text-primary)}
-        .hp-reels.light .rdr-pl-pill.on{background:var(--accent-orange);border-color:var(--accent-orange);color:#fff}
         .hp-reels.light .rdr-media-fade{display:none}
+        .hp-reels.light .rdr-embeds-head{color:var(--text-muted)}
+        .hp-reels.light .rdr-embed-cap b{color:var(--text-primary)}
+        .hp-reels.light .rdr-embed-cap i{color:var(--text-muted)}
         .hp-reels.light .rdr-like{background:var(--bg-hover);border-color:var(--border-default);color:var(--text-primary)}
         .hp-reels.light .rdr-cta.subtle{background:var(--bg-hover);border-color:var(--border-default);color:var(--text-primary)}
         .hp-reels.light .rdr-inline-cta{border-color:var(--border-default);color:var(--text-secondary)}
@@ -3719,8 +3542,6 @@ export default function HomeClient({ initialLatest, initialHero }: { initialLate
         /* Inline topas (balsavimas + grojimas) */
         .rdr-cvl{display:flex;flex-direction:column;gap:9px;margin:4px 0 12px}
         .rdr-cvl-head{font-family:'Outfit',sans-serif;font-size:11px;font-weight:800;letter-spacing:0.04em;color:rgba(255,255,255,0.55);text-transform:uppercase}
-        .rdr-cvl-player{position:relative;width:100%;aspect-ratio:16/9;border-radius:12px;overflow:hidden;background:#000;margin-bottom:4px}
-        .rdr-cvl-player iframe{width:100%;height:100%;border:none;display:block}
         .rdr-cvl-cover{position:relative;width:42px;height:42px;border-radius:8px;overflow:hidden;flex-shrink:0;border:none;padding:0;background:#1a1a1a;cursor:pointer}
         .rdr-cvl-cover img{width:100%;height:100%;object-fit:cover;display:block}
         .rdr-cvl-cover:disabled{cursor:default}
@@ -3731,10 +3552,17 @@ export default function HomeClient({ initialLatest, initialHero }: { initialLate
         .rdr-cvl-vote:active:not(:disabled){transform:scale(0.9)}
         .rdr-cvl-mine{font-size:15px;font-weight:900}
 
-        /* Dienos dainos inline embed — šviesus paviršius kad hero atrodytų natūraliai */
-        .rdr-daily-embed{background:var(--bg-body);border-radius:16px;padding:10px;margin:4px 0 12px}
-        .rdr-cvl-count{font-family:'Outfit',sans-serif;font-size:13px;font-weight:800;min-width:16px;text-align:right;flex-shrink:0}
         .rdr-cta.subtle{background:rgba(255,255,255,0.10);border:1px solid rgba(255,255,255,0.20);color:rgba(255,255,255,0.92);font-weight:700}
+
+        /* ── „Muzika" sekcija — standartiniai YouTube embed'ai po tekstu (16/9,
+           užapvalinti). Grojimą paleidžia pats YouTube — jokio custom UI. ── */
+        .rdr-embeds{display:flex;flex-direction:column;gap:14px;margin:20px 0 0}
+        .rdr-embeds-head{font-family:'Outfit',sans-serif;font-size:11px;font-weight:800;letter-spacing:0.04em;color:rgba(255,255,255,0.55);text-transform:uppercase}
+        .rdr-embed-cap{margin:0 0 7px;font-size:13px;line-height:1.35}
+        .rdr-embed-cap b{font-family:'Outfit',sans-serif;font-weight:800;color:#fff}
+        .rdr-embed-cap i{font-style:normal;color:rgba(255,255,255,0.55)}
+        .rdr-embed-frame{position:relative;width:100%;aspect-ratio:16/9;border-radius:14px;overflow:hidden;background:#000}
+        .rdr-embed-frame iframe{position:absolute;inset:0;width:100%;height:100%;border:0;display:block}
 
         /* Dienos dainos kandidatai */
         .rdr-dc{display:flex;flex-direction:column;gap:9px;margin:4px 0 12px}
@@ -3755,31 +3583,10 @@ export default function HomeClient({ initialLatest, initialHero }: { initialLate
         .rdr-dc-empty{display:flex;flex-direction:column;gap:12px;padding:8px 0}
         .rdr-dc-empty p{font-size:15px;font-weight:600;color:rgba(255,255,255,0.85);margin:0}
 
-        /* Apatinė zona (sticky): mini-playlist + vieninga veiksmų juosta */
-        .rdr-bottom{position:sticky;bottom:0;left:0;right:0;background:linear-gradient(to top,#000 62%,transparent);z-index:5}
-        .rdr-actions{display:flex;align-items:center;gap:10px;padding:12px 16px calc(14px + env(safe-area-inset-bottom))}
-        /* „Dabar groja" chip'as (kairysis) — mini viršelis + pavadinimas + ▶/EQ */
-        .rdr-chip-np{display:flex;align-items:center;gap:8px;min-width:0;max-width:46%;flex-shrink:1;padding:6px 10px 6px 6px;border-radius:12px;background:rgba(255,255,255,0.10);border:1px solid rgba(255,255,255,0.16);cursor:pointer;text-align:left}
-        .rdr-chip-np:active{transform:scale(0.97)}
-        .rdr-chip-np img,.rdr-chip-np-ph{width:32px;height:32px;border-radius:8px;object-fit:cover;flex-shrink:0;background:#1a1a1a;display:block}
-        .rdr-chip-np-txt{display:flex;flex-direction:column;min-width:0}
-        .rdr-chip-np-txt b{font-family:'Outfit',sans-serif;font-size:12px;font-weight:800;color:#fff;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
-        .rdr-chip-np-txt i{font-size:10.5px;font-style:normal;color:rgba(255,255,255,0.55);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
-        .rdr-chip-np svg{flex-shrink:0}
-        /* 3 juostelių equalizer'is — rodomas kai groja */
-        .rdr-eq{display:flex;align-items:flex-end;gap:2px;width:13px;height:13px;flex-shrink:0}
-        .rdr-eq span{flex:1;border-radius:1.5px;background:var(--accent-orange);transform-origin:bottom;animation:rdr-eqb .9s ease-in-out infinite}
-        .rdr-eq span:nth-child(1){height:100%;animation-delay:-.45s}
-        .rdr-eq span:nth-child(2){height:100%;animation-delay:-.15s}
-        .rdr-eq span:nth-child(3){height:100%;animation-delay:-.3s}
-        @keyframes rdr-eqb{0%,100%{transform:scaleY(0.35)}50%{transform:scaleY(1)}}
-        /* Mini-playlist (news su keliom dainom) — horizontaliai scrollinamos piliulės */
-        .rdr-playlist{display:flex;gap:8px;overflow-x:auto;padding:8px 16px 2px;scrollbar-width:none}
-        .rdr-playlist::-webkit-scrollbar{display:none}
-        .rdr-pl-pill{display:flex;align-items:center;gap:6px;flex-shrink:0;max-width:220px;padding:7px 12px;border-radius:999px;background:rgba(255,255,255,0.10);border:1px solid rgba(255,255,255,0.16);color:#fff;font-family:'Outfit',sans-serif;font-size:12px;font-weight:700;cursor:pointer;white-space:nowrap}
-        .rdr-pl-pill span{overflow:hidden;text-overflow:ellipsis}
-        .rdr-pl-pill.on{background:var(--accent-orange);border-color:var(--accent-orange)}
-        .rdr-pl-pill.on .rdr-eq span{background:#fff}
+        /* Apatinė zona (sticky): TIK veiksmų juosta. Apačioje — iOS safe-area
+           tarpas, kad mygtukų nenukirstų home indikatorius/naršyklės juosta. */
+        .rdr-bottom{position:sticky;bottom:0;left:0;right:0;background:linear-gradient(to top,#000 62%,transparent);z-index:5;padding-bottom:env(safe-area-inset-bottom)}
+        .rdr-actions{display:flex;align-items:center;gap:10px;padding:12px 16px 14px}
         .rdr-like{width:48px;height:48px;flex-shrink:0;border-radius:14px;background:rgba(255,255,255,0.10);border:1px solid rgba(255,255,255,0.14);color:#fff;display:flex;align-items:center;justify-content:center;cursor:pointer;transition:background .2s}
         .rdr-like.on{background:rgba(244,63,94,0.16);border-color:rgba(244,63,94,0.4)}
         .rdr-cta{flex:1;display:flex;align-items:center;justify-content:center;gap:7px;padding:14px 20px;border-radius:14px;border:none;cursor:pointer;color:#fff;font-family:'Outfit',sans-serif;font-size:14.5px;font-weight:800;letter-spacing:-0.01em;text-decoration:none}
