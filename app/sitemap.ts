@@ -103,6 +103,10 @@ export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
     { url: `${SITE_URL}/naujienos`, lastModified: now, changeFrequency: 'hourly', priority: 0.9 },
     { url: `${SITE_URL}/naujienos/lietuva`, lastModified: now, changeFrequency: 'daily', priority: 0.7 },
     { url: `${SITE_URL}/naujienos/pasaulis`, lastModified: now, changeFrequency: 'daily', priority: 0.7 },
+    { url: `${SITE_URL}/apie-mus`, lastModified: now, changeFrequency: 'monthly', priority: 0.4 },
+    { url: `${SITE_URL}/kontaktai`, lastModified: now, changeFrequency: 'monthly', priority: 0.4 },
+    { url: `${SITE_URL}/privatumo-politika`, lastModified: now, changeFrequency: 'yearly', priority: 0.2 },
+    { url: `${SITE_URL}/naudojimo-salygos`, lastModified: now, changeFrequency: 'yearly', priority: 0.2 },
   ]
 
   // Naujienų landing'ai — stilius visada (turi turinį), kategorija tik kai
