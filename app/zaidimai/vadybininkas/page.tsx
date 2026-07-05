@@ -4,8 +4,8 @@ import VadybininkasClient from './VadybininkasClient'
 export const dynamic = 'force-dynamic'
 
 export const metadata: Metadata = {
-  title: 'Muzikos vadybininkas | music.lt',
-  description: 'Pasamdyk 3 realius Lietuvos atlikėjus už biudžetą ir išgyvenk metus muzikos versle. Festivaliai, TikTok virusai, skandalai — kiek verta tavo agentūra?',
+  title: 'Muzikos vadybininkas — fantasy lyga | music.lt',
+  description: 'Sudaryk komandą iš 5 realių Lietuvos atlikėjų — taškus jie neša pagal tikrus rezultatus: YouTube augimą, topus ir naujus releizus. Savaitės, mėnesio ir sezono lyderiai.',
 }
 
 export default function VadybininkasPage() {

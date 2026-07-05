@@ -406,7 +406,7 @@ function BoomboxHomeWidget() {
 
   return (
     <Link
-      href="/boombox"
+      href="/zaidimai/dienos"
       className="block rounded-2xl border border-[var(--accent-orange)]/25 bg-gradient-to-br from-[var(--accent-orange)]/10 to-[var(--accent-blue)]/[0.06] p-4 text-[var(--text-primary)] no-underline transition-all hover:-translate-y-px"
     >
       <div className="mb-2.5 flex h-8 items-end gap-1">
@@ -421,10 +421,10 @@ function BoomboxHomeWidget() {
       <style>{`@keyframes bbHomeEq { 0%, 100% { transform: scaleY(0.4); } 50% { transform: scaleY(1); } }`}</style>
 
       <div className="mb-1 font-['Outfit','system-ui',sans-serif] text-[22px] font-black tracking-[-0.5px]">
-        BOOMBOX
+        DIENOS IŠŠŪKIS
       </div>
       <div className="mb-3 text-[14px] text-[var(--text-secondary)]">
-        3 misijos · ~2 min · drop'ai
+        Atspėk 5 dainas + misijos · ~3 min
       </div>
 
       {state.loading ? null : state.hasContent ? (
@@ -438,7 +438,7 @@ function BoomboxHomeWidget() {
           <span className="ml-auto font-semibold text-[var(--accent-orange)]">Pradėti →</span>
         </div>
       ) : (
-        <div className="text-[14px] text-[var(--text-faint)]">Šiandien dar nepublikuota</div>
+        <div className="text-[14px] text-[var(--text-faint)]">Kvizas laukia — žaisk dabar</div>
       )}
     </Link>
   )

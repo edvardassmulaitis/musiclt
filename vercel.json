@@ -45,6 +45,14 @@
     {
       "path": "/api/cron/refresh-home?key=hsnap_7f3a9c2e8b1d4f6a",
       "schedule": "0 20 * * *"
+    },
+    {
+      "path": "/api/cron/fantasy-savaite?key=fliga_9d2c41",
+      "schedule": "0 3 * * 1"
+    },
+    {
+      "path": "/api/cron/fantasy-savaite?key=fliga_9d2c41&live=1",
+      "schedule": "0 15 * * *"
     }
   ]
 }

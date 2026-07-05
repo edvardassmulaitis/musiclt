@@ -17,21 +17,22 @@ type Props = {
   me: { totalXp: number; streak: number }
   leaders: LeaderRow[]
   dailyTop: DailyTopRow[]
+  fantasyTeam: string | null
   today: {
     dailyPlayed: boolean
     quizRunsLeft: number
-    vadybRunsLeft: number
+    vaizdasRunsLeft: number
     duelVotesLeft: number
     duelPool: number
   }
 }
 
-export default function ZaidimaiHubClient({ isAuthenticated, username, me, leaders, dailyTop, today }: Props) {
+export default function ZaidimaiHubClient({ isAuthenticated, username, me, leaders, dailyTop, fantasyTeam, today }: Props) {
   const potential =
     (today.dailyPlayed ? 0 : 250) +
     today.quizRunsLeft * 100 +
-    today.duelVotesLeft * 15 +
-    today.vadybRunsLeft * 50
+    today.vaizdasRunsLeft * 80 +
+    today.duelVotesLeft * 15
 
   return (
     <div className="zh-root">
@@ -47,13 +48,13 @@ export default function ZaidimaiHubClient({ isAuthenticated, username, me, leade
       </div>
       <p className="zh-sub">Kasdien nauji iššūkiai — žaisk, rink taškus, lenk kitus.</p>
 
-      {/* 1. DIENOS IŠŠŪKIS — hero */}
-      <Link href="/zaidimai/dainu-kvizas" className={`zh-daily${today.dailyPlayed ? ' done' : ''}`}>
+      {/* 1. DIENOS IŠŠŪKIS — hero (wizard'as: kvizas + dienos misijos) */}
+      <Link href="/zaidimai/dienos" className={`zh-daily${today.dailyPlayed ? ' done' : ''}`}>
         <div className="zh-daily-left">
           <span className="zh-daily-badge">⚡ DIENOS IŠŠŪKIS</span>
-          <span className="zh-daily-title">Atspėk 10 dainų — tas pats visiems</span>
+          <span className="zh-daily-title">Kasdienis ritualas — tas pats visiems</span>
           <span className="zh-daily-sub">
-            {today.dailyPlayed ? 'Šiandien įveikta ✓ — rytoj naujas' : 'Vienas bandymas · ×2 taškai · pasidalink rezultatu'}
+            {today.dailyPlayed ? 'Kvizas įveiktas ✓ — pasitikrink likusias misijas' : '🎧 Atspėk 5 dainas → ⚔️ dvikova → 🔥 verdiktas · ×2 taškai'}
           </span>
         </div>
         <span className="zh-daily-cta">{today.dailyPlayed ? '✓' : 'ŽAISTI'}</span>
@@ -76,6 +77,16 @@ export default function ZaidimaiHubClient({ isAuthenticated, username, me, leade
           <span className="zh-row-go">→</span>
         </Link>
 
+        <Link href="/zaidimai/atspek-is-vaizdo" className="zh-row" style={{ ['--acc' as any]: '#8b5cf6' }}>
+          <span className="zh-row-emoji">🖼️</span>
+          <span className="zh-row-main">
+            <span className="zh-row-title">Atspėk iš vaizdo</span>
+            <span className="zh-row-desc">Nuotrauka ryškėja — atpažink atlikėją kuo greičiau</span>
+          </span>
+          <span className="zh-row-meta">{today.vaizdasRunsLeft > 0 ? `${today.vaizdasRunsLeft} žaidimai su taškais` : 'treniruotė'}</span>
+          <span className="zh-row-go">→</span>
+        </Link>
+
         <Link href="/zaidimai/dvikovos" className="zh-row" style={{ ['--acc' as any]: '#6366f1' }}>
           <span className="zh-row-emoji">⚔️</span>
           <span className="zh-row-main">
@@ -90,19 +101,9 @@ export default function ZaidimaiHubClient({ isAuthenticated, username, me, leade
           <span className="zh-row-emoji">💼</span>
           <span className="zh-row-main">
             <span className="zh-row-title">Muzikos vadybininkas</span>
-            <span className="zh-row-desc">3 realūs LT atlikėjai, tavo strategija, metai versle</span>
+            <span className="zh-row-desc">Fantasy lyga: 5 realūs LT atlikėjai, taškai iš tikrų rezultatų</span>
           </span>
-          <span className="zh-row-meta">{today.vadybRunsLeft > 0 ? `${today.vadybRunsLeft} žaidimai su taškais` : 'treniruotė'}</span>
-          <span className="zh-row-go">→</span>
-        </Link>
-
-        <Link href="/boombox" className="zh-row" style={{ ['--acc' as any]: '#f97316' }}>
-          <span className="zh-row-emoji">📼</span>
-          <span className="zh-row-main">
-            <span className="zh-row-title">Boombox misijos</span>
-            <span className="zh-row-desc">Dienos dvikova, verdiktas ir drops'ai — serija auga</span>
-          </span>
-          <span className="zh-row-meta">kasdien</span>
+          <span className="zh-row-meta">{fantasyTeam ? `💼 ${fantasyTeam}` : 'sudaryk komandą'}</span>
           <span className="zh-row-go">→</span>
         </Link>
       </div>

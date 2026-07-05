@@ -137,7 +137,7 @@ export const ADMIN_SECTIONS: AdminSection[] = [
   { key: 'search',           group: 'system', minRole: 'admin', href: '/admin/search',           icon: '🔍', label: 'Paieška',          hint: 'Paieškos indeksas / debug' },
   { key: 'genres',           group: 'system', minRole: 'admin', href: '/admin/genres',           icon: '🎨', label: 'Žanrai' },
   { key: 'role-translations',group: 'system', minRole: 'admin', href: '/admin/role-translations',icon: '🌐', label: 'Sritys / vertimai' },
-  { key: 'boombox',          group: 'system', minRole: 'admin', href: '/admin/boombox',          icon: '🎛️', label: 'Boombox',          hint: 'Live stream player config' },
+  { key: 'boombox',          group: 'system', minRole: 'admin', href: '/admin/boombox',          icon: '🎛️', label: 'Dienos iššūkio turinys', hint: 'Dvikovos, verdiktai, AI vaizdai (buvęs Boombox)' },
   { key: 'db-stats',         group: 'system', minRole: 'admin', href: '/admin/db-stats',         icon: '💾', label: 'DB stats',         hint: 'Lentelių dydžiai, dead indexes, bloat' },
   { key: 'yt-backfill',      group: 'system', minRole: 'admin', href: '/admin/yt-backfill',      icon: '🎞️', label: 'YouTube backfill', hint: 'Foninis YT info pildymas' },
   { key: 'settings',         group: 'system', minRole: 'admin', href: '/admin/settings',         icon: '🔧', label: 'Nustatymai' },

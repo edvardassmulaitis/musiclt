@@ -88,7 +88,7 @@ export function verifyPayload<T = any>(token: string): T | null {
 /** Kiek kartų viewer'is šiandien (LT laiku) jau žaidė šį žaidimą (scored runs). */
 export async function countRunsToday(
   viewer: GameViewer,
-  game: 'kvizas' | 'dvikovos' | 'vadybininkas',
+  game: 'kvizas' | 'dvikovos' | 'vadybininkas' | 'vaizdas',
   category?: { eq?: string; neq?: string },
 ): Promise<number> {
   const sb = createAdminClient()
@@ -130,7 +130,7 @@ export function seededShuffle<T>(arr: T[], rng: () => number): T[] {
 
 export async function insertGameScore(row: {
   viewer: GameViewer
-  game: 'kvizas' | 'dvikovos' | 'vadybininkas'
+  game: 'kvizas' | 'dvikovos' | 'vadybininkas' | 'vaizdas'
   category?: string | null
   score: number
   maxScore?: number | null

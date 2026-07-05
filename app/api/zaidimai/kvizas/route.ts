@@ -111,8 +111,9 @@ export async function GET(req: NextRequest) {
   const cat = quizCategory(isDaily ? 'lt-mix' : catKey)
   if (!cat) return jsonErr('Nežinoma kategorija')
 
+  // Dienos iššūkis — 5 raundai (dalis Dienos iššūkio wizard'o /zaidimai/dienos)
   const roundCount = isDaily
-    ? 10
+    ? Math.min(Math.max(parseInt(url.searchParams.get('raundai') || '5') || 5, 5), 10)
     : Math.min(Math.max(parseInt(url.searchParams.get('raundai') || '10') || 10, 5), 15)
 
   const viewer = await resolveViewer()

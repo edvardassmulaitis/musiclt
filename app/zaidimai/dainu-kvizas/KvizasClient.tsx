@@ -37,8 +37,6 @@ const CATEGORIES: Category[] = [
   { key: 'lt-klasika', label: 'Lietuviška klasika', desc: 'Dainos, kurias žino visi', accent: '#8b5cf6', emoji: '📼' },
   { key: 'pasaulis', label: 'Pasaulio hitai', desc: 'Užsienio scena', accent: '#3b82f6', emoji: '🌍' },
 ]
-const DAILY_CATEGORY: Category = { key: 'dienos', label: 'Dienos iššūkis', desc: 'Visiems tas pats — ×2 taškai', accent: '#ec4899', emoji: '⚡' }
-
 const ROUND_MS = 15000
 const REVEAL_MS = 5000
 const COMBO_MIN = 3
@@ -54,7 +52,7 @@ const OUTCOME_EMOJI: Record<RoundOutcome, string> = { fast: '🟩', slow: '🟨'
 
 export default function KvizasClient() {
   const [phase, setPhase] = useState<Phase>('pick')
-  const [category, setCategory] = useState<Category>(DAILY_CATEGORY)
+  const [category, setCategory] = useState<Category>(CATEGORIES[0])
   const [quiz, setQuiz] = useState<Quiz | null>(null)
   const [roundIdx, setRoundIdx] = useState(0)
   const [answers, setAnswers] = useState<Answer[]>([])
@@ -128,11 +126,6 @@ export default function KvizasClient() {
   }
 
   async function startQuiz(cat: Category) {
-    // Dienos iššūkis jau prefetch'intas — startas be laukimo
-    if (cat.key === 'dienos' && dailyInfo?.quiz) {
-      beginQuiz(cat, dailyInfo.quiz)
-      return
-    }
     setCategory(cat)
     setPhase('loading')
     setError(null)
@@ -262,18 +255,14 @@ export default function KvizasClient() {
           <p className="kv-lead">Groja ištrauka — turi 15 sekundžių ir 4 variantus. Greitis = taškai, serija = combo bonusas.</p>
           {error && <div className="kv-error">{error}</div>}
 
-          {/* Dienos iššūkis — hero */}
-          <button
-            className={`kv-daily${dailyInfo?.played ? ' played' : ''}`}
-            onClick={() => startQuiz(DAILY_CATEGORY)}
-            disabled={!dailyInfo?.quiz}
-          >
+          {/* Dienos iššūkis gyvena atskirai — wizard'e /zaidimai/dienos */}
+          <Link href="/zaidimai/dienos" className={`kv-daily${dailyInfo?.played ? ' played' : ''}`}>
             <span className="kv-daily-badge">⚡ DIENOS IŠŠŪKIS</span>
-            <span className="kv-daily-title">Tas pats visiems. Vienas bandymas. ×2 taškai.</span>
+            <span className="kv-daily-title">Kvizas + dienos misijos viename — ×2 taškai</span>
             <span className="kv-daily-sub">
-              {dailyInfo === null ? 'Kraunama…' : dailyInfo.played ? 'Šiandien jau žaista ✓ — gali kartoti kaip treniruotę' : 'Dar nežaidei — pirmyn!'}
+              {dailyInfo?.played ? 'Kvizo dalis šiandien įveikta ✓' : 'Tas pats visiems, vienas bandymas per dieną →'}
             </span>
-          </button>
+          </Link>
 
           <div className="kv-cats">
             {CATEGORIES.map(c => (

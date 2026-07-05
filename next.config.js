@@ -23,6 +23,9 @@ const nextConfig = {
       { source: '/renginiai', destination: '/koncertai', permanent: true },
       { source: '/zanrai', destination: '/muzikos-stilius', permanent: true },
       { source: '/zanrai/:slug', destination: '/muzikos-stilius/:slug', permanent: true },
+      // Boombox išskaidytas į „Dienos iššūkį" (2026-07-06, testuotojo feedback:
+      // pavadinimas neaiškus). Ne permanent — jei kada grįžtų atskiras puslapis.
+      { source: '/boombox', destination: '/zaidimai/dienos', permanent: false },
     ]
   },
 }

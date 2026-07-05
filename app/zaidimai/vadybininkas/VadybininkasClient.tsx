@@ -2,459 +2,487 @@
 
 // app/zaidimai/vadybininkas/VadybininkasClient.tsx
 //
-// „Muzikos vadybininkas" v1: draft'as (3 atlikėjai į biudžetą) → metų
-// simuliacija ketvirčiais (server-side, realūs atlikėjų duomenys) → agentūros
-// vertė + vadybininko titulas.
+// Muzikos vadybininkas v2 — TĘSTINĖ FANTASY LYGA su realiais atlikėjais ir
+// realiais jų rezultatais (YouTube augimas, topai, releizai). Kaip krepšinio
+// rinkos žaidimuose: sudarai komandą, laikai ilgai, taškai kas savaitę,
+// mėnesio/sezono lyderiai.
 
-import { useEffect, useRef, useState } from 'react'
+import { useCallback, useEffect, useRef, useState } from 'react'
 import Link from 'next/link'
 import { proxyImg } from '@/lib/img-proxy'
 
+type RosterArtist = {
+  artistId: number
+  name: string
+  slug: string
+  image: string | null
+  price: number
+  signedAt: string
+  lastWeekPoints: number | null
+  livePoints: number
+  liveBreakdown: { chart: number; yt: number; rel: number; base: number } | null
+}
+type BoardRow = { name: string; points: number; isMe: boolean }
+type Boards = { week: BoardRow[]; month: BoardRow[]; season: BoardRow[]; weekLabel: string; totalTeams: number }
+type TeamData = {
+  team: {
+    id: number; name: string; budget: number; spent: number; budgetLeft: number
+    transfersLeft: number; seasonPoints: number; seasonRank: number | null
+    liveWeekPoints: number; weeks: Array<{ week_start: string; points: number }>
+  } | null
+  roster: RosterArtist[]
+  rosterSize: number
+  boards: Boards
+  isAuthenticated: boolean
+}
 type MarketArtist = {
   id: number; name: string; slug: string; image: string | null
-  tier: 'A' | 'B' | 'C'; tierLabel: string; price: number; stars: number; trending: boolean
+  price: number; lastWeekPoints: number | null; trending: boolean; onMyRoster: boolean
 }
-type SimEvent = { artist: string; text: string; delta: number }
-type SimQuarter = { q: number; label: string; events: SimEvent[]; income: number }
-type SimResult = {
-  spent: number; remaining: number; strategija?: string; boostas?: string | null; quarters: SimQuarter[]
-  resale: Array<{ id: number; name: string; image: string | null; bought: number; value: number }>
-  totalIncome: number; finalValue: number
-  grade: { label: string; emoji: string }
-  xp: number; xpEligible: boolean; xpRunsLeft: number; totalXp: number
-}
-
-type Phase = 'loading' | 'draft' | 'strategy' | 'simulating' | 'season' | 'results'
-
-const TIER_ACCENT: Record<string, string> = { A: '#f59e0b', B: '#6366f1', C: '#10b981' }
-
-const STRATEGY_CARDS = [
-  { key: 'saugi', emoji: '🛡️', label: 'Saugi taktika', desc: 'Mažiau dramų, stabilesnės pajamos. Rečiau iššauna, rečiau skaudžiai krenta.' },
-  { key: 'subalansuota', emoji: '⚖️', label: 'Subalansuota', desc: 'Klasikinis kelias — po truputį visko.' },
-  { key: 'rizika', emoji: '🎰', label: 'Visa į viršų', desc: 'Daug įvykių, didelės amplitudės. Legendos arba bankrotas.' },
-] as const
-
-const BOOST_CARDS = [
-  { key: null, emoji: '—', label: 'Be kampanijos', desc: 'Taupom biudžetą', cost: 0 },
-  { key: 'tiktok', emoji: '📱', label: 'TikTok kampanija', desc: 'Gerokai didesnė viralo tikimybė', cost: 10 },
-  { key: 'radijas', emoji: '📻', label: 'Radijo kampanija', desc: 'Rotacija + stabilesnės pajamos', cost: 10 },
-] as const
-
-type StrategyKey = typeof STRATEGY_CARDS[number]['key']
-type BoostKey = 'tiktok' | 'radijas' | null
 
 export default function VadybininkasClient() {
-  const [phase, setPhase] = useState<Phase>('loading')
-  const [market, setMarket] = useState<MarketArtist[]>([])
-  const [budget, setBudget] = useState(100)
-  const [token, setToken] = useState('')
-  const [picked, setPicked] = useState<number[]>([])
-  const [strategy, setStrategy] = useState<StrategyKey>('subalansuota')
-  const [boost, setBoost] = useState<BoostKey>(null)
-  const [result, setResult] = useState<SimResult | null>(null)
-  const [shownQ, setShownQ] = useState(0)
+  const [data, setData] = useState<TeamData | null>(null)
+  const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
-  const [xpRunsLeft, setXpRunsLeft] = useState<number | null>(null)
-  const qTimer = useRef<ReturnType<typeof setTimeout> | null>(null)
+  const [notice, setNotice] = useState<string | null>(null)
 
-  async function loadMarket() {
-    setPhase('loading')
-    setPicked([])
-    setResult(null)
-    setShownQ(0)
-    setError(null)
+  // Komandos kūrimas
+  const [teamName, setTeamName] = useState('')
+  const [creating, setCreating] = useState(false)
+
+  // Rinka
+  const [marketOpen, setMarketOpen] = useState(false)
+  const [market, setMarket] = useState<MarketArtist[]>([])
+  const [marketTotal, setMarketTotal] = useState(0)
+  const [marketPage, setMarketPage] = useState(0)
+  const [marketQ, setMarketQ] = useState('')
+  const [marketLoading, setMarketLoading] = useState(false)
+  const [busyArtist, setBusyArtist] = useState<number | null>(null)
+  const searchTimer = useRef<ReturnType<typeof setTimeout> | null>(null)
+
+  const [boardTab, setBoardTab] = useState<'week' | 'month' | 'season'>('season')
+
+  const load = useCallback(async () => {
     try {
       const res = await fetch('/api/zaidimai/vadybininkas')
       const json = await res.json()
-      if (!res.ok || !json.market) {
-        setError(json.error || 'Rinka nepasiekiama — pabandyk vėliau')
-        return
-      }
-      setMarket(json.market)
-      setBudget(json.budget)
-      setToken(json.token)
-      setXpRunsLeft(json.xpRunsLeft ?? null)
-      setPhase('draft')
+      setData(json)
     } catch {
-      setError('Tinklo klaida — pabandyk dar kartą')
+      setError('Nepavyko užkrauti — pabandyk dar kartą')
     }
-  }
-
-  useEffect(() => {
-    void loadMarket()
-    return () => { if (qTimer.current) clearTimeout(qTimer.current) }
-    // eslint-disable-next-line react-hooks/exhaustive-deps
+    setLoading(false)
   }, [])
 
-  const boostCost = boost ? 10 : 0
-  const spent = picked.reduce((s, id) => s + (market.find(m => m.id === id)?.price || 0), 0)
-  const left = budget - spent - (phase === 'strategy' ? boostCost : 0)
-  const canStart = picked.length === 3 && left >= 0
+  useEffect(() => { void load() }, [load])
 
-  function toggle(id: number) {
-    setPicked(p => {
-      if (p.includes(id)) return p.filter(x => x !== id)
-      if (p.length >= 3) return p
-      return [...p, id]
-    })
+  const loadMarket = useCallback(async (q: string, page: number) => {
+    setMarketLoading(true)
+    try {
+      const res = await fetch(`/api/zaidimai/vadybininkas/rinka?q=${encodeURIComponent(q)}&puslapis=${page}`)
+      const json = await res.json()
+      setMarket(json.artists || [])
+      setMarketTotal(json.total || 0)
+      setMarketPage(page)
+    } catch { /* paliekam seną */ }
+    setMarketLoading(false)
+  }, [])
+
+  useEffect(() => {
+    if (!marketOpen) return
+    void loadMarket(marketQ, 0)
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [marketOpen])
+
+  function onSearchChange(v: string) {
+    setMarketQ(v)
+    if (searchTimer.current) clearTimeout(searchTimer.current)
+    searchTimer.current = setTimeout(() => void loadMarket(v, 0), 350)
   }
 
-  async function startSeason() {
-    if (!canStart) return
-    setPhase('simulating')
+  async function createTeam() {
+    if (teamName.trim().length < 2) { setError('Įrašyk komandos pavadinimą (2–30 simbolių)'); return }
+    setCreating(true)
+    setError(null)
     try {
       const res = await fetch('/api/zaidimai/vadybininkas', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ token, picked, strategija: strategy, boostas: boost }),
+        body: JSON.stringify({ action: 'create', name: teamName.trim() }),
       })
       const json = await res.json()
-      if (!res.ok) {
-        setError(json.error || 'Simuliacija nepavyko')
-        setPhase('draft')
-        return
-      }
-      setResult(json)
-      setShownQ(0)
-      setPhase('season')
-      scheduleNextQuarter(0)
-    } catch {
-      setError('Tinklo klaida — pabandyk dar kartą')
-      setPhase('draft')
-    }
+      if (!res.ok) { setError(json.error || 'Nepavyko'); setCreating(false); return }
+      setNotice(`Komanda sukurta! +${json.xp} tšk. Dabar pasirašyk 5 atlikėjus 👇`)
+      await load()
+      setMarketOpen(true)
+    } catch { setError('Tinklo klaida') }
+    setCreating(false)
   }
 
-  function scheduleNextQuarter(current: number) {
-    if (qTimer.current) clearTimeout(qTimer.current)
-    qTimer.current = setTimeout(() => {
-      if (current + 1 < 4) {
-        setShownQ(current + 1)
-        scheduleNextQuarter(current + 1)
-      } else {
-        setPhase('results')
-      }
-    }, 2600)
+  async function doAction(action: 'sign' | 'release', artistId: number) {
+    setBusyArtist(artistId)
+    setError(null)
+    try {
+      const res = await fetch('/api/zaidimai/vadybininkas', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ action, artistId }),
+      })
+      const json = await res.json()
+      if (!res.ok) { setError(json.error || 'Nepavyko'); setBusyArtist(null); return }
+      await Promise.all([load(), marketOpen ? loadMarket(marketQ, marketPage) : Promise.resolve()])
+    } catch { setError('Tinklo klaida') }
+    setBusyArtist(null)
   }
 
-  function skipToResults() {
-    if (qTimer.current) clearTimeout(qTimer.current)
-    setPhase('results')
-  }
-
-  const pickedArtists = picked.map(id => market.find(m => m.id === id)!).filter(Boolean)
+  const team = data?.team
+  const roster = data?.roster || []
+  const slotsLeft = (data?.rosterSize || 5) - roster.length
 
   return (
-    <div className="vd-root">
+    <div className="fl-root">
       <style>{css}</style>
 
-      <div className="vd-top">
-        <Link href="/zaidimai" className="vd-back">← Žaidimai</Link>
-        {phase === 'draft' && xpRunsLeft !== null && (
-          <span className="vd-xp-note">{xpRunsLeft > 0 ? `Taškai dar už ${xpRunsLeft} žaidim${xpRunsLeft === 1 ? 'ą' : 'us'} šiandien` : 'Šiandien — treniruotės režimas'}</span>
-        )}
+      <div className="fl-top">
+        <Link href="/zaidimai" className="fl-back">← Žaidimai</Link>
+        {team && <span className="fl-top-name">💼 {team.name}</span>}
       </div>
 
-      <h1 className="vd-h1">Muzikos vadybininkas</h1>
+      {loading && <div className="fl-center"><div className="fl-spinner" /></div>}
 
-      {error && <div className="vd-error">{error} <button className="vd-retry" onClick={loadMarket}>Bandyti dar</button></div>}
+      {!loading && data && !team && (
+        <div className="fl-onboard">
+          <h1 className="fl-h1">Muzikos vadybininkas</h1>
+          <p className="fl-lead">
+            Fantasy lyga su <b>realiais Lietuvos atlikėjais</b>. Sudarai komandą iš 5 atlikėjų —
+            taškus jie neša pagal <b>tikrus savaitės rezultatus</b>: YouTube augimą, vietas
+            topuose ir naujus releizus. Kas pirmadienį — nauja turo lentelė, o mėnesio ir
+            sezono lyderiai kaunasi ilgai.
+          </p>
+          <ul className="fl-rules">
+            <li>💰 Biudžetas <b>220 tšk.</b> — superžvaigždės brangios, atrask pigius kylančius</li>
+            <li>📊 Taškai kas pirmadienį iš realių duomenų (+ live progresas kasdien)</li>
+            <li>🔁 Iki <b>3 transferų</b> per savaitę</li>
+          </ul>
+          {!data.isAuthenticated && (
+            <p className="fl-warn">⚠️ Žaidi kaip svečias — komanda pririšta prie šio įrenginio. <Link href="/auth/prisijungti">Prisijunk</Link>, kad jos neprarastum ir matytum savo vardą lygoje.</p>
+          )}
+          <div className="fl-create">
+            <input
+              className="fl-input"
+              placeholder="Komandos pavadinimas, pvz. „Garažo imperija“"
+              value={teamName}
+              maxLength={30}
+              onChange={e => setTeamName(e.target.value)}
+              onKeyDown={e => { if (e.key === 'Enter') void createTeam() }}
+            />
+            <button className="fl-btn-primary" disabled={creating} onClick={createTeam}>
+              {creating ? 'Kuriama…' : 'Įkurti komandą'}
+            </button>
+          </div>
+          {error && <div className="fl-error">{error}</div>}
 
-      {phase === 'loading' && !error && (
-        <div className="vd-center"><div className="vd-spinner" /><p className="vd-lead">Ruošiam atlikėjų rinką...</p></div>
+          <LeagueBoards boards={data.boards} tab={boardTab} setTab={setBoardTab} />
+        </div>
       )}
 
-      {/* ── Draft ── */}
-      {phase === 'draft' && (
+      {!loading && data && team && (
         <>
-          <p className="vd-lead">
-            Turi <b>{budget} tšk. biudžetą</b> — pasamdyk <b>3 atlikėjus</b> ir išgyvenk metus muzikos versle.
-            Superžvaigždė saugu, bet brangu; kylantys — pigūs, bet gali iššauti.
-          </p>
+          {notice && <div className="fl-notice" onClick={() => setNotice(null)}>{notice}</div>}
+          {error && <div className="fl-error" onClick={() => setError(null)}>{error}</div>}
 
-          <div className="vd-budget">
-            <div className="vd-budget-bar">
-              <div style={{ width: `${Math.min(100, (spent / budget) * 100)}%`, background: left < 0 ? '#ef4444' : undefined }} />
+          {/* Komandos statusas */}
+          <div className="fl-stats">
+            <div className="fl-stat big">
+              <span className="fl-stat-label">Ši savaitė (live)</span>
+              <span className="fl-stat-val">{team.liveWeekPoints}</span>
             </div>
-            <span className={`vd-budget-num${left < 0 ? ' over' : ''}`}>{left < 0 ? `Viršyta ${-left}` : `Liko ${left}`} tšk.</span>
+            <div className="fl-stat">
+              <span className="fl-stat-label">Sezonas</span>
+              <span className="fl-stat-val">{team.seasonPoints}{team.seasonRank ? <em>#{team.seasonRank}</em> : null}</span>
+            </div>
+            <div className="fl-stat">
+              <span className="fl-stat-label">Biudžetas</span>
+              <span className="fl-stat-val">{team.budgetLeft}</span>
+            </div>
+            <div className="fl-stat">
+              <span className="fl-stat-label">Transferai</span>
+              <span className="fl-stat-val">{team.transfersLeft}</span>
+            </div>
           </div>
 
-          <div className="vd-market">
-            {(['A', 'B', 'C'] as const).map(tier => (
-              <div key={tier} className="vd-tier">
-                <div className="vd-tier-head" style={{ color: TIER_ACCENT[tier] }}>
-                  {tier === 'A' ? '⭐ Superžvaigždės' : tier === 'B' ? '🎤 Scenos vardai' : '🚀 Kylantys'}
-                </div>
-                <div className="vd-tier-row">
-                  {market.filter(m => m.tier === tier).map(m => {
-                    const isPicked = picked.includes(m.id)
-                    const disabled = !isPicked && (picked.length >= 3 || m.price > left)
-                    return (
-                      <button
-                        key={m.id}
-                        className={`vd-card${isPicked ? ' picked' : ''}${disabled ? ' disabled' : ''}`}
-                        style={{ ['--acc' as any]: TIER_ACCENT[tier] }}
-                        onClick={() => toggle(m.id)}
-                        disabled={disabled && !isPicked}
-                      >
-                        <span className="vd-card-img">
-                          {m.image
-                            // eslint-disable-next-line @next/next/no-img-element
-                            ? <img src={proxyImg(m.image, 160)} alt="" loading="lazy" />
-                            : <span className="vd-card-img-ph">🎤</span>}
-                          {m.trending && <span className="vd-card-trend">📈 kyla</span>}
-                        </span>
-                        <span className="vd-card-name">{m.name}</span>
-                        <span className="vd-card-stars">{'★'.repeat(m.stars)}{'☆'.repeat(5 - m.stars)}</span>
-                        <span className="vd-card-price">{m.price} tšk.</span>
-                        {isPicked && <span className="vd-card-check">✓ Pasirašyta</span>}
-                      </button>
-                    )
-                  })}
-                </div>
+          {/* Roster */}
+          <div className="fl-sec-head">
+            <h2 className="fl-h2">Komanda <span className="fl-dim">{roster.length}/{data.rosterSize}</span></h2>
+            <button className="fl-btn-market" onClick={() => setMarketOpen(o => !o)}>
+              {marketOpen ? 'Slėpti rinką' : slotsLeft > 0 ? `Į rinką (${slotsLeft} vietos) →` : 'Rinka →'}
+            </button>
+          </div>
+
+          {roster.length === 0 && (
+            <div className="fl-empty-roster">Komanda tuščia — atsidaryk rinką ir pasirašyk 5 atlikėjus.</div>
+          )}
+
+          <div className="fl-roster">
+            {roster.map(r => (
+              <div key={r.artistId} className="fl-player">
+                <span className="fl-player-img">
+                  {r.image
+                    // eslint-disable-next-line @next/next/no-img-element
+                    ? <img src={proxyImg(r.image, 120)} alt="" loading="lazy" />
+                    : <span className="fl-player-ph">🎤</span>}
+                </span>
+                <span className="fl-player-main">
+                  <Link href={`/atlikejai/${r.slug}`} className="fl-player-name">{r.name}</Link>
+                  <span className="fl-player-meta">kaina {r.price}{r.lastWeekPoints !== null ? ` · pr. sav. ${r.lastWeekPoints} tšk.` : ''}</span>
+                </span>
+                <span className="fl-player-live" title={r.liveBreakdown ? `Topai ${r.liveBreakdown.chart} · YT ${r.liveBreakdown.yt} · Releizai ${r.liveBreakdown.rel} · Bazė ${r.liveBreakdown.base}` : ''}>
+                  <b>{r.livePoints}</b>
+                  <i>šią sav.</i>
+                </span>
+                <button
+                  className="fl-release"
+                  disabled={busyArtist === r.artistId || team.transfersLeft <= 0}
+                  title={team.transfersLeft <= 0 ? 'Transferų limitas šiai savaitei' : `Paleisti (grąžins ${r.price} tšk.)`}
+                  onClick={() => doAction('release', r.artistId)}
+                >✕</button>
               </div>
             ))}
-          </div>
-
-          <div className="vd-startbar">
-            <span className="vd-startbar-info">
-              {picked.length}/3 atlikėjai{spent > 0 ? ` · išleista ${spent} tšk.` : ''}
-            </span>
-            <button className="vd-start" disabled={!canStart} onClick={() => setPhase('strategy')}>Toliau: strategija →</button>
-          </div>
-        </>
-      )}
-
-      {/* ── Strategijos pasirinkimas ── */}
-      {phase === 'strategy' && (
-        <div className="vd-strategy">
-          <div className="vd-roster-mini">
-            {pickedArtists.map(a => <span key={a.id} className="vd-roster-chip">{a.name}</span>)}
-            <span className="vd-roster-chip dim">liko {left} tšk.</span>
-          </div>
-
-          <h2 className="vd-h2">Kokia tavo metų strategija?</h2>
-          <div className="vd-strat-row">
-            {STRATEGY_CARDS.map(s => (
-              <button key={s.key} className={`vd-strat-card${strategy === s.key ? ' on' : ''}`} onClick={() => setStrategy(s.key)}>
-                <span className="vd-strat-emoji">{s.emoji}</span>
-                <span className="vd-strat-label">{s.label}</span>
-                <span className="vd-strat-desc">{s.desc}</span>
+            {Array.from({ length: slotsLeft }).map((_, i) => (
+              <button key={`empty-${i}`} className="fl-player empty" onClick={() => setMarketOpen(true)}>
+                <span className="fl-player-ph-slot">+</span>
+                <span className="fl-empty-label">Laisva vieta — pasirašyk atlikėją</span>
               </button>
             ))}
           </div>
 
-          <h2 className="vd-h2">Marketingo kampanija?</h2>
-          <div className="vd-strat-row">
-            {BOOST_CARDS.map(b => {
-              const unaffordable = b.cost > 0 && budget - spent < b.cost
-              return (
-                <button
-                  key={String(b.key)}
-                  className={`vd-strat-card${boost === b.key ? ' on' : ''}${unaffordable ? ' off' : ''}`}
-                  disabled={unaffordable}
-                  onClick={() => setBoost(b.key as BoostKey)}
-                >
-                  <span className="vd-strat-emoji">{b.emoji}</span>
-                  <span className="vd-strat-label">{b.label}{b.cost ? ` · ${b.cost} tšk.` : ''}</span>
-                  <span className="vd-strat-desc">{b.desc}</span>
-                </button>
-              )
-            })}
-          </div>
-
-          <div className="vd-startbar">
-            <button className="vd-back-step" onClick={() => setPhase('draft')}>← Keisti atlikėjus</button>
-            <button className="vd-start" disabled={!canStart} onClick={startSeason}>Pradėti sezoną →</button>
-          </div>
-        </div>
-      )}
-
-      {phase === 'simulating' && (
-        <div className="vd-center"><div className="vd-spinner" /><p className="vd-lead">Metai prasideda...</p></div>
-      )}
-
-      {/* ── Sezono eiga ── */}
-      {phase === 'season' && result && (
-        <div className="vd-season">
-          <div className="vd-roster-mini">
-            {pickedArtists.map(a => (
-              <span key={a.id} className="vd-roster-chip">{a.name}</span>
-            ))}
-          </div>
-          {result.quarters.slice(0, shownQ + 1).map(q => (
-            <div key={q.q} className="vd-quarter">
-              <div className="vd-quarter-head">
-                <span className="vd-quarter-label">{q.label}</span>
-                <span className={`vd-quarter-income${q.income >= 0 ? '' : ' neg'}`}>{q.income >= 0 ? '+' : ''}{q.income} tšk.</span>
+          {/* Rinka */}
+          {marketOpen && (
+            <div className="fl-market">
+              <input
+                className="fl-input"
+                placeholder="Ieškoti atlikėjo…"
+                value={marketQ}
+                onChange={e => onSearchChange(e.target.value)}
+              />
+              {marketLoading && <div className="fl-center small"><div className="fl-spinner" /></div>}
+              {!marketLoading && market.length === 0 && <div className="fl-dim" style={{ padding: '14px 0' }}>Nieko nerasta.</div>}
+              <div className="fl-market-list">
+                {market.map(a => {
+                  const canSign = !a.onMyRoster && slotsLeft > 0 && a.price <= team.budgetLeft
+                  return (
+                    <div key={a.id} className="fl-mrow">
+                      <span className="fl-player-img sm">
+                        {a.image
+                          // eslint-disable-next-line @next/next/no-img-element
+                          ? <img src={proxyImg(a.image, 96)} alt="" loading="lazy" />
+                          : <span className="fl-player-ph">🎤</span>}
+                      </span>
+                      <span className="fl-mrow-main">
+                        <span className="fl-mrow-name">{a.name} {a.trending && <em className="fl-trend">📈</em>}</span>
+                        <span className="fl-player-meta">{a.lastWeekPoints !== null ? `pr. sav. ${a.lastWeekPoints} tšk.` : 'naujokas lygoje'}</span>
+                      </span>
+                      <span className="fl-mrow-price">{a.price}</span>
+                      {a.onMyRoster ? (
+                        <span className="fl-mine">✓ tavo</span>
+                      ) : (
+                        <button
+                          className="fl-sign"
+                          disabled={!canSign || busyArtist === a.id}
+                          title={!canSign ? (slotsLeft <= 0 ? 'Komanda pilna' : a.price > team.budgetLeft ? 'Per brangu' : '') : 'Pasirašyti'}
+                          onClick={() => doAction('sign', a.id)}
+                        >Pasirašyti</button>
+                      )}
+                    </div>
+                  )
+                })}
               </div>
-              {q.events.length === 0 ? (
-                <div className="vd-event dim">Ramus ketvirtis — koncertai, streamai, rutina.</div>
-              ) : q.events.map((e, i) => (
-                <div key={i} className="vd-event">
-                  <b>{e.artist}</b> {e.text}
-                  <span className={`vd-event-delta${e.delta >= 0 ? '' : ' neg'}`}>{e.delta >= 0 ? '+' : ''}{e.delta}</span>
-                </div>
-              ))}
+              <div className="fl-pager">
+                <button disabled={marketPage === 0 || marketLoading} onClick={() => void loadMarket(marketQ, marketPage - 1)}>← Ankstesni</button>
+                <span className="fl-dim">{marketPage * 30 + 1}–{Math.min((marketPage + 1) * 30, marketTotal)} iš {marketTotal}</span>
+                <button disabled={(marketPage + 1) * 30 >= marketTotal || marketLoading} onClick={() => void loadMarket(marketQ, marketPage + 1)}>Kiti →</button>
+              </div>
             </div>
-          ))}
-          <button className="vd-skip" onClick={skipToResults}>Praleisti į rezultatus →</button>
-        </div>
-      )}
+          )}
 
-      {/* ── Rezultatai ── */}
-      {phase === 'results' && result && (
-        <div className="vd-results">
-          <div className="vd-grade">
-            <span className="vd-grade-emoji">{result.grade.emoji}</span>
-            <span className="vd-grade-label">{result.grade.label}</span>
-          </div>
-          <div className="vd-value">
-            Agentūros vertė: <b>{result.finalValue} tšk.</b>
-            <span className="vd-value-sub">(startavai su 100 · {result.strategija}{result.boostas ? ` + ${result.boostas === 'tiktok' ? 'TikTok' : 'radijo'} kampanija` : ''})</span>
-          </div>
-
-          <div className="vd-breakdown">
-            <div><span>Liko biudžeto</span><b>{result.remaining}</b></div>
-            <div><span>Metų pajamos</span><b>{result.totalIncome >= 0 ? '+' : ''}{result.totalIncome}</b></div>
-            <div><span>Roster'io vertė</span><b>{result.resale.reduce((s, r) => s + r.value, 0)}</b></div>
-          </div>
-
-          <div className="vd-resale">
-            {result.resale.map(r => (
-              <div key={r.id} className="vd-resale-row">
-                <span className="vd-resale-name">{r.name}</span>
-                <span className="vd-resale-nums">
-                  pirkta už {r.bought} → dabar <b className={r.value >= r.bought ? 'up' : 'down'}>{r.value}</b>
-                </span>
+          {/* Savaičių istorija */}
+          {team.weeks.length > 0 && (
+            <div className="fl-weeks">
+              <h2 className="fl-h2">Turų istorija</h2>
+              <div className="fl-weeks-row">
+                {team.weeks.map(w => (
+                  <div key={w.week_start} className="fl-week-chip">
+                    <span>{w.week_start.slice(5)}</span>
+                    <b>{w.points}</b>
+                  </div>
+                ))}
               </div>
-            ))}
-          </div>
+            </div>
+          )}
 
-          {result.xp > 0 ? (
-            <p className="vd-xp-line">⚡ Užskaityta <b>+{result.xp}</b> taškų{result.totalXp > 0 ? ` — iš viso ${result.totalXp.toLocaleString('lt-LT')}` : ''}</p>
-          ) : !result.xpEligible ? (
-            <p className="vd-xp-line dim">Dienos limitas — ši partija be taškų, bet įgūdžiai auga 😉</p>
-          ) : null}
+          <LeagueBoards boards={data.boards} tab={boardTab} setTab={setBoardTab} />
 
-          <div className="vd-result-actions">
-            <button className="vd-again" onClick={loadMarket}>Nauja rinka — žaisti dar</button>
-            <Link href="/zaidimai" className="vd-back-btn">← Žaidimai</Link>
-          </div>
+          <p className="fl-foot">
+            Taškai skaičiuojami kas pirmadienį iš realių duomenų: vietos TOP40/TOP30 (iki 40 tšk./daina),
+            YouTube peržiūrų augimas, nauji releizai (+12), aktyvumo bazė. „Live" — einamosios savaitės prognozė.
+          </p>
+        </>
+      )}
+    </div>
+  )
+}
+
+function LeagueBoards({ boards, tab, setTab }: { boards: Boards; tab: 'week' | 'month' | 'season'; setTab: (t: 'week' | 'month' | 'season') => void }) {
+  const rows = boards[tab]
+  return (
+    <div className="fl-league">
+      <div className="fl-league-head">
+        <h2 className="fl-h2">Lygos lentelė</h2>
+        <span className="fl-dim">{boards.totalTeams} komandų</span>
+      </div>
+      <div className="fl-tabs">
+        <button className={tab === 'week' ? 'on' : ''} onClick={() => setTab('week')}>Savaitė</button>
+        <button className={tab === 'month' ? 'on' : ''} onClick={() => setTab('month')}>Mėnuo</button>
+        <button className={tab === 'season' ? 'on' : ''} onClick={() => setTab('season')}>Sezonas</button>
+      </div>
+      {rows.length === 0 ? (
+        <div className="fl-dim" style={{ padding: '10px 0' }}>
+          {tab === 'week' ? `Savaitės (${boards.weekLabel}) rezultatai — po pirmadienio skaičiavimo.` : 'Dar nėra rezultatų — lyga tik prasideda!'}
         </div>
+      ) : (
+        <ol className="fl-board-list">
+          {rows.map((r, i) => (
+            <li key={i} className={`fl-board-row${r.isMe ? ' me' : ''}`}>
+              <span className={`fl-rank r${i + 1}`}>{i + 1}</span>
+              <span className="fl-board-name">{r.name}{r.isMe ? ' (tu)' : ''}</span>
+              <span className="fl-board-pts">{r.points} tšk.</span>
+            </li>
+          ))}
+        </ol>
       )}
     </div>
   )
 }
 
 const css = `
-.vd-root { max-width: 900px; margin: 0 auto; padding: 24px 16px 90px; }
-.vd-top { display: flex; align-items: center; justify-content: space-between; margin-bottom: 10px; }
-.vd-back { font-size: 14px; font-weight: 700; color: var(--text-secondary); text-decoration: none; }
-.vd-xp-note { font-size: 12px; color: var(--text-muted); }
-.vd-h1 { font-size: 30px; font-weight: 900; letter-spacing: -0.02em; color: var(--text-primary); margin: 0 0 10px; }
-.vd-lead { font-size: 14px; color: var(--text-secondary); line-height: 1.55; margin: 0 0 18px; max-width: 640px; }
-.vd-lead b { color: var(--text-primary); }
-.vd-error { font-size: 14px; color: #f87171; background: rgba(248,113,113,0.1); border-radius: 10px; padding: 10px 14px; margin-bottom: 14px; display: flex; align-items: center; gap: 10px; }
-.vd-retry { font-size: 12px; font-weight: 800; border: 1px solid rgba(248,113,113,0.5); background: transparent; color: #f87171; border-radius: 8px; padding: 4px 10px; cursor: pointer; }
+.fl-root { max-width: 760px; margin: 0 auto; padding: 24px 16px 90px; }
+.fl-top { display: flex; align-items: center; justify-content: space-between; margin-bottom: 14px; }
+.fl-back { font-size: 14px; font-weight: 700; color: var(--text-secondary); text-decoration: none; }
+.fl-top-name { font-size: 14px; font-weight: 900; color: var(--text-primary); }
+.fl-h1 { font-size: 30px; font-weight: 900; letter-spacing: -0.02em; color: var(--text-primary); margin: 0 0 10px; }
+.fl-h2 { font-size: 20px; font-weight: 900; color: var(--text-primary); margin: 0; }
+.fl-lead { font-size: 14px; color: var(--text-secondary); line-height: 1.6; margin: 0 0 14px; }
+.fl-lead b { color: var(--text-primary); }
+.fl-dim { font-size: 12px; color: var(--text-muted); }
 
-.vd-center { display: flex; flex-direction: column; align-items: center; gap: 14px; padding: 70px 0; }
-.vd-spinner { width: 38px; height: 38px; border-radius: 50%; border: 3px solid rgba(148,163,184,0.25); border-top-color: #10b981; animation: vdspin .8s linear infinite; }
-@keyframes vdspin { to { transform: rotate(360deg); } }
+.fl-center { display: flex; justify-content: center; padding: 70px 0; }
+.fl-center.small { padding: 20px 0; }
+.fl-spinner { width: 38px; height: 38px; border-radius: 50%; border: 3px solid rgba(148,163,184,0.25); border-top-color: #10b981; animation: flspin .8s linear infinite; }
+@keyframes flspin { to { transform: rotate(360deg); } }
 
-.vd-budget { display: flex; align-items: center; gap: 14px; margin-bottom: 20px; position: sticky; top: 64px; z-index: 5; background: var(--bg-body); padding: 8px 0; }
-.vd-budget-bar { flex: 1; height: 10px; border-radius: 5px; background: rgba(148,163,184,0.18); overflow: hidden; }
-.vd-budget-bar div { height: 100%; background: linear-gradient(90deg, #10b981, #f59e0b); transition: width .2s ease; }
-.vd-budget-num { font-size: 14px; font-weight: 900; color: var(--text-primary); white-space: nowrap; }
-.vd-budget-num.over { color: #ef4444; }
+.fl-rules { list-style: none; margin: 0 0 14px; padding: 0; display: flex; flex-direction: column; gap: 7px; }
+.fl-rules li { font-size: 14px; color: var(--text-secondary); }
+.fl-rules b { color: var(--text-primary); }
+.fl-warn { font-size: 12px; color: var(--text-secondary); background: rgba(245,158,11,0.1); border: 1px solid rgba(245,158,11,0.35); border-radius: 10px; padding: 9px 12px; margin-bottom: 14px; }
+.fl-warn a { color: #f59e0b; font-weight: 800; }
 
-.vd-tier { margin-bottom: 18px; }
-.vd-tier-head { font-size: 14px; font-weight: 900; margin-bottom: 8px; }
-.vd-tier-row { display: grid; grid-template-columns: repeat(3, 1fr); gap: 10px; }
-@media (max-width: 560px) { .vd-tier-row { grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 8px; } }
+.fl-create { display: flex; gap: 10px; flex-wrap: wrap; margin-bottom: 12px; }
+.fl-input {
+  flex: 1; min-width: 220px; font-size: 16px; color: var(--text-primary);
+  background: var(--bg-surface); border: 1px solid rgba(140,160,190,0.3); border-radius: 12px; padding: 12px 14px;
+}
+.fl-input:focus { outline: none; border-color: #10b981; }
+.fl-btn-primary {
+  font-size: 16px; font-weight: 800; color: #fff; cursor: pointer; border: 0; border-radius: 12px; padding: 12px 22px;
+  background: linear-gradient(135deg, #10b981, #059669); box-shadow: 0 10px 26px rgba(16,185,129,0.3);
+}
+.fl-btn-primary:disabled { opacity: 0.5; }
 
-.vd-card {
-  position: relative; display: flex; flex-direction: column; align-items: center; gap: 3px; text-align: center;
-  padding: 12px 8px 12px; border-radius: 14px; cursor: pointer;
+.fl-error { font-size: 14px; color: #f87171; background: rgba(248,113,113,0.1); border-radius: 10px; padding: 10px 14px; margin-bottom: 12px; cursor: pointer; }
+.fl-notice { font-size: 14px; color: #34d399; background: rgba(16,185,129,0.12); border-radius: 10px; padding: 10px 14px; margin-bottom: 12px; cursor: pointer; }
+
+.fl-stats { display: grid; grid-template-columns: repeat(4, 1fr); gap: 10px; margin-bottom: 22px; }
+@media (max-width: 560px) { .fl-stats { grid-template-columns: repeat(2, 1fr); } }
+.fl-stat { display: flex; flex-direction: column; gap: 3px; background: var(--bg-surface); border: 1px solid rgba(140,160,190,0.2); border-radius: 13px; padding: 12px 14px; }
+.fl-stat.big { border-color: rgba(16,185,129,0.5); background: linear-gradient(140deg, rgba(16,185,129,0.12), var(--bg-surface)); }
+.fl-stat-label { font-size: 12px; color: var(--text-muted); }
+.fl-stat-val { font-size: 24px; font-weight: 900; color: var(--text-primary); line-height: 1.05; }
+.fl-stat-val em { font-style: normal; font-size: 12px; color: #10b981; margin-left: 6px; }
+
+.fl-sec-head { display: flex; align-items: center; justify-content: space-between; gap: 10px; margin-bottom: 10px; }
+.fl-btn-market {
+  font-size: 14px; font-weight: 800; color: #10b981; cursor: pointer;
+  background: rgba(16,185,129,0.1); border: 1px solid rgba(16,185,129,0.4); border-radius: 999px; padding: 8px 16px;
+}
+.fl-empty-roster { font-size: 14px; color: var(--text-muted); padding: 8px 0 12px; }
+
+.fl-roster { display: flex; flex-direction: column; gap: 8px; margin-bottom: 22px; }
+.fl-player {
+  display: flex; align-items: center; gap: 12px; padding: 10px 12px; border-radius: 14px;
   background: var(--bg-surface); border: 1px solid rgba(140,160,190,0.2);
-  transition: transform .13s ease, border-color .13s ease, opacity .13s ease;
 }
-.vd-card:hover:not(.disabled) { transform: translateY(-2px); border-color: var(--acc); }
-.vd-card.picked { border-color: var(--acc); box-shadow: 0 0 0 2px color-mix(in srgb, var(--acc) 45%, transparent); }
-.vd-card.disabled { opacity: 0.42; cursor: not-allowed; }
-.vd-card-img { position: relative; width: 68px; height: 68px; border-radius: 50%; overflow: hidden; background: rgba(148,163,184,0.15); margin-bottom: 4px; }
-.vd-card-img img { width: 100%; height: 100%; object-fit: cover; display: block; }
-.vd-card-img-ph { display: flex; align-items: center; justify-content: center; width: 100%; height: 100%; font-size: 26px; }
-.vd-card-trend { position: absolute; bottom: -2px; left: 50%; transform: translateX(-50%); font-size: 9px; font-weight: 800; background: #10b981; color: #062; color: #04120b; border-radius: 999px; padding: 1px 6px; white-space: nowrap; }
-.vd-card-name { font-size: 12px; font-weight: 800; color: var(--text-primary); line-height: 1.2; overflow: hidden; display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; }
-.vd-card-stars { font-size: 10px; color: #f59e0b; letter-spacing: 0.08em; }
-.vd-card-price { font-size: 14px; font-weight: 900; color: var(--acc); }
-.vd-card-check { font-size: 10px; font-weight: 800; color: var(--acc); }
+.fl-player.empty { border-style: dashed; cursor: pointer; color: var(--text-muted); background: transparent; }
+.fl-player-ph-slot { width: 44px; height: 44px; border-radius: 50%; border: 1px dashed rgba(140,160,190,0.4); display: flex; align-items: center; justify-content: center; font-size: 20px; flex-shrink: 0; }
+.fl-empty-label { font-size: 14px; }
+.fl-player-img { width: 44px; height: 44px; border-radius: 50%; overflow: hidden; flex-shrink: 0; background: rgba(148,163,184,0.15); }
+.fl-player-img.sm { width: 38px; height: 38px; }
+.fl-player-img img { width: 100%; height: 100%; object-fit: cover; display: block; }
+.fl-player-ph { display: flex; align-items: center; justify-content: center; width: 100%; height: 100%; font-size: 18px; }
+.fl-player-main { display: flex; flex-direction: column; gap: 1px; min-width: 0; }
+.fl-player-name { font-size: 16px; font-weight: 800; color: var(--text-primary); text-decoration: none; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.fl-player-meta { font-size: 12px; color: var(--text-muted); }
+.fl-player-live { margin-left: auto; display: flex; flex-direction: column; align-items: flex-end; flex-shrink: 0; }
+.fl-player-live b { font-size: 20px; font-weight: 900; color: #10b981; line-height: 1; }
+.fl-player-live i { font-style: normal; font-size: 10px; color: var(--text-muted); }
+.fl-release {
+  flex-shrink: 0; width: 30px; height: 30px; border-radius: 9px; cursor: pointer;
+  background: rgba(239,68,68,0.1); border: 1px solid rgba(239,68,68,0.35); color: #f87171; font-weight: 800;
+}
+.fl-release:disabled { opacity: 0.35; cursor: not-allowed; }
 
-.vd-startbar {
-  position: sticky; bottom: 14px; display: flex; align-items: center; justify-content: space-between; gap: 12px;
-  background: var(--bg-surface); border: 1px solid rgba(140,160,190,0.25); border-radius: 16px; padding: 12px 16px;
-  box-shadow: 0 12px 34px rgba(0,0,0,0.35);
-}
-.vd-startbar-info { font-size: 14px; color: var(--text-secondary); }
-.vd-start {
-  font-size: 16px; font-weight: 800; color: #fff; cursor: pointer; border: 0; border-radius: 999px; padding: 11px 24px;
+.fl-market { background: var(--bg-surface); border: 1px solid rgba(16,185,129,0.35); border-radius: 16px; padding: 14px; margin-bottom: 22px; }
+.fl-market .fl-input { width: 100%; margin-bottom: 10px; background: var(--bg-body); }
+.fl-market-list { display: flex; flex-direction: column; }
+.fl-mrow { display: flex; align-items: center; gap: 11px; padding: 8px 4px; border-bottom: 1px dashed rgba(140,160,190,0.15); }
+.fl-mrow:last-child { border-bottom: 0; }
+.fl-mrow-main { display: flex; flex-direction: column; gap: 1px; min-width: 0; }
+.fl-mrow-name { font-size: 14px; font-weight: 800; color: var(--text-primary); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.fl-trend { font-style: normal; font-size: 12px; }
+.fl-mrow-price { margin-left: auto; font-size: 16px; font-weight: 900; color: #f59e0b; flex-shrink: 0; }
+.fl-sign {
+  flex-shrink: 0; font-size: 12px; font-weight: 800; color: #fff; cursor: pointer; border: 0; border-radius: 999px; padding: 8px 14px;
   background: linear-gradient(135deg, #10b981, #059669);
 }
-.vd-start:disabled { opacity: 0.4; cursor: not-allowed; }
+.fl-sign:disabled { opacity: 0.35; cursor: not-allowed; }
+.fl-mine { flex-shrink: 0; font-size: 12px; font-weight: 800; color: #10b981; }
+.fl-pager { display: flex; align-items: center; justify-content: space-between; gap: 10px; margin-top: 10px; }
+.fl-pager button { font-size: 12px; font-weight: 800; color: var(--text-secondary); background: transparent; border: 1px solid rgba(140,160,190,0.3); border-radius: 999px; padding: 7px 14px; cursor: pointer; }
+.fl-pager button:disabled { opacity: 0.35; cursor: not-allowed; }
 
-.vd-roster-mini { display: flex; gap: 8px; flex-wrap: wrap; margin-bottom: 14px; }
-.vd-roster-chip { font-size: 12px; font-weight: 800; background: var(--bg-surface); border: 1px solid rgba(140,160,190,0.25); color: var(--text-primary); border-radius: 999px; padding: 5px 12px; }
-.vd-roster-chip.dim { color: var(--text-muted); font-weight: 600; }
+.fl-weeks { margin-bottom: 22px; }
+.fl-weeks-row { display: flex; gap: 8px; overflow-x: auto; padding: 10px 0 4px; }
+.fl-week-chip { display: flex; flex-direction: column; align-items: center; gap: 2px; background: var(--bg-surface); border: 1px solid rgba(140,160,190,0.2); border-radius: 11px; padding: 8px 13px; flex-shrink: 0; }
+.fl-week-chip span { font-size: 10px; color: var(--text-muted); }
+.fl-week-chip b { font-size: 16px; font-weight: 900; color: var(--text-primary); }
 
-.vd-h2 { font-size: 16px; font-weight: 900; color: var(--text-primary); margin: 4px 0 10px; }
-.vd-strat-row { display: grid; grid-template-columns: repeat(3, 1fr); gap: 10px; margin-bottom: 20px; }
-@media (max-width: 560px) { .vd-strat-row { grid-template-columns: 1fr; } }
-.vd-strat-card {
-  display: flex; flex-direction: column; gap: 4px; align-items: flex-start; text-align: left;
-  padding: 14px; border-radius: 14px; cursor: pointer;
-  background: var(--bg-surface); border: 1px solid rgba(140,160,190,0.22);
-  transition: border-color .13s ease, transform .13s ease;
+.fl-league { background: var(--bg-surface); border: 1px solid rgba(140,160,190,0.18); border-radius: 16px; padding: 16px; margin-bottom: 14px; }
+.fl-league-head { display: flex; align-items: baseline; justify-content: space-between; margin-bottom: 10px; }
+.fl-tabs { display: flex; gap: 6px; margin-bottom: 10px; }
+.fl-tabs button {
+  font-size: 12px; font-weight: 800; color: var(--text-secondary); cursor: pointer;
+  background: transparent; border: 1px solid rgba(140,160,190,0.25); border-radius: 999px; padding: 6px 14px;
 }
-.vd-strat-card:hover:not(.off) { transform: translateY(-2px); }
-.vd-strat-card.on { border-color: #10b981; box-shadow: 0 0 0 2px rgba(16,185,129,0.35); }
-.vd-strat-card.off { opacity: 0.4; cursor: not-allowed; }
-.vd-strat-emoji { font-size: 22px; }
-.vd-strat-label { font-size: 14px; font-weight: 900; color: var(--text-primary); }
-.vd-strat-desc { font-size: 12px; color: var(--text-secondary); line-height: 1.4; }
-.vd-back-step { font-size: 14px; font-weight: 700; color: var(--text-secondary); background: transparent; border: 0; cursor: pointer; }
+.fl-tabs button.on { color: #10b981; border-color: rgba(16,185,129,0.6); background: rgba(16,185,129,0.08); }
+.fl-board-list { list-style: none; margin: 0; padding: 0; }
+.fl-board-row { display: flex; align-items: center; gap: 10px; font-size: 14px; padding: 6px 6px; border-radius: 8px; }
+.fl-board-row:nth-child(odd) { background: color-mix(in srgb, var(--text-primary) 4%, transparent); }
+.fl-board-row.me { outline: 1px solid rgba(16,185,129,0.55); }
+.fl-rank { width: 22px; height: 22px; border-radius: 7px; display: flex; align-items: center; justify-content: center; font-weight: 900; font-size: 11px; background: color-mix(in srgb, var(--text-primary) 8%, transparent); color: var(--text-secondary); flex-shrink: 0; }
+.fl-rank.r1 { background: #f59e0b; color: #1a1206; }
+.fl-rank.r2 { background: #94a3b8; color: #10151d; }
+.fl-rank.r3 { background: #b45309; color: #fff; }
+.fl-board-name { font-weight: 700; color: var(--text-primary); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.fl-board-pts { margin-left: auto; font-weight: 800; color: var(--text-primary); white-space: nowrap; font-size: 12px; }
 
-.vd-quarter { background: var(--bg-surface); border: 1px solid rgba(140,160,190,0.2); border-radius: 14px; padding: 14px 16px; margin-bottom: 10px; animation: vdin .35s ease; }
-@keyframes vdin { from { opacity: 0; transform: translateY(8px); } to { opacity: 1; transform: none; } }
-.vd-quarter-head { display: flex; align-items: center; justify-content: space-between; margin-bottom: 8px; }
-.vd-quarter-label { font-size: 14px; font-weight: 900; color: var(--text-primary); }
-.vd-quarter-income { font-size: 16px; font-weight: 900; color: #10b981; }
-.vd-quarter-income.neg { color: #ef4444; }
-.vd-event { font-size: 14px; color: var(--text-secondary); padding: 4px 0; display: flex; gap: 6px; align-items: baseline; flex-wrap: wrap; }
-.vd-event b { color: var(--text-primary); }
-.vd-event.dim { color: var(--text-muted); }
-.vd-event-delta { margin-left: auto; font-weight: 900; color: #10b981; }
-.vd-event-delta.neg { color: #ef4444; }
-.vd-skip { display: block; margin: 8px auto 0; font-size: 14px; font-weight: 800; color: var(--text-secondary); background: transparent; border: 1px solid rgba(140,160,190,0.3); border-radius: 999px; padding: 9px 20px; cursor: pointer; }
-
-.vd-results { display: flex; flex-direction: column; align-items: center; text-align: center; padding: 16px 0; }
-.vd-grade { display: flex; flex-direction: column; align-items: center; gap: 6px; margin-bottom: 12px; }
-.vd-grade-emoji { font-size: 52px; }
-.vd-grade-label { font-size: 24px; font-weight: 900; color: var(--text-primary); }
-.vd-value { font-size: 16px; color: var(--text-secondary); margin-bottom: 18px; }
-.vd-value b { color: #10b981; font-size: 20px; }
-.vd-value-sub { display: block; font-size: 12px; color: var(--text-muted); }
-.vd-breakdown { display: flex; gap: 10px; flex-wrap: wrap; justify-content: center; margin-bottom: 16px; }
-.vd-breakdown > div { display: flex; flex-direction: column; gap: 2px; background: var(--bg-surface); border: 1px solid rgba(140,160,190,0.2); border-radius: 12px; padding: 10px 18px; }
-.vd-breakdown span { font-size: 12px; color: var(--text-muted); }
-.vd-breakdown b { font-size: 16px; color: var(--text-primary); }
-.vd-resale { width: 100%; max-width: 460px; margin-bottom: 16px; }
-.vd-resale-row { display: flex; align-items: center; justify-content: space-between; font-size: 14px; padding: 7px 4px; border-bottom: 1px dashed rgba(140,160,190,0.2); }
-.vd-resale-name { font-weight: 800; color: var(--text-primary); }
-.vd-resale-nums { color: var(--text-secondary); font-size: 12px; }
-.vd-resale-nums b.up { color: #10b981; }
-.vd-resale-nums b.down { color: #ef4444; }
-.vd-xp-line { font-size: 16px; font-weight: 700; color: #f59e0b; margin: 6px 0 14px; }
-.vd-xp-line.dim { color: var(--text-muted); font-weight: 500; }
-.vd-result-actions { display: flex; gap: 12px; align-items: center; flex-wrap: wrap; justify-content: center; }
-.vd-again { font-size: 16px; font-weight: 800; color: #fff; cursor: pointer; border: 0; border-radius: 999px; padding: 12px 24px; background: linear-gradient(135deg, #10b981, #059669); box-shadow: 0 10px 26px rgba(16,185,129,0.3); }
-.vd-back-btn { font-size: 14px; font-weight: 700; color: var(--text-secondary); text-decoration: none; }
+.fl-foot { font-size: 12px; color: var(--text-muted); line-height: 1.5; }
+.fl-onboard .fl-league { margin-top: 20px; }
 `

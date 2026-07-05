@@ -1,312 +1,291 @@
 // app/api/zaidimai/vadybininkas/route.ts
 //
-// „Muzikos vadybininkas" v1 — testuotojo minėtos idėjos realizacija.
+// Muzikos vadybininkas v2 — TĘSTINĖ FANTASY LYGA (ne quick-sim).
 //
-// Žaidimo ciklas (viena sesija ~2 min):
-//   1. GET  → „rinka": 9 REALŪS LT atlikėjai (iš artists lentelės, su tikrais
-//      populiarumo duomenimis) 3 kainų pakopose. Biudžetas 100 tšk.
-//   2. Žaidėjas pasirašo sutartis su 3 atlikėjais (turi tilpti į biudžetą —
-//      superžvaigždė + vidutinis + kylantis, arba rizikingas pigus trio...).
-//   3. POST → server'is simuliuoja 4 ketvirčius: pajamos + įvykiai
-//      (festivaliai, TikTok virusai, skandalai...), įtakojami REALIŲ atlikėjo
-//      duomenų (score, score_trending, švieži релizai). Deterministinis RNG
-//      iš token'o seed'o — rezultato nesuklastosi perkraudamas.
-//   4. Agentūros vertė = likęs biudžetas + pajamos + roster'io perpardavimas.
+//   GET  → mano komanda (roster su realiais atlikėjų taškais: praėjusi
+//          savaitė oficiali + einamoji LIVE), biudžetas, transferai,
+//          lygos lentelės (savaitė / mėnuo / sezonas) + mano vieta.
+//   POST { action: 'create', name }          → sukurti komandą (+40 XP)
+//        { action: 'sign', artistId }        → pasirašyti atlikėją
+//        { action: 'release', artistId }     → paleisti atlikėją (grąžina kainą)
 //
-// Taškai: pirmi 2 žaidimai per dieną (nariams ×1.5), toliau — treniruotė.
+// Taisyklės: 5 atlikėjai, biudžetas 220, iki 3 paleidimų per savaitę.
+// Taškus komanda gauna kas pirmadienį iš realių rezultatų (cron).
 
 import { NextRequest, NextResponse } from 'next/server'
 import { createAdminClient } from '@/lib/supabase'
 import { bumpStreakAndXp } from '@/lib/boombox'
+import { resolveViewer } from '@/lib/zaidimai'
 import {
-  resolveViewer,
-  signPayload,
-  verifyPayload,
-  countRunsToday,
-  insertGameScore,
-  shuffleArr,
-  mulberry32,
-} from '@/lib/zaidimai'
+  FANTASY_BUDGET,
+  ROSTER_SIZE,
+  TRANSFERS_PER_WEEK,
+  priceOf,
+  weekStartOf,
+  prevWeekStart,
+  computeArtistWeekPoints,
+} from '@/lib/fantasy'
 
 export const dynamic = 'force-dynamic'
-
-const BUDGET = 100
-const XP_RUNS_PER_DAY = 2
-const TOKEN_TTL_MS = 60 * 60 * 1000
 
 function jsonErr(msg: string, status = 400) {
   return NextResponse.json({ error: msg }, { status })
 }
 
-type MarketArtist = {
-  id: number
-  name: string
-  slug: string
-  image: string | null
-  tier: 'A' | 'B' | 'C'
-  tierLabel: string
-  price: number
-  stars: number          // 1–5, iš tikro score
-  trending: boolean      // score_trending aukštas
+function normJoined(raw: any): any {
+  return Array.isArray(raw) ? raw[0] ?? null : raw
 }
 
-// ── GET: rinka ────────────────────────────────────────────────────────────
+async function getTeam(sb: ReturnType<typeof createAdminClient>, userId: string | null, anonId: string | null) {
+  let q = sb.from('fantasy_teams').select('id, name, budget, created_at, user_id, anon_id')
+  if (userId) q = q.eq('user_id', userId)
+  else if (anonId) q = q.eq('anon_id', anonId)
+  else return null
+  const { data } = await q.maybeSingle()
+  return data || null
+}
+
+async function getActiveRoster(sb: ReturnType<typeof createAdminClient>, teamId: number) {
+  const { data } = await sb
+    .from('fantasy_roster')
+    .select('id, artist_id, price, signed_at, artists:artist_id ( id, name, slug, cover_image_url, score, score_trending )')
+    .eq('team_id', teamId)
+    .is('released_at', null)
+    .order('price', { ascending: false })
+  return (data || []).map((r: any) => ({ ...r, artist: normJoined(r.artists) }))
+}
+
+async function transfersThisWeek(sb: ReturnType<typeof createAdminClient>, teamId: number): Promise<number> {
+  const week = weekStartOf()
+  const { count } = await sb
+    .from('fantasy_roster')
+    .select('id', { count: 'exact', head: true })
+    .eq('team_id', teamId)
+    .gte('released_at', `${week}T00:00:00`)
+  return count || 0
+}
+
+async function spentBudget(sb: ReturnType<typeof createAdminClient>, teamId: number): Promise<number> {
+  const { data } = await sb
+    .from('fantasy_roster')
+    .select('price')
+    .eq('team_id', teamId)
+    .is('released_at', null)
+  return (data || []).reduce((s, r: any) => s + (r.price || 0), 0)
+}
+
+// ── GET ───────────────────────────────────────────────────────────────────
 
 export async function GET(_req: NextRequest) {
   const viewer = await resolveViewer()
   const sb = createAdminClient()
+  const team = await getTeam(sb, viewer.userId, viewer.anonId)
 
-  const { data: artists } = await sb
-    .from('artists')
-    .select('id, name, slug, cover_image_url, score, score_trending')
-    .eq('country', 'Lietuva')
-    .not('cover_image_url', 'is', null)
-    .not('score', 'is', null)
-    .order('score', { ascending: false })
-    .limit(80)
+  const thisWeek = weekStartOf()
+  const lastWeek = prevWeekStart(thisWeek)
 
-  if (!artists || artists.length < 30) return jsonErr('Per mažai atlikėjų rinkai', 503)
+  // Lygos lentelės — visada rodom (net be komandos, kaip motyvacija)
+  const monthStart = `${thisWeek.slice(0, 7)}-01`
+  const [lastWeekRows, monthRows, seasonRows, teamsCountRes] = await Promise.all([
+    sb.from('fantasy_team_weeks').select('team_id, points').eq('week_start', lastWeek).order('points', { ascending: false }).limit(10),
+    sb.from('fantasy_team_weeks').select('team_id, points').gte('week_start', monthStart).limit(2000),
+    sb.from('fantasy_team_weeks').select('team_id, points').limit(5000),
+    sb.from('fantasy_teams').select('id', { count: 'exact', head: true }),
+  ])
 
-  const scores = artists.map(a => a.score || 0)
-  const maxS = Math.max(...scores)
-  const minS = Math.min(...scores)
-  const starsOf = (s: number) => 1 + Math.round(4 * ((s - minS) / Math.max(1, maxS - minS)))
-
-  const tierA = shuffleArr(artists.slice(0, 15)).slice(0, 3)
-  const tierB = shuffleArr(artists.slice(15, 40)).slice(0, 3)
-  const tierC = shuffleArr(artists.slice(40, 80)).slice(0, 3)
-
-  const trendVals = artists.map(a => a.score_trending || 0).sort((x, y) => y - x)
-  const trendCut = trendVals[Math.floor(trendVals.length * 0.2)] || 0
-
-  const mk = (a: any, tier: 'A' | 'B' | 'C'): MarketArtist => {
-    const price = tier === 'A'
-      ? 40 + Math.floor(Math.random() * 16)   // 40–55
-      : tier === 'B'
-      ? 20 + Math.floor(Math.random() * 13)   // 20–32
-      : 8 + Math.floor(Math.random() * 9)     // 8–16
-    return {
-      id: a.id,
-      name: a.name,
-      slug: a.slug,
-      image: a.cover_image_url,
-      tier,
-      tierLabel: tier === 'A' ? 'Superžvaigždė' : tier === 'B' ? 'Scenos vardas' : 'Kylantis',
-      price,
-      stars: starsOf(a.score || 0),
-      trending: (a.score_trending || 0) >= trendCut && (a.score_trending || 0) > 0,
-    }
+  function aggregate(rows: any[]): Array<{ team_id: number; points: number }> {
+    const m = new Map<number, number>()
+    for (const r of rows || []) m.set(r.team_id, (m.get(r.team_id) || 0) + r.points)
+    return Array.from(m.entries()).map(([team_id, points]) => ({ team_id, points })).sort((a, b) => b.points - a.points)
   }
 
-  const market: MarketArtist[] = [
-    ...tierA.map(a => mk(a, 'A')),
-    ...tierB.map(a => mk(a, 'B')),
-    ...tierC.map(a => mk(a, 'C')),
-  ]
+  const weekBoard = ((lastWeekRows.data || []) as any[]).map(r => ({ team_id: r.team_id, points: r.points }))
+  const monthBoard = aggregate(monthRows.data || []).slice(0, 10)
+  const seasonBoard = aggregate(seasonRows.data || [])
+  const seasonTop = seasonBoard.slice(0, 10)
 
-  const seed = Math.floor(Math.random() * 2 ** 31)
-  const token = signPayload({
-    g: 'vadyb',
-    seed,
-    budget: BUDGET,
-    a: market.map(m => [m.id, m.price]),
-    exp: Date.now() + TOKEN_TTL_MS,
-  })
+  // Komandų vardai lentelėms
+  const boardTeamIds = Array.from(new Set([
+    ...weekBoard.map(r => r.team_id),
+    ...monthBoard.map(r => r.team_id),
+    ...seasonTop.map(r => r.team_id),
+  ]))
+  const teamNameById = new Map<number, string>()
+  if (boardTeamIds.length) {
+    const { data } = await sb.from('fantasy_teams').select('id, name').in('id', boardTeamIds)
+    for (const t of data || []) teamNameById.set(t.id, t.name)
+  }
+  const withNames = (rows: Array<{ team_id: number; points: number }>) =>
+    rows.map(r => ({ name: teamNameById.get(r.team_id) || 'Komanda', points: r.points, isMe: team?.id === r.team_id }))
 
-  const runsToday = await countRunsToday(viewer, 'vadybininkas')
+  const boards = {
+    week: withNames(weekBoard),
+    month: withNames(monthBoard),
+    season: withNames(seasonTop),
+    weekLabel: lastWeek,
+    totalTeams: (teamsCountRes as any).count || 0,
+  }
+
+  if (!team) {
+    return NextResponse.json({
+      team: null,
+      budget: FANTASY_BUDGET,
+      rosterSize: ROSTER_SIZE,
+      boards,
+      isAuthenticated: viewer.isAuthenticated,
+    })
+  }
+
+  const roster = await getActiveRoster(sb, team.id)
+  const spent = roster.reduce((s: number, r: any) => s + r.price, 0)
+  const transfers = await transfersThisWeek(sb, team.id)
+
+  // Atlikėjų taškai: praėjusi savaitė (oficiali) + einamoji LIVE
+  const artistIds = roster.map((r: any) => r.artist_id)
+  const [officialRes, livePoints] = await Promise.all([
+    artistIds.length
+      ? sb.from('fantasy_artist_weeks').select('artist_id, total_points, chart_points, yt_points, release_points').eq('week_start', lastWeek).in('artist_id', artistIds)
+      : Promise.resolve({ data: [] }),
+    computeArtistWeekPoints(artistIds, thisWeek, { live: true }),
+  ])
+  const officialByArtist = new Map(((officialRes as any).data || []).map((r: any) => [r.artist_id, r]))
+
+  // Mano savaitės istorija + sezono suma
+  const { data: myWeeks } = await sb
+    .from('fantasy_team_weeks')
+    .select('week_start, points')
+    .eq('team_id', team.id)
+    .order('week_start', { ascending: false })
+    .limit(12)
+  const seasonPoints = seasonBoard.find(r => r.team_id === team.id)?.points || 0
+  const seasonRank = seasonBoard.findIndex(r => r.team_id === team.id)
+  const liveTotal = artistIds.reduce((s, id) => s + (livePoints.get(id)?.total_points || 0), 0)
 
   return NextResponse.json({
-    budget: BUDGET,
-    market,
-    token,
-    xpRunsLeft: Math.max(0, XP_RUNS_PER_DAY - runsToday),
+    team: {
+      id: team.id,
+      name: team.name,
+      createdAt: team.created_at,
+      budget: team.budget,
+      spent,
+      budgetLeft: team.budget - spent,
+      transfersLeft: Math.max(0, TRANSFERS_PER_WEEK - transfers),
+      seasonPoints,
+      seasonRank: seasonRank >= 0 ? seasonRank + 1 : null,
+      liveWeekPoints: liveTotal,
+      weeks: myWeeks || [],
+    },
+    roster: roster.map((r: any) => {
+      const live = livePoints.get(r.artist_id)
+      const official: any = officialByArtist.get(r.artist_id)
+      return {
+        artistId: r.artist_id,
+        name: r.artist?.name || '—',
+        slug: r.artist?.slug,
+        image: r.artist?.cover_image_url || null,
+        price: r.price,
+        signedAt: r.signed_at,
+        lastWeekPoints: official?.total_points ?? null,
+        livePoints: live?.total_points ?? 0,
+        liveBreakdown: live ? { chart: live.chart_points, yt: live.yt_points, rel: live.release_points, base: live.base_points } : null,
+      }
+    }),
+    rosterSize: ROSTER_SIZE,
+    boards,
+    isAuthenticated: viewer.isAuthenticated,
   })
 }
 
-// ── POST: simuliacija ─────────────────────────────────────────────────────
-
-type SimEvent = { artist: string; text: string; delta: number }
-type SimQuarter = { q: number; label: string; events: SimEvent[]; income: number }
-
-const STRATEGIES = {
-  saugi: { label: 'Saugi taktika', eventChance: 0.45, deltaMult: 0.65, baseMult: 1.06 },
-  subalansuota: { label: 'Subalansuota', eventChance: 0.6, deltaMult: 1.0, baseMult: 1.0 },
-  rizika: { label: 'Visa į viršų', eventChance: 0.82, deltaMult: 1.35, baseMult: 0.97 },
-} as const
-type StrategyKey = keyof typeof STRATEGIES
-
-const BOOST_COST = 10
-
-function strHash(s: string): number {
-  let h = 2166136261
-  for (let i = 0; i < s.length; i++) { h ^= s.charCodeAt(i); h = Math.imul(h, 16777619) }
-  return h >>> 0
-}
+// ── POST ──────────────────────────────────────────────────────────────────
 
 export async function POST(req: NextRequest) {
   const body = await req.json().catch(() => null)
   if (!body) return jsonErr('Bad JSON')
-  const { token, picked } = body as { token: string; picked: number[] }
-  const strategija = (typeof body.strategija === 'string' && body.strategija in STRATEGIES
-    ? body.strategija : 'subalansuota') as StrategyKey
-  const boostas = (body.boostas === 'tiktok' || body.boostas === 'radijas') ? body.boostas as 'tiktok' | 'radijas' : null
+  const { action } = body as { action: string }
 
-  const p = verifyPayload<{ g: string; seed: number; budget: number; a: [number, number][]; exp: number }>(token || '')
-  if (!p || p.g !== 'vadyb') return jsonErr('Blogas token\'as — atsinaujink rinką')
-  if (!Array.isArray(picked) || picked.length !== 3 || new Set(picked).size !== 3) {
-    return jsonErr('Pasirink lygiai 3 atlikėjus')
-  }
-
-  const priceById = new Map(p.a)
-  let spent = 0
-  for (const id of picked) {
-    const price = priceById.get(id)
-    if (typeof price !== 'number') return jsonErr('Atlikėjas ne iš šios rinkos')
-    spent += price
-  }
-  if (boostas) spent += BOOST_COST
-  if (spent > p.budget) return jsonErr('Viršytas biudžetas')
-
-  // Realūs pasirašytų atlikėjų duomenys
+  const viewer = await resolveViewer()
   const sb = createAdminClient()
-  const { data: artistRows } = await sb
-    .from('artists')
-    .select('id, name, slug, cover_image_url, score, score_trending')
-    .in('id', picked)
-  if (!artistRows || artistRows.length !== 3) return jsonErr('Atlikėjai nerasti', 404)
+  const team = await getTeam(sb, viewer.userId, viewer.anonId)
 
-  const yearAgo = new Date(Date.now() - 365 * 864e5).toISOString().slice(0, 10)
-  const roster = [] as Array<{
-    id: number; name: string; slug: string; image: string | null
-    price: number; score: number; trending: number; freshReleases: number
-  }>
-  for (const a of artistRows) {
-    const { count } = await sb
-      .from('tracks')
-      .select('id', { count: 'exact', head: true })
-      .eq('artist_id', a.id)
-      .gte('release_date', yearAgo)
-    roster.push({
-      id: a.id,
-      name: a.name,
-      slug: a.slug,
-      image: a.cover_image_url,
-      price: priceById.get(a.id)!,
-      score: a.score || 0,
-      trending: a.score_trending || 0,
-      freshReleases: count || 0,
-    })
-  }
+  // ── Sukurti komandą ──
+  if (action === 'create') {
+    if (team) return jsonErr('Komandą jau turi')
+    const name = String(body.name || '').trim()
+    if (name.length < 2 || name.length > 30) return jsonErr('Pavadinimas 2–30 simbolių')
 
-  // ── Deterministinė simuliacija iš seed'o (+ strategijos pasirinkimai) ──
-  const strat = STRATEGIES[strategija]
-  const rng = mulberry32(
-    p.seed
-    ^ (picked[0] * 7919) ^ (picked[1] * 104729) ^ (picked[2] * 1299709)
-    ^ strHash(`${strategija}|${boostas || ''}`)
-  )
-
-  const maxTrend = Math.max(1, ...roster.map(r => r.trending))
-  const quarters: SimQuarter[] = []
-  let totalIncome = 0
-
-  const QUARTER_LABELS = ['1 ketvirtis — nauja pradžia', '2 ketvirtis — festivalių sezonas', '3 ketvirtis — rudens tūrai', '4 ketvirtis — apdovanojimų metas']
-
-  for (let q = 0; q < 4; q++) {
-    const events: SimEvent[] = []
-    let income = 0
-
-    for (const r of roster) {
-      // Bazinės ketvirčio pajamos: ~18–30% kainos + trending priedas + strategija
-      const trendBoost = 1 + 0.35 * (r.trending / maxTrend)
-      const base = r.price * (0.16 + rng() * 0.14) * trendBoost * strat.baseMult * (boostas === 'radijas' ? 1.05 : 1)
-      income += base
-
-      // Įvykiai, tikimybė ir amplitudė pagal strategiją, svoriai iš realių duomenų
-      const eventRoll = rng()
-      if (eventRoll < strat.eventChance) {
-        const pool: Array<{ w: number; text: string; lo: number; hi: number }> = [
-          { w: 1.5 + r.score / 40, text: q === 1 ? '🎪 pakviestas į didžiąją festivalio sceną' : '🎤 solinis koncertas išparduotas', lo: 6, hi: 14 },
-          { w: (1 + 2.5 * (r.trending / maxTrend)) * (boostas === 'tiktok' ? 2.5 : 1), text: '📈 daina tapo virusinė TikTok\'e', lo: 6, hi: 18 },
-          { w: 1.2 * (boostas === 'radijas' ? 2.5 : 1), text: '📻 pateko į radijo rotacijos viršūnę', lo: 4, hi: 9 },
-          { w: 0.9, text: '🤝 pasirašė reklamos kontraktą', lo: 5, hi: 12 },
-          { w: (0.8 + r.freshReleases * 0.6) * (boostas === 'tiktok' ? 1.5 : 1), text: '🆕 išleido naują singlą — streamai auga', lo: 5, hi: 11 },
-          { w: 0.7, text: '😬 skandalas socialiniuose tinkluose', lo: -10, hi: -4 },
-          { w: 0.6, text: '🤒 atšauktas koncertas paskutinę minutę', lo: -7, hi: -3 },
-          { w: 0.5, text: '💸 nesutarimai dėl honoraro — teisininkų išlaidos', lo: -6, hi: -2 },
-        ]
-        const totalW = pool.reduce((s, e) => s + e.w, 0)
-        let roll = rng() * totalW
-        let ev = pool[0]
-        for (const e of pool) { roll -= e.w; if (roll <= 0) { ev = e; break } }
-        const delta = Math.round((ev.lo + rng() * (ev.hi - ev.lo)) * strat.deltaMult)
-        income += delta
-        events.push({ artist: r.name, text: ev.text, delta })
-      }
+    const { data: created, error } = await sb
+      .from('fantasy_teams')
+      .insert({
+        user_id: viewer.userId,
+        anon_id: viewer.userId ? null : viewer.anonId,
+        name,
+        budget: FANTASY_BUDGET,
+      })
+      .select('id, name, budget')
+      .single()
+    if (error) {
+      if ((error as any).code === '23505') return jsonErr('Komandą jau turi')
+      return jsonErr('Nepavyko sukurti: ' + error.message, 500)
     }
 
-    income = Math.round(income)
-    totalIncome += income
-    quarters.push({ q: q + 1, label: QUARTER_LABELS[q], events, income })
+    // Vienkartinis XP už įsijungimą į lygą
+    const { current, total_xp } = await bumpStreakAndXp({ userId: viewer.userId, anonId: viewer.anonId, xp: viewer.userId ? 60 : 40 })
+    return NextResponse.json({ ok: true, team: created, xp: viewer.userId ? 60 : 40, streak: current, totalXp: total_xp })
   }
 
-  // Roster'io perpardavimo vertė metų gale
-  const resale = roster.map(r => {
-    const drift = 0.75 + rng() * 0.5 + 0.25 * (r.trending / maxTrend)
-    return { id: r.id, name: r.name, image: r.image, bought: r.price, value: Math.round(r.price * drift) }
-  })
-  const resaleTotal = resale.reduce((s, r) => s + r.value, 0)
+  if (!team) return jsonErr('Pirma sukurk komandą', 404)
+  const artistId = parseInt(body.artistId)
 
-  const finalValue = Math.max(0, p.budget - spent + totalIncome + resaleTotal)
+  // ── Pasirašyti ──
+  if (action === 'sign') {
+    if (!artistId) return jsonErr('Trūksta artistId')
+    const roster = await getActiveRoster(sb, team.id)
+    if (roster.length >= ROSTER_SIZE) return jsonErr(`Komandoje jau ${ROSTER_SIZE} atlikėjai — pirma paleisk vieną`)
+    if (roster.some((r: any) => r.artist_id === artistId)) return jsonErr('Šis atlikėjas jau tavo komandoje')
 
-  // Slenksčiai kalibruoti pagal tipinį rezultatų diapazoną (~140–240):
-  // legendai reikia ir gero drafto, ir sėkmingų įvykių.
-  const grade =
-    finalValue < 140 ? { label: 'Garažo vadybininkas', emoji: '🚗' } :
-    finalValue < 170 ? { label: 'Klubų tūro vadybininkas', emoji: '🎫' } :
-    finalValue < 195 ? { label: 'Radijo eterio vilkas', emoji: '📻' } :
-    finalValue < 225 ? { label: 'Arenos magnatas', emoji: '🏟️' } :
-    { label: 'Legendinis prodiuseris', emoji: '👑' }
+    const { data: artist } = await sb
+      .from('artists')
+      .select('id, name, score, country')
+      .eq('id', artistId)
+      .maybeSingle()
+    if (!artist) return jsonErr('Atlikėjas nerastas', 404)
+    if (artist.country !== 'Lietuva') return jsonErr('Lygoje — tik Lietuvos atlikėjai')
 
-  // ── Taškai ──
-  const viewer = await resolveViewer()
-  const runsToday = await countRunsToday(viewer, 'vadybininkas')
-  const xpEligible = runsToday < XP_RUNS_PER_DAY
-  let xp = 0
-  if (xpEligible) {
-    xp = Math.min(90, Math.max(10, Math.round((finalValue - 80) * 0.5)))
-    if (viewer.userId) xp = Math.round(xp * 1.5)
+    const price = priceOf(artist.score)
+    const spent = roster.reduce((s: number, r: any) => s + r.price, 0)
+    if (spent + price > team.budget) return jsonErr(`Nepakanka biudžeto: kaina ${price}, liko ${team.budget - spent}`)
+
+    const { error } = await sb.from('fantasy_roster').insert({
+      team_id: team.id,
+      artist_id: artistId,
+      price,
+    })
+    if (error) {
+      if ((error as any).code === '23505') return jsonErr('Šis atlikėjas jau tavo komandoje')
+      return jsonErr('Nepavyko pasirašyti: ' + error.message, 500)
+    }
+    return NextResponse.json({ ok: true, signed: { artistId, name: artist.name, price }, budgetLeft: team.budget - spent - price })
   }
 
-  await insertGameScore({
-    viewer,
-    game: 'vadybininkas',
-    category: null,
-    score: finalValue,
-    maxScore: null,
-    xpEarned: xp,
-    details: { picked, spent, strategija, boostas, totalIncome, resaleTotal, grade: grade.label },
-  })
+  // ── Paleisti ──
+  if (action === 'release') {
+    if (!artistId) return jsonErr('Trūksta artistId')
+    const transfers = await transfersThisWeek(sb, team.id)
+    if (transfers >= TRANSFERS_PER_WEEK) return jsonErr(`Šią savaitę jau ${TRANSFERS_PER_WEEK} transferai — nauji nuo pirmadienio`)
 
-  let streakInfo = { current: 0, total_xp: 0 }
-  if (xp > 0) {
-    streakInfo = await bumpStreakAndXp({ userId: viewer.userId, anonId: viewer.anonId, xp })
+    const { data: row } = await sb
+      .from('fantasy_roster')
+      .select('id, price')
+      .eq('team_id', team.id)
+      .eq('artist_id', artistId)
+      .is('released_at', null)
+      .maybeSingle()
+    if (!row) return jsonErr('Šio atlikėjo komandoje nėra', 404)
+
+    await sb.from('fantasy_roster').update({ released_at: new Date().toISOString() }).eq('id', row.id)
+    const spent = await spentBudget(sb, team.id)
+    return NextResponse.json({ ok: true, released: artistId, budgetLeft: team.budget - spent, transfersLeft: Math.max(0, TRANSFERS_PER_WEEK - transfers - 1) })
   }
 
-  return NextResponse.json({
-    ok: true,
-    spent,
-    remaining: p.budget - spent,
-    strategija: strat.label,
-    boostas,
-    quarters,
-    resale,
-    totalIncome,
-    finalValue,
-    grade,
-    xp,
-    xpEligible,
-    xpRunsLeft: Math.max(0, XP_RUNS_PER_DAY - runsToday - 1),
-    totalXp: streakInfo.total_xp,
-  })
+  return jsonErr('Bad action')
 }

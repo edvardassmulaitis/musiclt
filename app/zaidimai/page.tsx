@@ -52,7 +52,7 @@ async function loadHub() {
   }
 
   // Lygiagrečiai: balansas, lyderiai, dienos TOP, viewer'io dienos būsena
-  const [meRes, leadersRes, dailyTopRes, myDailyRes, myQuizRes, myVadybRes, myVotesRes, duelsRes] = await Promise.all([
+  const [meRes, leadersRes, dailyTopRes, myDailyRes, myQuizRes, myVadybRes, myVotesRes, duelsRes, myTeamRes, myVaizdasRes] = await Promise.all([
     (viewer.userId || viewer.anonId)
       ? sb.from('boombox_streaks').select('current_streak, total_xp')
           .match(viewer.userId ? { user_id: viewer.userId } : { anon_id: viewer.anonId! }).maybeSingle()
@@ -83,6 +83,18 @@ async function loadHub() {
       return q || Promise.resolve({ count: 0 })
     })(),
     sb.from('boombox_duel_drops').select('id', { count: 'exact', head: true }).eq('status', 'ready'),
+    (() => {
+      let q = sb.from('fantasy_teams').select('id, name')
+      if (viewer.userId) q = q.eq('user_id', viewer.userId)
+      else if (viewer.anonId) q = q.eq('anon_id', viewer.anonId)
+      else return Promise.resolve({ data: null })
+      return q.maybeSingle()
+    })(),
+    (() => {
+      const q = viewerFilter(sb.from('game_scores').select('id', { count: 'exact', head: true })
+        .eq('game', 'vaizdas').gte('created_at', dayStart))
+      return q || Promise.resolve({ count: 0 })
+    })(),
   ])
 
   const me = {
@@ -111,16 +123,19 @@ async function loadHub() {
     score: r.score || 0,
   }))
 
+  void myVadybRes // (legacy quick-sim limitas — nebeaktualus fantasy lygoje)
+
   return {
     isAuthenticated: viewer.isAuthenticated,
     username: viewer.username,
     me,
     leaders,
     dailyTop,
+    fantasyTeam: ((myTeamRes as any).data?.name as string) || null,
     today: {
       dailyPlayed: ((myDailyRes as any).count || 0) > 0,
       quizRunsLeft: Math.max(0, 3 - ((myQuizRes as any).count || 0)),
-      vadybRunsLeft: Math.max(0, 2 - ((myVadybRes as any).count || 0)),
+      vaizdasRunsLeft: Math.max(0, 3 - ((myVaizdasRes as any).count || 0)),
       duelVotesLeft: Math.max(0, 10 - ((myVotesRes as any).count || 0)),
       duelPool: (duelsRes as any).count || 0,
     },

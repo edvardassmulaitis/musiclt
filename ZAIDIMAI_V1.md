@@ -83,3 +83,27 @@ Nauji: `lib/zaidimai.ts`, `app/zaidimai/*` (hub + 3 žaidimai),
 Keisti: `app/pramogos/page.tsx` (tile'ai), `components/SiteHeader.tsx`
 (match + mobile tile Boombox→Žaidimai), `app/boombox/BoomboxClient.tsx`
 (nuoroda į /zaidimai).
+
+## v3 — didysis perdarymas (2026-07-06, Edvardo feedback)
+
+1. **Vadybininkas = TĘSTINĖ FANTASY LYGA** (ne quick-sim):
+   - `fantasy_teams` / `fantasy_roster` / `fantasy_artist_weeks` / `fantasy_team_weeks`
+     (migracija `20260706_fantasy_liga.sql`, pritaikyta production).
+   - Komanda: 5 atlikėjai, biudžetas 220, kainos iš realaus `score`, 3 transferai/sav.
+   - Taškai KAS PIRMADIENĮ iš realių duomenų (`lib/fantasy.ts`):
+     topai (finalizuoti top40/lt_top30, iki 40 tšk./daina) + YouTube augimas
+     (views history delta ARBA score_trending×7, log skalė) + releizai (+12) + bazė.
+   - Cron: `/api/cron/fantasy-savaite?key=fliga_9d2c41` (pirmadienis 03:00 UTC —
+     finalizuoja praėjusią sav.; kasdien 15:00 UTC — live einamosios snapshot'as).
+   - Rinka su paieška: visi LT atlikėjai su score>0 (~630), puslapiais po 30.
+   - Lygos lentelės: savaitė / mėnuo / sezonas. Live "šios savaitės" prognozė komandos puslapyje.
+   - Anonimams leidžiama (komanda ant cookie), login skatinamas įspėjimu.
+2. **Boombox naikintas**: `/boombox` → redirect į `/zaidimai/dienos`. Dienos iššūkis =
+   vienas wizard'as: kvizas (5 raundai, seeded, ×2) → dienos dvikova → verdiktas →
+   AI vaizdo spėjimas (kai admin įkėlęs per /admin/boombox — dabar „Dienos iššūkio
+   turinys"). Homepage widget'as ir pramogos atnaujinti.
+3. **Atspėk iš vaizdo** (`/zaidimai/atspek-is-vaizdo`): atlikėjo nuotrauka ryškėja
+   per 12 s (blur animacija), 8 raundai, greitis = taškai. Turinys auto iš artists.
+   AI vaizdų misija gyvena wizard'e (kai yra drop'ų).
+4. Landing: dienos hero → wizard, nauja vaizdo žaidimo eilutė, fantasy eilutė rodo
+   komandos vardą; „dar gali surinkti ~N tšk." perskaičiuota.
