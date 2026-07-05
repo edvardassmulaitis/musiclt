@@ -94,25 +94,32 @@ export async function computeArtistWeekPoints(
   // 2) Topų taškai — tos savaitės top_weeks (live: aktyvi/naujausia; kitaip finalizuota)
   const chartByArtist = new Map<number, { pts: number; entries: any[] }>()
   {
-    // Pozicijos atsiranda tik finalizavus savaitę, todėl imame naujausią
-    // FINALIZUOTĄ kiekvieno tipo savaitę iki skaičiuojamos savaitės pabaigos.
-    const weekQ = sb.from('top_weeks').select('id, top_type, week_start, is_finalized')
+    // Pozicijos atsiranda tik finalizavus savaitę, o kartais finalizuotos
+    // savaitės būna BE įrašų (pipeline'o pauzės) — todėl imame naujausią
+    // kiekvieno tipo savaitę, KURI TURI įrašų.
+    const { data: weeks } = await sb.from('top_weeks').select('id, top_type, week_start, is_finalized')
       .eq('is_finalized', true)
       .lte('week_start', opts.live ? wEnd : weekStart)
       .order('week_start', { ascending: false })
-      .limit(8)
-    const { data: weeks } = await weekQ
-    // Iš kiekvieno top_type imame naujausią savaitę
-    const byType = new Map<string, any>()
-    for (const w of weeks || []) {
-      if (!byType.has(w.top_type)) byType.set(w.top_type, w)
-    }
-    const weekIds = Array.from(byType.values()).map(w => w.id)
-    if (weekIds.length) {
-      const { data: entries } = await sb
+      .limit(16)
+    const candidateIds = (weeks || []).map(w => w.id)
+    let entriesAll: any[] = []
+    if (candidateIds.length) {
+      const { data } = await sb
         .from('top_entries')
         .select('week_id, top_type, position, track_id, tracks:track_id ( id, title, artist_id )')
-        .in('week_id', weekIds)
+        .in('week_id', candidateIds)
+      entriesAll = data || []
+    }
+    // Naujausia savaitė su įrašais per top_type
+    const weekIdsWithEntries = new Set(entriesAll.map(e => e.week_id))
+    const byType = new Map<string, any>()
+    for (const w of weeks || []) {
+      if (!byType.has(w.top_type) && weekIdsWithEntries.has(w.id)) byType.set(w.top_type, w)
+    }
+    const activeWeekIds = new Set(Array.from(byType.values()).map(w => w.id))
+    {
+      const entries = entriesAll.filter(e => activeWeekIds.has(e.week_id))
       for (const e of entries || []) {
         const t: any = Array.isArray((e as any).tracks) ? (e as any).tracks[0] : (e as any).tracks
         const aId = t?.artist_id
@@ -175,11 +182,13 @@ export async function computeArtistWeekPoints(
     const chart = chartByArtist.get(id)
     const chart_points = Math.round(chart?.pts || 0)
 
-    // YT: istorijos delta ARBA trending (views/d. × 7), imamas geresnis, log skalė
+    // YT: score_trending yra 0..~90 skalės indikatorius (ne raw views) —
+    // konvertuojam tiesiogiai (×0.4 → iki ~35 tšk.). Views istorijos delta
+    // (kai padengta) — log skalė. Imamas geresnis iš dviejų.
     const histDelta = ytDeltaByArtist.get(id) || 0
-    const trendWeek = Math.max(0, (a.score_trending || 0)) * 7
-    const effDelta = Math.max(histDelta, trendWeek)
-    const yt_points = effDelta > 0 ? Math.round(9 * Math.log(1 + effDelta / 2000)) : 0
+    const histPts = histDelta > 0 ? Math.round(9 * Math.log(1 + histDelta / 2000)) : 0
+    const trendPts = Math.round(Math.max(0, a.score_trending || 0) * 0.4)
+    const yt_points = Math.max(histPts, trendPts)
 
     const relCount = releasesByArtist.get(id) || 0
     const release_points = Math.min(24, relCount * 12)
@@ -197,7 +206,7 @@ export async function computeArtistWeekPoints(
       details: {
         chart_entries: chart?.entries || [],
         yt_delta: histDelta,
-        trend_week: trendWeek,
+        trend: a.score_trending || 0,
         releases: relCount,
       },
     })
