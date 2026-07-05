@@ -182,7 +182,7 @@ const NAV: NavItem[] = [
     key: 'bendruomene',
     label: 'Bendruomenė',
     href: '/bendruomene',
-    match: ['/bendruomene', '/atrasti', '/vartotojai', '/diskusijos', '/pokalbiai', '/boombox', '/dienos-daina', '/blogas', '/feed', '/srautas'],
+    match: ['/bendruomene', '/atrasti', '/vartotojai', '/diskusijos', '/pokalbiai', '/boombox', '/zaidimai', '/pramogos', '/dienos-daina', '/blogas', '/feed', '/srautas'],
     desc: 'Nariai, diskusijos, kūryba',
     accent: '#8b5cf6',
     icon: I.users,
@@ -1430,9 +1430,9 @@ function MobileExpansion({
             <span className="sh-mexp-tile-icon">{I.chat}</span>
             <span className="sh-mexp-tile-label">Pokalbių dėžutė</span>
           </Link>
-          <Link href="/boombox" onClick={onLink} className="sh-mexp-tile" style={{ ['--it-rgb' as any]: hexToRgb('#6366f1') }}>
+          <Link href="/zaidimai" onClick={onLink} className="sh-mexp-tile" style={{ ['--it-rgb' as any]: hexToRgb('#6366f1') }}>
             <span className="sh-mexp-tile-icon">{I.boombox}</span>
-            <span className="sh-mexp-tile-label">Boombox</span>
+            <span className="sh-mexp-tile-label">Žaidimai</span>
           </Link>
         </div>
       </div>

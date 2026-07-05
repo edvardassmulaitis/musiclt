@@ -21,9 +21,9 @@ export default function PramogosPage() {
       accent="#f97316"
       icon={I.hero}
       tiles={[
-        { label: 'Boombox',  href: '/boombox',  desc: 'Atrask atlikėjus swipe stiliumi — kaip Tinder for music',   icon: I.boombox, accent: '#f97316', big: true },
-        { label: 'Žaidimai', href: '/zaidimai', desc: 'Atspėk dainą per 5s, sudėk chronologiją, daily challenge',   icon: I.game,    accent: '#6366f1', soon: true },
-        { label: 'Kvizai',   href: '/kvizai',   desc: 'Testai LT muzikos žinovams — 90\'ų rokas, hip-hop ir kt.',   icon: I.quiz,    accent: '#14b8a6', soon: true },
+        { label: 'Žaidimai', href: '/zaidimai', desc: 'Atspėk dainą, dainų dvikovos, muzikos vadybininkas — rink taškus ir kilk lyderių lentelėje', icon: I.game, accent: '#6366f1', big: true },
+        { label: 'Atspėk dainą', href: '/zaidimai/dainu-kvizas', desc: 'Groja ištrauka — 4 variantai, 15 sekundžių. LT klasika, nauja banga, pasaulio hitai', icon: I.quiz, accent: '#f59e0b' },
+        { label: 'Boombox', href: '/boombox', desc: 'Kasdienės muzikos misijos: dienos dvikova, verdiktas, drops\'ai', icon: I.boombox, accent: '#f97316' },
       ]}
     />
   )

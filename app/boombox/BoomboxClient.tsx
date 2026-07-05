@@ -333,6 +333,10 @@ function Landing({ streak, hasContent, missionCount, videoCount, onStart }: {
         <button className="bb-btn-primary bb-landing-cta" onClick={onStart} disabled={!hasContent}>
           {hasContent ? `Pradėti · ${missionCount} ${missionCount === 1 ? 'misija' : 'misijos'}` : 'Šiandien tylu'}
         </button>
+
+        <Link href="/zaidimai" className="bb-more-games">
+          Daugiau žaidimų: Atspėk dainą, Dvikovos, Vadybininkas →
+        </Link>
       </main>
     </div>
   )
@@ -1029,6 +1033,12 @@ const boomboxCss = `
   }
   .bb-tagline { font-size: 14px; color: var(--text-muted); letter-spacing: 1px; }
   .bb-landing-cta { max-width: 320px; }
+  .bb-more-games {
+    margin-top: 14px; font-size: 12px; font-weight: 700; text-decoration: none;
+    color: var(--text-muted); border: 1px dashed var(--border-strong);
+    border-radius: 999px; padding: 8px 16px; transition: color .15s ease, border-color .15s ease;
+  }
+  .bb-more-games:hover { color: var(--text-primary); border-color: var(--accent-orange); }
 
   .bb-btn-primary {
     background: var(--accent-orange); color: white; border: none;
