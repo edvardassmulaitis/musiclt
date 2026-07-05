@@ -9,6 +9,7 @@
 import { useEffect, useRef, useState } from 'react'
 import Link from 'next/link'
 import { proxyImg } from '@/lib/img-proxy'
+import ZaidimoLangas from '@/components/zaidimai/ZaidimoLangas'
 
 type Option = { id: number; name: string }
 type Round = { r: number; image: string; options: Option[]; token: string }
@@ -142,18 +143,17 @@ export default function VaizdasClient() {
   const blurNow = phase === 'reveal' ? 0 : revealed ? 0 : 34
 
   return (
-    <div className="vz-root">
+    <ZaidimoLangas
+      title="Atspėk iš vaizdo"
+      maxWidth={620}
+      right={phase !== 'intro' && phase !== 'results' && rounds.length > 0 ? (
+        <>
+          <span className="vz-n">{Math.min(idx + 1, rounds.length)}/{rounds.length}</span>
+          <span className="vz-score">⚡ {score}</span>
+        </>
+      ) : null}
+    >
       <style>{css}</style>
-
-      <div className="vz-top">
-        <Link href="/zaidimai" className="vz-back">← Žaidimai</Link>
-        {phase !== 'intro' && phase !== 'results' && rounds.length > 0 && (
-          <div className="vz-progress">
-            <span className="vz-n">{Math.min(idx + 1, rounds.length)} / {rounds.length}</span>
-            <span className="vz-score">⚡ {score}</span>
-          </div>
-        )}
-      </div>
 
       {phase === 'intro' && (
         <div className="vz-intro">
@@ -245,18 +245,14 @@ export default function VaizdasClient() {
           </div>
         </div>
       )}
-    </div>
+    </ZaidimoLangas>
   )
 }
 
 const css = `
-.vz-root { max-width: 620px; margin: 0 auto; padding: 24px 16px 90px; }
-.vz-top { display: flex; align-items: center; justify-content: space-between; margin-bottom: 14px; }
-.vz-back { font-size: 14px; font-weight: 700; color: var(--text-secondary); text-decoration: none; }
-.vz-progress { display: flex; gap: 10px; align-items: center; }
-.vz-n { font-size: 14px; font-weight: 800; color: var(--text-secondary); }
-.vz-score { font-size: 16px; font-weight: 900; color: #f59e0b; }
-.vz-h1 { font-size: 30px; font-weight: 900; letter-spacing: -0.02em; color: var(--text-primary); margin: 0 0 8px; }
+.vz-n { font-size: 13px; font-weight: 800; color: var(--text-secondary); }
+.vz-score { font-size: 15px; font-weight: 900; color: #f59e0b; }
+.vz-h1 { font-size: 26px; font-weight: 900; letter-spacing: -0.02em; color: var(--text-primary); margin: 0 0 8px; }
 .vz-lead { font-size: 14px; color: var(--text-secondary); line-height: 1.5; margin: 0 0 18px; }
 .vz-note { font-size: 12px; color: var(--text-muted); margin-top: 14px; }
 .vz-error { font-size: 14px; color: #f87171; background: rgba(248,113,113,0.1); border-radius: 10px; padding: 10px 14px; margin-bottom: 12px; }

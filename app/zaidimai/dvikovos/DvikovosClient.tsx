@@ -8,6 +8,8 @@
 
 import { useEffect, useRef, useState } from 'react'
 import Link from 'next/link'
+import ZaidimoLangas from '@/components/zaidimai/ZaidimoLangas'
+import { yraIos } from '@/components/zaidimai/naudotiKvizoGrotuva'
 
 type Side = { id: number; title: string; artist: string; cover_url: string | null; ytId: string | null; year: number | null }
 type Duel = { id: number; matchup_type: string; a: Side; b: Side }
@@ -31,6 +33,7 @@ export default function DvikovosClient() {
   const [votesCount, setVotesCount] = useState(0)
   const [majorityStreak, setMajorityStreak] = useState(0)
   const [playing, setPlaying] = useState<'A' | 'B' | null>(null)
+  const [ios] = useState(() => yraIos())
   const advanceRef = useRef<ReturnType<typeof setTimeout> | null>(null)
 
   async function loadBatch() {
@@ -100,7 +103,7 @@ export default function DvikovosClient() {
         <div className="dv-media">
           {playing === tag && side.ytId ? (
             <iframe
-              src={`https://www.youtube-nocookie.com/embed/${side.ytId}?autoplay=1&rel=0&modestbranding=1&playsinline=1`}
+              src={`https://www.youtube-nocookie.com/embed/${side.ytId}?${ios ? '' : 'autoplay=1&'}rel=0&modestbranding=1&playsinline=1`}
               allow="autoplay; encrypted-media"
               title={side.title}
             />
@@ -136,18 +139,15 @@ export default function DvikovosClient() {
   }
 
   return (
-    <div className="dv-root">
+    <ZaidimoLangas
+      title="Dainų dvikovos"
+      maxWidth={860}
+      right={<>
+        {sessionXp > 0 && <span className="dv-session-xp">⚡ +{sessionXp}</span>}
+        {xpLeft !== null && xpLeft > 0 && <span className="dv-xp-left">su taškais: {xpLeft}</span>}
+      </>}
+    >
       <style>{css}</style>
-
-      <div className="dv-top">
-        <Link href="/zaidimai" className="dv-back">← Žaidimai</Link>
-        <div className="dv-top-right">
-          {sessionXp > 0 && <span className="dv-session-xp">⚡ +{sessionXp}</span>}
-          {xpLeft !== null && xpLeft > 0 && <span className="dv-xp-left">balsų su taškais: {xpLeft}</span>}
-        </div>
-      </div>
-
-      <h1 className="dv-h1">Dainų dvikovos</h1>
 
       {loading && <div className="dv-center"><div className="dv-spinner" /></div>}
 
@@ -192,18 +192,13 @@ export default function DvikovosClient() {
           <div className="dv-progress-line">{votesCount > 0 ? `Šiandien balsavai ${votesCount} k. · ` : ''}Balsas = 15 tšk. (pirmi 10 per dieną)</div>
         </div>
       )}
-    </div>
+    </ZaidimoLangas>
   )
 }
 
 const css = `
-.dv-root { max-width: 860px; margin: 0 auto; padding: 24px 16px 90px; }
-.dv-top { display: flex; align-items: center; justify-content: space-between; margin-bottom: 10px; }
-.dv-back { font-size: 14px; font-weight: 700; color: var(--text-secondary); text-decoration: none; }
-.dv-top-right { display: flex; gap: 8px; align-items: center; }
 .dv-session-xp { font-size: 14px; font-weight: 900; color: #f59e0b; }
 .dv-xp-left { font-size: 12px; color: var(--text-muted); }
-.dv-h1 { font-size: 30px; font-weight: 900; letter-spacing: -0.02em; color: var(--text-primary); margin: 0 0 18px; }
 
 .dv-center { display: flex; justify-content: center; padding: 70px 0; }
 .dv-spinner { width: 38px; height: 38px; border-radius: 50%; border: 3px solid rgba(148,163,184,0.25); border-top-color: #6366f1; animation: dvspin .8s linear infinite; }

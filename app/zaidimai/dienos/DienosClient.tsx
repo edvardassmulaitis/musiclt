@@ -8,6 +8,8 @@
 import { useEffect, useRef, useState } from 'react'
 import Link from 'next/link'
 import type { ImageDrop, DuelDrop, VerdictDrop, DropCompletionLookup } from '@/lib/boombox'
+import ZaidimoLangas from '@/components/zaidimai/ZaidimoLangas'
+import { useKvizoGrotuvas, yraIos } from '@/components/zaidimai/naudotiKvizoGrotuva'
 
 type Props = {
   isAuthenticated: boolean
@@ -95,9 +97,10 @@ export default function DienosClient(props: Props) {
   const [qScore, setQScore] = useState(0)
   const [qCombo, setQCombo] = useState(0)
   const [qLastPoints, setQLastPoints] = useState(0)
-  const [qPhase, setQPhase] = useState<'load' | 'round' | 'reveal' | 'submitting'>('load')
+  const [qPhase, setQPhase] = useState<'load' | 'ready' | 'round' | 'reveal' | 'submitting'>('load')
+  const grotuvas = useKvizoGrotuvas()
+  const [ios] = useState(() => yraIos())
   const [qResult, setQResult] = useState<any>(null)
-  const [qNonce, setQNonce] = useState(0)
   const [qError, setQError] = useState<string | null>(null)
 
   const qStartRef = useRef(0)
@@ -130,12 +133,19 @@ export default function DienosClient(props: Props) {
       setQResult(null)
       setQRoundResult(null)
       setQRoundError(null)
-      setQPhase('round')
-      setQNonce(n => n + 1)
-      qStartRound()
+      setQPhase('ready') // grojimui reikia TAP — iOS garso atrakinimas
     } catch {
       setQError('Tinklo klaida')
     }
+  }
+
+  /** Kviečiama mygtuko onClick — grojimas gesto kontekste (iOS). */
+  function qStartPlaying() {
+    const first = qRounds[0]
+    if (!first) return
+    grotuvas.play(first.ytId, first.startSec)
+    setQPhase('round')
+    qStartRound()
   }
 
   function qStartRound() {
@@ -187,14 +197,16 @@ export default function DienosClient(props: Props) {
   function qNext() {
     if (qRevealRef.current) { clearTimeout(qRevealRef.current); qRevealRef.current = null }
     if (qIdx + 1 >= qRounds.length) { void qSubmit(); return }
+    const next = qRounds[qIdx + 1]
     setQIdx(i => i + 1)
     setQRoundResult(null)
     setQPhase('round')
-    setQNonce(n => n + 1)
+    grotuvas.play(next.ytId, next.startSec)
     qStartRound()
   }
 
   async function qSubmit() {
+    grotuvas.stop()
     setQPhase('submitting')
     try {
       const res = await fetch('/api/zaidimai/kvizas', {
@@ -310,16 +322,14 @@ export default function DienosClient(props: Props) {
   const stepIdx = stage === 'intro' ? 0 : steps.findIndex((s: any) => s.key === stage) + 1
 
   return (
-    <div className="di-root">
+    <ZaidimoLangas
+      title="Dienos iššūkis"
+      right={<>
+        {sessionXp > 0 && <span className="di-xp">⚡ +{sessionXp}</span>}
+        {streak.current > 1 && <span className="di-streak">🔥 {streak.current} d.</span>}
+      </>}
+    >
       <style>{css}</style>
-
-      <div className="di-top">
-        <Link href="/zaidimai" className="di-back">← Žaidimai</Link>
-        <div className="di-top-right">
-          {sessionXp > 0 && <span className="di-xp">⚡ +{sessionXp}</span>}
-          {streak.current > 1 && <span className="di-streak">🔥 {streak.current} d.</span>}
-        </div>
-      </div>
 
       {/* Step'ų juosta */}
       {stage !== 'intro' && stage !== 'summary' && (
@@ -367,6 +377,14 @@ export default function DienosClient(props: Props) {
           {qPhase === 'load' && !qError && <div className="di-center"><div className="di-spinner" /></div>}
           {qPhase === 'submitting' && <div className="di-center"><div className="di-spinner" /><p className="di-note">Skaičiuojam…</p></div>}
 
+          {qPhase === 'ready' && (
+            <div className="di-ready">
+              <span className="di-ready-emoji">🎧</span>
+              <p className="di-note">{qRounds.length} raundai · įsijunk garsą</p>
+              <button className="di-cta" onClick={qStartPlaying}>▶ Pradėti kvizą</button>
+            </div>
+          )}
+
           {(qPhase === 'round' || qPhase === 'reveal') && qRound && (
             <>
               <div className="di-q-head">
@@ -375,17 +393,14 @@ export default function DienosClient(props: Props) {
                 <span className="di-q-score">⚡ {qScore}</span>
               </div>
               <div className="di-player">
-                <iframe
-                  key={`${qRound.ytId}-${qNonce}`}
-                  src={`https://www.youtube-nocookie.com/embed/${qRound.ytId}?autoplay=1&start=${qRound.startSec}&rel=0&modestbranding=1&playsinline=1&iv_load_policy=3${qPhase === 'round' ? '&controls=0&disablekb=1&fs=0' : ''}`}
-                  allow="autoplay; encrypted-media"
-                  title="Dienos kvizo daina"
-                />
+                <div className="di-yt" ref={grotuvas.containerRef} />
                 {qPhase === 'round' && (
                   <div className="di-cover">
                     <div className="di-eq">{Array.from({ length: 7 }).map((_, i) => <span key={i} style={{ animationDelay: `${i * 0.12}s` }} />)}</div>
                     <div className="di-clock" style={{ ['--p' as any]: qPct }}><span>{Math.ceil(qTimeLeft / 1000)}</span></div>
-                    <button className="di-nosound" onClick={() => setQNonce(n => n + 1)}>Negirdi? Spausk čia ▶</button>
+                    <button className="di-nosound" onClick={() => grotuvas.play(qRound.ytId, qRound.startSec)}>
+                      {grotuvas.failedVideo ? 'Įrašo nepavyko paleisti — spėk iš atminties 😅' : 'Negirdi? Spausk čia ▶'}
+                    </button>
                   </div>
                 )}
                 {qPhase === 'reveal' && qRoundResult && (
@@ -443,7 +458,7 @@ export default function DienosClient(props: Props) {
                 <div key={tag} className={`di-duel-side${duelPick === tag ? ' picked' : ''}${duelPick && duelPick !== tag ? ' faded' : ''}`}>
                   <div className="di-duel-media">
                     {duelPlaying === tag && ytId ? (
-                      <iframe src={`https://www.youtube-nocookie.com/embed/${ytId}?autoplay=1&rel=0&playsinline=1`} allow="autoplay; encrypted-media" title={side.title} />
+                      <iframe src={`https://www.youtube-nocookie.com/embed/${ytId}?${ios ? '' : 'autoplay=1&'}rel=0&playsinline=1`} allow="autoplay; encrypted-media" title={side.title} />
                     ) : (
                       <>
                         {side.cover_url
@@ -567,17 +582,17 @@ export default function DienosClient(props: Props) {
           </div>
         </div>
       )}
-    </div>
+    </ZaidimoLangas>
   )
 }
 
 const css = `
-.di-root { max-width: 720px; margin: 0 auto; padding: 24px 16px 90px; }
-.di-top { display: flex; align-items: center; justify-content: space-between; margin-bottom: 12px; }
-.di-back { font-size: 14px; font-weight: 700; color: var(--text-secondary); text-decoration: none; }
-.di-top-right { display: flex; gap: 10px; align-items: center; }
-.di-xp { font-size: 16px; font-weight: 900; color: #f59e0b; }
-.di-streak { font-size: 14px; font-weight: 800; color: var(--text-secondary); }
+.di-xp { font-size: 15px; font-weight: 900; color: #f59e0b; }
+.di-streak { font-size: 13px; font-weight: 800; color: var(--text-secondary); }
+.di-ready { display: flex; flex-direction: column; align-items: center; text-align: center; gap: 6px; padding: 10vh 0; }
+.di-ready-emoji { font-size: 44px; }
+.di-yt { position: absolute; inset: 0; }
+.di-yt iframe { width: 100%; height: 100%; }
 
 .di-stepbar { display: flex; gap: 8px; justify-content: center; margin-bottom: 16px; }
 .di-step {

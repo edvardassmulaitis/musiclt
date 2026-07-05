@@ -15,6 +15,7 @@
 import { useCallback, useEffect, useRef, useState } from 'react'
 import Link from 'next/link'
 import { proxyImg } from '@/lib/img-proxy'
+import ZaidimoLangas from '@/components/zaidimai/ZaidimoLangas'
 
 type RosterArtist = {
   artistId: number
@@ -70,6 +71,7 @@ export default function VadybininkasClient() {
   const searchTimer = useRef<ReturnType<typeof setTimeout> | null>(null)
 
   const [boardTab, setBoardTab] = useState<'week' | 'month' | 'season'>('season')
+  const [modal, setModal] = useState<'lyga' | 'info' | null>(null)
 
   const team = data?.team
   const roster = data?.roster || []
@@ -167,23 +169,21 @@ export default function VadybininkasClient() {
   const maxLive = Math.max(1, ...roster.map(r => r.livePoints))
 
   return (
-    <div className="fl-root">
+    <ZaidimoLangas
+      title={view === 'valdymas' && team ? `💼 ${team.name}` : 'Muzikos vadybininkas'}
+      right={wizardStep > 0 ? (
+        <div className="fl-steps">
+          {[1, 2, 3].map(n => (
+            <span key={n} className={`fl-step-dot${wizardStep === n ? ' now' : ''}${wizardStep > n ? ' done' : ''}`}>
+              {wizardStep > n ? '✓' : n}
+            </span>
+          ))}
+        </div>
+      ) : view === 'valdymas' ? (
+        <button className="fl-icon-btn" onClick={() => setModal('lyga')} aria-label="Lygos lentelė">🏆</button>
+      ) : null}
+    >
       <style>{css}</style>
-
-      {/* Viršus */}
-      <div className="fl-top">
-        <Link href="/zaidimai" className="fl-back">← Žaidimai</Link>
-        {wizardStep > 0 && (
-          <div className="fl-steps">
-            {[1, 2, 3].map(n => (
-              <span key={n} className={`fl-step-dot${wizardStep === n ? ' now' : ''}${wizardStep > n ? ' done' : ''}`}>
-                {wizardStep > n ? '✓' : n}
-              </span>
-            ))}
-          </div>
-        )}
-        {view === 'valdymas' && team && <span className="fl-top-name">💼 {team.name}</span>}
-      </div>
 
       {view === 'loading' && <div className="fl-center"><div className="fl-spinner" /></div>}
 
@@ -233,7 +233,9 @@ export default function VadybininkasClient() {
             </button>
           </div>
 
-          <LeagueBoards boards={data?.boards} tab={boardTab} setTab={setBoardTab} compact />
+          <button className="fl-league-teaser" onClick={() => setModal('lyga')}>
+            🏆 Lygos lentelė · {data?.boards.totalTeams || 0} komandų →
+          </button>
         </div>
       )}
 
@@ -330,8 +332,7 @@ export default function VadybininkasClient() {
               <span className="fl-hero-sub">tšk. (tarpinis — galutinai pirmadienį)</span>
             </div>
             <div className="fl-hero-side">
-              <span className="fl-hero-chip">🏆 Sezonas: <b>{team.seasonPoints}</b>{team.seasonRank ? ` · #${team.seasonRank}` : ''}</span>
-              <span className="fl-hero-chip dim">💰 {team.budgetLeft} · 🔁 {team.transfersLeft} mainai</span>
+              <span className="fl-hero-chip">🏆 Sezonas <b>{team.seasonPoints}</b>{team.seasonRank ? ` · #${team.seasonRank}` : ''}</span>
             </div>
           </div>
 
@@ -378,12 +379,6 @@ export default function VadybininkasClient() {
               </div>
             ))}
           </div>
-          <div className="fl-legend">
-            <span><i className="dot chart" /> Topai</span>
-            <span><i className="dot yt" /> YouTube</span>
-            <span><i className="dot rel" /> Naujos dainos</span>
-            <span><i className="dot base" /> Bazė</span>
-          </div>
 
           {/* Rinka (mainams) — atsidaro po komanda, tie patys filtrai viršuje */}
           {marketOpen && (
@@ -408,31 +403,56 @@ export default function VadybininkasClient() {
             />
           )}
 
-          {/* Turai */}
-          {team.weeks.length > 0 && (
-            <div className="fl-weeks">
-              <h2 className="fl-h2">Turų istorija</h2>
-              <div className="fl-weeks-row">
-                {team.weeks.map(w => (
-                  <div key={w.week_start} className="fl-week-chip">
-                    <span>{w.week_start.slice(5)}</span>
-                    <b>{w.points}</b>
-                  </div>
-                ))}
-              </div>
-            </div>
-          )}
-
-          <LeagueBoards boards={data!.boards} tab={boardTab} setTab={setBoardTab} />
-
-          <p className="fl-foot">
-            Taškai — kas pirmadienį iš realių duomenų: vietos TOP40/TOP30 ir pasaulio topuose
-            (Billboard, Spotify, Apple), YouTube augimas, naujos dainos. Naujai pasirašyti atlikėjai
-            taškus neša nuo kito pirmadienio.
-          </p>
+          {/* Detalės — modaluose, kad ekranas liktų švarus */}
+          <div className="fl-more-row">
+            <button className="fl-more-btn" onClick={() => setModal('lyga')}>🏆 Lyga ir turai</button>
+            <button className="fl-more-btn" onClick={() => setModal('info')}>ℹ️ Kaip skaičiuojami taškai</button>
+          </div>
         </>
       )}
-    </div>
+
+      {/* ── Modalai ── */}
+      {modal && (
+        <div className="fl-modal-back" onClick={() => setModal(null)}>
+          <div className="fl-modal" onClick={e => e.stopPropagation()}>
+            <button className="fl-modal-x" onClick={() => setModal(null)} aria-label="Uždaryti">✕</button>
+            {modal === 'lyga' && (
+              <>
+                <LeagueBoards boards={data!.boards} tab={boardTab} setTab={setBoardTab} />
+                {team && team.weeks.length > 0 && (
+                  <div className="fl-weeks">
+                    <h2 className="fl-h2">Tavo turai</h2>
+                    <div className="fl-weeks-row">
+                      {team.weeks.map(w => (
+                        <div key={w.week_start} className="fl-week-chip">
+                          <span>{w.week_start.slice(5)}</span>
+                          <b>{w.points}</b>
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+                )}
+              </>
+            )}
+            {modal === 'info' && (
+              <div className="fl-info">
+                <h2 className="fl-h2">Kaip skaičiuojami taškai?</h2>
+                <p>Kiekvienas tavo atlikėjas kas pirmadienį gauna taškus iš <b>realių praėjusios savaitės rezultatų</b>:</p>
+                <ul>
+                  <li><i className="dot chart" /> <b>Topai</b> — vietos music.lt TOP40/TOP30 ir pasaulio topuose (Billboard, Spotify, Apple)</li>
+                  <li><i className="dot yt" /> <b>YouTube</b> — peržiūrų augimas</li>
+                  <li><i className="dot rel" /> <b>Naujos dainos</b> — išleistos tą savaitę</li>
+                  <li><i className="dot base" /> <b>Bazė</b> — bendras atlikėjo populiarumas</li>
+                </ul>
+                <p>„Ši savaitė" — tarpinis skaičius, galutinis užfiksuojamas pirmadienio rytą.
+                Naujai pasirašyti atlikėjai taškus neša nuo kito pirmadienio (išskyrus pirmąją komandos savaitę).
+                Mainų — iki 3 per savaitę.</p>
+              </div>
+            )}
+          </div>
+        </div>
+      )}
+    </ZaidimoLangas>
   )
 }
 
@@ -565,11 +585,39 @@ function LeagueBoards({ boards, tab, setTab, compact }: {
 }
 
 const css = `
-.fl-root { max-width: 760px; margin: 0 auto; padding: 24px 16px 90px; }
-.fl-top { display: flex; align-items: center; justify-content: space-between; margin-bottom: 14px; gap: 10px; }
-.fl-back { font-size: 14px; font-weight: 700; color: var(--text-secondary); text-decoration: none; }
-.fl-top-name { font-size: 14px; font-weight: 900; color: var(--text-primary); }
 .fl-steps { display: flex; gap: 6px; }
+.fl-icon-btn { font-size: 18px; background: var(--bg-surface); border: 1px solid rgba(140,160,190,0.22); border-radius: 12px; width: 36px; height: 36px; cursor: pointer; }
+.fl-league-teaser {
+  display: block; width: 100%; text-align: left; margin-top: 20px; cursor: pointer;
+  font-size: 14px; font-weight: 800; color: var(--text-primary);
+  background: var(--bg-surface); border: 1px solid rgba(140,160,190,0.2); border-radius: 13px; padding: 14px 16px;
+}
+.fl-more-row { display: flex; gap: 10px; flex-wrap: wrap; margin-top: 4px; }
+.fl-more-btn {
+  flex: 1; min-width: 150px; font-size: 14px; font-weight: 800; color: var(--text-primary); cursor: pointer;
+  background: var(--bg-surface); border: 1px solid rgba(140,160,190,0.22); border-radius: 13px; padding: 13px 14px;
+}
+.fl-modal-back {
+  position: fixed; inset: 0; z-index: 60; background: rgba(8,10,15,0.6); backdrop-filter: blur(3px);
+  display: flex; align-items: flex-end; justify-content: center;
+}
+@media (min-width: 640px) { .fl-modal-back { align-items: center; } }
+.fl-modal {
+  position: relative; width: 100%; max-width: 560px; max-height: 82vh; overflow-y: auto;
+  background: var(--bg-body); border: 1px solid rgba(140,160,190,0.25);
+  border-radius: 20px 20px 0 0; padding: 20px 18px calc(20px + env(safe-area-inset-bottom));
+}
+@media (min-width: 640px) { .fl-modal { border-radius: 20px; } }
+.fl-modal-x { position: absolute; top: 12px; right: 12px; width: 32px; height: 32px; border-radius: 10px; background: var(--bg-surface); border: 1px solid rgba(140,160,190,0.25); color: var(--text-primary); font-weight: 800; cursor: pointer; }
+.fl-info p { font-size: 14px; color: var(--text-secondary); line-height: 1.55; margin: 10px 0; }
+.fl-info b { color: var(--text-primary); }
+.fl-info ul { list-style: none; margin: 10px 0; padding: 0; display: flex; flex-direction: column; gap: 8px; }
+.fl-info li { font-size: 14px; color: var(--text-secondary); }
+.fl-info .dot, .fl-modal .dot { display: inline-block; width: 9px; height: 9px; border-radius: 3px; margin-right: 6px; }
+.dot.chart { background: #f59e0b; }
+.dot.yt { background: #ef4444; }
+.dot.rel { background: #8b5cf6; }
+.dot.base { background: #64748b; }
 .fl-step-dot {
   width: 26px; height: 26px; border-radius: 50%; display: flex; align-items: center; justify-content: center;
   font-size: 12px; font-weight: 900; color: var(--text-muted);
@@ -619,7 +667,7 @@ const css = `
 
 /* ── 2 žingsnis: draft status (sticky) ── */
 .fl-draft-status {
-  position: sticky; top: 60px; z-index: 8; background: var(--bg-body);
+  position: sticky; top: -16px; z-index: 8; background: var(--bg-body);
   padding: 10px 0 12px; margin-bottom: 4px; border-bottom: 1px solid rgba(140,160,190,0.15);
 }
 .fl-slots { display: flex; align-items: center; gap: 8px; margin-bottom: 10px; }
