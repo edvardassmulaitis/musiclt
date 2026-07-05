@@ -32,7 +32,7 @@ export async function GET(req: NextRequest) {
 
   if (q) query = query.ilike('name', `%${q}%`)
   query = query
-    .order('score', { ascending: false, nullsFirst: false })
+    .order('score', { ascending: sort === 'pigiausi', nullsFirst: false })
     .order('name', { ascending: true })
     .range(page * PAGE_SIZE, page * PAGE_SIZE + PAGE_SIZE - 1)
 
@@ -84,6 +84,7 @@ export async function GET(req: NextRequest) {
   }))
 
   if (sort === 'forma') {
+    // Puslapio ribose pagal praėjusios savaitės taškus
     list = list.sort((a, b) => (b.lastWeekPoints || 0) - (a.lastWeekPoints || 0))
   }
 

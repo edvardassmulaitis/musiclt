@@ -56,6 +56,7 @@ export default function VadybininkasClient() {
   const [marketTotal, setMarketTotal] = useState(0)
   const [marketPage, setMarketPage] = useState(0)
   const [marketQ, setMarketQ] = useState('')
+  const [marketSort, setMarketSort] = useState<'populiariausi' | 'pigiausi'>('populiariausi')
   const [marketLoading, setMarketLoading] = useState(false)
   const [busyArtist, setBusyArtist] = useState<number | null>(null)
   const searchTimer = useRef<ReturnType<typeof setTimeout> | null>(null)
@@ -75,10 +76,10 @@ export default function VadybininkasClient() {
 
   useEffect(() => { void load() }, [load])
 
-  const loadMarket = useCallback(async (q: string, page: number) => {
+  const loadMarket = useCallback(async (q: string, page: number, sort?: string) => {
     setMarketLoading(true)
     try {
-      const res = await fetch(`/api/zaidimai/vadybininkas/rinka?q=${encodeURIComponent(q)}&puslapis=${page}`)
+      const res = await fetch(`/api/zaidimai/vadybininkas/rinka?q=${encodeURIComponent(q)}&puslapis=${page}&rusiavimas=${sort || 'populiariausi'}`)
       const json = await res.json()
       setMarket(json.artists || [])
       setMarketTotal(json.total || 0)
@@ -89,14 +90,14 @@ export default function VadybininkasClient() {
 
   useEffect(() => {
     if (!marketOpen) return
-    void loadMarket(marketQ, 0)
+    void loadMarket(marketQ, 0, marketSort)
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [marketOpen])
+  }, [marketOpen, marketSort])
 
   function onSearchChange(v: string) {
     setMarketQ(v)
     if (searchTimer.current) clearTimeout(searchTimer.current)
-    searchTimer.current = setTimeout(() => void loadMarket(v, 0), 350)
+    searchTimer.current = setTimeout(() => void loadMarket(v, 0, marketSort), 350)
   }
 
   async function createTeam() {
@@ -129,7 +130,7 @@ export default function VadybininkasClient() {
       })
       const json = await res.json()
       if (!res.ok) { setError(json.error || 'Nepavyko'); setBusyArtist(null); return }
-      await Promise.all([load(), marketOpen ? loadMarket(marketQ, marketPage) : Promise.resolve()])
+      await Promise.all([load(), marketOpen ? loadMarket(marketQ, marketPage, marketSort) : Promise.resolve()])
     } catch { setError('Tinklo klaida') }
     setBusyArtist(null)
   }
@@ -264,6 +265,10 @@ export default function VadybininkasClient() {
                 value={marketQ}
                 onChange={e => onSearchChange(e.target.value)}
               />
+              <div className="fl-tabs" style={{ marginBottom: 10 }}>
+                <button className={marketSort === 'populiariausi' ? 'on' : ''} onClick={() => setMarketSort('populiariausi')}>Populiariausi</button>
+                <button className={marketSort === 'pigiausi' ? 'on' : ''} onClick={() => setMarketSort('pigiausi')}>Pigiausi</button>
+              </div>
               {marketLoading && <div className="fl-center small"><div className="fl-spinner" /></div>}
               {!marketLoading && market.length === 0 && <div className="fl-dim" style={{ padding: '14px 0' }}>Nieko nerasta.</div>}
               <div className="fl-market-list">
@@ -297,9 +302,9 @@ export default function VadybininkasClient() {
                 })}
               </div>
               <div className="fl-pager">
-                <button disabled={marketPage === 0 || marketLoading} onClick={() => void loadMarket(marketQ, marketPage - 1)}>← Ankstesni</button>
+                <button disabled={marketPage === 0 || marketLoading} onClick={() => void loadMarket(marketQ, marketPage - 1, marketSort)}>← Ankstesni</button>
                 <span className="fl-dim">{marketPage * 30 + 1}–{Math.min((marketPage + 1) * 30, marketTotal)} iš {marketTotal}</span>
-                <button disabled={(marketPage + 1) * 30 >= marketTotal || marketLoading} onClick={() => void loadMarket(marketQ, marketPage + 1)}>Kiti →</button>
+                <button disabled={(marketPage + 1) * 30 >= marketTotal || marketLoading} onClick={() => void loadMarket(marketQ, marketPage + 1, marketSort)}>Kiti →</button>
               </div>
             </div>
           )}
