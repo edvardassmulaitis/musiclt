@@ -128,10 +128,28 @@ export async function GET(_req: NextRequest) {
 type SimEvent = { artist: string; text: string; delta: number }
 type SimQuarter = { q: number; label: string; events: SimEvent[]; income: number }
 
+const STRATEGIES = {
+  saugi: { label: 'Saugi taktika', eventChance: 0.45, deltaMult: 0.65, baseMult: 1.06 },
+  subalansuota: { label: 'Subalansuota', eventChance: 0.6, deltaMult: 1.0, baseMult: 1.0 },
+  rizika: { label: 'Visa į viršų', eventChance: 0.82, deltaMult: 1.35, baseMult: 0.97 },
+} as const
+type StrategyKey = keyof typeof STRATEGIES
+
+const BOOST_COST = 10
+
+function strHash(s: string): number {
+  let h = 2166136261
+  for (let i = 0; i < s.length; i++) { h ^= s.charCodeAt(i); h = Math.imul(h, 16777619) }
+  return h >>> 0
+}
+
 export async function POST(req: NextRequest) {
   const body = await req.json().catch(() => null)
   if (!body) return jsonErr('Bad JSON')
   const { token, picked } = body as { token: string; picked: number[] }
+  const strategija = (typeof body.strategija === 'string' && body.strategija in STRATEGIES
+    ? body.strategija : 'subalansuota') as StrategyKey
+  const boostas = (body.boostas === 'tiktok' || body.boostas === 'radijas') ? body.boostas as 'tiktok' | 'radijas' : null
 
   const p = verifyPayload<{ g: string; seed: number; budget: number; a: [number, number][]; exp: number }>(token || '')
   if (!p || p.g !== 'vadyb') return jsonErr('Blogas token\'as — atsinaujink rinką')
@@ -146,6 +164,7 @@ export async function POST(req: NextRequest) {
     if (typeof price !== 'number') return jsonErr('Atlikėjas ne iš šios rinkos')
     spent += price
   }
+  if (boostas) spent += BOOST_COST
   if (spent > p.budget) return jsonErr('Viršytas biudžetas')
 
   // Realūs pasirašytų atlikėjų duomenys
@@ -179,8 +198,13 @@ export async function POST(req: NextRequest) {
     })
   }
 
-  // ── Deterministinė simuliacija iš seed'o ──
-  const rng = mulberry32(p.seed ^ (picked[0] * 7919) ^ (picked[1] * 104729) ^ (picked[2] * 1299709))
+  // ── Deterministinė simuliacija iš seed'o (+ strategijos pasirinkimai) ──
+  const strat = STRATEGIES[strategija]
+  const rng = mulberry32(
+    p.seed
+    ^ (picked[0] * 7919) ^ (picked[1] * 104729) ^ (picked[2] * 1299709)
+    ^ strHash(`${strategija}|${boostas || ''}`)
+  )
 
   const maxTrend = Math.max(1, ...roster.map(r => r.trending))
   const quarters: SimQuarter[] = []
@@ -193,20 +217,20 @@ export async function POST(req: NextRequest) {
     let income = 0
 
     for (const r of roster) {
-      // Bazinės ketvirčio pajamos: ~18–30% kainos + trending priedas
+      // Bazinės ketvirčio pajamos: ~18–30% kainos + trending priedas + strategija
       const trendBoost = 1 + 0.35 * (r.trending / maxTrend)
-      const base = r.price * (0.16 + rng() * 0.14) * trendBoost
+      const base = r.price * (0.16 + rng() * 0.14) * trendBoost * strat.baseMult * (boostas === 'radijas' ? 1.05 : 1)
       income += base
 
-      // Įvykiai (0–2 per ketvirtį), tikimybės iš realių duomenų
+      // Įvykiai, tikimybė ir amplitudė pagal strategiją, svoriai iš realių duomenų
       const eventRoll = rng()
-      if (eventRoll < 0.6) {
+      if (eventRoll < strat.eventChance) {
         const pool: Array<{ w: number; text: string; lo: number; hi: number }> = [
           { w: 1.5 + r.score / 40, text: q === 1 ? '🎪 pakviestas į didžiąją festivalio sceną' : '🎤 solinis koncertas išparduotas', lo: 6, hi: 14 },
-          { w: 1 + 2.5 * (r.trending / maxTrend), text: '📈 daina tapo virusinė TikTok\'e', lo: 6, hi: 18 },
-          { w: 1.2, text: '📻 pateko į radijo rotacijos viršūnę', lo: 4, hi: 9 },
+          { w: (1 + 2.5 * (r.trending / maxTrend)) * (boostas === 'tiktok' ? 2.5 : 1), text: '📈 daina tapo virusinė TikTok\'e', lo: 6, hi: 18 },
+          { w: 1.2 * (boostas === 'radijas' ? 2.5 : 1), text: '📻 pateko į radijo rotacijos viršūnę', lo: 4, hi: 9 },
           { w: 0.9, text: '🤝 pasirašė reklamos kontraktą', lo: 5, hi: 12 },
-          { w: 0.8 + r.freshReleases * 0.6, text: '🆕 išleido naują singlą — streamai auga', lo: 5, hi: 11 },
+          { w: (0.8 + r.freshReleases * 0.6) * (boostas === 'tiktok' ? 1.5 : 1), text: '🆕 išleido naują singlą — streamai auga', lo: 5, hi: 11 },
           { w: 0.7, text: '😬 skandalas socialiniuose tinkluose', lo: -10, hi: -4 },
           { w: 0.6, text: '🤒 atšauktas koncertas paskutinę minutę', lo: -7, hi: -3 },
           { w: 0.5, text: '💸 nesutarimai dėl honoraro — teisininkų išlaidos', lo: -6, hi: -2 },
@@ -215,7 +239,7 @@ export async function POST(req: NextRequest) {
         let roll = rng() * totalW
         let ev = pool[0]
         for (const e of pool) { roll -= e.w; if (roll <= 0) { ev = e; break } }
-        const delta = Math.round(ev.lo + rng() * (ev.hi - ev.lo))
+        const delta = Math.round((ev.lo + rng() * (ev.hi - ev.lo)) * strat.deltaMult)
         income += delta
         events.push({ artist: r.name, text: ev.text, delta })
       }
@@ -261,7 +285,7 @@ export async function POST(req: NextRequest) {
     score: finalValue,
     maxScore: null,
     xpEarned: xp,
-    details: { picked, spent, totalIncome, resaleTotal, grade: grade.label },
+    details: { picked, spent, strategija, boostas, totalIncome, resaleTotal, grade: grade.label },
   })
 
   let streakInfo = { current: 0, total_xp: 0 }
@@ -273,6 +297,8 @@ export async function POST(req: NextRequest) {
     ok: true,
     spent,
     remaining: p.budget - spent,
+    strategija: strat.label,
+    boostas,
     quarters,
     resale,
     totalIncome,

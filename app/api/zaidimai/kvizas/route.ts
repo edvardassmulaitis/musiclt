@@ -1,62 +1,68 @@
 // app/api/zaidimai/kvizas/route.ts
 //
-// „Atspėk dainą" audio kvizas (songtrivia2.io įkvėpimas, LT turinys).
+// „Atspėk dainą" audio kvizas (songtrivia2.io + Wordle/Heardle mechanikos).
 //
-//   GET  ?kategorija=lt-mix&raundai=10
-//        → sugeneruoja kvizą iš tracks pool'o (top pagal video_views):
-//          10 raundų, kiekvienam — YT video ID (audio ištrauka), 4 atsakymai,
-//          HMAC token'as su teisingu atsakymu (server-side verifikacijai).
+//   GET  ?kategorija=lt-mix|lt-nauja|lt-klasika|pasaulis|dienos&raundai=10
+//        → sugeneruoja kvizą iš tracks pool'o. „dienos" — DIENOS IŠŠŪKIS:
+//          date-seeded, VISIEMS TAS PATS (Wordle formulė: vienas iššūkis per
+//          dieną, bendras palyginimas, share'inamas rezultatas), taškai ×2,
+//          užskaitomas 1 bandymas per dieną.
 //
 //   POST { kategorija, rounds: [{ token, answerId|null, ms }] }
-//        → server'is verifikuoja token'us, suskaičiuoja rezultatą, skiria
-//          taškus (XP) į boombox_streaks + įrašo game_scores.
+//        → server'is verifikuoja HMAC token'us, skaičiuoja rezultatą su COMBO
+//          bonusu (3+ teisingi iš eilės → +15/raundą), skiria taškus.
 //
-// Anti-farm: XP tik už pirmus 3 kvizus per dieną (toliau — „treniruotė").
-// Taškavimas: teisingas atsakymas 50 + greičio bonusas iki 50 (15 s laikrodis).
+// Anti-farm: XP už pirmus 3 paprastus kvizus/d. + 1 dienos iššūkį/d.
+// Taškavimas: teisingas 50 + greičio bonusas iki 50 + combo.
 
 import { NextRequest, NextResponse } from 'next/server'
-import { bumpStreakAndXp } from '@/lib/boombox'
+import { bumpStreakAndXp, todayLT } from '@/lib/boombox'
 import {
   resolveViewer,
   quizCategory,
   loadQuizPool,
   shuffleArr,
+  seededShuffle,
   signPayload,
   verifyPayload,
   countRunsToday,
   insertGameScore,
+  dailySeed,
+  mulberry32,
   QUIZ_CATEGORIES,
+  type PoolTrack,
 } from '@/lib/zaidimai'
 
 export const dynamic = 'force-dynamic'
 
 const ROUND_MS = 15000
-const XP_RUNS_PER_DAY = 3
+const XP_RUNS_PER_DAY = 3          // paprasti kvizai
+const COMBO_MIN = 3                // nuo kelinto teisingo iš eilės skaičiuojam combo
+const COMBO_BONUS = 15             // + už kiekvieną combo raundą
+const DAILY_XP_MULT = 2            // dienos iššūkio taškų daugiklis
 const TOKEN_TTL_MS = 45 * 60 * 1000
+const DAILY_KEY = 'dienos'
 
 function jsonErr(msg: string, status = 400) {
   return NextResponse.json({ error: msg }, { status })
 }
 
-// ── GET: kvizo generavimas ────────────────────────────────────────────────
+// ── Raundų statyba (bendra random ir seeded režimams) ────────────────────
 
-export async function GET(req: NextRequest) {
-  const url = new URL(req.url)
-  const catKey = url.searchParams.get('kategorija') || 'lt-mix'
-  const cat = quizCategory(catKey)
-  if (!cat) return jsonErr('Nežinoma kategorija')
+function buildRounds(
+  pool: PoolTrack[],
+  roundCount: number,
+  opts: { rng?: () => number; cat: string; date: string },
+) {
+  const rng = opts.rng
+  const shuf = <T,>(a: T[]) => (rng ? seededShuffle(a, rng) : shuffleArr(a))
 
-  const roundCount = Math.min(Math.max(parseInt(url.searchParams.get('raundai') || '10') || 10, 5), 15)
-
-  const viewer = await resolveViewer()
-  const pool = await loadQuizPool(cat)
-  if (pool.length < roundCount * 4) {
-    return jsonErr('Šiai kategorijai dar trūksta dainų — pabandyk kitą', 503)
-  }
-
-  // Teisingi atsakymai — skirtingi atlikėjai per visą kvizą
-  const shuffled = shuffleArr(pool)
-  const corrects: typeof pool = []
+  // Teisingi atsakymai — skirtingi atlikėjai per visą kvizą.
+  // Seeded režimui pool'ą pirma stabilizuojam pagal id (kad visiems būtų
+  // identiška nepriklausomai nuo DB eiliškumo smulkmenų).
+  const base = rng ? [...pool].sort((a, b) => a.id - b.id) : pool
+  const shuffled = shuf(base)
+  const corrects: PoolTrack[] = []
   const usedArtists = new Set<number>()
   for (const t of shuffled) {
     if (corrects.length >= roundCount) break
@@ -64,45 +70,79 @@ export async function GET(req: NextRequest) {
     usedArtists.add(t.artist_id)
     corrects.push(t)
   }
-  if (corrects.length < roundCount) return jsonErr('Per mažai skirtingų atlikėjų pool\'e', 503)
+  if (corrects.length < roundCount) return null
 
-  const quizId = Math.random().toString(36).slice(2, 10)
+  const quizId = rng ? `d-${opts.date}` : Math.random().toString(36).slice(2, 10)
   const exp = Date.now() + TOKEN_TTL_MS
 
   const rounds = corrects.map((correct, idx) => {
-    // 3 decoy'ai — kiti atlikėjai nei teisingas IR nei vienas kito
-    const decoys: typeof pool = []
+    const decoys: PoolTrack[] = []
     const decoyArtists = new Set<number>([correct.artist_id])
-    for (const t of shuffleArr(pool)) {
+    for (const t of shuf(base)) {
       if (decoys.length >= 3) break
       if (t.id === correct.id || decoyArtists.has(t.artist_id)) continue
       decoyArtists.add(t.artist_id)
       decoys.push(t)
     }
-    const options = shuffleArr([
+    const options = shuf([
       { id: correct.id, title: correct.title, artist: correct.artist },
       ...decoys.map(d => ({ id: d.id, title: d.title, artist: d.artist })),
     ])
-    // Ištraukos pradžia — 25–70 s (praleidžiam intro)
-    const startSec = 25 + Math.floor(Math.random() * 46)
+    const startSec = 25 + Math.floor((rng ? rng() : Math.random()) * 46)
     return {
       r: idx,
       ytId: correct.ytId,
       startSec,
-      correctId: correct.id, // klientas rodo feedback'ą iškart; server'is vis tiek verifikuoja token'u
+      correctId: correct.id, // greitas client feedback; server'is verifikuoja token'u
       options,
-      token: signPayload({ g: 'kvizas', q: quizId, r: idx, c: correct.id, exp }),
+      token: signPayload({ g: 'kvizas', cat: opts.cat, d: opts.date, q: quizId, r: idx, c: correct.id, exp }),
     }
   })
 
-  const runsToday = await countRunsToday(viewer, 'kvizas')
+  return { quizId, rounds }
+}
+
+// ── GET: kvizo generavimas ────────────────────────────────────────────────
+
+export async function GET(req: NextRequest) {
+  const url = new URL(req.url)
+  const catKey = url.searchParams.get('kategorija') || 'lt-mix'
+  const isDaily = catKey === DAILY_KEY
+  const cat = quizCategory(isDaily ? 'lt-mix' : catKey)
+  if (!cat) return jsonErr('Nežinoma kategorija')
+
+  const roundCount = isDaily
+    ? 10
+    : Math.min(Math.max(parseInt(url.searchParams.get('raundai') || '10') || 10, 5), 15)
+
+  const viewer = await resolveViewer()
+  const pool = await loadQuizPool(cat)
+  if (pool.length < roundCount * 4) {
+    return jsonErr('Šiai kategorijai dar trūksta dainų — pabandyk kitą', 503)
+  }
+
+  const today = todayLT()
+  const built = buildRounds(pool, roundCount, {
+    rng: isDaily ? mulberry32(dailySeed()) : undefined,
+    cat: isDaily ? DAILY_KEY : cat.key,
+    date: today,
+  })
+  if (!built) return jsonErr('Per mažai skirtingų atlikėjų pool\'e', 503)
+
+  const [regularRuns, dailyRuns] = await Promise.all([
+    countRunsToday(viewer, 'kvizas', { neq: DAILY_KEY }),
+    countRunsToday(viewer, 'kvizas', { eq: DAILY_KEY }),
+  ])
 
   return NextResponse.json({
-    quizId,
-    category: cat.key,
+    quizId: built.quizId,
+    category: isDaily ? DAILY_KEY : cat.key,
+    isDaily,
     roundMs: ROUND_MS,
-    rounds,
-    xpRunsLeft: Math.max(0, XP_RUNS_PER_DAY - runsToday),
+    rounds: built.rounds,
+    xpRunsLeft: Math.max(0, XP_RUNS_PER_DAY - regularRuns),
+    dailyPlayed: dailyRuns > 0,
+    dailyMult: DAILY_XP_MULT,
     categories: QUIZ_CATEGORIES.map(c => ({ key: c.key, label: c.label })),
   })
 }
@@ -117,20 +157,22 @@ export async function POST(req: NextRequest) {
     kategorija: string
     rounds: Array<{ token: string; answerId: number | null; ms: number }>
   }
-  const cat = quizCategory(kategorija || '')
-  if (!cat) return jsonErr('Nežinoma kategorija')
+  const isDaily = kategorija === DAILY_KEY
+  if (!isDaily && !quizCategory(kategorija || '')) return jsonErr('Nežinoma kategorija')
   if (!Array.isArray(rounds) || rounds.length < 5 || rounds.length > 15) return jsonErr('Bad rounds')
 
-  // Verifikuojam token'us: visi to paties kvizo, unikalūs raundai
+  const today = todayLT()
+
+  // Verifikuojam token'us: visi to paties kvizo/kategorijos, unikalūs raundai
   let quizId: string | null = null
   const seenR = new Set<number>()
-  const scored: Array<{ r: number; correctId: number; answerId: number | null; correct: boolean; points: number }> = []
-  let score = 0
-  let correctCount = 0
+  const parsed: Array<{ r: number; correctId: number; answerId: number | null; ms: number }> = []
 
   for (const round of rounds) {
-    const p = verifyPayload<{ g: string; q: string; r: number; c: number; exp: number }>(round?.token || '')
+    const p = verifyPayload<{ g: string; cat: string; d: string; q: string; r: number; c: number; exp: number }>(round?.token || '')
     if (!p || p.g !== 'kvizas') return jsonErr('Blogas raundo token\'as')
+    if ((p.cat || '') !== kategorija) return jsonErr('Token\'as ne šios kategorijos')
+    if (isDaily && p.d !== today) return jsonErr('Dienos iššūkio token\'as pasenęs — nauja diena!')
     if (quizId === null) quizId = p.q
     if (p.q !== quizId) return jsonErr('Raundai iš skirtingų kvizų')
     if (seenR.has(p.r)) return jsonErr('Dubliuotas raundas')
@@ -138,43 +180,81 @@ export async function POST(req: NextRequest) {
 
     const answerId = typeof round.answerId === 'number' ? round.answerId : null
     const ms = Math.min(Math.max(typeof round.ms === 'number' ? round.ms : ROUND_MS, 0), ROUND_MS)
-    const correct = answerId !== null && answerId === p.c
-    let points = 0
-    if (correct) {
-      points = 50 + Math.round(50 * (ROUND_MS - ms) / ROUND_MS)
-      correctCount++
-    }
-    score += points
-    scored.push({ r: p.r, correctId: p.c, answerId, correct, points })
+    parsed.push({ r: p.r, correctId: p.c, answerId, ms })
   }
 
-  const maxScore = rounds.length * 100
+  // Skaičiavimas raundų eile su combo
+  parsed.sort((a, b) => a.r - b.r)
+  let score = 0
+  let correctCount = 0
+  let comboBonus = 0
+  let streakRun = 0
+  let bestCombo = 0
+  const scored = parsed.map(p => {
+    const correct = p.answerId !== null && p.answerId === p.correctId
+    let points = 0
+    let combo = 0
+    if (correct) {
+      correctCount++
+      streakRun++
+      bestCombo = Math.max(bestCombo, streakRun)
+      points = 50 + Math.round(50 * (ROUND_MS - p.ms) / ROUND_MS)
+      if (streakRun >= COMBO_MIN) { combo = COMBO_BONUS; comboBonus += COMBO_BONUS }
+    } else {
+      streakRun = 0
+    }
+    score += points + combo
+    return { r: p.r, correctId: p.correctId, answerId: p.answerId, correct, points: points + combo }
+  })
+
+  const maxScore = rounds.length * 100 + Math.max(0, rounds.length - COMBO_MIN + 1) * COMBO_BONUS
 
   const viewer = await resolveViewer()
-  const runsToday = await countRunsToday(viewer, 'kvizas')
-  const xpEligible = runsToday < XP_RUNS_PER_DAY
+  let xpEligible: boolean
+  if (isDaily) {
+    const dailyRuns = await countRunsToday(viewer, 'kvizas', { eq: DAILY_KEY })
+    xpEligible = dailyRuns === 0
+  } else {
+    const regularRuns = await countRunsToday(viewer, 'kvizas', { neq: DAILY_KEY })
+    xpEligible = regularRuns < XP_RUNS_PER_DAY
+  }
 
   let xp = 0
   if (xpEligible && score > 0) {
-    xp = Math.round(score / 10)
+    xp = Math.round(score / 10) * (isDaily ? DAILY_XP_MULT : 1)
     if (viewer.userId) xp = Math.round(xp * 1.5) // narių bonusas kaip boombox'e
   }
 
   await insertGameScore({
     viewer,
     game: 'kvizas',
-    category: cat.key,
+    category: kategorija,
     score,
     maxScore,
     correctCount,
     roundCount: rounds.length,
     xpEarned: xp,
-    details: { quizId, rounds: scored },
+    details: { quizId, comboBonus, bestCombo, rounds: scored },
   })
 
   let streakInfo = { current: 0, total_xp: 0 }
   if (xp > 0) {
     streakInfo = await bumpStreakAndXp({ userId: viewer.userId, anonId: viewer.anonId, xp })
+  }
+
+  // Dienos iššūkio bendruomenės kontekstas (palyginimui + share'ui)
+  let dailyRank: { better: number; total: number } | null = null
+  if (isDaily) {
+    const { createAdminClient } = await import('@/lib/supabase')
+    const sb = createAdminClient()
+    const { data: todays } = await sb
+      .from('game_scores')
+      .select('score')
+      .eq('game', 'kvizas')
+      .eq('category', DAILY_KEY)
+      .gte('created_at', `${today}T00:00:00+03:00`)
+    const all = (todays || []).map(r => r.score)
+    dailyRank = { better: all.filter(s => s > score).length, total: all.length }
   }
 
   return NextResponse.json({
@@ -183,9 +263,12 @@ export async function POST(req: NextRequest) {
     maxScore,
     correctCount,
     roundCount: rounds.length,
+    comboBonus,
+    bestCombo,
     xp,
     xpEligible,
-    xpRunsLeft: Math.max(0, XP_RUNS_PER_DAY - runsToday - 1),
+    isDaily,
+    dailyRank,
     streak: streakInfo.current,
     totalXp: streakInfo.total_xp,
     answers: scored,

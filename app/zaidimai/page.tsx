@@ -1,11 +1,8 @@
 // app/zaidimai/page.tsx
 //
-// Žaidimų zona — atskira sritis su muzikiniais žaidimais (testuotojo idėja:
-// aktyvumo paskata per žaidimus ir taškus, ne per įrašų spam'inimą).
-//
-// Server'is atveža: viewer'io taškų balansą (boombox_streaks), lyderių
-// lentelę, šiandienos kvizo rekordus ir turinio kiekius. Žaidimai patys —
-// atskiruose sub-route'uose.
+// Žaidimų zonos MASTER LANDING — daily-first (Wordle formulė):
+// viršuje Dienos iššūkis, po juo šiandienos žaidimai su likusiais taškais,
+// apačioje šiandienos + visų laikų lyderiai. Maksimaliai paprasta.
 
 import { Metadata } from 'next'
 import { createAdminClient } from '@/lib/supabase'
@@ -16,8 +13,8 @@ import ZaidimaiHubClient from './ZaidimaiHubClient'
 export const dynamic = 'force-dynamic'
 
 export const metadata: Metadata = {
-  title: 'Žaidimai — atspėk dainą, dvikovos, muzikos vadybininkas | music.lt',
-  description: 'Muzikiniai žaidimai: atspėk dainą iš ištraukos, balsuok dainų dvikovose, tapk muzikos vadybininku. Rink taškus ir kilk lyderių lentelėje.',
+  title: 'Žaidimai — dienos iššūkis, atspėk dainą, dvikovos | music.lt',
+  description: 'Kasdieniai muzikos žaidimai: dienos iššūkis (visiems tas pats!), atspėk dainą, dainų dvikovos, muzikos vadybininkas. Rink taškus ir kilk lyderių lentelėje.',
 }
 
 export type LeaderRow = {
@@ -27,74 +24,106 @@ export type LeaderRow = {
   streak: number
 }
 
+export type DailyTopRow = {
+  name: string
+  isAnon: boolean
+  score: number
+}
+
+async function namesFor(sb: ReturnType<typeof createAdminClient>, userIds: string[]): Promise<Map<string, string>> {
+  const map = new Map<string, string>()
+  const ids = userIds.filter(Boolean)
+  if (!ids.length) return map
+  const { data } = await sb.from('profiles').select('id, username, full_name').in('id', ids)
+  for (const p of data || []) map.set(p.id, p.username || p.full_name || 'Narys')
+  return map
+}
+
 async function loadHub() {
   const viewer = await resolveViewerReadonly()
   const sb = createAdminClient()
-
-  // Viewer'io balansas
-  let me = { totalXp: 0, streak: 0 }
-  if (viewer.userId || viewer.anonId) {
-    const filter = viewer.userId ? { user_id: viewer.userId } : { anon_id: viewer.anonId! }
-    const { data } = await sb
-      .from('boombox_streaks')
-      .select('current_streak, total_xp')
-      .match(filter)
-      .maybeSingle()
-    if (data) me = { totalXp: data.total_xp || 0, streak: data.current_streak || 0 }
-  }
-
-  // Lyderių lentelė (visų laikų taškai)
-  const { data: streakRows } = await sb
-    .from('boombox_streaks')
-    .select('user_id, anon_id, total_xp, current_streak')
-    .order('total_xp', { ascending: false })
-    .limit(10)
-
-  const userIds = (streakRows || []).map(r => r.user_id).filter(Boolean) as string[]
-  const nameById = new Map<string, string>()
-  if (userIds.length) {
-    const { data: profiles } = await sb
-      .from('profiles')
-      .select('id, username, full_name')
-      .in('id', userIds)
-    for (const p of profiles || []) {
-      nameById.set(p.id, p.username || p.full_name || 'Narys')
-    }
-  }
-
-  const leaders: LeaderRow[] = (streakRows || [])
-    .filter(r => (r.total_xp || 0) > 0)
-    .map(r => ({
-      name: r.user_id ? (nameById.get(r.user_id) || 'Narys') : 'Svečias',
-      isAnon: !r.user_id,
-      totalXp: r.total_xp || 0,
-      streak: r.current_streak || 0,
-    }))
-
-  // Šiandienos kvizo rekordas
   const today = todayLT()
-  const { data: topToday } = await sb
-    .from('game_scores')
-    .select('score, correct_count, round_count, category')
-    .eq('game', 'kvizas')
-    .gte('created_at', `${today}T00:00:00+03:00`)
-    .order('score', { ascending: false })
-    .limit(1)
-    .maybeSingle()
+  const dayStart = `${today}T00:00:00+03:00`
 
-  // Kiek dvikovų archyve
-  const { count: duelCount } = await sb
-    .from('boombox_duel_drops')
-    .select('id', { count: 'exact', head: true })
-    .eq('status', 'ready')
+  const viewerFilter = (q: any) => {
+    if (viewer.userId) return q.eq('user_id', viewer.userId)
+    if (viewer.anonId) return q.eq('anon_id', viewer.anonId)
+    return null
+  }
+
+  // Lygiagrečiai: balansas, lyderiai, dienos TOP, viewer'io dienos būsena
+  const [meRes, leadersRes, dailyTopRes, myDailyRes, myQuizRes, myVadybRes, myVotesRes, duelsRes] = await Promise.all([
+    (viewer.userId || viewer.anonId)
+      ? sb.from('boombox_streaks').select('current_streak, total_xp')
+          .match(viewer.userId ? { user_id: viewer.userId } : { anon_id: viewer.anonId! }).maybeSingle()
+      : Promise.resolve({ data: null }),
+    sb.from('boombox_streaks').select('user_id, anon_id, total_xp, current_streak')
+      .order('total_xp', { ascending: false }).limit(8),
+    sb.from('game_scores').select('user_id, anon_id, score')
+      .eq('game', 'kvizas').eq('category', 'dienos').gte('created_at', dayStart)
+      .order('score', { ascending: false }).limit(5),
+    (() => {
+      const q = viewerFilter(sb.from('game_scores').select('id', { count: 'exact', head: true })
+        .eq('game', 'kvizas').eq('category', 'dienos').gte('created_at', dayStart))
+      return q || Promise.resolve({ count: 0 })
+    })(),
+    (() => {
+      const q = viewerFilter(sb.from('game_scores').select('id', { count: 'exact', head: true })
+        .eq('game', 'kvizas').neq('category', 'dienos').gte('created_at', dayStart))
+      return q || Promise.resolve({ count: 0 })
+    })(),
+    (() => {
+      const q = viewerFilter(sb.from('game_scores').select('id', { count: 'exact', head: true })
+        .eq('game', 'vadybininkas').gte('created_at', dayStart))
+      return q || Promise.resolve({ count: 0 })
+    })(),
+    (() => {
+      const q = viewerFilter(sb.from('boombox_completions').select('id', { count: 'exact', head: true })
+        .eq('mission_type', 'duel').gte('completed_at', dayStart))
+      return q || Promise.resolve({ count: 0 })
+    })(),
+    sb.from('boombox_duel_drops').select('id', { count: 'exact', head: true }).eq('status', 'ready'),
+  ])
+
+  const me = {
+    totalXp: (meRes as any).data?.total_xp || 0,
+    streak: (meRes as any).data?.current_streak || 0,
+  }
+
+  const leaderRows = ((leadersRes as any).data || []).filter((r: any) => (r.total_xp || 0) > 0)
+  const dailyRows = (dailyTopRes as any).data || []
+  const allUserIds = [
+    ...leaderRows.map((r: any) => r.user_id),
+    ...dailyRows.map((r: any) => r.user_id),
+  ].filter(Boolean) as string[]
+  const nameById = await namesFor(sb, allUserIds)
+
+  const leaders: LeaderRow[] = leaderRows.map((r: any) => ({
+    name: r.user_id ? (nameById.get(r.user_id) || 'Narys') : 'Svečias',
+    isAnon: !r.user_id,
+    totalXp: r.total_xp || 0,
+    streak: r.current_streak || 0,
+  }))
+
+  const dailyTop: DailyTopRow[] = dailyRows.map((r: any) => ({
+    name: r.user_id ? (nameById.get(r.user_id) || 'Narys') : 'Svečias',
+    isAnon: !r.user_id,
+    score: r.score || 0,
+  }))
 
   return {
     isAuthenticated: viewer.isAuthenticated,
     username: viewer.username,
     me,
     leaders,
-    todayBest: topToday ? { score: topToday.score, correct: topToday.correct_count, rounds: topToday.round_count } : null,
-    duelCount: duelCount || 0,
+    dailyTop,
+    today: {
+      dailyPlayed: ((myDailyRes as any).count || 0) > 0,
+      quizRunsLeft: Math.max(0, 3 - ((myQuizRes as any).count || 0)),
+      vadybRunsLeft: Math.max(0, 2 - ((myVadybRes as any).count || 0)),
+      duelVotesLeft: Math.max(0, 10 - ((myVotesRes as any).count || 0)),
+      duelPool: (duelsRes as any).count || 0,
+    },
   }
 }
 

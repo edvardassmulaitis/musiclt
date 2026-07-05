@@ -17,16 +17,31 @@ type MarketArtist = {
 type SimEvent = { artist: string; text: string; delta: number }
 type SimQuarter = { q: number; label: string; events: SimEvent[]; income: number }
 type SimResult = {
-  spent: number; remaining: number; quarters: SimQuarter[]
+  spent: number; remaining: number; strategija?: string; boostas?: string | null; quarters: SimQuarter[]
   resale: Array<{ id: number; name: string; image: string | null; bought: number; value: number }>
   totalIncome: number; finalValue: number
   grade: { label: string; emoji: string }
   xp: number; xpEligible: boolean; xpRunsLeft: number; totalXp: number
 }
 
-type Phase = 'loading' | 'draft' | 'simulating' | 'season' | 'results'
+type Phase = 'loading' | 'draft' | 'strategy' | 'simulating' | 'season' | 'results'
 
 const TIER_ACCENT: Record<string, string> = { A: '#f59e0b', B: '#6366f1', C: '#10b981' }
+
+const STRATEGY_CARDS = [
+  { key: 'saugi', emoji: '🛡️', label: 'Saugi taktika', desc: 'Mažiau dramų, stabilesnės pajamos. Rečiau iššauna, rečiau skaudžiai krenta.' },
+  { key: 'subalansuota', emoji: '⚖️', label: 'Subalansuota', desc: 'Klasikinis kelias — po truputį visko.' },
+  { key: 'rizika', emoji: '🎰', label: 'Visa į viršų', desc: 'Daug įvykių, didelės amplitudės. Legendos arba bankrotas.' },
+] as const
+
+const BOOST_CARDS = [
+  { key: null, emoji: '—', label: 'Be kampanijos', desc: 'Taupom biudžetą', cost: 0 },
+  { key: 'tiktok', emoji: '📱', label: 'TikTok kampanija', desc: 'Gerokai didesnė viralo tikimybė', cost: 10 },
+  { key: 'radijas', emoji: '📻', label: 'Radijo kampanija', desc: 'Rotacija + stabilesnės pajamos', cost: 10 },
+] as const
+
+type StrategyKey = typeof STRATEGY_CARDS[number]['key']
+type BoostKey = 'tiktok' | 'radijas' | null
 
 export default function VadybininkasClient() {
   const [phase, setPhase] = useState<Phase>('loading')
@@ -34,6 +49,8 @@ export default function VadybininkasClient() {
   const [budget, setBudget] = useState(100)
   const [token, setToken] = useState('')
   const [picked, setPicked] = useState<number[]>([])
+  const [strategy, setStrategy] = useState<StrategyKey>('subalansuota')
+  const [boost, setBoost] = useState<BoostKey>(null)
   const [result, setResult] = useState<SimResult | null>(null)
   const [shownQ, setShownQ] = useState(0)
   const [error, setError] = useState<string | null>(null)
@@ -69,8 +86,9 @@ export default function VadybininkasClient() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [])
 
+  const boostCost = boost ? 10 : 0
   const spent = picked.reduce((s, id) => s + (market.find(m => m.id === id)?.price || 0), 0)
-  const left = budget - spent
+  const left = budget - spent - (phase === 'strategy' ? boostCost : 0)
   const canStart = picked.length === 3 && left >= 0
 
   function toggle(id: number) {
@@ -88,7 +106,7 @@ export default function VadybininkasClient() {
       const res = await fetch('/api/zaidimai/vadybininkas', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ token, picked }),
+        body: JSON.stringify({ token, picked, strategija: strategy, boostas: boost }),
       })
       const json = await res.json()
       if (!res.ok) {
@@ -200,9 +218,54 @@ export default function VadybininkasClient() {
             <span className="vd-startbar-info">
               {picked.length}/3 atlikėjai{spent > 0 ? ` · išleista ${spent} tšk.` : ''}
             </span>
-            <button className="vd-start" disabled={!canStart} onClick={startSeason}>Pradėti sezoną →</button>
+            <button className="vd-start" disabled={!canStart} onClick={() => setPhase('strategy')}>Toliau: strategija →</button>
           </div>
         </>
+      )}
+
+      {/* ── Strategijos pasirinkimas ── */}
+      {phase === 'strategy' && (
+        <div className="vd-strategy">
+          <div className="vd-roster-mini">
+            {pickedArtists.map(a => <span key={a.id} className="vd-roster-chip">{a.name}</span>)}
+            <span className="vd-roster-chip dim">liko {left} tšk.</span>
+          </div>
+
+          <h2 className="vd-h2">Kokia tavo metų strategija?</h2>
+          <div className="vd-strat-row">
+            {STRATEGY_CARDS.map(s => (
+              <button key={s.key} className={`vd-strat-card${strategy === s.key ? ' on' : ''}`} onClick={() => setStrategy(s.key)}>
+                <span className="vd-strat-emoji">{s.emoji}</span>
+                <span className="vd-strat-label">{s.label}</span>
+                <span className="vd-strat-desc">{s.desc}</span>
+              </button>
+            ))}
+          </div>
+
+          <h2 className="vd-h2">Marketingo kampanija?</h2>
+          <div className="vd-strat-row">
+            {BOOST_CARDS.map(b => {
+              const unaffordable = b.cost > 0 && budget - spent < b.cost
+              return (
+                <button
+                  key={String(b.key)}
+                  className={`vd-strat-card${boost === b.key ? ' on' : ''}${unaffordable ? ' off' : ''}`}
+                  disabled={unaffordable}
+                  onClick={() => setBoost(b.key as BoostKey)}
+                >
+                  <span className="vd-strat-emoji">{b.emoji}</span>
+                  <span className="vd-strat-label">{b.label}{b.cost ? ` · ${b.cost} tšk.` : ''}</span>
+                  <span className="vd-strat-desc">{b.desc}</span>
+                </button>
+              )
+            })}
+          </div>
+
+          <div className="vd-startbar">
+            <button className="vd-back-step" onClick={() => setPhase('draft')}>← Keisti atlikėjus</button>
+            <button className="vd-start" disabled={!canStart} onClick={startSeason}>Pradėti sezoną →</button>
+          </div>
+        </div>
       )}
 
       {phase === 'simulating' && (
@@ -246,7 +309,7 @@ export default function VadybininkasClient() {
           </div>
           <div className="vd-value">
             Agentūros vertė: <b>{result.finalValue} tšk.</b>
-            <span className="vd-value-sub">(startavai su 100)</span>
+            <span className="vd-value-sub">(startavai su 100 · {result.strategija}{result.boostas ? ` + ${result.boostas === 'tiktok' ? 'TikTok' : 'radijo'} kampanija` : ''})</span>
           </div>
 
           <div className="vd-breakdown">
@@ -340,6 +403,24 @@ const css = `
 
 .vd-roster-mini { display: flex; gap: 8px; flex-wrap: wrap; margin-bottom: 14px; }
 .vd-roster-chip { font-size: 12px; font-weight: 800; background: var(--bg-surface); border: 1px solid rgba(140,160,190,0.25); color: var(--text-primary); border-radius: 999px; padding: 5px 12px; }
+.vd-roster-chip.dim { color: var(--text-muted); font-weight: 600; }
+
+.vd-h2 { font-size: 16px; font-weight: 900; color: var(--text-primary); margin: 4px 0 10px; }
+.vd-strat-row { display: grid; grid-template-columns: repeat(3, 1fr); gap: 10px; margin-bottom: 20px; }
+@media (max-width: 560px) { .vd-strat-row { grid-template-columns: 1fr; } }
+.vd-strat-card {
+  display: flex; flex-direction: column; gap: 4px; align-items: flex-start; text-align: left;
+  padding: 14px; border-radius: 14px; cursor: pointer;
+  background: var(--bg-surface); border: 1px solid rgba(140,160,190,0.22);
+  transition: border-color .13s ease, transform .13s ease;
+}
+.vd-strat-card:hover:not(.off) { transform: translateY(-2px); }
+.vd-strat-card.on { border-color: #10b981; box-shadow: 0 0 0 2px rgba(16,185,129,0.35); }
+.vd-strat-card.off { opacity: 0.4; cursor: not-allowed; }
+.vd-strat-emoji { font-size: 22px; }
+.vd-strat-label { font-size: 14px; font-weight: 900; color: var(--text-primary); }
+.vd-strat-desc { font-size: 12px; color: var(--text-secondary); line-height: 1.4; }
+.vd-back-step { font-size: 14px; font-weight: 700; color: var(--text-secondary); background: transparent; border: 0; cursor: pointer; }
 
 .vd-quarter { background: var(--bg-surface); border: 1px solid rgba(140,160,190,0.2); border-radius: 14px; padding: 14px 16px; margin-bottom: 10px; animation: vdin .35s ease; }
 @keyframes vdin { from { opacity: 0; transform: translateY(8px); } to { opacity: 1; transform: none; } }

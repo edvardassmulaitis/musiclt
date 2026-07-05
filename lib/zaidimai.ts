@@ -89,6 +89,7 @@ export function verifyPayload<T = any>(token: string): T | null {
 export async function countRunsToday(
   viewer: GameViewer,
   game: 'kvizas' | 'dvikovos' | 'vadybininkas',
+  category?: { eq?: string; neq?: string },
 ): Promise<number> {
   const sb = createAdminClient()
   const today = todayLT()
@@ -97,11 +98,34 @@ export async function countRunsToday(
     .select('id', { count: 'exact', head: true })
     .eq('game', game)
     .gte('created_at', `${today}T00:00:00+03:00`)
+  if (category?.eq) q = q.eq('category', category.eq)
+  if (category?.neq) q = q.neq('category', category.neq)
   if (viewer.userId) q = q.eq('user_id', viewer.userId)
   else if (viewer.anonId) q = q.eq('anon_id', viewer.anonId)
   else return 0
   const { count } = await q
   return count || 0
+}
+
+/** Deterministinis seed'as iš LT dienos (dienos iššūkiui — visiems tas pats). */
+export function dailySeed(salt = 'musiclt-dienos'): number {
+  const s = `${todayLT()}|${salt}`
+  let h = 2166136261
+  for (let i = 0; i < s.length; i++) {
+    h ^= s.charCodeAt(i)
+    h = Math.imul(h, 16777619)
+  }
+  return h >>> 0
+}
+
+/** Seeded shuffle (deterministinis — dienos iššūkio raundams). */
+export function seededShuffle<T>(arr: T[], rng: () => number): T[] {
+  const a = [...arr]
+  for (let i = a.length - 1; i > 0; i--) {
+    const j = Math.floor(rng() * (i + 1));
+    [a[i], a[j]] = [a[j], a[i]]
+  }
+  return a
 }
 
 export async function insertGameScore(row: {

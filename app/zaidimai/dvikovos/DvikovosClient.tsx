@@ -29,6 +29,7 @@ export default function DvikovosClient() {
   const [xpLeft, setXpLeft] = useState<number | null>(null)
   const [sessionXp, setSessionXp] = useState(0)
   const [votesCount, setVotesCount] = useState(0)
+  const [majorityStreak, setMajorityStreak] = useState(0)
   const [playing, setPlaying] = useState<'A' | 'B' | null>(null)
   const advanceRef = useRef<ReturnType<typeof setTimeout> | null>(null)
 
@@ -67,7 +68,15 @@ export default function DvikovosClient() {
         body: JSON.stringify({ dropId: duel.id, choice }),
       })
       const json = await res.json()
-      if (json.stats) setStats(json.stats)
+      if (json.stats) {
+        setStats(json.stats)
+        // „Su dauguma" mini-žaidimas: ar tavo pasirinkimas sutampa su bendruomene
+        const myPct = choice === 'A' ? json.stats.aPct : json.stats.bPct
+        const otherPct = choice === 'A' ? json.stats.bPct : json.stats.aPct
+        if (json.stats.total > 1) {
+          setMajorityStreak(s => (myPct >= otherPct ? s + 1 : 0))
+        }
+      }
       if (typeof json.xp === 'number') setSessionXp(x => x + json.xp)
       if (typeof json.votesXpLeft === 'number') setXpLeft(json.votesXpLeft)
       setVotesCount(v => v + 1)
@@ -169,6 +178,13 @@ export default function DvikovosClient() {
           </div>
           {voted && (
             <div className="dv-after">
+              {stats && stats.total > 1 && (
+                <span className={`dv-majority${(voted === 'A' ? stats.aPct >= stats.bPct : stats.bPct >= stats.aPct) ? ' with' : ' against'}`}>
+                  {(voted === 'A' ? stats.aPct >= stats.bPct : stats.bPct >= stats.aPct)
+                    ? <>🎯 Tu su dauguma{majorityStreak >= 3 ? ` — ${majorityStreak} iš eilės!` : ''}</>
+                    : <>🦄 Prieš srovę!</>}
+                </span>
+              )}
               {stats && <span className="dv-after-total">{stats.total} balsų</span>}
               <button className="dv-next" onClick={next}>Kita dvikova →</button>
             </div>
@@ -238,7 +254,10 @@ const css = `
 }
 .dv-vote:hover { filter: brightness(1.1); }
 
-.dv-after { display: flex; align-items: center; justify-content: center; gap: 16px; margin-top: 16px; }
+.dv-after { display: flex; align-items: center; justify-content: center; gap: 16px; margin-top: 16px; flex-wrap: wrap; }
+.dv-majority { font-size: 14px; font-weight: 800; }
+.dv-majority.with { color: #10b981; }
+.dv-majority.against { color: #a78bfa; }
 .dv-after-total { font-size: 12px; color: var(--text-muted); }
 .dv-next {
   font-size: 14px; font-weight: 800; color: #fff; cursor: pointer; border: 0; border-radius: 999px; padding: 10px 22px;
