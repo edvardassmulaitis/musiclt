@@ -1,4 +1,28 @@
-# Žaidimų zona v1 — /zaidimai (2026-07-05)
+# Žaidimų zona v1+v2 — /zaidimai (2026-07-05)
+
+## v2 papildymai (tos pačios dienos vakaras)
+
+Research (Heardle/Spotle/Harmonies/songtrivia): jaunimą laiko dienos ritualas
+(visiems tas pats iššūkis), share'inami emoji rezultatai, serijos, combo,
+bendruomenės palyginimas. Pritaikyta:
+
+- **Dienos iššūkis** (`/api/zaidimai/kvizas?kategorija=dienos`): date-seeded
+  (`dailySeed()` iš LT datos), visiems identiški 10 raundų, ×2 taškai,
+  1 užskaitytas bandymas/d. (kartojimai — treniruotė), „įveikei X% žaidusių",
+  Wordle-share (emoji grid). Prefetch'inamas pick ekrane — startas be laukimo.
+- **Combo**: 3+ teisingi iš eilės → +15/raundą (client ir server ta pati formulė).
+- **Dvikovos**: „Tu su dauguma 🎯 / Prieš srovę 🦄" + serijos skaitliukas.
+- **Vadybininkas**: strategijos žingsnis (saugi/subalansuota/rizika) +
+  marketingo kampanija (TikTok/radijas, 10 tšk.) — modifikuoja simuliacijos
+  tikimybes/amplitudes; pasirinkimai įeina į deterministinį seed'ą.
+- **Master landing** `/zaidimai`: daily-first, max simple — dienos iššūkio hero
+  su būsena, žaidimų eilutės su likusiais dienos taškais („dar gali surinkti
+  ~N tšk."), šiandienos + visų laikų TOP 5.
+
+Testuota production'e end-to-end (determinizmas tarp klientų, combo, ×2 XP,
+1/d. cap, strategijų poveikis) — testiniai duomenys išvalyti.
+
+---
 
 Testuotojo įžvalgos realizacija: aktyvumo paskata per žaidimus ir taškus
 (ne už įrašus/komentarus — spam'inantys nariai negauna pranašumo).
