@@ -320,8 +320,11 @@ export async function POST(req: NextRequest) {
     if (!row) return jsonErr('Šio atlikėjo komandoje nėra', 404)
 
     await sb.from('fantasy_roster').update({ released_at: new Date().toISOString() }).eq('id', row.id)
-    const spent = await spentBudget(sb, team.id)
-    return NextResponse.json({ ok: true, released: artistId, budgetLeft: team.budget - spent, transfersLeft: Math.max(0, TRANSFERS_PER_WEEK - transfers - 1) })
+    const [spent, transfersAfter] = await Promise.all([
+      spentBudget(sb, team.id),
+      transfersThisWeek(sb, team.id), // perskaičiuojam (1 val. taisyklė gali nedeginti limito)
+    ])
+    return NextResponse.json({ ok: true, released: artistId, budgetLeft: team.budget - spent, transfersLeft: Math.max(0, TRANSFERS_PER_WEEK - transfersAfter) })
   }
 
   return jsonErr('Netinkama užklausa — perkrauk puslapį')
