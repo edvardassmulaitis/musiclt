@@ -1,3 +1,5 @@
+'use client'
+
 // components/legal/LegalLayout.tsx
 //
 // Bendras apvalkalas informaciniams/teisiniams puslapiams (Privatumo politika,
@@ -7,6 +9,12 @@
 // Turinio tipografija — ta pati `.prose-custom` sistema kaip blog'o įrašuose
 // (žr. app/blogas/[username]/[slug]/post-content.tsx), kad ilgas tekstas
 // (politikos, sąlygos) būtų nuosekliai suformatuotas ir gerbtų temą (dark/light).
+//
+// 'use client' — reikalinga, nes naudoja styled-jsx (<style jsx global>),
+// kuris veikia tik Client Component'uose. Puslapiai, kurie šį komponentą
+// naudoja (app/apie-mus/page.tsx ir pan.), lieka Server Component'ais su
+// savo `export const metadata` — tai nekliudo, nes metadata eksportas turi
+// būti page.tsx faile, o ne šiame vaikiniame komponente.
 
 import Link from 'next/link'
 
