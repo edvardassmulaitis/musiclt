@@ -71,12 +71,17 @@ async function getActiveRoster(sb: ReturnType<typeof createAdminClient>, teamId:
 }
 
 async function transfersThisWeek(sb: ReturnType<typeof createAdminClient>, teamId: number): Promise<number> {
-  const { count } = await sb
+  const { data } = await sb
     .from('fantasy_roster')
-    .select('id', { count: 'exact', head: true })
+    .select('signed_at, released_at')
     .eq('team_id', teamId)
     .gte('released_at', ltDayStartUtc(weekStartOf()))
-  return count || 0
+  // Greitos korekcijos (paleista per 1 val. nuo pasirašymo — pvz. komandos
+  // rinkimo vedlyje) mainų limito nedegina.
+  return (data || []).filter(r => {
+    const held = Date.parse(r.released_at) - Date.parse(r.signed_at)
+    return held > 60 * 60 * 1000
+  }).length
 }
 
 async function spentBudget(sb: ReturnType<typeof createAdminClient>, teamId: number): Promise<number> {
