@@ -17,6 +17,7 @@ import {
   fetchTodayVerdictDrop,
   fetchCompletionsForViewer,
   todayLT,
+  ltDayStartUtc,
 } from '@/lib/boombox'
 import { resolveViewerReadonly } from '@/lib/zaidimai'
 import DienosClient from './DienosClient'
@@ -58,7 +59,7 @@ async function loadInitial() {
       .select('score')
       .eq('game', 'kvizas')
       .eq('category', 'dienos')
-      .gte('created_at', `${today}T00:00:00+03:00`)
+      .gte('created_at', ltDayStartUtc(today))
       .order('score', { ascending: false })
       .limit(1)
     if (viewer.userId) q = q.eq('user_id', viewer.userId)

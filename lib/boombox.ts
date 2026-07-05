@@ -22,6 +22,33 @@ export function todayLT(): string {
   }).split('.').reverse().join('-')
 }
 
+/** Europe/Vilnius offset minutėmis duotai akimirkai (DST-aware: +120/+180). */
+function ltOffsetMinutes(d: Date): number {
+  const tz = new Intl.DateTimeFormat('en-US', { timeZone: 'Europe/Vilnius', timeZoneName: 'longOffset' })
+    .formatToParts(d).find(p => p.type === 'timeZoneName')?.value || 'GMT+03:00'
+  const m = tz.match(/GMT([+-])(\d{2}):(\d{2})/)
+  return m ? (m[1] === '-' ? -1 : 1) * (parseInt(m[2]) * 60 + parseInt(m[3])) : 180
+}
+
+/**
+ * LT paros pradžia (00:00 Vilniaus laiku) kaip UTC ISO (…Z).
+ * Naudoti VISUR, kur timestamptz lyginamas su „šiandien LT" riba —
+ * plikas `${today}T00:00:00` Postgres'e interpretuojamas kaip UTC ir
+ * naktį (00–03 LT) duoda neteisingus rezultatus.
+ */
+export function ltDayStartUtc(dateStr: string = todayLT()): string {
+  const approx = new Date(`${dateStr}T00:00:00+02:00`)
+  const off = ltOffsetMinutes(approx)
+  return new Date(Date.parse(`${dateStr}T00:00:00Z`) - off * 60000).toISOString()
+}
+
+/** Kita LT diena (YYYY-MM-DD) po duotos. */
+export function nextDayLT(dateStr: string): string {
+  const d = new Date(`${dateStr}T12:00:00Z`)
+  d.setUTCDate(d.getUTCDate() + 1)
+  return d.toISOString().slice(0, 10)
+}
+
 export async function readAnonCookie(): Promise<string | null> {
   const store = await cookies()
   const v = store.get(BOOMBOX_ANON_COOKIE)?.value
@@ -121,13 +148,15 @@ async function pickTodayQueued(
 ): Promise<any | null> {
   const today = todayLT()
 
-  // 1. Already published today?
+  // 1. Already published today? (LT paros ribos konvertuotos į UTC — kitaip
+  // naktį 00–03 LT kiekvienas request'as „paskelbdavo" naują drop'ą ir
+  // degindavo eilę.)
   const { data: published } = await sb
     .from(table)
     .select(selectCols)
     .eq('status', 'ready')
-    .gte('published_at', `${today}T00:00:00`)
-    .lte('published_at', `${today}T23:59:59`)
+    .gte('published_at', ltDayStartUtc(today))
+    .lt('published_at', ltDayStartUtc(nextDayLT(today)))
     .order('published_at', { ascending: false })
     .limit(1)
     .maybeSingle()
@@ -297,13 +326,13 @@ export async function fetchTodayVideoDrops(limit = 5): Promise<VideoDrop[]> {
     track:related_track_id ( id, slug, title )
   `
 
-  // 1. Already published today?
+  // 1. Already published today? (LT ribos UTC formatu — žr. pickTodayQueued)
   const { data: todays } = await sb
     .from('boombox_video_drops')
     .select(sel)
     .eq('status', 'ready')
-    .gte('published_at', `${today}T00:00:00`)
-    .lte('published_at', `${today}T23:59:59`)
+    .gte('published_at', ltDayStartUtc(today))
+    .lt('published_at', ltDayStartUtc(nextDayLT(today)))
     .order('sort_order', { ascending: true })
     .limit(limit)
 
@@ -456,61 +485,19 @@ export async function bumpStreakAndXp({
 }): Promise<{ current: number; total_xp: number }> {
   if (!userId && !anonId) return { current: 0, total_xp: 0 }
   const sb = createAdminClient()
-  const today = todayLT()
 
-  const filter = userId
-    ? { user_id: userId }
-    : { anon_id: anonId }
-
-  const { data: existing } = await sb
-    .from('boombox_streaks')
-    .select('id, current_streak, longest_streak, last_active_date, total_xp, total_completions')
-    .match(filter)
-    .maybeSingle()
-
-  if (!existing) {
-    const insertRow: any = {
-      ...filter,
-      current_streak: 1,
-      longest_streak: 1,
-      last_active_date: today,
-      total_xp: xp,
-      total_completions: 1,
-    }
-    await sb.from('boombox_streaks').insert(insertRow)
-    return { current: 1, total_xp: xp }
+  // Atominis kaupimas per DB funkciją (FOR UPDATE) — lygiagretūs užskaitymai
+  // (pvz. dvi misijos vienu metu) nebepameta XP. Žr. 20260706b migraciją.
+  const { data, error } = await sb.rpc('game_bump_streak', {
+    p_user: userId,
+    p_anon: userId ? null : anonId,
+    p_xp: xp,
+    p_today: todayLT(),
+  })
+  if (error || !data || !(data as any[]).length) {
+    console.error('game_bump_streak klaida:', error?.message)
+    return { current: 0, total_xp: 0 }
   }
-
-  // Compute new streak based on last_active_date
-  const last = existing.last_active_date
-  let newCurrent = existing.current_streak
-
-  if (last !== today) {
-    const lastDate = last ? new Date(last) : null
-    const todayDate = new Date(today)
-    if (lastDate) {
-      const diffDays = Math.round((todayDate.getTime() - lastDate.getTime()) / (1000 * 60 * 60 * 24))
-      newCurrent = diffDays === 1 ? existing.current_streak + 1 : 1
-    } else {
-      newCurrent = 1
-    }
-  }
-
-  const newLongest = Math.max(existing.longest_streak, newCurrent)
-  const newXp = existing.total_xp + xp
-  const newCompletions = existing.total_completions + 1
-
-  await sb
-    .from('boombox_streaks')
-    .update({
-      current_streak: newCurrent,
-      longest_streak: newLongest,
-      last_active_date: today,
-      total_xp: newXp,
-      total_completions: newCompletions,
-      updated_at: new Date().toISOString(),
-    })
-    .eq('id', existing.id)
-
-  return { current: newCurrent, total_xp: newXp }
+  const row = (data as any[])[0]
+  return { current: row.out_streak || 0, total_xp: row.out_total_xp || 0 }
 }

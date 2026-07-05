@@ -13,7 +13,7 @@
 
 import { NextRequest, NextResponse } from 'next/server'
 import { createAdminClient } from '@/lib/supabase'
-import { bumpStreakAndXp, todayLT } from '@/lib/boombox'
+import { bumpStreakAndXp, ltDayStartUtc } from '@/lib/boombox'
 import { resolveViewer, shuffleArr, ytIdFromUrl } from '@/lib/zaidimai'
 
 export const dynamic = 'force-dynamic'
@@ -32,12 +32,11 @@ function normJoined(raw: any): any {
 
 async function countVotesToday(userId: string | null, anonId: string | null): Promise<number> {
   const sb = createAdminClient()
-  const today = todayLT()
   let q = sb
     .from('boombox_completions')
     .select('id', { count: 'exact', head: true })
     .eq('mission_type', 'duel')
-    .gte('completed_at', `${today}T00:00:00+03:00`)
+    .gte('completed_at', ltDayStartUtc())
   if (userId) q = q.eq('user_id', userId)
   else if (anonId) q = q.eq('anon_id', anonId)
   else return 0
@@ -122,10 +121,10 @@ export async function GET(_req: NextRequest) {
 
 export async function POST(req: NextRequest) {
   const body = await req.json().catch(() => null)
-  if (!body) return jsonErr('Bad JSON')
+  if (!body) return jsonErr('Netinkama užklausa — perkrauk puslapį')
   const { dropId, choice } = body as { dropId: number; choice: 'A' | 'B' }
-  if (typeof dropId !== 'number') return jsonErr('Bad dropId')
-  if (choice !== 'A' && choice !== 'B') return jsonErr('Bad choice')
+  if (typeof dropId !== 'number') return jsonErr('Netinkama užklausa — perkrauk puslapį')
+  if (choice !== 'A' && choice !== 'B') return jsonErr('Netinkama užklausa — perkrauk puslapį')
 
   const sb = createAdminClient()
   const { data: drop } = await sb
@@ -166,18 +165,18 @@ export async function POST(req: NextRequest) {
     streakInfo = await bumpStreakAndXp({ userId: viewer.userId, anonId: viewer.anonId, xp })
   }
 
-  // Bendruomenės pasiskirstymas
-  const { data: all } = await sb
+  // Bendruomenės pasiskirstymas — skaičiuojam count'ais (be 1000 eilučių ribos)
+  const baseCount = () => sb
     .from('boombox_completions')
-    .select('payload')
+    .select('id', { count: 'exact', head: true })
     .eq('drop_table', 'boombox_duel_drops')
     .eq('drop_id', dropId)
-  let aCount = 0; let bCount = 0
-  for (const r of all || []) {
-    const c = (r.payload as any)?.choice
-    if (c === 'A') aCount++
-    else if (c === 'B') bCount++
-  }
+  const [aRes, bRes] = await Promise.all([
+    baseCount().eq('payload->>choice', 'A'),
+    baseCount().eq('payload->>choice', 'B'),
+  ])
+  const aCount = aRes.count || 0
+  const bCount = bRes.count || 0
   const total = aCount + bCount
 
   return NextResponse.json({

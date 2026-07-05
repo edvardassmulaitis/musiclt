@@ -14,7 +14,7 @@
 
 import { NextRequest, NextResponse } from 'next/server'
 import { createAdminClient } from '@/lib/supabase'
-import { bumpStreakAndXp } from '@/lib/boombox'
+import { bumpStreakAndXp, ltDayStartUtc } from '@/lib/boombox'
 import { resolveViewer } from '@/lib/zaidimai'
 import {
   FANTASY_BUDGET,
@@ -34,6 +34,21 @@ function jsonErr(msg: string, status = 400) {
 
 function normJoined(raw: any): any {
   return Array.isArray(raw) ? raw[0] ?? null : raw
+}
+
+async function fetchAllTeamWeeks(
+  sb: ReturnType<typeof createAdminClient>,
+  fromWeek: string | null,
+): Promise<{ data: Array<{ team_id: number; points: number }> }> {
+  const all: Array<{ team_id: number; points: number }> = []
+  for (let offset = 0; ; offset += 1000) {
+    let q = sb.from('fantasy_team_weeks').select('team_id, points').range(offset, offset + 999)
+    if (fromWeek) q = q.gte('week_start', fromWeek)
+    const { data } = await q
+    all.push(...((data as any[]) || []))
+    if (!data || data.length < 1000) break
+  }
+  return { data: all }
 }
 
 async function getTeam(sb: ReturnType<typeof createAdminClient>, userId: string | null, anonId: string | null) {
@@ -56,12 +71,11 @@ async function getActiveRoster(sb: ReturnType<typeof createAdminClient>, teamId:
 }
 
 async function transfersThisWeek(sb: ReturnType<typeof createAdminClient>, teamId: number): Promise<number> {
-  const week = weekStartOf()
   const { count } = await sb
     .from('fantasy_roster')
     .select('id', { count: 'exact', head: true })
     .eq('team_id', teamId)
-    .gte('released_at', `${week}T00:00:00`)
+    .gte('released_at', ltDayStartUtc(weekStartOf()))
   return count || 0
 }
 
@@ -88,8 +102,8 @@ export async function GET(_req: NextRequest) {
   const monthStart = `${thisWeek.slice(0, 7)}-01`
   const [lastWeekRows, monthRows, seasonRows, teamsCountRes] = await Promise.all([
     sb.from('fantasy_team_weeks').select('team_id, points').eq('week_start', lastWeek).order('points', { ascending: false }).limit(10),
-    sb.from('fantasy_team_weeks').select('team_id, points').gte('week_start', monthStart).limit(2000),
-    sb.from('fantasy_team_weeks').select('team_id, points').limit(5000),
+    fetchAllTeamWeeks(sb, monthStart),
+    fetchAllTeamWeeks(sb, null),
     sb.from('fantasy_teams').select('id', { count: 'exact', head: true }),
   ])
 
@@ -178,6 +192,8 @@ export async function GET(_req: NextRequest) {
     roster: roster.map((r: any) => {
       const live = livePoints.get(r.artist_id)
       const official: any = officialByArtist.get(r.artist_id)
+      const weekStartUtc = ltDayStartUtc(thisWeek)
+      const firstWeekGrace = team.created_at >= weekStartUtc
       return {
         artistId: r.artist_id,
         name: r.artist?.name || '—',
@@ -185,6 +201,7 @@ export async function GET(_req: NextRequest) {
         image: r.artist?.cover_image_url || null,
         price: r.price,
         signedAt: r.signed_at,
+        countsFromNextWeek: !firstWeekGrace && r.signed_at >= weekStartUtc,
         lastWeekPoints: official?.total_points ?? null,
         livePoints: live?.total_points ?? 0,
         liveBreakdown: live ? { chart: live.chart_points, yt: live.yt_points, rel: live.release_points, base: live.base_points } : null,
@@ -200,7 +217,7 @@ export async function GET(_req: NextRequest) {
 
 export async function POST(req: NextRequest) {
   const body = await req.json().catch(() => null)
-  if (!body) return jsonErr('Bad JSON')
+  if (!body) return jsonErr('Netinkama užklausa — perkrauk puslapį')
   const { action } = body as { action: string }
 
   const viewer = await resolveViewer()
@@ -249,29 +266,44 @@ export async function POST(req: NextRequest) {
       .eq('id', artistId)
       .maybeSingle()
     if (!artist) return jsonErr('Atlikėjas nerastas', 404)
-    if (artist.country !== 'Lietuva') return jsonErr('Lygoje — tik Lietuvos atlikėjai')
 
     const price = priceOf(artist.score)
     const spent = roster.reduce((s: number, r: any) => s + r.price, 0)
     if (spent + price > team.budget) return jsonErr(`Nepakanka biudžeto: kaina ${price}, liko ${team.budget - spent}`)
 
-    const { error } = await sb.from('fantasy_roster').insert({
+    const { data: inserted, error } = await sb.from('fantasy_roster').insert({
       team_id: team.id,
       artist_id: artistId,
       price,
-    })
+    }).select('id').single()
     if (error) {
       if ((error as any).code === '23505') return jsonErr('Šis atlikėjas jau tavo komandoje')
       return jsonErr('Nepavyko pasirašyti: ' + error.message, 500)
     }
-    return NextResponse.json({ ok: true, signed: { artistId, name: artist.name, price }, budgetLeft: team.budget - spent - price })
+
+    // Lygiagretumo apsauga: po įrašo pertikrinam dydį ir biudžetą — jei du
+    // vienalaikiai pasirašymai viršijo ribas, atšaukiam savąjį.
+    const { data: after } = await sb
+      .from('fantasy_roster')
+      .select('id, price')
+      .eq('team_id', team.id)
+      .is('released_at', null)
+      .order('signed_at', { ascending: true })
+    const activeAfter = after || []
+    const spentAfter = activeAfter.reduce((s: number, r: any) => s + (r.price || 0), 0)
+    if (activeAfter.length > ROSTER_SIZE || spentAfter > team.budget) {
+      await sb.from('fantasy_roster').delete().eq('id', inserted.id)
+      return jsonErr(activeAfter.length > ROSTER_SIZE ? 'Komanda jau pilna' : 'Nepakanka biudžeto')
+    }
+
+    return NextResponse.json({ ok: true, signed: { artistId, name: artist.name, price }, budgetLeft: team.budget - spentAfter })
   }
 
   // ── Paleisti ──
   if (action === 'release') {
     if (!artistId) return jsonErr('Trūksta artistId')
     const transfers = await transfersThisWeek(sb, team.id)
-    if (transfers >= TRANSFERS_PER_WEEK) return jsonErr(`Šią savaitę jau ${TRANSFERS_PER_WEEK} transferai — nauji nuo pirmadienio`)
+    if (transfers >= TRANSFERS_PER_WEEK) return jsonErr(`Šią savaitę jau ${TRANSFERS_PER_WEEK} mainai — nauji galimi nuo pirmadienio`)
 
     const { data: row } = await sb
       .from('fantasy_roster')
@@ -287,5 +319,5 @@ export async function POST(req: NextRequest) {
     return NextResponse.json({ ok: true, released: artistId, budgetLeft: team.budget - spent, transfersLeft: Math.max(0, TRANSFERS_PER_WEEK - transfers - 1) })
   }
 
-  return jsonErr('Bad action')
+  return jsonErr('Netinkama užklausa — perkrauk puslapį')
 }

@@ -10,11 +10,11 @@
 //   * Bendras taškų balansas — boombox_streaks.total_xp (istoriškai jau
 //     naudotas boombox misijoms; žaidimai tęsia tą pačią sąskaitą).
 
-import { createHmac } from 'crypto'
+import { createHmac, createHash, createCipheriv, createDecipheriv, randomBytes } from 'crypto'
 import { getServerSession } from 'next-auth'
 import { authOptions } from '@/lib/auth'
 import { createAdminClient } from '@/lib/supabase'
-import { readAnonCookie, ensureAnonCookie, todayLT } from '@/lib/boombox'
+import { readAnonCookie, ensureAnonCookie, todayLT, ltDayStartUtc } from '@/lib/boombox'
 
 // ── Viewer ────────────────────────────────────────────────────────────────
 
@@ -83,6 +83,41 @@ export function verifyPayload<T = any>(token: string): T | null {
   }
 }
 
+// ── Užšifruoti „vokai" (AES-256-GCM) ─────────────────────────────────────
+// signPayload turinys naršyklėje PERSKAITOMAS (base64) — kvizo raundų
+// token'ams to negana, nes juose yra teisingas atsakymas. sealPayload
+// užšifruoja: klientas mato tik neperskaitomą voką, serveris atplėšia.
+
+function sealKey(): Buffer {
+  return createHash('sha256').update(secret()).digest()
+}
+
+export function sealPayload(payload: object): string {
+  const iv = randomBytes(12)
+  const cipher = createCipheriv('aes-256-gcm', sealKey(), iv)
+  const enc = Buffer.concat([cipher.update(JSON.stringify(payload), 'utf8'), cipher.final()])
+  const tag = cipher.getAuthTag()
+  return Buffer.concat([iv, tag, enc]).toString('base64url')
+}
+
+export function openPayload<T = any>(sealed: string): T | null {
+  try {
+    const buf = Buffer.from(sealed, 'base64url')
+    if (buf.length < 29) return null
+    const iv = buf.subarray(0, 12)
+    const tag = buf.subarray(12, 28)
+    const enc = buf.subarray(28)
+    const decipher = createDecipheriv('aes-256-gcm', sealKey(), iv)
+    decipher.setAuthTag(tag)
+    const dec = Buffer.concat([decipher.update(enc), decipher.final()]).toString('utf8')
+    const parsed = JSON.parse(dec)
+    if (parsed && typeof parsed.exp === 'number' && parsed.exp < Date.now()) return null
+    return parsed as T
+  } catch {
+    return null
+  }
+}
+
 // ── Dienos limitai / XP ───────────────────────────────────────────────────
 
 /** Kiek kartų viewer'is šiandien (LT laiku) jau žaidė šį žaidimą (scored runs). */
@@ -92,12 +127,11 @@ export async function countRunsToday(
   category?: { eq?: string; neq?: string },
 ): Promise<number> {
   const sb = createAdminClient()
-  const today = todayLT()
   let q = sb
     .from('game_scores')
     .select('id', { count: 'exact', head: true })
     .eq('game', game)
-    .gte('created_at', `${today}T00:00:00+03:00`)
+    .gte('created_at', ltDayStartUtc())
   if (category?.eq) q = q.eq('category', category.eq)
   if (category?.neq) q = q.neq('category', category.neq)
   if (viewer.userId) q = q.eq('user_id', viewer.userId)

@@ -11,8 +11,8 @@ import Link from 'next/link'
 import { proxyImg } from '@/lib/img-proxy'
 
 type Option = { id: number; name: string }
-type Round = { r: number; image: string; correctId: number; correctSlug: string; options: Option[]; token: string }
-type Answer = { token: string; answerId: number | null; ms: number }
+type Round = { r: number; image: string; options: Option[]; token: string }
+type RoundResult = { correct: boolean; correctId: number; points: number }
 
 const ROUND_MS = 12000
 const REVEAL_MS = 3500
@@ -22,9 +22,12 @@ type Phase = 'intro' | 'loading' | 'round' | 'reveal' | 'submitting' | 'results'
 export default function VaizdasClient() {
   const [phase, setPhase] = useState<Phase>('intro')
   const [rounds, setRounds] = useState<Round[]>([])
+  const [quizId, setQuizId] = useState('')
   const [idx, setIdx] = useState(0)
-  const [answers, setAnswers] = useState<Answer[]>([])
   const [picked, setPicked] = useState<number | null>(null)
+  const [roundResult, setRoundResult] = useState<RoundResult | null>(null)
+  const [checking, setChecking] = useState(false)
+  const [roundError, setRoundError] = useState<{ answerId: number | null; ms: number } | null>(null)
   const [timeLeft, setTimeLeft] = useState(ROUND_MS)
   const [score, setScore] = useState(0)
   const [lastPoints, setLastPoints] = useState(0)
@@ -39,8 +42,6 @@ export default function VaizdasClient() {
   const phaseRef = useRef(phase)
   phaseRef.current = phase
   const answerRef = useRef<(id: number | null) => void>(() => {})
-  const answersRef = useRef<Answer[]>([])
-  useEffect(() => { answersRef.current = answers }, [answers])
   useEffect(() => () => { if (timerRef.current) clearInterval(timerRef.current); if (revealTimerRef.current) clearTimeout(revealTimerRef.current) }, [])
 
   const round = rounds[idx] || null
@@ -51,13 +52,15 @@ export default function VaizdasClient() {
     try {
       const res = await fetch('/api/zaidimai/vaizdas?raundai=8')
       const json = await res.json()
-      if (!res.ok || !json.rounds?.length) { setError(json.error || 'Nepavyko užkrauti'); setPhase('intro'); return }
+      if (!res.ok || !json.rounds?.length) { setError(json.error || 'Nepavyko įkelti'); setPhase('intro'); return }
       setRounds(json.rounds)
+      setQuizId(json.quizId)
       setXpRunsLeft(json.xpRunsLeft ?? null)
       setIdx(0)
-      setAnswers([])
       setScore(0)
       setResult(null)
+      setRoundResult(null)
+      setRoundError(null)
       startRound()
       setPhase('round')
     } catch { setError('Tinklo klaida'); setPhase('intro') }
@@ -79,24 +82,42 @@ export default function VaizdasClient() {
   }
 
   function answer(answerId: number | null) {
-    if (phaseRef.current !== 'round' || !round) return
+    if (phaseRef.current !== 'round' || !round || checking) return
     if (timerRef.current) { clearInterval(timerRef.current); timerRef.current = null }
     const ms = Math.min(Date.now() - startRef.current, ROUND_MS)
-    const correct = answerId !== null && answerId === round.correctId
-    const points = correct ? 40 + Math.round(60 * (ROUND_MS - ms) / ROUND_MS) : 0
     setPicked(answerId)
-    setLastPoints(points)
-    setScore(s => s + points)
-    setAnswers(a => [...a, { token: round.token, answerId, ms }])
-    setPhase('reveal')
-    revealTimerRef.current = setTimeout(next, REVEAL_MS)
+    setChecking(true)
+    setRoundError(null)
+    void sendAnswer(round, answerId, ms)
   }
   answerRef.current = answer
+
+  async function sendAnswer(r: Round, answerId: number | null, ms: number) {
+    try {
+      const res = await fetch('/api/zaidimai/raundas', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ token: r.token, answerId, ms }),
+      })
+      const json = await res.json()
+      if (!res.ok) throw new Error(json.error || 'Nepavyko')
+      setChecking(false)
+      setRoundResult({ correct: json.correct, correctId: json.correctId, points: json.points })
+      setLastPoints(json.points)
+      setScore(s => s + json.points)
+      setPhase('reveal')
+      revealTimerRef.current = setTimeout(next, REVEAL_MS)
+    } catch {
+      setChecking(false)
+      setRoundError({ answerId, ms })
+    }
+  }
 
   function next() {
     if (revealTimerRef.current) { clearTimeout(revealTimerRef.current); revealTimerRef.current = null }
     if (idx + 1 >= rounds.length) { void submit(); return }
     setIdx(i => i + 1)
+    setRoundResult(null)
     startRound()
     setPhase('round')
   }
@@ -107,10 +128,12 @@ export default function VaizdasClient() {
       const res = await fetch('/api/zaidimai/vaizdas', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ rounds: answersRef.current }),
+        body: JSON.stringify({ quizId }),
       })
-      setResult(await res.json())
-    } catch { /* rodom lokalius */ }
+      const json = await res.json()
+      if (!res.ok && res.status !== 409) setResult({ submitError: json.error || 'Nepavyko užskaityti — pabandyk dar kartą' })
+      else setResult(json)
+    } catch { setResult({ submitError: 'Tinklo klaida — rezultato užskaityti nepavyko' }) }
     setPhase('results')
   }
 
@@ -162,9 +185,9 @@ export default function VaizdasClient() {
             {phase === 'round' && (
               <div className="vz-clock" style={{ ['--p' as any]: pct }}><span>{Math.ceil(timeLeft / 1000)}</span></div>
             )}
-            {phase === 'reveal' && (
-              <div className={`vz-tag ${picked === round.correctId ? 'ok' : 'bad'}`}>
-                {picked === round.correctId ? `+${lastPoints} tšk.` : picked === null ? 'Laikas baigėsi!' : 'Ne tas!'}
+            {phase === 'reveal' && roundResult && (
+              <div className={`vz-tag ${roundResult.correct ? 'ok' : 'bad'}`}>
+                {roundResult.correct ? `+${lastPoints} tšk.` : picked === null ? 'Laikas baigėsi!' : 'Ne tas!'}
               </div>
             )}
           </div>
@@ -172,18 +195,26 @@ export default function VaizdasClient() {
           <div className="vz-options">
             {round.options.map(o => {
               let cls = 'vz-opt'
-              if (phase === 'reveal') {
-                if (o.id === round.correctId) cls += ' correct'
+              if (phase === 'reveal' && roundResult) {
+                if (o.id === roundResult.correctId) cls += ' correct'
                 else if (o.id === picked) cls += ' wrong'
                 else cls += ' dim'
+              } else if (checking && o.id === picked) {
+                cls += ' checking'
               }
               return (
-                <button key={o.id} className={cls} disabled={phase === 'reveal'} onClick={() => answer(o.id)}>
+                <button key={o.id} className={cls} disabled={phase === 'reveal' || checking} onClick={() => answer(o.id)}>
                   {o.name}
                 </button>
               )
             })}
           </div>
+          {roundError && (
+            <div className="vz-error">
+              Atsakymo išsiųsti nepavyko.
+              <button className="vz-retry" onClick={() => { setRoundError(null); setChecking(true); void sendAnswer(round, roundError.answerId, roundError.ms) }}>Bandyti dar</button>
+            </div>
+          )}
           {phase === 'reveal' && (
             <button className="vz-next" onClick={next}>{idx + 1 >= rounds.length ? 'Rezultatai →' : 'Kitas →'}</button>
           )}
@@ -192,6 +223,12 @@ export default function VaizdasClient() {
 
       {phase === 'results' && (
         <div className="vz-results">
+          {result?.submitError && (
+            <div className="vz-error" style={{ marginBottom: 12 }}>
+              {result.submitError}
+              <button className="vz-retry" onClick={() => void submit()}>Bandyti dar</button>
+            </div>
+          )}
           <div className="vz-score-big">
             <span className="vz-score-num">{result?.score ?? score}</span>
             <span className="vz-score-max">/ {result?.maxScore ?? rounds.length * 100} tšk.</span>
@@ -200,7 +237,7 @@ export default function VaizdasClient() {
           {result?.xp > 0 ? (
             <p className="vz-xp">⚡ Užskaityta <b>+{result.xp}</b> taškų{result.totalXp > 0 ? ` — iš viso ${result.totalXp.toLocaleString('lt-LT')}` : ''}</p>
           ) : result && !result.xpEligible ? (
-            <p className="vz-xp dim">Dienos limitas — treniruotė 💪</p>
+            <p className="vz-xp dim">Dienos taškų limitas išnaudotas — čia treniruotė 💪</p>
           ) : null}
           <div className="vz-actions">
             <button className="vz-cta" onClick={start}>Dar kartą</button>
@@ -248,6 +285,9 @@ const css = `
 .vz-opt.correct { background: rgba(16,185,129,0.16); border-color: #10b981; color: #34d399; }
 .vz-opt.wrong { background: rgba(239,68,68,0.13); border-color: #ef4444; }
 .vz-opt.dim { opacity: 0.45; }
+.vz-opt.checking { border-color: #8b5cf6; animation: vzcheck .5s ease infinite alternate; }
+@keyframes vzcheck { from { opacity: 0.75; } to { opacity: 1; } }
+.vz-retry { margin-left: 10px; font-size: 12px; font-weight: 800; color: #f87171; background: transparent; border: 1px solid rgba(248,113,113,0.5); border-radius: 8px; padding: 4px 10px; cursor: pointer; }
 .vz-next { align-self: center; font-size: 16px; font-weight: 800; color: #fff; cursor: pointer; background: linear-gradient(135deg, #8b5cf6, #6366f1); border: 0; border-radius: 999px; padding: 12px 28px; }
 
 .vz-results { display: flex; flex-direction: column; align-items: center; text-align: center; padding: 30px 0; }

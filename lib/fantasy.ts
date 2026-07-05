@@ -15,10 +15,12 @@
 // (tas pats skaičiavimas ant šviežių duomenų, neįrašant).
 
 import { createAdminClient } from '@/lib/supabase'
+import { ltDayStartUtc } from '@/lib/boombox'
 
 export const FANTASY_BUDGET = 220
 export const ROSTER_SIZE = 5
 export const TRANSFERS_PER_WEEK = 3
+export const FOREIGN_POOL = 1500   // kiek užsienio atlikėjų (pagal score) skaičiuojama kas savaitę
 
 // ── Savaitės ──────────────────────────────────────────────────────────────
 
@@ -49,10 +51,14 @@ export function weekEnd(weekStart: string): string {
 
 // ── Kainos ────────────────────────────────────────────────────────────────
 
-/** Atlikėjo kaina iš realaus score (6..76). Biudžetas 220 → max 2 superžvaigždės. */
+/**
+ * Atlikėjo kaina iš realaus score (6..110). LT žvaigždės ~55–76, pasaulio
+ * superžvaigždės (score iki 100) — iki 110, t. y. pusė biudžeto: pasaulinė
+ * žvaigždė + 4 pigesni ARBA subalansuota komanda be jos.
+ */
 export function priceOf(score: number | null): number {
   const s = score || 0
-  return Math.min(76, Math.max(6, Math.round(s * 1.15)))
+  return Math.min(110, Math.max(6, Math.round(s * 1.15)))
 }
 
 // ── Atlikėjų savaitės taškai ──────────────────────────────────────────────
@@ -134,25 +140,58 @@ export async function computeArtistWeekPoints(
     }
   }
 
-  // 3) YouTube augimas — views delta iš istorijos (kai padengta)
+  // 2b) Išoriniai topai (Billboard, Spotify, Apple, consensus TOP100) —
+  // pasaulio (ir LT per „Lietuvos TOP 100") atlikėjų realios pozicijos.
+  const extByArtist = new Map<number, { pts: number; entries: any[] }>()
+  {
+    const { data: charts } = await sb
+      .from('external_charts')
+      .select('id, title, size, source')
+      .eq('is_current', true)
+    const chartMeta = new Map((charts || []).map((c: any) => [c.id, c]))
+    const chartIds = Array.from(chartMeta.keys())
+    if (chartIds.length) {
+      const { data: entries } = await sb
+        .from('external_chart_entries')
+        .select('chart_id, position, artist_id, title')
+        .in('chart_id', chartIds)
+        .in('artist_id', artistIds)
+      for (const e of entries || []) {
+        if (!e.artist_id || !artistById.has(e.artist_id)) continue
+        const meta: any = chartMeta.get(e.chart_id)
+        const size = meta?.size || 100
+        const pts = (Math.max(0, size + 1 - e.position) / size) * 22 // topo viršūnė ≈ 22
+        const cur = extByArtist.get(e.artist_id) || { pts: 0, entries: [] }
+        cur.pts += pts
+        cur.entries.push({ chart: meta?.title || meta?.source, pos: e.position, title: e.title })
+        extByArtist.set(e.artist_id, cur)
+      }
+    }
+  }
+
+  // 3) YouTube augimas — views delta iš istorijos (kai padengta).
+  // Puslapiuojam per .range() — PostgREST tyliai kapoja ties 1000 eilučių.
   const ytDeltaByArtist = new Map<number, number>()
   {
-    const { data: hist } = await sb
-      .from('track_video_views_history')
-      .select('track_id, views, captured_at, tracks:track_id ( artist_id )')
-      .gte('captured_at', `${weekStart}T00:00:00`)
-      .lt('captured_at', `${wEnd}T00:00:00`)
-      .order('captured_at', { ascending: true })
-      .limit(20000)
-    // pirmo ir paskutinio snapshot'o skirtumas per track'ą
     const firstLast = new Map<number, { first: number; last: number; artist: number }>()
-    for (const h of hist || []) {
-      const t: any = Array.isArray((h as any).tracks) ? (h as any).tracks[0] : (h as any).tracks
-      const aId = t?.artist_id
-      if (!aId || !artistById.has(aId)) continue
-      const cur = firstLast.get(h.track_id)
-      if (!cur) firstLast.set(h.track_id, { first: h.views, last: h.views, artist: aId })
-      else cur.last = h.views
+    const PAGE = 1000
+    for (let offset = 0; offset < 20000; offset += PAGE) {
+      const { data: hist } = await sb
+        .from('track_video_views_history')
+        .select('track_id, views, captured_at, tracks:track_id ( artist_id )')
+        .gte('captured_at', ltDayStartUtc(weekStart))
+        .lt('captured_at', ltDayStartUtc(wEnd))
+        .order('captured_at', { ascending: true })
+        .range(offset, offset + PAGE - 1)
+      for (const h of hist || []) {
+        const t: any = Array.isArray((h as any).tracks) ? (h as any).tracks[0] : (h as any).tracks
+        const aId = t?.artist_id
+        if (!aId || !artistById.has(aId)) continue
+        const cur = firstLast.get(h.track_id)
+        if (!cur) firstLast.set(h.track_id, { first: h.views, last: h.views, artist: aId })
+        else cur.last = h.views
+      }
+      if (!hist || hist.length < PAGE) break
     }
     for (const v of firstLast.values()) {
       const delta = Math.max(0, v.last - v.first)
@@ -160,7 +199,7 @@ export async function computeArtistWeekPoints(
     }
   }
 
-  // 4) Releizai tą savaitę
+  // 4) Naujos dainos tą savaitę
   const releasesByArtist = new Map<number, number>()
   {
     const { data: rel } = await sb
@@ -180,7 +219,9 @@ export async function computeArtistWeekPoints(
     if (!a) continue
 
     const chart = chartByArtist.get(id)
-    const chart_points = Math.round(chart?.pts || 0)
+    const ext = extByArtist.get(id)
+    // Vidiniai topai + išoriniai (išorinių dedamoji ribojama iki 45)
+    const chart_points = Math.round((chart?.pts || 0) + Math.min(45, ext?.pts || 0))
 
     // YT: score_trending yra 0..~90 skalės indikatorius (ne raw views) —
     // konvertuojam tiesiogiai (×0.4 → iki ~35 tšk.). Views istorijos delta
@@ -204,7 +245,7 @@ export async function computeArtistWeekPoints(
       base_points,
       total_points,
       details: {
-        chart_entries: chart?.entries || [],
+        chart_entries: [...(chart?.entries || []), ...(ext?.entries || [])],
         yt_delta: histDelta,
         trend: a.score_trending || 0,
         releases: relCount,
@@ -223,13 +264,33 @@ export async function computeArtistWeekPoints(
 export async function computeFantasyWeek(weekStart: string, live = false): Promise<{ artists: number; teams: number }> {
   const sb = createAdminClient()
 
-  const { data: ltArtists } = await sb
-    .from('artists')
-    .select('id')
-    .eq('country', 'Lietuva')
-    .gt('score', 0)
-    .limit(1000)
-  const ids = (ltArtists || []).map(a => a.id)
+  // Apimtis: visi LT + pasaulio top FOREIGN_POOL pagal score + VISI, kurie
+  // yra bet kurios komandos sudėtyje (kad reti pasirinkimai irgi gautų taškus).
+  const idSet = new Set<number>()
+  {
+    const { data: lt } = await sb
+      .from('artists').select('id')
+      .eq('country', 'Lietuva').gt('score', 0).limit(1000)
+    for (const a of lt || []) idSet.add(a.id)
+  }
+  for (let offset = 0; offset < FOREIGN_POOL; offset += 1000) {
+    const { data: fo } = await sb
+      .from('artists').select('id')
+      .neq('country', 'Lietuva').gt('score', 0)
+      .order('score', { ascending: false })
+      .range(offset, Math.min(offset + 999, FOREIGN_POOL - 1))
+    for (const a of fo || []) idSet.add(a.id)
+    if (!fo || fo.length < 1000) break
+  }
+  for (let offset = 0; ; offset += 1000) {
+    const { data: rostered } = await sb
+      .from('fantasy_roster').select('artist_id')
+      .is('released_at', null)
+      .range(offset, offset + 999)
+    for (const r of rostered || []) idSet.add(r.artist_id)
+    if (!rostered || rostered.length < 1000) break
+  }
+  const ids = Array.from(idSet)
 
   // Dalimis po 200, kad užklausos neišsipūstų
   const allPoints = new Map<number, ArtistWeekPoints>()
@@ -255,17 +316,36 @@ export async function computeFantasyWeek(weekStart: string, live = false): Promi
     await sb.from('fantasy_artist_weeks').upsert(rows.slice(i, i + 500), { onConflict: 'artist_id,week_start' })
   }
 
-  // Komandų savaitės: aktyvus roster'is, pasirašytas iki savaitės pabaigos
+  // Komandų savaitės. Taisyklės (sąžiningumas):
+  //   * Atlikėjas neša savaitės taškus, jei pasirašytas IKI savaitės pradžios
+  //     (naujokai — nuo kitos savaitės; apsauga nuo „pasirašysiu sekmadienio
+  //     vakarą tuos, kas jau surinko taškus").
+  //   * IŠIMTIS: komandos pirmoji savaitė (sukurta tą savaitę) — skaičiuojasi
+  //     visi, kad naujas žaidėjas negautų tuščio pirmo turo.
+  //   * Paleisti PO savaitės pabaigos atlikėjai vis tiek skaičiuojasi tai
+  //     savaitei (nedingsta sąžiningai uždirbti taškai).
   const wEnd = weekEnd(weekStart)
-  const { data: teams } = await sb.from('fantasy_teams').select('id')
+  const weekStartUtc = ltDayStartUtc(weekStart)
+  const wEndUtc = ltDayStartUtc(wEnd)
+
+  const teams: Array<{ id: number; created_at: string }> = []
+  for (let offset = 0; ; offset += 1000) {
+    const { data: page } = await sb
+      .from('fantasy_teams').select('id, created_at')
+      .range(offset, offset + 999)
+    teams.push(...((page as any[]) || []))
+    if (!page || page.length < 1000) break
+  }
+
   let teamCount = 0
-  for (const team of teams || []) {
+  for (const team of teams) {
+    const firstWeekGrace = team.created_at >= weekStartUtc && team.created_at < wEndUtc
     const { data: roster } = await sb
       .from('fantasy_roster')
-      .select('artist_id, signed_at, artists:artist_id ( name )')
+      .select('artist_id, signed_at, released_at, artists:artist_id ( name )')
       .eq('team_id', team.id)
-      .is('released_at', null)
-      .lt('signed_at', `${wEnd}T00:00:00`)
+      .or(`released_at.is.null,released_at.gte.${wEndUtc}`)
+      .lt('signed_at', firstWeekGrace ? wEndUtc : weekStartUtc)
     const breakdown = (roster || []).map((r: any) => {
       const a = Array.isArray(r.artists) ? r.artists[0] : r.artists
       const p = allPoints.get(r.artist_id)

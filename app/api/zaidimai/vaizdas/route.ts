@@ -1,15 +1,11 @@
 // app/api/zaidimai/vaizdas/route.ts
 //
-// „Atspėk iš vaizdo" (automatinis režimas) — atlikėjo nuotrauka pradžioje
-// visiškai išblurinta ir per 12 s ryškėja; kuo greičiau atspėsi, tuo daugiau
-// taškų. Turinys generuojasi pats iš artists lentelės (populiariausi LT
-// atlikėjai su nuotraukomis) — admin darbo nereikia.
+// „Atspėk iš vaizdo" — atlikėjo nuotrauka per 12 s ryškėja; kuo greičiau
+// atpažinsi, tuo daugiau taškų. Turinys generuojasi pats iš artists lentelės.
 //
-//   GET  ?raundai=8 → raundai su HMAC token'ais
-//   POST { rounds: [{ token, answerId|null, ms }] } → server-side rezultatas
-//
-// Taškavimas: teisingas 40 + greičio bonusas iki 60 (12 s). XP už pirmus
-// 3 žaidimus per dieną (score/10, nariams ×1.5).
+//   GET  ?raundai=8 → raundai su užšifruotais vokais (atsakymas nekeliauja
+//        į naršyklę; feedback'as per POST /api/zaidimai/raundas)
+//   POST { quizId } → rezultatas iš game_rounds DB, replay apsauga unique.
 
 import { NextRequest, NextResponse } from 'next/server'
 import { createAdminClient } from '@/lib/supabase'
@@ -17,15 +13,12 @@ import { bumpStreakAndXp } from '@/lib/boombox'
 import {
   resolveViewer,
   shuffleArr,
-  signPayload,
-  verifyPayload,
+  sealPayload,
   countRunsToday,
-  insertGameScore,
 } from '@/lib/zaidimai'
 
 export const dynamic = 'force-dynamic'
 
-const ROUND_MS = 12000
 const XP_RUNS_PER_DAY = 3
 const TOKEN_TTL_MS = 45 * 60 * 1000
 
@@ -53,7 +46,7 @@ export async function GET(req: NextRequest) {
 
   if (!pool || pool.length < roundCount * 4) return jsonErr('Per mažai atlikėjų su nuotraukomis', 503)
 
-  const quizId = Math.random().toString(36).slice(2, 10)
+  const quizId = `v-${Math.random().toString(36).slice(2, 10)}`
   const exp = Date.now() + TOKEN_TTL_MS
 
   const corrects = shuffleArr(pool).slice(0, roundCount)
@@ -66,10 +59,8 @@ export async function GET(req: NextRequest) {
     return {
       r: idx,
       image: correct.cover_image_url,
-      correctId: correct.id,
-      correctSlug: correct.slug,
       options,
-      token: signPayload({ g: 'vaizdas', q: quizId, r: idx, c: correct.id, exp }),
+      token: sealPayload({ g: 'vaizdas', q: quizId, r: idx, c: correct.id, exp }),
     }
   })
 
@@ -77,7 +68,7 @@ export async function GET(req: NextRequest) {
 
   return NextResponse.json({
     quizId,
-    roundMs: ROUND_MS,
+    roundMs: 12000,
     rounds,
     xpRunsLeft: Math.max(0, XP_RUNS_PER_DAY - runsToday),
   })
@@ -87,37 +78,31 @@ export async function GET(req: NextRequest) {
 
 export async function POST(req: NextRequest) {
   const body = await req.json().catch(() => null)
-  if (!body) return jsonErr('Bad JSON')
-  const { rounds } = body as { rounds: Array<{ token: string; answerId: number | null; ms: number }> }
-  if (!Array.isArray(rounds) || rounds.length < 5 || rounds.length > 12) return jsonErr('Bad rounds')
-
-  let quizId: string | null = null
-  const seenR = new Set<number>()
-  let score = 0
-  let correctCount = 0
-  const scored: any[] = []
-
-  for (const round of rounds) {
-    const p = verifyPayload<{ g: string; q: string; r: number; c: number; exp: number }>(round?.token || '')
-    if (!p || p.g !== 'vaizdas') return jsonErr('Blogas token\'as')
-    if (quizId === null) quizId = p.q
-    if (p.q !== quizId) return jsonErr('Raundai iš skirtingų žaidimų')
-    if (seenR.has(p.r)) return jsonErr('Dubliuotas raundas')
-    seenR.add(p.r)
-
-    const answerId = typeof round.answerId === 'number' ? round.answerId : null
-    const ms = Math.min(Math.max(typeof round.ms === 'number' ? round.ms : ROUND_MS, 0), ROUND_MS)
-    const correct = answerId !== null && answerId === p.c
-    let points = 0
-    if (correct) {
-      correctCount++
-      points = 40 + Math.round(60 * (ROUND_MS - ms) / ROUND_MS)
-    }
-    score += points
-    scored.push({ r: p.r, correctId: p.c, answerId, correct, points })
+  if (!body) return jsonErr('Netinkama užklausa — perkrauk puslapį')
+  const { quizId } = body as { quizId: string }
+  if (typeof quizId !== 'string' || !quizId.startsWith('v-') || quizId.length > 40) {
+    return jsonErr('Netinkama užklausa — perkrauk puslapį')
   }
 
   const viewer = await resolveViewer()
+  const sb = createAdminClient()
+
+  let rq = sb
+    .from('game_rounds')
+    .select('r, answer_id, ms, correct, points')
+    .eq('game', 'vaizdas')
+    .eq('quiz_id', quizId)
+    .order('r', { ascending: true })
+  rq = viewer.userId ? rq.eq('user_id', viewer.userId) : rq.eq('anon_id', viewer.anonId!)
+  const { data: roundRows } = await rq
+
+  if (!roundRows || roundRows.length < 5) {
+    return jsonErr('Per mažai atsakytų raundų — sužaisk iki galo', 400)
+  }
+
+  const score = roundRows.reduce((s, r) => s + (r.points || 0), 0)
+  const correctCount = roundRows.filter(r => r.correct).length
+
   const runsToday = await countRunsToday(viewer, 'vaizdas')
   const xpEligible = runsToday < XP_RUNS_PER_DAY
 
@@ -127,16 +112,22 @@ export async function POST(req: NextRequest) {
     if (viewer.userId) xp = Math.round(xp * 1.5)
   }
 
-  await insertGameScore({
-    viewer,
+  const { error: insertErr } = await sb.from('game_scores').insert({
+    user_id: viewer.userId,
+    anon_id: viewer.userId ? null : viewer.anonId,
     game: 'vaizdas',
+    quiz_id: quizId,
     score,
-    maxScore: rounds.length * 100,
-    correctCount,
-    roundCount: rounds.length,
-    xpEarned: xp,
-    details: { quizId, rounds: scored },
+    max_score: roundRows.length * 100,
+    correct_count: correctCount,
+    round_count: roundRows.length,
+    xp_earned: xp,
+    details: { rounds: roundRows },
   })
+  if (insertErr) {
+    if (insertErr.code === '23505') return jsonErr('Šis žaidimas jau užskaitytas', 409)
+    return jsonErr('Nepavyko užskaityti — pabandyk dar kartą', 500)
+  }
 
   let streakInfo = { current: 0, total_xp: 0 }
   if (xp > 0) {
@@ -146,9 +137,9 @@ export async function POST(req: NextRequest) {
   return NextResponse.json({
     ok: true,
     score,
-    maxScore: rounds.length * 100,
+    maxScore: roundRows.length * 100,
     correctCount,
-    roundCount: rounds.length,
+    roundCount: roundRows.length,
     xp,
     xpEligible,
     xpRunsLeft: Math.max(0, XP_RUNS_PER_DAY - runsToday - 1),

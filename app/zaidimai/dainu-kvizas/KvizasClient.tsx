@@ -15,7 +15,8 @@ import { useEffect, useRef, useState } from 'react'
 import Link from 'next/link'
 
 type Option = { id: number; title: string; artist: string }
-type Round = { r: number; ytId: string; startSec: number; correctId: number; options: Option[]; token: string }
+type Round = { r: number; ytId: string; startSec: number; options: Option[]; token: string }
+type RoundResult = { correct: boolean; correctId: number; points: number; comboNow: number }
 type Quiz = {
   quizId: string
   category: string
@@ -58,6 +59,9 @@ export default function KvizasClient() {
   const [answers, setAnswers] = useState<Answer[]>([])
   const [outcomes, setOutcomes] = useState<RoundOutcome[]>([])
   const [picked, setPicked] = useState<number | null>(null)
+  const [roundResult, setRoundResult] = useState<RoundResult | null>(null)
+  const [checking, setChecking] = useState(false)
+  const [roundError, setRoundError] = useState<{ answerId: number | null; ms: number } | null>(null)
   const [timeLeft, setTimeLeft] = useState(ROUND_MS)
   const [score, setScore] = useState(0)
   const [combo, setCombo] = useState(0)
@@ -119,6 +123,8 @@ export default function KvizasClient() {
     setScore(0)
     setCombo(0)
     setResult(null)
+    setRoundResult(null)
+    setRoundError(null)
     setShared(false)
     setPhase('round')
     setIframeNonce(n => n + 1)
@@ -144,28 +150,40 @@ export default function KvizasClient() {
     }
   }
 
-  // ── Answer (client-side skaičiavimas = server formulei, greitam feedback'ui) ──
+  // ── Atsakymas tikrinamas SERVERYJE (teisingo atsakymo naršyklė nežino) ──
   function answerRound(answerId: number | null) {
-    if (phaseRef.current !== 'round' || !round) return
+    if (phaseRef.current !== 'round' || !round || checking) return
     stopTimer()
     const ms = Math.min(Date.now() - roundStartRef.current, ROUND_MS)
-    const correct = answerId !== null && answerId === round.correctId
-    const newCombo = correct ? combo + 1 : 0
-    let points = 0
-    if (correct) {
-      points = 50 + Math.round(50 * (ROUND_MS - ms) / ROUND_MS)
-      if (newCombo >= COMBO_MIN) points += COMBO_BONUS
-    }
-    setCombo(newCombo)
     setPicked(answerId)
-    setLastPoints(points)
-    setScore(s => s + points)
-    setAnswers(a => [...a, { token: round.token, answerId, ms }])
-    setOutcomes(o => [...o, outcomeOf(correct, answerId, ms)])
-    setPhase('reveal')
-    revealTimeoutRef.current = setTimeout(nextRound, REVEAL_MS)
+    setChecking(true)
+    setRoundError(null)
+    void sendAnswer(round, answerId, ms)
   }
   answerRef.current = answerRound
+
+  async function sendAnswer(r: Round, answerId: number | null, ms: number) {
+    try {
+      const res = await fetch('/api/zaidimai/raundas', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ token: r.token, answerId, ms }),
+      })
+      const json = await res.json()
+      if (!res.ok) throw new Error(json.error || 'Nepavyko')
+      setChecking(false)
+      setRoundResult({ correct: json.correct, correctId: json.correctId, points: json.points, comboNow: json.comboNow })
+      setCombo(json.correct ? json.comboNow : 0)
+      setLastPoints(json.points)
+      setScore(s => s + json.points)
+      setOutcomes(o => [...o, outcomeOf(json.correct, answerId, ms)])
+      setPhase('reveal')
+      revealTimeoutRef.current = setTimeout(nextRound, REVEAL_MS)
+    } catch {
+      setChecking(false)
+      setRoundError({ answerId, ms })
+    }
+  }
 
   function nextRound() {
     if (revealTimeoutRef.current) { clearTimeout(revealTimeoutRef.current); revealTimeoutRef.current = null }
@@ -175,6 +193,7 @@ export default function KvizasClient() {
       return
     }
     setRoundIdx(i => i + 1)
+    setRoundResult(null)
     setPhase('round')
     setIframeNonce(n => n + 1)
     startRound()
@@ -187,13 +206,17 @@ export default function KvizasClient() {
       const res = await fetch('/api/zaidimai/kvizas', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ kategorija: quiz.category, rounds: answersRef.current }),
+        body: JSON.stringify({ kategorija: quiz.category, quizId: quiz.quizId }),
       })
       const json = await res.json()
-      setResult(json)
+      if (!res.ok && res.status !== 409) {
+        setResult({ submitError: json.error || 'Nepavyko užskaityti — pabandyk dar kartą' })
+      } else {
+        setResult(json)
+      }
       if (quiz.isDaily) setDailyInfo(d => (d ? { ...d, played: true } : d))
     } catch {
-      setResult(null)
+      setResult({ submitError: 'Tinklo klaida — rezultato užskaityti nepavyko' })
     }
     setPhase('results')
   }
@@ -206,7 +229,7 @@ export default function KvizasClient() {
     const lines = [
       `🎵 music.lt · ${title}`,
       grid,
-      `${result?.score ?? score} tšk. · ${result?.correctCount ?? outcomes.filter(o => o === 'fast' || o === 'slow').length}/${quiz?.rounds.length}${result?.bestCombo >= COMBO_MIN ? ` · combo ×${result.bestCombo}` : ''}`,
+      `${result?.score ?? score} tšk. · ${result?.correctCount ?? outcomes.filter(o => o === 'fast' || o === 'slow').length}/${quiz?.rounds.length}${result?.bestCombo >= COMBO_MIN ? ` · serija ×${result.bestCombo}` : ''}`,
       'https://music.lt/zaidimai/dainu-kvizas',
     ]
     const text = lines.join('\n')
@@ -231,7 +254,7 @@ export default function KvizasClient() {
         <Link href="/zaidimai" className="kv-back">← Žaidimai</Link>
         {quiz && phase !== 'pick' && phase !== 'results' && (
           <div className="kv-progress">
-            {combo >= COMBO_MIN && <span className="kv-combo">🔥 COMBO ×{combo}</span>}
+            {combo >= COMBO_MIN && <span className="kv-combo">🔥 ×{combo} IŠ EILĖS</span>}
             <span className="kv-progress-n">{Math.min(roundIdx + 1, quiz.rounds.length)} / {quiz.rounds.length}</span>
             <span className="kv-progress-score">⚡ {score}</span>
           </div>
@@ -252,7 +275,7 @@ export default function KvizasClient() {
       {phase === 'pick' && (
         <div className="kv-pick">
           <h1 className="kv-h1">Atspėk dainą</h1>
-          <p className="kv-lead">Groja ištrauka — turi 15 sekundžių ir 4 variantus. Greitis = taškai, serija = combo bonusas.</p>
+          <p className="kv-lead">Groja ištrauka — turi 15 sekundžių ir 4 variantus. Kuo greičiau atsakai — tuo daugiau taškų, o 3+ teisingi iš eilės duoda papildomą bonusą.</p>
           {error && <div className="kv-error">{error}</div>}
 
           {/* Dienos iššūkis gyvena atskirai — wizard'e /zaidimai/dienos */}
@@ -273,7 +296,7 @@ export default function KvizasClient() {
               </button>
             ))}
           </div>
-          <p className="kv-note">Taškai: dienos iššūkis ×2 (1 k./d.) + pirmi 3 laisvi kvizai. Nariams +50%.</p>
+          <p className="kv-note">Taškai: dienos iššūkis ×2 (1 kartą per dieną) + pirmi 3 pasirinktos kategorijos kvizai. Nariams +50%.</p>
         </div>
       )}
 
@@ -304,9 +327,9 @@ export default function KvizasClient() {
                 </button>
               </div>
             )}
-            {phase === 'reveal' && (
-              <div className={`kv-verdict ${picked === round.correctId ? 'ok' : 'bad'}`}>
-                {picked === round.correctId
+            {phase === 'reveal' && roundResult && (
+              <div className={`kv-verdict ${roundResult.correct ? 'ok' : 'bad'}`}>
+                {roundResult.correct
                   ? `+${lastPoints} tšk.${combo >= COMBO_MIN ? ` 🔥×${combo}` : ''}`
                   : picked === null ? 'Laikas baigėsi!' : 'Ne ta daina'}
               </div>
@@ -318,19 +341,28 @@ export default function KvizasClient() {
           <div className="kv-options">
             {round.options.map(o => {
               let cls = 'kv-opt'
-              if (phase === 'reveal') {
-                if (o.id === round.correctId) cls += ' correct'
+              if (phase === 'reveal' && roundResult) {
+                if (o.id === roundResult.correctId) cls += ' correct'
                 else if (o.id === picked) cls += ' wrong'
                 else cls += ' dim'
+              } else if (checking && o.id === picked) {
+                cls += ' checking'
               }
               return (
-                <button key={o.id} className={cls} disabled={phase === 'reveal'} onClick={() => answerRound(o.id)}>
+                <button key={o.id} className={cls} disabled={phase === 'reveal' || checking} onClick={() => answerRound(o.id)}>
                   <span className="kv-opt-artist">{o.artist}</span>
                   <span className="kv-opt-title">{o.title}</span>
                 </button>
               )
             })}
           </div>
+
+          {roundError && (
+            <div className="kv-error">
+              Atsakymo išsiųsti nepavyko.
+              <button className="kv-retry" onClick={() => { setRoundError(null); setChecking(true); void sendAnswer(round, roundError.answerId, roundError.ms) }}>Bandyti dar</button>
+            </div>
+          )}
 
           {phase === 'reveal' && (
             <button className="kv-next" onClick={nextRound}>
@@ -347,6 +379,12 @@ export default function KvizasClient() {
       {/* ── Rezultatai ── */}
       {phase === 'results' && (
         <div className="kv-results">
+          {result?.submitError && (
+            <div className="kv-error" style={{ marginBottom: 14 }}>
+              {result.submitError}
+              <button className="kv-retry" onClick={() => void submitQuiz()}>Bandyti dar</button>
+            </div>
+          )}
           {category.key === 'dienos' && <div className="kv-results-daily">⚡ Dienos iššūkis</div>}
           <div className="kv-score-big" style={{ ['--acc' as any]: category.accent }}>
             <span className="kv-score-num">{result?.score ?? score}</span>
@@ -357,7 +395,7 @@ export default function KvizasClient() {
 
           <p className="kv-result-line">
             Atspėta <b>{result?.correctCount ?? '—'}</b> iš {result?.roundCount ?? quiz?.rounds.length}
-            {result?.bestCombo >= COMBO_MIN && <> · geriausias combo <b>×{result.bestCombo}</b></>}
+            {result?.bestCombo >= COMBO_MIN && <> · ilgiausia serija iš eilės <b>×{result.bestCombo}</b></>}
           </p>
 
           {result?.isDaily && result?.dailyRank && result.dailyRank.total > 1 && (
@@ -498,6 +536,9 @@ const css = `
 .kv-opt.correct .kv-opt-title { color: #34d399; }
 .kv-opt.wrong { background: rgba(239,68,68,0.13); border-color: #ef4444; }
 .kv-opt.dim { opacity: 0.45; }
+.kv-opt.checking { border-color: #f59e0b; animation: kvcheck .5s ease infinite alternate; }
+@keyframes kvcheck { from { opacity: 0.75; } to { opacity: 1; } }
+.kv-retry { margin-left: 10px; font-size: 12px; font-weight: 800; color: #f87171; background: transparent; border: 1px solid rgba(248,113,113,0.5); border-radius: 8px; padding: 4px 10px; cursor: pointer; }
 
 .kv-next {
   align-self: center; font-size: 16px; font-weight: 800; color: #fff; cursor: pointer;

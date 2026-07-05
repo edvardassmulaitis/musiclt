@@ -1,10 +1,10 @@
 // app/api/zaidimai/vadybininkas/rinka/route.ts
 //
 // Fantasy lygos RINKA — visi LT atlikėjai su kainomis ir realiais rezultatais.
-//   GET ?q=paieška&rusiavimas=kaina|forma&puslapis=0
+//   GET ?q=paieška&salis=visi|lt|uzsienio&rusiavimas=populiariausi|pigiausi|forma&puslapis=0
 //
 // Grąžina: kaina (iš score), praėjusios savaitės oficialūs taškai,
-// trending žyma, ar jau mano komandoje.
+// kylančiojo žyma, ar jau mano komandoje. Nuo v3 — ir pasaulio atlikėjai.
 
 import { NextRequest, NextResponse } from 'next/server'
 import { createAdminClient } from '@/lib/supabase'
@@ -19,16 +19,18 @@ export async function GET(req: NextRequest) {
   const url = new URL(req.url)
   const q = (url.searchParams.get('q') || '').trim()
   const page = Math.max(0, parseInt(url.searchParams.get('puslapis') || '0') || 0)
-  const sort = url.searchParams.get('rusiavimas') || 'kaina'
+  const sort = url.searchParams.get('rusiavimas') || 'populiariausi'
+  const salis = url.searchParams.get('salis') || 'visi'
 
   const viewer = await resolveViewer()
   const sb = createAdminClient()
 
   let query = sb
     .from('artists')
-    .select('id, name, slug, cover_image_url, score, score_trending', { count: 'exact' })
-    .eq('country', 'Lietuva')
+    .select('id, name, slug, cover_image_url, score, score_trending, country', { count: 'exact' })
     .gt('score', 0)
+  if (salis === 'lt') query = query.eq('country', 'Lietuva')
+  else if (salis === 'uzsienio') query = query.neq('country', 'Lietuva')
 
   if (q) query = query.ilike('name', `%${q}%`)
   query = query
@@ -78,6 +80,7 @@ export async function GET(req: NextRequest) {
     slug: a.slug,
     image: a.cover_image_url || null,
     price: priceOf(a.score),
+    country: (a as any).country === 'Lietuva' ? 'LT' : 'užsienio',
     lastWeekPoints: ptsByArtist.get(a.id) ?? null,
     trending: (a.score_trending || 0) >= trendCut && (a.score_trending || 0) > 0,
     onMyRoster: myArtistIds.has(a.id),

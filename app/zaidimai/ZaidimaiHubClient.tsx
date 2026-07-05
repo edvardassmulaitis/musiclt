@@ -71,9 +71,9 @@ export default function ZaidimaiHubClient({ isAuthenticated, username, me, leade
           <span className="zh-row-emoji">🎧</span>
           <span className="zh-row-main">
             <span className="zh-row-title">Atspėk dainą</span>
-            <span className="zh-row-desc">15 sek. · 4 variantai · combo bonusai</span>
+            <span className="zh-row-desc">15 sek. · 4 variantai · bonusai už atspėjimus iš eilės</span>
           </span>
-          <span className="zh-row-meta">{today.quizRunsLeft > 0 ? `${today.quizRunsLeft} kvizai su taškais` : 'treniruotė'}</span>
+          <span className="zh-row-meta">{today.quizRunsLeft > 0 ? `${today.quizRunsLeft} ${today.quizRunsLeft === 1 ? 'kvizas' : 'kvizai'} su taškais` : 'tik treniruotė — be taškų'}</span>
           <span className="zh-row-go">→</span>
         </Link>
 
@@ -83,7 +83,7 @@ export default function ZaidimaiHubClient({ isAuthenticated, username, me, leade
             <span className="zh-row-title">Atspėk iš vaizdo</span>
             <span className="zh-row-desc">Nuotrauka ryškėja — atpažink atlikėją kuo greičiau</span>
           </span>
-          <span className="zh-row-meta">{today.vaizdasRunsLeft > 0 ? `${today.vaizdasRunsLeft} žaidimai su taškais` : 'treniruotė'}</span>
+          <span className="zh-row-meta">{today.vaizdasRunsLeft > 0 ? `${today.vaizdasRunsLeft} ${today.vaizdasRunsLeft === 1 ? 'žaidimas' : 'žaidimai'} su taškais` : 'tik treniruotė — be taškų'}</span>
           <span className="zh-row-go">→</span>
         </Link>
 
@@ -93,7 +93,7 @@ export default function ZaidimaiHubClient({ isAuthenticated, username, me, leade
             <span className="zh-row-title">Dainų dvikovos</span>
             <span className="zh-row-desc">Balsuok ir lygink save su bendruomene</span>
           </span>
-          <span className="zh-row-meta">{today.duelVotesLeft > 0 ? `${today.duelVotesLeft} balsai × 15 tšk.` : 'balsuok toliau'}</span>
+          <span className="zh-row-meta">{today.duelVotesLeft > 0 ? `balsų su taškais: ${today.duelVotesLeft}` : 'balsuok toliau — be taškų'}</span>
           <span className="zh-row-go">→</span>
         </Link>
 
@@ -101,7 +101,7 @@ export default function ZaidimaiHubClient({ isAuthenticated, username, me, leade
           <span className="zh-row-emoji">💼</span>
           <span className="zh-row-main">
             <span className="zh-row-title">Muzikos vadybininkas</span>
-            <span className="zh-row-desc">Fantasy lyga: 5 realūs LT atlikėjai, taškai iš tikrų rezultatų</span>
+            <span className="zh-row-desc">Vadybininkų lyga: 5 realūs atlikėjai (LT ir pasaulio), taškai iš tikrų rezultatų</span>
           </span>
           <span className="zh-row-meta">{fantasyTeam ? `💼 ${fantasyTeam}` : 'sudaryk komandą'}</span>
           <span className="zh-row-go">→</span>

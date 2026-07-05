@@ -7,7 +7,7 @@
 import { Metadata } from 'next'
 import { createAdminClient } from '@/lib/supabase'
 import { resolveViewerReadonly } from '@/lib/zaidimai'
-import { todayLT } from '@/lib/boombox'
+import { ltDayStartUtc } from '@/lib/boombox'
 import ZaidimaiHubClient from './ZaidimaiHubClient'
 
 export const dynamic = 'force-dynamic'
@@ -42,8 +42,7 @@ async function namesFor(sb: ReturnType<typeof createAdminClient>, userIds: strin
 async function loadHub() {
   const viewer = await resolveViewerReadonly()
   const sb = createAdminClient()
-  const today = todayLT()
-  const dayStart = `${today}T00:00:00+03:00`
+  const dayStart = ltDayStartUtc()
 
   const viewerFilter = (q: any) => {
     if (viewer.userId) return q.eq('user_id', viewer.userId)

@@ -143,7 +143,7 @@ export default function DvikovosClient() {
         <Link href="/zaidimai" className="dv-back">← Žaidimai</Link>
         <div className="dv-top-right">
           {sessionXp > 0 && <span className="dv-session-xp">⚡ +{sessionXp}</span>}
-          {xpLeft !== null && xpLeft > 0 && <span className="dv-xp-left">{xpLeft} balsai su taškais</span>}
+          {xpLeft !== null && xpLeft > 0 && <span className="dv-xp-left">balsų su taškais: {xpLeft}</span>}
         </div>
       </div>
 
@@ -154,7 +154,7 @@ export default function DvikovosClient() {
       {!loading && allDone && (
         <div className="dv-done">
           <span style={{ fontSize: 40 }}>🏁</span>
-          <p>Visos dvikovos šiam kartui subalsuotos!</p>
+          <p>Visose dvikovose jau balsavai!</p>
           <p className="dv-done-sub">Naujų atsiranda nuolat — užsuk rytoj. O kol kas:</p>
           <Link href="/zaidimai/dainu-kvizas" className="dv-cta">Žaisti „Atspėk dainą" →</Link>
         </div>

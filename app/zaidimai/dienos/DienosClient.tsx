@@ -25,8 +25,8 @@ type StepKey = 'kvizas' | 'duel' | 'verdict' | 'image'
 
 // ── Kvizo tipai ──
 type QOption = { id: number; title: string; artist: string }
-type QRound = { r: number; ytId: string; startSec: number; correctId: number; options: QOption[]; token: string }
-type QAnswer = { token: string; answerId: number | null; ms: number }
+type QRound = { r: number; ytId: string; startSec: number; options: QOption[]; token: string }
+type QRoundResult = { correct: boolean; correctId: number; points: number; comboNow: number }
 type QOutcome = 'fast' | 'slow' | 'wrong' | 'timeout'
 const OUTCOME_EMOJI: Record<QOutcome, string> = { fast: '🟩', slow: '🟨', wrong: '🟥', timeout: '⬛' }
 
@@ -37,7 +37,7 @@ const COMBO_BONUS = 15
 
 const REACTIONS: Array<{ emoji: string; label: string }> = [
   { emoji: '🔥', label: 'Dega' },
-  { emoji: '🐐', label: 'GOAT' },
+  { emoji: '🐐', label: 'Legenda' },
   { emoji: '😭', label: 'Emocija' },
   { emoji: '😬', label: 'Ne man' },
 ]
@@ -84,10 +84,13 @@ export default function DienosClient(props: Props) {
 
   // ═══════════ KVIZAS ═══════════
   const [qRounds, setQRounds] = useState<QRound[]>([])
+  const [qQuizId, setQQuizId] = useState('')
   const [qIdx, setQIdx] = useState(0)
-  const [qAnswers, setQAnswers] = useState<QAnswer[]>([])
   const [qOutcomes, setQOutcomes] = useState<QOutcome[]>([])
   const [qPicked, setQPicked] = useState<number | null>(null)
+  const [qRoundResult, setQRoundResult] = useState<QRoundResult | null>(null)
+  const [qChecking, setQChecking] = useState(false)
+  const [qRoundError, setQRoundError] = useState<{ answerId: number | null; ms: number } | null>(null)
   const [qTimeLeft, setQTimeLeft] = useState(ROUND_MS)
   const [qScore, setQScore] = useState(0)
   const [qCombo, setQCombo] = useState(0)
@@ -103,8 +106,6 @@ export default function DienosClient(props: Props) {
   const qPhaseRef = useRef(qPhase)
   qPhaseRef.current = qPhase
   const qAnswerRef = useRef<(id: number | null) => void>(() => {})
-  const qAnswersRef = useRef<QAnswer[]>([])
-  useEffect(() => { qAnswersRef.current = qAnswers }, [qAnswers])
   useEffect(() => () => { if (qTimerRef.current) clearInterval(qTimerRef.current); if (qRevealRef.current) clearTimeout(qRevealRef.current) }, [])
 
   const qRound = qRounds[qIdx] || null
@@ -117,16 +118,18 @@ export default function DienosClient(props: Props) {
       const res = await fetch('/api/zaidimai/kvizas?kategorija=dienos&raundai=5')
       const json = await res.json()
       if (!res.ok || !json.rounds?.length) {
-        setQError(json.error || 'Nepavyko užkrauti — bandyk vėliau')
+        setQError(json.error || 'Nepavyko įkelti — pabandyk vėliau')
         return
       }
       setQRounds(json.rounds)
+      setQQuizId(json.quizId)
       setQIdx(0)
-      setQAnswers([])
       setQOutcomes([])
       setQScore(0)
       setQCombo(0)
       setQResult(null)
+      setQRoundResult(null)
+      setQRoundError(null)
       setQPhase('round')
       setQNonce(n => n + 1)
       qStartRound()
@@ -148,31 +151,44 @@ export default function DienosClient(props: Props) {
   }
 
   function qAnswer(answerId: number | null) {
-    if (qPhaseRef.current !== 'round' || !qRound) return
+    if (qPhaseRef.current !== 'round' || !qRound || qChecking) return
     if (qTimerRef.current) { clearInterval(qTimerRef.current); qTimerRef.current = null }
     const ms = Math.min(Date.now() - qStartRef.current, ROUND_MS)
-    const correct = answerId !== null && answerId === qRound.correctId
-    const newCombo = correct ? qCombo + 1 : 0
-    let points = 0
-    if (correct) {
-      points = 50 + Math.round(50 * (ROUND_MS - ms) / ROUND_MS)
-      if (newCombo >= COMBO_MIN) points += COMBO_BONUS
-    }
-    setQCombo(newCombo)
     setQPicked(answerId)
-    setQLastPoints(points)
-    setQScore(s => s + points)
-    setQAnswers(a => [...a, { token: qRound.token, answerId, ms }])
-    setQOutcomes(o => [...o, correct ? (ms < ROUND_MS / 2 ? 'fast' : 'slow') : (answerId === null ? 'timeout' : 'wrong')])
-    setQPhase('reveal')
-    qRevealRef.current = setTimeout(qNext, REVEAL_MS)
+    setQChecking(true)
+    setQRoundError(null)
+    void qSendAnswer(qRound, answerId, ms)
   }
   qAnswerRef.current = qAnswer
+
+  async function qSendAnswer(r: QRound, answerId: number | null, ms: number) {
+    try {
+      const res = await fetch('/api/zaidimai/raundas', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ token: r.token, answerId, ms }),
+      })
+      const json = await res.json()
+      if (!res.ok) throw new Error(json.error || 'Nepavyko')
+      setQChecking(false)
+      setQRoundResult({ correct: json.correct, correctId: json.correctId, points: json.points, comboNow: json.comboNow })
+      setQCombo(json.correct ? json.comboNow : 0)
+      setQLastPoints(json.points)
+      setQScore(s => s + json.points)
+      setQOutcomes(o => [...o, json.correct ? (ms < ROUND_MS / 2 ? 'fast' : 'slow') : (answerId === null ? 'timeout' : 'wrong')])
+      setQPhase('reveal')
+      qRevealRef.current = setTimeout(qNext, REVEAL_MS)
+    } catch {
+      setQChecking(false)
+      setQRoundError({ answerId, ms })
+    }
+  }
 
   function qNext() {
     if (qRevealRef.current) { clearTimeout(qRevealRef.current); qRevealRef.current = null }
     if (qIdx + 1 >= qRounds.length) { void qSubmit(); return }
     setQIdx(i => i + 1)
+    setQRoundResult(null)
     setQPhase('round')
     setQNonce(n => n + 1)
     qStartRound()
@@ -184,15 +200,25 @@ export default function DienosClient(props: Props) {
       const res = await fetch('/api/zaidimai/kvizas', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ kategorija: 'dienos', rounds: qAnswersRef.current }),
+        body: JSON.stringify({ kategorija: 'dienos', quizId: qQuizId }),
       })
       const json = await res.json()
+      if (!res.ok && res.status !== 409) {
+        // Užskaityti nepavyko — NEžymim atlikto, leidžiam bandyti dar
+        setQError(json.error || 'Rezultato užskaityti nepavyko')
+        setQPhase('reveal')
+        return
+      }
       setQResult(json)
       if (json.xp) setSessionXp(x => x + json.xp)
       if (json.streak) setStreak(s => ({ current: json.streak, total_xp: json.totalXp ?? s.total_xp }))
-    } catch { /* rodom bent lokalius taškus */ }
+    } catch {
+      setQError('Tinklo klaida — rezultato užskaityti nepavyko')
+      setQPhase('reveal')
+      return
+    }
     markDone('kvizas')
-    setStage(s => nextAfterDone('kvizas'))
+    setStage(() => nextAfterDone('kvizas'))
   }
 
   function nextAfterDone(key: StepKey): Stage {
@@ -229,8 +255,11 @@ export default function DienosClient(props: Props) {
     if (!duel || duelPick) return
     setDuelPick(pick)
     setDuelPlaying(null)
-    boomboxSubmit('duel', duel.id, { choice: pick, source: 'dienos' }).then(j => { if (j?.stats) setDuelStats(j.stats) })
-    markDone('duel')
+    boomboxSubmit('duel', duel.id, { choice: pick, source: 'dienos' }).then(j => {
+      if (!j) { setDuelPick(null); return } // tinklo klaida — leisti bandyti dar
+      if (j.stats) setDuelStats(j.stats)
+      markDone('duel')
+    })
   }
 
   // Verdict
@@ -239,8 +268,11 @@ export default function DienosClient(props: Props) {
   function voteVerdict(emoji: string) {
     if (!verdict || verdictPick) return
     setVerdictPick(emoji)
-    boomboxSubmit('verdict', verdict.id, { emoji, source: 'dienos' }).then(j => { if (j?.stats) setVerdictStats(j.stats) })
-    markDone('verdict')
+    boomboxSubmit('verdict', verdict.id, { emoji, source: 'dienos' }).then(j => {
+      if (!j) { setVerdictPick(null); return }
+      if (j.stats) setVerdictStats(j.stats)
+      markDone('verdict')
+    })
   }
 
   // Image
@@ -356,9 +388,9 @@ export default function DienosClient(props: Props) {
                     <button className="di-nosound" onClick={() => setQNonce(n => n + 1)}>Negirdi? Spausk čia ▶</button>
                   </div>
                 )}
-                {qPhase === 'reveal' && (
-                  <div className={`di-verdict-tag ${qPicked === qRound.correctId ? 'ok' : 'bad'}`}>
-                    {qPicked === qRound.correctId ? `+${qLastPoints} tšk.${qCombo >= COMBO_MIN ? ` 🔥×${qCombo}` : ''}` : qPicked === null ? 'Laikas baigėsi!' : 'Ne ta daina'}
+                {qPhase === 'reveal' && qRoundResult && (
+                  <div className={`di-verdict-tag ${qRoundResult.correct ? 'ok' : 'bad'}`}>
+                    {qRoundResult.correct ? `+${qLastPoints} tšk.${qCombo >= COMBO_MIN ? ` 🔥×${qCombo}` : ''}` : qPicked === null ? 'Laikas baigėsi!' : 'Ne ta daina'}
                   </div>
                 )}
               </div>
@@ -366,19 +398,27 @@ export default function DienosClient(props: Props) {
               <div className="di-options">
                 {qRound.options.map(o => {
                   let cls = 'di-opt'
-                  if (qPhase === 'reveal') {
-                    if (o.id === qRound.correctId) cls += ' correct'
+                  if (qPhase === 'reveal' && qRoundResult) {
+                    if (o.id === qRoundResult.correctId) cls += ' correct'
                     else if (o.id === qPicked) cls += ' wrong'
                     else cls += ' dim'
+                  } else if (qChecking && o.id === qPicked) {
+                    cls += ' checking'
                   }
                   return (
-                    <button key={o.id} className={cls} disabled={qPhase === 'reveal'} onClick={() => qAnswer(o.id)}>
+                    <button key={o.id} className={cls} disabled={qPhase === 'reveal' || qChecking} onClick={() => qAnswer(o.id)}>
                       <span className="di-opt-artist">{o.artist}</span>
                       <span className="di-opt-title">{o.title}</span>
                     </button>
                   )
                 })}
               </div>
+              {qRoundError && (
+                <div className="di-error">
+                  Atsakymo išsiųsti nepavyko.
+                  <button onClick={() => { setQRoundError(null); setQChecking(true); void qSendAnswer(qRound, qRoundError.answerId, qRoundError.ms) }}>Bandyti dar</button>
+                </div>
+              )}
               {qPhase === 'reveal' && (
                 <button className="di-next" onClick={qNext}>{qIdx + 1 >= qRounds.length ? 'Toliau →' : 'Kitas raundas →'}</button>
               )}
@@ -618,6 +658,8 @@ const css = `
 .di-opt.correct { background: rgba(16,185,129,0.16); border-color: #10b981; }
 .di-opt.wrong { background: rgba(239,68,68,0.13); border-color: #ef4444; }
 .di-opt.dim { opacity: 0.45; }
+.di-opt.checking { border-color: #ec4899; animation: dicheck .5s ease infinite alternate; }
+@keyframes dicheck { from { opacity: 0.75; } to { opacity: 1; } }
 
 .di-next { align-self: center; font-size: 16px; font-weight: 800; color: #fff; cursor: pointer; background: linear-gradient(135deg, #ec4899, #8b5cf6); border: 0; border-radius: 999px; padding: 12px 28px; box-shadow: 0 10px 26px rgba(236,72,153,0.35); margin-top: 4px; }
 

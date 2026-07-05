@@ -3,7 +3,7 @@ import { OverviewHub } from '@/components/OverviewHub'
 
 export const metadata: Metadata = {
   title: 'Pramogos — music.lt',
-  description: 'Muzikiniai žaidimai, kvizai ir Boombox',
+  description: 'Muzikiniai žaidimai, kvizai ir dienos iššūkis',
 }
 
 const I = {

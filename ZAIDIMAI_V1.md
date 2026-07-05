@@ -107,3 +107,35 @@ Keisti: `app/pramogos/page.tsx` (tile'ai), `components/SiteHeader.tsx`
    AI vaizdų misija gyvena wizard'e (kai yra drop'ų).
 4. Landing: dienos hero → wizard, nauja vaizdo žaidimo eilutė, fantasy eilutė rodo
    komandos vardą; „dar gali surinkti ~N tšk." perskaičiuota.
+
+## v4 — sąžiningumo pertvarka + pasaulio atlikėjai (2026-07-06 vakaras)
+
+Dviejų peržiūros agentų (kodo + kalbos) radiniai įgyvendinti:
+
+**Sąžiningumas (migracija 20260706b):**
+- Teisingi atsakymai NEBEkeliauja į naršyklę — raundų vokai AES-256-GCM
+  užšifruoti, atsakymai registruojami per POST /api/zaidimai/raundas
+  (game_rounds, pirmas atsakymas negrįžtamas), rezultatas iš DB.
+- Replay apsauga: game_scores.quiz_id unique (dienos iššūkis 1 k./d. DB lygiu).
+- Dienos iššūkis VISIEMS identiškas: daily_quiz_snapshot lentelė.
+- Atominis taškų kaupimas: game_bump_streak() RPC (FOR UPDATE).
+- Laiko juostos: ltDayStartUtc() helper'is (DST-aware) vietoj +03:00 /
+  plikų LT ribų — sutvarkytas ir NAKTIES BUG'AS, deginęs boombox eilę
+  (pickTodayQueued lygino LT datą su UTC).
+- PostgREST 1000 eilučių ribos: puslapiavimas (views istorija, komandos,
+  sezono suma) arba count užklausos (dvikovų %, dailyRank).
+- Lygiagretumo apsaugos: sign kompensacinė patikra, Enter dvigubo
+  kūrimo blokas, tylių POST klaidų taisymas (visur res.ok + „Bandyti dar").
+
+**Vadybininkas — pasaulio atlikėjai:**
+- Rinka: Visi / Lietuva / Užsienio (6 147 užsienio atlikėjai su score).
+- Kainos iki 110 (pasaulio superžvaigždė = pusė 220 biudžeto).
+- Taškai: + išoriniai topai (Billboard, Spotify, Apple, consensus TOP100,
+  visi resolved artist_id) — iki 45 tšk. dedamoji.
+- Savaitės skaičiavimo apimtis: visi LT + pasaulio top 1500 + visi pasirašyti.
+- Sąžiningos taisyklės: naujokai taškus neša nuo kitos savaitės (išimtis —
+  komandos pirmoji savaitė), paleisti po savaitės pabaigos nepraranda taškų,
+  mainų limito riba LT savaitės ribose.
+
+**Kalba:** 37 pataisymai — be „combo/live/fantasy/transferai/releizai/GOAT",
+gramatikos formos (1 kvizas / 3 kvizai), aiškesni klaidų tekstai be žargono.

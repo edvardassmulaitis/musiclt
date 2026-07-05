@@ -18,6 +18,7 @@ type RosterArtist = {
   image: string | null
   price: number
   signedAt: string
+  countsFromNextWeek?: boolean
   lastWeekPoints: number | null
   livePoints: number
   liveBreakdown: { chart: number; yt: number; rel: number; base: number } | null
@@ -57,6 +58,7 @@ export default function VadybininkasClient() {
   const [marketPage, setMarketPage] = useState(0)
   const [marketQ, setMarketQ] = useState('')
   const [marketSort, setMarketSort] = useState<'populiariausi' | 'pigiausi'>('populiariausi')
+  const [marketSalis, setMarketSalis] = useState<'visi' | 'lt' | 'uzsienio'>('visi')
   const [marketLoading, setMarketLoading] = useState(false)
   const [busyArtist, setBusyArtist] = useState<number | null>(null)
   const searchTimer = useRef<ReturnType<typeof setTimeout> | null>(null)
@@ -69,17 +71,17 @@ export default function VadybininkasClient() {
       const json = await res.json()
       setData(json)
     } catch {
-      setError('Nepavyko užkrauti — pabandyk dar kartą')
+      setError('Nepavyko įkelti — pabandyk dar kartą')
     }
     setLoading(false)
   }, [])
 
   useEffect(() => { void load() }, [load])
 
-  const loadMarket = useCallback(async (q: string, page: number, sort?: string) => {
+  const loadMarket = useCallback(async (q: string, page: number, sort?: string, salis?: string) => {
     setMarketLoading(true)
     try {
-      const res = await fetch(`/api/zaidimai/vadybininkas/rinka?q=${encodeURIComponent(q)}&puslapis=${page}&rusiavimas=${sort || 'populiariausi'}`)
+      const res = await fetch(`/api/zaidimai/vadybininkas/rinka?q=${encodeURIComponent(q)}&puslapis=${page}&rusiavimas=${sort || 'populiariausi'}&salis=${salis || 'visi'}`)
       const json = await res.json()
       setMarket(json.artists || [])
       setMarketTotal(json.total || 0)
@@ -90,17 +92,18 @@ export default function VadybininkasClient() {
 
   useEffect(() => {
     if (!marketOpen) return
-    void loadMarket(marketQ, 0, marketSort)
+    void loadMarket(marketQ, 0, marketSort, marketSalis)
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [marketOpen, marketSort])
+  }, [marketOpen, marketSort, marketSalis])
 
   function onSearchChange(v: string) {
     setMarketQ(v)
     if (searchTimer.current) clearTimeout(searchTimer.current)
-    searchTimer.current = setTimeout(() => void loadMarket(v, 0, marketSort), 350)
+    searchTimer.current = setTimeout(() => void loadMarket(v, 0, marketSort, marketSalis), 350)
   }
 
   async function createTeam() {
+    if (creating) return
     if (teamName.trim().length < 2) { setError('Įrašyk komandos pavadinimą (2–30 simbolių)'); return }
     setCreating(true)
     setError(null)
@@ -130,7 +133,7 @@ export default function VadybininkasClient() {
       })
       const json = await res.json()
       if (!res.ok) { setError(json.error || 'Nepavyko'); setBusyArtist(null); return }
-      await Promise.all([load(), marketOpen ? loadMarket(marketQ, marketPage, marketSort) : Promise.resolve()])
+      await Promise.all([load(), marketOpen ? loadMarket(marketQ, marketPage, marketSort, marketSalis) : Promise.resolve()])
     } catch { setError('Tinklo klaida') }
     setBusyArtist(null)
   }
@@ -154,15 +157,15 @@ export default function VadybininkasClient() {
         <div className="fl-onboard">
           <h1 className="fl-h1">Muzikos vadybininkas</h1>
           <p className="fl-lead">
-            Fantasy lyga su <b>realiais Lietuvos atlikėjais</b>. Sudarai komandą iš 5 atlikėjų —
+            Vadybininkų lyga su <b>realiais atlikėjais</b> — nuo Lietuvos scenos iki pasaulio žvaigždžių. Sudarai komandą iš 5 atlikėjų —
             taškus jie neša pagal <b>tikrus savaitės rezultatus</b>: YouTube augimą, vietas
-            topuose ir naujus releizus. Kas pirmadienį — nauja turo lentelė, o mėnesio ir
-            sezono lyderiai kaunasi ilgai.
+            Lietuvos ir pasaulio topuose (Billboard, Spotify) ir naujas dainas. Kas pirmadienį —
+            nauja turo lentelė, o mėnesio ir sezono lyderiai kaunasi ilgai.
           </p>
           <ul className="fl-rules">
-            <li>💰 Biudžetas <b>220 tšk.</b> — superžvaigždės brangios, atrask pigius kylančius</li>
-            <li>📊 Taškai kas pirmadienį iš realių duomenų (+ live progresas kasdien)</li>
-            <li>🔁 Iki <b>3 transferų</b> per savaitę</li>
+            <li>💰 Biudžetas <b>220 tšk.</b> — pasaulio žvaigždė „suvalgo" pusę jo, atrask pigius kylančius</li>
+            <li>📊 Taškai kas pirmadienį iš realių duomenų — tarpinius matai kasdien</li>
+            <li>🔁 Iki <b>3 mainų</b> per savaitę</li>
           </ul>
           {!data.isAuthenticated && (
             <p className="fl-warn">⚠️ Žaidi kaip svečias — komanda pririšta prie šio įrenginio. <Link href="/auth/prisijungti">Prisijunk</Link>, kad jos neprarastum ir matytum savo vardą lygoje.</p>
@@ -194,7 +197,7 @@ export default function VadybininkasClient() {
           {/* Komandos statusas */}
           <div className="fl-stats">
             <div className="fl-stat big">
-              <span className="fl-stat-label">Ši savaitė (live)</span>
+              <span className="fl-stat-label">Ši savaitė (dabar)</span>
               <span className="fl-stat-val">{team.liveWeekPoints}</span>
             </div>
             <div className="fl-stat">
@@ -206,7 +209,7 @@ export default function VadybininkasClient() {
               <span className="fl-stat-val">{team.budgetLeft}</span>
             </div>
             <div className="fl-stat">
-              <span className="fl-stat-label">Transferai</span>
+              <span className="fl-stat-label">Mainai</span>
               <span className="fl-stat-val">{team.transfersLeft}</span>
             </div>
           </div>
@@ -215,7 +218,7 @@ export default function VadybininkasClient() {
           <div className="fl-sec-head">
             <h2 className="fl-h2">Komanda <span className="fl-dim">{roster.length}/{data.rosterSize}</span></h2>
             <button className="fl-btn-market" onClick={() => setMarketOpen(o => !o)}>
-              {marketOpen ? 'Slėpti rinką' : slotsLeft > 0 ? `Į rinką (${slotsLeft} vietos) →` : 'Rinka →'}
+              {marketOpen ? 'Slėpti rinką' : slotsLeft > 0 ? `Į rinką (${slotsLeft} ${slotsLeft === 1 ? 'vieta' : 'vietos'}) →` : 'Rinka →'}
             </button>
           </div>
 
@@ -234,7 +237,10 @@ export default function VadybininkasClient() {
                 </span>
                 <span className="fl-player-main">
                   <Link href={`/atlikejai/${r.slug}`} className="fl-player-name">{r.name}</Link>
-                  <span className="fl-player-meta">kaina {r.price}{r.lastWeekPoints !== null ? ` · pr. sav. ${r.lastWeekPoints} tšk.` : ''}</span>
+                  <span className="fl-player-meta">
+                    kaina {r.price}{r.lastWeekPoints !== null ? ` · pr. sav. ${r.lastWeekPoints} tšk.` : ''}
+                    {r.countsFromNextWeek ? ' · 🆕 taškai nuo pirmadienio' : ''}
+                  </span>
                 </span>
                 <span className="fl-player-live" title={r.liveBreakdown ? `Topai ${r.liveBreakdown.chart} · YT ${r.liveBreakdown.yt} · Releizai ${r.liveBreakdown.rel} · Bazė ${r.liveBreakdown.base}` : ''}>
                   <b>{r.livePoints}</b>
@@ -243,7 +249,7 @@ export default function VadybininkasClient() {
                 <button
                   className="fl-release"
                   disabled={busyArtist === r.artistId || team.transfersLeft <= 0}
-                  title={team.transfersLeft <= 0 ? 'Transferų limitas šiai savaitei' : `Paleisti (grąžins ${r.price} tšk.)`}
+                  title={team.transfersLeft <= 0 ? 'Mainų limitas šiai savaitei — nauji nuo pirmadienio' : `Paleisti (grąžins ${r.price} tšk.)`}
                   onClick={() => doAction('release', r.artistId)}
                 >✕</button>
               </div>
@@ -265,6 +271,11 @@ export default function VadybininkasClient() {
                 value={marketQ}
                 onChange={e => onSearchChange(e.target.value)}
               />
+              <div className="fl-tabs" style={{ marginBottom: 8 }}>
+                <button className={marketSalis === 'visi' ? 'on' : ''} onClick={() => setMarketSalis('visi')}>🌍 Visi</button>
+                <button className={marketSalis === 'lt' ? 'on' : ''} onClick={() => setMarketSalis('lt')}>🇱🇹 Lietuva</button>
+                <button className={marketSalis === 'uzsienio' ? 'on' : ''} onClick={() => setMarketSalis('uzsienio')}>Užsienio</button>
+              </div>
               <div className="fl-tabs" style={{ marginBottom: 10 }}>
                 <button className={marketSort === 'populiariausi' ? 'on' : ''} onClick={() => setMarketSort('populiariausi')}>Populiariausi</button>
                 <button className={marketSort === 'pigiausi' ? 'on' : ''} onClick={() => setMarketSort('pigiausi')}>Pigiausi</button>
@@ -302,9 +313,9 @@ export default function VadybininkasClient() {
                 })}
               </div>
               <div className="fl-pager">
-                <button disabled={marketPage === 0 || marketLoading} onClick={() => void loadMarket(marketQ, marketPage - 1, marketSort)}>← Ankstesni</button>
+                <button disabled={marketPage === 0 || marketLoading} onClick={() => void loadMarket(marketQ, marketPage - 1, marketSort, marketSalis)}>← Ankstesni</button>
                 <span className="fl-dim">{marketPage * 30 + 1}–{Math.min((marketPage + 1) * 30, marketTotal)} iš {marketTotal}</span>
-                <button disabled={(marketPage + 1) * 30 >= marketTotal || marketLoading} onClick={() => void loadMarket(marketQ, marketPage + 1, marketSort)}>Kiti →</button>
+                <button disabled={(marketPage + 1) * 30 >= marketTotal || marketLoading} onClick={() => void loadMarket(marketQ, marketPage + 1, marketSort, marketSalis)}>Kiti →</button>
               </div>
             </div>
           )}
@@ -327,8 +338,8 @@ export default function VadybininkasClient() {
           <LeagueBoards boards={data.boards} tab={boardTab} setTab={setBoardTab} />
 
           <p className="fl-foot">
-            Taškai skaičiuojami kas pirmadienį iš realių duomenų: vietos TOP40/TOP30 (iki 40 tšk./daina),
-            YouTube peržiūrų augimas, nauji releizai (+12), aktyvumo bazė. „Live" — einamosios savaitės prognozė.
+            Taškai skaičiuojami kas pirmadienį iš realių duomenų: vietos TOP40/TOP30 ir pasaulio topuose (Billboard, Spotify, Apple),
+            YouTube peržiūrų augimas, naujos dainos (+12), aktyvumo bazė. „Ši savaitė (dabar)" — einamosios savaitės tarpinis skaičius.
           </p>
         </>
       )}
