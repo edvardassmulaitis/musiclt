@@ -235,11 +235,13 @@ export async function POST(req: NextRequest) {
 
   const finalValue = Math.max(0, p.budget - spent + totalIncome + resaleTotal)
 
+  // Slenksčiai kalibruoti pagal tipinį rezultatų diapazoną (~140–240):
+  // legendai reikia ir gero drafto, ir sėkmingų įvykių.
   const grade =
-    finalValue < 95 ? { label: 'Garažo vadybininkas', emoji: '🚗' } :
-    finalValue < 120 ? { label: 'Klubų tūro vadybininkas', emoji: '🎫' } :
-    finalValue < 150 ? { label: 'Radijo eterio vilkas', emoji: '📻' } :
-    finalValue < 185 ? { label: 'Arenos magnatas', emoji: '🏟️' } :
+    finalValue < 140 ? { label: 'Garažo vadybininkas', emoji: '🚗' } :
+    finalValue < 170 ? { label: 'Klubų tūro vadybininkas', emoji: '🎫' } :
+    finalValue < 195 ? { label: 'Radijo eterio vilkas', emoji: '📻' } :
+    finalValue < 225 ? { label: 'Arenos magnatas', emoji: '🏟️' } :
     { label: 'Legendinis prodiuseris', emoji: '👑' }
 
   // ── Taškai ──
