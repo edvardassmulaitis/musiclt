@@ -2572,7 +2572,7 @@ function MobileChartSlide({
       style={{
         flexShrink: 0, position: 'relative', borderRadius: 16, overflow: 'hidden',
         border: `2px solid ${accent}`,
-        background: '#000', cursor: 'pointer', padding: 0, width: 188, height: 290,
+        background: '#000', cursor: 'pointer', padding: 0, width: 156, height: 236,
         scrollSnapAlign: 'start',
         transition: 'border-color 0.15s, transform 0.15s',
         boxShadow: 'var(--hero-card-shadow)',
@@ -3736,7 +3736,7 @@ export default function HomeClient({ initialLatest, initialHero }: { initialLate
           <div className="hp-feed-strip" style={{ padding: '14px 16px 0' }} aria-hidden>
             <div style={{ display: 'flex', gap: 12, overflowX: 'hidden', height: 296, alignItems: 'stretch' }}>
               {[0, 1, 2, 3].map(i => (
-                <div key={i} className="hp-skel-card" style={{ flexShrink: 0, width: 188, height: 290, borderRadius: 16 }}>
+                <div key={i} className="hp-skel-card" style={{ flexShrink: 0, width: 156, height: 236, borderRadius: 16 }}>
                   <div className="hp-eq"><span /><span /><span /><span /><span /></div>
                 </div>
               ))}
@@ -3766,6 +3766,9 @@ export default function HomeClient({ initialLatest, initialHero }: { initialLate
                 const isSeen = seenSlides.has(slideKey(slide))
                 // Renginiams title JAU yra atlikėjas — nerodom dar kartą po juo.
                 const artistName = slide.type === 'event' ? null : (slide.artist?.name || null)
+                // Nerodom atlikėjo po pavadinimu, jei jis JAU yra pavadinime
+                // (dažnas dubliavimas) — taupom vietą, kad pavadinimas tilptų.
+                const showArtist = !!artistName && !slide.title.toLowerCase().includes(artistName.toLowerCase())
                 // showExcerpt — naujienoms NEBE rodom subtitle (excerpt'as).
                 // Card'as paprastesnis: chip + title (+ artist'as jei yra).
                 // Eventams paliekam subtitle (data/vieta) — jis kontekstinis.
@@ -3777,7 +3780,7 @@ export default function HomeClient({ initialLatest, initialHero }: { initialLate
                       // (+ žalias taškas); kitaip neperžiūrėta → oranžinis; peržiūrėta
                       // → blankus. Taip nesimaišo oranžinis su žaliu (Edvardas).
                       border: slide.fresh24 ? '2px solid var(--accent-green)' : isSeen ? '2px solid rgba(255,255,255,0.10)' : '2px solid var(--accent-orange)',
-                      background: '#000', cursor: 'pointer', padding: 0, width: 188, height: 290,
+                      background: '#000', cursor: 'pointer', padding: 0, width: 156, height: 236,
                       scrollSnapAlign: 'start',
                       transition: 'opacity .15s, border-color .15s, transform .15s',
                       boxShadow: 'var(--hero-card-shadow)',
@@ -3790,12 +3793,12 @@ export default function HomeClient({ initialLatest, initialHero }: { initialLate
                     <div style={{ position: 'absolute', inset: 0, background: 'linear-gradient(to top, rgba(0,0,0,0.95) 0%, rgba(0,0,0,0.55) 35%, rgba(0,0,0,0.10) 60%, rgba(0,0,0,0) 75%)' }} />
                     {/* Bottom: title + excerpt + artist */}
                     <div style={{ position: 'absolute', bottom: 0, left: 0, right: 0, padding: '10px 12px 12px', textAlign: 'left' }}>
-                      <p style={{ fontSize: 16, fontWeight: 800, color: '#fff', margin: 0, lineHeight: 1.22, fontFamily: 'Outfit,sans-serif', display: '-webkit-box', WebkitLineClamp: 3, WebkitBoxOrient: 'vertical', overflow: 'hidden', textOverflow: 'ellipsis', letterSpacing: '-0.01em' } as any}>{slide.title}</p>
+                      <p style={{ fontSize: 14, fontWeight: 800, color: '#fff', margin: 0, lineHeight: 1.2, fontFamily: 'Outfit,sans-serif', display: '-webkit-box', WebkitLineClamp: 3, WebkitBoxOrient: 'vertical', overflow: 'hidden', textOverflow: 'ellipsis', letterSpacing: '-0.01em' } as any}>{slide.title}</p>
                       {showExcerpt && (
-                        <p style={{ fontSize: 14, fontWeight: 500, color: 'rgba(255,255,255,0.82)', margin: '5px 0 0', lineHeight: 1.32, display: '-webkit-box', WebkitLineClamp: 2, WebkitBoxOrient: 'vertical', overflow: 'hidden', textOverflow: 'ellipsis' } as any}>{slide.subtitle}</p>
+                        <p style={{ fontSize: 12, fontWeight: 500, color: 'rgba(255,255,255,0.82)', margin: '5px 0 0', lineHeight: 1.3, display: '-webkit-box', WebkitLineClamp: 2, WebkitBoxOrient: 'vertical', overflow: 'hidden', textOverflow: 'ellipsis' } as any}>{slide.subtitle}</p>
                       )}
-                      {artistName && (
-                        <p style={{ fontSize: 14, fontWeight: 700, color: 'rgba(255,255,255,0.78)', margin: '6px 0 0', lineHeight: 1.2, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{artistName}</p>
+                      {showArtist && (
+                        <p style={{ fontSize: 12, fontWeight: 700, color: 'rgba(255,255,255,0.78)', margin: '4px 0 0', lineHeight: 1.2, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{artistName}</p>
                       )}
                     </div>
                     {/* Top: chip badge — „NAUJIENA" nerodom (kartotųsi), tik prominentiniai */}
@@ -4088,9 +4091,9 @@ export default function HomeClient({ initialLatest, initialHero }: { initialLate
               </div>
               <div className="flex gap-3 overflow-x-auto pb-1 [scrollbar-width:none] [&::-webkit-scrollbar]:hidden lg:grid lg:grid-cols-5 lg:gap-4 lg:overflow-x-visible lg:pb-0">
                 {filtEvt.length === 0 ? Array(10).fill(null).map((_, i) => (
-                  <div key={i} className="hp-skel aspect-[3/4] w-[158px] shrink-0 rounded-xl lg:w-auto" />
+                  <div key={i} className="hp-skel aspect-[3/4] w-[188px] shrink-0 rounded-xl lg:w-auto" />
                 )) : (() => {
-                  const cardCls = "group relative flex aspect-[3/4] w-[158px] shrink-0 flex-col overflow-hidden rounded-xl border border-[var(--border-default)] bg-[var(--cover-placeholder)] no-underline shadow-[0_5px_14px_rgba(0,0,0,0.16)] transition-all duration-300 hover:-translate-y-0.5 hover:border-[rgba(249,115,22,0.5)] hover:shadow-[0_14px_30px_rgba(249,115,22,0.18)] lg:w-auto"
+                  const cardCls = "group relative flex aspect-[3/4] w-[188px] shrink-0 flex-col overflow-hidden rounded-xl border border-[var(--border-default)] bg-[var(--cover-placeholder)] no-underline shadow-[0_5px_14px_rgba(0,0,0,0.16)] transition-all duration-300 hover:-translate-y-0.5 hover:border-[rgba(249,115,22,0.5)] hover:shadow-[0_14px_30px_rgba(249,115,22,0.18)] lg:w-auto"
                   const capCls = "border-t border-[var(--border-subtle)] bg-[var(--bg-elevated)] px-2.5 py-2"
                   const isAbroad = (e: any) => !!e.is_abroad
                   const scoreOf = (e: any) => Math.max(0, ...(e.event_artists || []).map((ea: any) => { const a = Array.isArray(ea.artists) ? ea.artists[0] : ea.artists; return a?.score || 0 }))

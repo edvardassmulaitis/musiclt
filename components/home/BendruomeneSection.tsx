@@ -339,22 +339,22 @@ function TopasCard({ it }: { it: CommunityItem }) {
         {entries.length > 0 && (
           <div className="mt-1 flex flex-col">
             {entries.map(e => (
-              <div key={e.rank} className="flex items-center gap-2 border-b border-[var(--border-subtle)] py-[6px] last:border-b-0">
-                <span className="w-4 shrink-0 text-center text-[14px] font-black"
+              <div key={e.rank} className="flex items-center gap-2.5 border-b border-[var(--border-subtle)] py-[7px] last:border-b-0">
+                <span className="w-5 shrink-0 text-center text-[16px] font-black"
                       style={{ color: e.rank === 1 ? '#fbbf24' : e.rank === 2 ? '#94a3b8' : e.rank === 3 ? '#c97d4d' : 'var(--text-faint)', fontFamily: "'Outfit',sans-serif" }}>
                   {e.rank}
                 </span>
                 {e.image
                   ? <img src={proxyImg(e.image)} alt="" loading="lazy" // eslint-disable-line @next/next/no-img-element
-                      className="h-[30px] w-[30px] shrink-0 rounded-md object-cover" />
-                  : <div className="h-[30px] w-[30px] shrink-0 rounded-md"
+                      className="h-[38px] w-[38px] shrink-0 rounded-md object-cover" />
+                  : <div className="h-[38px] w-[38px] shrink-0 rounded-md"
                       style={{ background: `hsl(${strHue(e.title)},30%,20%)` }} />
                 }
                 <div className="min-w-0 flex-1">
-                  <p className="m-0 truncate text-[14px] font-bold leading-tight text-[var(--text-primary)]"
+                  <p className="m-0 truncate text-[16px] font-bold leading-tight text-[var(--text-primary)]"
                      style={{ fontFamily: "'Outfit',sans-serif" }}>{e.title}</p>
                   {e.artist && (
-                    <p className="m-0 truncate text-[12px] leading-tight text-[var(--text-muted)]"
+                    <p className="m-0 truncate text-[14px] leading-tight text-[var(--text-muted)]"
                        style={{ fontFamily: "'Outfit',sans-serif" }}>{e.artist}</p>
                   )}
                 </div>
