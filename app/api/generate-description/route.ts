@@ -1,7 +1,17 @@
 import { NextRequest, NextResponse } from 'next/server'
+import { requireAdmin } from '@/lib/admin-auth'
+import { rateLimit, clientIp } from '@/lib/rate-limit'
 
 export async function POST(req: NextRequest) {
   try {
+    // Editorial įrankis (kviečia admin WikipediaImport). Reikalauja editor+.
+    // Sustabdo neautentikuotą Opus sąskaitos eikvojimą.
+    if (!(await requireAdmin())) {
+      return NextResponse.json({ error: 'Forbidden' }, { status: 403 })
+    }
+    if (!(await rateLimit(`ai:gd:${clientIp(req)}`, 40, 3600))) {
+      return NextResponse.json({ error: 'Per daug užklausų' }, { status: 429 })
+    }
     const { wikiTitle, type, ytDescription } = await req.json()
     if (!wikiTitle && !ytDescription) return NextResponse.json({ description: '' })
 

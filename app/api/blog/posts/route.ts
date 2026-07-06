@@ -7,6 +7,7 @@ import { resolveProfile } from '@/lib/profile-resolve'
 import { detectEmbed } from '@/lib/embed-detect'
 import { logActivity } from '@/lib/activity-logger'
 import { resolveBlogThumbs } from '@/lib/blog-thumb'
+import { sanitizeRichHtml, stripAllHtml } from '@/lib/sanitize-html'
 
 const POST_TYPES = ['article', 'review', 'translation', 'creation', 'event', 'topas'] as const
 type PostType = typeof POST_TYPES[number]
@@ -73,15 +74,15 @@ export async function POST(req: NextRequest) {
     embedFields.embed_type = body.embed_type || detected?.type || 'other'
     embedFields.embed_thumbnail_url = body.embed_thumbnail_url || detected?.thumbnailUrl || null
     embedFields.embed_title = body.embed_title || detected?.title || null
-    embedFields.embed_html = body.embed_html || detected?.html || null
+    embedFields.embed_html = sanitizeRichHtml(body.embed_html || detected?.html || '') || null
   }
 
   // ── Type-specific laukai ───────────────────────────────────────────────
   const data: PostUpsertFields & { slug: string } = {
     title,
     slug: baseSlug,
-    content: body.content || null,
-    summary: body.summary || null,
+    content: sanitizeRichHtml(body.content) || null,
+    summary: stripAllHtml(body.summary) || null,
     cover_image_url: body.cover_image_url || null,
     status: body.status === 'published' ? 'published' : 'draft',
     post_type: postType,
@@ -123,7 +124,7 @@ export async function POST(req: NextRequest) {
     if (tm && typeof tm === 'object' && !Array.isArray(tm)) {
       const clean: Record<string, string> = {}
       for (const k of ['intro', 'outro'] as const) {
-        if (typeof tm[k] === 'string' && tm[k].trim()) clean[k] = String(tm[k]).slice(0, 20000)
+        if (typeof tm[k] === 'string' && tm[k].trim()) clean[k] = sanitizeRichHtml(String(tm[k]).slice(0, 20000))
       }
       if (Object.keys(clean).length) (data as any).topas_meta = clean
     }

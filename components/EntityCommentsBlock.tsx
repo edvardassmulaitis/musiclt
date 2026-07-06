@@ -31,6 +31,7 @@ import MusicSearchModal from './MusicSearchModal'
 import LikesModal, { type LikeUser } from './LikesModal'
 import CommentEditor, { type CommentEditorHandle } from './CommentEditor'
 import { relativeTime, absoluteDate } from '@/lib/relative-time'
+import { sanitizeCommentHtml } from '@/lib/sanitize-html'
 
 type ModernComment = {
   id: number
@@ -187,7 +188,7 @@ function QuoteBlock({
       </div>
       <div
         className="legacy-quote-body"
-        dangerouslySetInnerHTML={{ __html: body }}
+        dangerouslySetInnerHTML={{ __html: sanitizeCommentHtml(body) }}
       />
     </blockquote>
   )
@@ -1203,7 +1204,7 @@ export default function EntityCommentsBlock({
                       <div
                         className="comment-html-body mt-1 break-words text-[var(--text-primary)]"
                         style={{ fontSize, lineHeight: 1.55 }}
-                        dangerouslySetInnerHTML={{ __html: tagLinksNofollow(rest) }}
+                        dangerouslySetInnerHTML={{ __html: sanitizeCommentHtml(tagLinksNofollow(rest)) }}
                       />
                     ) : (
                       <div

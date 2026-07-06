@@ -19,7 +19,9 @@ export async function POST(req: Request) {
   const kind = KINDS.has(body.kind) ? body.kind : 'artist'
   const sb = createAdminClient()
   const session = await getServerSession(authOptions).catch(() => null)
-  const ip = (req.headers.get('x-forwarded-for') || '').split(',')[0].trim() || null
+  const ip = req.headers.get('x-real-ip')?.trim()
+    || (req.headers.get('x-forwarded-for') || '').split(',').map(s => s.trim()).filter(Boolean).pop()
+    || null
 
   const { error } = await sb.from('missing_reports').insert({
     kind,

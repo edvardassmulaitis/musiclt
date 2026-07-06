@@ -2,12 +2,10 @@ import { NextRequest, NextResponse } from 'next/server'
 import { createAdminClient } from '@/lib/supabase'
 import { sendEmail } from '@/lib/email'
 import { randomBytes } from 'crypto'
+import { rateLimit, clientIp } from '@/lib/rate-limit'
+import { verifyTurnstile } from '@/lib/turnstile'
 
 const BASE = process.env.NEXTAUTH_URL || 'https://musiclt.vercel.app'
-
-// Best-effort rate-limit (per serverless instance) — apsauga nuo spam relay.
-const lastSent = new Map<string, number>()
-const COOLDOWN_MS = 30_000
 
 export async function POST(req: NextRequest) {
   try {
@@ -17,12 +15,26 @@ export async function POST(req: NextRequest) {
       return NextResponse.json({ error: 'Invalid email' }, { status: 400 })
     }
 
-    const now = Date.now()
-    const prev = lastSent.get(email)
-    if (prev && now - prev < COOLDOWN_MS) {
+    const ip = clientIp(req)
+
+    // Bot apsauga (Turnstile) — no-op, jei TURNSTILE_SECRET_KEY nenustatytas.
+    if (!(await verifyTurnstile(body?.turnstileToken, ip))) {
+      return NextResponse.json({ error: 'Patvirtinkite, kad nesate robotas.' }, { status: 400 })
+    }
+
+    // Durable rate limit (bendras store): 3/email/val + 8/IP/val + 1/email/30s.
+    // Sustabdo email-bomb ir spam-relay per Resend (in-memory Map neveikė serverless).
+    const [okEmailBurst, okEmailHour, okIpHour] = await Promise.all([
+      rateLimit(`ml:e30:${email}`, 1, 30),
+      rateLimit(`ml:eh:${email}`, 3, 3600),
+      rateLimit(`ml:ip:${ip}`, 8, 3600),
+    ])
+    if (!okEmailBurst) {
       return NextResponse.json({ error: 'Per dažnai — palaukite kelias sekundes.' }, { status: 429 })
     }
-    lastSent.set(email, now)
+    if (!okEmailHour || !okIpHour) {
+      return NextResponse.json({ error: 'Per daug bandymų. Pabandykite vėliau.' }, { status: 429 })
+    }
 
     const supabase = createAdminClient()
 

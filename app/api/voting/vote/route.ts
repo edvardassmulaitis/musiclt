@@ -3,6 +3,7 @@ import { getServerSession } from 'next-auth'
 import { headers } from 'next/headers'
 import { authOptions } from '@/lib/auth'
 import { createAdminClient } from '@/lib/supabase'
+import { clientIpFromHeaders } from '@/lib/rate-limit'
 
 /**
  * POST /api/voting/vote
@@ -15,12 +16,10 @@ import { createAdminClient } from '@/lib/supabase'
  */
 
 async function getIp() {
+  // x-real-ip (Vercel-patikimas) / dešinysis XFF — kad nebūtų ballot stuffing
+  // per spoof'intą kairįjį X-Forwarded-For.
   const h = await headers()
-  return (
-    h.get('x-forwarded-for')?.split(',')[0]?.trim() ||
-    h.get('x-real-ip') ||
-    'unknown'
-  )
+  return clientIpFromHeaders(h)
 }
 
 async function checkEventOpen(event_id: number) {

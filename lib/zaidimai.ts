@@ -57,7 +57,9 @@ export async function resolveViewer(): Promise<GameViewer> {
 // ── HMAC token'ai (stateless server-side atsakymų apsauga) ────────────────
 
 function secret(): string {
-  return process.env.NEXTAUTH_SECRET || process.env.SUPABASE_SERVICE_ROLE_KEY || 'zaidimai-dev'
+  const s = process.env.NEXTAUTH_SECRET || process.env.SUPABASE_SERVICE_ROLE_KEY
+  if (!s) throw new Error('NEXTAUTH_SECRET (arba SUPABASE_SERVICE_ROLE_KEY) būtinas žaidimų HMAC token\'ams')
+  return s
 }
 
 export function signPayload(payload: object): string {

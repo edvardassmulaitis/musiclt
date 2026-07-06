@@ -1,6 +1,9 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { createClient } from '@supabase/supabase-js'
+import { getServerSession } from 'next-auth'
+import { authOptions } from '@/lib/auth'
 import { resizeForUpload } from '@/lib/image-resize'
+import { assertPublicHttpUrlResolved, isPublicHttpUrl } from '@/lib/net-guard'
 
 const supabase = createClient(
   process.env.NEXT_PUBLIC_SUPABASE_URL!,
@@ -11,8 +14,22 @@ const MAX_FETCH_BYTES = 25 * 1024 * 1024
 
 export async function POST(req: NextRequest) {
   try {
+    // Auth: tik prisijungę vartotojai (visi šio endpoint'o klientai yra
+    // admin/editorial/studija UI). Sustabdo anoniminį SSRF.
+    const session = await getServerSession(authOptions)
+    if (!(session?.user as any)?.id) {
+      return NextResponse.json({ error: 'Prisijunk' }, { status: 401 })
+    }
+
     const { url, returnDataUrl } = await req.json()
     if (!url) return NextResponse.json({ error: 'No URL' }, { status: 400 })
+
+    // SSRF apsauga: tik viešas http(s), be vidinių/private taikinių (+ DNS resolve).
+    try {
+      await assertPublicHttpUrlResolved(url)
+    } catch (e: any) {
+      return NextResponse.json({ error: e.message || 'Blokuotas URL' }, { status: 400 })
+    }
 
     // Nustatyti tinkamus header'us pagal šaltinį
     const isWikimedia = url.includes('wikimedia.org') || url.includes('wikipedia.org')
@@ -48,7 +65,17 @@ export async function POST(req: NextRequest) {
       return NextResponse.json({ error: lastError || 'Fetch nepavyko' }, { status: 400 })
     }
 
+    // Redirect-SSRF apsauga: galutinis URL (po redirect'ų) taip pat turi būti viešas.
+    if (response.url && !isPublicHttpUrl(response.url)) {
+      return NextResponse.json({ error: 'Blokuotas redirect taikinys' }, { status: 400 })
+    }
+
     const contentType = response.headers.get('content-type') || 'image/jpeg'
+    // returnDataUrl grąžina neapdorotą turinį — leidžiam tik tikrus paveikslėlius,
+    // kad tai netaptų bendru read-primitive.
+    if (returnDataUrl && !contentType.toLowerCase().startsWith('image/')) {
+      return NextResponse.json({ error: 'Ne paveikslėlis' }, { status: 400 })
+    }
     const buffer = Buffer.from(await response.arrayBuffer())
     if (buffer.length > MAX_FETCH_BYTES) {
       return NextResponse.json({ error: `Failas per didelis (${(buffer.length/1024/1024).toFixed(1)}MB > 25MB)` }, { status: 400 })

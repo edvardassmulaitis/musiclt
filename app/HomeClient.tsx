@@ -9,6 +9,7 @@ import { ShoutboxWidget } from '@/components/ShoutboxWidget'
 import { ActivityWidget } from '@/components/ActivityWidget'
 import { LazySection } from '@/components/LazySection'
 import { proxyImg } from '@/lib/img-proxy'
+import { sanitizeRichHtml } from '@/lib/sanitize-html'
 import { HomeTrackModal } from '@/components/HomeTrackModal'
 import AlbumInfoModal from '@/components/AlbumInfoModal'
 import { HomeListModal } from '@/components/HomeListModal'
@@ -963,7 +964,7 @@ function ReaderSlide({ slide, active, seen, dk, scrollTopSignal, onScrolledChang
           active ? <DailyCandidates onPlay={play} /> : (slide.excerpt ? <p className="rdr-excerpt">{slide.excerpt}</p> : null)
         ) : (isBlog && blogTopas && blogTopas.length) ? (
           <div className="rdr-toplist-wrap">
-            {blogIntro && <div className="rdr-html" dangerouslySetInnerHTML={{ __html: blogIntro }} />}
+            {blogIntro && <div className="rdr-html" dangerouslySetInnerHTML={{ __html: sanitizeRichHtml(blogIntro) }} />}
             <div className="rdr-toplist">
               {blogTopas.map((it: any, idx: number) => (
                 <div key={idx} className="rdr-top-item">
@@ -978,10 +979,10 @@ function ReaderSlide({ slide, active, seen, dk, scrollTopSignal, onScrolledChang
                 </div>
               ))}
             </div>
-            {blogOutro && <div className="rdr-html rdr-outro" dangerouslySetInnerHTML={{ __html: blogOutro }} />}
+            {blogOutro && <div className="rdr-html rdr-outro" dangerouslySetInnerHTML={{ __html: sanitizeRichHtml(blogOutro) }} />}
           </div>
         ) : body ? (
-          <div className="rdr-html" dangerouslySetInnerHTML={{ __html: body }} />
+          <div className="rdr-html" dangerouslySetInnerHTML={{ __html: sanitizeRichHtml(body) }} />
         ) : bodyLoading ? (
           <div className="rdr-load"><span /><span /><span /></div>
         ) : (slide.excerpt || slide.subtitle) ? (

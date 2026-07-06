@@ -11,21 +11,15 @@ import { NextResponse, after } from 'next/server'
 import { computeHomeSnapshot, writeHomeSnapshot } from '@/lib/home-snapshot'
 import { revalidatePath, revalidateTag } from 'next/cache'
 import { HOME_TAGS, warmHomeList } from '@/lib/home-latest'
+import { authorizeCron } from '@/lib/cron-auth'
 
 export const dynamic = 'force-dynamic'
 export const maxDuration = 60
 
-const FALLBACK_KEY = 'hsnap_7f3a9c2e8b1d4f6a'
-
-function authorized(req: Request): boolean {
-  const key = new URL(req.url).searchParams.get('key')
-  const auth = req.headers.get('authorization')
-  const keys = [process.env.CRON_SECRET, FALLBACK_KEY].filter(Boolean) as string[]
-  return keys.some(k => key === k || auth === 'Bearer ' + k)
-}
-
 export async function GET(req: Request) {
-  if (!authorized(req)) {
+  // Tik env CRON_SECRET (Bearer arba ?key=). Pašalintas hardcoded FALLBACK_KEY,
+  // kuris veikė kaip nerotuojamas backdoor.
+  if (!authorizeCron(req, { allowQueryKey: true })) {
     return NextResponse.json({ error: 'unauthorized' }, { status: 401 })
   }
   try {

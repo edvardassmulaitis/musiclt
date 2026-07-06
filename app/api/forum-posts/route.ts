@@ -3,6 +3,7 @@ import { getServerSession } from 'next-auth'
 import { authOptions } from '@/lib/auth'
 import { createAdminClient } from '@/lib/supabase'
 import { notifyFromSession } from '@/lib/notifications'
+import { sanitizeRichHtml } from '@/lib/sanitize-html'
 
 type AttachmentIn = {
   type: 'daina' | 'albumas' | 'grupe'
@@ -22,25 +23,9 @@ type PostInput = {
   attachments?: AttachmentIn[]
 }
 
-/** Sanitize WYSIWYG HTML — keep basic formatting + YouTube iframes, strip everything dangerous. */
+/** Sanitize WYSIWYG HTML — DOMPurify allowlist (keep formatting + patikimi embed'ai). */
 function sanitizeHtml(raw: string): string {
-  if (!raw) return ''
-  let s = raw
-  s = s.replace(/<script[\s\S]*?<\/script>/gi, '')
-  s = s.replace(/<style[\s\S]*?<\/style>/gi, '')
-  s = s.replace(/<form[\s\S]*?<\/form>/gi, '')
-  s = s.replace(/<input[^>]*>/gi, '')
-  s = s.replace(/<iframe([^>]*)>([\s\S]*?)<\/iframe>/gi, (m, attrs: string) => {
-    const srcMatch = attrs.match(/src="([^"]+)"/i)
-    if (!srcMatch) return ''
-    const src = srcMatch[1]
-    if (!/^https?:\/\/(www\.)?(youtube\.com|youtu\.be|youtube-nocookie\.com)\//.test(src)) return ''
-    return `<iframe src="${src}" width="560" height="315" frameborder="0" allow="autoplay; encrypted-media" allowfullscreen></iframe>`
-  })
-  s = s.replace(/\son\w+="[^"]*"/gi, '')
-  s = s.replace(/\son\w+='[^']*'/gi, '')
-  s = s.replace(/javascript:/gi, '')
-  return s.trim()
+  return sanitizeRichHtml(raw)
 }
 
 /** Fallback text-to-HTML for the case where the client didn't send html. */

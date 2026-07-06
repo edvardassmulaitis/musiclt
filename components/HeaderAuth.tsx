@@ -6,6 +6,7 @@ import { signIn, signOut, useSession } from 'next-auth/react'
 import Link from 'next/link'
 import { proxyImg } from '@/lib/img-proxy'
 import { useSite } from '@/components/SiteContext'
+import TurnstileWidget from '@/components/TurnstileWidget'
 
 // ── THEME TOGGLE ──────────────────────────────────────────────────────────────
 // Šviesi/tamsi tema. Naudojam dviem pavidalais: pilno pločio eilutė profilio
@@ -81,6 +82,7 @@ function AuthModal({ onClose }: { onClose: () => void }) {
   const [loading, setLoading] = useState<string | null>(null)
   const [emailSent, setEmailSent] = useState(false)
   const [email, setEmail] = useState('')
+  const [captcha, setCaptcha] = useState('')
 
   useEffect(() => {
     const handleKey = (e: KeyboardEvent) => { if (e.key === 'Escape') onClose() }
@@ -109,7 +111,7 @@ function AuthModal({ onClose }: { onClose: () => void }) {
       const res = await fetch('/api/auth/magic-link', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ email }),
+        body: JSON.stringify({ email, turnstileToken: captcha }),
       })
       const data = await res.json()
       if (!res.ok || data.error) {
@@ -214,6 +216,7 @@ function AuthModal({ onClose }: { onClose: () => void }) {
                 onFocus={e => (e.currentTarget.style.borderColor = 'rgba(249,115,22,0.7)')}
                 onBlur={e => (e.currentTarget.style.borderColor = 'var(--input-border)')}
               />
+              <TurnstileWidget onVerify={setCaptcha} />
               <button
                 type="submit"
                 disabled={loading !== null}

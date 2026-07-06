@@ -4,6 +4,7 @@ import { getServerSession } from 'next-auth'
 import { authOptions } from '@/lib/auth'
 import { headers } from 'next/headers'
 import { logActivity } from '@/lib/activity-logger'
+import { clientIpFromHeaders } from '@/lib/rate-limit'
 
 function todayLT(): string {
   return new Date().toLocaleDateString('lt-LT', {
@@ -21,9 +22,7 @@ export async function POST(req: Request) {
   const { nomination_id, fingerprint } = body
 
   const headersList = await headers()
-  const ip = headersList.get('x-forwarded-for')?.split(',')[0]?.trim()
-    || headersList.get('x-real-ip')
-    || 'unknown'
+  const ip = clientIpFromHeaders(headersList)
 
   const date = todayLT()
   const supabase = createAdminClient()

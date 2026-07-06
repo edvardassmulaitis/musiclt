@@ -16,7 +16,7 @@ const resend = process.env.RESEND_API_KEY ? new Resend(process.env.RESEND_API_KE
 const FROM = process.env.EMAIL_FROM || 'music.lt <onboarding@resend.dev>'
 // BASE: produkcijos URL nuorodoms laiškuose. music.lt dar nevaldom → default Vercel.
 const BASE = process.env.NEXTAUTH_URL || 'https://musiclt.vercel.app'
-const SECRET = process.env.INTERNAL_API_SECRET || process.env.NEXTAUTH_SECRET || 'musiclt'
+const SECRET = process.env.INTERNAL_API_SECRET || process.env.NEXTAUTH_SECRET || ''
 
 export type SendResult = { ok: boolean; error?: string }
 

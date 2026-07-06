@@ -1,6 +1,9 @@
 // app/api/tracks/[id]/ai-interpretation/route.ts
 import { NextRequest, NextResponse } from 'next/server'
 import { createAdminClient } from '@/lib/supabase'
+import { getServerSession } from 'next-auth'
+import { authOptions } from '@/lib/auth'
+import { rateLimit } from '@/lib/rate-limit'
 
 export async function GET(
   _req: NextRequest,
@@ -23,6 +26,17 @@ export async function POST(
   _req: NextRequest,
   { params }: { params: Promise<{ id: string }> }
 ) {
+  // Generavimas (Opus + DB rašymas) tik prisijungusiems — sustabdo anoniminį
+  // sąskaitos eikvojimą ir turinio mutaciją. GET (skaitymas) lieka viešas.
+  const session = await getServerSession(authOptions)
+  const uid = (session?.user as any)?.id
+  if (!uid) {
+    return NextResponse.json({ error: 'Prisijunk' }, { status: 401 })
+  }
+  if (!(await rateLimit(`ai:int:${uid}`, 20, 3600))) {
+    return NextResponse.json({ error: 'Per daug užklausų' }, { status: 429 })
+  }
+
   const { id } = await params
   const supabase = createAdminClient()
 

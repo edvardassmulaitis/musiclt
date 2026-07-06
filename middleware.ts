@@ -2,7 +2,10 @@ import { NextResponse, type NextRequest } from 'next/server'
 import { getToken } from 'next-auth/jwt'
 import { minRoleForPath, hasMinRole, isAdminTier } from '@/lib/admin-sections'
 
-const AUTH_SECRET = process.env.NEXTAUTH_SECRET || 'kjcxLaUePrIgs0SM6C6yen/Whkp87MDKywsUjmrBPYE='
+// Fail-closed: jokio hardcoded fallback. Jei NEXTAUTH_SECRET nenustatytas,
+// admin prieiga atmetama (žr. žemiau) — geriau lūžti saugiai nei priimti
+// suklastotą token'ą, pasirašytą viešai žinoma konstanta.
+const AUTH_SECRET = process.env.NEXTAUTH_SECRET
 
 export async function middleware(req: NextRequest) {
   const url = req.nextUrl
@@ -13,6 +16,17 @@ export async function middleware(req: NextRequest) {
   // Tikras server-side enforcement: editor negali apeiti per URL ar tiesioginį API.
   const adminMin = minRoleForPath(pathname)
   if (adminMin) {
+    // Fail-closed: be sukonfigūruoto secret'o negalim patikimai patvirtinti
+    // token'o → atmetam prieigą prie saugomos zonos.
+    if (!AUTH_SECRET) {
+      if (pathname.startsWith('/api/')) {
+        return NextResponse.json({ error: 'Server misconfigured' }, { status: 500 })
+      }
+      const dest = url.clone()
+      dest.search = ''
+      dest.pathname = '/'
+      return NextResponse.redirect(dest)
+    }
     const token = await getToken({ req, secret: AUTH_SECRET })
     const role = (token as any)?.role
     if (!hasMinRole(role, adminMin)) {
