@@ -47,6 +47,13 @@ export default function VaizdasClient() {
 
   const round = rounds[idx] || null
 
+  // Be tarpinio intro — žaidimas startuoja iškart (garso čia nereikia,
+  // tad iOS gesto apribojimai negalioja).
+  useEffect(() => {
+    void start()
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [])
+
   async function start() {
     setPhase('loading')
     setError(null)
@@ -157,11 +164,14 @@ export default function VaizdasClient() {
 
       {phase === 'intro' && (
         <div className="vz-intro">
-          <h1 className="vz-h1">Atspėk iš vaizdo</h1>
-          <p className="vz-lead">Albumo viršelis ryškėja 12 sekundžių. Kuo anksčiau atpažinsi albumą — tuo daugiau taškų. 8 raundai: pasaulio ir Lietuvos albumai.</p>
-          {error && <div className="vz-error">{error}</div>}
-          <button className="vz-cta" onClick={start}>Žaisti →</button>
-          <p className="vz-note">Taškai skiriami už pirmus 3 žaidimus per dieną.</p>
+          {error ? (
+            <>
+              <div className="vz-error">{error}</div>
+              <button className="vz-cta" onClick={start}>Bandyti dar</button>
+            </>
+          ) : (
+            <div className="vz-center"><div className="vz-spinner" /></div>
+          )}
         </div>
       )}
 
@@ -171,6 +181,9 @@ export default function VaizdasClient() {
 
       {(phase === 'round' || phase === 'reveal') && round && (
         <div className="vz-stage">
+          {idx === 0 && phase === 'round' && (
+            <p className="vz-hint">Viršelis ryškėja — atpažink albumą kuo greičiau</p>
+          )}
           <div className="vz-imgbox">
             {/* eslint-disable-next-line @next/next/no-img-element */}
             <img
@@ -262,6 +275,7 @@ const css = `
 @keyframes vzspin { to { transform: rotate(360deg); } }
 
 .vz-stage { display: flex; flex-direction: column; gap: 12px; }
+.vz-hint { font-size: 12.5px; color: var(--text-secondary); text-align: center; margin: 0; }
 .vz-imgbox { position: relative; border-radius: 14px; overflow: hidden; aspect-ratio: 1/1; background: #0c0f15; }
 .vz-imgbox img { width: 100%; height: 100%; object-fit: cover; display: block; transform: scale(1.06); }
 .vz-clock { position: absolute; top: 12px; right: 12px; width: 56px; height: 56px; border-radius: 50%; background: conic-gradient(var(--accent-orange) calc(var(--p) * 360deg), rgba(255,255,255,0.15) 0); display: flex; align-items: center; justify-content: center; }

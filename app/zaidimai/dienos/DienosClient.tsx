@@ -71,6 +71,15 @@ export default function DienosClient(props: Props) {
   const [sessionXp, setSessionXp] = useState(0)
   const [streak, setStreak] = useState(props.streak)
 
+  // Be tarpinio intro ekrano — iškart į pirmą neatliktą užduotį.
+  // (Kvizo garso atrakinimo gestas — ▶ mygtukas pačiame pirmame raunde.)
+  useEffect(() => {
+    const next = nextStageAfter('intro')
+    if (next === 'kvizas') void startKvizas()
+    else setStage(next)
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [])
+
   function nextStageAfter(cur: Stage): Stage {
     const order: StepKey[] = steps.map((s: any) => s.key)
     const idx = cur === 'intro' ? -1 : order.indexOf(cur as StepKey)
@@ -317,7 +326,6 @@ export default function DienosClient(props: Props) {
     } catch { /* ok */ }
   }
 
-  const allDone = steps.every((s: any) => done[s.key as StepKey])
   // Kiek iš viso ĮMANOMA surinkti šiandien šiame iššūkyje (anon skalė)
   const galimaXp = Math.round((5 * 100 + 3 * 15) / 10) * 2 + (duel ? 20 : 0) + (verdict ? 20 : 0) + (image ? 80 : 0)
   const qPct = Math.max(0, qTimeLeft / ROUND_MS)
@@ -338,39 +346,14 @@ export default function DienosClient(props: Props) {
         <div className="di-stepbar">
           {steps.map((s: any, i: number) => (
             <span key={s.key} className={`di-step${done[s.key as StepKey] ? ' done' : ''}${stage === s.key ? ' now' : ''}`}>
-              {done[s.key as StepKey] ? '✓' : s.emoji} <em>{i + 1}</em>
+              {done[s.key as StepKey] ? '✓' : i + 1}
             </span>
           ))}
         </div>
       )}
 
-      {/* ═══ INTRO ═══ */}
-      {stage === 'intro' && (
-        <div className="di-intro">
-          <div className="di-badge">⚡ DIENOS IŠŠŪKIS</div>
-          <h1 className="di-h1">Vienas iššūkis per dieną.<br />Tas pats visiems.</h1>
-          <div className="di-steps-list">
-            {steps.map((s: any) => (
-              <div key={s.key} className={`di-intro-step${done[s.key as StepKey] ? ' done' : ''}`}>
-                <span className="di-intro-emoji">{s.emoji}</span>
-                <span className="di-intro-label">{s.label}</span>
-                <span className="di-intro-state">{done[s.key as StepKey] ? '✓ atlikta' : ''}</span>
-              </div>
-            ))}
-          </div>
-          {props.quizPlayed && props.quizScore !== null && (
-            <p className="di-note">Šiandienos kvizo rezultatas: <b>{props.quizScore}</b> taškų</p>
-          )}
-          <button className="di-cta" onClick={() => {
-            const next = nextStageAfter('intro')
-            if (next === 'kvizas') void startKvizas()
-            else setStage(next)
-          }}>
-            {allDone ? 'Peržiūrėti suvestinę →' : 'Pradėti →'}
-          </button>
-          <p className="di-note dim">Vienas bandymas per dieną. Taškai — už kiekvieną atliktą užduotį.</p>
-        </div>
-      )}
+      {/* ═══ KRAUNASI (intro nebėra — šokam tiesiai į užduotį) ═══ */}
+      {stage === 'intro' && <div className="di-center"><div className="di-spinner" /></div>}
 
       {/* ═══ KVIZAS ═══ */}
       {stage === 'kvizas' && (
@@ -379,15 +362,7 @@ export default function DienosClient(props: Props) {
           {qPhase === 'load' && !qError && <div className="di-center"><div className="di-spinner" /></div>}
           {qPhase === 'submitting' && <div className="di-center"><div className="di-spinner" /><p className="di-note">Skaičiuojam…</p></div>}
 
-          {qPhase === 'ready' && (
-            <div className="di-ready">
-              <span className="di-ready-emoji">🎧</span>
-              <p className="di-note">{qRounds.length} raundai · įsijunk garsą</p>
-              <button className="di-cta" onClick={qStartPlaying}>▶ Pradėti kvizą</button>
-            </div>
-          )}
-
-          {(qPhase === 'round' || qPhase === 'reveal') && qRound && (
+          {(qPhase === 'ready' || qPhase === 'round' || qPhase === 'reveal') && qRound && (
             <>
               <div className="di-q-head">
                 <span className="di-q-n">{qIdx + 1} / {qRounds.length}</span>
@@ -395,6 +370,12 @@ export default function DienosClient(props: Props) {
                 <span className="di-q-score">⚡ {qScore}</span>
               </div>
               <div className="di-audio">
+                {qPhase === 'ready' && (
+                  <button className="di-play-big" onClick={qStartPlaying} aria-label="Pradėti">
+                    <svg width="26" height="26" viewBox="0 0 24 24" fill="currentColor"><path d="M8 5v14l11-7z" /></svg>
+                    <span>Pradėti</span>
+                  </button>
+                )}
                 {qRound && !qRound.audioUrl && qPhase === 'round' && !ios && (
                   <iframe
                     className="di-hidden-yt"
@@ -433,7 +414,7 @@ export default function DienosClient(props: Props) {
                     cls += ' checking'
                   }
                   return (
-                    <button key={o.id} className={cls} disabled={qPhase === 'reveal' || qChecking} onClick={() => qAnswer(o.id)}>
+                    <button key={o.id} className={cls} disabled={qPhase !== 'round' || qChecking} onClick={() => qAnswer(o.id)}>
                       <span className="di-opt-artist">{o.artist}</span>
                       <span className="di-opt-title">{o.title}</span>
                     </button>
@@ -593,8 +574,7 @@ export default function DienosClient(props: Props) {
             <Link href="/zaidimai" className="di-more">Daugiau žaidimų →</Link>
           </div>
           <Link href="/zaidimai/atspek-is-vaizdo" className="di-next-game">
-            <span>🖼️</span>
-            <span><b>Dar šiandien: Atspėk iš vaizdo</b><br/>Nuotrauka ryškėja — atpažink atlikėją</span>
+            <span><b>Dar šiandien: Atspėk iš vaizdo</b><br/>Albumo viršelis ryškėja — atpažink jį</span>
             <span className="di-next-game-go">→</span>
           </Link>
         </div>
@@ -606,8 +586,11 @@ export default function DienosClient(props: Props) {
 const css = `
 .di-xp { font-size: 15px; font-weight: 900; color: var(--accent-orange); }
 .di-streak { font-size: 13px; font-weight: 800; color: var(--text-secondary); }
-.di-ready { display: flex; flex-direction: column; align-items: center; text-align: center; gap: 6px; padding: 10vh 0; }
-.di-ready-emoji { font-size: 44px; }
+.di-play-big {
+  display: flex; align-items: center; gap: 10px; font-size: 18px; font-weight: 900; color: #fff;
+  cursor: pointer; border: 0; border-radius: 999px; padding: 14px 34px;
+  background: var(--accent-orange);
+}
 .di-yt { position: absolute; inset: 0; }
 .di-yt iframe { width: 100%; height: 100%; }
 

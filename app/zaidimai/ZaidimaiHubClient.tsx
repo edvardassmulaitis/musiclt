@@ -2,13 +2,12 @@
 
 // app/zaidimai/ZaidimaiHubClient.tsx
 //
-// Master landing — RAMUS IR AIŠKUS (Edvardo feedback: „be spalvų chaoso"):
-//   * pilno ekrano langas be svetainės header/footer (ZaidimoLangas)
-//   * vienas akcentas — svetainės oranžinė; visa kita neutralu
-//   * 1. Dienos iššūkis (hero CTA) → 2. žaidimų sąrašas → 3. lyderiai
-// Jokių ilgų tekstų — viena eilutė apie taisykles apačioje.
+// Master landing — MINIMALUS (Edvardo feedback: „per daug teksto, baisios
+// emoji ikonos"): hero be paaiškinimų, žaidimų eilutės tik su pavadinimu,
+// line-style SVG ikonos, viskas pilname ekrane be svetainės footer.
 
 import Link from 'next/link'
+import type { ReactNode } from 'react'
 import ZaidimoLangas from '@/components/zaidimai/ZaidimoLangas'
 import type { LeaderRow, DailyTopRow } from './page'
 
@@ -28,42 +27,26 @@ type Props = {
   }
 }
 
-const GAMES = (today: Props['today'], fantasyTeam: string | null) => [
-  {
-    href: '/zaidimai/dainu-kvizas',
-    icon: '🎧',
-    title: 'Atspėk dainą',
-    desc: 'Klausai ištraukos — renkiesi iš 4 variantų',
-    meta: today.quizRunsLeft > 0 ? `${today.quizRunsLeft} žaid. su taškais` : 'treniruotė',
-    active: today.quizRunsLeft > 0,
-  },
-  {
-    href: '/zaidimai/atspek-is-vaizdo',
-    icon: '💿',
-    title: 'Atspėk iš vaizdo',
-    desc: 'Populiaraus albumo viršelis ryškėja — atpažink jį',
-    meta: today.vaizdasRunsLeft > 0 ? `${today.vaizdasRunsLeft} žaid. su taškais` : 'treniruotė',
-    active: today.vaizdasRunsLeft > 0,
-  },
-  {
-    href: '/zaidimai/dvikovos',
-    icon: '⚔️',
-    title: 'Dainų dvikovos',
-    desc: 'Balsuok ir lygink save su bendruomene',
-    meta: today.duelVotesLeft > 0 ? `${today.duelVotesLeft} balsai su taškais` : 'be taškų',
-    active: today.duelVotesLeft > 0,
-  },
-  {
-    href: '/zaidimai/vadybininkas',
-    icon: '💼',
-    title: 'Muzikos vadybininkas',
-    desc: 'Sudaryk komandą iš realių atlikėjų — taškai už tikrus jų rezultatus',
-    meta: fantasyTeam || 'sudaryk komandą',
-    active: true,
-  },
-]
+const ic = (paths: ReactNode) => (
+  <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" aria-hidden>{paths}</svg>
+)
+
+const ICONS = {
+  zap: ic(<polygon points="13 2 3 14 12 14 11 22 21 10 12 10 13 2" />),
+  headphones: ic(<path d="M3 14h3a2 2 0 0 1 2 2v3a2 2 0 0 1-2 2H3v-7a9 9 0 0 1 18 0v7h-3a2 2 0 0 1-2-2v-3a2 2 0 0 1 2-2h3" />),
+  disc: ic(<><circle cx="12" cy="12" r="10" /><circle cx="12" cy="12" r="2.5" /></>),
+  swords: ic(<><polyline points="14.5 17.5 3 6 3 3 6 3 17.5 14.5" /><line x1="13" x2="19" y1="19" y2="13" /><line x1="16" x2="20" y1="16" y2="20" /><line x1="19" x2="21" y1="21" y2="19" /><polyline points="14.5 6.5 18 3 21 3 21 6 17.5 9.5" /><line x1="5" x2="9" y1="14" y2="18" /><line x1="7" x2="4" y1="17" y2="20" /><line x1="3" x2="5" y1="19" y2="21" /></>),
+  briefcase: ic(<><rect x="2" y="7" width="20" height="14" rx="2" /><path d="M16 21V5a2 2 0 0 0-2-2h-4a2 2 0 0 0-2 2v16" /></>),
+}
 
 export default function ZaidimaiHubClient({ isAuthenticated, username, me, leaders, dailyTop, fantasyTeam, today }: Props) {
+  const games = [
+    { href: '/zaidimai/dainu-kvizas', icon: ICONS.headphones, title: 'Atspėk dainą', dot: today.quizRunsLeft > 0 },
+    { href: '/zaidimai/atspek-is-vaizdo', icon: ICONS.disc, title: 'Atspėk iš vaizdo', dot: today.vaizdasRunsLeft > 0 },
+    { href: '/zaidimai/dvikovos', icon: ICONS.swords, title: 'Dainų dvikovos', dot: today.duelVotesLeft > 0 },
+    { href: '/zaidimai/vadybininkas', icon: ICONS.briefcase, title: 'Muzikos vadybininkas', dot: false },
+  ]
+
   return (
     <ZaidimoLangas
       title="Žaidimai"
@@ -78,30 +61,20 @@ export default function ZaidimaiHubClient({ isAuthenticated, username, me, leade
     >
       <style>{css}</style>
 
-      {/* 1. DIENOS IŠŠŪKIS — hero */}
+      {/* Dienos iššūkis — hero be paaiškinimų */}
       <Link href="/zaidimai/dienos" className={`zh-daily${today.dailyPlayed ? ' done' : ''}`}>
-        <div className="zh-daily-left">
-          <span className="zh-daily-badge">DIENOS IŠŠŪKIS</span>
-          <span className="zh-daily-title">Tas pats visiems — kas surinks daugiau?</span>
-          <span className="zh-daily-sub">
-            {today.dailyPlayed ? 'Kvizas įveiktas ✓ — pasitikrink likusias užduotis' : '5 dainos · dvikova · verdiktas — dvigubi taškai'}
-          </span>
-        </div>
+        <span className="zh-daily-icon">{ICONS.zap}</span>
+        <span className="zh-daily-title">Dienos iššūkis</span>
         <span className="zh-daily-cta">{today.dailyPlayed ? '✓' : 'Žaisti'}</span>
       </Link>
 
-      {/* 2. Žaidimai */}
-      <h2 className="zh-h2">Visi žaidimai</h2>
       <div className="zh-rows">
-        {GAMES(today, fantasyTeam).map(g => (
+        {games.map(g => (
           <Link key={g.href} href={g.href} className="zh-row">
             <span className="zh-row-icon">{g.icon}</span>
-            <span className="zh-row-main">
-              <span className="zh-row-title">{g.title}</span>
-              <span className="zh-row-desc">{g.desc}</span>
-            </span>
-            <span className={`zh-row-meta${g.active ? ' on' : ''}`}>{g.meta}</span>
-            <svg className="zh-row-go" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><path d="m9 18 6-6-6-6"/></svg>
+            <span className="zh-row-title">{g.title}</span>
+            {g.dot && <span className="zh-dot" title="Šiandien dar gali gauti taškų" />}
+            <svg className="zh-row-go" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><path d="m9 18 6-6-6-6" /></svg>
           </Link>
         ))}
       </div>
@@ -112,7 +85,6 @@ export default function ZaidimaiHubClient({ isAuthenticated, username, me, leade
         </div>
       )}
 
-      {/* 3. Lyderiai */}
       <div className="zh-boards">
         <div className="zh-board">
           <h3 className="zh-h3">Šiandienos iššūkis</h3>
@@ -147,8 +119,6 @@ export default function ZaidimaiHubClient({ isAuthenticated, username, me, leade
           )}
         </div>
       </div>
-
-      <p className="zh-foot">Taškai — tik už žaidimus. Limitai atsinaujina kas dieną, serija auga žaidžiant kasdien.</p>
     </ZaidimoLangas>
   )
 }
@@ -160,43 +130,35 @@ const css = `
 }
 
 .zh-daily {
-  display: flex; align-items: center; gap: 14px; text-decoration: none;
-  padding: 18px 18px; border-radius: 14px; margin-bottom: 24px;
+  display: flex; align-items: center; gap: 13px; text-decoration: none;
+  padding: 17px 16px; border-radius: 14px; margin-bottom: 14px;
   background: var(--bg-surface);
   border: 1px solid rgba(140,160,190,0.25);
   border-left: 3px solid var(--accent-orange);
 }
 .zh-daily.done { border-left-color: var(--accent-green); }
-.zh-daily-left { display: flex; flex-direction: column; gap: 4px; min-width: 0; }
-.zh-daily-badge { font-size: 11px; font-weight: 900; letter-spacing: 0.09em; color: var(--accent-orange); }
-.zh-daily.done .zh-daily-badge { color: var(--accent-green); }
-.zh-daily-title { font-size: 19px; font-weight: 900; color: var(--text-primary); line-height: 1.2; letter-spacing: -0.01em; }
-.zh-daily-sub { font-size: 12.5px; color: var(--text-secondary); }
+.zh-daily-icon { display: flex; color: var(--accent-orange); flex-shrink: 0; }
+.zh-daily.done .zh-daily-icon { color: var(--accent-green); }
+.zh-daily-title { font-size: 18px; font-weight: 900; color: var(--text-primary); letter-spacing: -0.01em; }
 .zh-daily-cta {
   margin-left: auto; flex-shrink: 0; font-size: 14px; font-weight: 900; color: #fff;
-  background: var(--accent-orange); border-radius: 999px; padding: 11px 22px;
+  background: var(--accent-orange); border-radius: 999px; padding: 10px 22px;
 }
-.zh-daily.done .zh-daily-cta { background: var(--accent-green); padding: 11px 16px; }
-
-.zh-h2 { font-size: 15px; font-weight: 900; color: var(--text-secondary); text-transform: uppercase; letter-spacing: 0.05em; margin: 0 0 10px; }
+.zh-daily.done .zh-daily-cta { background: var(--accent-green); padding: 10px 16px; }
 
 .zh-rows { display: flex; flex-direction: column; gap: 8px; margin-bottom: 20px; }
 .zh-row {
   display: flex; align-items: center; gap: 13px; text-decoration: none;
-  padding: 14px 15px; border-radius: 13px;
+  padding: 15px 16px; border-radius: 13px;
   background: var(--bg-surface);
   border: 1px solid rgba(140,160,190,0.18);
   transition: border-color .13s ease;
 }
 .zh-row:hover { border-color: var(--accent-orange); }
-.zh-row-icon { font-size: 22px; flex-shrink: 0; width: 28px; text-align: center; }
-.zh-row-main { display: flex; flex-direction: column; gap: 1px; min-width: 0; }
-.zh-row-title { font-size: 15.5px; font-weight: 800; color: var(--text-primary); }
-.zh-row-desc { font-size: 12px; color: var(--text-secondary); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
-.zh-row-meta { margin-left: auto; flex-shrink: 0; font-size: 11.5px; font-weight: 700; color: var(--text-muted); text-align: right; max-width: 110px; }
-.zh-row-meta.on { color: var(--accent-orange); }
-.zh-row-go { flex-shrink: 0; color: var(--text-muted); }
-@media (max-width: 480px) { .zh-row-desc { white-space: normal; } }
+.zh-row-icon { display: flex; color: var(--text-secondary); flex-shrink: 0; }
+.zh-row-title { font-size: 16px; font-weight: 800; color: var(--text-primary); }
+.zh-dot { width: 8px; height: 8px; border-radius: 50%; background: var(--accent-orange); flex-shrink: 0; }
+.zh-row-go { margin-left: auto; flex-shrink: 0; color: var(--text-muted); }
 
 .zh-cta {
   font-size: 13.5px; color: var(--text-secondary); background: var(--bg-surface);
@@ -221,6 +183,4 @@ const css = `
 .zh-rank.r1 { background: var(--accent-orange); color: #fff; }
 .zh-name { font-weight: 700; color: var(--text-primary); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .zh-val { margin-left: auto; font-weight: 800; color: var(--text-primary); white-space: nowrap; font-size: 12px; }
-
-.zh-foot { font-size: 12px; color: var(--text-muted); margin: 4px 0 0; text-align: center; }
 `

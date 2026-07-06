@@ -241,7 +241,7 @@ export default function KvizasClient() {
       <style>{css}</style>
 
       {/* Progreso taškeliai */}
-      {quiz && inGame && phase !== 'ready' && (
+      {quiz && inGame && (
         <div className="kv-dots">
           {quiz.rounds.map((_, i) => {
             const o = outcomes[i]
@@ -253,7 +253,6 @@ export default function KvizasClient() {
       {/* ── Kategorijos ── */}
       {phase === 'pick' && (
         <div className="kv-pick">
-          <p className="kv-lead">Groja dainos ištrauka — atspėk ją per 15 sekundžių. Kuo greičiau, tuo daugiau taškų.</p>
           {error && <div className="kv-error">{error}</div>}
 
           <Link href="/zaidimai/dienos" className={`kv-daily${dailyPlayed ? ' played' : ''}`}>
@@ -271,25 +270,20 @@ export default function KvizasClient() {
               </button>
             ))}
           </div>
-          <p className="kv-note">Taškai skiriami už pirmus 3 žaidimus per dieną.</p>
         </div>
       )}
 
       {phase === 'loading' && <div className="kv-center"><div className="kv-spinner" /><p className="kv-note">Renkam dainas…</p></div>}
 
-      {/* ── Pasiruošimas (garso atrakinimo TAP) ── */}
-      {phase === 'ready' && quiz && (
-        <div className="kv-ready">
-          <span className="kv-ready-emoji">{category.emoji}</span>
-          <h2 className="kv-ready-title">{category.label}</h2>
-          <p className="kv-note">{quiz.rounds.length} raundai · įsijunk garsą 🎧</p>
-          <button className="kv-cta-big" onClick={startPlaying}>▶ Pradėti</button>
-        </div>
-      )}
-
-      {/* ── Raundas / Reveal ── */}
-      <div className="kv-stage" style={{ display: phase === 'round' || phase === 'reveal' ? 'flex' : 'none' }}>
+      {/* ── Raundas / Reveal (ready = 1-as raundas su ▶ garso atrakinimu) ── */}
+      <div className="kv-stage" style={{ display: phase === 'ready' || phase === 'round' || phase === 'reveal' ? 'flex' : 'none' }}>
         <div className="kv-audio">
+          {phase === 'ready' && (
+            <button className="kv-play-big" onClick={startPlaying} aria-label="Pradėti">
+              <svg width="26" height="26" viewBox="0 0 24 24" fill="currentColor"><path d="M8 5v14l11-7z" /></svg>
+              <span>Pradėti</span>
+            </button>
+          )}
           {/* Atsarginis kelias be iTunes ištraukos: paslėptas YT (desktop garsas) */}
           {round && !round.audioUrl && phase === 'round' && !ios && (
             <iframe
@@ -336,7 +330,7 @@ export default function KvizasClient() {
                 cls += ' checking'
               }
               return (
-                <button key={o.id} className={cls} disabled={phase === 'reveal' || checking} onClick={() => answerRound(o.id)}>
+                <button key={o.id} className={cls} disabled={phase !== 'round' || checking} onClick={() => answerRound(o.id)}>
                   <span className="kv-opt-artist">{o.artist}</span>
                   <span className="kv-opt-title">{o.title}</span>
                 </button>
@@ -441,12 +435,9 @@ const css = `
 .kv-spinner { width: 38px; height: 38px; border-radius: 50%; border: 3px solid rgba(148,163,184,0.25); border-top-color: var(--accent-orange); animation: kvspin .8s linear infinite; }
 @keyframes kvspin { to { transform: rotate(360deg); } }
 
-.kv-ready { display: flex; flex-direction: column; align-items: center; text-align: center; padding: 12vh 0; gap: 6px; }
-.kv-ready-emoji { font-size: 46px; }
-.kv-ready-title { font-size: 24px; font-weight: 900; color: var(--text-primary); margin: 0; }
-.kv-cta-big {
-  margin-top: 18px; font-size: 20px; font-weight: 900; color: #fff; cursor: pointer; border: 0;
-  border-radius: 999px; padding: 17px 44px;
+.kv-play-big {
+  display: flex; align-items: center; gap: 10px; font-size: 18px; font-weight: 900; color: #fff;
+  cursor: pointer; border: 0; border-radius: 999px; padding: 14px 34px;
   background: var(--accent-orange);
 }
 
