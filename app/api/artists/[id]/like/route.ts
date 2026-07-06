@@ -25,6 +25,7 @@ import { getServerSession } from 'next-auth'
 import { authOptions } from '@/lib/auth'
 import { createAdminClient } from '@/lib/supabase'
 import { logActivity, deleteActivity } from '@/lib/activity-logger'
+import { rateLimit, clientIp } from '@/lib/rate-limit'
 
 const ANON_COOKIE = 'ml_anon_id'
 const ANON_COOKIE_MAX_AGE = 60 * 60 * 24 * 365
@@ -246,6 +247,12 @@ export async function POST(
     const { error } = await sb.from('likes').delete().eq('id', existing.id)
     if (error) return jsonErr(`Nepavyko pašalinti (anon): ${error.message}`, 500)
   } else {
+    // ANTI-CHEAT: per-IP dedup — cookie ciklinimas nebepučia like count'o
+    // (feed'ina mv_top_liked / „popular" sortus). 1 anon like / IP / artist / 24h.
+    if (!(await rateLimit(`alike:art:${clientIp(req)}:${artistId}`, 1, 86400))) {
+      const count = await getTotalCount(sb, artistId)
+      return NextResponse.json({ liked: true, count, anonymous: true, deduped: true })
+    }
     // Po 2026-05-28c slim-down: user_agent, source DROP'inti.
     const { error } = await sb.from('likes').insert({
       entity_type: 'artist',

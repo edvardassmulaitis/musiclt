@@ -11,6 +11,7 @@ import { randomUUID } from 'crypto'
 import { getServerSession } from 'next-auth'
 import { authOptions } from '@/lib/auth'
 import { createAdminClient } from '@/lib/supabase'
+import { rateLimit, clientIp } from '@/lib/rate-limit'
 import { logActivity, deleteActivity } from '@/lib/activity-logger'
 
 const ANON_COOKIE = 'ml_anon_id'
@@ -223,6 +224,11 @@ export async function POST(
     const { error } = await sb.from('likes').delete().eq('id', existing.id)
     if (error) return jsonErr(`Nepavyko pašalinti (anon): ${error.message}`, 500)
   } else {
+    // ANTI-CHEAT: per-IP dedup — cookie ciklinimas nebepučia like count'o.
+    if (!(await rateLimit(`alike:alb:${clientIp(req)}:${albumId}`, 1, 86400))) {
+      const count = await getTotalCount(sb, albumId)
+      return NextResponse.json({ liked: true, count, anonymous: true, deduped: true })
+    }
     // Po 2026-05-28c slim-down: user_agent, source DROP'inti.
     const { error } = await sb.from('likes').insert({
       entity_type: 'album',

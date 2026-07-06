@@ -10,6 +10,7 @@ import { randomUUID } from 'crypto'
 import { getServerSession } from 'next-auth'
 import { authOptions } from '@/lib/auth'
 import { createAdminClient } from '@/lib/supabase'
+import { rateLimit, clientIp } from '@/lib/rate-limit'
 import { logActivity, deleteActivity } from '@/lib/activity-logger'
 
 const ANON_COOKIE = 'ml_anon_id'
@@ -110,7 +111,7 @@ export async function GET(
 }
 
 export async function POST(
-  _req: NextRequest,
+  req: NextRequest,
   { params }: { params: Promise<{ id: string }> }
 ) {
   const { id } = await params
@@ -223,6 +224,11 @@ export async function POST(
     const { error } = await sb.from('likes').delete().eq('id', existing.id)
     if (error) return jsonErr(`Nepavyko pašalinti (anon): ${error.message}`, 500)
   } else {
+    // ANTI-CHEAT: per-IP dedup — cookie ciklinimas nebepučia like count'o.
+    if (!(await rateLimit(`alike:trk:${clientIp(req)}:${trackId}`, 1, 86400))) {
+      const count = await getTotalCount(sb, trackId)
+      return NextResponse.json({ liked: true, count, anonymous: true, deduped: true })
+    }
     const { error } = await sb.from('likes').insert({
       entity_type: 'track',
       entity_id: trackId,

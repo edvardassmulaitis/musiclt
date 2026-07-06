@@ -2,6 +2,7 @@ import { NextResponse } from 'next/server'
 import { createAdminClient } from '@/lib/supabase'
 import { getServerSession } from 'next-auth'
 import { authOptions } from '@/lib/auth'
+import { rateLimit, clientIp } from '@/lib/rate-limit'
 
 /**
  * Logging click'ų iš master search modal'o.
@@ -29,6 +30,19 @@ export async function POST(req: Request) {
 
   const session = await getServerSession(authOptions).catch(() => null)
   const userId = (session?.user as any)?.id || null
+
+  // ANTI-CHEAT: neautentikuotas trending signalas buvo pučiamas skriptu.
+  // (a) per-entity dedup: 1 click / IP / entity / val. — pakartotinis spaudymas
+  //     nekaupia; (b) bendras per-IP cap 60/min. Fail-open (analytics).
+  const ip = clientIp(req)
+  const idKey = String(body.id).slice(0, 40)
+  const [okDedup, okBurst] = await Promise.all([
+    rateLimit(`sclick:${ip}:${body.entity_type}:${idKey}`, 1, 3600),
+    rateLimit(`sclickip:${ip}`, 60, 60),
+  ])
+  if (!okDedup || !okBurst) {
+    return NextResponse.json({ ok: true, deduped: true }, { headers: { 'Cache-Control': 'no-store' } })
+  }
 
   // Atskiriam numeric id (artists/tracks/albums) nuo uuid (events)
   const idVal = body.id

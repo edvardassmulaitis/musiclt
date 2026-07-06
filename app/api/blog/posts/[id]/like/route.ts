@@ -4,8 +4,9 @@ import { authOptions } from '@/lib/auth'
 import { togglePostLike } from '@/lib/supabase-blog'
 import { createAdminClient } from '@/lib/supabase'
 import { notifyFromSession } from '@/lib/notifications'
+import { rateLimit, clientIp } from '@/lib/rate-limit'
 
-export async function POST(_req: NextRequest, { params }: { params: Promise<{ id: string }> }) {
+export async function POST(req: NextRequest, { params }: { params: Promise<{ id: string }> }) {
   const session = await getServerSession(authOptions)
   const { id } = await params
 
@@ -17,9 +18,15 @@ export async function POST(_req: NextRequest, { params }: { params: Promise<{ id
   if (!session?.user?.id) {
     try {
       const sb = createAdminClient()
+      // ANTI-CHEAT: serverio dedup pagal IP — 1 anon „pliusas" / IP / postui / 24h
+      // (client localStorage buvo lengvai apeinamas skriptu, o like_count feed'ina
+      // homepage „Narių topai").
+      const okAnon = await rateLimit(`bloglike:${clientIp(req)}:${id}`, 1, 86400)
       const { data: post } = await sb
         .from('blog_posts').select('like_count').eq('id', id).maybeSingle() as { data: any }
-      const next = (Number(post?.like_count) || 0) + 1
+      const cur = Number(post?.like_count) || 0
+      if (!okAnon) return NextResponse.json({ liked: true, anon: true, count: cur, deduped: true })
+      const next = cur + 1
       await sb.from('blog_posts').update({ like_count: next }).eq('id', id)
       return NextResponse.json({ liked: true, anon: true, count: next })
     } catch (e: any) {

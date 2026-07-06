@@ -6,6 +6,7 @@
  */
 import { NextRequest, NextResponse } from 'next/server'
 import { createAdminClient } from '@/lib/supabase'
+import { rateLimit, clientIp } from '@/lib/rate-limit'
 
 const DEDUP_WINDOW_MS = 30 * 60_000
 
@@ -20,6 +21,12 @@ export async function POST(req: NextRequest, { params }: { params: Promise<{ id:
   const cookieHeader = req.headers.get('cookie') || ''
   const hasCookie = cookieHeader.split(/;\s*/).some(c => c.startsWith(cookieName + '='))
   if (hasCookie) return NextResponse.json({ ok: true, skipped: 'dedup' })
+
+  // ANTI-CHEAT: serverio pusės dedup pagal IP (cookie numetimas nebeapeina).
+  // 1 skaičiavimas / IP / albumas / 30 min.
+  if (!(await rateLimit(`apv:${clientIp(req)}:${albumId}`, 1, 1800))) {
+    return NextResponse.json({ ok: true, skipped: 'dedup-ip' })
+  }
 
   const sb = createAdminClient()
   const { data, error } = await (sb as any).rpc('increment_album_page_view', { p_album_id: albumId })
