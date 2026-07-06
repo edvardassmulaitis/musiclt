@@ -425,7 +425,7 @@ function BoomboxHomeWidget() {
         DIENOS IŠŠŪKIS
       </div>
       <div className="mb-3 text-[14px] text-[var(--text-secondary)]">
-        Atspėk 5 dainas + misijos · ~3 min
+        Atspėk 5 dainas ir atlik dienos užduotis — apie 3 min.
       </div>
 
       {state.loading ? null : state.hasContent ? (

@@ -189,7 +189,7 @@ export default function DvikovosClient() {
               <button className="dv-next" onClick={next}>Kita dvikova →</button>
             </div>
           )}
-          <div className="dv-progress-line">{votesCount > 0 ? `Šiandien balsavai ${votesCount} k. · ` : ''}Balsas = 15 tšk. (pirmi 10 per dieną)</div>
+          <div className="dv-progress-line">Taškai skiriami už pirmus 10 balsų per dieną{votesCount > 0 ? ` — šiandien balsavai ${votesCount}` : ''}</div>
         </div>
       )}
     </ZaidimoLangas>

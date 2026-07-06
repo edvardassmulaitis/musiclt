@@ -161,7 +161,7 @@ export default function VaizdasClient() {
           <p className="vz-lead">Albumo viršelis ryškėja 12 sekundžių. Kuo anksčiau atpažinsi albumą — tuo daugiau taškų. 8 raundai: pasaulio ir Lietuvos albumai.</p>
           {error && <div className="vz-error">{error}</div>}
           <button className="vz-cta" onClick={start}>Žaisti →</button>
-          <p className="vz-note">Taškai už pirmus 3 žaidimus per dieną. Nariams +50%.</p>
+          <p className="vz-note">Taškai skiriami už pirmus 3 žaidimus per dieną.</p>
         </div>
       )}
 

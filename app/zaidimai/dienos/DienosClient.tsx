@@ -359,7 +359,7 @@ export default function DienosClient(props: Props) {
             ))}
           </div>
           {props.quizPlayed && props.quizScore !== null && (
-            <p className="di-note">Šiandienos kvizo rezultatas: <b>{props.quizScore} tšk.</b></p>
+            <p className="di-note">Šiandienos kvizo rezultatas: <b>{props.quizScore}</b> taškų</p>
           )}
           <button className="di-cta" onClick={() => {
             const next = nextStageAfter('intro')
@@ -368,7 +368,7 @@ export default function DienosClient(props: Props) {
           }}>
             {allDone ? 'Peržiūrėti suvestinę →' : 'Pradėti →'}
           </button>
-          <p className="di-note dim">Kvizas ×2 taškai (1 bandymas/d.) · misijos po 40 tšk. · nariams +50%</p>
+          <p className="di-note dim">Vienas bandymas per dieną. Taškai — už kiekvieną atliktą užduotį.</p>
         </div>
       )}
 
@@ -458,7 +458,7 @@ export default function DienosClient(props: Props) {
       {stage === 'duel' && duel && (
         <div className="di-stage">
           <h2 className="di-h2">⚔️ Dienos dvikova</h2>
-          <p className="di-note">Kuri daina stipresnė? Balsas = 20 tšk.</p>
+          <p className="di-note">Kuri daina stipresnė? Tavo balsas vertas 20 taškų.</p>
           <div className="di-duel">
             {(['A', 'B'] as const).map(tag => {
               const side: any = tag === 'A' ? duel.track_a : duel.track_b
@@ -500,7 +500,7 @@ export default function DienosClient(props: Props) {
       {stage === 'verdict' && verdict && (
         <div className="di-stage">
           <h2 className="di-h2">🔥 Dienos verdiktas</h2>
-          <p className="di-note">Paklausyk ir palik savo verdiktą — 20 tšk.</p>
+          <p className="di-note">Paklausyk ir pasakyk savo nuomonę — verta 20 taškų.</p>
           <div className="di-verdict-card">
             <div className="di-player small">
               {ytIdFrom(verdict.track.video_url) ? (
@@ -544,7 +544,7 @@ export default function DienosClient(props: Props) {
       {stage === 'image' && image && (
         <div className="di-stage">
           <h2 className="di-h2">🖼️ Atspėk dainą iš vaizdo</h2>
-          <p className="di-note">AI nupiešė dainą — atspėk kurią. Teisingai = 80 tšk.</p>
+          <p className="di-note">Dirbtinis intelektas nupiešė dainą — atspėk kurią. Teisingas atsakymas vertas 80 taškų.</p>
           <div className="di-image-wrap">
             {/* eslint-disable-next-line @next/next/no-img-element */}
             <img src={image.image_url} alt="AI vaizdas pagal dainą" />
@@ -585,8 +585,8 @@ export default function DienosClient(props: Props) {
             </p>
           )}
           {sessionXp > 0
-            ? <p className="di-sum-xp">Surinkta <b>{sessionXp}</b> iš ~{galimaXp} galimų tšk.{streak.total_xp > 0 ? ` · iš viso ${streak.total_xp.toLocaleString('lt-LT')}` : ''}</p>
-            : <p className="di-sum-xp dim">Visos dienos misijos jau buvo atliktos anksčiau ✓</p>}
+            ? <p className="di-sum-xp">Surinkta <b>{sessionXp}</b> iš {galimaXp} galimų taškų</p>
+            : <p className="di-sum-xp dim">Visos šios dienos užduotys jau atliktos ✓</p>}
           {streak.current > 0 && <p className="di-sum-line">🔥 Serija: <b>{streak.current} d.</b> — grįžk rytoj, kad nenutrūktų!</p>}
           <div className="di-sum-actions">
             <button className="di-share" onClick={share}>{shared ? 'Nukopijuota ✓' : 'Dalintis 📤'}</button>

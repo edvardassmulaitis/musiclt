@@ -205,13 +205,13 @@ export default function VadybininkasClient() {
       {view === 'intro' && (
         <div className="fl-wizard">
           <h1 className="fl-h1">Muzikos vadybininkas</h1>
-          <p className="fl-lead">Tapk vadybininku: surink 5 realių atlikėjų komandą — taškus jie neš pagal <b>tikrus rezultatus</b>.</p>
+          <p className="fl-lead">Tapk vadybininku: surink realių atlikėjų komandą — taškus jie neš pagal <b>tikrus rezultatus</b>.</p>
 
           <div className="fl-how">
             <div className="fl-how-card">
               <span className="fl-how-emoji">✍️</span>
-              <b>1. Pasirašyk 5 atlikėjus</b>
-              <span>Nuo LT scenos iki pasaulio žvaigždžių. Biudžetas — 220 tšk.</span>
+              <b>1. Pasirašyk atlikėjus</b>
+              <span>Nuo Lietuvos scenos iki pasaulio žvaigždžių — kiek telpa į biudžetą.</span>
             </div>
             <div className="fl-how-card">
               <span className="fl-how-emoji">📈</span>

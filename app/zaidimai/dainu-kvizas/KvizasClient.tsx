@@ -253,13 +253,13 @@ export default function KvizasClient() {
       {/* ── Kategorijos ── */}
       {phase === 'pick' && (
         <div className="kv-pick">
-          <p className="kv-lead">Groja ištrauka — 15 sekundžių, 4 variantai. Greičiau atsakai — daugiau taškų, 3+ iš eilės — bonusas.</p>
+          <p className="kv-lead">Groja dainos ištrauka — atspėk ją per 15 sekundžių. Kuo greičiau, tuo daugiau taškų.</p>
           {error && <div className="kv-error">{error}</div>}
 
           <Link href="/zaidimai/dienos" className={`kv-daily${dailyPlayed ? ' played' : ''}`}>
             <span className="kv-daily-badge">⚡ DIENOS IŠŠŪKIS</span>
-            <span className="kv-daily-title">Kvizas + dienos misijos — ×2 taškai</span>
-            <span className="kv-daily-sub">{dailyPlayed ? 'Kvizo dalis šiandien įveikta ✓' : 'Tas pats visiems, vienas bandymas per dieną →'}</span>
+            <span className="kv-daily-title">Dvigubi taškai — kartą per dieną</span>
+            <span className="kv-daily-sub">{dailyPlayed ? 'Šiandien jau įveikta ✓' : 'Tas pats kvizas visiems →'}</span>
           </Link>
 
           <div className="kv-cats">
@@ -271,7 +271,7 @@ export default function KvizasClient() {
               </button>
             ))}
           </div>
-          <p className="kv-note">Taškai: pirmi 3 kvizai per dieną. Nariams +50%.</p>
+          <p className="kv-note">Taškai skiriami už pirmus 3 žaidimus per dieną.</p>
         </div>
       )}
 
