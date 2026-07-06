@@ -5,6 +5,7 @@ import { authOptions } from '@/lib/auth'
 import { logActivity as logActivityShared } from '@/lib/activity-logger'
 import { sanitizeCommentHtml } from '@/lib/sanitize-html'
 import { rateLimit } from '@/lib/rate-limit'
+import { verifyTurnstile } from '@/lib/turnstile'
 
 function slugify(text: string): string {
   return text
@@ -86,6 +87,10 @@ export async function POST(req: Request) {
     return NextResponse.json({ error: 'Reikia prisijungti' }, { status: 401 })
 
   const body = await req.json()
+  // Bot apsauga — tik jei UGC apsauga įjungta atskirai (TURNSTILE_PROTECT_UGC=1).
+  if (process.env.TURNSTILE_PROTECT_UGC === '1' && !(await verifyTurnstile(body?.turnstileToken))) {
+    return NextResponse.json({ error: 'Patvirtinkite, kad nesate robotas.' }, { status: 400 })
+  }
   const { title, text, tags, tag } = body
   const category = (typeof tag === 'string' && tag.trim()) ? tag.trim() : 'Kita'
 

@@ -15,6 +15,7 @@ import { getServerSession } from 'next-auth'
 import { authOptions } from '@/lib/auth'
 import { resolveAuthorId } from '@/lib/resolve-author'
 import { rateLimit } from '@/lib/rate-limit'
+import { verifyTurnstile } from '@/lib/turnstile'
 import { notifyFromSession } from '@/lib/notifications'
 import { logActivity } from '@/lib/activity-logger'
 
@@ -165,6 +166,11 @@ export async function POST(req: Request) {
   }
 
   const body = await req.json()
+  // Bot apsauga — tik jei UGC apsauga įjungta atskirai (TURNSTILE_PROTECT_UGC=1)
+  // IR pridėtas widget'as komentarų formoje. Login captcha valdoma atskirai.
+  if (process.env.TURNSTILE_PROTECT_UGC === '1' && !(await verifyTurnstile(body?.turnstileToken))) {
+    return NextResponse.json({ error: 'Patvirtinkite, kad nesate robotas.' }, { status: 400 })
+  }
   const { entity_type, entity_id, parent_id, text, attachments } = body
   const cleanAttachments = Array.isArray(attachments)
     ? attachments.filter((a: any) => a && typeof a === 'object').slice(0, 8)

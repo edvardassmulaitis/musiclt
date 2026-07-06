@@ -4,6 +4,7 @@ import { useState, Suspense } from 'react'
 import { signIn } from 'next-auth/react'
 import { useSearchParams } from 'next/navigation'
 import Link from 'next/link'
+import TurnstileWidget from '@/components/TurnstileWidget'
 
 const HeadphonesIcon = (
   <svg width="26" height="26" viewBox="0 0 24 24" fill="none" stroke="#fff" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
@@ -22,6 +23,7 @@ function SignInContent() {
   const [loading, setLoading] = useState<string | null>(null)
   const [emailSent, setEmailSent] = useState(false)
   const [error, setError] = useState('')
+  const [captcha, setCaptcha] = useState('')
 
   const handleSocial = async (provider: string) => {
     setLoading(provider)
@@ -37,7 +39,7 @@ function SignInContent() {
       const res = await fetch('/api/auth/magic-link', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ email }),
+        body: JSON.stringify({ email, turnstileToken: captcha }),
       })
       const data = await res.json()
       if (!res.ok || data.error) {
@@ -171,6 +173,7 @@ function SignInContent() {
                   }}
                 />
               </div>
+              <TurnstileWidget onVerify={setCaptcha} />
               {error && <p style={{ color: '#ef4444', fontSize: 14, margin: 0 }}>{error}</p>}
               <button
                 type="submit"

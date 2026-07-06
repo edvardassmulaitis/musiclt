@@ -3,6 +3,7 @@ import { createAdminClient } from '@/lib/supabase'
 import { sendEmail } from '@/lib/email'
 import { randomBytes } from 'crypto'
 import { rateLimit, clientIp } from '@/lib/rate-limit'
+import { verifyTurnstile } from '@/lib/turnstile'
 
 const BASE = process.env.NEXTAUTH_URL || 'https://musiclt.vercel.app'
 
@@ -14,9 +15,15 @@ export async function POST(req: NextRequest) {
       return NextResponse.json({ error: 'Invalid email' }, { status: 400 })
     }
 
+    const ip = clientIp(req)
+
+    // Bot apsauga (Turnstile) — no-op, jei TURNSTILE_SECRET_KEY nenustatytas.
+    if (!(await verifyTurnstile(body?.turnstileToken, ip))) {
+      return NextResponse.json({ error: 'Patvirtinkite, kad nesate robotas.' }, { status: 400 })
+    }
+
     // Durable rate limit (bendras store): 3/email/val + 8/IP/val + 1/email/30s.
     // Sustabdo email-bomb ir spam-relay per Resend (in-memory Map neveikė serverless).
-    const ip = clientIp(req)
     const [okEmailBurst, okEmailHour, okIpHour] = await Promise.all([
       rateLimit(`ml:e30:${email}`, 1, 30),
       rateLimit(`ml:eh:${email}`, 3, 3600),
