@@ -10,10 +10,24 @@
 //   chat:user:<userId>:msgs   postgres_changes ON chat_messages (no filter — global)
 //                              ant kliento sufiltruojam pagal mūsų convos.
 //
-// Pastaba: anon key be RLS — bet kuris klientas gali subscribe'inti į bet kurį
-// channel'į. Saugumas remiasi tuo, kad UI eina tik per /api/chat/* (RPC ir
-// API gating). Realtime srautas tik notifies — pati paslaptis (žinučių
-// turinys) yra paviešinta su tais, kas žino conversation ID.
+// ⚠️ SAUGUMAS (2026-07-06): chat_* RLS SELECT politikos uždarytos (USING(false),
+// žr. supabase/migrations/20260706_chat_rls_lockdown.sql) — anksčiau buvo
+// USING(true) ir bet kas viešu anon raktu galėjo nuskaityti VISŲ vartotojų
+// privačias žinutes. Todėl žemiau esantys `postgres_changes` subscribe'ai
+// anon rolei BE ROLĖS nebegrąžina eilučių → live-push per postgres_changes
+// nebeveikia (žinučių peržiūra/siuntimas veikia — jie eina per /api/chat/*,
+// service_role). „typing" broadcast + presence toliau veikia.
+//
+// LIVE-PUSH ATKŪRIMO DIZAINAS (testuotinas follow-up, DAR NEĮDIEGTA):
+//   • Siuntėjas po sėkmingo /api/chat/... mutato broadcast'ina TIK contentless
+//     ping'ą: { kind:'insert'|'update'|'delete', id, conversation_id } — NIEKADA
+//     `body`/turinio (kitaip nutekėjimas grįžta per kanalą, kurį gali klausyti
+//     ne dalyviai).
+//   • Gavėjas ping'ą gavęs REFETCH'ina žinutę per autentikuotą API
+//     (/api/chat/conversations/{id}/messages) ir tada kviečia onInsert/onUpdate.
+//   • Griežtesnei apsaugai vėliau: Supabase Realtime Authorization (RLS ant
+//     realtime.messages) — bet tam reikia Supabase user JWT, kurio šis app
+//     (NextAuth, profiles.id ≠ auth.uid) kliente neturi → pirma broadcast-ping.
 
 'use client'
 
