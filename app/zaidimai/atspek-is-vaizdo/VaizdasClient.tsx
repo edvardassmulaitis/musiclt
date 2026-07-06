@@ -231,7 +231,7 @@ export default function VaizdasClient() {
           )}
           <div className="vz-score-big">
             <span className="vz-score-num">{result?.score ?? score}</span>
-            <span className="vz-score-max">/ {result?.maxScore ?? rounds.length * 100} tšk.</span>
+            <span className="vz-score-max">iš {result?.maxScore ?? rounds.length * 100} galimų</span>
           </div>
           <p className="vz-line">Atpažinta <b>{result?.correctCount ?? '—'}</b> iš {result?.roundCount ?? rounds.length}</p>
           {result?.xp > 0 ? (

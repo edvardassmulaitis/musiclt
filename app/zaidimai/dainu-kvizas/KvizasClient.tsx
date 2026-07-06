@@ -10,10 +10,10 @@
 import { useEffect, useRef, useState } from 'react'
 import Link from 'next/link'
 import ZaidimoLangas from '@/components/zaidimai/ZaidimoLangas'
-import { useKvizoGrotuvas } from '@/components/zaidimai/naudotiKvizoGrotuva'
+import { naudotiGarsoGrotuva, yraIos } from '@/components/zaidimai/naudotiGarsoGrotuva'
 
 type Option = { id: number; title: string; artist: string }
-type Round = { r: number; ytId: string; startSec: number; options: Option[]; token: string }
+type Round = { r: number; ytId: string; startSec: number; audioUrl: string | null; options: Option[]; token: string }
 type RoundResult = { correct: boolean; correctId: number; points: number; comboNow: number }
 type Quiz = {
   quizId: string
@@ -64,7 +64,8 @@ export default function KvizasClient() {
   const [dailyPlayed, setDailyPlayed] = useState<boolean | null>(null)
   const [shared, setShared] = useState(false)
 
-  const grotuvas = useKvizoGrotuvas()
+  const garsas = naudotiGarsoGrotuva()
+  const [ios] = useState(() => yraIos())
 
   const roundStartRef = useRef(0)
   const timerRef = useRef<ReturnType<typeof setInterval> | null>(null)
@@ -133,8 +134,7 @@ export default function KvizasClient() {
   /** SVARBU: kviečiama mygtuko onClick — grojimas gesto kontekste (iOS). */
   function startPlaying() {
     if (!quiz) return
-    const first = quiz.rounds[0]
-    grotuvas.play(first.ytId, first.startSec)
+    garsas.play(quiz.rounds[0].audioUrl)
     setPhase('round')
     startTimer()
   }
@@ -181,13 +181,13 @@ export default function KvizasClient() {
     setRoundIdx(i => i + 1)
     setRoundResult(null)
     setPhase('round')
-    grotuvas.play(next.ytId, next.startSec)
+    garsas.play(next.audioUrl)
     startTimer()
   }
 
   async function submitQuiz() {
     if (!quiz) return
-    grotuvas.stop()
+    garsas.stop()
     setPhase('submitting')
     try {
       const res = await fetch('/api/zaidimai/kvizas', {
@@ -289,24 +289,31 @@ export default function KvizasClient() {
 
       {/* ── Raundas / Reveal ── */}
       <div className="kv-stage" style={{ display: phase === 'round' || phase === 'reveal' ? 'flex' : 'none' }}>
-        <div className="kv-player">
-          {/* Persistent YT grotuvas — NEperkuriamas tarp raundų (iOS garsas) */}
-          <div className="kv-yt" ref={grotuvas.containerRef} />
-          {phase === 'round' && (
-            <div className="kv-cover">
+        <div className="kv-audio">
+          {/* Atsarginis kelias be iTunes ištraukos: paslėptas YT (desktop garsas) */}
+          {round && !round.audioUrl && phase === 'round' && !ios && (
+            <iframe
+              className="kv-hidden-yt"
+              src={`https://www.youtube-nocookie.com/embed/${round.ytId}?autoplay=1&start=${round.startSec}&rel=0&playsinline=1&controls=0`}
+              allow="autoplay; encrypted-media"
+              title="Garso atsarga"
+            />
+          )}
+          {phase === 'round' ? (
+            <>
               <div className="kv-eq">
                 {Array.from({ length: 7 }).map((_, i) => <span key={i} style={{ animationDelay: `${i * 0.12}s` }} />)}
               </div>
               <div className="kv-clock" style={{ ['--p' as any]: pct }}><span>{Math.ceil(timeLeft / 1000)}</span></div>
-              <button
-                className="kv-nosound"
-                onClick={() => round && grotuvas.play(round.ytId, round.startSec)}
-              >
-                {grotuvas.failedVideo ? 'Įrašo nepavyko paleisti — spėk iš atminties 😅' : 'Negirdi? Spausk čia ▶'}
-              </button>
-            </div>
-          )}
-          {phase === 'reveal' && roundResult && (
+              {round && !round.audioUrl && ios ? (
+                <span className="kv-nosound-note">Šio raundo ištraukos nėra — spėk be garso 😬</span>
+              ) : (
+                <button className="kv-nosound" onClick={() => round && garsas.play(round.audioUrl)}>
+                  {garsas.failed ? 'Nepavyko paleisti 😬' : 'Negirdi? ▶'}
+                </button>
+              )}
+            </>
+          ) : roundResult && (
             <div className={`kv-verdict ${roundResult.correct ? 'ok' : 'bad'}`}>
               {roundResult.correct
                 ? `+${lastPoints} tšk.${combo >= COMBO_MIN ? ` 🔥×${combo}` : ''}`
@@ -365,7 +372,7 @@ export default function KvizasClient() {
           )}
           <div className="kv-score-big" style={{ ['--acc' as any]: category.accent }}>
             <span className="kv-score-num">{result?.score ?? score}</span>
-            <span className="kv-score-max">tšk.</span>
+            <span className="kv-score-max">iš {result?.maxScore ?? '—'} galimų</span>
           </div>
           <div className="kv-grid-line">{outcomes.map((o, i) => <span key={i}>{OUTCOME_EMOJI[o]}</span>)}</div>
           <p className="kv-result-line">
@@ -444,20 +451,20 @@ const css = `
 }
 
 .kv-stage { flex-direction: column; gap: 12px; }
-.kv-player { position: relative; border-radius: 16px; overflow: hidden; aspect-ratio: 16/9; background: #0c0f15; }
-.kv-yt { position: absolute; inset: 0; }
-.kv-yt iframe { width: 100%; height: 100%; }
-.kv-cover {
-  position: absolute; inset: 0; z-index: 2; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 13px;
+.kv-audio {
+  position: relative; display: flex; align-items: center; justify-content: center; gap: 18px;
+  border-radius: 16px; min-height: 110px; padding: 14px;
   background: radial-gradient(ellipse at 30% 20%, rgba(99,102,241,0.35), transparent 60%), radial-gradient(ellipse at 75% 80%, rgba(245,158,11,0.28), transparent 55%), #10131b;
 }
+.kv-hidden-yt { position: absolute; width: 2px; height: 2px; opacity: 0.01; pointer-events: none; }
+.kv-nosound-note { font-size: 12px; color: rgba(255,255,255,0.8); max-width: 40%; }
 .kv-eq { display: flex; align-items: flex-end; gap: 5px; height: 42px; }
 .kv-eq span { width: 7px; border-radius: 3px; background: linear-gradient(180deg, #f59e0b, #6366f1); animation: kveq 0.9s ease-in-out infinite alternate; }
 @keyframes kveq { from { height: 8px; } to { height: 42px; } }
 .kv-clock { width: 60px; height: 60px; border-radius: 50%; background: conic-gradient(#f59e0b calc(var(--p) * 360deg), rgba(148,163,184,0.18) 0); display: flex; align-items: center; justify-content: center; }
 .kv-clock span { width: 48px; height: 48px; border-radius: 50%; background: #10131b; color: #fff; display: flex; align-items: center; justify-content: center; font-size: 19px; font-weight: 900; }
 .kv-nosound { font-size: 12px; font-weight: 700; color: rgba(255,255,255,0.78); background: rgba(255,255,255,0.08); border: 1px solid rgba(255,255,255,0.18); border-radius: 999px; padding: 6px 14px; cursor: pointer; max-width: 90%; }
-.kv-verdict { position: absolute; top: 10px; left: 10px; z-index: 3; font-size: 15px; font-weight: 900; padding: 8px 15px; border-radius: 11px; color: #fff; }
+.kv-verdict { font-size: 18px; font-weight: 900; padding: 12px 22px; border-radius: 13px; color: #fff; }
 .kv-verdict.ok { background: rgba(16,185,129,0.92); }
 .kv-verdict.bad { background: rgba(239,68,68,0.9); }
 

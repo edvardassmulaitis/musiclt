@@ -7,7 +7,7 @@
 import { Metadata } from 'next'
 import { createAdminClient } from '@/lib/supabase'
 import { resolveViewerReadonly } from '@/lib/zaidimai'
-import { ltDayStartUtc } from '@/lib/boombox'
+import { ltDayStartUtc, nextDayLT, todayLT } from '@/lib/boombox'
 import ZaidimaiHubClient from './ZaidimaiHubClient'
 
 export const dynamic = 'force-dynamic'
@@ -56,8 +56,35 @@ async function loadHub() {
       ? sb.from('boombox_streaks').select('current_streak, total_xp')
           .match(viewer.userId ? { user_id: viewer.userId } : { anon_id: viewer.anonId! }).maybeSingle()
       : Promise.resolve({ data: null }),
-    sb.from('boombox_streaks').select('user_id, anon_id, total_xp, current_streak')
-      .order('total_xp', { ascending: false }).limit(8),
+    (async () => {
+      // ŠIOS SAVAITĖS taškai (7 d.): game_scores + boombox_completions xp
+      const weekAgo = ltDayStartUtc(nextDayLT(todayLT()).slice(0, 10))
+      const from = new Date(Date.parse(weekAgo) - 7 * 864e5).toISOString()
+      const agg = new Map<string, { user_id: string | null; anon_id: string | null; xp: number }>()
+      const add = (uid: string | null, aid: string | null, xp: number) => {
+        const k = uid ? `u${uid}` : `a${aid}`
+        const cur = agg.get(k) || { user_id: uid, anon_id: aid, xp: 0 }
+        cur.xp += xp
+        agg.set(k, cur)
+      }
+      for (const table of ['game_scores', 'boombox_completions'] as const) {
+        const timeCol = table === 'game_scores' ? 'created_at' : 'completed_at'
+        for (let off = 0; off < 5000; off += 1000) {
+          const { data: rows } = await sb.from(table)
+            .select(`user_id, anon_id, xp_earned`)
+            .gte(timeCol, from)
+            .range(off, off + 999)
+          for (const r of (rows as any[]) || []) add(r.user_id, r.anon_id, r.xp_earned || 0)
+          if (!rows || rows.length < 1000) break
+        }
+      }
+      const data = Array.from(agg.values())
+        .filter(r => r.xp > 0)
+        .sort((a, b) => b.xp - a.xp)
+        .slice(0, 8)
+        .map(r => ({ user_id: r.user_id, anon_id: r.anon_id, total_xp: r.xp, current_streak: 0 }))
+      return { data }
+    })(),
     sb.from('game_scores').select('user_id, anon_id, score')
       .eq('game', 'kvizas').eq('category', 'dienos').gte('created_at', dayStart)
       .order('score', { ascending: false }).limit(5),

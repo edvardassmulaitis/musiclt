@@ -30,7 +30,7 @@ function jsonErr(msg: string, status = 400) {
 
 export async function GET(req: NextRequest) {
   const url = new URL(req.url)
-  const roundCount = Math.min(Math.max(parseInt(url.searchParams.get('raundai') || '8') || 8, 5), 12)
+  const roundCount = Math.min(Math.max(parseInt(url.searchParams.get('raundai') || '8') || 8, 3), 12)
 
   const viewer = await resolveViewer()
   const sb = createAdminClient()
@@ -96,7 +96,7 @@ export async function POST(req: NextRequest) {
   rq = viewer.userId ? rq.eq('user_id', viewer.userId) : rq.eq('anon_id', viewer.anonId!)
   const { data: roundRows } = await rq
 
-  if (!roundRows || roundRows.length < 5) {
+  if (!roundRows || roundRows.length < 3) {
     return jsonErr('Per mažai atsakytų raundų — sužaisk iki galo', 400)
   }
 

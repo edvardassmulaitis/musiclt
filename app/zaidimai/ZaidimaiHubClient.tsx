@@ -133,7 +133,7 @@ export default function ZaidimaiHubClient({ isAuthenticated, username, me, leade
           )}
         </div>
         <div className="zh-board">
-          <h3 className="zh-h3">🏆 Visų laikų</h3>
+          <h3 className="zh-h3">🏆 Šios savaitės taškai</h3>
           {leaders.length === 0 ? (
             <div className="zh-empty">Lentelė laukia pirmųjų.</div>
           ) : (
@@ -142,8 +142,7 @@ export default function ZaidimaiHubClient({ isAuthenticated, username, me, leade
                 <li key={i} className={`zh-li${!l.isAnon && username && l.name === username ? ' me' : ''}`}>
                   <span className={`zh-rank r${i + 1}`}>{i + 1}</span>
                   <span className="zh-name">{l.name}</span>
-                  {l.streak > 1 && <span className="zh-mini">🔥{l.streak}</span>}
-                  <span className="zh-val">{l.totalXp.toLocaleString('lt-LT')}</span>
+                  <span className="zh-val">{l.totalXp.toLocaleString('lt-LT')} tšk.</span>
                 </li>
               ))}
             </ol>
