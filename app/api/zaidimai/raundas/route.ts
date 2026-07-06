@@ -1,6 +1,6 @@
 // app/api/zaidimai/raundas/route.ts
 //
-// Vieno raundo atsakymo registravimas („Atspėk dainą" ir „Atspėk iš vaizdo").
+// Vieno raundo atsakymo registravimas (kvizas, vaizdas, sekundes, metai).
 //
 //   POST { token, answerId|null, ms }
 //        → { correct, correctId, points, comboNow }
@@ -18,10 +18,16 @@ import { resolveViewer, openPayload } from '@/lib/zaidimai'
 
 export const dynamic = 'force-dynamic'
 
-const KVIZAS_ROUND_MS = 15000
-const VAIZDAS_ROUND_MS = 12000
 const COMBO_MIN = 3
 const COMBO_BONUS = 15
+
+/** Kiek trunka raundas ir kaip skaičiuojami taškai — pagal žaidimą. */
+const GAME_ROUND_MS: Record<string, number> = {
+  kvizas: 15000,
+  vaizdas: 12000,
+  sekundes: 25000,
+  metai: 12000,
+}
 
 function jsonErr(msg: string, status = 400) {
   return NextResponse.json({ error: msg }, { status })
@@ -32,11 +38,11 @@ export async function POST(req: NextRequest) {
   if (!body) return jsonErr('Netinkama užklausa — perkrauk puslapį')
 
   const p = openPayload<{ g: string; q: string; r: number; c: number; exp: number }>(body.token || '')
-  if (!p || (p.g !== 'kvizas' && p.g !== 'vaizdas')) {
+  if (!p || !(p.g in GAME_ROUND_MS)) {
     return jsonErr('Žaidimo sesija pasenusi — pradėk iš naujo', 410)
   }
 
-  const roundMs = p.g === 'kvizas' ? KVIZAS_ROUND_MS : VAIZDAS_ROUND_MS
+  const roundMs = GAME_ROUND_MS[p.g]
   const answerId = typeof body.answerId === 'number' ? body.answerId : null
   const ms = Math.min(Math.max(typeof body.ms === 'number' ? body.ms : roundMs, 0), roundMs)
   const correct = answerId !== null && answerId === p.c
@@ -71,7 +77,12 @@ export async function POST(req: NextRequest) {
     if (p.g === 'kvizas') {
       points = 50 + Math.round(50 * (roundMs - ms) / roundMs)
       if (comboNow >= COMBO_MIN) points += COMBO_BONUS
+    } else if (p.g === 'sekundes') {
+      // Pakopos pagal tai, kiek laiko praėjo (kiek ištraukos girdėta):
+      // atsakei po 1 s klausymo → 100, po +3 s → 60, po +5 s → 30
+      points = ms <= 6000 ? 100 : ms <= 13000 ? 60 : 30
     } else {
+      // vaizdas / metai — greičio skalė
       points = 40 + Math.round(60 * (roundMs - ms) / roundMs)
     }
   }

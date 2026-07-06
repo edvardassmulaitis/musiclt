@@ -125,7 +125,7 @@ export function openPayload<T = any>(sealed: string): T | null {
 /** Kiek kartų viewer'is šiandien (LT laiku) jau žaidė šį žaidimą (scored runs). */
 export async function countRunsToday(
   viewer: GameViewer,
-  game: 'kvizas' | 'dvikovos' | 'vadybininkas' | 'vaizdas',
+  game: 'kvizas' | 'dvikovos' | 'vadybininkas' | 'vaizdas' | 'sekundes' | 'metai',
   category?: { eq?: string; neq?: string },
 ): Promise<number> {
   const sb = createAdminClient()
@@ -166,7 +166,7 @@ export function seededShuffle<T>(arr: T[], rng: () => number): T[] {
 
 export async function insertGameScore(row: {
   viewer: GameViewer
-  game: 'kvizas' | 'dvikovos' | 'vadybininkas' | 'vaizdas'
+  game: 'kvizas' | 'dvikovos' | 'vadybininkas' | 'vaizdas' | 'sekundes' | 'metai'
   category?: string | null
   score: number
   maxScore?: number | null

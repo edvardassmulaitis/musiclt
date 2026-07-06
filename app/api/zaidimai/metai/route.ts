@@ -1,0 +1,209 @@
+// app/api/zaidimai/metai/route.ts
+//
+// „Kurie metai?" — rodomas populiaraus albumo viršelis su pavadinimu,
+// reikia atspėti išleidimo metus (4 variantai). answer_id = metai.
+//
+//   GET  ?raundai=8 → raundai su užšifruotais vokais
+//   POST { quizId } → rezultatas iš game_rounds DB, replay apsauga unique.
+
+import { NextRequest, NextResponse } from 'next/server'
+import { createAdminClient } from '@/lib/supabase'
+import { bumpStreakAndXp } from '@/lib/boombox'
+import {
+  resolveViewer,
+  shuffleArr,
+  sealPayload,
+  countRunsToday,
+} from '@/lib/zaidimai'
+
+export const dynamic = 'force-dynamic'
+
+const XP_RUNS_PER_DAY = 3
+const TOKEN_TTL_MS = 45 * 60 * 1000
+
+function jsonErr(msg: string, status = 400) {
+  return NextResponse.json({ error: msg }, { status })
+}
+
+// ── GET ───────────────────────────────────────────────────────────────────
+
+type AlbumRow = {
+  id: number
+  title: string
+  year: number | null
+  cover_image_url: string
+  score: number | null
+  artists: { id: number; name: string; country: string | null; score: number | null } | null
+}
+
+/** 3 klaidinantys metai aplink teisingus — unikalūs, ne ateity. */
+function yearDecoys(correct: number, rng: () => number = Math.random): number[] {
+  const maxYear = new Date().getFullYear()
+  const out = new Set<number>()
+  let guard = 0
+  while (out.size < 3 && guard++ < 60) {
+    const off = Math.floor(rng() * 8) + 1        // 1..8 metų
+    const sign = rng() < 0.5 ? -1 : 1
+    const y = correct + sign * off
+    if (y === correct || y > maxYear || y < 1950) continue
+    out.add(y)
+  }
+  // atsarginis kelias, jei atsitiktinumas nesuveikė
+  let fill = correct - 1
+  while (out.size < 3) {
+    if (fill !== correct && fill >= 1950) out.add(fill)
+    fill--
+  }
+  return Array.from(out)
+}
+
+export async function GET(req: NextRequest) {
+  const url = new URL(req.url)
+  const roundCount = Math.min(Math.max(parseInt(url.searchParams.get('raundai') || '8') || 8, 3), 12)
+
+  const viewer = await resolveViewer()
+  const sb = createAdminClient()
+
+  const albumSelect = 'id, title, year, cover_image_url, score, artists:artist_id!inner(id, name, country, score)'
+
+  const [{ data: uzsienio }, { data: lietuviski }] = await Promise.all([
+    sb
+      .from('albums')
+      .select(albumSelect)
+      .not('cover_image_url', 'is', null)
+      .not('year', 'is', null)
+      .gte('score', 30)
+      .neq('artists.country', 'Lietuva')
+      .limit(400),
+    sb
+      .from('albums')
+      .select(albumSelect)
+      .not('cover_image_url', 'is', null)
+      .not('year', 'is', null)
+      .eq('artists.country', 'Lietuva')
+      .gt('artists.score', 40)
+      .limit(300),
+  ])
+
+  const dedupe = (rows: AlbumRow[]) => {
+    const perArtist = new Map<number, number>()
+    const out: AlbumRow[] = []
+    for (const r of rows) {
+      if (!r.artists || !r.year || r.year < 1950) continue
+      const n = perArtist.get(r.artists.id) || 0
+      if (n >= 2) continue
+      perArtist.set(r.artists.id, n + 1)
+      out.push(r)
+    }
+    return out
+  }
+  const uzsienioPool = dedupe(shuffleArr((uzsienio || []) as unknown as AlbumRow[]))
+  const ltPool = dedupe(shuffleArr((lietuviski || []) as unknown as AlbumRow[]))
+
+  if (uzsienioPool.length + ltPool.length < roundCount) {
+    return jsonErr('Per mažai albumų su metais', 503)
+  }
+
+  const ltCount = Math.min(Math.round(roundCount / 3), ltPool.length)
+  const corrects = shuffleArr([
+    ...ltPool.slice(0, ltCount),
+    ...uzsienioPool.slice(0, roundCount - ltCount),
+  ]).slice(0, roundCount)
+
+  const quizId = `m-${Math.random().toString(36).slice(2, 10)}`
+  const exp = Date.now() + TOKEN_TTL_MS
+
+  const rounds = corrects.map((al, idx) => {
+    const years = shuffleArr([al.year!, ...yearDecoys(al.year!)])
+    return {
+      r: idx,
+      image: al.cover_image_url,
+      label: `${al.artists!.name} — ${al.title}`,
+      options: years.map(y => ({ id: y, name: String(y) })),
+      token: sealPayload({ g: 'metai', q: quizId, r: idx, c: al.year!, exp }),
+    }
+  })
+
+  const runsToday = await countRunsToday(viewer, 'metai')
+
+  return NextResponse.json({
+    quizId,
+    roundMs: 12000,
+    rounds,
+    xpRunsLeft: Math.max(0, XP_RUNS_PER_DAY - runsToday),
+  })
+}
+
+// ── POST ──────────────────────────────────────────────────────────────────
+
+export async function POST(req: NextRequest) {
+  const body = await req.json().catch(() => null)
+  if (!body) return jsonErr('Netinkama užklausa — perkrauk puslapį')
+  const { quizId } = body as { quizId: string }
+  if (typeof quizId !== 'string' || !quizId.startsWith('m-') || quizId.length > 40) {
+    return jsonErr('Netinkama užklausa — perkrauk puslapį')
+  }
+
+  const viewer = await resolveViewer()
+  const sb = createAdminClient()
+
+  let rq = sb
+    .from('game_rounds')
+    .select('r, answer_id, ms, correct, points')
+    .eq('game', 'metai')
+    .eq('quiz_id', quizId)
+    .order('r', { ascending: true })
+  rq = viewer.userId ? rq.eq('user_id', viewer.userId) : rq.eq('anon_id', viewer.anonId!)
+  const { data: roundRows } = await rq
+
+  if (!roundRows || roundRows.length < 3) {
+    return jsonErr('Per mažai atsakytų raundų — sužaisk iki galo', 400)
+  }
+
+  const score = roundRows.reduce((s, r) => s + (r.points || 0), 0)
+  const correctCount = roundRows.filter(r => r.correct).length
+
+  const runsToday = await countRunsToday(viewer, 'metai')
+  const xpEligible = runsToday < XP_RUNS_PER_DAY
+
+  let xp = 0
+  if (xpEligible && score > 0) {
+    xp = Math.round(score / 10)
+    if (viewer.userId) xp = Math.round(xp * 1.5)
+  }
+
+  const { error: insertErr } = await sb.from('game_scores').insert({
+    user_id: viewer.userId,
+    anon_id: viewer.userId ? null : viewer.anonId,
+    game: 'metai',
+    quiz_id: quizId,
+    score,
+    max_score: roundRows.length * 100,
+    correct_count: correctCount,
+    round_count: roundRows.length,
+    xp_earned: xp,
+    details: { rounds: roundRows },
+  })
+  if (insertErr) {
+    if (insertErr.code === '23505') return jsonErr('Šis žaidimas jau užskaitytas', 409)
+    return jsonErr('Nepavyko užskaityti — pabandyk dar kartą', 500)
+  }
+
+  let streakInfo = { current: 0, total_xp: 0 }
+  if (xp > 0) {
+    streakInfo = await bumpStreakAndXp({ userId: viewer.userId, anonId: viewer.anonId, xp })
+  }
+
+  return NextResponse.json({
+    ok: true,
+    score,
+    maxScore: roundRows.length * 100,
+    correctCount,
+    roundCount: roundRows.length,
+    xp,
+    xpEligible,
+    xpRunsLeft: Math.max(0, XP_RUNS_PER_DAY - runsToday - 1),
+    streak: streakInfo.current,
+    totalXp: streakInfo.total_xp,
+  })
+}

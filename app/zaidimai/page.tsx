@@ -51,7 +51,7 @@ async function loadHub() {
   }
 
   // Lygiagrečiai: balansas, lyderiai, dienos TOP, viewer'io dienos būsena
-  const [meRes, leadersRes, dailyTopRes, myDailyRes, myQuizRes, myVadybRes, myVotesRes, duelsRes, myTeamRes, myVaizdasRes] = await Promise.all([
+  const [meRes, leadersRes, dailyTopRes, myDailyRes, myQuizRes, myVadybRes, myVotesRes, duelsRes, myTeamRes, myVaizdasRes, mySekundesRes, myMetaiRes, myDailyScoreRes, dailyTotalRes] = await Promise.all([
     (viewer.userId || viewer.anonId)
       ? sb.from('boombox_streaks').select('current_streak, total_xp')
           .match(viewer.userId ? { user_id: viewer.userId } : { anon_id: viewer.anonId! }).maybeSingle()
@@ -121,7 +121,39 @@ async function loadHub() {
         .eq('game', 'vaizdas').gte('created_at', dayStart))
       return q || Promise.resolve({ count: 0 })
     })(),
+    (() => {
+      const q = viewerFilter(sb.from('game_scores').select('id', { count: 'exact', head: true })
+        .eq('game', 'sekundes').gte('created_at', dayStart))
+      return q || Promise.resolve({ count: 0 })
+    })(),
+    (() => {
+      const q = viewerFilter(sb.from('game_scores').select('id', { count: 'exact', head: true })
+        .eq('game', 'metai').gte('created_at', dayStart))
+      return q || Promise.resolve({ count: 0 })
+    })(),
+    (() => {
+      const q = viewerFilter(sb.from('game_scores').select('score, max_score')
+        .eq('game', 'kvizas').eq('category', 'dienos').gte('created_at', dayStart).limit(1))
+      return q ? q.maybeSingle() : Promise.resolve({ data: null })
+    })(),
+    sb.from('game_scores').select('id', { count: 'exact', head: true })
+      .eq('game', 'kvizas').eq('category', 'dienos').gte('created_at', dayStart),
   ])
+
+  // Dienos rangas: kiek dalyvių šiandien surinko daugiau už mane
+  const myDailyScore = (myDailyScoreRes as any).data as { score: number; max_score: number | null } | null
+  let dailyRank: { score: number; maxScore: number | null; rank: number; total: number } | null = null
+  if (myDailyScore) {
+    const { count: better } = await sb.from('game_scores').select('id', { count: 'exact', head: true })
+      .eq('game', 'kvizas').eq('category', 'dienos').gte('created_at', dayStart)
+      .gt('score', myDailyScore.score)
+    dailyRank = {
+      score: myDailyScore.score,
+      maxScore: myDailyScore.max_score,
+      rank: (better || 0) + 1,
+      total: (dailyTotalRes as any).count || 1,
+    }
+  }
 
   const me = {
     totalXp: (meRes as any).data?.total_xp || 0,
@@ -158,10 +190,13 @@ async function loadHub() {
     leaders,
     dailyTop,
     fantasyTeam: ((myTeamRes as any).data?.name as string) || null,
+    dailyRank,
     today: {
       dailyPlayed: ((myDailyRes as any).count || 0) > 0,
       quizRunsLeft: Math.max(0, 3 - ((myQuizRes as any).count || 0)),
       vaizdasRunsLeft: Math.max(0, 3 - ((myVaizdasRes as any).count || 0)),
+      sekundesRunsLeft: Math.max(0, 3 - ((mySekundesRes as any).count || 0)),
+      metaiRunsLeft: Math.max(0, 3 - ((myMetaiRes as any).count || 0)),
       duelVotesLeft: Math.max(0, 10 - ((myVotesRes as any).count || 0)),
       duelPool: (duelsRes as any).count || 0,
     },
