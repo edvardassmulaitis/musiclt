@@ -1,6 +1,7 @@
 'use client'
 
 import { useState, useEffect, useCallback } from 'react'
+import { deviceFpSync } from '@/lib/device-fp'
 import { useSession } from 'next-auth/react'
 
 type Participant = {
@@ -105,7 +106,7 @@ export default function VotingClient({
       const res = await fetch('/api/voting/vote', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ event_id: event.id, participant_id: p.id }),
+        body: JSON.stringify({ event_id: event.id, participant_id: p.id, fingerprint: deviceFpSync() }),
       })
       const data = await res.json()
       if (!res.ok) setMessage(data.error || 'Klaida')
@@ -129,7 +130,7 @@ export default function VotingClient({
       const res = await fetch('/api/voting/vote', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ event_id: event.id, participant_id: p.id, rating }),
+        body: JSON.stringify({ event_id: event.id, participant_id: p.id, rating, fingerprint: deviceFpSync() }),
       })
       const data = await res.json()
       if (!res.ok) setMessage(data.error || 'Klaida')
@@ -165,7 +166,7 @@ export default function VotingClient({
       const res = await fetch('/api/voting/vote', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ event_id: event.id, selections: topNDraft }),
+        body: JSON.stringify({ event_id: event.id, selections: topNDraft, fingerprint: deviceFpSync() }),
       })
       const data = await res.json()
       if (!res.ok) setMessage(data.error || 'Klaida')

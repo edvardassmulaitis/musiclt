@@ -5,6 +5,7 @@ import { authOptions } from '@/lib/auth'
 import { headers } from 'next/headers'
 import { logActivity } from '@/lib/activity-logger'
 import { clientIpFromHeaders } from '@/lib/rate-limit'
+import { deviceVoteGuard, anonFingerprintCount } from '@/lib/vote-guard'
 
 // Per-song limit: 10 balsų vienai dainai (visiems — anon ir signed-in).
 // Skirtumas: signed-in vartotojo balsas turi 3× svorį finalize skaičiavime.
@@ -65,6 +66,26 @@ export async function POST(req: Request) {
       limit: PER_SONG_LIMIT,
       song_votes: songVotesBefore || 0,
     }, { status: 429 })
+  }
+
+  // ── ANTI-CHEAT: įrenginio/IP paskyrų limitas (multi-account farming) ──
+  if (userId) {
+    const g = await deviceVoteGuard({
+      table: 'top_votes', scopeColumn: 'week_id', scopeValue: week_id,
+      userId, fingerprint: fingerprint || null, ip,
+    })
+    if (!g.allowed) {
+      return NextResponse.json({ error: 'Per daug paskyrų iš šio įrenginio/tinklo.' }, { status: 429 })
+    }
+  } else if (fingerprint) {
+    // Anon: fingerprint kaip papildomas per-song dedup matmuo (šalia IP).
+    const fpCount = await anonFingerprintCount({
+      table: 'top_votes', scopeColumn: 'week_id', scopeValue: week_id,
+      targetColumn: 'track_id', targetValue: track_id, fingerprint,
+    })
+    if (fpCount >= PER_SONG_LIMIT) {
+      return NextResponse.json({ error: `Maks. ${PER_SONG_LIMIT} balsų vienai dainai`, limit: PER_SONG_LIMIT }, { status: 429 })
+    }
   }
 
   // Insert vote row (audit trail: 1 row = 1 vote)

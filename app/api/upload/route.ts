@@ -3,7 +3,7 @@ import { getServerSession } from 'next-auth'
 import { authOptions } from '@/lib/auth'
 import { createClient } from '@supabase/supabase-js'
 import { resizeForUpload } from '@/lib/image-resize'
-import { assertPublicHttpUrlResolved, isPublicHttpUrl } from '@/lib/net-guard'
+import { assertPublicHttpUrlResolved } from '@/lib/net-guard'
 
 // SVG atmetamas: gali turėti <script>/<foreignObject> (stored XSS viešame bucket).
 function isBlockedImageType(t: string): boolean {
@@ -44,8 +44,9 @@ export async function POST(req: NextRequest) {
 
       const response = await fetch(url, { redirect: 'follow' })
       if (!response.ok) throw new Error(`Nepavyko parsisiųsti: ${response.status}`)
-      if (response.url && !isPublicHttpUrl(response.url)) {
-        return NextResponse.json({ error: 'Blokuotas redirect taikinys' }, { status: 400 })
+      if (response.url) {
+        try { await assertPublicHttpUrlResolved(response.url) }
+        catch { return NextResponse.json({ error: 'Blokuotas redirect taikinys' }, { status: 400 }) }
       }
 
       const imgContentType = response.headers.get('content-type') || 'image/jpeg'

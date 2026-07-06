@@ -11,6 +11,7 @@
  * ────────────────────────────────────────────────────────────────── */
 
 import { useState, useEffect, useCallback, useMemo, useRef } from 'react'
+import { deviceFpSync } from '@/lib/device-fp'
 import { useSession } from 'next-auth/react'
 import Link from 'next/link'
 import { ChartYtPlayer, type ChartYtPlayerHandle } from '@/components/ChartYtPlayer'
@@ -415,7 +416,7 @@ function VoteButton({
     fetch('/api/top/vote', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ track_id: trackId, week_id: weekId, vote_type: 'like' }),
+      body: JSON.stringify({ track_id: trackId, week_id: weekId, vote_type: 'like', fingerprint: deviceFpSync() }),
     }).then(async (res) => {
       if (!res.ok) {
         const data = await res.json().catch(() => ({}))

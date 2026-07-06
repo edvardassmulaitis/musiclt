@@ -10,6 +10,7 @@ import { ActivityWidget } from '@/components/ActivityWidget'
 import { LazySection } from '@/components/LazySection'
 import { proxyImg } from '@/lib/img-proxy'
 import { sanitizeRichHtml } from '@/lib/sanitize-html'
+import { deviceFpSync } from '@/lib/device-fp'
 import { HomeTrackModal } from '@/components/HomeTrackModal'
 import AlbumInfoModal from '@/components/AlbumInfoModal'
 import { HomeListModal } from '@/components/HomeListModal'
@@ -690,7 +691,7 @@ function ChartVoteList({ topType, accent, onPlay }: { topType: 'lt_top30' | 'top
     setBusy(true)
     setCounts(p => ({ ...p, [track_id]: (p[track_id] || 0) + 1 }))
     try {
-      const r = await fetch('/api/top/vote', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ track_id, week_id: weekId, vote_type: 'like' }) })
+      const r = await fetch('/api/top/vote', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ track_id, week_id: weekId, vote_type: 'like', fingerprint: deviceFpSync() }) })
       if (r.status === 401) { setCounts(p => ({ ...p, [track_id]: Math.max(0, (p[track_id] || 0) - 1) })); window.location.href = '/auth/signin'; return }
       if (!r.ok) setCounts(p => ({ ...p, [track_id]: Math.max(0, (p[track_id] || 0) - 1) }))
     } catch { setCounts(p => ({ ...p, [track_id]: Math.max(0, (p[track_id] || 0) - 1) })) } finally { setBusy(false) }
@@ -745,7 +746,7 @@ function DailyCandidates({ onPlay }: { onPlay: (videoId: string, meta?: { title?
     setVoted(p => { const n = new Set(p); n.add(id); return n })
     setNoms(p => p.map(n => n.id === id ? { ...n, votes: (n.votes || 0) + 1, weighted_votes: (n.weighted_votes || 0) + 1 } : n))
     try {
-      const r = await fetch('/api/dienos-daina/votes', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ nomination_id: id }) })
+      const r = await fetch('/api/dienos-daina/votes', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ nomination_id: id, fingerprint: deviceFpSync() }) })
       if (r.status === 401) { window.location.href = '/auth/signin'; return }
     } catch {} finally { setVoting(null) }
   }
@@ -2290,7 +2291,7 @@ function ChartBottomSheet({
       const res = await fetch('/api/top/vote', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ track_id: trackId, week_id: weekId, vote_type: 'like' }),
+        body: JSON.stringify({ track_id: trackId, week_id: weekId, vote_type: 'like', fingerprint: deviceFpSync() }),
       })
       const d = await res.json()
       if (res.ok) {

@@ -14,6 +14,7 @@
 //     dienos dalyvius ta pačia eilučių stilistika.
 
 import { useState, useEffect, useCallback, useMemo } from 'react'
+import { deviceFpSync } from '@/lib/device-fp'
 import { proxyImg } from '@/lib/img-proxy'
 import { HomeListModal } from '@/components/HomeListModal'
 import { HomeTrackModal } from '@/components/HomeTrackModal'
@@ -251,7 +252,7 @@ export function DienosDainaHero({ fullPage = false }: { fullPage?: boolean }) {
     if (votedIds.has(id) || voting !== null) return
     setVoting(id); setVoteErr('')
     try {
-      const res = await fetch('/api/dienos-daina/votes', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ nomination_id: id }) })
+      const res = await fetch('/api/dienos-daina/votes', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ nomination_id: id, fingerprint: deviceFpSync() }) })
       const d = await res.json()
       if (res.ok) {
         const wt = d.weight || 1

@@ -3,7 +3,7 @@ import { createClient } from '@supabase/supabase-js'
 import { getServerSession } from 'next-auth'
 import { authOptions } from '@/lib/auth'
 import { resizeForUpload } from '@/lib/image-resize'
-import { assertPublicHttpUrlResolved, isPublicHttpUrl } from '@/lib/net-guard'
+import { assertPublicHttpUrlResolved } from '@/lib/net-guard'
 
 const supabase = createClient(
   process.env.NEXT_PUBLIC_SUPABASE_URL!,
@@ -65,9 +65,11 @@ export async function POST(req: NextRequest) {
       return NextResponse.json({ error: lastError || 'Fetch nepavyko' }, { status: 400 })
     }
 
-    // Redirect-SSRF apsauga: galutinis URL (po redirect'ų) taip pat turi būti viešas.
-    if (response.url && !isPublicHttpUrl(response.url)) {
-      return NextResponse.json({ error: 'Blokuotas redirect taikinys' }, { status: 400 })
+    // Redirect-SSRF apsauga: galutinis URL (po redirect'ų) DNS-resolve'inamas ir
+    // validuojamas — kad public-looking host, resolve'inantis į private IP, būtų blokuotas.
+    if (response.url) {
+      try { await assertPublicHttpUrlResolved(response.url) }
+      catch { return NextResponse.json({ error: 'Blokuotas redirect taikinys' }, { status: 400 }) }
     }
 
     const contentType = response.headers.get('content-type') || 'image/jpeg'

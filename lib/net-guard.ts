@@ -42,7 +42,9 @@ function ipv6ToBytes(input: string): number[] | null {
   if (v4m) {
     tailV4 = [parseInt(v4m[1]), parseInt(v4m[2]), parseInt(v4m[3]), parseInt(v4m[4])]
     if (tailV4.some((n) => n > 255)) return null
-    s = s.slice(0, v4m.index).replace(/:$/, ':0') // pakeičiam v4 dalį placeholder'iu
+    // Pakeičiam v4 dalį dviem placeholder grupėm (0:0), kurios vėliau
+    // perrašomos tailV4 baitais. (Buvo bug'as: papildomas :0 nustumdavo grupes.)
+    s = s.slice(0, v4m.index)
     if (!s.endsWith(':')) s += ':'
     s += '0:0'
   }

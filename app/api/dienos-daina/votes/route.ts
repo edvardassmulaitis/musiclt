@@ -5,6 +5,7 @@ import { authOptions } from '@/lib/auth'
 import { headers } from 'next/headers'
 import { logActivity } from '@/lib/activity-logger'
 import { clientIpFromHeaders } from '@/lib/rate-limit'
+import { deviceVoteGuard } from '@/lib/vote-guard'
 
 function todayLT(): string {
   return new Date().toLocaleDateString('lt-LT', {
@@ -53,6 +54,13 @@ export async function POST(req: Request) {
       .maybeSingle()
     if (existing)
       return NextResponse.json({ error: 'Jau balsavai už šią dainą' }, { status: 400 })
+    // ANTI-CHEAT: įrenginio/IP paskyrų limitas (multi-account farming).
+    const g = await deviceVoteGuard({
+      table: 'daily_song_votes', scopeColumn: 'nomination_id', scopeValue: nomination_id,
+      userId, fingerprint: fingerprint || null, ip,
+    })
+    if (!g.allowed)
+      return NextResponse.json({ error: 'Per daug paskyrų iš šio įrenginio/tinklo.' }, { status: 429 })
   } else {
     const { data: existing } = await supabase
       .from('daily_song_votes')
@@ -63,6 +71,19 @@ export async function POST(req: Request) {
       .maybeSingle()
     if (existing)
       return NextResponse.json({ error: 'Jau balsavai už šią dainą' }, { status: 400 })
+    // ANTI-CHEAT: anon dedup ir pagal fingerprint (kad IP rotacija su tuo pačiu
+    // įrenginiu neapeitų).
+    if (fingerprint && String(fingerprint).length >= 8) {
+      const { data: fpExisting } = await supabase
+        .from('daily_song_votes')
+        .select('id')
+        .eq('nomination_id', nomination_id)
+        .is('user_id', null)
+        .eq('voter_fingerprint', fingerprint)
+        .maybeSingle()
+      if (fpExisting)
+        return NextResponse.json({ error: 'Jau balsavai už šią dainą' }, { status: 400 })
+    }
   }
 
   const weight = userId ? 3 : 1

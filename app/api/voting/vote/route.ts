@@ -4,6 +4,7 @@ import { headers } from 'next/headers'
 import { authOptions } from '@/lib/auth'
 import { createAdminClient } from '@/lib/supabase'
 import { clientIpFromHeaders } from '@/lib/rate-limit'
+import { deviceVoteGuard } from '@/lib/vote-guard'
 
 /**
  * POST /api/voting/vote
@@ -60,6 +61,16 @@ export async function POST(req: Request) {
 
   if (event.requires_login && !userId)
     return NextResponse.json({ error: 'Reikia prisijungti' }, { status: 401 })
+
+  // ANTI-CHEAT: įrenginio/IP paskyrų limitas (multi-account farming) šiam įvykiui.
+  if (userId) {
+    const g = await deviceVoteGuard({
+      table: 'voting_votes', scopeColumn: 'event_id', scopeValue: event_id,
+      userId, fingerprint: fingerprint || null, ip,
+    })
+    if (!g.allowed)
+      return NextResponse.json({ error: 'Per daug paskyrų iš šio įrenginio/tinklo.' }, { status: 429 })
+  }
 
   const supabase = createAdminClient()
 

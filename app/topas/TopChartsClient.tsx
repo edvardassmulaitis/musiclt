@@ -1,6 +1,7 @@
 'use client'
 
 import { useState, useEffect, useCallback } from 'react'
+import { deviceFpSync } from '@/lib/device-fp'
 import { useSession } from 'next-auth/react'
 import Link from 'next/link'
 
@@ -215,7 +216,7 @@ function VoteButton({ entry, weekId, onVoted, votedIds, votesRemaining }: {
     const res = await fetch('/api/top/vote', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ track_id: entry.tracks.id, week_id: weekId, vote_type: 'like' }),
+      body: JSON.stringify({ track_id: entry.tracks.id, week_id: weekId, vote_type: 'like', fingerprint: deviceFpSync() }),
     })
     const data = await res.json()
     if (res.ok) onVoted(entry.tracks.id)
