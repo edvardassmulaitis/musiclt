@@ -15,6 +15,7 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { createAdminClient } from '@/lib/supabase'
 import { bumpStreakAndXp, todayLT, ltDayStartUtc } from '@/lib/boombox'
+import { ensurePreviews } from '@/lib/itunes'
 import {
   resolveViewer,
   quizCategory,
@@ -50,7 +51,18 @@ type BuiltRound = {
   ytId: string
   startSec: number
   correctId: number
+  audioUrl?: string | null   // iTunes 30 s ištrauka (iOS garsas per <audio>)
   options: Array<{ id: number; title: string; artist: string }>
+}
+
+/** Prideda iTunes ištraukas (cache DB) — teisingo atsakymo dainai. */
+async function enrichAudio(rounds: BuiltRound[]): Promise<BuiltRound[]> {
+  const need = rounds.map(b => {
+    const correct = b.options.find(o => o.id === b.correctId)
+    return { id: b.correctId, title: correct?.title || '', artist: correct?.artist || '' }
+  })
+  const previews = await ensurePreviews(need)
+  return rounds.map(b => ({ ...b, audioUrl: previews.get(b.correctId) ?? null }))
 }
 
 function buildRoundsData(
@@ -105,13 +117,21 @@ async function dailyRounds(roundCount: number): Promise<BuiltRound[] | null> {
     .select('rounds')
     .eq('day', today)
     .maybeSingle()
-  if (existing?.rounds) return (existing.rounds as BuiltRound[]).slice(0, roundCount)
+  if (existing?.rounds) {
+    let rounds = (existing.rounds as BuiltRound[])
+    if (rounds.some(r => r.audioUrl === undefined)) {
+      rounds = await enrichAudio(rounds)
+      await sb.from('daily_quiz_snapshot').update({ rounds }).eq('day', today)
+    }
+    return rounds.slice(0, roundCount)
+  }
 
   const cat = quizCategory('lt-mix')!
   const pool = await loadQuizPool(cat)
   if (pool.length < roundCount * 4) return null
-  const built = buildRoundsData(pool, roundCount, mulberry32(dailySeed()))
-  if (!built) return null
+  const builtRaw = buildRoundsData(pool, roundCount, mulberry32(dailySeed()))
+  if (!builtRaw) return null
+  const built = await enrichAudio(builtRaw)
 
   // Pirmas sugeneravęs įrašo; lygiagretumo atveju laimi pirmasis įrašas
   await sb.from('daily_quiz_snapshot').upsert(
@@ -150,7 +170,8 @@ export async function GET(req: NextRequest) {
   } else {
     const pool = await loadQuizPool(cat)
     if (pool.length < roundCount * 4) return jsonErr('Šiai kategorijai dar trūksta dainų — pabandyk kitą', 503)
-    built = buildRoundsData(pool, roundCount)
+    const raw = buildRoundsData(pool, roundCount)
+    built = raw ? await enrichAudio(raw) : null
     quizId = Math.random().toString(36).slice(2, 10)
   }
   if (!built) return jsonErr('Šiai kategorijai dar trūksta atlikėjų — pabandyk kitą', 503)
@@ -160,6 +181,7 @@ export async function GET(req: NextRequest) {
     r: b.r,
     ytId: b.ytId,
     startSec: b.startSec,
+    audioUrl: b.audioUrl ?? null,
     options: b.options,
     token: sealPayload({ g: 'kvizas', cat: isDaily ? DAILY_KEY : cat.key, d: today, q: quizId, r: b.r, c: b.correctId, exp }),
   }))

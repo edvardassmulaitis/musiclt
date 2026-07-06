@@ -32,10 +32,10 @@ const MISSION_TO_TABLE: Record<string, string> = {
 }
 
 const MISSION_BASE_XP: Record<string, number> = {
-  image_guess: 30,        // base; +50 if correct
-  duel: 40,
-  verdict: 40,
-  video_react: 20,
+  image_guess: 30,        // bazė; +50 jei teisingai
+  duel: 20,               // dalyvavimo taškai sumažinti (Edvardo feedback):
+  verdict: 20,            // pagrindiniai taškai — už teisingus atsakymus
+  video_react: 10,
 }
 
 function jsonErr(msg: string, status = 400) {

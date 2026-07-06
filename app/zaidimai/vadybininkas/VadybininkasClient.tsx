@@ -35,6 +35,7 @@ type TeamData = {
   team: {
     id: number; name: string; budget: number; spent: number; budgetLeft: number
     transfersLeft: number; seasonPoints: number; seasonRank: number | null
+    monthPoints?: number; monthRank?: number | null
     liveWeekPoints: number; weeks: Array<{ week_start: string; points: number }>
   } | null
   roster: RosterArtist[]
@@ -47,7 +48,7 @@ type MarketArtist = {
   price: number; country: string; lastWeekPoints: number | null; trending: boolean; onMyRoster: boolean
 }
 
-type View = 'loading' | 'intro' | 'draft' | 'startas' | 'valdymas'
+type View = 'loading' | 'intro' | 'draft' | 'startas' | 'valdymas' | 'mainai'
 
 export default function VadybininkasClient() {
   const [data, setData] = useState<TeamData | null>(null)
@@ -59,19 +60,21 @@ export default function VadybininkasClient() {
   const [creating, setCreating] = useState(false)
 
   // Rinka
-  const [marketOpen, setMarketOpen] = useState(false) // valdymo režime — overlay
   const [market, setMarket] = useState<MarketArtist[]>([])
   const [marketTotal, setMarketTotal] = useState(0)
   const [marketPage, setMarketPage] = useState(0)
   const [marketQ, setMarketQ] = useState('')
-  const [marketSort, setMarketSort] = useState<'populiariausi' | 'pigiausi'>('populiariausi')
+  const [marketSort, setMarketSort] = useState<'populiariausi' | 'pigiausi' | 'forma' | 'siulomi'>('siulomi')
+  const [tikIperkami, setTikIperkami] = useState(true)
   const [marketSalis, setMarketSalis] = useState<'visi' | 'lt' | 'uzsienio'>('visi')
   const [marketLoading, setMarketLoading] = useState(false)
   const [busyArtist, setBusyArtist] = useState<number | null>(null)
   const searchTimer = useRef<ReturnType<typeof setTimeout> | null>(null)
 
-  const [boardTab, setBoardTab] = useState<'week' | 'month' | 'season'>('season')
+  const [boardTab, setBoardTab] = useState<'week' | 'month' | 'season'>('week')
   const [modal, setModal] = useState<'lyga' | 'info' | null>(null)
+  const [artistModal, setArtistModal] = useState<any>(null)   // {loading} | duomenys
+
 
   const team = data?.team
   const roster = data?.roster || []
@@ -98,10 +101,10 @@ export default function VadybininkasClient() {
 
   useEffect(() => { void load() }, [load])
 
-  const loadMarket = useCallback(async (q: string, page: number, sort: string, salis: string) => {
+  const loadMarket = useCallback(async (q: string, page: number, sort: string, salis: string, iperkami?: boolean, biudzetas?: number) => {
     setMarketLoading(true)
     try {
-      const res = await fetch(`/api/zaidimai/vadybininkas/rinka?q=${encodeURIComponent(q)}&puslapis=${page}&rusiavimas=${sort}&salis=${salis}`)
+      const res = await fetch(`/api/zaidimai/vadybininkas/rinka?q=${encodeURIComponent(q)}&puslapis=${page}&rusiavimas=${sort}&salis=${salis}${iperkami ? `&tikIperkami=1&biudzetas=${biudzetas || 0}` : ''}`)
       const json = await res.json()
       setMarket(json.artists || [])
       setMarketTotal(json.total || 0)
@@ -110,17 +113,26 @@ export default function VadybininkasClient() {
     setMarketLoading(false)
   }, [])
 
-  const marketVisible = view === 'draft' || marketOpen
+  const marketVisible = view === 'draft' || view === 'mainai'
   useEffect(() => {
     if (!marketVisible) return
-    void loadMarket(marketQ, 0, marketSort, marketSalis)
+    void loadMarket(marketQ, 0, marketSort, marketSalis, tikIperkami, team?.budgetLeft || 0)
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [marketVisible, marketSort, marketSalis])
+  }, [marketVisible, marketSort, marketSalis, tikIperkami])
 
   function onSearchChange(v: string) {
     setMarketQ(v)
     if (searchTimer.current) clearTimeout(searchTimer.current)
-    searchTimer.current = setTimeout(() => void loadMarket(v, 0, marketSort, marketSalis), 350)
+    searchTimer.current = setTimeout(() => void loadMarket(v, 0, marketSort, marketSalis, tikIperkami, team?.budgetLeft || 0), 350)
+  }
+
+  async function openArtist(id: number) {
+    setArtistModal({ loading: true })
+    try {
+      const res = await fetch(`/api/zaidimai/vadybininkas/atlikejas?id=${id}`)
+      const json = await res.json()
+      setArtistModal(res.ok ? json : { klaida: json.error || 'Nepavyko įkelti' })
+    } catch { setArtistModal({ klaida: 'Tinklo klaida' }) }
   }
 
   async function createTeam() {
@@ -154,10 +166,10 @@ export default function VadybininkasClient() {
       })
       const json = await res.json()
       if (!res.ok) { setError(json.error || 'Nepavyko'); setBusyArtist(null); return }
-      await Promise.all([
-        load({ keepView: true }),
-        marketVisible ? loadMarket(marketQ, marketPage, marketSort, marketSalis) : Promise.resolve(),
-      ])
+      const fresh = await load({ keepView: true })
+      if (marketVisible) {
+        await loadMarket(marketQ, marketPage, marketSort, marketSalis, tikIperkami, fresh?.team ? fresh.team.budget - (fresh.roster || []).reduce((x: number, r: any) => x + r.price, 0) : 0)
+      }
     } catch { setError('Tinklo klaida — pabandyk dar kartą') }
     setBusyArtist(null)
   }
@@ -170,7 +182,7 @@ export default function VadybininkasClient() {
 
   return (
     <ZaidimoLangas
-      title={view === 'valdymas' && team ? `💼 ${team.name}` : 'Muzikos vadybininkas'}
+      title={view === 'valdymas' && team ? `💼 ${team.name}` : view === 'mainai' ? '↔ Mainai' : 'Muzikos vadybininkas'}
       right={wizardStep > 0 ? (
         <div className="fl-steps">
           {[1, 2, 3].map(n => (
@@ -239,10 +251,12 @@ export default function VadybininkasClient() {
         </div>
       )}
 
-      {/* ══════════ 2 ŽINGSNIS: komandos surinkimas ══════════ */}
-      {view === 'draft' && team && (
+      {/* ══════════ 2 ŽINGSNIS: komandos surinkimas / MAINAI ══════════ */}
+      {(view === 'draft' || view === 'mainai') && team && (
         <div className="fl-wizard">
-          <h1 className="fl-h1">Surink komandą</h1>
+          {view === 'draft'
+            ? <h1 className="fl-h1">Surink komandą</h1>
+            : <p className="fl-lead" style={{ marginBottom: 10 }}>Bakstelk atlikėją komandoje (viršuje) — paleisi; bakstelk rinkoje — pasirašysi. Liko mainų: <b>{team.transfersLeft}</b>.</p>}
 
           {/* Progresas + biudžetas — VISADA matomi (sticky) */}
           <div className="fl-draft-status">
@@ -263,6 +277,7 @@ export default function VadybininkasClient() {
               })}
               <span className="fl-slots-label">{roster.length}/{rosterSize}</span>
             </div>
+            {view === 'draft' && <p className="fl-slots-hint">Nebūtina užpildyti visų {rosterSize} — startuok kad ir su vienu, kitus prisipirksi vėliau.</p>}
             <div className="fl-budget-line">
               <div className="fl-budget-bar"><div style={{ width: `${Math.min(100, (team.spent / team.budget) * 100)}%` }} /></div>
               <span className="fl-budget-num">💰 liko <b>{team.budgetLeft}</b></span>
@@ -278,10 +293,12 @@ export default function VadybininkasClient() {
             setMarketSalis={setMarketSalis}
             marketSort={marketSort}
             setMarketSort={setMarketSort}
+            tikIperkami={tikIperkami}
+            setTikIperkami={setTikIperkami}
             marketLoading={marketLoading}
             marketPage={marketPage}
             marketTotal={marketTotal}
-            onPage={p => void loadMarket(marketQ, p, marketSort, marketSalis)}
+            onPage={p => void loadMarket(marketQ, p, marketSort, marketSalis, tikIperkami, team.budgetLeft)}
             budgetLeft={team.budgetLeft}
             slotsLeft={slotsLeft}
             busyArtist={busyArtist}
@@ -289,11 +306,16 @@ export default function VadybininkasClient() {
             onRelease={id => doAction('release', id)}
           />
 
-          {rosterFull && (
-            <div className="fl-draft-done">
-              <button className="fl-btn-primary big" onClick={() => setView('startas')}>Komanda paruošta →</button>
-            </div>
-          )}
+          <div className="fl-draft-done">
+            {view === 'draft' && roster.length >= 1 && (
+              <button className="fl-btn-primary big" onClick={() => setView('startas')}>
+                {rosterFull ? 'Komanda paruošta →' : `Startuoti su ${roster.length} →`}
+              </button>
+            )}
+            {view === 'mainai' && (
+              <button className="fl-btn-primary big" onClick={() => { setView('valdymas'); void load({ keepView: true }) }}>Baigti mainus →</button>
+            )}
+          </div>
         </div>
       )}
 
@@ -332,21 +354,36 @@ export default function VadybininkasClient() {
               <span className="fl-hero-sub">tšk. (tarpinis — galutinai pirmadienį)</span>
             </div>
             <div className="fl-hero-side">
-              <span className="fl-hero-chip">🏆 Sezonas <b>{team.seasonPoints}</b>{team.seasonRank ? ` · #${team.seasonRank}` : ''}</span>
+              <span className="fl-hero-chip">🗓 Mėnuo <b>{team.monthPoints ?? team.seasonPoints}</b>{(team.monthRank ?? team.seasonRank) ? ` · #${team.monthRank ?? team.seasonRank}` : ''}</span>
             </div>
           </div>
+
+          {/* Komandos turų grafikas */}
+          {team.weeks.length > 1 && (
+            <div className="fl-chart">
+              {[...team.weeks].reverse().map((w, i, arr) => {
+                const mx = Math.max(1, ...arr.map(x => x.points))
+                const paskutinis = i === arr.length - 1
+                return (
+                  <div key={w.week_start} className="fl-chart-col" title={`${w.week_start}: ${w.points} tšk.`}>
+                    {paskutinis && <span className="fl-chart-val">{w.points}</span>}
+                    <i style={{ height: `${Math.max(4, (w.points / mx) * 100)}%` }} className={paskutinis ? 'now' : ''} />
+                    <span className="fl-chart-lbl">{w.week_start.slice(5)}</span>
+                  </div>
+                )
+              })}
+            </div>
+          )}
 
           {/* Komanda — vizualios taškų juostos */}
           <div className="fl-sec-head">
             <h2 className="fl-h2">Komanda</h2>
-            <button className="fl-btn-market" onClick={() => setMarketOpen(o => !o)}>
-              {marketOpen ? 'Uždaryti rinką ✕' : '↔ Mainai'}
-            </button>
+            <button className="fl-btn-market" onClick={() => setView('mainai')}>↔ Mainai</button>
           </div>
 
           <div className="fl-roster">
             {roster.map(r => (
-              <div key={r.artistId} className="fl-player">
+              <button key={r.artistId} className="fl-player" onClick={() => void openArtist(r.artistId)}>
                 <span className="fl-player-img">
                   {r.image
                     // eslint-disable-next-line @next/next/no-img-element
@@ -355,13 +392,10 @@ export default function VadybininkasClient() {
                 </span>
                 <span className="fl-player-main">
                   <span className="fl-player-name-row">
-                    <Link href={`/atlikejai/${r.slug}`} className="fl-player-name">{r.name}</Link>
+                    <span className="fl-player-name">{r.name}</span>
                     {r.countsFromNextWeek && <em className="fl-new-badge" title="Taškai komandai — nuo pirmadienio">🆕 nuo pirmadienio</em>}
                   </span>
-                  <span
-                    className="fl-points-bar"
-                    title={r.liveBreakdown ? `Topai ${r.liveBreakdown.chart} · YouTube ${r.liveBreakdown.yt} · Naujos dainos ${r.liveBreakdown.rel} · Bazė ${r.liveBreakdown.base}` : ''}
-                  >
+                  <span className="fl-points-bar">
                     {r.liveBreakdown && r.livePoints > 0 ? (
                       <>
                         <i className="seg chart" style={{ width: `${(r.liveBreakdown.chart / maxLive) * 100}%` }} />
@@ -374,34 +408,18 @@ export default function VadybininkasClient() {
                 </span>
                 <span className="fl-player-live">
                   <b>{r.livePoints}</b>
-                  <i>šią sav.</i>
+                  <i>šią sav. ›</i>
                 </span>
-              </div>
+              </button>
             ))}
+            {slotsLeft > 0 && (
+              <button className="fl-player fl-player-add" onClick={() => setView('mainai')}>
+                <span className="fl-player-ph-slot">+</span>
+                <span className="fl-empty-label">Dar {slotsLeft} laisvos vietos — pasirašyk atlikėją</span>
+              </button>
+            )}
           </div>
 
-          {/* Rinka (mainams) — atsidaro po komanda, tie patys filtrai viršuje */}
-          {marketOpen && (
-            <MarketPanel
-              market={market}
-              marketQ={marketQ}
-              onSearchChange={onSearchChange}
-              marketSalis={marketSalis}
-              setMarketSalis={setMarketSalis}
-              marketSort={marketSort}
-              setMarketSort={setMarketSort}
-              marketLoading={marketLoading}
-              marketPage={marketPage}
-              marketTotal={marketTotal}
-              onPage={p => void loadMarket(marketQ, p, marketSort, marketSalis)}
-              budgetLeft={team.budgetLeft}
-              slotsLeft={slotsLeft}
-              busyArtist={busyArtist}
-              onSign={id => doAction('sign', id)}
-              onRelease={id => doAction('release', id)}
-              releaseHint={team.transfersLeft > 0 ? `Mainams pirmiausia paleisk atlikėją komandoje (liko ${team.transfersLeft})` : 'Mainų limitas šiai savaitei išnaudotas'}
-            />
-          )}
 
           {/* Detalės — modaluose, kad ekranas liktų švarus */}
           <div className="fl-more-row">
@@ -409,6 +427,77 @@ export default function VadybininkasClient() {
             <button className="fl-more-btn" onClick={() => setModal('info')}>ℹ️ Kaip skaičiuojami taškai</button>
           </div>
         </>
+      )}
+
+      {/* ── Atlikėjo kortelė ── */}
+      {artistModal && (
+        <div className="fl-modal-back" onClick={() => setArtistModal(null)}>
+          <div className="fl-modal" onClick={e => e.stopPropagation()}>
+            <button className="fl-modal-x" onClick={() => setArtistModal(null)} aria-label="Uždaryti">✕</button>
+            {artistModal.loading && <div className="fl-center small"><div className="fl-spinner" /></div>}
+            {artistModal.klaida && <div className="fl-error">{artistModal.klaida}</div>}
+            {artistModal.artist && (
+              <div className="fl-artist">
+                <div className="fl-artist-head">
+                  <span className="fl-player-img big">
+                    {artistModal.artist.image
+                      // eslint-disable-next-line @next/next/no-img-element
+                      ? <img src={proxyImg(artistModal.artist.image, 160)} alt="" />
+                      : <span className="fl-player-ph">🎤</span>}
+                  </span>
+                  <div>
+                    <b className="fl-artist-name">{artistModal.artist.name}</b>
+                    <span className="fl-artist-meta">{artistModal.artist.country} · kaina dabar {artistModal.artist.price} tšk.</span>
+                  </div>
+                </div>
+
+                {artistModal.live && (
+                  <>
+                    <div className="fl-artist-live">Ši savaitė: <b>{artistModal.live.total} tšk.</b></div>
+                    <div className="fl-artist-breakdown">
+                      <span><i className="dot chart" /> Topai {artistModal.live.chart}</span>
+                      <span><i className="dot yt" /> YouTube {artistModal.live.yt}</span>
+                      <span><i className="dot rel" /> Naujos dainos {artistModal.live.rel}</span>
+                      <span><i className="dot base" /> Bazė {artistModal.live.base}</span>
+                    </div>
+                  </>
+                )}
+
+                {(artistModal.weeks || []).length > 1 && (
+                  <>
+                    <div className="fl-artist-sub">Savaitiniai taškai</div>
+                    <div className="fl-chart">
+                      {artistModal.weeks.map((w: any, i: number) => {
+                        const mx = Math.max(1, ...artistModal.weeks.map((x: any) => x.points))
+                        const paskutinis = i === artistModal.weeks.length - 1
+                        return (
+                          <div key={w.week} className="fl-chart-col" title={`${w.week}: ${w.points} tšk.`}>
+                            {paskutinis && <span className="fl-chart-val">{w.points}</span>}
+                            <i style={{ height: `${Math.max(4, (w.points / mx) * 100)}%` }} className={paskutinis ? 'now' : ''} />
+                            <span className="fl-chart-lbl">{w.week.slice(5)}</span>
+                          </div>
+                        )
+                      })}
+                    </div>
+                  </>
+                )}
+
+                {(artistModal.events || []).length > 0 && (
+                  <>
+                    <div className="fl-artist-sub">Realūs įvykiai</div>
+                    <ul className="fl-artist-events">
+                      {artistModal.events.map((e: any, i: number) => (
+                        <li key={i}><span>{e.week.slice(5)}</span> {e.text}</li>
+                      ))}
+                    </ul>
+                  </>
+                )}
+
+                <Link href={`/atlikejai/${artistModal.artist.slug}`} className="fl-artist-link">Atlikėjo puslapis →</Link>
+              </div>
+            )}
+          </div>
+        </div>
       )}
 
       {/* ── Modalai ── */}
@@ -464,8 +553,10 @@ function MarketPanel(props: {
   onSearchChange: (v: string) => void
   marketSalis: 'visi' | 'lt' | 'uzsienio'
   setMarketSalis: (v: 'visi' | 'lt' | 'uzsienio') => void
-  marketSort: 'populiariausi' | 'pigiausi'
-  setMarketSort: (v: 'populiariausi' | 'pigiausi') => void
+  marketSort: 'populiariausi' | 'pigiausi' | 'forma' | 'siulomi'
+  setMarketSort: (v: 'populiariausi' | 'pigiausi' | 'forma' | 'siulomi') => void
+  tikIperkami: boolean
+  setTikIperkami: (v: boolean) => void
   marketLoading: boolean
   marketPage: number
   marketTotal: number
@@ -479,6 +570,7 @@ function MarketPanel(props: {
 }) {
   const {
     market, marketQ, onSearchChange, marketSalis, setMarketSalis, marketSort, setMarketSort,
+    tikIperkami, setTikIperkami,
     marketLoading, marketPage, marketTotal, onPage, budgetLeft, slotsLeft, busyArtist, onSign, onRelease,
   } = props
 
@@ -498,8 +590,13 @@ function MarketPanel(props: {
           <button className={marketSalis === 'uzsienio' ? 'on' : ''} onClick={() => setMarketSalis('uzsienio')}>Užsienio</button>
         </div>
         <div className="fl-tabs">
+          <button className={marketSort === 'siulomi' ? 'on' : ''} onClick={() => setMarketSort('siulomi')}>✨ Siūlomi</button>
+          <button className={marketSort === 'forma' ? 'on' : ''} onClick={() => setMarketSort('forma')}>📈 Geriausia forma</button>
           <button className={marketSort === 'populiariausi' ? 'on' : ''} onClick={() => setMarketSort('populiariausi')}>⭐ Populiariausi</button>
           <button className={marketSort === 'pigiausi' ? 'on' : ''} onClick={() => setMarketSort('pigiausi')}>💸 Pigiausi</button>
+        </div>
+        <div className="fl-tabs">
+          <button className={tikIperkami ? 'on' : ''} onClick={() => setTikIperkami(!tikIperkami)}>💰 Tik įperkami ({budgetLeft})</button>
         </div>
       </div>
 
@@ -563,7 +660,6 @@ function LeagueBoards({ boards, tab, setTab, compact }: {
       <div className="fl-tabs">
         <button className={tab === 'week' ? 'on' : ''} onClick={() => setTab('week')}>Savaitė</button>
         <button className={tab === 'month' ? 'on' : ''} onClick={() => setTab('month')}>Mėnuo</button>
-        <button className={tab === 'season' ? 'on' : ''} onClick={() => setTab('season')}>Sezonas</button>
       </div>
       {rows.length === 0 ? (
         <div className="fl-dim" style={{ padding: '10px 0' }}>
@@ -614,9 +710,9 @@ const css = `
 .fl-info ul { list-style: none; margin: 10px 0; padding: 0; display: flex; flex-direction: column; gap: 8px; }
 .fl-info li { font-size: 14px; color: var(--text-secondary); }
 .fl-info .dot, .fl-modal .dot { display: inline-block; width: 9px; height: 9px; border-radius: 3px; margin-right: 6px; }
-.dot.chart { background: #f59e0b; }
+.dot.chart { background: var(--accent-orange); }
 .dot.yt { background: #ef4444; }
-.dot.rel { background: #8b5cf6; }
+.dot.rel { background: var(--accent-link); }
 .dot.base { background: #64748b; }
 .fl-step-dot {
   width: 26px; height: 26px; border-radius: 50%; display: flex; align-items: center; justify-content: center;
@@ -639,7 +735,7 @@ const css = `
 @keyframes flspin { to { transform: rotate(360deg); } }
 .fl-error { font-size: 14px; color: #f87171; background: rgba(248,113,113,0.1); border-radius: 10px; padding: 10px 14px; margin-bottom: 12px; cursor: pointer; }
 .fl-warn { font-size: 12px; color: var(--text-secondary); background: rgba(245,158,11,0.1); border: 1px solid rgba(245,158,11,0.35); border-radius: 10px; padding: 9px 12px; margin-bottom: 16px; }
-.fl-warn a { color: #f59e0b; font-weight: 800; }
+.fl-warn a { color: var(--accent-orange); font-weight: 800; }
 
 /* ── 1 žingsnis: kaip veikia ── */
 .fl-how { display: grid; grid-template-columns: repeat(3, 1fr); gap: 10px; margin-bottom: 18px; }
@@ -660,7 +756,7 @@ const css = `
 .fl-input:focus { outline: none; border-color: #10b981; }
 .fl-btn-primary {
   font-size: 16px; font-weight: 800; color: #fff; cursor: pointer; border: 0; border-radius: 12px; padding: 12px 22px;
-  background: linear-gradient(135deg, #10b981, #059669); box-shadow: 0 10px 26px rgba(16,185,129,0.3);
+  background: var(--accent-orange);
 }
 .fl-btn-primary:disabled { opacity: 0.5; }
 .fl-btn-primary.big { font-size: 18px; padding: 15px 34px; border-radius: 999px; }
@@ -686,7 +782,7 @@ const css = `
 .fl-slots-label { font-size: 16px; font-weight: 900; color: var(--text-primary); margin-left: 4px; }
 .fl-budget-line { display: flex; align-items: center; gap: 12px; }
 .fl-budget-bar { flex: 1; height: 10px; border-radius: 5px; background: rgba(148,163,184,0.18); overflow: hidden; }
-.fl-budget-bar div { height: 100%; background: linear-gradient(90deg, #10b981, #f59e0b); transition: width .25s ease; }
+.fl-budget-bar div { height: 100%; background: var(--accent-orange); transition: width .25s ease; }
 .fl-budget-num { font-size: 14px; color: var(--text-secondary); white-space: nowrap; }
 .fl-budget-num b { font-size: 16px; color: var(--text-primary); }
 .fl-draft-done { position: sticky; bottom: 14px; display: flex; justify-content: center; margin-top: 16px; }
@@ -705,7 +801,7 @@ const css = `
 /* ── Valdymas: herojus ── */
 .fl-hero {
   display: flex; align-items: stretch; gap: 14px; flex-wrap: wrap;
-  background: linear-gradient(140deg, rgba(16,185,129,0.14), var(--bg-surface));
+  background: var(--bg-surface);
   border: 1px solid rgba(16,185,129,0.4); border-radius: 18px; padding: 18px 20px; margin-bottom: 22px;
 }
 .fl-hero-main { display: flex; flex-direction: column; }
@@ -720,7 +816,7 @@ const css = `
 .fl-sec-head { display: flex; align-items: center; justify-content: space-between; gap: 10px; margin-bottom: 10px; }
 .fl-btn-market {
   font-size: 14px; font-weight: 800; color: #fff; cursor: pointer;
-  background: linear-gradient(135deg, #10b981, #059669); border: 0; border-radius: 999px; padding: 9px 18px;
+  background: var(--accent-orange); border: 0; border-radius: 999px; padding: 9px 18px;
   box-shadow: 0 8px 20px rgba(16,185,129,0.3);
 }
 
@@ -736,12 +832,12 @@ const css = `
 .fl-player-main { display: flex; flex-direction: column; gap: 6px; min-width: 0; flex: 1; }
 .fl-player-name-row { display: flex; align-items: center; gap: 8px; min-width: 0; }
 .fl-player-name { font-size: 16px; font-weight: 800; color: var(--text-primary); text-decoration: none; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
-.fl-new-badge { font-style: normal; font-size: 10px; font-weight: 800; color: #f59e0b; white-space: nowrap; }
+.fl-new-badge { font-style: normal; font-size: 10px; font-weight: 800; color: var(--accent-orange); white-space: nowrap; }
 .fl-points-bar { display: flex; height: 8px; border-radius: 4px; overflow: hidden; background: rgba(148,163,184,0.14); width: 100%; }
 .fl-points-bar .seg { height: 100%; display: block; }
-.fl-points-bar .seg.chart { background: #f59e0b; }
+.fl-points-bar .seg.chart { background: var(--accent-orange); }
 .fl-points-bar .seg.yt { background: #ef4444; }
-.fl-points-bar .seg.rel { background: #8b5cf6; }
+.fl-points-bar .seg.rel { background: var(--accent-link); }
 .fl-points-bar .seg.base { background: #64748b; }
 .fl-points-bar .seg.empty { width: 2%; background: rgba(148,163,184,0.25); }
 .fl-player-live { display: flex; flex-direction: column; align-items: flex-end; flex-shrink: 0; }
@@ -749,9 +845,9 @@ const css = `
 .fl-player-live i { font-style: normal; font-size: 10px; color: var(--text-muted); }
 .fl-legend { display: flex; gap: 14px; flex-wrap: wrap; font-size: 11px; color: var(--text-muted); margin-bottom: 22px; padding-left: 4px; }
 .fl-legend .dot { display: inline-block; width: 8px; height: 8px; border-radius: 2px; margin-right: 4px; }
-.fl-legend .dot.chart { background: #f59e0b; }
+.fl-legend .dot.chart { background: var(--accent-orange); }
 .fl-legend .dot.yt { background: #ef4444; }
-.fl-legend .dot.rel { background: #8b5cf6; }
+.fl-legend .dot.rel { background: var(--accent-link); }
 .fl-legend .dot.base { background: #64748b; }
 
 /* ── Rinka ── */
@@ -806,12 +902,35 @@ const css = `
 .fl-board-row:nth-child(odd) { background: color-mix(in srgb, var(--text-primary) 4%, transparent); }
 .fl-board-row.me { outline: 1px solid rgba(16,185,129,0.55); }
 .fl-rank { width: 22px; height: 22px; border-radius: 7px; display: flex; align-items: center; justify-content: center; font-weight: 900; font-size: 11px; background: color-mix(in srgb, var(--text-primary) 8%, transparent); color: var(--text-secondary); flex-shrink: 0; }
-.fl-rank.r1 { background: #f59e0b; color: #1a1206; }
+.fl-rank.r1 { background: var(--accent-orange); color: #fff; }
 .fl-rank.r2 { background: #94a3b8; color: #10151d; }
 .fl-rank.r3 { background: #b45309; color: #fff; }
 .fl-board-name { font-weight: 700; color: var(--text-primary); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .fl-board-pts { margin-left: auto; font-weight: 800; color: var(--text-primary); white-space: nowrap; font-size: 12px; }
 
 .fl-foot { font-size: 12px; color: var(--text-muted); line-height: 1.5; }
+.fl-slots-hint { font-size: 11px; color: var(--text-muted); margin: 0 0 4px; }
+button.fl-player { width: 100%; text-align: left; cursor: pointer; }
+.fl-player-add { border-style: dashed !important; background: transparent !important; color: var(--text-muted); }
+.fl-player-img.big { width: 58px; height: 58px; }
+
+.fl-chart { display: flex; align-items: flex-end; gap: 8px; height: 96px; padding: 20px 4px 0; margin-bottom: 18px; }
+.fl-chart-col { position: relative; flex: 1; max-width: 56px; height: 100%; display: flex; flex-direction: column; justify-content: flex-end; align-items: center; gap: 4px; }
+.fl-chart-col i { width: 100%; max-width: 34px; border-radius: 4px 4px 0 0; background: rgba(16,185,129,0.45); display: block; }
+.fl-chart-col i.now { background: #10b981; }
+.fl-chart-val { position: absolute; top: -18px; font-size: 12px; font-weight: 800; color: var(--text-primary); }
+.fl-chart-lbl { font-size: 10px; color: var(--text-muted); }
+
+.fl-artist-head { display: flex; align-items: center; gap: 12px; margin-bottom: 12px; }
+.fl-artist-name { display: block; font-size: 20px; font-weight: 900; color: var(--text-primary); }
+.fl-artist-meta { font-size: 12px; color: var(--text-muted); }
+.fl-artist-live { font-size: 14px; color: var(--text-secondary); margin-bottom: 6px; }
+.fl-artist-live b { color: #10b981; font-size: 16px; }
+.fl-artist-breakdown { display: flex; gap: 12px; flex-wrap: wrap; font-size: 12px; color: var(--text-secondary); margin-bottom: 14px; }
+.fl-artist-sub { font-size: 12px; font-weight: 800; text-transform: uppercase; letter-spacing: 0.05em; color: var(--text-muted); margin: 10px 0 4px; }
+.fl-artist-events { list-style: none; margin: 0 0 12px; padding: 0; display: flex; flex-direction: column; gap: 6px; }
+.fl-artist-events li { font-size: 13px; color: var(--text-secondary); }
+.fl-artist-events li span { font-size: 11px; color: var(--text-muted); margin-right: 6px; }
+.fl-artist-link { font-size: 13px; font-weight: 800; color: #10b981; text-decoration: none; }
 .fl-wizard { padding-top: 4px; }
 `

@@ -19,8 +19,9 @@ import { resolveViewer } from '@/lib/zaidimai'
 import {
   FANTASY_BUDGET,
   ROSTER_SIZE,
+  ROSTER_MIN,
   TRANSFERS_PER_WEEK,
-  priceOf,
+  priceFor,
   weekStartOf,
   prevWeekStart,
   computeArtistWeekPoints,
@@ -150,6 +151,7 @@ export async function GET(_req: NextRequest) {
       team: null,
       budget: FANTASY_BUDGET,
       rosterSize: ROSTER_SIZE,
+      rosterMin: ROSTER_MIN,
       boards,
       isAuthenticated: viewer.isAuthenticated,
     })
@@ -176,6 +178,9 @@ export async function GET(_req: NextRequest) {
     .eq('team_id', team.id)
     .order('week_start', { ascending: false })
     .limit(12)
+  const monthAgg = aggregate(monthRows.data || [])
+  const monthPoints = monthAgg.find(r => r.team_id === team.id)?.points || 0
+  const monthRank = monthAgg.findIndex(r => r.team_id === team.id)
   const seasonPoints = seasonBoard.find(r => r.team_id === team.id)?.points || 0
   const seasonRank = seasonBoard.findIndex(r => r.team_id === team.id)
   const liveTotal = artistIds.reduce((s, id) => s + (livePoints.get(id)?.total_points || 0), 0)
@@ -191,9 +196,12 @@ export async function GET(_req: NextRequest) {
       transfersLeft: Math.max(0, TRANSFERS_PER_WEEK - transfers),
       seasonPoints,
       seasonRank: seasonRank >= 0 ? seasonRank + 1 : null,
+      monthPoints,
+      monthRank: monthRank >= 0 ? monthRank + 1 : null,
       liveWeekPoints: liveTotal,
       weeks: myWeeks || [],
     },
+    rosterMin: ROSTER_MIN,
     roster: roster.map((r: any) => {
       const live = livePoints.get(r.artist_id)
       const official: any = officialByArtist.get(r.artist_id)
@@ -272,7 +280,13 @@ export async function POST(req: NextRequest) {
       .maybeSingle()
     if (!artist) return jsonErr('Atlikėjas nerastas', 404)
 
-    const price = priceOf(artist.score)
+    const { data: lastPts } = await sb
+      .from('fantasy_artist_weeks')
+      .select('total_points')
+      .eq('artist_id', artistId)
+      .eq('week_start', prevWeekStart(weekStartOf()))
+      .maybeSingle()
+    const price = priceFor(artist.score, lastPts?.total_points ?? 0)
     const spent = roster.reduce((s: number, r: any) => s + r.price, 0)
     if (spent + price > team.budget) return jsonErr(`Nepakanka biudžeto: kaina ${price}, liko ${team.budget - spent}`)
 

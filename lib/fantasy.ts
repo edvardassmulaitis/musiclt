@@ -17,8 +17,9 @@
 import { createAdminClient } from '@/lib/supabase'
 import { ltDayStartUtc } from '@/lib/boombox'
 
-export const FANTASY_BUDGET = 220
-export const ROSTER_SIZE = 5
+export const FANTASY_BUDGET = 350
+export const ROSTER_SIZE = 8          // maksimalus komandos dydis
+export const ROSTER_MIN = 1           // startui užtenka vieno atlikėjo
 export const TRANSFERS_PER_WEEK = 3
 export const FOREIGN_POOL = 1500   // kiek užsienio atlikėjų (pagal score) skaičiuojama kas savaitę
 
@@ -52,13 +53,16 @@ export function weekEnd(weekStart: string): string {
 // ── Kainos ────────────────────────────────────────────────────────────────
 
 /**
- * Atlikėjo kaina iš realaus score (6..110). LT žvaigždės ~55–76, pasaulio
- * superžvaigždės (score iki 100) — iki 110, t. y. pusė biudžeto: pasaulinė
- * žvaigždė + 4 pigesni ARBA subalansuota komanda be jos.
+ * Atlikėjo kaina: 0.35×populiarumas + 0.9×praėjusios savaitės forma (6..110).
+ * Simuliacija (400 komandų × strategija) parodė: kaina TIK iš populiarumo
+ * sugriauna ekonomiką (sena neaktyvi legenda brangi, bet taškų neneša —
+ * „vertės" strategija dominuoja 6×). Su formos dedamąja žvaigždžių ir vertės
+ * strategijos susilygina (±10%), o kainos gyvai kinta kas savaitę.
  */
-export function priceOf(score: number | null): number {
+export function priceFor(score: number | null, recentPts: number | null): number {
   const s = score || 0
-  return Math.min(110, Math.max(6, Math.round(s * 1.15)))
+  const f = recentPts || 0
+  return Math.min(110, Math.max(6, Math.round(0.35 * s + 0.9 * f)))
 }
 
 // ── Atlikėjų savaitės taškai ──────────────────────────────────────────────

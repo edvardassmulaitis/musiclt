@@ -1,7 +1,8 @@
 // app/api/zaidimai/vaizdas/route.ts
 //
-// „Atspėk iš vaizdo" — atlikėjo nuotrauka per 12 s ryškėja; kuo greičiau
-// atpažinsi, tuo daugiau taškų. Turinys generuojasi pats iš artists lentelės.
+// „Atspėk iš vaizdo" — populiaraus albumo viršelis per 12 s ryškėja; kuo
+// greičiau atpažinsi, tuo daugiau taškų. Turinys — albumai su viršeliais
+// (užsienio populiariausi + lietuvių žinomiausių atlikėjų).
 //
 //   GET  ?raundai=8 → raundai su užšifruotais vokais (atsakymas nekeliauja
 //        į naršyklę; feedback'as per POST /api/zaidimai/raundas)
@@ -28,37 +29,105 @@ function jsonErr(msg: string, status = 400) {
 
 // ── GET ───────────────────────────────────────────────────────────────────
 
+type AlbumRow = {
+  id: number
+  title: string
+  cover_image_url: string
+  score: number | null
+  artists: { id: number; name: string; country: string | null; score: number | null } | null
+}
+
+type PoolItem = {
+  id: number
+  label: string
+  image: string
+  artistId: number
+  lt: boolean
+}
+
+/** Iš albumų eilučių padaro pool'ą: max 2 albumai vienam atlikėjui. */
+function buildPool(rows: AlbumRow[], lt: boolean): PoolItem[] {
+  const perArtist = new Map<number, number>()
+  const out: PoolItem[] = []
+  for (const r of rows) {
+    if (!r.artists || !r.cover_image_url || !r.title) continue
+    const n = perArtist.get(r.artists.id) || 0
+    if (n >= 2) continue
+    perArtist.set(r.artists.id, n + 1)
+    out.push({
+      id: r.id,
+      label: `${r.artists.name} — ${r.title}`,
+      image: r.cover_image_url,
+      artistId: r.artists.id,
+      lt,
+    })
+  }
+  return out
+}
+
 export async function GET(req: NextRequest) {
   const url = new URL(req.url)
-  const roundCount = Math.min(Math.max(parseInt(url.searchParams.get('raundai') || '8') || 8, 5), 12)
+  const roundCount = Math.min(Math.max(parseInt(url.searchParams.get('raundai') || '8') || 8, 3), 12)
 
   const viewer = await resolveViewer()
   const sb = createAdminClient()
 
-  const { data: pool } = await sb
-    .from('artists')
-    .select('id, name, slug, cover_image_url, score')
-    .eq('country', 'Lietuva')
-    .not('cover_image_url', 'is', null)
-    .gt('score', 5)
-    .order('score', { ascending: false })
-    .limit(160)
+  const albumSelect = 'id, title, cover_image_url, score, artists:artist_id!inner(id, name, country, score)'
 
-  if (!pool || pool.length < roundCount * 4) return jsonErr('Per mažai atlikėjų su nuotraukomis', 503)
+  // Užsienio populiariausi albumai (albumo score) + LT žinomiausių atlikėjų albumai.
+  const [{ data: uzsienio }, { data: lietuviski }] = await Promise.all([
+    sb
+      .from('albums')
+      .select(albumSelect)
+      .not('cover_image_url', 'is', null)
+      .gte('score', 30)
+      .neq('artists.country', 'Lietuva')
+      .order('score', { ascending: false })
+      .limit(400),
+    sb
+      .from('albums')
+      .select(albumSelect)
+      .not('cover_image_url', 'is', null)
+      .eq('artists.country', 'Lietuva')
+      .gt('artists.score', 40)
+      .limit(300),
+  ])
+
+  const uzsienioPool = buildPool(shuffleArr((uzsienio || []) as unknown as AlbumRow[]), false)
+  const ltPool = buildPool(shuffleArr((lietuviski || []) as unknown as AlbumRow[]), true)
+  const pool = [...uzsienioPool, ...ltPool]
+
+  if (pool.length < roundCount * 4) return jsonErr('Per mažai albumų su viršeliais', 503)
 
   const quizId = `v-${Math.random().toString(36).slice(2, 10)}`
   const exp = Date.now() + TOKEN_TTL_MS
 
-  const corrects = shuffleArr(pool).slice(0, roundCount)
+  // Maždaug trečdalis raundų — lietuviški albumai (kiek jų yra).
+  const ltCount = Math.min(Math.round(roundCount / 3), ltPool.length)
+  const corrects = shuffleArr([
+    ...shuffleArr(ltPool).slice(0, ltCount),
+    ...shuffleArr(uzsienioPool).slice(0, roundCount - ltCount),
+  ])
+
   const rounds = corrects.map((correct, idx) => {
-    const decoys = shuffleArr(pool.filter(a => a.id !== correct.id)).slice(0, 3)
+    // Klaidinantys variantai — iš tos pačios grupės (LT/užsienio) ir kito atlikėjo.
+    let decoySrc = pool.filter(a => a.lt === correct.lt && a.artistId !== correct.artistId)
+    if (decoySrc.length < 3) decoySrc = pool.filter(a => a.artistId !== correct.artistId)
+    const decoys: PoolItem[] = []
+    const usedArtists = new Set<number>([correct.artistId])
+    for (const d of shuffleArr(decoySrc)) {
+      if (usedArtists.has(d.artistId)) continue
+      usedArtists.add(d.artistId)
+      decoys.push(d)
+      if (decoys.length === 3) break
+    }
     const options = shuffleArr([
-      { id: correct.id, name: correct.name },
-      ...decoys.map(d => ({ id: d.id, name: d.name })),
+      { id: correct.id, name: correct.label },
+      ...decoys.map(d => ({ id: d.id, name: d.label })),
     ])
     return {
       r: idx,
-      image: correct.cover_image_url,
+      image: correct.image,
       options,
       token: sealPayload({ g: 'vaizdas', q: quizId, r: idx, c: correct.id, exp }),
     }
@@ -96,7 +165,7 @@ export async function POST(req: NextRequest) {
   rq = viewer.userId ? rq.eq('user_id', viewer.userId) : rq.eq('anon_id', viewer.anonId!)
   const { data: roundRows } = await rq
 
-  if (!roundRows || roundRows.length < 5) {
+  if (!roundRows || roundRows.length < 3) {
     return jsonErr('Per mažai atsakytų raundų — sužaisk iki galo', 400)
   }
 
