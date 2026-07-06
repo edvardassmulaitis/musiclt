@@ -3,6 +3,13 @@ import { getServerSession } from 'next-auth'
 import { authOptions } from '@/lib/auth'
 import { createClient } from '@supabase/supabase-js'
 import { resizeForUpload } from '@/lib/image-resize'
+import { assertPublicHttpUrl, isPublicHttpUrl } from '@/lib/net-guard'
+
+// SVG atmetamas: gali turėti <script>/<foreignObject> (stored XSS viešame bucket).
+function isBlockedImageType(t: string): boolean {
+  const ct = t.toLowerCase()
+  return ct.includes('svg')
+}
 
 const supabase = createClient(
   process.env.NEXT_PUBLIC_SUPABASE_URL!,
@@ -28,12 +35,22 @@ export async function POST(req: NextRequest) {
       const { url } = await req.json()
       if (!url) return NextResponse.json({ error: 'URL nerastas' }, { status: 400 })
 
-      const response = await fetch(url)
+      // SSRF apsauga: tik viešas http(s), be vidinių taikinių.
+      try {
+        assertPublicHttpUrl(url)
+      } catch (e: any) {
+        return NextResponse.json({ error: e.message || 'Blokuotas URL' }, { status: 400 })
+      }
+
+      const response = await fetch(url, { redirect: 'follow' })
       if (!response.ok) throw new Error(`Nepavyko parsisiųsti: ${response.status}`)
+      if (response.url && !isPublicHttpUrl(response.url)) {
+        return NextResponse.json({ error: 'Blokuotas redirect taikinys' }, { status: 400 })
+      }
 
       const imgContentType = response.headers.get('content-type') || 'image/jpeg'
-      if (!imgContentType.startsWith('image/')) {
-        return NextResponse.json({ error: 'URL nėra paveikslėlis' }, { status: 400 })
+      if (!imgContentType.startsWith('image/') || isBlockedImageType(imgContentType)) {
+        return NextResponse.json({ error: 'URL nėra tinkamas paveikslėlis' }, { status: 400 })
       }
 
       const buffer = Buffer.from(await response.arrayBuffer())
@@ -59,8 +76,8 @@ export async function POST(req: NextRequest) {
     const file = formData.get('file') as File | null
     if (!file) return NextResponse.json({ error: 'Failas nerastas' }, { status: 400 })
 
-    if (!file.type.startsWith('image/')) {
-      return NextResponse.json({ error: 'Leidžiami tik nuotraukų failai' }, { status: 400 })
+    if (!file.type.startsWith('image/') || isBlockedImageType(file.type)) {
+      return NextResponse.json({ error: 'Leidžiami tik nuotraukų failai (ne SVG)' }, { status: 400 })
     }
     if (file.size > 25 * 1024 * 1024) {
       return NextResponse.json({ error: 'Failas per didelis (max 25MB prieš resize)' }, { status: 400 })

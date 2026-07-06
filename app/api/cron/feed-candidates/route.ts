@@ -1,10 +1,11 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { createAdminClient } from '@/lib/supabase'
+import { authorizeCron } from '@/lib/cron-auth'
 
 export const dynamic = 'force-dynamic'
 export const maxDuration = 60
 
-// GET /api/cron/feed-candidates?key=fcand_7a91c3
+// GET /api/cron/feed-candidates  (Authorization: Bearer $CRON_SECRET)
 //
 // Homepage feed KANDIDATŲ registracija + auto-approve (kas 30 min, vercel.json).
 //
@@ -19,14 +20,13 @@ export const maxDuration = 60
 //
 // Klientas (HomeClient) PRASLEPIA tik 'pending'/'rejected' — nežinomi raktai
 // rodomi (fail-open: cron'ui nulūžus feed'as nenutrūksta).
-const CRON_KEY = 'fcand_7a91c3'
 const POP_SCORE = 30
 const AUTO_APPROVE_H = 8
 
 type Cand = { key: string; type: string; title: string; image: string | null; artistIds: number[] }
 
 export async function GET(req: NextRequest) {
-  if (req.nextUrl.searchParams.get('key') !== CRON_KEY) {
+  if (!authorizeCron(req, { allowQueryKey: true })) {
     return NextResponse.json({ error: 'Unauthorized' }, { status: 403 })
   }
   const base = process.env.NEXT_PUBLIC_SITE_URL || 'https://musiclt.vercel.app'

@@ -31,27 +31,27 @@
       "schedule": "* * * * *"
     },
     {
-      "path": "/api/cron/feed-candidates?key=fcand_7a91c3",
+      "path": "/api/cron/feed-candidates",
       "schedule": "*/30 * * * *"
     },
     {
-      "path": "/api/cron/refresh-home?key=hsnap_7f3a9c2e8b1d4f6a",
+      "path": "/api/cron/refresh-home",
       "schedule": "0 4 * * *"
     },
     {
-      "path": "/api/cron/refresh-home?key=hsnap_7f3a9c2e8b1d4f6a",
+      "path": "/api/cron/refresh-home",
       "schedule": "0 12 * * *"
     },
     {
-      "path": "/api/cron/refresh-home?key=hsnap_7f3a9c2e8b1d4f6a",
+      "path": "/api/cron/refresh-home",
       "schedule": "0 20 * * *"
     },
     {
-      "path": "/api/cron/fantasy-savaite?key=fliga_9d2c41",
+      "path": "/api/cron/fantasy-savaite",
       "schedule": "0 3 * * 1"
     },
     {
-      "path": "/api/cron/fantasy-savaite?key=fliga_9d2c41&live=1",
+      "path": "/api/cron/fantasy-savaite?live=1",
       "schedule": "0 15 * * *"
     }
   ]

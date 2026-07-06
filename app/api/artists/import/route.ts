@@ -35,6 +35,8 @@
 
 import { NextRequest, NextResponse } from 'next/server'
 import { createAdminClient } from '@/lib/supabase'
+import { validateCoworkApiKey } from '@/lib/cowork-auth'
+import { requireFullAdmin } from '@/lib/admin-auth'
 
 // IDs match `seed_genres` rows in Supabase (1000556..1000563). Anksčiau čia
 // buvo 1000001..1000008 kurie netaikomi — Wiki importas tylėjo, bet
@@ -164,6 +166,11 @@ async function findExistingArtist(supabase: any, name: string): Promise<{ id: nu
 // ── Main handler ─────────────────────────────────────────────────────────────
 export async function POST(req: NextRequest) {
   try {
+    // Auth: Cowork automation raktas ARBA pilnas admin. Anksčiau buvo be jokios
+    // patikros → neautentikuotas service_role rašymas.
+    if (!validateCoworkApiKey(req) && !(await requireFullAdmin())) {
+      return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
+    }
     const body = await req.json()
     const {
       name,

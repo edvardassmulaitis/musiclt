@@ -1,7 +1,13 @@
 import { NextRequest, NextResponse } from 'next/server'
+import { requireAdmin } from '@/lib/admin-auth'
 
 export async function POST(req: NextRequest) {
   try {
+    // Editorial įrankis (kviečia admin WikipediaImport). Reikalauja editor+.
+    // Sustabdo neautentikuotą Opus sąskaitos eikvojimą.
+    if (!(await requireAdmin())) {
+      return NextResponse.json({ error: 'Forbidden' }, { status: 403 })
+    }
     const { wikiTitle, type, ytDescription } = await req.json()
     if (!wikiTitle && !ytDescription) return NextResponse.json({ description: '' })
 

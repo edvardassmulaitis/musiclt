@@ -74,7 +74,10 @@ export async function GET(req: NextRequest) {
     }
   }
 
-  const secret = process.env.NEXTAUTH_SECRET || 'kjcxLaUePrIgs0SM6C6yen/Whkp87MDKywsUjmrBPYE='
+  const secret = process.env.NEXTAUTH_SECRET
+  if (!secret) {
+    return NextResponse.json({ error: 'Server misconfigured' }, { status: 500 })
+  }
 
   const sessionToken = await encode({
     token: {

@@ -1,8 +1,15 @@
 import { NextRequest, NextResponse } from 'next/server'
+import { getServerSession } from 'next-auth'
+import { authOptions } from '@/lib/auth'
 
 export const runtime = 'nodejs'
 
 export async function POST(req: NextRequest) {
+  // Reikalauja prisijungimo — sustabdo anoniminį AI sąskaitos eikvojimą.
+  const session = await getServerSession(authOptions)
+  if (!(session?.user as any)?.id) {
+    return NextResponse.json({ translated: '', error: 'UNAUTHORIZED' }, { status: 401 })
+  }
   const apiKey = process.env.ANTHROPIC_API_KEY
 
   if (!apiKey) {
@@ -62,8 +69,12 @@ export async function POST(req: NextRequest) {
   }
 }
 
-// Also allow GET for quick testing
+// GET testinis kvietimas — tik prisijungusiems (kad nebūtų anon AI cost).
 export async function GET() {
+  const session = await getServerSession(authOptions)
+  if (!(session?.user as any)?.id) {
+    return NextResponse.json({ ok: false, error: 'UNAUTHORIZED' }, { status: 401 })
+  }
   const apiKey = process.env.ANTHROPIC_API_KEY
   if (!apiKey) return NextResponse.json({ ok: false, error: 'NO_KEY' })
 
