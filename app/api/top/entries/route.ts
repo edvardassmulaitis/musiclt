@@ -84,16 +84,30 @@ export async function GET(req: Request) {
   // RPC, todėl mid-week LIVE imam iš top_votes.
   const { data: liveVotes } = await supabase
     .from('top_votes')
-    .select('track_id, user_id')
+    .select('track_id, user_id, voter_ip')
     .eq('week_id', week.id)
     .eq('vote_type', 'like')
 
+  // ANTI-CHEAT: rankinam pagal UNIKALIUS balsuotojus (ne eilučių skaičių).
+  // Taip 10 paspaudimų / to paties user'io pakartotiniai balsai / race-condition
+  // eilutės NEPUČIA reitingo — vienas user'is = 1 balsas dainai. registered =
+  // distinct user_id; anon = distinct voter_ip.
+  const regSets = new Map<number, Set<string>>()
+  const anonSets = new Map<number, Set<string>>()
+  ;(liveVotes || []).forEach((v: any) => {
+    if (v.user_id) {
+      if (!regSets.has(v.track_id)) regSets.set(v.track_id, new Set())
+      regSets.get(v.track_id)!.add(String(v.user_id))
+    } else {
+      const ipKey = v.voter_ip || 'unknown'
+      if (!anonSets.has(v.track_id)) anonSets.set(v.track_id, new Set())
+      anonSets.get(v.track_id)!.add(ipKey)
+    }
+  })
   const regMap = new Map<number, number>()
   const anonMap = new Map<number, number>()
-  ;(liveVotes || []).forEach((v: any) => {
-    const target = v.user_id ? regMap : anonMap
-    target.set(v.track_id, (target.get(v.track_id) || 0) + 1)
-  })
+  for (const [tid, s] of regSets) regMap.set(tid, s.size)
+  for (const [tid, s] of anonSets) anonMap.set(tid, s.size)
 
   // STABILUS rikiavimas: visada pagal top_entries.position. Pozicijas keičia
   // TIK finalize_top_week RPC; mid-week balsai kaupiasi į registered_votes

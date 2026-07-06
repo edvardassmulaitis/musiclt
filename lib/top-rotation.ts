@@ -38,7 +38,12 @@ export type RotationStats = {
   newcomersAdded: number
 }
 
-/** Registered balsų map'as savaitei (rank'inimui). */
+/**
+ * Registered balsų map'as savaitei (rank'inimui).
+ * ANTI-CHEAT: skaičiuojam UNIKALIUS user_id per dainą (ne eilutes) — kad
+ * 10 paspaudimų / pakartotiniai balsai / race-condition eilutės nepūstų reitingo.
+ * Vienas prisijungęs vartotojas = 1 balsas dainai.
+ */
 async function fetchRegisteredVotes(supabase: any, weekId: number): Promise<Map<number, number>> {
   const { data: votes } = await supabase
     .from('top_votes')
@@ -46,10 +51,14 @@ async function fetchRegisteredVotes(supabase: any, weekId: number): Promise<Map<
     .eq('week_id', weekId)
     .eq('vote_type', 'like')
     .not('user_id', 'is', null)
-  const map = new Map<number, number>()
+  const sets = new Map<number, Set<string>>()
   ;(votes || []).forEach((v: any) => {
-    map.set(v.track_id, (map.get(v.track_id) || 0) + 1)
+    if (!v.user_id) return
+    if (!sets.has(v.track_id)) sets.set(v.track_id, new Set())
+    sets.get(v.track_id)!.add(String(v.user_id))
   })
+  const map = new Map<number, number>()
+  for (const [tid, s] of sets) map.set(tid, s.size)
   return map
 }
 
