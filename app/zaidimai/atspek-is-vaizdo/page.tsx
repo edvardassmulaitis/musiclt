@@ -4,8 +4,8 @@ import VaizdasClient from './VaizdasClient'
 export const dynamic = 'force-dynamic'
 
 export const metadata: Metadata = {
-  title: 'Atspėk iš vaizdo — kas šis atlikėjas? | music.lt',
-  description: 'Nuotrauka ryškėja kas sekundę — atspėk Lietuvos atlikėją kuo greičiau ir surink daugiau taškų!',
+  title: 'Atspėk iš vaizdo — koks šis albumas? | music.lt',
+  description: 'Albumo viršelis ryškėja kas sekundę — atspėk populiarų albumą kuo greičiau ir surink daugiau taškų!',
 }
 
 export default function AtspekIsVaizdoPage() {

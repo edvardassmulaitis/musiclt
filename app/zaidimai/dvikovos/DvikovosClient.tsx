@@ -197,16 +197,16 @@ export default function DvikovosClient() {
 }
 
 const css = `
-.dv-session-xp { font-size: 14px; font-weight: 900; color: #f59e0b; }
+.dv-session-xp { font-size: 14px; font-weight: 900; color: var(--accent-orange); }
 .dv-xp-left { font-size: 12px; color: var(--text-muted); }
 
 .dv-center { display: flex; justify-content: center; padding: 70px 0; }
-.dv-spinner { width: 38px; height: 38px; border-radius: 50%; border: 3px solid rgba(148,163,184,0.25); border-top-color: #6366f1; animation: dvspin .8s linear infinite; }
+.dv-spinner { width: 38px; height: 38px; border-radius: 50%; border: 3px solid rgba(148,163,184,0.25); border-top-color: var(--accent-orange); animation: dvspin .8s linear infinite; }
 @keyframes dvspin { to { transform: rotate(360deg); } }
 
 .dv-done { display: flex; flex-direction: column; align-items: center; text-align: center; gap: 8px; padding: 50px 0; color: var(--text-primary); font-size: 16px; font-weight: 700; }
 .dv-done-sub { font-size: 14px; color: var(--text-secondary); font-weight: 500; }
-.dv-cta { margin-top: 8px; font-size: 16px; font-weight: 800; color: #fff; text-decoration: none; background: linear-gradient(135deg, #f59e0b, #f97316); border-radius: 999px; padding: 12px 24px; }
+.dv-cta { margin-top: 8px; font-size: 16px; font-weight: 800; color: #fff; text-decoration: none; background: var(--accent-orange); border-radius: 999px; padding: 12px 24px; }
 
 .dv-matchup { text-align: center; font-size: 12px; font-weight: 800; text-transform: uppercase; letter-spacing: 0.08em; color: var(--text-muted); margin-bottom: 12px; }
 
@@ -221,7 +221,7 @@ const css = `
   background: var(--bg-surface); border: 1px solid rgba(140,160,190,0.2);
   transition: border-color .15s ease, opacity .2s ease, transform .15s ease;
 }
-.dv-side.picked { border-color: #6366f1; box-shadow: 0 0 0 2px rgba(99,102,241,0.35); }
+.dv-side.picked { border-color: var(--accent-orange); box-shadow: 0 0 0 2px rgba(249,115,22,0.3); }
 .dv-side.faded { opacity: 0.62; }
 
 .dv-media { position: relative; border-radius: 12px; overflow: hidden; aspect-ratio: 1/1; max-height: 26vh; background: #0c0f15; }
@@ -247,18 +247,18 @@ const css = `
 
 .dv-vote {
   font-size: 14px; font-weight: 800; color: #fff; cursor: pointer; border: 0; border-radius: 11px; padding: 11px 0;
-  background: linear-gradient(135deg, #6366f1, #8b5cf6);
+  background: var(--accent-orange);
 }
 .dv-vote:hover { filter: brightness(1.1); }
 
 .dv-after { display: flex; align-items: center; justify-content: center; gap: 16px; margin-top: 16px; flex-wrap: wrap; }
 .dv-majority { font-size: 14px; font-weight: 800; }
 .dv-majority.with { color: #10b981; }
-.dv-majority.against { color: #a78bfa; }
+.dv-majority.against { color: var(--text-secondary); }
 .dv-after-total { font-size: 12px; color: var(--text-muted); }
 .dv-next {
   font-size: 14px; font-weight: 800; color: #fff; cursor: pointer; border: 0; border-radius: 999px; padding: 10px 22px;
-  background: linear-gradient(135deg, #6366f1, #8b5cf6); box-shadow: 0 8px 20px rgba(99,102,241,0.35);
+  background: var(--accent-orange);
 }
 .dv-progress-line { text-align: center; font-size: 12px; color: var(--text-muted); margin-top: 16px; }
 `
