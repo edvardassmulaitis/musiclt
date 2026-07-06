@@ -5,6 +5,7 @@ import { authOptions } from '@/lib/auth'
 import { getPostById, updatePost, deletePost } from '@/lib/supabase-blog'
 import { resolveProfile } from '@/lib/profile-resolve'
 import { detectEmbed } from '@/lib/embed-detect'
+import { sanitizeRichHtml, stripAllHtml } from '@/lib/sanitize-html'
 
 const POST_TYPES = ['article', 'review', 'translation', 'creation', 'event', 'topas'] as const
 
@@ -49,6 +50,11 @@ export async function PUT(req: NextRequest, { params }: { params: Promise<{ id: 
     if (ALLOWED_FIELDS.has(key)) updates[key] = body[key]
   }
 
+  // ── XSS sanitizavimas (stored HTML) ───────────────────────────────────
+  if (typeof updates.content === 'string') updates.content = sanitizeRichHtml(updates.content)
+  if (typeof updates.summary === 'string') updates.summary = stripAllHtml(updates.summary)
+  if (typeof updates.embed_html === 'string') updates.embed_html = sanitizeRichHtml(updates.embed_html)
+
   // ── Validation: post_type ─────────────────────────────────────────────
   if (updates.post_type && !POST_TYPES.includes(updates.post_type)) {
     return NextResponse.json({ error: 'Netinkamas tipas' }, { status: 400 })
@@ -59,7 +65,7 @@ export async function PUT(req: NextRequest, { params }: { params: Promise<{ id: 
     const detected = detectEmbed(updates.embed_url)
     if (detected) {
       updates.embed_type = updates.embed_type || detected.type
-      updates.embed_html = updates.embed_html || detected.html
+      updates.embed_html = sanitizeRichHtml(updates.embed_html || detected.html || '') || null
       updates.embed_thumbnail_url = updates.embed_thumbnail_url || detected.thumbnailUrl
     }
   }
@@ -102,7 +108,7 @@ export async function PUT(req: NextRequest, { params }: { params: Promise<{ id: 
     if (tm && typeof tm === 'object' && !Array.isArray(tm)) {
       const clean: Record<string, string> = {}
       for (const k of ['intro', 'outro'] as const) {
-        if (typeof tm[k] === 'string' && tm[k].trim()) clean[k] = String(tm[k]).slice(0, 20000)
+        if (typeof tm[k] === 'string' && tm[k].trim()) clean[k] = sanitizeRichHtml(String(tm[k]).slice(0, 20000))
       }
       updates.topas_meta = Object.keys(clean).length ? clean : null
     } else {

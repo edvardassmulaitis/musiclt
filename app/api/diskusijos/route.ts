@@ -3,6 +3,7 @@ import { createAdminClient } from '@/lib/supabase'
 import { getServerSession } from 'next-auth'
 import { authOptions } from '@/lib/auth'
 import { logActivity as logActivityShared } from '@/lib/activity-logger'
+import { sanitizeCommentHtml } from '@/lib/sanitize-html'
 
 function slugify(text: string): string {
   return text
@@ -109,7 +110,7 @@ export async function POST(req: Request) {
     .insert({
       slug,
       title: title.trim(),
-      body: text.trim(),
+      body: sanitizeCommentHtml(text.trim()),
       user_id: session.user.id,
       author_name: session.user.name || session.user.email || 'Vartotojas',
       author_avatar: session.user.image || null,

@@ -2,6 +2,7 @@ import { NextResponse } from 'next/server'
 import { createAdminClient } from '@/lib/supabase'
 import { getServerSession } from 'next-auth'
 import { authOptions } from '@/lib/auth'
+import { sanitizeCommentHtml } from '@/lib/sanitize-html'
 
 export async function GET(
   req: Request,
@@ -57,7 +58,7 @@ export async function PATCH(
   }
   if (discussion.user_id === session.user.id) {
     if (body.title) updates.title = body.title.trim()
-    if (body.text) updates.body = body.text.trim()
+    if (body.text) updates.body = sanitizeCommentHtml(body.text.trim())
     if (body.tags) updates.tags = body.tags.slice(0, 5)
   }
 

@@ -1,6 +1,7 @@
 'use client'
 
 import { cleanLegacyBlogHtml } from '@/lib/blog-html-clean'
+import { sanitizeRichHtml } from '@/lib/sanitize-html'
 
 // proxyImg per weserv.nl — kad legacy music.lt nuotraukos
 // (https://www.music.lt/... arba relative paths) išvengtų hotlink/CORS
@@ -37,7 +38,7 @@ function stripEnrichQuotes(html: string): string {
 }
 
 export function PostContent({ html }: { html: string }) {
-  const processedHtml = stripEnrichQuotes(rewriteImageSrcs(cleanLegacyBlogHtml(html)))
+  const processedHtml = sanitizeRichHtml(stripEnrichQuotes(rewriteImageSrcs(cleanLegacyBlogHtml(html))))
   return (
     <>
       <div
