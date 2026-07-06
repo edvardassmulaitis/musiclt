@@ -1,4 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server'
+import { rateLimit, clientIp } from '@/lib/rate-limit'
 
 export async function GET(req: NextRequest) {
   const { searchParams } = new URL(req.url)
@@ -7,6 +8,11 @@ export async function GET(req: NextRequest) {
   const pageToken = searchParams.get('pageToken') || ''
 
   if (!q.trim()) return NextResponse.json({ results: [] })
+
+  // YouTube Data API kvotos apsauga (search.list = 100 vienetų/užklausa): 20/min/IP.
+  if (!(await rateLimit(`yt:${clientIp(req)}`, 20, 60))) {
+    return NextResponse.json({ results: [], error: 'Per daug užklausų' }, { status: 429 })
+  }
 
   const apiKey = process.env.YOUTUBE_API_KEY
   if (!apiKey) return NextResponse.json({ results: [], error: 'YOUTUBE_API_KEY not configured' })

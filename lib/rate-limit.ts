@@ -11,11 +11,23 @@
 
 import { createAdminClient } from '@/lib/supabase'
 
-/** Klientо IP iš Vercel/proxy header'ių (pirmas x-forwarded-for įrašas). */
+/**
+ * Kliento IP. Renkamės Vercel-patikimą `x-real-ip` (platformos nustatytas, kliento
+ * neperrašomas). `x-forwarded-for` KAIRYSIS įrašas yra kliento kontroliuojamas
+ * (galima spoof'inti ir apeiti IP rate-limit'ą), todėl jį naudojam tik kaip
+ * fallback'ą ir imam DEŠINĮJĮ (patikimo proxy pridėtą) įrašą.
+ */
 export function clientIp(req: Request): string {
-  const xff = req.headers.get('x-forwarded-for') || ''
-  const first = xff.split(',')[0]?.trim()
-  return first || req.headers.get('x-real-ip') || 'unknown'
+  return clientIpFromHeaders(req.headers)
+}
+
+/** Kaip clientIp, bet iš Headers objekto (pvz. next/headers `await headers()`). */
+export function clientIpFromHeaders(h: { get(name: string): string | null }): string {
+  const realIp = h.get('x-real-ip')?.trim()
+  if (realIp) return realIp
+  const xff = h.get('x-forwarded-for') || ''
+  const parts = xff.split(',').map((s) => s.trim()).filter(Boolean)
+  return parts.length ? parts[parts.length - 1] : 'unknown'
 }
 
 /**

@@ -2,6 +2,7 @@ import { NextResponse } from 'next/server'
 import { createAdminClient } from '@/lib/supabase'
 import { getCurrentWeekMonday, getVoteClose } from '@/lib/top-week'
 import { finalizeWeekTS, carryOverToNewWeek } from '@/lib/top-rotation'
+import { authorizeCron } from '@/lib/cron-auth'
 
 /**
  * Savaitinis topo rotacijos cron'as (vercel.json: Sat 13:00 UTC + Sun 13:00 UTC).
@@ -23,8 +24,9 @@ import { finalizeWeekTS, carryOverToNewWeek } from '@/lib/top-rotation'
  * Vercel automatiškai siunčia Authorization: Bearer $CRON_SECRET.
  */
 export async function GET(req: Request) {
-  const auth = req.headers.get('authorization')
-  if (auth !== `Bearer ${process.env.CRON_SECRET}`)
+  // authorizeCron fail-closed'ina jei CRON_SECRET nenustatytas (buvo: `Bearer undefined`
+  // praeidavo, jei env tuščias).
+  if (!authorizeCron(req))
     return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
 
   const supabase = createAdminClient()

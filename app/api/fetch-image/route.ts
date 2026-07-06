@@ -3,7 +3,7 @@ import { createClient } from '@supabase/supabase-js'
 import { getServerSession } from 'next-auth'
 import { authOptions } from '@/lib/auth'
 import { resizeForUpload } from '@/lib/image-resize'
-import { assertPublicHttpUrl, isPublicHttpUrl } from '@/lib/net-guard'
+import { assertPublicHttpUrlResolved, isPublicHttpUrl } from '@/lib/net-guard'
 
 const supabase = createClient(
   process.env.NEXT_PUBLIC_SUPABASE_URL!,
@@ -24,9 +24,9 @@ export async function POST(req: NextRequest) {
     const { url, returnDataUrl } = await req.json()
     if (!url) return NextResponse.json({ error: 'No URL' }, { status: 400 })
 
-    // SSRF apsauga: tik viešas http(s), be vidinių/private taikinių.
+    // SSRF apsauga: tik viešas http(s), be vidinių/private taikinių (+ DNS resolve).
     try {
-      assertPublicHttpUrl(url)
+      await assertPublicHttpUrlResolved(url)
     } catch (e: any) {
       return NextResponse.json({ error: e.message || 'Blokuotas URL' }, { status: 400 })
     }

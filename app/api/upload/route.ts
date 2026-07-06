@@ -3,7 +3,7 @@ import { getServerSession } from 'next-auth'
 import { authOptions } from '@/lib/auth'
 import { createClient } from '@supabase/supabase-js'
 import { resizeForUpload } from '@/lib/image-resize'
-import { assertPublicHttpUrl, isPublicHttpUrl } from '@/lib/net-guard'
+import { assertPublicHttpUrlResolved, isPublicHttpUrl } from '@/lib/net-guard'
 
 // SVG atmetamas: gali turėti <script>/<foreignObject> (stored XSS viešame bucket).
 function isBlockedImageType(t: string): boolean {
@@ -35,9 +35,9 @@ export async function POST(req: NextRequest) {
       const { url } = await req.json()
       if (!url) return NextResponse.json({ error: 'URL nerastas' }, { status: 400 })
 
-      // SSRF apsauga: tik viešas http(s), be vidinių taikinių.
+      // SSRF apsauga: tik viešas http(s), be vidinių taikinių (+ DNS resolve).
       try {
-        assertPublicHttpUrl(url)
+        await assertPublicHttpUrlResolved(url)
       } catch (e: any) {
         return NextResponse.json({ error: e.message || 'Blokuotas URL' }, { status: 400 })
       }

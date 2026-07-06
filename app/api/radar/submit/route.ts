@@ -32,8 +32,12 @@ const EMAIL_RE = /^[^\s@]+@[^\s@]+\.[^\s@]{2,}$/
 const okSilently = () => NextResponse.json({ ok: true })
 
 function clientIp(req: NextRequest): string {
-  const xff = req.headers.get('x-forwarded-for') || ''
-  return (xff.split(',')[0] || '').trim() || req.headers.get('x-real-ip') || 'unknown'
+  // x-real-ip (Vercel-patikimas) / dešinysis XFF — kad IP limitas nebūtų
+  // apeinamas spoof'inant kairįjį X-Forwarded-For.
+  const realIp = req.headers.get('x-real-ip')?.trim()
+  if (realIp) return realIp
+  const parts = (req.headers.get('x-forwarded-for') || '').split(',').map(s => s.trim()).filter(Boolean)
+  return parts.length ? parts[parts.length - 1] : 'unknown'
 }
 function countUrls(s: string): number {
   return (s.match(/https?:\/\/|www\.|\b[a-z0-9-]+\.(com|net|org|lt|io|fm|me)\b/gi) || []).length

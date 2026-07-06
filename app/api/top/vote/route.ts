@@ -4,6 +4,7 @@ import { getServerSession } from 'next-auth'
 import { authOptions } from '@/lib/auth'
 import { headers } from 'next/headers'
 import { logActivity } from '@/lib/activity-logger'
+import { clientIpFromHeaders } from '@/lib/rate-limit'
 
 // Per-song limit: 10 balsų vienai dainai (visiems — anon ir signed-in).
 // Skirtumas: signed-in vartotojo balsas turi 3× svorį finalize skaičiavime.
@@ -24,9 +25,7 @@ export async function POST(req: Request) {
   const { track_id, week_id, vote_type = 'like', top10_position, fingerprint } = body
 
   const headersList = await headers()
-  const ip = headersList.get('x-forwarded-for')?.split(',')[0]?.trim()
-    || headersList.get('x-real-ip')
-    || 'unknown'
+  const ip = clientIpFromHeaders(headersList)
 
   const supabase = createAdminClient()
 

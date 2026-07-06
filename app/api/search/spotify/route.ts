@@ -1,4 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server'
+import { rateLimit, clientIp } from '@/lib/rate-limit'
 
 let cachedToken: { token: string; expiresAt: number } | null = null
 
@@ -34,6 +35,11 @@ async function getTokenFromSpDc(): Promise<string> {
 export async function GET(req: NextRequest) {
   const q = new URL(req.url).searchParams.get('q') || ''
   if (!q.trim()) return NextResponse.json({ results: [] })
+
+  // Apsauga nuo SPOTIFY_SP_DC kredencialo piktnaudžiavimo (ban rizika): 20/min/IP.
+  if (!(await rateLimit(`sp:${clientIp(req)}`, 20, 60))) {
+    return NextResponse.json({ results: [], error: 'Per daug užklausų' }, { status: 429 })
+  }
 
   try {
     const token = await getTokenFromSpDc()
