@@ -1,14 +1,19 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { getServerSession } from 'next-auth'
 import { authOptions } from '@/lib/auth'
+import { rateLimit } from '@/lib/rate-limit'
 
 export const runtime = 'nodejs'
 
 export async function POST(req: NextRequest) {
   // Reikalauja prisijungimo — sustabdo anoniminį AI sąskaitos eikvojimą.
   const session = await getServerSession(authOptions)
-  if (!(session?.user as any)?.id) {
+  const userId = (session?.user as any)?.id
+  if (!userId) {
     return NextResponse.json({ translated: '', error: 'UNAUTHORIZED' }, { status: 401 })
+  }
+  if (!(await rateLimit(`ai:tr:${userId}`, 60, 3600))) {
+    return NextResponse.json({ translated: '', error: 'RATE_LIMITED' }, { status: 429 })
   }
   const apiKey = process.env.ANTHROPIC_API_KEY
 

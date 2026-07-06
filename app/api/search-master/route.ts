@@ -2,6 +2,7 @@ import { NextResponse } from 'next/server'
 import { createAdminClient } from '@/lib/supabase'
 import { safeLike, buildSplits, rankTier, artistIdsForToken } from '@/lib/search-core'
 import { ytThumb } from '@/lib/radaras-shared'
+import { rateLimit, clientIp } from '@/lib/rate-limit'
 
 /**
  * Master search — vienas endpoint visam svetainės paieškos turiniui.
@@ -73,6 +74,10 @@ const slugAlbum = (slug: string, id: number) => `/albumai/${slug}-${id}`
 
 export async function GET(request: Request) {
   const started = Date.now()
+  // DoS apsauga: neautentikuota, brangi (~20 užklausų/RLS-bypass). 60/min per IP.
+  if (!(await rateLimit(`srch:${clientIp(request)}`, 60, 60))) {
+    return NextResponse.json({ error: 'Per daug užklausų' }, { status: 429 })
+  }
   const { searchParams } = new URL(request.url)
   const q = (searchParams.get('q') || '').trim()
   // Default limit "Visi" preview'ui — 10. Max 200 — kai user'is pasirenka

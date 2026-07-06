@@ -14,6 +14,7 @@ import { createAdminClient } from '@/lib/supabase'
 import { getServerSession } from 'next-auth'
 import { authOptions } from '@/lib/auth'
 import { resolveAuthorId } from '@/lib/resolve-author'
+import { rateLimit } from '@/lib/rate-limit'
 import { notifyFromSession } from '@/lib/notifications'
 import { logActivity } from '@/lib/activity-logger'
 
@@ -157,6 +158,10 @@ export async function POST(req: Request) {
   const session = await getServerSession(authOptions)
   if (!session?.user?.email) {
     return NextResponse.json({ error: 'Reikia prisijungti' }, { status: 401 })
+  }
+  // Anti-spam: 10 komentarų / min vienam vartotojui.
+  if (!(await rateLimit(`cmt:${session.user.email}`, 10, 60))) {
+    return NextResponse.json({ error: 'Per daug komentarų. Palaukite.' }, { status: 429 })
   }
 
   const body = await req.json()

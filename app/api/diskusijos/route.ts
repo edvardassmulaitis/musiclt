@@ -4,6 +4,7 @@ import { getServerSession } from 'next-auth'
 import { authOptions } from '@/lib/auth'
 import { logActivity as logActivityShared } from '@/lib/activity-logger'
 import { sanitizeCommentHtml } from '@/lib/sanitize-html'
+import { rateLimit } from '@/lib/rate-limit'
 
 function slugify(text: string): string {
   return text
@@ -92,6 +93,11 @@ export async function POST(req: Request) {
     return NextResponse.json({ error: 'Pavadinimas per trumpas' }, { status: 400 })
   if (!text?.trim() || text.trim().length < 10)
     return NextResponse.json({ error: 'Turinys per trumpas' }, { status: 400 })
+
+  // Anti-spam: 5 naujos temos / val. vienam vartotojui.
+  if (!(await rateLimit(`disk:${session.user.id}`, 5, 3600))) {
+    return NextResponse.json({ error: 'Per daug temų. Pabandykite vėliau.' }, { status: 429 })
+  }
 
   const supabase = createAdminClient()
   const baseSlug = slugify(title.trim())
