@@ -45,6 +45,34 @@ Bet kas internete gali nuskaityti **visų vartotojų privačias žinutes** ir po
 
 ---
 
+## 🔴 C-1 — PATVIRTINTA GYVAI (MAX re-scan): `verification_tokens` skaitomi/rašomi anon raktu → account takeover
+
+Pakartotinis auditas rado dar vieną kritinį, ne mažiau rimtą už chat: **magic-link login token'ų lentelė `verification_tokens`** turėjo politiką `service_role_all` su `roles={public}`, `qual=true`, `with_check=true`. Viešu anon raktu buvo galima:
+- **NUSKAITYTI** token'us (identifier=email + token + expires) → prisijungti kaip bet kuris vartotojas (per 24h galiojimo langą). Patvirtinta: nuskaitytas realus token'as.
+- **ĮTERPTI** suklastotą token'ą bet kokiam el. paštui → tiesioginis account takeover admin paskyrai.
+
+**Sutvarkyta gyvai** (`20260706b`): `alter policy ... using(false) with check(false)` + `revoke all from anon, authenticated`. Patikrinta: anon → `permission denied`; service_role veikia.
+
+## 🔴 C-2 — Anon raktu galimi tiesioginiai rašymai (tampering) + jautrūs skaitymai
+
+Pilnas gyvo DB RLS sweep'as parodė, kad chat/verification_tokens nebuvo vieninteliai:
+- **Anon INSERT** politikos (`with_check=true`, roles `{public}`) daugybėje lentelių: `top_votes`/`top_suggestions` (balsų klastojimas apeinant API), `boombox_completions` (žaidimo rezultatų pūtimas), `shoutbox_messages` (spam), `activity_events`, `artist_members`, `search_clicks`.
+- **61 lentelė su RLS IŠJUNGTU** — dalis skaitomos anon raktu su realiais duomenimis: `track_plays` (kas ką klausė — privatumas), `nav_settings`, `artist_team`, `music_import_jobs`, `home_snapshot`.
+
+**Sutvarkyta gyvai** (`20260706c`): kadangi klientas per anon raktą NErašo (patikrinta — anon naudojamas tik chat/notifications realtime), atšaukti **visi** `insert/update/delete` iš `anon`+`authenticated` visose public lentelėse (uždaryta visa tampering klasė vienu ėjimu) + atšauktas SELECT nuo jautrių/vidinių lentelių. Vieši skaitymai (artists/tracks/news) nepaliesti — patikrinta.
+
+## MAX re-scan — bypass'ų medžioklė mano paties pataisymuose
+
+Adversarialūs agentai bandė pralaužti naujas apsaugas. Rasta ir **iškart sutaisyta**:
+- **SSRF DNS bypass** — mano host-only guard'as praleisdavo `169.254.169.254.nip.io` (viešas DNS→private IP) ir NAT64 IPv6 formas (`[64:ff9b::a9fe:a9fe]`) bei trailing-dot (`localhost.`). Perrašyta: dabar resolve'inam DNS ir validuojam kiekvieną IP + tikras IPv6 baitų parsinimas. Unit-tested (visi bypass'ai blokuojami, teisėti host'ai praeina).
+- **XFF spoofing** — IP rate-limit'ai ir balsavimo IP dedup buvo apeinami keičiant kairįjį `X-Forwarded-For`. Pataisyta: `x-real-ip` (Vercel-patikimas) / dešinysis XFF. Pritaikyta rate-limit + `voting/vote`, `top/vote`, `dienos-daina/votes`, `radar/submit`, `missing-reports`.
+- **`top/cron` fail-open** — `Bearer undefined` praeidavo, jei `CRON_SECRET` tuščias → `authorizeCron`.
+- **`search/youtube` + `search/spotify`** neautentikuoti kvotos degintojai → 20/min/IP.
+
+Agentai **patvirtino SOLID** (jokių bypass'ų): DOMPurify sanitizeris (18 payload'ų — visi neutralizuoti), `cron-auth` (constant-time, fail-closed), Turnstile, secret'ų pašalinimas (0 hardcoded literalų), fetch-image/upload patikrų vieta. Taip pat patvirtino, kad **NĖRA**: neautentikuotų service_role rašymų (visi vieši telemetry/likes/votes yra sąmoningi + input-validated), mass-assignment, IDOR, kitų debug endpoint'ų, env nutekėjimo.
+
+---
+
 ## Sisteminė problema (stiprina viską žemiau)
 
 **100% autorizacijos gyvena aplikacijos kode.** Kiekviena DB užklausa naudoja `createAdminClient()` (Supabase **service_role**, kuris apeina RLS). Nėra duomenų bazės lygio apsaugos „atsarginio tinklo" — jei route'as pamiršta patikrą, tai reiškia visiškai neautentikuotą priėjimą prie service-role DB. Middleware saugo **tik** `/api/admin/*` ir `/admin/*`; visi kiti 300+ route'ų turi autentikuotis patys. Kelios to nedaro.
