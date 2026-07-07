@@ -105,27 +105,38 @@ export async function GET(req: NextRequest) {
       .order('score', { ascending: false }).limit(200),
   ])
 
-  const uzPool = [
+  const albumsAll = [
     ...albumPool(shuffleArr((uzAlb || []) as unknown as AlbumRow[]), false),
-    ...artistPhotoPool(shuffleArr((uzArt || []) as unknown as ArtistRow[]), false),
-  ]
-  const ltPool = [
     ...albumPool(shuffleArr((ltAlb || []) as unknown as AlbumRow[]), true),
+  ]
+  const artistsAll = [
+    ...artistPhotoPool(shuffleArr((uzArt || []) as unknown as ArtistRow[]), false),
     ...artistPhotoPool(shuffleArr((ltArt || []) as unknown as ArtistRow[]), true),
   ]
-  const pool = [...uzPool, ...ltPool]
+  const pool = [...albumsAll, ...artistsAll]
 
-  if (pool.length < roundCount * 4) return jsonErr('Per mažai vaizdų', 503)
+  if (pool.length < roundCount * 4 || albumsAll.length < 3 || artistsAll.length < 3) {
+    return jsonErr('Per mažai vaizdų', 503)
+  }
 
   const quizId = `v-${Math.random().toString(36).slice(2, 10)}`
   const exp = Date.now() + TOKEN_TTL_MS
 
-  // Maždaug trečdalis raundų — lietuviški.
-  const ltCount = Math.min(Math.round(roundCount / 3), ltPool.length)
-  const corrects = shuffleArr([
-    ...shuffleArr(ltPool).slice(0, ltCount),
-    ...shuffleArr(uzPool).slice(0, roundCount - ltCount),
-  ]).slice(0, roundCount)
+  // Subalansuota: ~pusė viršelių, ~pusė atlikėjų nuotraukų; ~trečdalis LT.
+  const albWant = Math.round(roundCount / 2)
+  const picked = [
+    ...shuffleArr(albumsAll).slice(0, albWant),
+    ...shuffleArr(artistsAll).slice(0, roundCount - albWant),
+  ]
+  // Jei kurios rūšies pritrūko — papildom iš viso pool'o
+  if (picked.length < roundCount) {
+    const have = new Set(picked.map(p => `${p.kind}:${p.id}`))
+    for (const p of shuffleArr(pool)) {
+      if (picked.length >= roundCount) break
+      if (!have.has(`${p.kind}:${p.id}`)) { picked.push(p); have.add(`${p.kind}:${p.id}`) }
+    }
+  }
+  const corrects = shuffleArr(picked).slice(0, roundCount)
 
   const rounds = corrects.map((correct, idx) => {
     // Klaidinantys — ta pati rūšis (album/artist) + ta pati scena, kitas atlikėjas.
