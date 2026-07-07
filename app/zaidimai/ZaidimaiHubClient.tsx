@@ -65,29 +65,28 @@ export default function ZaidimaiHubClient({ isAuthenticated, username, me, leade
     return () => clearInterval(t)
   }, [today.dailyPlayed])
 
-  const sections: Array<{ label: string; games: Array<{ href: string; icon: ReactNode; title: string; dot: boolean }> }> = [
-    {
-      label: 'Greiti žaidimai',
-      games: [
-        { href: '/zaidimai/dainu-kvizas', icon: ICONS.headphones, title: 'Atspėk dainą', dot: today.quizRunsLeft > 0 },
-        { href: '/zaidimai/atspek-is-sekundes', icon: ICONS.timer, title: 'Atspėk iš sekundės', dot: today.sekundesRunsLeft > 0 },
-        { href: '/zaidimai/atspek-is-vaizdo', icon: ICONS.disc, title: 'Atspėk iš vaizdo', dot: today.vaizdasRunsLeft > 0 },
-        { href: '/zaidimai/kurie-metai', icon: ICONS.calendar, title: 'Kurie metai?', dot: today.metaiRunsLeft > 0 },
-      ],
-    },
-    {
-      label: 'Bendruomenė',
-      games: [
-        { href: '/zaidimai/dvikovos', icon: ICONS.swords, title: 'Dainų dvikovos', dot: today.duelVotesLeft > 0 },
-      ],
-    },
-    {
-      label: 'Ilgasis žaidimas',
-      games: [
-        { href: '/zaidimai/vadybininkas', icon: ICONS.briefcase, title: 'Muzikos vadybininkas', dot: false },
-      ],
-    },
+  // Dienos iššūkio žingsniai (rodomi hero, kad būtų aišku, jog tai kelios užduotys)
+  const zingsniai = ['5 dainos', 'Dvikova', 'Verdiktas', 'Vaizdas']
+
+  // Būsena dešinėje: 'play' = dar gali gauti taškų, 'done' = šiandien atlikta,
+  // 'none' = be dienos limito (vadybininkas).
+  type Busena = 'play' | 'done' | 'none'
+  const busena = (runsLeft: number): Busena => (runsLeft > 0 ? 'play' : 'done')
+  const games: Array<{ href: string; icon: ReactNode; title: string; state: Busena }> = [
+    { href: '/zaidimai/dainu-kvizas', icon: ICONS.headphones, title: 'Atspėk dainą', state: busena(today.quizRunsLeft) },
+    { href: '/zaidimai/atspek-is-sekundes', icon: ICONS.timer, title: 'Atspėk iš sekundės', state: busena(today.sekundesRunsLeft) },
+    { href: '/zaidimai/atspek-is-vaizdo', icon: ICONS.disc, title: 'Atspėk iš vaizdo', state: busena(today.vaizdasRunsLeft) },
+    { href: '/zaidimai/kurie-metai', icon: ICONS.calendar, title: 'Kurie metai?', state: busena(today.metaiRunsLeft) },
+    { href: '/zaidimai/dvikovos', icon: ICONS.swords, title: 'Dainų dvikovos', state: busena(today.duelVotesLeft) },
+    { href: '/zaidimai/vadybininkas', icon: ICONS.briefcase, title: 'Muzikos vadybininkas', state: 'none' },
   ]
+
+  const playIcon = (
+    <svg width="15" height="15" viewBox="0 0 24 24" fill="currentColor" aria-hidden><path d="M8 5v14l11-7z" /></svg>
+  )
+  const doneIcon = (
+    <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="3" strokeLinecap="round" strokeLinejoin="round" aria-hidden><path d="M20 6 9 17l-5-5" /></svg>
+  )
 
   return (
     <ZaidimoLangas
@@ -103,38 +102,40 @@ export default function ZaidimaiHubClient({ isAuthenticated, username, me, leade
     >
       <style>{css}</style>
 
-      {/* Dienos iššūkis — hero su būsenomis */}
+      {/* Dienos iššūkis — pagrindinis kelias, su žingsniais ir būsena */}
       <Link href="/zaidimai/dienos" className={`zh-daily${today.dailyPlayed ? ' done' : ''}`}>
-        <span className="zh-daily-icon">{ICONS.zap}</span>
-        <span className="zh-daily-main">
+        <div className="zh-daily-top">
+          <span className="zh-daily-icon">{ICONS.zap}</span>
           <span className="zh-daily-title">Dienos iššūkis</span>
-          {today.dailyPlayed && dailyRank && (
-            <span className="zh-daily-state">
-              {dailyRank.score} tšk. · esi <b>#{dailyRank.rank}</b> iš {dailyRank.total}{liko ? ` · naujas ${liko}` : ''}
-            </span>
-          )}
-          {today.dailyPlayed && !dailyRank && liko && (
-            <span className="zh-daily-state">naujas {liko}</span>
-          )}
-        </span>
-        <span className="zh-daily-cta">{today.dailyPlayed ? '✓' : 'Žaisti'}</span>
-      </Link>
-
-      {sections.map(sec => (
-        <div key={sec.label}>
-          <h2 className="zh-sec">{sec.label}</h2>
-          <div className="zh-rows">
-            {sec.games.map(g => (
-              <Link key={g.href} href={g.href} className="zh-row">
-                <span className="zh-row-icon">{g.icon}</span>
-                <span className="zh-row-title">{g.title}</span>
-                {g.dot && <span className="zh-dot" title="Šiandien dar gali gauti taškų" />}
-                <svg className="zh-row-go" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><path d="m9 18 6-6-6-6" /></svg>
-              </Link>
+          <span className="zh-daily-cta">{today.dailyPlayed ? '✓ Įveikta' : 'Pradėti'}</span>
+        </div>
+        {today.dailyPlayed ? (
+          <span className="zh-daily-state">
+            {dailyRank
+              ? <>{dailyRank.score} tšk. · esi <b>#{dailyRank.rank}</b> iš {dailyRank.total}{liko ? ` · naujas ${liko}` : ''}</>
+              : (liko ? `naujas ${liko}` : 'grįžk rytoj')}
+          </span>
+        ) : (
+          <div className="zh-steps">
+            {zingsniai.map((z, i) => (
+              <span key={z} className="zh-step">{i + 1}. {z}</span>
             ))}
           </div>
-        </div>
-      ))}
+        )}
+      </Link>
+
+      <h2 className="zh-sec">Žaisk po vieną</h2>
+      <div className="zh-rows">
+        {games.map(g => (
+          <Link key={g.href} href={g.href} className="zh-row">
+            <span className="zh-row-icon">{g.icon}</span>
+            <span className="zh-row-title">{g.title}</span>
+            {g.state === 'play' && <span className="zh-state play" title="Šiandien dar gali gauti taškų">{playIcon}</span>}
+            {g.state === 'done' && <span className="zh-state done" title="Šiandien taškai jau surinkti">{doneIcon}</span>}
+            <svg className="zh-row-go" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><path d="m9 18 6-6-6-6" /></svg>
+          </Link>
+        ))}
+      </div>
 
       {!isAuthenticated && (
         <div className="zh-cta">
@@ -187,25 +188,27 @@ const css = `
 }
 
 .zh-daily {
-  display: flex; align-items: center; gap: 13px; text-decoration: none;
-  padding: 17px 16px; border-radius: 14px; margin-bottom: 14px;
+  display: flex; flex-direction: column; gap: 12px; text-decoration: none;
+  padding: 16px; border-radius: 14px; margin-bottom: 22px;
   background: var(--bg-surface);
   border: 1px solid rgba(140,160,190,0.25);
   border-left: 3px solid var(--accent-orange);
 }
 .zh-daily.done { border-left-color: var(--accent-green); }
+.zh-daily-top { display: flex; align-items: center; gap: 11px; }
 .zh-daily-icon { display: flex; color: var(--accent-orange); flex-shrink: 0; }
 .zh-daily.done .zh-daily-icon { color: var(--accent-green); }
-.zh-daily-main { display: flex; flex-direction: column; gap: 2px; min-width: 0; }
 .zh-daily-title { font-size: 18px; font-weight: 900; color: var(--text-primary); letter-spacing: -0.01em; }
-.zh-daily-state { font-size: 12px; color: var(--text-secondary); }
+.zh-daily-state { font-size: 12.5px; color: var(--text-secondary); }
 .zh-daily-state b { color: var(--text-primary); }
+.zh-steps { display: flex; flex-wrap: wrap; gap: 6px; }
+.zh-step { font-size: 11.5px; font-weight: 700; color: var(--text-secondary); background: color-mix(in srgb, var(--text-primary) 6%, transparent); border-radius: 7px; padding: 4px 9px; }
 .zh-sec { font-size: 12px; font-weight: 900; color: var(--text-muted); text-transform: uppercase; letter-spacing: 0.07em; margin: 0 0 8px 2px; }
 .zh-daily-cta {
   margin-left: auto; flex-shrink: 0; font-size: 14px; font-weight: 900; color: #fff;
   background: var(--accent-orange); border-radius: 999px; padding: 10px 22px;
 }
-.zh-daily.done .zh-daily-cta { background: var(--accent-green); padding: 10px 16px; }
+.zh-daily.done .zh-daily-cta { background: var(--accent-green); }
 
 .zh-rows { display: flex; flex-direction: column; gap: 8px; margin-bottom: 18px; }
 .zh-row {
@@ -217,9 +220,11 @@ const css = `
 }
 .zh-row:hover { border-color: var(--accent-orange); }
 .zh-row-icon { display: flex; color: var(--text-secondary); flex-shrink: 0; }
-.zh-row-title { font-size: 16px; font-weight: 800; color: var(--text-primary); }
-.zh-dot { width: 8px; height: 8px; border-radius: 50%; background: var(--accent-orange); flex-shrink: 0; }
-.zh-row-go { margin-left: auto; flex-shrink: 0; color: var(--text-muted); }
+.zh-row-title { font-size: 16px; font-weight: 800; color: var(--text-primary); margin-right: auto; }
+.zh-state { display: flex; align-items: center; justify-content: center; width: 26px; height: 26px; border-radius: 50%; flex-shrink: 0; }
+.zh-state.play { background: color-mix(in srgb, var(--accent-orange) 18%, transparent); color: var(--accent-orange); }
+.zh-state.done { background: color-mix(in srgb, var(--accent-green) 18%, transparent); color: var(--accent-green); }
+.zh-row-go { flex-shrink: 0; color: var(--text-muted); }
 
 .zh-cta {
   font-size: 13.5px; color: var(--text-secondary); background: var(--bg-surface);

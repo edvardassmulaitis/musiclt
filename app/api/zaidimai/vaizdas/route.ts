@@ -36,17 +36,28 @@ type AlbumRow = {
   score: number | null
   artists: { id: number; name: string; country: string | null; score: number | null } | null
 }
+type ArtistRow = {
+  id: number
+  name: string
+  country: string | null
+  cover_image_url: string | null
+  score: number | null
+}
 
+// kind: 'album' → viršelis; 'artist' → atlikėjo nuotrauka. Klaidinantys
+// variantai visada iš tos pačios rūšies, tad etiketės nesimaišo.
+type Kind = 'album' | 'artist'
 type PoolItem = {
   id: number
+  kind: Kind
   label: string
   image: string
   artistId: number
   lt: boolean
 }
 
-/** Iš albumų eilučių padaro pool'ą: max 2 albumai vienam atlikėjui. */
-function buildPool(rows: AlbumRow[], lt: boolean): PoolItem[] {
+/** Albumų eilutės → pool'as (max 2 albumai vienam atlikėjui). */
+function albumPool(rows: AlbumRow[], lt: boolean): PoolItem[] {
   const perArtist = new Map<number, number>()
   const out: PoolItem[] = []
   for (const r of rows) {
@@ -54,13 +65,17 @@ function buildPool(rows: AlbumRow[], lt: boolean): PoolItem[] {
     const n = perArtist.get(r.artists.id) || 0
     if (n >= 2) continue
     perArtist.set(r.artists.id, n + 1)
-    out.push({
-      id: r.id,
-      label: `${r.artists.name} — ${r.title}`,
-      image: r.cover_image_url,
-      artistId: r.artists.id,
-      lt,
-    })
+    out.push({ id: r.id, kind: 'album', label: `${r.artists.name} — ${r.title}`, image: r.cover_image_url, artistId: r.artists.id, lt })
+  }
+  return out
+}
+
+/** Atlikėjų eilutės → pool'as (nuotrauka). */
+function artistPhotoPool(rows: ArtistRow[], lt: boolean): PoolItem[] {
+  const out: PoolItem[] = []
+  for (const r of rows) {
+    if (!r.cover_image_url || !r.name) continue
+    out.push({ id: r.id, kind: 'artist', label: r.name, image: r.cover_image_url, artistId: r.id, lt })
   }
   return out
 }
@@ -73,46 +88,49 @@ export async function GET(req: NextRequest) {
   const sb = createAdminClient()
 
   const albumSelect = 'id, title, cover_image_url, score, artists:artist_id!inner(id, name, country, score)'
+  const artistSelect = 'id, name, country, cover_image_url, score'
 
-  // Užsienio populiariausi albumai (albumo score) + LT žinomiausių atlikėjų albumai.
-  const [{ data: uzsienio }, { data: lietuviski }] = await Promise.all([
-    sb
-      .from('albums')
-      .select(albumSelect)
-      .not('cover_image_url', 'is', null)
-      .gte('score', 30)
-      .neq('artists.country', 'Lietuva')
-      .order('score', { ascending: false })
-      .limit(400),
-    sb
-      .from('albums')
-      .select(albumSelect)
-      .not('cover_image_url', 'is', null)
-      .eq('artists.country', 'Lietuva')
-      .gt('artists.score', 40)
-      .limit(300),
+  // Populiariausi: užsienio ir LT — ir albumų viršeliai, ir atlikėjų nuotraukos.
+  const [{ data: uzAlb }, { data: ltAlb }, { data: uzArt }, { data: ltArt }] = await Promise.all([
+    sb.from('albums').select(albumSelect).not('cover_image_url', 'is', null)
+      .gte('score', 45).neq('artists.country', 'Lietuva')
+      .order('score', { ascending: false }).limit(400),
+    sb.from('albums').select(albumSelect).not('cover_image_url', 'is', null)
+      .eq('artists.country', 'Lietuva').gt('artists.score', 45).limit(300),
+    sb.from('artists').select(artistSelect).not('cover_image_url', 'is', null)
+      .gt('score', 60).neq('country', 'Lietuva')
+      .order('score', { ascending: false }).limit(400),
+    sb.from('artists').select(artistSelect).not('cover_image_url', 'is', null)
+      .eq('country', 'Lietuva').gt('score', 35)
+      .order('score', { ascending: false }).limit(200),
   ])
 
-  const uzsienioPool = buildPool(shuffleArr((uzsienio || []) as unknown as AlbumRow[]), false)
-  const ltPool = buildPool(shuffleArr((lietuviski || []) as unknown as AlbumRow[]), true)
-  const pool = [...uzsienioPool, ...ltPool]
+  const uzPool = [
+    ...albumPool(shuffleArr((uzAlb || []) as unknown as AlbumRow[]), false),
+    ...artistPhotoPool(shuffleArr((uzArt || []) as unknown as ArtistRow[]), false),
+  ]
+  const ltPool = [
+    ...albumPool(shuffleArr((ltAlb || []) as unknown as AlbumRow[]), true),
+    ...artistPhotoPool(shuffleArr((ltArt || []) as unknown as ArtistRow[]), true),
+  ]
+  const pool = [...uzPool, ...ltPool]
 
-  if (pool.length < roundCount * 4) return jsonErr('Per mažai albumų su viršeliais', 503)
+  if (pool.length < roundCount * 4) return jsonErr('Per mažai vaizdų', 503)
 
   const quizId = `v-${Math.random().toString(36).slice(2, 10)}`
   const exp = Date.now() + TOKEN_TTL_MS
 
-  // Maždaug trečdalis raundų — lietuviški albumai (kiek jų yra).
+  // Maždaug trečdalis raundų — lietuviški.
   const ltCount = Math.min(Math.round(roundCount / 3), ltPool.length)
   const corrects = shuffleArr([
     ...shuffleArr(ltPool).slice(0, ltCount),
-    ...shuffleArr(uzsienioPool).slice(0, roundCount - ltCount),
-  ])
+    ...shuffleArr(uzPool).slice(0, roundCount - ltCount),
+  ]).slice(0, roundCount)
 
   const rounds = corrects.map((correct, idx) => {
-    // Klaidinantys variantai — iš tos pačios grupės (LT/užsienio) ir kito atlikėjo.
-    let decoySrc = pool.filter(a => a.lt === correct.lt && a.artistId !== correct.artistId)
-    if (decoySrc.length < 3) decoySrc = pool.filter(a => a.artistId !== correct.artistId)
+    // Klaidinantys — ta pati rūšis (album/artist) + ta pati scena, kitas atlikėjas.
+    let decoySrc = pool.filter(a => a.kind === correct.kind && a.lt === correct.lt && a.artistId !== correct.artistId)
+    if (decoySrc.length < 3) decoySrc = pool.filter(a => a.kind === correct.kind && a.artistId !== correct.artistId)
     const decoys: PoolItem[] = []
     const usedArtists = new Set<number>([correct.artistId])
     for (const d of shuffleArr(decoySrc)) {
@@ -128,6 +146,10 @@ export async function GET(req: NextRequest) {
     return {
       r: idx,
       image: correct.image,
+      kind: correct.kind,
+      prompt: correct.kind === 'album' ? 'Koks šis albumas?' : 'Kas šis atlikėjas?',
+      // Kas antrą kartą — dėlionės (puzzle) efektas vietoj blur.
+      reveal: idx % 2 === 0 ? 'puzzle' : 'blur',
       options,
       token: sealPayload({ g: 'vaizdas', q: quizId, r: idx, c: correct.id, exp }),
     }

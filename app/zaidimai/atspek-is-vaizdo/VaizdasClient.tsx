@@ -2,21 +2,44 @@
 
 // app/zaidimai/atspek-is-vaizdo/VaizdasClient.tsx
 //
-// „Atspėk iš vaizdo" — populiaraus albumo viršelis pradžioje išblurintas
-// (blur 34px) ir per 12 s ryškėja (CSS transition). Kuo greičiau atspėsi —
-// tuo daugiau taškų. 8 raundai, rezultatas skaičiuojamas server-side.
+// „Atspėk iš vaizdo" — populiaraus albumo viršelis ARBA atlikėjo nuotrauka
+// pradžioje paslėpta ir per 12 s ryškėja. Kas antrą kartą — dėlionės (puzzle)
+// efektas (langeliai nyksta po vieną), kitą — blur. Kuo greičiau atspėsi —
+// tuo daugiau taškų. Rezultatas skaičiuojamas server-side.
 
-import { useEffect, useRef, useState } from 'react'
+import { useEffect, useMemo, useRef, useState } from 'react'
 import Link from 'next/link'
 import { proxyImg } from '@/lib/img-proxy'
 import ZaidimoLangas from '@/components/zaidimai/ZaidimoLangas'
 
 type Option = { id: number; name: string }
-type Round = { r: number; image: string; options: Option[]; token: string }
+type Round = {
+  r: number
+  image: string
+  kind?: 'album' | 'artist'
+  prompt?: string
+  reveal?: 'puzzle' | 'blur'
+  options: Option[]
+  token: string
+}
 type RoundResult = { correct: boolean; correctId: number; points: number }
 
 const ROUND_MS = 12000
 const REVEAL_MS = 3500
+const PUZZLE_COLS = 6
+const PUZZLE_TILES = PUZZLE_COLS * PUZZLE_COLS
+
+function shuffledRanks(n: number): number[] {
+  const idx = Array.from({ length: n }, (_, i) => i)
+  for (let i = n - 1; i > 0; i--) {
+    const j = Math.floor(Math.random() * (i + 1))
+    ;[idx[i], idx[j]] = [idx[j], idx[i]]
+  }
+  // rank[tile] = kelinta eilėje ta plytelė atsidengia
+  const rank = new Array(n)
+  idx.forEach((tile, r) => { rank[tile] = r })
+  return rank
+}
 
 type Phase = 'intro' | 'loading' | 'round' | 'reveal' | 'submitting' | 'results'
 
@@ -148,6 +171,11 @@ export default function VaizdasClient() {
   const pct = Math.max(0, timeLeft / ROUND_MS)
   // Blur: nuo 34px iki 0 per ROUND_MS (transition valdo CSS)
   const blurNow = phase === 'reveal' ? 0 : revealed ? 0 : 34
+  const isPuzzle = round?.reveal === 'puzzle'
+  // Dėlionė: plytelių atsidengimo eiliškumas — stabilus per raundą
+  const tileRanks = useMemo(() => shuffledRanks(PUZZLE_TILES), [round?.r])
+  // Kiek dalies plytelių jau atsidengę (0→1 per raundą; reveal — viskas)
+  const revealProgress = phase === 'reveal' ? 1 : Math.min(1, (1 - pct) * 1.15)
 
   return (
     <ZaidimoLangas
@@ -182,19 +210,27 @@ export default function VaizdasClient() {
       {(phase === 'round' || phase === 'reveal') && round && (
         <div className="vz-stage">
           {idx === 0 && phase === 'round' && (
-            <p className="vz-hint">Viršelis ryškėja — atpažink albumą kuo greičiau</p>
+            <p className="vz-hint">Vaizdas ryškėja — atpažink kuo greičiau</p>
           )}
           <div className="vz-imgbox">
             {/* eslint-disable-next-line @next/next/no-img-element */}
             <img
               key={round.r}
               src={proxyImg(round.image, 640)}
-              alt="Koks šis albumas?"
-              style={{
+              alt={round.prompt || 'Kas tai?'}
+              style={isPuzzle ? undefined : {
                 filter: `blur(${blurNow}px)`,
                 transition: phase === 'reveal' ? 'filter .4s ease' : `filter ${ROUND_MS}ms linear`,
               }}
             />
+            {isPuzzle && (
+              <div className="vz-puzzle" aria-hidden>
+                {Array.from({ length: PUZZLE_TILES }).map((_, i) => {
+                  const gone = tileRanks[i] / PUZZLE_TILES < revealProgress
+                  return <span key={i} className="vz-tile" style={{ opacity: gone ? 0 : 1 }} />
+                })}
+              </div>
+            )}
             {phase === 'round' && (
               <div className="vz-clock" style={{ ['--p' as any]: pct }}><span>{Math.ceil(timeLeft / 1000)}</span></div>
             )}
@@ -278,6 +314,8 @@ const css = `
 .vz-hint { font-size: 12.5px; color: var(--text-secondary); text-align: center; margin: 0; }
 .vz-imgbox { position: relative; border-radius: 14px; overflow: hidden; aspect-ratio: 1/1; background: #0c0f15; }
 .vz-imgbox img { width: 100%; height: 100%; object-fit: cover; display: block; transform: scale(1.06); }
+.vz-puzzle { position: absolute; inset: 0; display: grid; grid-template-columns: repeat(6, 1fr); grid-template-rows: repeat(6, 1fr); }
+.vz-tile { background: #10131b; transition: opacity .45s ease; }
 .vz-clock { position: absolute; top: 12px; right: 12px; width: 56px; height: 56px; border-radius: 50%; background: conic-gradient(var(--accent-orange) calc(var(--p) * 360deg), rgba(255,255,255,0.15) 0); display: flex; align-items: center; justify-content: center; }
 .vz-clock span { width: 46px; height: 46px; border-radius: 50%; background: rgba(12,15,21,0.85); color: #fff; display: flex; align-items: center; justify-content: center; font-size: 18px; font-weight: 900; }
 .vz-tag { position: absolute; top: 12px; left: 12px; font-size: 14px; font-weight: 900; padding: 8px 14px; border-radius: 11px; color: #fff; }

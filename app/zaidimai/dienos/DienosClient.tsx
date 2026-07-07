@@ -362,7 +362,25 @@ export default function DienosClient(props: Props) {
           {qPhase === 'load' && !qError && <div className="di-center"><div className="di-spinner" /></div>}
           {qPhase === 'submitting' && <div className="di-center"><div className="di-spinner" /><p className="di-note">Skaičiuojam…</p></div>}
 
-          {(qPhase === 'ready' || qPhase === 'round' || qPhase === 'reveal') && qRound && (
+          {/* Orientacija: aiškiai kas laukia, prieš pradedant (vienas ▶) */}
+          {qPhase === 'ready' && qRound && (
+            <div className="di-orient">
+              <span className="di-orient-step">1 iš {steps.length} · Atspėk dainą</span>
+              <h2 className="di-orient-title">Klausyk 5 dainų ištraukų</h2>
+              <p className="di-orient-sub">Kiekvienai — 4 variantai ir 15 sek. Kuo greičiau, tuo daugiau taškų.</p>
+              <ol className="di-orient-list">
+                {steps.map((s: any, i: number) => (
+                  <li key={s.key} className={done[s.key as StepKey] ? 'done' : ''}>{i + 1}. {s.label}{done[s.key as StepKey] ? ' ✓' : ''}</li>
+                ))}
+              </ol>
+              <button className="di-play-big" onClick={qStartPlaying} aria-label="Pradėti">
+                <svg width="24" height="24" viewBox="0 0 24 24" fill="currentColor"><path d="M8 5v14l11-7z" /></svg>
+                <span>Pradėti</span>
+              </button>
+            </div>
+          )}
+
+          {(qPhase === 'round' || qPhase === 'reveal') && qRound && (
             <>
               <div className="di-q-head">
                 <span className="di-q-n">{qIdx + 1} / {qRounds.length}</span>
@@ -370,12 +388,6 @@ export default function DienosClient(props: Props) {
                 <span className="di-q-score">⚡ {qScore}</span>
               </div>
               <div className="di-audio">
-                {qPhase === 'ready' && (
-                  <button className="di-play-big" onClick={qStartPlaying} aria-label="Pradėti">
-                    <svg width="26" height="26" viewBox="0 0 24 24" fill="currentColor"><path d="M8 5v14l11-7z" /></svg>
-                    <span>Pradėti</span>
-                  </button>
-                )}
                 {qRound && !qRound.audioUrl && qPhase === 'round' && !ios && (
                   <iframe
                     className="di-hidden-yt"
@@ -438,8 +450,9 @@ export default function DienosClient(props: Props) {
       {/* ═══ DVIKOVA ═══ */}
       {stage === 'duel' && duel && (
         <div className="di-stage">
-          <h2 className="di-h2">⚔️ Dienos dvikova</h2>
-          <p className="di-note">Kuri daina stipresnė? Tavo balsas vertas 20 taškų.</p>
+          <span className="di-stage-no">{steps.findIndex((s: any) => s.key === 'duel') + 1} iš {steps.length} · Dvikova</span>
+          <h2 className="di-h2">⚔️ Kuri daina stipresnė?</h2>
+          <p className="di-note">Paspausk ▶ paklausyti, tada balsuok. Tavo balsas — 20 taškų.</p>
           <div className="di-duel">
             {(['A', 'B'] as const).map(tag => {
               const side: any = tag === 'A' ? duel.track_a : duel.track_b
@@ -480,8 +493,9 @@ export default function DienosClient(props: Props) {
       {/* ═══ VERDIKTAS ═══ */}
       {stage === 'verdict' && verdict && (
         <div className="di-stage">
-          <h2 className="di-h2">🔥 Dienos verdiktas</h2>
-          <p className="di-note">Paklausyk ir pasakyk savo nuomonę — verta 20 taškų.</p>
+          <span className="di-stage-no">{steps.findIndex((s: any) => s.key === 'verdict') + 1} iš {steps.length} · Verdiktas</span>
+          <h2 className="di-h2">🔥 Tavo verdiktas</h2>
+          <p className="di-note">Paklausyk ir pasakyk, kaip tau ši daina — verta 20 taškų.</p>
           <div className="di-verdict-card">
             <div className="di-player small">
               {ytIdFrom(verdict.track.video_url) ? (
@@ -524,8 +538,9 @@ export default function DienosClient(props: Props) {
       {/* ═══ AI VAIZDAS ═══ */}
       {stage === 'image' && image && (
         <div className="di-stage">
+          <span className="di-stage-no">{steps.findIndex((s: any) => s.key === 'image') + 1} iš {steps.length} · Vaizdas</span>
           <h2 className="di-h2">🖼️ Atspėk dainą iš vaizdo</h2>
-          <p className="di-note">Dirbtinis intelektas nupiešė dainą — atspėk kurią. Teisingas atsakymas vertas 80 taškų.</p>
+          <p className="di-note">Dirbtinis intelektas nupiešė dainą — atspėk kurią. Teisingas atsakymas — 80 taškų.</p>
           <div className="di-image-wrap">
             {/* eslint-disable-next-line @next/next/no-img-element */}
             <img src={image.image_url} alt="AI vaizdas pagal dainą" />
@@ -573,8 +588,8 @@ export default function DienosClient(props: Props) {
             <button className="di-share" onClick={share}>{shared ? 'Nukopijuota ✓' : 'Dalintis 📤'}</button>
             <Link href="/zaidimai" className="di-more">Daugiau žaidimų →</Link>
           </div>
-          <Link href="/zaidimai/atspek-is-vaizdo" className="di-next-game">
-            <span><b>Dar šiandien: Atspėk iš vaizdo</b><br/>Albumo viršelis ryškėja — atpažink jį</span>
+          <Link href="/zaidimai" className="di-next-game">
+            <span><b>Žaisk po vieną</b><br/>Atspėk dainą, iš sekundės, iš vaizdo, kurie metai — kiek nori</span>
             <span className="di-next-game-go">→</span>
           </Link>
         </div>
@@ -591,6 +606,14 @@ const css = `
   cursor: pointer; border: 0; border-radius: 999px; padding: 14px 34px;
   background: var(--accent-orange);
 }
+.di-orient { display: flex; flex-direction: column; align-items: center; text-align: center; gap: 6px; padding: 4vh 0 2vh; }
+.di-orient-step { font-size: 11px; font-weight: 900; letter-spacing: 0.08em; text-transform: uppercase; color: var(--accent-orange); }
+.di-orient-title { font-size: 22px; font-weight: 900; color: var(--text-primary); margin: 2px 0 0; }
+.di-orient-sub { font-size: 13px; color: var(--text-secondary); margin: 0; max-width: 340px; }
+.di-orient-list { list-style: none; margin: 12px 0 18px; padding: 0; display: flex; flex-direction: column; gap: 5px; }
+.di-orient-list li { font-size: 13px; font-weight: 700; color: var(--text-secondary); }
+.di-orient-list li.done { color: var(--accent-green); }
+.di-stage-no { display: block; font-size: 11px; font-weight: 900; letter-spacing: 0.07em; text-transform: uppercase; color: var(--accent-orange); margin-bottom: 4px; }
 .di-yt { position: absolute; inset: 0; }
 .di-yt iframe { width: 100%; height: 100%; }
 
