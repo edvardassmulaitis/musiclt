@@ -21,10 +21,9 @@ export default function PramogosPage() {
       accent="#f97316"
       icon={I.hero}
       tiles={[
-        { label: 'Žaidimai', href: '/zaidimai', desc: 'Atspėk dainą, dvikovos, muzikos vadybininkas — rink taškus ir kilk lyderių lentelėje', icon: I.game, accent: '#f97316', big: true },
-        { label: 'Dienos iššūkis', href: '/zaidimai/dienos', desc: 'Kasdienis ritualas: atspėk 5 dainas + dienos užduotys. Tas pats visiems, dvigubi taškai', icon: I.boombox, accent: '#f97316' },
-        { label: 'Atspėk dainą', href: '/zaidimai/dainu-kvizas', desc: 'Groja ištrauka — 4 variantai, 15 sekundžių. Lietuviška klasika, nauja banga, pasaulio hitai', icon: I.quiz, accent: '#f97316' },
-        { label: 'Atspėk iš vaizdo', href: '/zaidimai/atspek-is-vaizdo', desc: 'Populiaraus albumo viršelis ryškėja — atpažink jį kuo greičiau', icon: I.boombox, accent: '#f97316' },
+        { label: 'Dienos iššūkis', href: '/zaidimai/dienos', desc: 'Kasdienis ritualas: atspėk 5 dainas, balsuok, palik verdiktą. Tas pats visiems, dvigubi taškai', icon: I.boombox, accent: '#f97316', big: true },
+        { label: 'Žaidimų sritis', href: '/zaidimai', desc: 'Tavo iššūkio būsena, serija ir šiandienos lyderiai', icon: I.game, accent: '#f97316' },
+        { label: 'Muzikos vadybininkas', href: '/zaidimai/vadybininkas', desc: 'Sudaryk komandą iš realių atlikėjų — taškai už tikrus jų rezultatus', icon: I.quiz, accent: '#f97316' },
       ]}
     />
   )
