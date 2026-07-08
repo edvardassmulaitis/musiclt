@@ -65,49 +65,57 @@ async function enrichAudio(rounds: BuiltRound[]): Promise<BuiltRound[]> {
   return rounds.map(b => ({ ...b, audioUrl: previews.get(b.correctId) ?? null }))
 }
 
-function buildRoundsData(
-  pool: PoolTrack[],
+/**
+ * Raundai su GARANTUOTU garsu ir populiariais atsakymais.
+ *   * teisingi atsakymai renkami TIK iš tų, kurie turi iTunes ištrauką
+ *     (jokių raundų be garso) ir tik iš „famous" pool'o dalies
+ *   * `famous` — kandidatai atsakymui (jau surūšiuoti pagal YT peržiūras);
+ *     `decoyPool` — iš kur imami klaidinantys (platesnis)
+ */
+async function buildAudioRounds(
+  famous: PoolTrack[],
+  decoyPool: PoolTrack[],
   roundCount: number,
-  rng?: () => number,
-): BuiltRound[] | null {
-  const shuf = <T,>(a: T[]) => (rng ? seededShuffle(a, rng) : shuffleArr(a))
-  const base = rng ? [...pool].sort((a, b) => a.id - b.id) : pool
-
-  const shuffled = shuf(base)
-  const corrects: PoolTrack[] = []
-  const usedArtists = new Set<number>()
-  for (const t of shuffled) {
-    if (corrects.length >= roundCount) break
-    if (usedArtists.has(t.artist_id)) continue
-    usedArtists.add(t.artist_id)
-    corrects.push(t)
+): Promise<BuiltRound[] | null> {
+  // Kandidatai atsakymui: skirtingi atlikėjai, su rezerve garso patikrai
+  const candidates: PoolTrack[] = []
+  const seen = new Set<number>()
+  for (const t of shuffleArr(famous)) {
+    if (seen.has(t.artist_id)) continue
+    seen.add(t.artist_id)
+    candidates.push(t)
+    if (candidates.length >= roundCount * 4) break
   }
+
+  const previews = await ensurePreviews(candidates.map(t => ({ id: t.id, title: t.title, artist: t.artist })))
+  const corrects = candidates.filter(t => previews.get(t.id)).slice(0, roundCount)
   if (corrects.length < roundCount) return null
 
   return corrects.map((correct, idx) => {
     const decoys: PoolTrack[] = []
     const decoyArtists = new Set<number>([correct.artist_id])
-    for (const t of shuf(base)) {
+    for (const t of shuffleArr(decoyPool)) {
       if (decoys.length >= 3) break
       if (t.id === correct.id || decoyArtists.has(t.artist_id)) continue
       decoyArtists.add(t.artist_id)
       decoys.push(t)
     }
-    const options = shuf([
+    const options = shuffleArr([
       { id: correct.id, title: correct.title, artist: correct.artist },
       ...decoys.map(d => ({ id: d.id, title: d.title, artist: d.artist })),
     ])
     return {
       r: idx,
       ytId: correct.ytId,
-      startSec: 25 + Math.floor((rng ? rng() : Math.random()) * 46),
+      startSec: 25 + Math.floor(Math.random() * 46),
       correctId: correct.id,
+      audioUrl: previews.get(correct.id) ?? null,
       options,
     }
   })
 }
 
-/** Dienos iššūkio raundai iš DB momentinės kopijos — visiems identiški. */
+/** Dienos iššūkio raundai — LT + pasaulio hitai, visi su garsu, visiems tie patys. */
 async function dailyRounds(roundCount: number): Promise<BuiltRound[] | null> {
   const sb = createAdminClient()
   const today = todayLT()
@@ -126,14 +134,19 @@ async function dailyRounds(roundCount: number): Promise<BuiltRound[] | null> {
     return rounds.slice(0, roundCount)
   }
 
-  const cat = quizCategory('lt-mix')!
-  const pool = await loadQuizPool(cat)
-  if (pool.length < roundCount * 4) return null
-  const builtRaw = buildRoundsData(pool, roundCount, mulberry32(dailySeed()))
-  if (!builtRaw) return null
-  const built = await enrichAudio(builtRaw)
+  // Populiariausi LT + pasaulio (kiekvienas pool'as jau surūšiuotas pagal peržiūras)
+  const [ltPool, worldPool] = await Promise.all([
+    loadQuizPool(quizCategory('lt-mix')!),
+    loadQuizPool(quizCategory('pasaulis')!),
+  ])
+  // Atsakymai — iš žinomiausių abiejų scenų; klaidinantys — iš viso mišinio
+  const famous = [...ltPool.slice(0, 90), ...worldPool.slice(0, 130)]
+  const decoyPool = [...ltPool, ...worldPool]
+  if (famous.length < roundCount * 4) return null
 
-  // Pirmas sugeneravęs įrašo; lygiagretumo atveju laimi pirmasis įrašas
+  const built = await buildAudioRounds(famous, decoyPool, roundCount)
+  if (!built) return null
+
   await sb.from('daily_quiz_snapshot').upsert(
     { day: today, rounds: built },
     { onConflict: 'day', ignoreDuplicates: true },
@@ -170,8 +183,11 @@ export async function GET(req: NextRequest) {
   } else {
     const pool = await loadQuizPool(cat)
     if (pool.length < roundCount * 4) return jsonErr('Šiai kategorijai dar trūksta dainų — pabandyk kitą', 503)
-    const raw = buildRoundsData(pool, roundCount)
-    built = raw ? await enrichAudio(raw) : null
+    // Atsakymai — iš žinomiausios pool'o dalies (pool jau pagal YT peržiūras);
+    // klaidinantys — iš platesnės, bet vis tiek žinomos dalies (ne visiškai obskurūs)
+    const famous = pool.slice(0, Math.max(roundCount * 12, 140))
+    const decoyPool = pool.slice(0, Math.max(roundCount * 40, 500))
+    built = await buildAudioRounds(famous, decoyPool, roundCount)
     quizId = Math.random().toString(36).slice(2, 10)
   }
   if (!built) return jsonErr('Šiai kategorijai dar trūksta atlikėjų — pabandyk kitą', 503)

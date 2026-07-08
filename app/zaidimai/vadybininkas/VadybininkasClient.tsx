@@ -766,11 +766,11 @@ const css = `
   position: sticky; top: -16px; z-index: 8; background: var(--bg-body);
   padding: 10px 0 12px; margin-bottom: 4px; border-bottom: 1px solid rgba(140,160,190,0.15);
 }
-.fl-slots { display: flex; align-items: center; gap: 8px; margin-bottom: 10px; }
+.fl-slots { display: flex; align-items: center; flex-wrap: wrap; gap: 7px; margin-bottom: 10px; }
 .fl-slot {
-  position: relative; width: 46px; height: 46px; border-radius: 50%; flex-shrink: 0;
+  position: relative; width: 40px; height: 40px; border-radius: 50%; flex-shrink: 0;
   display: flex; align-items: center; justify-content: center; overflow: hidden;
-  border: 2px dashed rgba(140,160,190,0.4); color: var(--text-muted); font-size: 18px; background: transparent;
+  border: 2px dashed rgba(140,160,190,0.4); color: var(--text-muted); font-size: 16px; background: transparent;
 }
 .fl-slot.filled { border: 2px solid #10b981; cursor: pointer; }
 .fl-slot.filled img { width: 100%; height: 100%; object-fit: cover; }
