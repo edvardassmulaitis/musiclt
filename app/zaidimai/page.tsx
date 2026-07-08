@@ -28,6 +28,13 @@ export const metadata: Metadata = {
 
 export type DailyStep = { key: string; label: string; present: boolean; done: boolean }
 export type DailyTopRow = { name: string; isAnon: boolean; score: number }
+export type FantasyInfo = {
+  name: string
+  weeks: { week: string; points: number }[]   // paskutinės savaitės grafikui
+  seasonPoints: number
+  rank: number | null
+  totalTeams: number
+} | null
 
 async function namesFor(sb: ReturnType<typeof createAdminClient>, userIds: string[]): Promise<Map<string, string>> {
   const map = new Map<string, string>()
@@ -117,13 +124,38 @@ async function loadHub() {
     score: r.score || 0,
   }))
 
+  // „Muzikos lyga" — komandos savaitiniai taškai (grafikui) + sezono rangas
+  let fantasy: FantasyInfo = null
+  const myTeam = (myTeamRes as any).data as { id: number; name: string } | null
+  if (myTeam) {
+    const [{ data: myWeeks }, { data: allWeeks }] = await Promise.all([
+      sb.from('fantasy_team_weeks').select('week_start, points')
+        .eq('team_id', myTeam.id).order('week_start', { ascending: true }),
+      sb.from('fantasy_team_weeks').select('team_id, points').limit(10000),
+    ])
+    const weeks = ((myWeeks as any[]) || []).map(w => ({ week: w.week_start as string, points: w.points || 0 }))
+    const seasonPoints = weeks.reduce((s, w) => s + w.points, 0)
+    // Sezono rangas: susumuojam kiekvienos komandos taškus
+    const totals = new Map<number, number>()
+    for (const r of (allWeeks as any[]) || []) totals.set(r.team_id, (totals.get(r.team_id) || 0) + (r.points || 0))
+    const sorted = Array.from(totals.entries()).sort((a, b) => b[1] - a[1])
+    const rankIdx = sorted.findIndex(([id]) => id === myTeam.id)
+    fantasy = {
+      name: myTeam.name,
+      weeks: weeks.slice(-8),
+      seasonPoints,
+      rank: rankIdx >= 0 ? rankIdx + 1 : null,
+      totalTeams: totals.size,
+    }
+  }
+
   return {
     isAuthenticated: viewer.isAuthenticated,
     streak: (meRes as any).data?.current_streak || 0,
     totalXp: (meRes as any).data?.total_xp || 0,
     daily: { steps, doneCount, total: steps.length, allDone, rank: dailyRank },
     todayTop,
-    fantasyTeam: ((myTeamRes as any).data?.name as string) || null,
+    fantasy,
   }
 }
 

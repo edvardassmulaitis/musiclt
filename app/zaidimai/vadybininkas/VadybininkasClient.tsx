@@ -182,7 +182,7 @@ export default function VadybininkasClient() {
 
   return (
     <ZaidimoLangas
-      title={view === 'valdymas' && team ? `💼 ${team.name}` : view === 'mainai' ? '↔ Mainai' : 'Muzikos vadybininkas'}
+      title={view === 'valdymas' && team ? `🎵 ${team.name}` : view === 'mainai' ? '↔ Mainai' : 'Muzikos lyga'}
       right={wizardStep > 0 ? (
         <div className="fl-steps">
           {[1, 2, 3].map(n => (
@@ -204,8 +204,8 @@ export default function VadybininkasClient() {
       {/* ══════════ 1 ŽINGSNIS: kaip veikia + pavadinimas ══════════ */}
       {view === 'intro' && (
         <div className="fl-wizard">
-          <h1 className="fl-h1">Muzikos vadybininkas</h1>
-          <p className="fl-lead">Tapk vadybininku: surink realių atlikėjų komandą — taškus jie neš pagal <b>tikrus rezultatus</b>.</p>
+          <h1 className="fl-h1">Muzikos lyga</h1>
+          <p className="fl-lead">Sudaryk savo komandą iš realių atlikėjų — taškus jie neš pagal <b>tikrus rezultatus</b>.</p>
 
           <div className="fl-how">
             <div className="fl-how-card">

@@ -23,7 +23,7 @@ export default function PramogosPage() {
       tiles={[
         { label: 'Dienos iššūkis', href: '/zaidimai/dienos', desc: 'Kasdienis ritualas: atspėk 5 dainas, balsuok, palik verdiktą. Tas pats visiems, dvigubi taškai', icon: I.boombox, accent: '#f97316', big: true },
         { label: 'Žaidimų sritis', href: '/zaidimai', desc: 'Tavo iššūkio būsena, serija ir šiandienos lyderiai', icon: I.game, accent: '#f97316' },
-        { label: 'Muzikos vadybininkas', href: '/zaidimai/vadybininkas', desc: 'Sudaryk komandą iš realių atlikėjų — taškai už tikrus jų rezultatus', icon: I.quiz, accent: '#f97316' },
+        { label: 'Muzikos lyga', href: '/zaidimai/vadybininkas', desc: 'Sudaryk komandą iš realių atlikėjų — taškai už tikrus jų rezultatus', icon: I.quiz, accent: '#f97316' },
       ]}
     />
   )
