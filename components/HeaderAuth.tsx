@@ -492,7 +492,7 @@ export function HeaderAuth() {
         <ThemeToggleButton />
         <button
           onClick={() => setShowModal(true)}
-          className="flex-shrink-0 font-bold px-5 py-2 rounded-full text-[14px] transition-all shadow-md hover:scale-[1.02] whitespace-nowrap"
+          className="flex-shrink-0 font-bold px-4 py-1.5 sm:px-5 sm:py-2 rounded-full text-[14px] transition-all shadow-md hover:scale-[1.02] whitespace-nowrap"
           style={{ background: 'var(--accent-orange)', color: 'var(--text-primary)' }}
         >
           Prisijungti

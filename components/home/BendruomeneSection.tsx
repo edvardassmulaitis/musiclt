@@ -139,7 +139,7 @@ const CARD_MIN_H = 330
 
 function Badge({ meta }: { meta: TypeMeta }) {
   return (
-    <span className="absolute left-2.5 top-2.5 z-[2] rounded-[7px] px-2 py-1 font-['Outfit',sans-serif] text-[12px] font-extrabold uppercase tracking-[0.08em] text-white"
+    <span className="absolute left-2.5 top-2.5 z-[2] rounded-md px-1.5 py-0.5 font-['Outfit',sans-serif] text-[12px] font-bold uppercase tracking-[0.03em] text-white"
       style={{ background: meta.color }}>{meta.label}</span>
   )
 }

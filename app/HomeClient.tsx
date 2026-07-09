@@ -34,6 +34,7 @@ type Proposer = { username: string | null; full_name: string | null; avatar_url:
 type Nomination = { id: number; votes: number; weighted_votes: number; comment?: string | null; user_id?: string | null; tracks: { id: number; title: string; cover_url: string | null; slug?: string | null; video_url?: string | null; artists: { name: string; slug?: string | null; cover_image_url?: string | null } | null } | null; proposer?: Proposer | null; voters?: Proposer[]; anon_votes?: number; own?: boolean }
 type HeroSlide = {
   type: string; chip: string; chipBg: string; title: string; subtitle: string
+  subtitleShort?: string  // kompaktiška meta mobile kortelei (be venue/metų)
   href: string; bgImg?: string | null; videoId?: string | null
   songTitle?: string | null; songArtist?: string | null; songCover?: string | null
   artist?: { name: string; slug: string; image?: string | null } | null
@@ -139,11 +140,13 @@ function formatRelativeDateLT(input: string | null | undefined): string | null {
   // Kuo paprasčiau: pirmą savaitę — dienomis, toliau — savaitėmis („Prieš 3
   // sav." vietoj „Prieš 23 d."), po mėnesio — mėnesiais, po metų — metais.
   // 2026-05-29 v2.
-  if (diffDays < 7) return `Prieš ${diffDays} d.`
-  if (diffDays < 30) return `Prieš ${Math.round(diffDays / 7)} sav.`
+  // Badge kontekstas (cover'io kampas) — trumpa forma be „Prieš", kad badge'as
+  // neišsitemptų ant siaurų mobile kortelių (2026-07 UX auditas).
+  if (diffDays < 7) return `${diffDays} d.`
+  if (diffDays < 30) return `${Math.round(diffDays / 7)} sav.`
   const months = Math.floor(diffDays / 30)
-  if (months < 12) return `Prieš ${months} mėn.`
-  return `Prieš ${Math.floor(diffDays / 365)} m.`
+  if (months < 12) return `${months} mėn.`
+  return `${Math.floor(diffDays / 365)} m.`
 }
 
 /** Future date formatas „Greitai pasirodys" sekcijai. Iki 30 d. — „Po X d.",
@@ -1985,7 +1988,7 @@ function HeroV2Card({ slide, dk }: { slide: HeroSlide; dk: boolean }) {
           Renginys, promo ir t.t.). */}
       {slide.chip !== 'NAUJIENA' && (
         <span
-          className="absolute left-3 top-3 z-[2] inline-flex rounded-[7px] px-2.5 py-1 font-['Outfit',sans-serif] text-[12px] font-black uppercase tracking-[0.08em] text-white"
+          className="absolute left-3 top-3 z-[2] inline-flex rounded-md px-2 py-0.5 font-['Outfit',sans-serif] text-[12px] font-bold uppercase tracking-[0.03em] text-white"
           style={{ background: slide.chipBg }}
         >
           {slide.chip}
@@ -2111,7 +2114,7 @@ function HeroChartCard({ slide }: { slide: HeroSlide }) {
         {/* Top: TOP chip — vienoda badge forma kaip news kortelėse (KindBadge):
             rounded-[7px], be ikonos/šešėlio, kad visi hero badge'ai atrodytų vienodai. */}
         <span
-          className="inline-flex w-fit items-center rounded-[7px] px-2.5 py-1 font-['Outfit',sans-serif] text-[12px] font-black uppercase tracking-[0.08em] text-white"
+          className="inline-flex w-fit items-center rounded-md px-2 py-0.5 font-['Outfit',sans-serif] text-[12px] font-bold uppercase tracking-[0.03em] text-white"
           style={{ background: accent, alignSelf: 'flex-start' }}
         >
           {isLT ? 'LT TOP 30' : 'TOP 40'}
@@ -2594,7 +2597,7 @@ function MobileChartSlide({
 
       {/* CHIP — virš kortelės */}
       <div style={{ position: 'relative', zIndex: 2, padding: '10px 12px 8px', display: 'flex', justifyContent: 'flex-start' }}>
-        <span style={{ padding: '4px 10px', borderRadius: 999, fontSize: 12, fontWeight: 900, color: '#fff', background: accent, fontFamily: 'Outfit,sans-serif', letterSpacing: '0.08em', textTransform: 'uppercase', boxShadow: '0 2px 10px rgba(0,0,0,0.4)' }}>
+        <span style={{ padding: '3px 9px', borderRadius: 999, fontSize: 12, fontWeight: 700, color: '#fff', background: accent, fontFamily: 'Outfit,sans-serif', letterSpacing: '0.03em', textTransform: 'uppercase', boxShadow: '0 2px 10px rgba(0,0,0,0.4)' }}>
           {slide.chip}
         </span>
       </div>
@@ -3254,6 +3257,14 @@ export default function HomeClient({ initialLatest, initialHero }: { initialLate
       // Vietos pavadinimas (venue) — pilnesnė metaLine: vieta · miestas · data.
       const venueName = ev.venues?.name || ev.venue_name || ev.venue_custom || ''
       const evMeta = [venueName, city, dateStr].filter(Boolean).join(' · ')
+      // Trumpa meta mobile hero kortelei (156px): tik miestas + data be metų
+      // (šių metų renginiams) — kad netilptų į 2 eilutes (2026-07 UX auditas).
+      const dateShort = d && !isNaN(d.getTime())
+        ? (d.getFullYear() === new Date().getFullYear()
+            ? `${MONTHS_FULL_LT[d.getMonth()]} ${d.getDate()} d.`
+            : `${d.getFullYear()} ${MONTHS_FULL_LT[d.getMonth()]} ${d.getDate()} d.`)
+        : ''
+      const evMetaShort = [city, dateShort].filter(Boolean).join(' · ')
       // Aprašymas PILNAS (be trumpinimo) — reader'yje vietos užtenka.
       const evDesc = (ev as any).description ? sanitizeTitle((ev as any).description) : ''
       // Pilnas lineup'as (max 6) — avatarų eilutė su nuorodom į atlikėjų puslapius.
@@ -3265,6 +3276,7 @@ export default function HomeClient({ initialLatest, initialHero }: { initialLate
         type: 'event', chip: 'RENGINYS', chipBg: '#047857',
         title: artistText,  // ARTISTS as primary text (atlikėjas nerodomas dar kartą žemiau)
         subtitle: evMeta,  // vieta · miestas · data
+        subtitleShort: evMetaShort,  // miestas · data (mobile kortelė)
         metaLine: evMeta,
         excerpt: evDesc,
         lineup: lineup.length ? lineup : undefined,
@@ -3468,7 +3480,7 @@ export default function HomeClient({ initialLatest, initialHero }: { initialLate
         /* Turinys — footer'is yra PASKUTINIS elementas; apačioje tik nedidelis
            tarpas + safe-area, kad kortelė baigtųsi švariai (be tuščio scroll'o). */
         .rdr-content{padding:16px 20px calc(16px + env(safe-area-inset-bottom))}
-        .rdr-chip{display:inline-block;padding:4px 12px;border-radius:16px;font-size:12px;font-weight:900;color:#fff;font-family:'Outfit',sans-serif;letter-spacing:0.08em;text-transform:uppercase}
+        .rdr-chip{display:inline-block;padding:3px 10px;border-radius:14px;font-size:12px;font-weight:700;color:#fff;font-family:'Outfit',sans-serif;letter-spacing:0.03em;text-transform:uppercase}
         .rdr-title{font-family:'Outfit',sans-serif;font-size:25px;font-weight:900;color:#eef1f6;line-height:1.16;letter-spacing:-0.02em;margin:0 0 8px;display:block}
         a.rdr-title-link{text-decoration:none}
         a.rdr-title-link:active{opacity:0.7}
@@ -3636,7 +3648,7 @@ export default function HomeClient({ initialLatest, initialHero }: { initialLate
           .hp-ne{grid-template-columns:1fr!important}
         }
         @media(max-width:768px){
-          .hp-cnt{padding:26px 14px!important;gap:36px!important}
+          .hp-cnt{padding:22px 14px!important;gap:30px!important}
           .hp-ag{grid-template-columns:repeat(4,1fr)!important;gap:14px!important}
           .hp-disc-grid{grid-template-columns:1fr!important}
           .hp-cta{flex-direction:column!important;align-items:flex-start!important;gap:14px!important;padding:22px 16px!important}
@@ -3736,7 +3748,7 @@ export default function HomeClient({ initialLatest, initialHero }: { initialLate
             CSS iš desktop skeleton <style>, kuris DOM'e kol !heroReady). */}
         {pageReady && !heroReady && (
           <div className="hp-feed-strip" style={{ padding: '14px 16px 0' }} aria-hidden>
-            <div style={{ display: 'flex', gap: 12, overflowX: 'hidden', height: 296, alignItems: 'stretch' }}>
+            <div style={{ display: 'flex', gap: 12, overflowX: 'hidden', height: 240, alignItems: 'stretch' }}>
               {[0, 1, 2, 3].map(i => (
                 <div key={i} className="hp-skel-card" style={{ flexShrink: 0, width: 156, height: 236, borderRadius: 16 }}>
                   <div className="hp-eq"><span /><span /><span /><span /><span /></div>
@@ -3747,7 +3759,7 @@ export default function HomeClient({ initialLatest, initialHero }: { initialLate
         )}
         {heroReady && heroSlides.length > 0 && (
           <div className="hp-feed-strip" style={{ padding: '14px 16px 0' }}>
-            <div style={{ display: 'flex', gap: 12, overflowX: 'auto', scrollbarWidth: 'none', height: 296, alignItems: 'stretch', scrollSnapType: 'x mandatory' }}>
+            <div style={{ display: 'flex', gap: 12, overflowX: 'auto', scrollbarWidth: 'none', height: 240, alignItems: 'stretch', scrollSnapType: 'x mandatory' }}>
               {heroSlides.map((slide, i) => {
                 const isChart = slide.type === 'chart_lt' || slide.type === 'chart_world'
                 const chartTops = slide.chartTops || []
@@ -3797,7 +3809,7 @@ export default function HomeClient({ initialLatest, initialHero }: { initialLate
                     <div style={{ position: 'absolute', bottom: 0, left: 0, right: 0, padding: '10px 12px 12px', textAlign: 'left' }}>
                       <p style={{ fontSize: 14, fontWeight: 800, color: '#fff', margin: 0, lineHeight: 1.2, fontFamily: 'Outfit,sans-serif', display: '-webkit-box', WebkitLineClamp: 3, WebkitBoxOrient: 'vertical', overflow: 'hidden', textOverflow: 'ellipsis', letterSpacing: '-0.01em' } as any}>{slide.title}</p>
                       {showExcerpt && (
-                        <p style={{ fontSize: 12, fontWeight: 500, color: 'rgba(255,255,255,0.82)', margin: '5px 0 0', lineHeight: 1.3, display: '-webkit-box', WebkitLineClamp: 2, WebkitBoxOrient: 'vertical', overflow: 'hidden', textOverflow: 'ellipsis' } as any}>{slide.subtitle}</p>
+                        <p style={{ fontSize: 12, fontWeight: 500, color: 'rgba(255,255,255,0.82)', margin: '5px 0 0', lineHeight: 1.3, display: '-webkit-box', WebkitLineClamp: 2, WebkitBoxOrient: 'vertical', overflow: 'hidden', textOverflow: 'ellipsis' } as any}>{slide.subtitleShort || slide.subtitle}</p>
                       )}
                       {showArtist && (
                         <p style={{ fontSize: 12, fontWeight: 700, color: 'rgba(255,255,255,0.78)', margin: '4px 0 0', lineHeight: 1.2, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{artistName}</p>
@@ -3806,7 +3818,7 @@ export default function HomeClient({ initialLatest, initialHero }: { initialLate
                     {/* Top: chip badge — „NAUJIENA" nerodom (kartotųsi), tik prominentiniai */}
                     {slide.chip !== 'NAUJIENA' && (
                       <div style={{ position: 'absolute', top: 10, left: 10, display: 'flex', alignItems: 'center', gap: 4, zIndex: 2 }}>
-                        <span style={{ padding: '4px 9px', borderRadius: 7, fontSize: 12, fontWeight: 900, color: '#fff', background: slide.chipBg, fontFamily: 'Outfit,sans-serif', letterSpacing: '0.06em', textTransform: 'uppercase', backdropFilter: 'blur(4px)' }}>
+                        <span style={{ padding: '3px 7px', borderRadius: 6, fontSize: 12, fontWeight: 700, color: '#fff', background: slide.chipBg, fontFamily: 'Outfit,sans-serif', letterSpacing: '0.025em', textTransform: 'uppercase', backdropFilter: 'blur(4px)' }}>
                           {slide.chip}
                         </span>
                       </div>
@@ -3916,7 +3928,7 @@ export default function HomeClient({ initialLatest, initialHero }: { initialLate
                           {rel && (<span className={`absolute bottom-1.5 right-1.5 rounded px-1.5 py-0.5 font-['Outfit',sans-serif] text-[12px] font-bold backdrop-blur-sm ${highlight ? 'bg-[var(--accent-orange)] text-white' : 'bg-black/70 text-white'}`}>{rel}</span>)}
                           {isFresh24(t.created_at) && <FreshDot />}
                         </div>
-                        <p className="m-0 mt-1.5 truncate font-['Outfit',sans-serif] text-[16px] font-extrabold text-[var(--text-primary)] transition-colors group-hover:text-[var(--accent-orange)]">{sanitizeTitle(t.title)}</p>
+                        <p className="m-0 mt-1.5 line-clamp-2 font-['Outfit',sans-serif] text-[14px] font-bold leading-snug text-[var(--text-primary)] transition-colors group-hover:text-[var(--accent-orange)] lg:truncate lg:text-[16px] lg:font-extrabold">{sanitizeTitle(t.title)}</p>
                         <p className="m-0 truncate text-[14px] text-[var(--text-muted)]">{t.artists?.name}</p>
                       </button>
                     )
@@ -3926,7 +3938,7 @@ export default function HomeClient({ initialLatest, initialHero }: { initialLate
                       {boxes.map(box => (
                         <div key={box.lane} className={`rounded-2xl border border-[var(--border-subtle)] bg-[var(--bg-surface)] p-4 border-t-[3px] ${box.lane === 'lt' ? 'border-t-[var(--accent-orange)]' : 'border-t-[var(--accent-blue)]'}`}>
                           <div className="mb-3 flex items-center justify-between">
-                            <span className="font-['Outfit',sans-serif] text-[16px] font-extrabold text-[var(--text-primary)]">{box.label}</span>
+                            <span className="font-['Outfit',sans-serif] text-[14px] font-bold text-[var(--text-primary)]">{box.label}</span>
                             <button type="button" onClick={() => setListModal(`tracks-${box.lane}`)} className={`font-['Outfit',sans-serif] text-[14px] font-bold transition-opacity hover:opacity-70 ${box.lane === 'lt' ? 'text-[var(--accent-orange)]' : 'text-[var(--accent-blue)]'}`}>Daugiau →</button>
                           </div>
                           <div className="flex gap-3 overflow-x-auto pb-1 [scrollbar-width:none] [&::-webkit-scrollbar]:hidden lg:grid lg:gap-3 lg:overflow-visible lg:pb-0 lg:grid-cols-3">
@@ -3971,7 +3983,7 @@ export default function HomeClient({ initialLatest, initialHero }: { initialLate
                           {label && (<span className={`absolute bottom-1 right-1 rounded px-1.5 py-0.5 font-['Outfit',sans-serif] text-[12px] font-bold backdrop-blur-sm ${highlight ? 'bg-[var(--accent-orange)] text-white' : 'bg-black/70 text-white'}`}>{label}</span>)}
                           {isFresh24(a.created_at) && <FreshDot />}
                         </div>
-                        <p className="m-0 mt-1.5 truncate font-['Outfit',sans-serif] text-[16px] font-extrabold text-[var(--text-primary)] transition-colors group-hover:text-[var(--accent-orange)]">{sanitizeTitle(a.title)}</p>
+                        <p className="m-0 mt-1.5 line-clamp-2 font-['Outfit',sans-serif] text-[14px] font-bold leading-snug text-[var(--text-primary)] transition-colors group-hover:text-[var(--accent-orange)] lg:truncate lg:text-[16px] lg:font-extrabold">{sanitizeTitle(a.title)}</p>
                         <p className="m-0 truncate text-[12px] text-[var(--text-muted)]">{a.artists?.name}</p>
                       </button>
                     )
@@ -3981,7 +3993,7 @@ export default function HomeClient({ initialLatest, initialHero }: { initialLate
                       {boxes.map(box => (
                         <div key={box.lane} className={`rounded-2xl border border-[var(--border-subtle)] bg-[var(--bg-surface)] p-4 border-t-[3px] ${box.lane === 'lt' ? 'border-t-[var(--accent-orange)]' : 'border-t-[var(--accent-blue)]'}`}>
                           <div className="mb-3 flex items-center justify-between">
-                            <span className="font-['Outfit',sans-serif] text-[16px] font-extrabold text-[var(--text-primary)]">{box.label}</span>
+                            <span className="font-['Outfit',sans-serif] text-[14px] font-bold text-[var(--text-primary)]">{box.label}</span>
                             <button type="button" onClick={() => setListModal(`albums-${box.lane}`)} className={`font-['Outfit',sans-serif] text-[14px] font-bold transition-opacity hover:opacity-70 ${box.lane === 'lt' ? 'text-[var(--accent-orange)]' : 'text-[var(--accent-blue)]'}`}>Daugiau →</button>
                           </div>
                           <div className="flex gap-3 overflow-x-auto pb-1 [scrollbar-width:none] [&::-webkit-scrollbar]:hidden lg:grid lg:gap-3 lg:overflow-visible lg:pb-0 lg:grid-cols-3">
@@ -4042,7 +4054,7 @@ export default function HomeClient({ initialLatest, initialHero }: { initialLate
                             {isFresh24((a as any).created_at) && <FreshDot />}
                           </div>
                           <div className="mt-2 px-0.5">
-                            <p className="m-0 truncate font-['Outfit',sans-serif] text-[16px] font-extrabold text-[var(--text-primary)] transition-colors group-hover:text-[var(--accent-orange)]">
+                            <p className="m-0 line-clamp-2 font-['Outfit',sans-serif] text-[14px] font-bold leading-snug text-[var(--text-primary)] transition-colors group-hover:text-[var(--accent-orange)] lg:truncate lg:text-[16px] lg:font-extrabold">
                               {sanitizeTitle(a.title)}
                             </p>
                             <p className="m-0 mt-1 truncate text-[14px] text-[var(--text-muted)]">
