@@ -29,6 +29,15 @@ export const metadata: Metadata = {
   description: 'Vienas iššūkis per dieną, tas pats visiems: atspėk 5 dainas, balsuok dienos dvikovoje, palik verdiktą. Rink taškus ir augink seriją!',
 }
 
+// Dienos rotacija — kasdien 2 iš 3 papildomų žaidimų (deterministiškai pagal datą)
+const ROTATION_POOL = ['metai', 'vaizdas', 'sekundes']
+function dailyExtras(dateStr: string): string[] {
+  let h = 0
+  for (const ch of dateStr) h = (h * 31 + ch.charCodeAt(0)) >>> 0
+  const start = h % ROTATION_POOL.length
+  return [ROTATION_POOL[start], ROTATION_POOL[(start + 1) % ROTATION_POOL.length]]
+}
+
 async function loadInitial() {
   const viewer = await resolveViewerReadonly()
   const sb = createAdminClient()
@@ -50,11 +59,14 @@ async function loadInitial() {
     },
   })
 
-  // Ar dienos kvizas jau užskaitytas
+  // Dienos rotacija: kasdien 2 iš 3 „papildomų" žaidimų (kad būtų nauja)
+  const activeExtras = dailyExtras(today)
+  const extraQuizId: Record<string, string> = { metai: `m-d${today}`, vaizdas: `v-d${today}`, sekundes: `s-d${today}` }
+
+  // Ar dienos kvizas jau užskaitytas + kurie papildomi žaidimai atlikti
   let quizPlayed = false
   let quizScore: number | null = null
-  let metaiDone = false
-  let vaizdasDone = false
+  const extrasDone: Record<string, boolean> = { metai: false, vaizdas: false, sekundes: false }
   if (viewer.userId || viewer.anonId) {
     const f = viewer.userId ? { user_id: viewer.userId } : { anon_id: viewer.anonId! }
     let q = sb
@@ -67,14 +79,11 @@ async function loadInitial() {
       .limit(1)
     if (viewer.userId) q = q.eq('user_id', viewer.userId)
     else q = q.eq('anon_id', viewer.anonId!)
-    const [{ data }, { data: m }, { data: v }] = await Promise.all([
-      q.maybeSingle(),
-      sb.from('game_scores').select('id').eq('game', 'metai').eq('quiz_id', `m-d${today}`).match(f).maybeSingle(),
-      sb.from('game_scores').select('id').eq('game', 'vaizdas').eq('quiz_id', `v-d${today}`).match(f).maybeSingle(),
-    ])
+    const extraChecks = activeExtras.map(g =>
+      sb.from('game_scores').select('id').eq('game', g).eq('quiz_id', extraQuizId[g]).match(f).maybeSingle())
+    const [{ data }, ...extraRes] = await Promise.all([q.maybeSingle(), ...extraChecks])
     if (data) { quizPlayed = true; quizScore = data.score }
-    metaiDone = !!m
-    vaizdasDone = !!v
+    activeExtras.forEach((g, i) => { extrasDone[g] = !!(extraRes[i] as any).data })
   }
 
   // Streak
@@ -93,8 +102,8 @@ async function loadInitial() {
     completions,
     quizPlayed,
     quizScore,
-    metaiDone,
-    vaizdasDone,
+    activeExtras,
+    extrasDone,
     streak,
   }
 }

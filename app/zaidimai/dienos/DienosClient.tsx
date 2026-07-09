@@ -20,13 +20,19 @@ type Props = {
   completions: DropCompletionLookup
   quizPlayed: boolean
   quizScore: number | null
-  metaiDone: boolean
-  vaizdasDone: boolean
+  activeExtras: string[]
+  extrasDone: Record<string, boolean>
   streak: { current: number; total_xp: number }
 }
 
-type Stage = 'intro' | 'kvizas' | 'metai' | 'vaizdas' | 'duel' | 'verdict' | 'image' | 'summary'
-type StepKey = 'kvizas' | 'metai' | 'vaizdas' | 'duel' | 'verdict' | 'image'
+type Stage = 'intro' | 'kvizas' | 'metai' | 'vaizdas' | 'sekundes' | 'duel' | 'verdict' | 'image' | 'summary'
+type StepKey = 'kvizas' | 'metai' | 'vaizdas' | 'sekundes' | 'duel' | 'verdict' | 'image'
+
+const EXTRA_META: Record<string, { label: string; emoji: string }> = {
+  metai: { label: 'Kurie metai?', emoji: '📅' },
+  vaizdas: { label: 'Atspėk iš vaizdo', emoji: '💿' },
+  sekundes: { label: 'Atspėk iš sekundės', emoji: '⏱️' },
+}
 
 // ── Kvizo tipai ──
 type QOption = { id: number; title: string; artist: string }
@@ -57,10 +63,12 @@ export default function DienosClient(props: Props) {
   const { duel, verdict, image, completions } = props
 
   // ── Step'ų sąrašas ──
+  const extraSteps = props.activeExtras.map(g => ({
+    key: g as StepKey, label: EXTRA_META[g].label, emoji: EXTRA_META[g].emoji, present: true, initiallyDone: !!props.extrasDone[g],
+  }))
   const steps: Array<{ key: StepKey; label: string; emoji: string; present: boolean; initiallyDone: boolean }> = [
     { key: 'kvizas', label: 'Atspėk 5 dainas', emoji: '🎧', present: true, initiallyDone: props.quizPlayed },
-    { key: 'metai', label: 'Kurie metai?', emoji: '📅', present: true, initiallyDone: props.metaiDone },
-    { key: 'vaizdas', label: 'Atspėk iš vaizdo', emoji: '💿', present: true, initiallyDone: props.vaizdasDone },
+    ...extraSteps,
     { key: 'duel', label: 'Dienos dvikova', emoji: '⚔️', present: !!duel, initiallyDone: !!completions.duel },
     { key: 'verdict', label: 'Dienos verdiktas', emoji: '🔥', present: !!verdict, initiallyDone: !!completions.verdict },
     { key: 'image', label: 'AI vaizdas', emoji: '🖼️', present: !!image, initiallyDone: !!completions.image },
@@ -68,8 +76,9 @@ export default function DienosClient(props: Props) {
 
   const [done, setDone] = useState<Record<StepKey, boolean>>({
     kvizas: props.quizPlayed,
-    metai: props.metaiDone,
-    vaizdas: props.vaizdasDone,
+    metai: !!props.extrasDone.metai,
+    vaizdas: !!props.extrasDone.vaizdas,
+    sekundes: !!props.extrasDone.sekundes,
     duel: !!completions.duel,
     verdict: !!completions.verdict,
     image: !!completions.image,
@@ -318,16 +327,18 @@ export default function DienosClient(props: Props) {
     markDone('image')
   }
 
-  // ── Albumų žaidimai (Kurie metai? / Atspėk iš vaizdo) ──
-  const [metaiResult, setMetaiResult] = useState<any>(props.metaiDone ? { alreadyDone: true } : null)
-  const [vaizdasResult, setVaizdasResult] = useState<any>(props.vaizdasDone ? { alreadyDone: true } : null)
-  function onAlbumDone(key: 'metai' | 'vaizdas', result: any) {
+  // ── Rotuojami papildomi žaidimai (metai / vaizdas / sekundes) ──
+  const [extrasResult, setExtrasResult] = useState<Record<string, any>>(() => {
+    const init: Record<string, any> = {}
+    for (const g of props.activeExtras) if (props.extrasDone[g]) init[g] = { alreadyDone: true }
+    return init
+  })
+  function onExtraDone(key: string, result: any) {
     if (result?.xp) setSessionXp(x => x + result.xp)
     if (result?.streak) setStreak(s => ({ current: result.streak, total_xp: result.totalXp ?? s.total_xp }))
-    if (key === 'metai') setMetaiResult(result)
-    else setVaizdasResult(result)
-    markDone(key)
-    setStage(nextAfterDone(key))
+    setExtrasResult(r => ({ ...r, [key]: result }))
+    markDone(key as StepKey)
+    setStage(nextAfterDone(key as StepKey))
   }
 
   // ── Share ──
@@ -470,14 +481,21 @@ export default function DienosClient(props: Props) {
         </div>
       )}
 
-      {/* ═══ KURIE METAI? / ATSPĖK IŠ VAIZDO (albumų žaidimai) ═══ */}
+      {/* ═══ Rotuojami žaidimai: Kurie metai? / Atspėk iš vaizdo / Iš sekundės ═══ */}
       {(stage === 'metai' || stage === 'vaizdas') && (
         <AlbumGameStep
           key={stage}
           game={stage}
           stepNo={steps.findIndex((s: any) => s.key === stage) + 1}
           stepTotal={steps.length}
-          onDone={r => onAlbumDone(stage, r)}
+          onDone={r => onExtraDone(stage, r)}
+        />
+      )}
+      {stage === 'sekundes' && (
+        <SekundesGameStep
+          stepNo={steps.findIndex((s: any) => s.key === 'sekundes') + 1}
+          stepTotal={steps.length}
+          onDone={r => onExtraDone('sekundes', r)}
         />
       )}
 
@@ -621,8 +639,16 @@ export default function DienosClient(props: Props) {
           : null
         const rows: Array<{ icon: string; label: string; value: string; ok?: boolean }> = []
         if (qResult) rows.push({ icon: '🎧', label: 'Atspėk 5 dainas', value: `${qResult.correctCount}/${qResult.roundCount} · ${qResult.score} tšk.` })
-        if (metaiResult && done.metai) rows.push({ icon: '📅', label: 'Kurie metai?', value: metaiResult.alreadyDone ? 'Atlikta ✓' : `${metaiResult.correctCount}/${metaiResult.roundCount} · ${metaiResult.score} tšk.` })
-        if (vaizdasResult && done.vaizdas) rows.push({ icon: '💿', label: 'Atspėk iš vaizdo', value: vaizdasResult.alreadyDone ? 'Atlikta ✓' : `${vaizdasResult.correctCount}/${vaizdasResult.roundCount} · ${vaizdasResult.score} tšk.` })
+        for (const g of props.activeExtras) {
+          const er = extrasResult[g]
+          if (er && done[g as StepKey]) {
+            rows.push({
+              icon: EXTRA_META[g].emoji,
+              label: EXTRA_META[g].label,
+              value: er.alreadyDone ? 'Atlikta ✓' : `${er.correctCount}/${er.roundCount} · ${er.score} tšk.`,
+            })
+          }
+        }
         if (duel && done.duel) rows.push({ icon: '⚔️', label: 'Dvikova', value: duelWin ? 'Atspėjai daugumą ✓' : 'Balsavai', ok: !!duelWin })
         if (verdict && done.verdict) rows.push({ icon: '🔥', label: 'Verdiktas', value: verdictWin ? 'Populiariausia reakcija ✓' : 'Balsavai', ok: !!verdictWin })
         if (image && done.image) rows.push({ icon: '🖼️', label: 'Atspėk iš vaizdo', value: imgCorrect ? 'Teisingai ✓' : 'Neatspėta', ok: !!imgCorrect })
@@ -797,7 +823,120 @@ function AlbumGameStep({ game, stepNo, stepTotal, onDone }: {
   )
 }
 
+// ═══════════ „Atspėk iš sekundės" žingsnis (audio) ═══════════
+type SekRound = { r: number; audioUrl: string; options: { id: number; title: string; artist: string }[]; token: string }
+const SEK_STAGES = [1000, 4000, 9000]
+
+function SekundesGameStep({ stepNo, stepTotal, onDone }: { stepNo: number; stepTotal: number; onDone: (r: any) => void }) {
+  const ROUND_MS = 25000, REVEAL_MS = 2200
+  const [phase, setPhase] = useState<'load' | 'ready' | 'round' | 'reveal' | 'submit' | 'error'>('load')
+  const [rounds, setRounds] = useState<SekRound[]>([])
+  const [quizId, setQuizId] = useState('')
+  const [idx, setIdx] = useState(0)
+  const [stg, setStg] = useState(0)
+  const [picked, setPicked] = useState<number | null>(null)
+  const [rr, setRr] = useState<{ correct: boolean; correctId: number; points: number } | null>(null)
+  const [score, setScore] = useState(0)
+  const [err, setErr] = useState<string | null>(null)
+  const garsas = naudotiGarsoGrotuva()
+  const startRef = useRef(0)
+  const snipRef = useRef<ReturnType<typeof setTimeout> | null>(null)
+  const revealRef = useRef<ReturnType<typeof setTimeout> | null>(null)
+  const phaseRef = useRef(phase); phaseRef.current = phase
+  const round = rounds[idx] || null
+
+  useEffect(() => { void load(); return () => { if (snipRef.current) clearTimeout(snipRef.current); if (revealRef.current) clearTimeout(revealRef.current); garsas.stop() } }, [])
+
+  async function load() {
+    setPhase('load'); setErr(null)
+    try {
+      const res = await fetch('/api/zaidimai/sekundes?dienos=1')
+      const j = await res.json()
+      if (!res.ok || !j.rounds?.length) { setErr(j.error || 'Nepavyko įkelti'); setPhase('error'); return }
+      setRounds(j.rounds); setQuizId(j.quizId); setIdx(0); setScore(0); setPhase('ready')
+    } catch { setErr('Tinklo klaida'); setPhase('error') }
+  }
+
+  function groti(url: string, dur: number) {
+    if (snipRef.current) clearTimeout(snipRef.current)
+    garsas.play(url)
+    snipRef.current = setTimeout(() => garsas.stop(), dur)
+  }
+  function startPlaying() { if (rounds[0]) { setPhase('round'); startRound(rounds[0]) } }
+  function startRound(r: SekRound) { startRef.current = Date.now(); setStg(0); setPicked(null); setRr(null); groti(r.audioUrl, SEK_STAGES[0]) }
+  function listenMore() { if (round && stg < SEK_STAGES.length - 1) { const n = stg + 1; setStg(n); groti(round.audioUrl, SEK_STAGES[n]) } }
+
+  async function answer(id: number) {
+    if (phaseRef.current !== 'round' || !round) return
+    garsas.stop()
+    const ms = Math.min(Date.now() - startRef.current, ROUND_MS)
+    setPicked(id); setPhase('reveal')
+    try {
+      const res = await fetch('/api/zaidimai/raundas', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ token: round.token, answerId: id, ms }) })
+      const j = await res.json()
+      if (res.ok) { setRr({ correct: j.correct, correctId: j.correctId, points: j.points }); setScore(s => s + (j.points || 0)) }
+    } catch { /* ok */ }
+    revealRef.current = setTimeout(next, REVEAL_MS)
+  }
+  function next() {
+    if (revealRef.current) { clearTimeout(revealRef.current); revealRef.current = null }
+    if (idx + 1 >= rounds.length) { void submit(); return }
+    const n = rounds[idx + 1]; setIdx(i => i + 1); setPhase('round'); startRound(n)
+  }
+  async function submit() {
+    garsas.stop(); setPhase('submit')
+    try {
+      const res = await fetch('/api/zaidimai/sekundes', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ quizId }) })
+      const j = await res.json()
+      onDone(res.ok || res.status === 409 ? j : { score, correctCount: 0, roundCount: rounds.length })
+    } catch { onDone({ score, correctCount: 0, roundCount: rounds.length }) }
+  }
+
+  const potential = (Date.now() - startRef.current) <= 6000 ? 100 : (Date.now() - startRef.current) <= 13000 ? 60 : 30
+
+  if (phase === 'load') return <div className="di-center"><div className="di-spinner" /></div>
+  if (phase === 'error') return <div className="di-stage"><div className="di-error">{err} <button onClick={() => void load()}>Bandyti dar</button></div></div>
+
+  return (
+    <div className="di-stage">
+      <span className="di-stage-no">{stepNo} iš {stepTotal} · Iš sekundės</span>
+      <div className="di-ag-head">
+        <h2 className="di-h2">⏱️ Kokia tai daina?</h2>
+        {phase !== 'ready' && <span className="di-ag-prog">{idx + 1}/{rounds.length} · ⚡ {score}</span>}
+      </div>
+
+      <div className="di-sek-audio">
+        {phase === 'ready' ? (
+          <button className="di-play-big" onClick={startPlaying}><svg width="24" height="24" viewBox="0 0 24 24" fill="currentColor"><path d="M8 5v14l11-7z" /></svg><span>Pradėti</span></button>
+        ) : phase === 'round' ? (
+          <>
+            <div className={`di-eq${garsas.grojama ? '' : ' off'}`}>{Array.from({ length: 7 }).map((_, i) => <span key={i} style={{ animationDelay: `${i * 0.12}s` }} />)}</div>
+            <span className="di-sek-pot">verta {potential}</span>
+            {stg < SEK_STAGES.length - 1 && <button className="di-sek-more" onClick={listenMore}>▶ Klausyti ilgiau ({SEK_STAGES[stg + 1] / 1000} s)</button>}
+          </>
+        ) : rr ? (
+          <div className={`di-ag-tag ${rr.correct ? 'ok' : 'bad'}`} style={{ position: 'static' }}>{rr.correct ? `+${rr.points}` : 'Ne ta daina'}</div>
+        ) : null}
+      </div>
+
+      {phase !== 'ready' && round && (
+        <div className="di-ag-opts" style={{ marginTop: 10 }}>
+          {round.options.map(o => {
+            let cls = 'di-ag-opt'
+            if (phase === 'reveal' && rr) { if (o.id === rr.correctId) cls += ' correct'; else if (o.id === picked) cls += ' wrong'; else cls += ' dim' }
+            return <button key={o.id} className={cls} disabled={phase !== 'round'} onClick={() => answer(o.id)}><b>{o.artist}</b> — {o.title}</button>
+          })}
+        </div>
+      )}
+    </div>
+  )
+}
+
 const css = `
+.di-sek-audio { position: relative; display: flex; align-items: center; justify-content: center; gap: 14px; border-radius: 14px; min-height: 96px; padding: 14px; background: #10131b; }
+.di-sek-pot { font-size: 13px; color: rgba(255,255,255,0.8); }
+.di-sek-more { font-size: 13px; font-weight: 800; color: rgba(255,255,255,0.85); background: rgba(255,255,255,0.08); border: 1px solid rgba(255,255,255,0.2); border-radius: 999px; padding: 8px 15px; cursor: pointer; }
+.di-eq.off span { animation: none !important; background: rgba(148,163,184,0.4) !important; }
 .di-xp { font-size: 15px; font-weight: 900; color: var(--accent-orange); }
 .di-streak { font-size: 13px; font-weight: 800; color: var(--text-secondary); }
 .di-play-big {
