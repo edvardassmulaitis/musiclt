@@ -263,6 +263,7 @@ export type PoolTrack = {
   artist_id: number
   ytId: string
   year: number | null
+  lt: boolean          // ar lietuviškas — kad klaidinantys variantai būtų tos pačios scenos
 }
 
 const poolCache = new Map<string, { at: number; tracks: PoolTrack[] }>()
@@ -302,6 +303,7 @@ export async function loadQuizPool(cat: QuizCategory): Promise<PoolTrack[]> {
       artist_id: row.artist_id,
       ytId,
       year: row.release_year || null,
+      lt: a.country === 'Lietuva',
     })
   }
   poolCache.set(cat.key, { at: Date.now(), tracks })

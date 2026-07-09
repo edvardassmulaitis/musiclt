@@ -271,6 +271,7 @@ export default function DienosClient(props: Props) {
   // Duel
   const [duelPick, setDuelPick] = useState<'A' | 'B' | null>(completions.duel?.payload?.choice ?? null)
   const [duelStats, setDuelStats] = useState<any>(null)
+  const [duelWin, setDuelWin] = useState<boolean | null>(null)
   const [duelPlaying, setDuelPlaying] = useState<'A' | 'B' | null>(null)
   function voteDuel(pick: 'A' | 'B') {
     if (!duel || duelPick) return
@@ -279,6 +280,7 @@ export default function DienosClient(props: Props) {
     boomboxSubmit('duel', duel.id, { choice: pick, source: 'dienos' }).then(j => {
       if (!j) { setDuelPick(null); return } // tinklo klaida — leisti bandyti dar
       if (j.stats) setDuelStats(j.stats)
+      setDuelWin(!!j.crowdWin)
       markDone('duel')
     })
   }
@@ -286,12 +288,14 @@ export default function DienosClient(props: Props) {
   // Verdict
   const [verdictPick, setVerdictPick] = useState<string | null>(completions.verdict?.payload?.emoji ?? null)
   const [verdictStats, setVerdictStats] = useState<any>(null)
+  const [verdictWin, setVerdictWin] = useState<boolean | null>(null)
   function voteVerdict(emoji: string) {
     if (!verdict || verdictPick) return
     setVerdictPick(emoji)
     boomboxSubmit('verdict', verdict.id, { emoji, source: 'dienos' }).then(j => {
       if (!j) { setVerdictPick(null); return }
       if (j.stats) setVerdictStats(j.stats)
+      setVerdictWin(!!j.crowdWin)
       markDone('verdict')
     })
   }
@@ -327,7 +331,7 @@ export default function DienosClient(props: Props) {
   }
 
   // Kiek iš viso ĮMANOMA surinkti šiandien šiame iššūkyje (anon skalė)
-  const galimaXp = Math.round((5 * 100 + 3 * 15) / 10) * 2 + (duel ? 20 : 0) + (verdict ? 20 : 0) + (image ? 80 : 0)
+  const galimaXp = Math.round((5 * 100 + 3 * 15) / 10) * 2 + (duel ? 40 : 0) + (verdict ? 40 : 0) + (image ? 80 : 0)
   const qPct = Math.max(0, qTimeLeft / ROUND_MS)
   const stepIdx = stage === 'intro' ? 0 : steps.findIndex((s: any) => s.key === stage) + 1
 
@@ -451,8 +455,8 @@ export default function DienosClient(props: Props) {
       {stage === 'duel' && duel && (
         <div className="di-stage">
           <span className="di-stage-no">{steps.findIndex((s: any) => s.key === 'duel') + 1} iš {steps.length} · Dvikova</span>
-          <h2 className="di-h2">⚔️ Kuri daina stipresnė?</h2>
-          <p className="di-note">Paspausk ▶ paklausyti, tada balsuok. Tavo balsas — 20 taškų.</p>
+          <h2 className="di-h2">⚔️ Kurią rinksis dauguma?</h2>
+          <p className="di-note">Paspausk ▶ paklausyti. Atspėsi bendruomenės favoritą — <b>dvigubi taškai</b>.</p>
           <div className="di-duel">
             {(['A', 'B'] as const).map(tag => {
               const side: any = tag === 'A' ? duel.track_a : duel.track_b
@@ -486,6 +490,11 @@ export default function DienosClient(props: Props) {
               )
             })}
           </div>
+          {duelPick && duelWin !== null && (
+            <div className={`di-crowd ${duelWin ? 'win' : 'miss'}`}>
+              {duelWin ? '🎯 Atspėjai daugumą — dvigubi taškai!' : '🦄 Buvai mažumoje — bazės taškai'}
+            </div>
+          )}
           {duelPick && <button className="di-next" onClick={() => setStage(nextAfterDone('duel'))}>Toliau →</button>}
         </div>
       )}
@@ -494,8 +503,8 @@ export default function DienosClient(props: Props) {
       {stage === 'verdict' && verdict && (
         <div className="di-stage">
           <span className="di-stage-no">{steps.findIndex((s: any) => s.key === 'verdict') + 1} iš {steps.length} · Verdiktas</span>
-          <h2 className="di-h2">🔥 Tavo verdiktas</h2>
-          <p className="di-note">Paklausyk ir pasakyk, kaip tau ši daina — verta 20 taškų.</p>
+          <h2 className="di-h2">🔥 Kokią reakciją rinksis dauguma?</h2>
+          <p className="di-note">Paklausyk ir spėk populiariausią reakciją. Pataikysi — <b>dvigubi taškai</b>.</p>
           <div className="di-verdict-card">
             <div className="di-player small">
               {ytIdFrom(verdict.track.video_url) ? (
@@ -531,6 +540,11 @@ export default function DienosClient(props: Props) {
               })}
             </div>
           </div>
+          {verdictPick && verdictWin !== null && (
+            <div className={`di-crowd ${verdictWin ? 'win' : 'miss'}`}>
+              {verdictWin ? '🎯 Atspėjai populiariausią — dvigubi taškai!' : '🦄 Reta nuomonė — bazės taškai'}
+            </div>
+          )}
           {verdictPick && <button className="di-next" onClick={() => setStage(nextAfterDone('verdict'))}>Toliau →</button>}
         </div>
       )}
@@ -570,30 +584,49 @@ export default function DienosClient(props: Props) {
         </div>
       )}
 
-      {/* ═══ SUVESTINĖ ═══ */}
-      {stage === 'summary' && (
-        <div className="di-summary">
-          <div className="di-badge">⚡ DIENOS IŠŠŪKIS ĮVEIKTAS</div>
-          {qOutcomes.length > 0 && <div className="di-grid-line">{qOutcomes.map((o, i) => <span key={i}>{OUTCOME_EMOJI[o]}</span>)}</div>}
-          {qResult && (
-            <p className="di-sum-line">Kvizas: <b>{qResult.score} tšk.</b> ({qResult.correctCount}/{qResult.roundCount})
-              {qResult.dailyRank && qResult.dailyRank.total > 1 && <> · geriau nei <b>{Math.round(((qResult.dailyRank.total - 1 - qResult.dailyRank.better) / (qResult.dailyRank.total - 1)) * 100)}%</b></>}
-            </p>
-          )}
-          {sessionXp > 0
-            ? <p className="di-sum-xp">Surinkta <b>{sessionXp}</b> iš {galimaXp} galimų taškų</p>
-            : <p className="di-sum-xp dim">Visos šios dienos užduotys jau atliktos ✓</p>}
-          {streak.current > 0 && <p className="di-sum-line">🔥 Serija: <b>{streak.current} d.</b> — grįžk rytoj, kad nenutrūktų!</p>}
-          <div className="di-sum-actions">
-            <button className="di-share" onClick={share}>{shared ? 'Nukopijuota ✓' : 'Dalintis 📤'}</button>
-            <Link href="/zaidimai" className="di-more">Daugiau žaidimų →</Link>
+      {/* ═══ SUVESTINĖ — visų žingsnių rezultatai + palyginimas ═══ */}
+      {stage === 'summary' && (() => {
+        const better = qResult?.dailyRank && qResult.dailyRank.total > 1
+          ? Math.round(((qResult.dailyRank.total - 1 - qResult.dailyRank.better) / (qResult.dailyRank.total - 1)) * 100)
+          : null
+        const rows: Array<{ icon: string; label: string; value: string; ok?: boolean }> = []
+        if (qResult) rows.push({ icon: '🎧', label: 'Atspėk 5 dainas', value: `${qResult.correctCount}/${qResult.roundCount} · ${qResult.score} tšk.` })
+        if (duel && done.duel) rows.push({ icon: '⚔️', label: 'Dvikova', value: duelWin ? 'Atspėjai daugumą ✓' : 'Balsavai', ok: !!duelWin })
+        if (verdict && done.verdict) rows.push({ icon: '🔥', label: 'Verdiktas', value: verdictWin ? 'Populiariausia reakcija ✓' : 'Balsavai', ok: !!verdictWin })
+        if (image && done.image) rows.push({ icon: '🖼️', label: 'Atspėk iš vaizdo', value: imgCorrect ? 'Teisingai ✓' : 'Neatspėta', ok: !!imgCorrect })
+        return (
+          <div className="di-summary">
+            <div className="di-badge">DIENOS IŠŠŪKIS ĮVEIKTAS</div>
+
+            <div className="di-sum-score">
+              <span className="di-sum-score-num">{sessionXp}</span>
+              <span className="di-sum-score-max">iš {galimaXp} galimų taškų</span>
+            </div>
+
+            {better !== null && (
+              <div className="di-sum-rank">
+                Šiandien lenki <b>{better}%</b> dalyvių{qResult?.dailyRank ? ` · #${(qResult.dailyRank.better || 0) + 1} iš ${qResult.dailyRank.total}` : ''}
+              </div>
+            )}
+
+            <div className="di-sum-rows">
+              {rows.map((r, i) => (
+                <div key={i} className="di-sum-row">
+                  <span className="di-sum-row-ic">{r.icon}</span>
+                  <span className="di-sum-row-lbl">{r.label}</span>
+                  <span className={`di-sum-row-val${r.ok ? ' ok' : ''}`}>{r.value}</span>
+                </div>
+              ))}
+            </div>
+
+            {streak.current > 0 && <p className="di-sum-streak">🔥 Serija: <b>{streak.current} d.</b> — grįžk rytoj, kad nenutrūktų!</p>}
+
+            <div className="di-sum-actions">
+              <button className="di-share" onClick={share}>{shared ? 'Nukopijuota ✓' : 'Dalintis rezultatu 📤'}</button>
+            </div>
           </div>
-          <Link href="/zaidimai" className="di-next-game">
-            <span><b>Žaisk po vieną</b><br/>Atspėk dainą, iš sekundės, iš vaizdo, kurie metai — kiek nori</span>
-            <span className="di-next-game-go">→</span>
-          </Link>
-        </div>
-      )}
+        )
+      })()}
     </ZaidimoLangas>
   )
 }
@@ -737,21 +770,26 @@ const css = `
 .di-image-wrap { position: relative; border-radius: 16px; overflow: hidden; }
 .di-image-wrap img { width: 100%; display: block; }
 
-.di-summary { display: flex; flex-direction: column; align-items: center; text-align: center; padding: 30px 0; }
-.di-grid-line { font-size: 22px; letter-spacing: 2px; margin: 10px 0; }
-.di-sum-line { font-size: 14px; color: var(--text-secondary); margin: 4px 0; }
-.di-sum-line b { color: var(--text-primary); }
-.di-sum-xp { font-size: 20px; font-weight: 900; color: var(--accent-orange); margin: 10px 0 4px; }
-.di-sum-xp.dim { color: var(--text-muted); font-weight: 600; font-size: 14px; }
+/* „Spėk daugumą" atsiliepimas */
+.di-crowd { align-self: stretch; text-align: center; font-size: 14px; font-weight: 800; border-radius: 12px; padding: 11px; margin-top: 4px; }
+.di-crowd.win { color: var(--accent-green); background: rgba(16,185,129,0.12); border: 1px solid rgba(16,185,129,0.4); }
+.di-crowd.miss { color: var(--text-secondary); background: var(--bg-surface); border: 1px solid rgba(140,160,190,0.25); }
+
+/* Suvestinė */
+.di-summary { display: flex; flex-direction: column; align-items: center; text-align: center; padding: 24px 0; }
+.di-sum-score { display: flex; flex-direction: column; align-items: center; margin: 6px 0 4px; }
+.di-sum-score-num { font-size: 52px; font-weight: 900; color: var(--accent-orange); line-height: 1; }
+.di-sum-score-max { font-size: 13px; color: var(--text-muted); margin-top: 2px; }
+.di-sum-rank { font-size: 14px; color: var(--text-secondary); background: var(--bg-surface); border: 1px solid rgba(140,160,190,0.22); border-radius: 999px; padding: 7px 16px; margin: 12px 0 4px; }
+.di-sum-rank b { color: var(--text-primary); }
+.di-sum-rows { align-self: stretch; display: flex; flex-direction: column; gap: 6px; margin: 16px 0 6px; }
+.di-sum-row { display: flex; align-items: center; gap: 10px; background: var(--bg-surface); border: 1px solid rgba(140,160,190,0.18); border-radius: 12px; padding: 11px 14px; }
+.di-sum-row-ic { font-size: 18px; flex-shrink: 0; }
+.di-sum-row-lbl { font-size: 14px; font-weight: 700; color: var(--text-primary); text-align: left; }
+.di-sum-row-val { margin-left: auto; font-size: 13px; font-weight: 700; color: var(--text-secondary); text-align: right; }
+.di-sum-row-val.ok { color: var(--accent-green); }
+.di-sum-streak { font-size: 13.5px; color: var(--text-secondary); margin: 12px 0 0; }
+.di-sum-streak b { color: var(--text-primary); }
 .di-sum-actions { display: flex; gap: 12px; align-items: center; margin-top: 18px; flex-wrap: wrap; justify-content: center; }
-.di-next-game {
-  display: flex; align-items: center; gap: 12px; text-decoration: none; margin-top: 18px; width: 100%; max-width: 420px;
-  background: var(--bg-surface); border: 1px solid rgba(139,92,246,0.4); border-radius: 14px; padding: 13px 16px;
-  color: var(--text-secondary); font-size: 12px; text-align: left;
-}
-.di-next-game b { color: var(--text-primary); font-size: 14px; }
-.di-next-game span:first-child { font-size: 24px; }
-.di-next-game-go { margin-left: auto; font-size: 16px; font-weight: 900; color: var(--accent-orange); }
 .di-share { font-size: 16px; font-weight: 800; color: #fff; cursor: pointer; border: 0; border-radius: 999px; padding: 12px 26px; background: var(--accent-orange); }
-.di-more { font-size: 14px; font-weight: 800; color: var(--text-secondary); text-decoration: none; }
 `
