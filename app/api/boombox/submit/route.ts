@@ -33,10 +33,12 @@ const MISSION_TO_TABLE: Record<string, string> = {
 
 const MISSION_BASE_XP: Record<string, number> = {
   image_guess: 30,        // bazė; +50 jei teisingai
-  duel: 20,               // dalyvavimo taškai sumažinti (Edvardo feedback):
-  verdict: 20,            // pagrindiniai taškai — už teisingus atsakymus
+  duel: 20,               // bazė; +20 jei atspėji daugumą (žr. žemiau)
+  verdict: 20,            // bazė; +20 jei tavo reakcija — populiariausia
   video_react: 10,
 }
+// „Spėk, ką rinksis kiti" bonusas — kad taškai nebūtų vien už dalyvavimą.
+const CROWD_BONUS = 20
 
 function jsonErr(msg: string, status = 400) {
   return NextResponse.json({ error: msg }, { status })
@@ -87,6 +89,30 @@ export async function POST(req: NextRequest) {
   // Calculate XP — base + correctness bonus + member bonus (auth user gets 1.5×)
   let xp = MISSION_BASE_XP[missionType] || 0
   if (missionType === 'image_guess' && isCorrect) xp += 50
+
+  // „Spėk daugumą" iššūkis (dvikova / verdiktas): jei tavo pasirinkimas sutampa
+  // su bendruomenės dauguma — dvigubi taškai. Skaičiuojam iš esamų balsų + šio.
+  let crowdWin = false
+  if (missionType === 'duel' || missionType === 'verdict') {
+    const key = missionType === 'duel' ? 'choice' : 'emoji'
+    const myPick = (payload as any)[key]
+    if (typeof myPick === 'string') {
+      const { data: prior } = await sb
+        .from('boombox_completions')
+        .select('payload')
+        .eq('drop_table', dropTable)
+        .eq('drop_id', dropId)
+      const counts: Record<string, number> = {}
+      for (const r of prior || []) {
+        const v = (r.payload as any)?.[key]
+        if (typeof v === 'string') counts[v] = (counts[v] || 0) + 1
+      }
+      counts[myPick] = (counts[myPick] || 0) + 1
+      const total = Object.values(counts).reduce((a, b) => a + b, 0)
+      const max = Math.max(...Object.values(counts))
+      if (total > 1 && counts[myPick] === max) { xp += CROWD_BONUS; crowdWin = true }
+    }
+  }
 
   // Resolve viewer
   const session = await getServerSession(authOptions)
@@ -148,6 +174,7 @@ export async function POST(req: NextRequest) {
   return NextResponse.json({
     ok: true,
     isCorrect,
+    crowdWin,
     xp,
     streak: streakInfo.current,
     totalXp: streakInfo.total_xp,

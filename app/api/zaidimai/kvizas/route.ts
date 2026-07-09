@@ -92,13 +92,20 @@ async function buildAudioRounds(
   if (corrects.length < roundCount) return null
 
   return corrects.map((correct, idx) => {
+    // Klaidinantys — pirmiausia iš TOS PAČIOS scenos (LT/užsienio), kad prie
+    // lietuviškos dainos nebūtų angliškų variantų. Jei tos scenos per mažai —
+    // papildom iš viso pool'o.
+    const sameScene = decoyPool.filter(t => t.lt === correct.lt)
     const decoys: PoolTrack[] = []
     const decoyArtists = new Set<number>([correct.artist_id])
-    for (const t of shuffleArr(decoyPool)) {
+    for (const src of [shuffleArr(sameScene), shuffleArr(decoyPool)]) {
+      for (const t of src) {
+        if (decoys.length >= 3) break
+        if (t.id === correct.id || decoyArtists.has(t.artist_id)) continue
+        decoyArtists.add(t.artist_id)
+        decoys.push(t)
+      }
       if (decoys.length >= 3) break
-      if (t.id === correct.id || decoyArtists.has(t.artist_id)) continue
-      decoyArtists.add(t.artist_id)
-      decoys.push(t)
     }
     const options = shuffleArr([
       { id: correct.id, title: correct.title, artist: correct.artist },

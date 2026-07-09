@@ -163,6 +163,7 @@ export default function DvikovosClient() {
       {!loading && !allDone && duel && (
         <div className="dv-stage">
           <div className="dv-matchup">{MATCHUP_LABEL[duel.matchup_type] || 'Dvikova'}</div>
+          {!voted && <p className="dv-hint">Kurią rinksis dauguma? Atspėsi — <b>dvigubi taškai</b>.</p>}
           <div className="dv-pair">
             <SideCard
               side={duel.a} tag="A"
@@ -181,8 +182,8 @@ export default function DvikovosClient() {
               {stats && stats.total > 1 && (
                 <span className={`dv-majority${(voted === 'A' ? stats.aPct >= stats.bPct : stats.bPct >= stats.aPct) ? ' with' : ' against'}`}>
                   {(voted === 'A' ? stats.aPct >= stats.bPct : stats.bPct >= stats.aPct)
-                    ? <>🎯 Tu su dauguma{majorityStreak >= 3 ? ` — ${majorityStreak} iš eilės!` : ''}</>
-                    : <>🦄 Prieš srovę!</>}
+                    ? <>🎯 Atspėjai daugumą — dvigubi taškai!{majorityStreak >= 3 ? ` ${majorityStreak} iš eilės 🔥` : ''}</>
+                    : <>🦄 Prieš srovę — bazės taškai</>}
                 </span>
               )}
               {stats && <span className="dv-after-total">{stats.total} balsų</span>}
@@ -261,4 +262,6 @@ const css = `
   background: var(--accent-orange);
 }
 .dv-progress-line { text-align: center; font-size: 12px; color: var(--text-muted); margin-top: 16px; }
+.dv-hint { text-align: center; font-size: 13px; color: var(--text-secondary); margin: 0 0 6px; }
+.dv-hint b { color: var(--text-primary); }
 `

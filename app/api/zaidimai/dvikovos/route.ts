@@ -137,9 +137,31 @@ export async function POST(req: NextRequest) {
   const viewer = await resolveViewer()
   const votesBefore = await countVotesToday(viewer.userId, viewer.anonId)
 
+  // Balsų pasiskirstymas PRIEŠ šį balsą — kad nuspręstume „laimėjai" bonusą
+  const baseCount = () => sb
+    .from('boombox_completions')
+    .select('id', { count: 'exact', head: true })
+    .eq('drop_table', 'boombox_duel_drops')
+    .eq('drop_id', dropId)
+  const [aResPrev, bResPrev] = await Promise.all([
+    baseCount().eq('payload->>choice', 'A'),
+    baseCount().eq('payload->>choice', 'B'),
+  ])
+  let aCount = aResPrev.count || 0
+  let bCount = bResPrev.count || 0
+  // Įskaitom šį balsą
+  if (choice === 'A') aCount++
+  else bCount++
+  const total = aCount + bCount
+
+  // „Spėk daugumą": jei tavo pasirinkimas šiuo metu laimi — dvigubi taškai
+  const myWins = total > 1 && (choice === 'A' ? aCount >= bCount : bCount >= aCount)
+
   let xp = 0
+  let crowdWin = false
   if (votesBefore < XP_VOTES_PER_DAY) {
     xp = XP_PER_VOTE
+    if (myWins) { xp += XP_PER_VOTE; crowdWin = true }
     if (viewer.userId) xp = Math.round(xp * 1.5)
   }
 
@@ -156,7 +178,7 @@ export async function POST(req: NextRequest) {
 
   let duplicate = false
   if (insertErr) {
-    if (insertErr.code === '23505') { duplicate = true; xp = 0 }
+    if (insertErr.code === '23505') { duplicate = true; xp = 0; crowdWin = false }
     else return jsonErr('Nepavyko įrašyti: ' + insertErr.message, 500)
   }
 
@@ -165,24 +187,11 @@ export async function POST(req: NextRequest) {
     streakInfo = await bumpStreakAndXp({ userId: viewer.userId, anonId: viewer.anonId, xp })
   }
 
-  // Bendruomenės pasiskirstymas — skaičiuojam count'ais (be 1000 eilučių ribos)
-  const baseCount = () => sb
-    .from('boombox_completions')
-    .select('id', { count: 'exact', head: true })
-    .eq('drop_table', 'boombox_duel_drops')
-    .eq('drop_id', dropId)
-  const [aRes, bRes] = await Promise.all([
-    baseCount().eq('payload->>choice', 'A'),
-    baseCount().eq('payload->>choice', 'B'),
-  ])
-  const aCount = aRes.count || 0
-  const bCount = bRes.count || 0
-  const total = aCount + bCount
-
   return NextResponse.json({
     ok: true,
     duplicate,
     xp,
+    crowdWin,
     totalXp: streakInfo.total_xp,
     votesXpLeft: Math.max(0, XP_VOTES_PER_DAY - votesBefore - 1),
     stats: {
