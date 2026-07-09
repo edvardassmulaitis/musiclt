@@ -123,6 +123,12 @@ function ReviewCard({ item, onDone, onError }: { item: SeenLivePending; onDone: 
         <span><b className="text-[var(--text-secondary)]">@{item.user?.username || '—'}</b> · {new Date(item.created_at).toLocaleDateString('lt-LT')}</span>
         {item.note && <span className="italic truncate max-w-[50%]">„{item.note}"</span>}
       </div>
+      {(item.raw_event_lineup || item.raw_event_is_festival) && (
+        <div className="mb-2 text-[12px] text-[var(--text-muted)]">
+          {item.raw_event_is_festival && <span className="mr-2">🎪 festivalis</span>}
+          {item.raw_event_lineup && <span>Kiti atlikėjai (nario): <b className="text-[var(--text-secondary)]">{item.raw_event_lineup}</b></span>}
+        </div>
+      )}
 
       {/* Nario media peržiūra */}
       {item.media.length > 0 && (
