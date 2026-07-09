@@ -138,10 +138,19 @@ export default function RitmasClient() {
     srcRef.current = src; analyserRef.current = an
     startRef.current = ctx.currentTime
     src.start()
-    setPhase('play')
-    setupCanvas()
-    rafRef.current = requestAnimationFrame(loop)
+    setPhase('play')   // canvas paruošimas + ciklas — efekte, kai canvas jau DOM'e
   }
+
+  // Kai įsijungia žaidimo fazė — paruošiam canvas ir startuojam 60fps ciklą
+  useEffect(() => {
+    if (phase !== 'play') return
+    setupCanvas()
+    const onResize = () => setupCanvas()
+    window.addEventListener('resize', onResize)
+    rafRef.current = requestAnimationFrame(loop)
+    return () => { cancelAnimationFrame(rafRef.current); window.removeEventListener('resize', onResize) }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [phase])
 
   function finish() {
     endedRef.current = true
