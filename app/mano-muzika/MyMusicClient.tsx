@@ -182,7 +182,7 @@ export default function MyMusicClient({ initial, username, suggestOnboarding }: 
       )}
       {tab === 'mood' && <MoodSection moodSongs={moodSongs} setMoodSongs={setMoodSongs} />}
       {tab === 'styles' && <StyleSection coll={coll} styles={styles} setStyles={setStyles} meterRaw={initial.meterRaw || []} onStyleReorder={(kind, styleKey, ids) => styleReorder(kind, styleKey, ids)} onUnlike={(kind, it) => unlike(kind, it)} />}
-      {tab === 'seen-live' && <SeenLivePanel flash={flash} />}
+      {tab === 'seen-live' && <SeenLivePanel flash={flash} likedArtists={[...coll.artist.ranked, ...coll.artist.library].map(a => ({ id: a.id, title: a.title, image_url: a.cover, slug: (a as any).slug || null }))} />}
     </div>
   )
 }

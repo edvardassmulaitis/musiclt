@@ -19,6 +19,12 @@ import GeoPicker, { EMPTY_GEO, type GeoValue } from '@/components/geo/GeoPicker'
 import type { SeenLiveRow, SeenLiveMedia } from '@/lib/seen-live'
 
 type EventPick = { id: string; title: string; slug: string; start_date: string | null; city: string | null }
+type QuickArtist = { id: number; title: string; image_url: string | null; slug: string | null }
+type ArtistEvent = { id: string; title: string; slug: string; start_date: string | null; venue_name: string | null; city: string | null; cover_image_url: string | null; is_festival?: boolean }
+
+function toHit(a: QuickArtist): AttachmentHit {
+  return { type: 'grupe', id: a.id, legacy_id: null, slug: a.slug || '', title: a.title, artist: null, image_url: a.image_url }
+}
 
 async function api(path: string, method: string, body?: any) {
   const res = await fetch(`/api/mano-muzika${path}`, {
@@ -37,7 +43,7 @@ function yearOf(r: SeenLiveRow): number | null {
   return null
 }
 
-export default function SeenLivePanel({ flash }: { flash: (m: string) => void }) {
+export default function SeenLivePanel({ flash, likedArtists = [] }: { flash: (m: string) => void; likedArtists?: QuickArtist[] }) {
   const [items, setItems] = useState<SeenLiveRow[]>([])
   const [loaded, setLoaded] = useState(false)
   const [wizardOpen, setWizardOpen] = useState(false)
@@ -120,12 +126,12 @@ export default function SeenLivePanel({ flash }: { flash: (m: string) => void })
 
       {/* ── Wizard (desktop: sticky dešinėje; mobile: modalas) ── */}
       <div className="hidden lg:block lg:sticky lg:top-4">
-        <Wizard onAdded={(item) => setItems((l) => [item, ...l])} flash={flash} />
+        <Wizard onAdded={(item) => setItems((l) => [item, ...l])} flash={flash} likedArtists={likedArtists} />
       </div>
       {wizardOpen && (
         <div className="lg:hidden fixed inset-0 z-[200] overflow-y-auto overscroll-contain" style={{ background: 'var(--bg-body)' }}>
           <div className="min-h-full p-3" style={{ paddingTop: 'max(0.75rem, env(safe-area-inset-top))', paddingBottom: 'max(1.5rem, env(safe-area-inset-bottom))' }}>
-            <Wizard onAdded={(item) => { setItems((l) => [item, ...l]); setWizardOpen(false) }} flash={flash} onClose={() => setWizardOpen(false)} fullscreen />
+            <Wizard onAdded={(item) => { setItems((l) => [item, ...l]); setWizardOpen(false) }} flash={flash} onClose={() => setWizardOpen(false)} fullscreen likedArtists={likedArtists} />
           </div>
         </div>
       )}
@@ -134,7 +140,7 @@ export default function SeenLivePanel({ flash }: { flash: (m: string) => void })
 }
 
 // ── WIZARD ──────────────────────────────────────────────────────────────────
-function Wizard({ onAdded, flash, onClose, fullscreen = false }: { onAdded: (item: SeenLiveRow) => void; flash: (m: string) => void; onClose?: () => void; fullscreen?: boolean }) {
+function Wizard({ onAdded, flash, onClose, fullscreen = false, likedArtists = [] }: { onAdded: (item: SeenLiveRow) => void; flash: (m: string) => void; onClose?: () => void; fullscreen?: boolean; likedArtists?: QuickArtist[] }) {
   const [step, setStep] = useState(1)
   const [busy, setBusy] = useState(false)
 
@@ -142,6 +148,32 @@ function Wizard({ onAdded, flash, onClose, fullscreen = false }: { onAdded: (ite
   const [artist, setArtist] = useState<AttachmentHit | null>(null)
   const [newArtist, setNewArtist] = useState('')
   const [proposeArtist, setProposeArtist] = useState(false)
+  const [suggestions, setSuggestions] = useState<QuickArtist[]>([])
+  const [artistEvents, setArtistEvents] = useState<ArtistEvent[]>([])
+  const [loadingEvents, setLoadingEvents] = useState(false)
+
+  // Pasiūlymai (kartą) — pamėgtų + siūlomų greitam pasirinkimui
+  useEffect(() => {
+    let alive = true
+    fetch('/api/mano-muzika/suggestions?kind=artist&limit=18')
+      .then((r) => r.json())
+      .then((d) => { if (alive) setSuggestions((d.items || []).map((x: any) => ({ id: x.id, title: x.title, image_url: x.cover_url ?? null, slug: x.slug ?? null }))) })
+      .catch(() => {})
+    return () => { alive = false }
+  }, [])
+
+  // Pasirinkus atlikėją — jo koncertai iš DB (naujausi pirmi)
+  useEffect(() => {
+    if (!artist?.id) { setArtistEvents([]); return }
+    let alive = true
+    setLoadingEvents(true)
+    fetch(`/api/artists/${artist.id}/events`)
+      .then((r) => r.json())
+      .then((d) => { if (alive) setArtistEvents(d.events || []) })
+      .catch(() => { if (alive) setArtistEvents([]) })
+      .finally(() => { if (alive) setLoadingEvents(false) })
+    return () => { alive = false }
+  }, [artist?.id])
 
   // 2 — renginys
   const [event, setEvent] = useState<EventPick | null>(null)
@@ -217,27 +249,69 @@ function Wizard({ onAdded, flash, onClose, fullscreen = false }: { onAdded: (ite
       {/* STEP 1 — atlikėjas */}
       {step === 1 && (
         <div>
-          <label className="mb-1 block text-[12px] font-bold uppercase tracking-wide" style={{ color: 'var(--text-faint)' }}>Kurį atlikėją matei? *</label>
-          {!proposeArtist ? (
-            <>
-              {artist ? (
-                <div className="mb-2 flex items-center gap-2 rounded-lg p-2 ring-1" style={{ background: 'var(--bg-elevated)', ['--tw-ring-color' as any]: 'var(--border-subtle)' } as any}>
-                  <div className="h-8 w-8 shrink-0 overflow-hidden rounded" style={{ background: 'var(--cover-placeholder)' }}>
-                    {artist.image_url && /* eslint-disable-next-line @next/next/no-img-element */ <img src={proxyImg(artist.image_url)} alt="" referrerPolicy="no-referrer" className="h-full w-full object-cover" />}
-                  </div>
-                  <span className="min-w-0 flex-1 truncate text-[14px] font-bold" style={{ color: 'var(--text-primary)' }}>{artist.title}</span>
-                  <button onClick={() => setArtist(null)} className="text-[12px]" style={{ color: 'var(--accent-link)' }}>keisti</button>
+          {/* Pasirinktas atlikėjas — DIDELIS vaizdas */}
+          {artist ? (
+            <div>
+              <div className="relative overflow-hidden rounded-2xl" style={{ background: 'var(--cover-placeholder)', aspectRatio: '16 / 10' }}>
+                {artist.image_url ? (
+                  // eslint-disable-next-line @next/next/no-img-element
+                  <img src={proxyImg(artist.image_url)} alt="" referrerPolicy="no-referrer" className="h-full w-full object-cover" />
+                ) : <div className="flex h-full w-full items-center justify-center text-[48px]">🎤</div>}
+                <div className="absolute inset-x-0 bottom-0 bg-gradient-to-t from-black/75 to-transparent p-3 pt-8">
+                  <div className="font-['Outfit',sans-serif] text-[22px] font-extrabold leading-tight text-white">{artist.title}</div>
                 </div>
-              ) : (
-                <MusicSearchPicker attached={[]} onAdd={(h) => setArtist(h)} typeFilter="grupe" compact placeholder="Ieškok atlikėjo…" />
-              )}
-              <button onClick={() => { setProposeArtist(true); setArtist(null) }} className="mt-1.5 text-[12px]" style={{ color: 'var(--text-muted)' }}>Nerandi? <span style={{ color: 'var(--accent-link)' }}>Pasiūlyk naują →</span></button>
-            </>
-          ) : (
-            <>
+                <button onClick={() => setArtist(null)} className="absolute right-2 top-2 rounded-full bg-black/55 px-2.5 py-1 text-[12px] font-bold text-white">keisti</button>
+              </div>
+
+              {/* To atlikėjo koncertai iš DB (naujausi pirmi) */}
+              <div className="mt-3">
+                <div className="mb-1.5 text-[12px] font-bold uppercase tracking-wide" style={{ color: 'var(--text-faint)' }}>Jo koncertai mūsų DB</div>
+                {loadingEvents ? (
+                  <div className="py-3 text-center text-[13px]" style={{ color: 'var(--text-faint)' }}>Kraunama…</div>
+                ) : artistEvents.length === 0 ? (
+                  <p className="text-[13px]" style={{ color: 'var(--text-faint)' }}>Koncertų DB dar nėra — kitame žingsnyje galėsi aprašyti pats.</p>
+                ) : (
+                  <ul className="flex flex-col gap-1.5">
+                    {artistEvents.map((e) => {
+                      const picked = event?.id === e.id
+                      return (
+                        <li key={e.id}>
+                          <button onClick={() => setEvent(picked ? null : { id: e.id, title: e.title, slug: e.slug, start_date: e.start_date, city: e.city })}
+                            className="flex w-full items-center gap-2.5 rounded-lg p-2 text-left ring-1 transition-colors"
+                            style={{ background: picked ? 'rgba(245,158,11,0.12)' : 'var(--bg-elevated)', ['--tw-ring-color' as any]: picked ? 'var(--accent-orange)' : 'var(--border-subtle)' } as any}>
+                            <span className="text-[16px]">{picked ? '✓' : (e.is_festival ? '🎪' : '🎫')}</span>
+                            <span className="min-w-0 flex-1">
+                              <span className="block truncate text-[14px] font-bold" style={{ color: 'var(--text-primary)' }}>{e.title}</span>
+                              <span className="block truncate text-[12px]" style={{ color: 'var(--text-muted)' }}>{[e.venue_name || e.city, e.start_date ? String(e.start_date).slice(0, 10) : null].filter(Boolean).join(' · ')}</span>
+                            </span>
+                          </button>
+                        </li>
+                      )
+                    })}
+                  </ul>
+                )}
+                {event && <p className="mt-1.5 text-[12px]" style={{ color: 'var(--accent-orange)' }}>Pasirinktas renginys — 2 žingsnyje bus pririštas.</p>}
+              </div>
+            </div>
+          ) : proposeArtist ? (
+            <div>
+              <label className="mb-1 block text-[12px] font-bold uppercase tracking-wide" style={{ color: 'var(--text-faint)' }}>Naujas atlikėjas *</label>
               <input value={newArtist} onChange={(e) => setNewArtist(e.target.value)} placeholder="Naujo atlikėjo pavadinimas" className="w-full rounded-lg px-3 py-2 text-[14px] outline-none ring-1" style={{ background: 'var(--bg-elevated)', color: 'var(--text-primary)', ['--tw-ring-color' as any]: 'var(--border-default)' } as any} />
               <button onClick={() => { setProposeArtist(false); setNewArtist('') }} className="mt-1.5 text-[12px]" style={{ color: 'var(--accent-link)' }}>← Ieškoti esamų</button>
-            </>
+            </div>
+          ) : (
+            <div>
+              <label className="mb-1 block text-[12px] font-bold uppercase tracking-wide" style={{ color: 'var(--text-faint)' }}>Kurį atlikėją matei? *</label>
+              <MusicSearchPicker attached={[]} onAdd={(h) => setArtist(h)} typeFilter="grupe" compact placeholder="Ieškok atlikėjo…" />
+              <button onClick={() => { setProposeArtist(true) }} className="mt-1.5 text-[12px]" style={{ color: 'var(--text-muted)' }}>Nerandi? <span style={{ color: 'var(--accent-link)' }}>Pasiūlyk naują →</span></button>
+
+              {likedArtists.length > 0 && (
+                <QuickPickRow title="Tavo pamėgti" artists={likedArtists} onPick={(a) => setArtist(toHit(a))} />
+              )}
+              {suggestions.length > 0 && (
+                <QuickPickRow title="Pasiūlymai" artists={suggestions.filter((s) => !likedArtists.some((l) => l.id === s.id))} onPick={(a) => setArtist(toHit(a))} />
+              )}
+            </div>
           )}
           <StepNav onNext={() => hasArtist && setStep(2)} nextDisabled={!hasArtist} />
         </div>
@@ -307,6 +381,28 @@ function Wizard({ onAdded, flash, onClose, fullscreen = false }: { onAdded: (ite
         </div>
       )}
     </section>
+  )
+}
+
+function QuickPickRow({ title, artists, onPick }: { title: string; artists: QuickArtist[]; onPick: (a: QuickArtist) => void }) {
+  if (!artists.length) return null
+  return (
+    <div className="mt-4">
+      <div className="mb-1.5 text-[12px] font-bold uppercase tracking-wide" style={{ color: 'var(--text-faint)' }}>{title}</div>
+      <div className="-mx-1 flex gap-2 overflow-x-auto px-1 pb-1">
+        {artists.slice(0, 20).map((a) => (
+          <button key={a.id} onClick={() => onPick(a)} className="w-[74px] shrink-0 text-center">
+            <div className="mx-auto h-[74px] w-[74px] overflow-hidden rounded-full ring-1" style={{ background: 'var(--cover-placeholder)', ['--tw-ring-color' as any]: 'var(--border-subtle)' } as any}>
+              {a.image_url ? (
+                // eslint-disable-next-line @next/next/no-img-element
+                <img src={proxyImg(a.image_url)} alt="" referrerPolicy="no-referrer" className="h-full w-full object-cover" />
+              ) : <div className="flex h-full w-full items-center justify-center text-[22px]">🎤</div>}
+            </div>
+            <div className="mt-1 line-clamp-2 text-[12px] font-semibold leading-tight" style={{ color: 'var(--text-secondary)' }}>{a.title}</div>
+          </button>
+        ))}
+      </div>
+    </div>
   )
 }
 
