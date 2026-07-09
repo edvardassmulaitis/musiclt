@@ -9,7 +9,7 @@
 
 import { NextRequest, NextResponse } from 'next/server'
 import { createAdminClient } from '@/lib/supabase'
-import { bumpStreakAndXp } from '@/lib/boombox'
+import { bumpStreakAndXp, todayLT } from '@/lib/boombox'
 import { ensurePreviews } from '@/lib/itunes'
 import {
   resolveViewer,
@@ -33,60 +33,87 @@ function jsonErr(msg: string, status = 400) {
 
 // ── GET ───────────────────────────────────────────────────────────────────
 
+type RoundContent = { r: number; audioUrl: string; correctId: number; options: { id: number; title: string; artist: string }[] }
+
 export async function GET(req: NextRequest) {
   const url = new URL(req.url)
-  const roundCount = Math.min(Math.max(parseInt(url.searchParams.get('raundai') || '5') || 5, 3), 10)
+  const dienos = url.searchParams.get('dienos') === '1'
+  const roundCount = dienos ? 3 : Math.min(Math.max(parseInt(url.searchParams.get('raundai') || '5') || 5, 3), 10)
 
   const viewer = await resolveViewer()
+  const sb = createAdminClient()
 
-  // Mišrus pool'as: LT + pasaulio hitai (abu cache'uoti)
-  const [ltPool, worldPool] = await Promise.all([
-    loadQuizPool(quizCategory('lt-mix')!),
-    loadQuizPool(quizCategory('pasaulis')!),
-  ])
-  const pool = [...ltPool, ...worldPool]
-  if (pool.length < roundCount * 6) return jsonErr('Trūksta dainų — pabandyk vėliau', 503)
-
-  // Kandidatai (2×, skirtingi atlikėjai) → paliekam tik su iTunes ištrauka
-  const shuffled = shuffleArr(pool)
-  const candidates: PoolTrack[] = []
-  const usedArtists = new Set<number>()
-  for (const t of shuffled) {
-    if (candidates.length >= roundCount * 3) break
-    if (usedArtists.has(t.artist_id)) continue
-    usedArtists.add(t.artist_id)
-    candidates.push(t)
-  }
-  const previews = await ensurePreviews(candidates.map(t => ({ id: t.id, title: t.title, artist: t.artist })))
-  const withAudio = candidates.filter(t => previews.get(t.id))
-  if (withAudio.length < roundCount) return jsonErr('Trūksta dainų su ištraukomis — pabandyk vėliau', 503)
-
-  const corrects = withAudio.slice(0, roundCount)
-  const quizId = `s-${Math.random().toString(36).slice(2, 10)}`
-  const exp = Date.now() + TOKEN_TTL_MS
-
-  const rounds = corrects.map((correct, idx) => {
-    // Klaidinantys — iš tos pačios scenos (LT arba pasaulio)
-    const sameScene = (ltPool.includes(correct) ? ltPool : worldPool)
-    const decoys: PoolTrack[] = []
-    const decoyArtists = new Set<number>([correct.artist_id])
-    for (const t of shuffleArr(sameScene)) {
-      if (decoys.length >= 3) break
-      if (t.id === correct.id || decoyArtists.has(t.artist_id)) continue
-      decoyArtists.add(t.artist_id)
-      decoys.push(t)
-    }
-    const options = shuffleArr([
-      { id: correct.id, title: correct.title, artist: correct.artist },
-      ...decoys.map(d => ({ id: d.id, title: d.title, artist: d.artist })),
+  async function buildContent(): Promise<RoundContent[] | null> {
+    // Mišrus pool'as: LT + pasaulio hitai (abu cache'uoti)
+    const [ltPool, worldPool] = await Promise.all([
+      loadQuizPool(quizCategory('lt-mix')!),
+      loadQuizPool(quizCategory('pasaulis')!),
     ])
-    return {
-      r: idx,
-      audioUrl: previews.get(correct.id)!,
-      options,
-      token: sealPayload({ g: 'sekundes', q: quizId, r: idx, c: correct.id, exp }),
+    const pool = [...ltPool, ...worldPool]
+    if (pool.length < roundCount * 6) return null
+
+    const candidates: PoolTrack[] = []
+    const usedArtists = new Set<number>()
+    for (const t of shuffleArr(pool)) {
+      if (candidates.length >= roundCount * 3) break
+      if (usedArtists.has(t.artist_id)) continue
+      usedArtists.add(t.artist_id)
+      candidates.push(t)
     }
-  })
+    const previews = await ensurePreviews(candidates.map(t => ({ id: t.id, title: t.title, artist: t.artist })))
+    const withAudio = candidates.filter(t => previews.get(t.id))
+    if (withAudio.length < roundCount) return null
+
+    return withAudio.slice(0, roundCount).map((correct, idx) => {
+      const sameScene = (ltPool.includes(correct) ? ltPool : worldPool)
+      const decoys: PoolTrack[] = []
+      const decoyArtists = new Set<number>([correct.artist_id])
+      for (const t of shuffleArr(sameScene)) {
+        if (decoys.length >= 3) break
+        if (t.id === correct.id || decoyArtists.has(t.artist_id)) continue
+        decoyArtists.add(t.artist_id)
+        decoys.push(t)
+      }
+      const options = shuffleArr([
+        { id: correct.id, title: correct.title, artist: correct.artist },
+        ...decoys.map(d => ({ id: d.id, title: d.title, artist: d.artist })),
+      ])
+      return { r: idx, audioUrl: previews.get(correct.id)!, correctId: correct.id, options }
+    })
+  }
+
+  let content: RoundContent[] | null
+  let quizId: string
+  if (dienos) {
+    const today = todayLT()
+    quizId = `s-d${today}`
+    const { data: snap } = await sb.from('daily_game_snapshot')
+      .select('rounds').eq('day', today).eq('game', 'sekundes').maybeSingle()
+    if (snap?.rounds) {
+      content = (snap.rounds as RoundContent[]).slice(0, roundCount)
+    } else {
+      content = await buildContent()
+      if (content) {
+        await sb.from('daily_game_snapshot').upsert(
+          { day: today, game: 'sekundes', rounds: content }, { onConflict: 'day,game', ignoreDuplicates: true })
+        const { data: auth } = await sb.from('daily_game_snapshot')
+          .select('rounds').eq('day', today).eq('game', 'sekundes').maybeSingle()
+        content = ((auth?.rounds as RoundContent[]) || content).slice(0, roundCount)
+      }
+    }
+  } else {
+    quizId = `s-${Math.random().toString(36).slice(2, 10)}`
+    content = await buildContent()
+  }
+  if (!content) return jsonErr('Trūksta dainų su ištraukomis — pabandyk vėliau', 503)
+
+  const exp = Date.now() + TOKEN_TTL_MS
+  const rounds = content.map(c => ({
+    r: c.r,
+    audioUrl: c.audioUrl,
+    options: c.options,
+    token: sealPayload({ g: 'sekundes', q: quizId, r: c.r, c: c.correctId, exp }),
+  }))
 
   const runsToday = await countRunsToday(viewer, 'sekundes')
 
