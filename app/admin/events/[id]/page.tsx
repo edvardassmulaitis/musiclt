@@ -22,6 +22,8 @@ export default function AdminEventEditPage() {
   const [endDate, setEndDate] = useState('')
   const [venueName, setVenueName] = useState('')
   const [city, setCity] = useState('')
+  const [country, setCountry] = useState('Lietuva')
+  const [countryOptions, setCountryOptions] = useState<Array<{ id: number; name: string }>>([])
   const [address, setAddress] = useState('')
   const [coverUrl, setCoverUrl] = useState('')
   const [ticketUrl, setTicketUrl] = useState('')
@@ -59,6 +61,10 @@ export default function AdminEventEditPage() {
       .then(r => r.ok ? r.json() : { cities: [] })
       .then(d => setCityOptions(d.cities || []))
       .catch(() => setCityOptions([]))
+    fetch('/api/countries')
+      .then(r => r.ok ? r.json() : { countries: [] })
+      .then(d => setCountryOptions(d.countries || []))
+      .catch(() => setCountryOptions([]))
     // Kelionės kryptys (travel_destinations) — „Verta kelionės" dropdown'ui.
     fetch('/api/admin/verta-keliones')
       .then(r => r.ok ? r.json() : { destinations: [] })
@@ -144,6 +150,8 @@ export default function AdminEventEditPage() {
       venue_name: venueName || null,
       venue_id: venueId,
       city: city || null,
+      country_name: country || null,
+      resolve_location: true,   // find-or-create šalį/miestą/vietą (connected DB)
       address: address || null,
       cover_image_url: coverUrl || null,
       ticket_url: ticketUrl || null,
@@ -296,6 +304,15 @@ export default function AdminEventEditPage() {
             </div>
 
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+              <div>
+                <label className={labelCls}>Šalis</label>
+                <input list="evt-country-options" value={country} onChange={e => setCountry(e.target.value)}
+                  className={inputCls} placeholder="Lietuva"
+                  title="Šalis miestui/vietai — naujos sukuriamos automatiškai" />
+                <datalist id="evt-country-options">
+                  {countryOptions.map(c => <option key={c.id} value={c.name} />)}
+                </datalist>
+              </div>
               <div>
                 <label className={labelCls}>Miestas{venueId || isAbroad ? '' : ' *'}</label>
                 <input list="evt-city-options" value={city} onChange={e => setCity(e.target.value)} disabled={!!venueId}

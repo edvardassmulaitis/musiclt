@@ -1,24 +1,22 @@
 'use client'
 // app/mano-muzika/SeenLivePanel.tsx
 // ────────────────────────────────────────────────────────────────────────────
-// „Matyti gyvai" — narys susideda atlikėjus, kuriuos matė koncertuose.
-//   • Atlikėjas: paieška tarp esamų (MusicSearchPicker, tik grupės) → jei
-//     neranda, gali pasiūlyti naują (laisvas tekstas → draft adminams).
-//   • Renginys (nebūtina): paieška tarp esamų arba pasiūlyti naują (pavadinimas,
-//     šalis, miestas, vieta). Jei naujas — visas įrašas tampa draft'u.
-//   • Papildomai: metai / data / pastaba.
+// „Matyti gyvai" — 3 žingsnių wizard'as:
+//   1) Atlikėjas — paieška tarp esamų arba pasiūlyti naują.
+//   2) Renginys — pririšti esamą ARBA aprašyti (vieta per GeoPicker; renginio
+//      pavadinimas nebūtinas — dažniausiai vieno atlikėjo koncertas; festivalio/
+//      kelių atlikėjų atveju galima nurodyti pavadinimą + lineup). + kada matė.
+//   3) Media — nuotraukos / video + pastaba, ir pateikti.
 //
-// Sąrašą kraunasi pats (GET /api/mano-muzika/seen-live). Approved įrašai iškart
-// matosi profilyje; pending laukia admino patvirtinimo.
+// Esamas atlikėjas be naujo renginio → iškart profilyje; nauji atlikėjai/
+// renginiai → draft admino peržiūrai.
 // ────────────────────────────────────────────────────────────────────────────
 
 import { useEffect, useRef, useState } from 'react'
 import { proxyImg } from '@/lib/img-proxy'
 import MusicSearchPicker, { type AttachmentHit } from '@/components/MusicSearchPicker'
-import type { SeenLiveRow } from '@/lib/seen-live'
-
-// Dažniausi LT miestai — datalist pasiūlymui (bet leidžiama įvesti bet ką).
-const LT_CITIES = ['Vilnius', 'Kaunas', 'Klaipėda', 'Šiauliai', 'Panevėžys', 'Alytus', 'Marijampolė', 'Utena', 'Palanga', 'Trakai', 'Nida']
+import GeoPicker, { EMPTY_GEO, type GeoValue } from '@/components/geo/GeoPicker'
+import type { SeenLiveRow, SeenLiveMedia } from '@/lib/seen-live'
 
 type EventPick = { id: string; title: string; slug: string; start_date: string | null; city: string | null }
 
@@ -42,23 +40,7 @@ function yearOf(r: SeenLiveRow): number | null {
 export default function SeenLivePanel({ flash }: { flash: (m: string) => void }) {
   const [items, setItems] = useState<SeenLiveRow[]>([])
   const [loaded, setLoaded] = useState(false)
-  const [busy, setBusy] = useState(false)
-
-  // Forma
-  const [artist, setArtist] = useState<AttachmentHit | null>(null)
-  const [newArtist, setNewArtist] = useState('')          // pasiūlyti naują
-  const [proposeArtist, setProposeArtist] = useState(false)
-
-  const [event, setEvent] = useState<EventPick | null>(null)
-  const [proposeEvent, setProposeEvent] = useState(false)
-  const [evTitle, setEvTitle] = useState('')
-  const [evCountry, setEvCountry] = useState('Lietuva')
-  const [evCity, setEvCity] = useState('')
-  const [evVenue, setEvVenue] = useState('')
-
-  const [year, setYear] = useState('')
-  const [date, setDate] = useState('')
-  const [note, setNote] = useState('')
+  const [wizardOpen, setWizardOpen] = useState(false)
 
   useEffect(() => {
     let alive = true
@@ -66,40 +48,6 @@ export default function SeenLivePanel({ flash }: { flash: (m: string) => void })
       .catch(() => { if (alive) setLoaded(true) })
     return () => { alive = false }
   }, [])
-
-  function resetForm() {
-    setArtist(null); setNewArtist(''); setProposeArtist(false)
-    setEvent(null); setProposeEvent(false); setEvTitle(''); setEvCountry('Lietuva'); setEvCity(''); setEvVenue('')
-    setYear(''); setDate(''); setNote('')
-  }
-
-  const hasArtist = !!artist || (proposeArtist && newArtist.trim().length > 1)
-  const willBeDraft = (proposeArtist && !!newArtist.trim()) || (proposeEvent && !!(evTitle.trim() || evVenue.trim() || evCity.trim()))
-
-  async function submit() {
-    if (!hasArtist || busy) return
-    setBusy(true)
-    try {
-      const payload: any = {
-        artist_id: artist?.id ?? null,
-        raw_artist_name: artist ? null : newArtist.trim(),
-        event_id: event?.id ?? null,
-        raw_event_title: event ? null : (proposeEvent ? evTitle.trim() || null : null),
-        raw_event_country: event ? null : (proposeEvent ? evCountry.trim() || null : null),
-        raw_event_city: event ? null : (proposeEvent ? evCity.trim() || null : null),
-        raw_event_venue: event ? null : (proposeEvent ? evVenue.trim() || null : null),
-        seen_year: year ? Number(year) : null,
-        seen_date: date || null,
-        note: note.trim() || null,
-      }
-      const { item } = await api('/seen-live', 'POST', payload)
-      setItems((l) => [item, ...l])
-      resetForm()
-      flash(item.status === 'pending' ? 'Pridėta — laukia patvirtinimo' : 'Pridėta į profilį')
-    } catch (e: any) {
-      flash(e.message || 'Klaida')
-    } finally { setBusy(false) }
-  }
 
   async function remove(id: number) {
     const prev = items
@@ -109,60 +57,50 @@ export default function SeenLivePanel({ flash }: { flash: (m: string) => void })
   }
 
   return (
-    <div className="grid lg:grid-cols-[minmax(0,1fr)_360px] gap-5 lg:gap-7 items-start">
+    <div className="grid lg:grid-cols-[minmax(0,1fr)_400px] gap-5 lg:gap-7 items-start">
       {/* ── Sąrašas ── */}
       <section className="min-w-0">
-        <h2 className="mb-1 font-['Outfit',sans-serif] text-lg font-bold" style={{ color: 'var(--text-primary)' }}>
-          Atlikėjai, kuriuos mačiau gyvai
-        </h2>
-        <p className="mb-4 text-[13px]" style={{ color: 'var(--text-muted)' }}>
-          Susidėk atlikėjus iš koncertų. Nauji atlikėjai ar renginiai patenka į peržiūrą ir atsiras patvirtinus.
-        </p>
+        <div className="mb-4 flex items-center justify-between gap-3">
+          <div>
+            <h2 className="font-['Outfit',sans-serif] text-lg font-bold" style={{ color: 'var(--text-primary)' }}>Atlikėjai, kuriuos mačiau gyvai</h2>
+            <p className="text-[13px]" style={{ color: 'var(--text-muted)' }}>Susidėk koncertus — su nuotraukom, video ir renginiu.</p>
+          </div>
+          <button onClick={() => setWizardOpen(true)}
+            className="lg:hidden shrink-0 rounded-full px-3.5 py-1.5 text-[14px] font-bold text-white" style={{ background: 'var(--accent-orange)' }}>+ Pridėti</button>
+        </div>
 
         {!loaded ? (
           <div className="py-10 text-center text-[14px]" style={{ color: 'var(--text-faint)' }}>Kraunama…</div>
         ) : items.length === 0 ? (
-          <div className="rounded-xl border border-dashed p-6 text-center text-[14px]"
-            style={{ borderColor: 'var(--border-default)', color: 'var(--text-faint)' }}>
-            Dar nieko nepridėta. Pridėk pirmą atlikėją dešinėje →
+          <div className="rounded-xl border border-dashed p-6 text-center text-[14px]" style={{ borderColor: 'var(--border-default)', color: 'var(--text-faint)' }}>
+            Dar nieko nepridėta. Paspausk „Pridėti" ir susidėk pirmą koncertą.
           </div>
         ) : (
           <ul className="flex flex-col gap-2.5">
             {items.map((it) => {
               const y = yearOf(it)
               const name = it.artist?.name || it.raw_artist_name || '—'
-              const cover = it.artist?.cover_image_url || null
+              const cover = it.artist?.cover_image_url || (it.media.find((m) => m.type === 'image')?.url ?? null)
               const evLabel = it.event?.title || it.raw_event_title
-              const place = [it.raw_event_venue, it.raw_event_city, (it.raw_event_country && it.raw_event_country !== 'Lietuva') ? it.raw_event_country : null]
-                .filter(Boolean).join(', ')
+              const place = [it.raw_event_venue, it.raw_event_city, (it.raw_event_country && it.raw_event_country !== 'Lietuva') ? it.raw_event_country : null].filter(Boolean).join(', ')
               return (
-                <li key={it.id} className="flex items-center gap-3 rounded-xl p-2.5 pr-3 ring-1"
-                  style={{ background: 'var(--bg-surface)', boxShadow: 'none', borderColor: 'transparent', ['--tw-ring-color' as any]: 'var(--border-subtle)' }}>
-                  <div className="h-11 w-11 shrink-0 overflow-hidden rounded-lg" style={{ background: 'var(--cover-placeholder)' }}>
+                <li key={it.id} className="flex items-center gap-3 rounded-xl p-2.5 pr-3 ring-1" style={{ background: 'var(--bg-surface)', ['--tw-ring-color' as any]: 'var(--border-subtle)' }}>
+                  <div className="relative h-11 w-11 shrink-0 overflow-hidden rounded-lg" style={{ background: 'var(--cover-placeholder)' }}>
                     {cover ? (
                       // eslint-disable-next-line @next/next/no-img-element
                       <img src={proxyImg(cover)} alt="" referrerPolicy="no-referrer" className="h-full w-full object-cover" />
                     ) : <div className="flex h-full w-full items-center justify-center text-[16px]" style={{ color: 'var(--text-faint)' }}>🎤</div>}
+                    {it.media.length > 0 && <span className="absolute bottom-0 right-0 rounded-tl bg-black/60 px-1 text-[10px] font-bold text-white">{it.media.length}</span>}
                   </div>
                   <div className="min-w-0 flex-1">
                     <div className="flex items-center gap-2">
                       <span className="truncate font-['Outfit',sans-serif] text-[15px] font-bold" style={{ color: 'var(--text-primary)' }}>{name}</span>
-                      {it.status === 'pending' && (
-                        <span className="shrink-0 rounded-full px-1.5 py-0.5 text-[10px] font-black uppercase tracking-wide"
-                          style={{ background: 'rgba(245,158,11,0.16)', color: 'var(--accent-orange)' }}>Laukia</span>
-                      )}
-                      {it.status === 'rejected' && (
-                        <span className="shrink-0 rounded-full px-1.5 py-0.5 text-[10px] font-black uppercase tracking-wide"
-                          style={{ background: 'rgba(248,113,113,0.14)', color: 'var(--accent-red)' }}>Atmesta</span>
-                      )}
+                      {it.status === 'pending' && <span className="shrink-0 rounded-full px-1.5 py-0.5 text-[10px] font-black uppercase tracking-wide" style={{ background: 'rgba(245,158,11,0.16)', color: 'var(--accent-orange)' }}>Laukia</span>}
+                      {it.status === 'rejected' && <span className="shrink-0 rounded-full px-1.5 py-0.5 text-[10px] font-black uppercase tracking-wide" style={{ background: 'rgba(248,113,113,0.14)', color: 'var(--accent-red)' }}>Atmesta</span>}
                     </div>
-                    <div className="truncate text-[12px]" style={{ color: 'var(--text-muted)' }}>
-                      {[evLabel, place, y ? String(y) : null].filter(Boolean).join(' · ') || 'Be renginio'}
-                    </div>
+                    <div className="truncate text-[12px]" style={{ color: 'var(--text-muted)' }}>{[evLabel, place, y ? String(y) : null].filter(Boolean).join(' · ') || 'Be renginio'}</div>
                   </div>
-                  <button onClick={() => remove(it.id)} aria-label="Pašalinti"
-                    className="flex h-7 w-7 shrink-0 items-center justify-center rounded-full transition-colors hover:bg-[var(--bg-hover)]"
-                    style={{ color: 'var(--text-faint)' }}>
+                  <button onClick={() => remove(it.id)} aria-label="Pašalinti" className="flex h-7 w-7 shrink-0 items-center justify-center rounded-full transition-colors hover:bg-[var(--bg-hover)]" style={{ color: 'var(--text-faint)' }}>
                     <svg viewBox="0 0 16 16" width={11} height={11} fill="none" stroke="currentColor" strokeWidth={2.2} strokeLinecap="round"><path d="M3 3l10 10M13 3L3 13" /></svg>
                   </button>
                 </li>
@@ -172,110 +110,256 @@ export default function SeenLivePanel({ flash }: { flash: (m: string) => void })
         )}
       </section>
 
-      {/* ── Forma ── */}
-      <section className="rounded-2xl p-4 ring-1 lg:sticky lg:top-4"
-        style={{ background: 'var(--bg-surface)', ['--tw-ring-color' as any]: 'var(--border-subtle)' }}>
-        <h3 className="mb-3 font-['Outfit',sans-serif] text-[15px] font-extrabold" style={{ color: 'var(--text-primary)' }}>Pridėti atlikėją</h3>
+      {/* ── Wizard (desktop: sticky dešinėje; mobile: modalas) ── */}
+      <div className="hidden lg:block lg:sticky lg:top-4">
+        <Wizard onAdded={(item) => setItems((l) => [item, ...l])} flash={flash} />
+      </div>
+      {wizardOpen && (
+        <div className="lg:hidden fixed inset-0 z-[120] flex items-end sm:items-center justify-center bg-black/50 p-0 sm:p-4" onClick={() => setWizardOpen(false)}>
+          <div className="max-h-[92vh] w-full sm:max-w-md overflow-y-auto rounded-t-2xl sm:rounded-2xl" onClick={(e) => e.stopPropagation()}>
+            <Wizard onAdded={(item) => { setItems((l) => [item, ...l]); setWizardOpen(false) }} flash={flash} onClose={() => setWizardOpen(false)} />
+          </div>
+        </div>
+      )}
+    </div>
+  )
+}
 
-        {/* Atlikėjas */}
-        <label className="mb-1 block text-[12px] font-bold uppercase tracking-wide" style={{ color: 'var(--text-faint)' }}>Atlikėjas *</label>
-        {!proposeArtist ? (
-          <>
-            {artist ? (
-              <div className="mb-2 flex items-center gap-2 rounded-lg p-2 ring-1" style={{ background: 'var(--bg-elevated)', ['--tw-ring-color' as any]: 'var(--border-subtle)' }}>
-                <div className="h-8 w-8 shrink-0 overflow-hidden rounded" style={{ background: 'var(--cover-placeholder)' }}>
-                  {artist.image_url && /* eslint-disable-next-line @next/next/no-img-element */ <img src={proxyImg(artist.image_url)} alt="" referrerPolicy="no-referrer" className="h-full w-full object-cover" />}
+// ── WIZARD ──────────────────────────────────────────────────────────────────
+function Wizard({ onAdded, flash, onClose }: { onAdded: (item: SeenLiveRow) => void; flash: (m: string) => void; onClose?: () => void }) {
+  const [step, setStep] = useState(1)
+  const [busy, setBusy] = useState(false)
+
+  // 1 — atlikėjas
+  const [artist, setArtist] = useState<AttachmentHit | null>(null)
+  const [newArtist, setNewArtist] = useState('')
+  const [proposeArtist, setProposeArtist] = useState(false)
+
+  // 2 — renginys
+  const [event, setEvent] = useState<EventPick | null>(null)
+  const [describe, setDescribe] = useState(false)         // aprašyti vietą (naujas renginys)
+  const [isFestival, setIsFestival] = useState(false)
+  const [evTitle, setEvTitle] = useState('')
+  const [lineup, setLineup] = useState('')
+  const [geo, setGeo] = useState<GeoValue>(EMPTY_GEO)
+  const [year, setYear] = useState('')
+  const [date, setDate] = useState('')
+
+  // 3 — media + pastaba
+  const [media, setMedia] = useState<SeenLiveMedia[]>([])
+  const [note, setNote] = useState('')
+
+  const hasArtist = !!artist || (proposeArtist && newArtist.trim().length > 1)
+  const willBeDraft = (proposeArtist && !!newArtist.trim()) ||
+    (describe && !event && !!(geo.venueName || geo.cityName || evTitle.trim()))
+
+  function reset() {
+    setStep(1); setArtist(null); setNewArtist(''); setProposeArtist(false)
+    setEvent(null); setDescribe(false); setIsFestival(false); setEvTitle(''); setLineup(''); setGeo(EMPTY_GEO)
+    setYear(''); setDate(''); setMedia([]); setNote('')
+  }
+
+  async function submit() {
+    if (!hasArtist || busy) return
+    setBusy(true)
+    try {
+      const payload: any = {
+        artist_id: artist?.id ?? null,
+        raw_artist_name: artist ? null : newArtist.trim(),
+        event_id: event?.id ?? null,
+        raw_event_title: event ? null : (describe && isFestival ? evTitle.trim() || null : null),
+        raw_event_country: event ? null : (describe ? geo.countryName : null),
+        raw_event_city: event ? null : (describe ? geo.cityName : null),
+        raw_event_venue: event ? null : (describe ? geo.venueName : null),
+        raw_event_is_festival: event ? false : (describe && isFestival),
+        raw_event_lineup: event ? null : (describe && isFestival ? lineup.trim() || null : null),
+        seen_year: year ? Number(year) : null,
+        seen_date: date || null,
+        note: note.trim() || null,
+        media,
+      }
+      const { item } = await api('/seen-live', 'POST', payload)
+      onAdded(item)
+      reset()
+      flash(item.status === 'pending' ? 'Pridėta — laukia patvirtinimo' : 'Pridėta į profilį')
+    } catch (e: any) { flash(e.message || 'Klaida') } finally { setBusy(false) }
+  }
+
+  const card = 'rounded-2xl p-4 ring-1'
+  const cardStyle = { background: 'var(--bg-surface)', ['--tw-ring-color' as any]: 'var(--border-subtle)' }
+
+  return (
+    <section className={card} style={cardStyle as any}>
+      {/* Antraštė + žingsnių indikatorius */}
+      <div className="mb-3 flex items-center justify-between">
+        <h3 className="font-['Outfit',sans-serif] text-[15px] font-extrabold" style={{ color: 'var(--text-primary)' }}>Pridėti koncertą</h3>
+        {onClose && <button onClick={onClose} className="text-[13px]" style={{ color: 'var(--text-faint)' }}>Uždaryti</button>}
+      </div>
+      <div className="mb-4 flex items-center gap-1.5">
+        {[1, 2, 3].map((s) => (
+          <div key={s} className="h-1.5 flex-1 rounded-full" style={{ background: s <= step ? 'var(--accent-orange)' : 'var(--bg-elevated)' }} />
+        ))}
+      </div>
+
+      {/* STEP 1 — atlikėjas */}
+      {step === 1 && (
+        <div>
+          <label className="mb-1 block text-[12px] font-bold uppercase tracking-wide" style={{ color: 'var(--text-faint)' }}>Kurį atlikėją matei? *</label>
+          {!proposeArtist ? (
+            <>
+              {artist ? (
+                <div className="mb-2 flex items-center gap-2 rounded-lg p-2 ring-1" style={{ background: 'var(--bg-elevated)', ['--tw-ring-color' as any]: 'var(--border-subtle)' } as any}>
+                  <div className="h-8 w-8 shrink-0 overflow-hidden rounded" style={{ background: 'var(--cover-placeholder)' }}>
+                    {artist.image_url && /* eslint-disable-next-line @next/next/no-img-element */ <img src={proxyImg(artist.image_url)} alt="" referrerPolicy="no-referrer" className="h-full w-full object-cover" />}
+                  </div>
+                  <span className="min-w-0 flex-1 truncate text-[14px] font-bold" style={{ color: 'var(--text-primary)' }}>{artist.title}</span>
+                  <button onClick={() => setArtist(null)} className="text-[12px]" style={{ color: 'var(--accent-link)' }}>keisti</button>
                 </div>
-                <span className="min-w-0 flex-1 truncate text-[14px] font-bold" style={{ color: 'var(--text-primary)' }}>{artist.title}</span>
-                <button onClick={() => setArtist(null)} className="text-[12px]" style={{ color: 'var(--accent-link)' }}>keisti</button>
-              </div>
-            ) : (
-              <MusicSearchPicker attached={[]} onAdd={(h) => setArtist(h)} typeFilter="grupe" compact placeholder="Ieškok atlikėjo…" />
-            )}
-            <button onClick={() => { setProposeArtist(true); setArtist(null) }}
-              className="mt-1.5 text-[12px]" style={{ color: 'var(--text-muted)' }}>
-              Nerandi? <span style={{ color: 'var(--accent-link)' }}>Pasiūlyk naują →</span>
-            </button>
-          </>
-        ) : (
-          <>
-            <input value={newArtist} onChange={(e) => setNewArtist(e.target.value)} placeholder="Naujo atlikėjo pavadinimas"
-              className="w-full rounded-lg px-3 py-2 text-[14px] outline-none ring-1"
-              style={{ background: 'var(--bg-elevated)', color: 'var(--text-primary)', ['--tw-ring-color' as any]: 'var(--border-default)' }} />
-            <button onClick={() => { setProposeArtist(false); setNewArtist('') }} className="mt-1.5 text-[12px]" style={{ color: 'var(--accent-link)' }}>← Ieškoti esamų</button>
-          </>
-        )}
-
-        {/* Renginys */}
-        <div className="mt-4 mb-1 flex items-center justify-between">
-          <label className="block text-[12px] font-bold uppercase tracking-wide" style={{ color: 'var(--text-faint)' }}>Renginys (nebūtina)</label>
+              ) : (
+                <MusicSearchPicker attached={[]} onAdd={(h) => setArtist(h)} typeFilter="grupe" compact placeholder="Ieškok atlikėjo…" />
+              )}
+              <button onClick={() => { setProposeArtist(true); setArtist(null) }} className="mt-1.5 text-[12px]" style={{ color: 'var(--text-muted)' }}>Nerandi? <span style={{ color: 'var(--accent-link)' }}>Pasiūlyk naują →</span></button>
+            </>
+          ) : (
+            <>
+              <input value={newArtist} onChange={(e) => setNewArtist(e.target.value)} placeholder="Naujo atlikėjo pavadinimas" className="w-full rounded-lg px-3 py-2 text-[14px] outline-none ring-1" style={{ background: 'var(--bg-elevated)', color: 'var(--text-primary)', ['--tw-ring-color' as any]: 'var(--border-default)' } as any} />
+              <button onClick={() => { setProposeArtist(false); setNewArtist('') }} className="mt-1.5 text-[12px]" style={{ color: 'var(--accent-link)' }}>← Ieškoti esamų</button>
+            </>
+          )}
+          <StepNav onNext={() => hasArtist && setStep(2)} nextDisabled={!hasArtist} />
         </div>
-        {!proposeEvent ? (
-          <>
-            {event ? (
-              <div className="mb-2 flex items-center gap-2 rounded-lg p-2 ring-1" style={{ background: 'var(--bg-elevated)', ['--tw-ring-color' as any]: 'var(--border-subtle)' }}>
-                <span className="min-w-0 flex-1 truncate text-[14px]" style={{ color: 'var(--text-primary)' }}>
-                  {event.title}{event.city ? ` · ${event.city}` : ''}{event.start_date ? ` · ${String(event.start_date).slice(0, 4)}` : ''}
-                </span>
-                <button onClick={() => setEvent(null)} className="text-[12px]" style={{ color: 'var(--accent-link)' }}>keisti</button>
-              </div>
-            ) : (
-              <EventSearch onPick={(e) => setEvent(e)} />
-            )}
-            <button onClick={() => { setProposeEvent(true); setEvent(null) }} className="mt-1.5 text-[12px]" style={{ color: 'var(--text-muted)' }}>
-              Nerandi renginio? <span style={{ color: 'var(--accent-link)' }}>Įvesk ranka →</span>
-            </button>
-          </>
-        ) : (
-          <div className="flex flex-col gap-2">
-            <input value={evTitle} onChange={(e) => setEvTitle(e.target.value)} placeholder="Renginio / koncerto pavadinimas"
-              className="w-full rounded-lg px-3 py-2 text-[14px] outline-none ring-1" style={{ background: 'var(--bg-elevated)', color: 'var(--text-primary)', ['--tw-ring-color' as any]: 'var(--border-default)' }} />
-            <div className="grid grid-cols-2 gap-2">
-              <select value={evCountry} onChange={(e) => setEvCountry(e.target.value)}
-                className="w-full rounded-lg px-3 py-2 text-[14px] outline-none ring-1" style={{ background: 'var(--bg-elevated)', color: 'var(--text-primary)', ['--tw-ring-color' as any]: 'var(--border-default)' }}>
-                <option>Lietuva</option><option>Latvija</option><option>Estija</option><option>Lenkija</option><option>Kita</option>
-              </select>
-              <input value={evCity} onChange={(e) => setEvCity(e.target.value)} placeholder="Miestas" list="seenlive-cities"
-                className="w-full rounded-lg px-3 py-2 text-[14px] outline-none ring-1" style={{ background: 'var(--bg-elevated)', color: 'var(--text-primary)', ['--tw-ring-color' as any]: 'var(--border-default)' }} />
-              <datalist id="seenlive-cities">{LT_CITIES.map((c) => <option key={c} value={c} />)}</datalist>
+      )}
+
+      {/* STEP 2 — renginys / kontekstas */}
+      {step === 2 && (
+        <div>
+          <label className="mb-1 block text-[12px] font-bold uppercase tracking-wide" style={{ color: 'var(--text-faint)' }}>Renginys (nebūtina)</label>
+          {!describe ? (
+            <>
+              {event ? (
+                <div className="mb-2 flex items-center gap-2 rounded-lg p-2 ring-1" style={{ background: 'var(--bg-elevated)', ['--tw-ring-color' as any]: 'var(--border-subtle)' } as any}>
+                  <span className="min-w-0 flex-1 truncate text-[14px]" style={{ color: 'var(--text-primary)' }}>{event.title}{event.city ? ` · ${event.city}` : ''}{event.start_date ? ` · ${String(event.start_date).slice(0, 4)}` : ''}</span>
+                  <button onClick={() => setEvent(null)} className="text-[12px]" style={{ color: 'var(--accent-link)' }}>keisti</button>
+                </div>
+              ) : (
+                <EventSearch onPick={(e) => setEvent(e)} />
+              )}
+              <button onClick={() => { setDescribe(true); setEvent(null) }} className="mt-1.5 text-[12px]" style={{ color: 'var(--text-muted)' }}>Nerandi? <span style={{ color: 'var(--accent-link)' }}>Aprašyk pats →</span></button>
+              <p className="mt-2 text-[12px]" style={{ color: 'var(--text-faint)' }}>Jei tai buvo tiesiog šio atlikėjo koncertas — renginio nurodyti nebūtina.</p>
+            </>
+          ) : (
+            <div className="flex flex-col gap-2">
+              <GeoPicker value={geo} onChange={setGeo} compact />
+              <label className="mt-1 inline-flex items-center gap-2 text-[13px]" style={{ color: 'var(--text-secondary)' }}>
+                <input type="checkbox" checked={isFestival} onChange={(e) => setIsFestival(e.target.checked)} />
+                Festivalis arba keli atlikėjai (apšildantys)
+              </label>
+              {isFestival && (
+                <>
+                  <input value={evTitle} onChange={(e) => setEvTitle(e.target.value)} placeholder="Renginio / festivalio pavadinimas" className="w-full rounded-lg px-3 py-2 text-[14px] outline-none ring-1" style={{ background: 'var(--bg-elevated)', color: 'var(--text-primary)', ['--tw-ring-color' as any]: 'var(--border-default)' } as any} />
+                  <input value={lineup} onChange={(e) => setLineup(e.target.value)} placeholder="Kiti atlikėjai (per kablelį) — nebūtina" className="w-full rounded-lg px-3 py-2 text-[14px] outline-none ring-1" style={{ background: 'var(--bg-elevated)', color: 'var(--text-primary)', ['--tw-ring-color' as any]: 'var(--border-default)' } as any} />
+                </>
+              )}
+              <button onClick={() => setDescribe(false)} className="self-start text-[12px]" style={{ color: 'var(--accent-link)' }}>← Ieškoti esamų</button>
             </div>
-            <input value={evVenue} onChange={(e) => setEvVenue(e.target.value)} placeholder="Vieta / arena (nebūtina)"
-              className="w-full rounded-lg px-3 py-2 text-[14px] outline-none ring-1" style={{ background: 'var(--bg-elevated)', color: 'var(--text-primary)', ['--tw-ring-color' as any]: 'var(--border-default)' }} />
-            <button onClick={() => { setProposeEvent(false); setEvTitle(''); setEvVenue(''); setEvCity('') }} className="self-start text-[12px]" style={{ color: 'var(--accent-link)' }}>← Ieškoti esamų</button>
-          </div>
-        )}
+          )}
 
-        {/* Metai / data */}
-        <div className="mt-4 grid grid-cols-2 gap-2">
-          <div>
-            <label className="mb-1 block text-[12px] font-bold uppercase tracking-wide" style={{ color: 'var(--text-faint)' }}>Metai</label>
-            <input value={year} onChange={(e) => setYear(e.target.value.replace(/\D/g, '').slice(0, 4))} placeholder="pvz. 2019" inputMode="numeric"
-              className="w-full rounded-lg px-3 py-2 text-[14px] outline-none ring-1" style={{ background: 'var(--bg-elevated)', color: 'var(--text-primary)', ['--tw-ring-color' as any]: 'var(--border-default)' }} />
+          {/* Kada */}
+          <div className="mt-4 grid grid-cols-2 gap-2">
+            <div>
+              <label className="mb-1 block text-[12px] font-bold uppercase tracking-wide" style={{ color: 'var(--text-faint)' }}>Metai</label>
+              <input value={year} onChange={(e) => setYear(e.target.value.replace(/\D/g, '').slice(0, 4))} placeholder="pvz. 2019" inputMode="numeric" className="w-full rounded-lg px-3 py-2 text-[14px] outline-none ring-1" style={{ background: 'var(--bg-elevated)', color: 'var(--text-primary)', ['--tw-ring-color' as any]: 'var(--border-default)' } as any} />
+            </div>
+            <div>
+              <label className="mb-1 block text-[12px] font-bold uppercase tracking-wide" style={{ color: 'var(--text-faint)' }}>Tiksli data</label>
+              <input type="date" value={date} onChange={(e) => setDate(e.target.value)} className="w-full rounded-lg px-3 py-2 text-[14px] outline-none ring-1" style={{ background: 'var(--bg-elevated)', color: 'var(--text-primary)', ['--tw-ring-color' as any]: 'var(--border-default)' } as any} />
+            </div>
           </div>
-          <div>
-            <label className="mb-1 block text-[12px] font-bold uppercase tracking-wide" style={{ color: 'var(--text-faint)' }}>Tiksli data</label>
-            <input type="date" value={date} onChange={(e) => setDate(e.target.value)}
-              className="w-full rounded-lg px-3 py-2 text-[14px] outline-none ring-1" style={{ background: 'var(--bg-elevated)', color: 'var(--text-primary)', ['--tw-ring-color' as any]: 'var(--border-default)' }} />
+          <StepNav onBack={() => setStep(1)} onNext={() => setStep(3)} />
+        </div>
+      )}
+
+      {/* STEP 3 — media + pastaba */}
+      {step === 3 && (
+        <div>
+          <label className="mb-1 block text-[12px] font-bold uppercase tracking-wide" style={{ color: 'var(--text-faint)' }}>Nuotraukos / video (nebūtina)</label>
+          <MediaUploader media={media} setMedia={setMedia} flash={flash} />
+          <label className="mt-3 mb-1 block text-[12px] font-bold uppercase tracking-wide" style={{ color: 'var(--text-faint)' }}>Pastaba</label>
+          <textarea value={note} onChange={(e) => setNote(e.target.value)} rows={2} placeholder="Įspūdis, su kuo buvai…" className="w-full resize-none rounded-lg px-3 py-2 text-[14px] outline-none ring-1" style={{ background: 'var(--bg-elevated)', color: 'var(--text-primary)', ['--tw-ring-color' as any]: 'var(--border-default)' } as any} />
+          {willBeDraft && <p className="mt-2 rounded-lg px-2.5 py-1.5 text-[12px]" style={{ background: 'rgba(245,158,11,0.10)', color: 'var(--accent-orange)' }}>Naujas atlikėjas/renginys — atsiras profilyje po admino patvirtinimo.</p>}
+          <div className="mt-3 flex items-center gap-2">
+            <button onClick={() => setStep(2)} className="rounded-xl px-3 py-2.5 text-[14px] font-bold ring-1" style={{ color: 'var(--text-secondary)', ['--tw-ring-color' as any]: 'var(--border-default)' } as any}>← Atgal</button>
+            <button onClick={submit} disabled={!hasArtist || busy} className="flex-1 rounded-xl py-2.5 text-[14px] font-bold text-white transition-transform hover:scale-[1.01] disabled:opacity-45" style={{ background: 'var(--accent-orange)' }}>{busy ? 'Pridedama…' : 'Pridėti'}</button>
           </div>
         </div>
+      )}
+    </section>
+  )
+}
 
-        {/* Pastaba */}
-        <label className="mt-3 mb-1 block text-[12px] font-bold uppercase tracking-wide" style={{ color: 'var(--text-faint)' }}>Pastaba (nebūtina)</label>
-        <textarea value={note} onChange={(e) => setNote(e.target.value)} rows={2} placeholder="Įspūdis, kartu grojo…"
-          className="w-full resize-none rounded-lg px-3 py-2 text-[14px] outline-none ring-1" style={{ background: 'var(--bg-elevated)', color: 'var(--text-primary)', ['--tw-ring-color' as any]: 'var(--border-default)' }} />
+function StepNav({ onBack, onNext, nextDisabled }: { onBack?: () => void; onNext: () => void; nextDisabled?: boolean }) {
+  return (
+    <div className="mt-4 flex items-center gap-2">
+      {onBack && <button onClick={onBack} className="rounded-xl px-3 py-2.5 text-[14px] font-bold ring-1" style={{ color: 'var(--text-secondary)', ['--tw-ring-color' as any]: 'var(--border-default)' } as any}>← Atgal</button>}
+      <button onClick={onNext} disabled={nextDisabled} className="flex-1 rounded-xl py-2.5 text-[14px] font-bold text-white transition-transform hover:scale-[1.01] disabled:opacity-45" style={{ background: 'var(--accent-orange)' }}>Toliau →</button>
+    </div>
+  )
+}
 
-        {willBeDraft && (
-          <p className="mt-2 rounded-lg px-2.5 py-1.5 text-[12px]" style={{ background: 'rgba(245,158,11,0.10)', color: 'var(--accent-orange)' }}>
-            Naujas atlikėjas/renginys — bus rodoma profilyje po admino patvirtinimo.
-          </p>
-        )}
+// ── Media įkėlimas ──────────────────────────────────────────────────────────
+function MediaUploader({ media, setMedia, flash }: { media: SeenLiveMedia[]; setMedia: (m: SeenLiveMedia[]) => void; flash: (m: string) => void }) {
+  const [uploading, setUploading] = useState(false)
+  const inputRef = useRef<HTMLInputElement | null>(null)
 
-        <button onClick={submit} disabled={!hasArtist || busy}
-          className="mt-3 w-full rounded-xl py-2.5 text-[14px] font-bold text-white transition-transform hover:scale-[1.01] disabled:opacity-45"
-          style={{ background: 'var(--accent-orange)' }}>
-          {busy ? 'Pridedama…' : 'Pridėti'}
+  async function onFiles(files: FileList | null) {
+    if (!files || !files.length) return
+    setUploading(true)
+    const added: SeenLiveMedia[] = []
+    try {
+      for (const file of Array.from(files).slice(0, 12)) {
+        const isVideo = file.type.startsWith('video/')
+        const cap = isVideo ? 50 * 1024 * 1024 : 25 * 1024 * 1024
+        if (file.size > cap) { flash(isVideo ? 'Video per didelis (max 50MB)' : 'Nuotrauka per didelė (max 25MB)'); continue }
+        // 1) signed upload URL
+        const signRes = await fetch('/api/mano-muzika/seen-live/media-url', {
+          method: 'POST', headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ filename: file.name, contentType: file.type }),
+        })
+        const sign = await signRes.json().catch(() => ({}))
+        if (!signRes.ok) { flash(sign.error || 'Įkelti nepavyko'); continue }
+        // 2) PUT failą tiesiai į Storage
+        const put = await fetch(sign.uploadUrl, { method: 'PUT', headers: { 'Content-Type': file.type }, body: file })
+        if (!put.ok) { flash('Įkelti nepavyko'); continue }
+        added.push({ url: sign.publicUrl, type: sign.type })
+      }
+      if (added.length) setMedia([...media, ...added])
+    } finally { setUploading(false); if (inputRef.current) inputRef.current.value = '' }
+  }
+
+  return (
+    <div>
+      <div className="flex flex-wrap gap-2">
+        {media.map((m, i) => (
+          <div key={i} className="relative h-20 w-20 overflow-hidden rounded-lg ring-1" style={{ background: 'var(--cover-placeholder)', ['--tw-ring-color' as any]: 'var(--border-subtle)' } as any}>
+            {m.type === 'image' ? (
+              // eslint-disable-next-line @next/next/no-img-element
+              <img src={proxyImg(m.url)} alt="" referrerPolicy="no-referrer" className="h-full w-full object-cover" />
+            ) : (
+              <div className="flex h-full w-full items-center justify-center text-[22px]">🎬</div>
+            )}
+            <button onClick={() => setMedia(media.filter((_, j) => j !== i))} aria-label="Pašalinti" className="absolute right-0.5 top-0.5 flex h-5 w-5 items-center justify-center rounded-full bg-black/60 text-white">
+              <svg viewBox="0 0 16 16" width={9} height={9} fill="none" stroke="currentColor" strokeWidth={2.4} strokeLinecap="round"><path d="M3 3l10 10M13 3L3 13" /></svg>
+            </button>
+          </div>
+        ))}
+        <button onClick={() => inputRef.current?.click()} disabled={uploading}
+          className="flex h-20 w-20 flex-col items-center justify-center gap-1 rounded-lg border border-dashed text-[12px] disabled:opacity-50"
+          style={{ borderColor: 'var(--border-default)', color: 'var(--text-faint)' }}>
+          {uploading ? '…' : <><span className="text-[20px]">＋</span>foto/video</>}
         </button>
-      </section>
+      </div>
+      <input ref={inputRef} type="file" accept="image/*,video/mp4,video/webm,video/quicktime" multiple hidden onChange={(e) => onFiles(e.target.files)} />
+      <p className="mt-1 text-[11px]" style={{ color: 'var(--text-faint)' }}>Nuotraukos + video (mp4/webm/mov, iki 50MB).</p>
     </div>
   )
 }
@@ -312,13 +396,10 @@ function EventSearch({ onPick }: { onPick: (e: EventPick) => void }) {
 
   return (
     <div ref={wrapRef} className="relative">
-      <input value={q} onChange={(e) => { setQ(e.target.value); setOpen(true) }} onFocus={() => setOpen(true)}
-        placeholder="Ieškok renginio…"
-        className="w-full rounded-lg px-3 py-2 text-[14px] outline-none ring-1"
-        style={{ background: 'var(--bg-elevated)', color: 'var(--text-primary)', ['--tw-ring-color' as any]: 'var(--border-default)' }} />
+      <input value={q} onChange={(e) => { setQ(e.target.value); setOpen(true) }} onFocus={() => setOpen(true)} placeholder="Ieškok renginio…"
+        className="w-full rounded-lg px-3 py-2 text-[14px] outline-none ring-1" style={{ background: 'var(--bg-elevated)', color: 'var(--text-primary)', ['--tw-ring-color' as any]: 'var(--border-default)' } as any} />
       {open && q.trim().length >= 2 && (
-        <div className="absolute left-0 right-0 z-50 mt-1.5 max-h-[280px] overflow-y-auto rounded-lg ring-1 shadow-lg"
-          style={{ background: 'var(--bg-surface)', ['--tw-ring-color' as any]: 'var(--border-default)' }}>
+        <div className="absolute left-0 right-0 z-50 mt-1.5 max-h-[280px] overflow-y-auto rounded-lg ring-1 shadow-lg" style={{ background: 'var(--bg-surface)', ['--tw-ring-color' as any]: 'var(--border-default)' } as any}>
           {loading ? (
             <div className="px-3 py-3 text-center text-[13px]" style={{ color: 'var(--text-faint)' }}>Ieškoma…</div>
           ) : results.length === 0 ? (
@@ -327,13 +408,9 @@ function EventSearch({ onPick }: { onPick: (e: EventPick) => void }) {
             <ul>
               {results.map((e) => (
                 <li key={e.id}>
-                  <button type="button" onClick={() => { onPick(e); setQ(''); setResults([]); setOpen(false) }}
-                    className="flex w-full flex-col items-start border-b px-3 py-2 text-left last:border-b-0 hover:bg-[var(--bg-hover)]"
-                    style={{ borderColor: 'var(--border-subtle)' }}>
+                  <button type="button" onClick={() => { onPick(e); setQ(''); setResults([]); setOpen(false) }} className="flex w-full flex-col items-start border-b px-3 py-2 text-left last:border-b-0 hover:bg-[var(--bg-hover)]" style={{ borderColor: 'var(--border-subtle)' }}>
                     <span className="text-[14px] font-bold" style={{ color: 'var(--text-primary)' }}>{e.title}</span>
-                    <span className="text-[12px]" style={{ color: 'var(--text-muted)' }}>
-                      {[e.city, e.start_date ? String(e.start_date).slice(0, 10) : null].filter(Boolean).join(' · ')}
-                    </span>
+                    <span className="text-[12px]" style={{ color: 'var(--text-muted)' }}>{[e.city, e.start_date ? String(e.start_date).slice(0, 10) : null].filter(Boolean).join(' · ')}</span>
                   </button>
                 </li>
               ))}
