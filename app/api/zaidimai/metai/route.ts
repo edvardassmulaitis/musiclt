@@ -8,7 +8,7 @@
 
 import { NextRequest, NextResponse } from 'next/server'
 import { createAdminClient } from '@/lib/supabase'
-import { bumpStreakAndXp } from '@/lib/boombox'
+import { bumpStreakAndXp, todayLT } from '@/lib/boombox'
 import {
   resolveViewer,
   shuffleArr,
@@ -20,6 +20,14 @@ export const dynamic = 'force-dynamic'
 
 const XP_RUNS_PER_DAY = 3
 const TOKEN_TTL_MS = 45 * 60 * 1000
+
+type RoundContent = {
+  r: number
+  image: string
+  label: string
+  correctYear: number
+  options: { id: number; name: string }[]
+}
 
 function jsonErr(msg: string, status = 400) {
   return NextResponse.json({ error: msg }, { status })
@@ -59,7 +67,8 @@ function yearDecoys(correct: number, rng: () => number = Math.random): number[] 
 
 export async function GET(req: NextRequest) {
   const url = new URL(req.url)
-  const roundCount = Math.min(Math.max(parseInt(url.searchParams.get('raundai') || '8') || 8, 3), 12)
+  const dienos = url.searchParams.get('dienos') === '1'
+  const roundCount = dienos ? 3 : Math.min(Math.max(parseInt(url.searchParams.get('raundai') || '8') || 8, 3), 12)
 
   const viewer = await resolveViewer()
   const sb = createAdminClient()
@@ -104,25 +113,54 @@ export async function GET(req: NextRequest) {
     return jsonErr('Per mažai albumų su metais', 503)
   }
 
-  const ltCount = Math.min(Math.round(roundCount / 3), ltPool.length)
-  const corrects = shuffleArr([
-    ...ltPool.slice(0, ltCount),
-    ...uzsienioPool.slice(0, roundCount - ltCount),
-  ]).slice(0, roundCount)
+  function buildContent(): RoundContent[] {
+    const ltCount = Math.min(Math.round(roundCount / 3), ltPool.length)
+    const corrects = shuffleArr([
+      ...ltPool.slice(0, ltCount),
+      ...uzsienioPool.slice(0, roundCount - ltCount),
+    ]).slice(0, roundCount)
+    return corrects.map((al, idx) => {
+      const years = shuffleArr([al.year!, ...yearDecoys(al.year!)])
+      return {
+        r: idx,
+        image: al.cover_image_url,
+        label: `${al.artists!.name} — ${al.title}`,
+        correctYear: al.year!,
+        options: years.map(y => ({ id: y, name: String(y) })),
+      }
+    })
+  }
 
-  const quizId = `m-${Math.random().toString(36).slice(2, 10)}`
-  const exp = Date.now() + TOKEN_TTL_MS
-
-  const rounds = corrects.map((al, idx) => {
-    const years = shuffleArr([al.year!, ...yearDecoys(al.year!)])
-    return {
-      r: idx,
-      image: al.cover_image_url,
-      label: `${al.artists!.name} — ${al.title}`,
-      options: years.map(y => ({ id: y, name: String(y) })),
-      token: sealPayload({ g: 'metai', q: quizId, r: idx, c: al.year!, exp }),
+  let content: RoundContent[]
+  let quizId: string
+  if (dienos) {
+    const today = todayLT()
+    quizId = `m-d${today}`
+    const { data: snap } = await sb.from('daily_game_snapshot')
+      .select('rounds').eq('day', today).eq('game', 'metai').maybeSingle()
+    if (snap?.rounds) {
+      content = (snap.rounds as RoundContent[]).slice(0, roundCount)
+    } else {
+      content = buildContent()
+      await sb.from('daily_game_snapshot').upsert(
+        { day: today, game: 'metai', rounds: content }, { onConflict: 'day,game', ignoreDuplicates: true })
+      const { data: authoritative } = await sb.from('daily_game_snapshot')
+        .select('rounds').eq('day', today).eq('game', 'metai').maybeSingle()
+      content = ((authoritative?.rounds as RoundContent[]) || content).slice(0, roundCount)
     }
-  })
+  } else {
+    quizId = `m-${Math.random().toString(36).slice(2, 10)}`
+    content = buildContent()
+  }
+
+  const exp = Date.now() + TOKEN_TTL_MS
+  const rounds = content.map(c => ({
+    r: c.r,
+    image: c.image,
+    label: c.label,
+    options: c.options,
+    token: sealPayload({ g: 'metai', q: quizId, r: c.r, c: c.correctYear, exp }),
+  }))
 
   const runsToday = await countRunsToday(viewer, 'metai')
 

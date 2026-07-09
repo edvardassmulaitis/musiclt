@@ -53,7 +53,10 @@ async function loadInitial() {
   // Ar dienos kvizas jau užskaitytas
   let quizPlayed = false
   let quizScore: number | null = null
+  let metaiDone = false
+  let vaizdasDone = false
   if (viewer.userId || viewer.anonId) {
+    const f = viewer.userId ? { user_id: viewer.userId } : { anon_id: viewer.anonId! }
     let q = sb
       .from('game_scores')
       .select('score')
@@ -64,8 +67,14 @@ async function loadInitial() {
       .limit(1)
     if (viewer.userId) q = q.eq('user_id', viewer.userId)
     else q = q.eq('anon_id', viewer.anonId!)
-    const { data } = await q.maybeSingle()
+    const [{ data }, { data: m }, { data: v }] = await Promise.all([
+      q.maybeSingle(),
+      sb.from('game_scores').select('id').eq('game', 'metai').eq('quiz_id', `m-d${today}`).match(f).maybeSingle(),
+      sb.from('game_scores').select('id').eq('game', 'vaizdas').eq('quiz_id', `v-d${today}`).match(f).maybeSingle(),
+    ])
     if (data) { quizPlayed = true; quizScore = data.score }
+    metaiDone = !!m
+    vaizdasDone = !!v
   }
 
   // Streak
@@ -84,6 +93,8 @@ async function loadInitial() {
     completions,
     quizPlayed,
     quizScore,
+    metaiDone,
+    vaizdasDone,
     streak,
   }
 }

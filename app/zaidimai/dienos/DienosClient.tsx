@@ -7,6 +7,7 @@
 
 import { useEffect, useRef, useState } from 'react'
 import Link from 'next/link'
+import { proxyImg } from '@/lib/img-proxy'
 import type { ImageDrop, DuelDrop, VerdictDrop, DropCompletionLookup } from '@/lib/boombox'
 import ZaidimoLangas from '@/components/zaidimai/ZaidimoLangas'
 import { naudotiGarsoGrotuva, yraIos } from '@/components/zaidimai/naudotiGarsoGrotuva'
@@ -19,11 +20,13 @@ type Props = {
   completions: DropCompletionLookup
   quizPlayed: boolean
   quizScore: number | null
+  metaiDone: boolean
+  vaizdasDone: boolean
   streak: { current: number; total_xp: number }
 }
 
-type Stage = 'intro' | 'kvizas' | 'duel' | 'verdict' | 'image' | 'summary'
-type StepKey = 'kvizas' | 'duel' | 'verdict' | 'image'
+type Stage = 'intro' | 'kvizas' | 'metai' | 'vaizdas' | 'duel' | 'verdict' | 'image' | 'summary'
+type StepKey = 'kvizas' | 'metai' | 'vaizdas' | 'duel' | 'verdict' | 'image'
 
 // ── Kvizo tipai ──
 type QOption = { id: number; title: string; artist: string }
@@ -56,13 +59,17 @@ export default function DienosClient(props: Props) {
   // ── Step'ų sąrašas ──
   const steps: Array<{ key: StepKey; label: string; emoji: string; present: boolean; initiallyDone: boolean }> = [
     { key: 'kvizas', label: 'Atspėk 5 dainas', emoji: '🎧', present: true, initiallyDone: props.quizPlayed },
+    { key: 'metai', label: 'Kurie metai?', emoji: '📅', present: true, initiallyDone: props.metaiDone },
+    { key: 'vaizdas', label: 'Atspėk iš vaizdo', emoji: '💿', present: true, initiallyDone: props.vaizdasDone },
     { key: 'duel', label: 'Dienos dvikova', emoji: '⚔️', present: !!duel, initiallyDone: !!completions.duel },
     { key: 'verdict', label: 'Dienos verdiktas', emoji: '🔥', present: !!verdict, initiallyDone: !!completions.verdict },
-    { key: 'image', label: 'Atspėk iš vaizdo', emoji: '🖼️', present: !!image, initiallyDone: !!completions.image },
+    { key: 'image', label: 'AI vaizdas', emoji: '🖼️', present: !!image, initiallyDone: !!completions.image },
   ].filter(s => s.present) as any
 
   const [done, setDone] = useState<Record<StepKey, boolean>>({
     kvizas: props.quizPlayed,
+    metai: props.metaiDone,
+    vaizdas: props.vaizdasDone,
     duel: !!completions.duel,
     verdict: !!completions.verdict,
     image: !!completions.image,
@@ -311,6 +318,18 @@ export default function DienosClient(props: Props) {
     markDone('image')
   }
 
+  // ── Albumų žaidimai (Kurie metai? / Atspėk iš vaizdo) ──
+  const [metaiResult, setMetaiResult] = useState<any>(props.metaiDone ? { alreadyDone: true } : null)
+  const [vaizdasResult, setVaizdasResult] = useState<any>(props.vaizdasDone ? { alreadyDone: true } : null)
+  function onAlbumDone(key: 'metai' | 'vaizdas', result: any) {
+    if (result?.xp) setSessionXp(x => x + result.xp)
+    if (result?.streak) setStreak(s => ({ current: result.streak, total_xp: result.totalXp ?? s.total_xp }))
+    if (key === 'metai') setMetaiResult(result)
+    else setVaizdasResult(result)
+    markDone(key)
+    setStage(nextAfterDone(key))
+  }
+
   // ── Share ──
   const [shared, setShared] = useState(false)
   async function share() {
@@ -331,7 +350,7 @@ export default function DienosClient(props: Props) {
   }
 
   // Kiek iš viso ĮMANOMA surinkti šiandien šiame iššūkyje (anon skalė)
-  const galimaXp = Math.round((5 * 100 + 3 * 15) / 10) * 2 + (duel ? 40 : 0) + (verdict ? 40 : 0) + (image ? 80 : 0)
+  const galimaXp = Math.round((5 * 100 + 3 * 15) / 10) * 2 + 30 + 30 + (duel ? 40 : 0) + (verdict ? 40 : 0) + (image ? 80 : 0)
   const qPct = Math.max(0, qTimeLeft / ROUND_MS)
   const stepIdx = stage === 'intro' ? 0 : steps.findIndex((s: any) => s.key === stage) + 1
 
@@ -449,6 +468,17 @@ export default function DienosClient(props: Props) {
             </>
           )}
         </div>
+      )}
+
+      {/* ═══ KURIE METAI? / ATSPĖK IŠ VAIZDO (albumų žaidimai) ═══ */}
+      {(stage === 'metai' || stage === 'vaizdas') && (
+        <AlbumGameStep
+          key={stage}
+          game={stage}
+          stepNo={steps.findIndex((s: any) => s.key === stage) + 1}
+          stepTotal={steps.length}
+          onDone={r => onAlbumDone(stage, r)}
+        />
       )}
 
       {/* ═══ DVIKOVA ═══ */}
@@ -591,6 +621,8 @@ export default function DienosClient(props: Props) {
           : null
         const rows: Array<{ icon: string; label: string; value: string; ok?: boolean }> = []
         if (qResult) rows.push({ icon: '🎧', label: 'Atspėk 5 dainas', value: `${qResult.correctCount}/${qResult.roundCount} · ${qResult.score} tšk.` })
+        if (metaiResult && done.metai) rows.push({ icon: '📅', label: 'Kurie metai?', value: metaiResult.alreadyDone ? 'Atlikta ✓' : `${metaiResult.correctCount}/${metaiResult.roundCount} · ${metaiResult.score} tšk.` })
+        if (vaizdasResult && done.vaizdas) rows.push({ icon: '💿', label: 'Atspėk iš vaizdo', value: vaizdasResult.alreadyDone ? 'Atlikta ✓' : `${vaizdasResult.correctCount}/${vaizdasResult.roundCount} · ${vaizdasResult.score} tšk.` })
         if (duel && done.duel) rows.push({ icon: '⚔️', label: 'Dvikova', value: duelWin ? 'Atspėjai daugumą ✓' : 'Balsavai', ok: !!duelWin })
         if (verdict && done.verdict) rows.push({ icon: '🔥', label: 'Verdiktas', value: verdictWin ? 'Populiariausia reakcija ✓' : 'Balsavai', ok: !!verdictWin })
         if (image && done.image) rows.push({ icon: '🖼️', label: 'Atspėk iš vaizdo', value: imgCorrect ? 'Teisingai ✓' : 'Neatspėta', ok: !!imgCorrect })
@@ -628,6 +660,140 @@ export default function DienosClient(props: Props) {
         )
       })()}
     </ZaidimoLangas>
+  )
+}
+
+// ═══════════ Albumų žaidimo žingsnis (Kurie metai? / Atspėk iš vaizdo) ═══════════
+// Kompaktiškas 3 raundų žaidimas dienos iššūkyje. Turinys — dienos „snapshot"
+// (tas pats visiems). Taškai skaičiuojami server-side (užšifruoti vokai).
+
+type AlbumRound = { r: number; image: string; label?: string; kind?: string; reveal?: 'puzzle' | 'blur'; options: { id: number; name: string }[]; token: string }
+
+function AlbumGameStep({ game, stepNo, stepTotal, onDone }: {
+  game: 'metai' | 'vaizdas'
+  stepNo: number
+  stepTotal: number
+  onDone: (result: any) => void
+}) {
+  const ROUND_MS = 12000
+  const REVEAL_MS = 2200
+  const [phase, setPhase] = useState<'load' | 'round' | 'reveal' | 'submit' | 'error'>('load')
+  const [rounds, setRounds] = useState<AlbumRound[]>([])
+  const [quizId, setQuizId] = useState('')
+  const [idx, setIdx] = useState(0)
+  const [picked, setPicked] = useState<number | null>(null)
+  const [rr, setRr] = useState<{ correct: boolean; correctId: number; points: number } | null>(null)
+  const [score, setScore] = useState(0)
+  const [revealed, setRevealed] = useState(false)
+  const [err, setErr] = useState<string | null>(null)
+  const startRef = useRef(0)
+  const timerRef = useRef<ReturnType<typeof setInterval> | null>(null)
+  const revealRef = useRef<ReturnType<typeof setTimeout> | null>(null)
+  const [timeLeft, setTimeLeft] = useState(ROUND_MS)
+  const phaseRef = useRef(phase); phaseRef.current = phase
+  const answerRef = useRef<(id: number | null) => void>(() => {})
+  const round = rounds[idx] || null
+
+  useEffect(() => { void load(); return () => { if (timerRef.current) clearInterval(timerRef.current); if (revealRef.current) clearTimeout(revealRef.current) } }, [])
+
+  async function load() {
+    setPhase('load'); setErr(null)
+    try {
+      const res = await fetch(`/api/zaidimai/${game}?dienos=1`)
+      const j = await res.json()
+      if (!res.ok || !j.rounds?.length) { setErr(j.error || 'Nepavyko įkelti'); setPhase('error'); return }
+      setRounds(j.rounds); setQuizId(j.quizId); setIdx(0); setScore(0)
+      startRound(); setPhase('round')
+    } catch { setErr('Tinklo klaida'); setPhase('error') }
+  }
+
+  function startRound() {
+    startRef.current = Date.now(); setTimeLeft(ROUND_MS); setPicked(null); setRr(null); setRevealed(false)
+    requestAnimationFrame(() => requestAnimationFrame(() => setRevealed(true)))
+    if (timerRef.current) clearInterval(timerRef.current)
+    timerRef.current = setInterval(() => {
+      const left = ROUND_MS - (Date.now() - startRef.current)
+      if (left <= 0) { setTimeLeft(0); answerRef.current(null) } else setTimeLeft(left)
+    }, 100)
+  }
+
+  async function answer(id: number | null) {
+    if (phaseRef.current !== 'round' || !round) return
+    if (timerRef.current) { clearInterval(timerRef.current); timerRef.current = null }
+    const ms = Math.min(Date.now() - startRef.current, ROUND_MS)
+    setPicked(id); setPhase('reveal')
+    try {
+      const res = await fetch('/api/zaidimai/raundas', {
+        method: 'POST', headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ token: round.token, answerId: id, ms }),
+      })
+      const j = await res.json()
+      if (res.ok) { setRr({ correct: j.correct, correctId: j.correctId, points: j.points }); setScore(s => s + (j.points || 0)) }
+    } catch { /* rodom vis tiek */ }
+    revealRef.current = setTimeout(next, REVEAL_MS)
+  }
+  answerRef.current = answer
+
+  function next() {
+    if (revealRef.current) { clearTimeout(revealRef.current); revealRef.current = null }
+    if (idx + 1 >= rounds.length) { void submit(); return }
+    setIdx(i => i + 1); setPhase('round'); startRound()
+  }
+
+  async function submit() {
+    setPhase('submit')
+    try {
+      const res = await fetch(`/api/zaidimai/${game}`, {
+        method: 'POST', headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ quizId }),
+      })
+      const j = await res.json()
+      onDone(res.ok || res.status === 409 ? j : { score, correctCount: 0, roundCount: rounds.length })
+    } catch { onDone({ score, correctCount: 0, roundCount: rounds.length }) }
+  }
+
+  const pct = Math.max(0, timeLeft / ROUND_MS)
+  const blur = game === 'vaizdas' ? (phase === 'reveal' ? 0 : revealed ? 0 : 30) : 0
+  const title = game === 'metai' ? '📅 Kuriais metais išleistas?' : '💿 Kas tai?'
+
+  if (phase === 'load') return <div className="di-center"><div className="di-spinner" /></div>
+  if (phase === 'error') return <div className="di-stage"><div className="di-error">{err} <button onClick={() => void load()}>Bandyti dar</button></div></div>
+  if (!round) return <div className="di-center"><div className="di-spinner" /></div>
+
+  return (
+    <div className="di-stage">
+      <span className="di-stage-no">{stepNo} iš {stepTotal} · {game === 'metai' ? 'Kurie metai' : 'Vaizdas'}</span>
+      <div className="di-ag-head">
+        <h2 className="di-h2">{title}</h2>
+        <span className="di-ag-prog">{idx + 1}/{rounds.length} · ⚡ {score}</span>
+      </div>
+
+      <div className="di-ag-imgwrap">
+        {/* eslint-disable-next-line @next/next/no-img-element */}
+        <img key={round.r} src={proxyImg(round.image, 480)} alt=""
+          style={game === 'vaizdas' ? { filter: `blur(${blur}px)`, transition: phase === 'reveal' ? 'filter .3s' : `filter ${ROUND_MS}ms linear` } : undefined} />
+        {phase === 'round' && <span className="di-ag-clock">{Math.ceil(timeLeft / 1000)}</span>}
+        {phase === 'reveal' && rr && (
+          <span className={`di-ag-tag ${rr.correct ? 'ok' : 'bad'}`}>
+            {rr.correct ? `+${rr.points}` : game === 'metai' ? `${rr.correctId} m.` : 'Ne!'}
+          </span>
+        )}
+      </div>
+      {game === 'metai' && round.label && <div className="di-ag-label">{round.label}</div>}
+      <div className="di-ag-bar"><div style={{ width: `${pct * 100}%` }} /></div>
+
+      <div className={`di-ag-opts${game === 'metai' ? ' years' : ''}`}>
+        {round.options.map(o => {
+          let cls = 'di-ag-opt'
+          if (phase === 'reveal' && rr) {
+            if (o.id === rr.correctId) cls += ' correct'
+            else if (o.id === picked) cls += ' wrong'
+            else cls += ' dim'
+          }
+          return <button key={o.id} className={cls} disabled={phase !== 'round'} onClick={() => answer(o.id)}>{o.name}</button>
+        })}
+      </div>
+    </div>
   )
 }
 
@@ -774,6 +940,28 @@ const css = `
 .di-crowd { align-self: stretch; text-align: center; font-size: 14px; font-weight: 800; border-radius: 12px; padding: 11px; margin-top: 4px; }
 .di-crowd.win { color: var(--accent-green); background: rgba(16,185,129,0.12); border: 1px solid rgba(16,185,129,0.4); }
 .di-crowd.miss { color: var(--text-secondary); background: var(--bg-surface); border: 1px solid rgba(140,160,190,0.25); }
+
+/* Albumų žaidimo žingsnis */
+.di-ag-head { display: flex; align-items: center; justify-content: space-between; gap: 8px; }
+.di-ag-prog { font-size: 13px; font-weight: 800; color: var(--text-secondary); flex-shrink: 0; }
+.di-ag-imgwrap { position: relative; border-radius: 14px; overflow: hidden; aspect-ratio: 1/1; max-height: 42vh; background: #10131b; margin: 4px auto 0; }
+.di-ag-imgwrap img { width: 100%; height: 100%; object-fit: cover; display: block; }
+.di-ag-clock { position: absolute; top: 10px; right: 10px; width: 40px; height: 40px; border-radius: 50%; background: rgba(12,15,21,0.8); color: #fff; display: flex; align-items: center; justify-content: center; font-size: 17px; font-weight: 900; }
+.di-ag-tag { position: absolute; top: 10px; left: 10px; font-size: 14px; font-weight: 900; padding: 6px 13px; border-radius: 10px; color: #fff; }
+.di-ag-tag.ok { background: rgba(16,185,129,0.92); }
+.di-ag-tag.bad { background: rgba(239,68,68,0.9); }
+.di-ag-label { font-size: 14px; font-weight: 800; color: var(--text-primary); text-align: center; margin-top: 8px; }
+.di-ag-bar { height: 5px; border-radius: 3px; background: rgba(148,163,184,0.18); overflow: hidden; margin: 10px 0; }
+.di-ag-bar div { height: 100%; background: var(--accent-orange); transition: width .1s linear; }
+.di-ag-opts { display: grid; grid-template-columns: 1fr; gap: 8px; }
+.di-ag-opts.years { grid-template-columns: repeat(4, 1fr); }
+@media (max-width: 480px) { .di-ag-opts.years { grid-template-columns: repeat(2, 1fr); } }
+.di-ag-opt { font-size: 15px; font-weight: 700; color: var(--text-primary); text-align: left; cursor: pointer; padding: 12px 14px; border-radius: 11px; background: var(--bg-surface); border: 1px solid rgba(140,160,190,0.22); }
+.di-ag-opts.years .di-ag-opt { text-align: center; font-size: 16px; font-weight: 900; }
+.di-ag-opt:hover:not(:disabled) { border-color: var(--accent-orange); }
+.di-ag-opt.correct { background: rgba(16,185,129,0.16); border-color: #10b981; color: #34d399; }
+.di-ag-opt.wrong { background: rgba(239,68,68,0.13); border-color: #ef4444; }
+.di-ag-opt.dim { opacity: 0.45; }
 
 /* Suvestinė */
 .di-summary { display: flex; flex-direction: column; align-items: center; text-align: center; padding: 24px 0; }
