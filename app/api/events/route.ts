@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from 'next/server'
 import { getServerSession } from 'next-auth'
 import { authOptions } from '@/lib/auth'
 import { getEvents, createEvent, searchEvents } from '@/lib/supabase-events'
+import { resolveLocation } from '@/lib/geo'
 
 export async function GET(req: NextRequest) {
   const sp = req.nextUrl.searchParams
@@ -51,7 +52,24 @@ export async function POST(req: NextRequest) {
 
   try {
     const body = await req.json()
-    const { artists, ...eventData } = body
+    const { artists, resolve_location, country_name, country_id, ...eventData } = body
+
+    // Connected geo: find-or-create šalį/miestą/vietą, kad DB liktų sujungta.
+    // Opt-in per `resolve_location` (kad kitų kvietėjų neveiktų).
+    if (resolve_location) {
+      const loc = await resolveLocation({
+        countryId: country_id ?? null, countryName: country_name ?? null,
+        cityId: eventData.city_id ?? null, cityName: eventData.city ?? null,
+        venueId: eventData.venue_id ?? null, venueName: eventData.venue_name ?? null,
+        address: eventData.address ?? null,
+      })
+      eventData.venue_id = loc.venueId
+      eventData.venue_name = loc.venueName ?? eventData.venue_name
+      eventData.city = loc.cityName ?? eventData.city
+      eventData.city_id = loc.cityId ?? eventData.city_id
+      if (eventData.is_abroad == null) eventData.is_abroad = loc.isAbroad
+    }
+
     const event = await createEvent(eventData, session.user.id)
 
     // Link artists if provided
