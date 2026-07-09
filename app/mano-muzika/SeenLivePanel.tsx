@@ -49,6 +49,14 @@ export default function SeenLivePanel({ flash }: { flash: (m: string) => void })
     return () => { alive = false }
   }, [])
 
+  // Užrakinam fono scroll'ą, kol atidarytas full-screen wizard'as (mobile).
+  useEffect(() => {
+    if (!wizardOpen) return
+    const prev = document.body.style.overflow
+    document.body.style.overflow = 'hidden'
+    return () => { document.body.style.overflow = prev }
+  }, [wizardOpen])
+
   async function remove(id: number) {
     const prev = items
     setItems((l) => l.filter((x) => x.id !== id))
@@ -115,9 +123,9 @@ export default function SeenLivePanel({ flash }: { flash: (m: string) => void })
         <Wizard onAdded={(item) => setItems((l) => [item, ...l])} flash={flash} />
       </div>
       {wizardOpen && (
-        <div className="lg:hidden fixed inset-0 z-[120] flex items-end sm:items-center justify-center bg-black/50 p-0 sm:p-4" onClick={() => setWizardOpen(false)}>
-          <div className="max-h-[92vh] w-full sm:max-w-md overflow-y-auto rounded-t-2xl sm:rounded-2xl" onClick={(e) => e.stopPropagation()}>
-            <Wizard onAdded={(item) => { setItems((l) => [item, ...l]); setWizardOpen(false) }} flash={flash} onClose={() => setWizardOpen(false)} />
+        <div className="lg:hidden fixed inset-0 z-[200] overflow-y-auto overscroll-contain" style={{ background: 'var(--bg-body)' }}>
+          <div className="min-h-full p-3" style={{ paddingTop: 'max(0.75rem, env(safe-area-inset-top))', paddingBottom: 'max(1.5rem, env(safe-area-inset-bottom))' }}>
+            <Wizard onAdded={(item) => { setItems((l) => [item, ...l]); setWizardOpen(false) }} flash={flash} onClose={() => setWizardOpen(false)} fullscreen />
           </div>
         </div>
       )}
@@ -126,7 +134,7 @@ export default function SeenLivePanel({ flash }: { flash: (m: string) => void })
 }
 
 // ── WIZARD ──────────────────────────────────────────────────────────────────
-function Wizard({ onAdded, flash, onClose }: { onAdded: (item: SeenLiveRow) => void; flash: (m: string) => void; onClose?: () => void }) {
+function Wizard({ onAdded, flash, onClose, fullscreen = false }: { onAdded: (item: SeenLiveRow) => void; flash: (m: string) => void; onClose?: () => void; fullscreen?: boolean }) {
   const [step, setStep] = useState(1)
   const [busy, setBusy] = useState(false)
 
@@ -185,15 +193,20 @@ function Wizard({ onAdded, flash, onClose }: { onAdded: (item: SeenLiveRow) => v
     } catch (e: any) { flash(e.message || 'Klaida') } finally { setBusy(false) }
   }
 
-  const card = 'rounded-2xl p-4 ring-1'
-  const cardStyle = { background: 'var(--bg-surface)', ['--tw-ring-color' as any]: 'var(--border-subtle)' }
+  const card = fullscreen ? 'p-1' : 'rounded-2xl p-4 ring-1'
+  const cardStyle = fullscreen ? {} : { background: 'var(--bg-surface)', ['--tw-ring-color' as any]: 'var(--border-subtle)' }
 
   return (
     <section className={card} style={cardStyle as any}>
       {/* Antraštė + žingsnių indikatorius */}
       <div className="mb-3 flex items-center justify-between">
-        <h3 className="font-['Outfit',sans-serif] text-[15px] font-extrabold" style={{ color: 'var(--text-primary)' }}>Pridėti koncertą</h3>
-        {onClose && <button onClick={onClose} className="text-[13px]" style={{ color: 'var(--text-faint)' }}>Uždaryti</button>}
+        <h3 className="font-['Outfit',sans-serif] font-extrabold" style={{ color: 'var(--text-primary)', fontSize: fullscreen ? 20 : 15 }}>Pridėti koncertą</h3>
+        {onClose && (
+          <button onClick={onClose} aria-label="Uždaryti" className="flex items-center gap-1 rounded-full px-2 py-1 text-[13px]" style={{ color: 'var(--text-muted)', background: fullscreen ? 'var(--bg-elevated)' : 'transparent' }}>
+            <svg viewBox="0 0 16 16" width={13} height={13} fill="none" stroke="currentColor" strokeWidth={2} strokeLinecap="round"><path d="M3 3l10 10M13 3L3 13" /></svg>
+            {fullscreen ? '' : 'Uždaryti'}
+          </button>
+        )}
       </div>
       <div className="mb-4 flex items-center gap-1.5">
         {[1, 2, 3].map((s) => (
