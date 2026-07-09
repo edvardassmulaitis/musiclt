@@ -111,7 +111,7 @@ const getEditorCounts = unstable_cache(
       missing_music, substyles_pending, claims_pending,
       internal_tops, member_posts,
       charts_unmatched, top_short, radar_pending, atradimai_pending,
-      lyrics_suggestions_pending, feed_pending,
+      lyrics_suggestions_pending, feed_pending, seen_live_pending,
     ] = await Promise.all([
       // Totalai
       headCount(() => sb.from('artists').select('id', { count: 'exact', head: true })),
@@ -139,6 +139,8 @@ const getEditorCounts = unstable_cache(
       headCount(() => sb.from('lyrics_suggestions').select('id', { count: 'exact', head: true }).eq('status', 'pending')),
       // Homepage feed kandidatai — laukia patvirtinimo (/admin/feed)
       headCount(() => sb.from('home_feed').select('id', { count: 'exact', head: true }).eq('kind', 'candidate').eq('status', 'pending')),
+      // „Matyti gyvai" narių draft'ai — laukia patvirtinimo (/admin/matyti-gyvai)
+      headCount(() => sb.from('profile_seen_live').select('id', { count: 'exact', head: true }).eq('status', 'pending')),
     ])
 
     return {
@@ -147,10 +149,10 @@ const getEditorCounts = unstable_cache(
       missing_music, substyles_pending, claims_pending,
       internal_tops, member_posts,
       charts_unmatched, top_short, radar_pending, atradimai_pending,
-      lyrics_suggestions_pending, feed_pending,
+      lyrics_suggestions_pending, feed_pending, seen_live_pending,
     }
   },
-  ['admin-dashboard-editor-v2'],
+  ['admin-dashboard-editor-v3'],
   { revalidate: 90 },
 )
 

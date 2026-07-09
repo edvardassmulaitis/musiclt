@@ -25,6 +25,7 @@ import {
 } from '@/lib/supabase-blog'
 import { createAdminClient } from '@/lib/supabase'
 import { getProfileMoodSongs } from '@/lib/mano-muzika'
+import { getProfileSeenLive } from '@/lib/seen-live'
 import type { Metadata } from 'next'
 import { ProfileClient } from './profile-client'
 import EditMyMusicFab from '@/components/profile/EditMyMusicFab'
@@ -74,7 +75,7 @@ export default async function UserProfilePage({ params }: Props) {
   const profile: any = await getProfileByUsername(username)
   if (!profile || !profile.is_public) notFound()
 
-  const [favoriteArtists, favoriteStyles, favoriteAlbumsRaw, favoriteTracksRaw, likesCounts, friends, blog, stats, moodTrack, moodSongs, dailyPicks, translations, recentComments] = await Promise.all([
+  const [favoriteArtists, favoriteStyles, favoriteAlbumsRaw, favoriteTracksRaw, likesCounts, friends, blog, stats, moodTrack, moodSongs, dailyPicks, translations, recentComments, seenLive] = await Promise.all([
     // V11: bump favorites iki 100, kad sekcijos turėtų ką rodyti pilnam
     // grid'e + sort'avimui. Power user'iams (>100) papildomas filtravimas
     // per +Daugiau modal'ą.
@@ -98,6 +99,7 @@ export default async function UserProfilePage({ params }: Props) {
     getDailySongPicks(profile.id, 150),
     getUserTranslations(profile.id, 12),
     getUserRecentComments(profile.username, 10),
+    getProfileSeenLive(profile.id),
   ])
 
   // ── V11 ENRICHMENT: artist collage counts + album liked-track counts ──
@@ -183,6 +185,7 @@ export default async function UserProfilePage({ params }: Props) {
       dailyPicks={dailyPicks}
       translations={translations}
       recentComments={recentComments}
+      seenLive={seenLive}
     />
     </>
   )
