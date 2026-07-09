@@ -2,6 +2,7 @@
 
 import { usePathname } from 'next/navigation'
 import { useSite } from '@/components/SiteContext'
+import { SITE_URL } from '@/lib/artist-browse'
 
 // 2026-07-05: „Apie mus" / „Kontaktai" / „Privatumo politika" / „Naudojimo
 // sąlygos" puslapiai jau egzistuoja (žr. app/apie-mus, app/kontaktai,
@@ -15,13 +16,19 @@ const FOOTER_COLUMNS: { t: string; l: [string, string][] }[] = [
   { t: 'Music.lt', l: [['Apie mus', '/apie-mus'], ['Kontaktai', '/kontaktai'], ['Privatumo politika', '/privatumo-politika'], ['Naudojimo sąlygos', '/naudojimo-salygos']] },
 ]
 
+// 2026-07-09 SEO audito pastaba: url/logo/contactPoint sąmoningai imami iš
+// bendros SITE_URL konstantos (sutampa su sitemap.ts, robots.ts ir kitų
+// puslapių canonical logika), o ne užrašyti raidėmis „https://music.lt" čia
+// atskirai — kad, kai bus konfigūruotas NEXT_PUBLIC_SITE_URL (domeno
+// perjungimo metu), šis JSON-LD automatiškai atsinaujintų kartu su visa kita
+// SEO infrastruktūra, o ne liktų pamirštas hardcode'as.
 const ORG_JSONLD = {
   '@context': 'https://schema.org',
   '@type': 'Organization',
   name: 'Music.lt',
-  url: 'https://music.lt',
-  logo: 'https://music.lt/icon.svg',
-  contactPoint: [{ '@type': 'ContactPoint', contactType: 'customer support', url: 'https://music.lt/kontaktai' }],
+  url: SITE_URL,
+  logo: `${SITE_URL}/icon.svg`,
+  contactPoint: [{ '@type': 'ContactPoint', contactType: 'customer support', url: `${SITE_URL}/kontaktai` }],
 }
 
 export function SiteFooter() {
