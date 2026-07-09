@@ -188,3 +188,25 @@ accent spalvos):
 2. Patvirtinti Phase 1 (AGATA) — tada statau parser + ingest + resolver.
 3. Sprendimas dėl auto-create agresyvumo: ar LT atlikėjams kurti iškart, ar pirma per
    review queue (saugiau pradžioje).
+
+---
+
+## 9. ATNAUJINIMAS 2026-07-09 — ingestion atkurtas po dingusios scheduled task
+
+Senoji scheduled task (ir jos `scraper/charts/ingest.py`, gyvenęs tik task'o
+aplinkoje) dingo ~07-03 — topai nustojo atsinaujinti. Atkurta:
+
+- **`scraper/charts/ingest.py`** dabar REPO (nebe tik task aplinkoje). Paleidimas:
+  `SUPABASE_URL=... SUPABASE_SERVICE_ROLE_KEY=... python3 scraper/charts/ingest.py [--dry] [--only src1,src2]`
+- **Spotify** — kworb.net weekly (kaip ir anksčiau; charts.spotify.com gated).
+- **Shazam** — per Apple Music playlist'us (`shazam.com/services/charts/locations`
+  → listid → `music.apple.com/us/playlist/x/<listid>` serialized-server-data).
+  DĖMESIO: shazam.com 405'ina pilną Chrome UA — naudoti `Mozilla/5.0`.
+  **LT Shazam NEPALAIKO** (nėra tarp 70 šalių) — senieji `shazam/lt` duomenys buvo
+  geo-fallback; `shazam/lt` topas paliktas užšaldytas (svarstyti paslėpti).
+- **YouTube LT** — kworb.net/youtube/insights/lt_daily.html (top 20, be video URL;
+  youtube.com/feed/trending mirė 2025, charts.youtube.com LT nepalaiko; su
+  YOUTUBE_API_KEY būtų galima grąžinti pilną variantą per Data API mostPopular).
+- **Resolver** skripte: chart_resolution_memory + tikslus name_norm/title_norm match;
+  sudėtingesni atvejai — admin /admin/charts „Auto-match" (pilnas TS resolver'is).
+- **Nauja scheduled task** — kasdien 05:00 UTC, klonuoja repo ir paleidžia skriptą.
