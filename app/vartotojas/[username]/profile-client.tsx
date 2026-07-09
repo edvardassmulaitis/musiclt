@@ -44,6 +44,7 @@ const TASTE_DISPLAY_ORDER: string[] = [
 import { GenreFilterModal } from '@/components/profile/GenreFilterModal'
 import { MoreItemsModal } from '@/components/profile/MoreItemsModal'
 import { FavoriteArtistsCollage } from '@/components/profile/FavoriteArtistsCollage'
+import { SeenLiveSection } from '@/components/profile/SeenLiveSection'
 import { FollowButton } from '@/components/profile/FollowButton'
 import { MoodPlaylistModal } from '@/components/profile/MoodPlaylistModal'
 
@@ -84,7 +85,7 @@ export function ProfileClient(props: any) {
     profile, favoriteArtists, favoriteStyles, favoriteAlbums, favoriteTracks, likesCounts,
     blog,
     postLanes, postTypeCounts, memberSinceYear, stats, moodTrack, moodSongs, dailyPicks, translations,
-    recentComments,
+    recentComments, seenLive,
   } = props
 
   const { data: session } = useSession()
@@ -235,6 +236,7 @@ export function ProfileClient(props: any) {
           albumResolvedTotal={albumResolvedTotal}
           trackResolvedTotal={trackResolvedTotal}
           recentComments={recentComments}
+          seenLive={seenLive}
           moodCount={moodList.length}
           isOwner={isOwner}
           onEdit={() => setEditOpen(true)}
@@ -391,6 +393,7 @@ export function ProfileClient(props: any) {
         likesCounts={likesCounts}
         albumResolvedTotal={albumResolvedTotal}
         trackResolvedTotal={trackResolvedTotal}
+        seenLive={seenLive}
         isLegacy={isLegacy}
         isUnclaimed={isUnclaimed}
         onOpenMore={setMoreOpen}
@@ -468,7 +471,7 @@ function MobileProfileView(props: any) {
     profile, activityLevel, bioSnippet, realPhotoUrl, hasMusicMeter,
     moodTrack, blog, contentLanes, stats, memberSinceYear, dailyPicks, favoriteArtists,
     favoriteAlbums, favoriteTracks, likesCounts, albumResolvedTotal,
-    trackResolvedTotal, recentComments, moodCount, onOpenMood, onOpenTaste, onOpenMore,
+    trackResolvedTotal, recentComments, seenLive, moodCount, onOpenMood, onOpenTaste, onOpenMore,
     isOwner, onEdit,
   } = props
 
@@ -676,6 +679,13 @@ function MobileProfileView(props: any) {
                   meta={`${favoriteArtists.length} atlikėjų`} />
                 <FavoriteArtistsCollage artists={favoriteArtists} maxShown={20}
                   totalCount={favoriteArtists.length} onOpenMore={() => onOpenMore('artist')} />
+              </section>
+            )}
+            {seenLive && seenLive.length > 0 && (
+              <section className="mt-7">
+                <SectionHeader title="Matyti gyvai"
+                  meta={`${seenLive.length} ${seenLive.length === 1 ? 'atlikėjas' : 'atlikėjai'} koncertuose`} />
+                <SeenLiveSection items={seenLive} />
               </section>
             )}
             {favoriteAlbums.length > 0 && (
@@ -2463,7 +2473,7 @@ function ProfileBodyDesktop(props: any) {
   const {
     profile, blog, contentLanes, postTypeCounts, stats, dailyPicks,
     favoriteArtists, favoriteAlbums, favoriteTracks, likesCounts,
-    albumResolvedTotal, trackResolvedTotal, isLegacy, isUnclaimed, onOpenMore, memberSinceYear,
+    albumResolvedTotal, trackResolvedTotal, seenLive, isLegacy, isUnclaimed, onOpenMore, memberSinceYear,
   } = props
 
   const hasLikes = (favoriteArtists?.length || 0) > 0 || (favoriteAlbums?.length || 0) > 0 || (favoriteTracks?.length || 0) > 0
@@ -2556,6 +2566,7 @@ function ProfileBodyDesktop(props: any) {
             likesCounts={likesCounts}
             albumResolvedTotal={albumResolvedTotal}
             trackResolvedTotal={trackResolvedTotal}
+            seenLive={seenLive}
             onOpenMore={onOpenMore}
           />
         ) : (
@@ -2617,7 +2628,7 @@ function ProfileBodyDesktop(props: any) {
 function LikesSections(props: any) {
   const {
     profile, favoriteArtists, favoriteAlbums, favoriteTracks, likesCounts,
-    albumResolvedTotal, trackResolvedTotal, onOpenMore,
+    albumResolvedTotal, trackResolvedTotal, seenLive, onOpenMore,
   } = props
   return (
     <div>
@@ -2627,6 +2638,13 @@ function LikesSections(props: any) {
             meta={`${favoriteArtists.length} atlikėjų`} />
           <FavoriteArtistsCollage artists={favoriteArtists} maxShown={20}
             totalCount={favoriteArtists.length} onOpenMore={() => onOpenMore('artist')} />
+        </section>
+      )}
+      {seenLive && seenLive.length > 0 && (
+        <section className="mt-8 sm:mt-10">
+          <SectionHeader title="Matyti gyvai"
+            meta={`${seenLive.length} ${seenLive.length === 1 ? 'atlikėjas' : 'atlikėjai'} koncertuose`} />
+          <SeenLiveSection items={seenLive} />
         </section>
       )}
       {favoriteAlbums.length > 0 && (

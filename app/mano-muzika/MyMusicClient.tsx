@@ -10,6 +10,7 @@ import { useState, useCallback, useRef, useMemo, type ReactNode } from 'react'
 import Link from 'next/link'
 import { proxyImg } from '@/lib/img-proxy'
 import MusicSearchPicker, { type AttachmentHit } from '@/components/MusicSearchPicker'
+import SeenLivePanel from './SeenLivePanel'
 import { SideEqualizer } from '@/components/profile/SideEqualizer'
 import { StreamFeed } from '@/components/srautas/StreamFeed'
 import type { MyMusic, KindCollection, MusicItem, MoodSong, FavStyle } from '@/lib/mano-muzika'
@@ -19,12 +20,13 @@ type StyleSel = { key: string; label: string; color: string; match: (it: MusicIt
 
 const PROFILE_CUTOFF = 20
 type EntityTab = 'artist' | 'album' | 'track'
-type Tab = EntityTab | 'mood' | 'styles' | 'discoveries'
+type Tab = EntityTab | 'mood' | 'styles' | 'discoveries' | 'seen-live'
 const TYPEFILTER: Record<EntityTab, AttachmentHit['type']> = { artist: 'grupe', album: 'albumas', track: 'daina' }
 const TABS: { key: Tab; label: string; icon: IcoName }[] = [
   { key: 'discoveries', label: 'Atradimai', icon: 'compass' },
   { key: 'artist', label: 'Atlikėjai', icon: 'person' }, { key: 'album', label: 'Albumai', icon: 'disc' },
   { key: 'track', label: 'Dainos', icon: 'note' }, { key: 'mood', label: 'Nuotaikos dainos', icon: 'repeat' }, { key: 'styles', label: 'Stiliai', icon: 'sliders' },
+  { key: 'seen-live', label: 'Matyti gyvai', icon: 'mic' },
 ]
 const TARGETS = { artists: 50, albums: 100, tracks: 500, styles: 5 }
 
@@ -180,6 +182,7 @@ export default function MyMusicClient({ initial, username, suggestOnboarding }: 
       )}
       {tab === 'mood' && <MoodSection moodSongs={moodSongs} setMoodSongs={setMoodSongs} />}
       {tab === 'styles' && <StyleSection coll={coll} styles={styles} setStyles={setStyles} meterRaw={initial.meterRaw || []} onStyleReorder={(kind, styleKey, ids) => styleReorder(kind, styleKey, ids)} onUnlike={(kind, it) => unlike(kind, it)} />}
+      {tab === 'seen-live' && <SeenLivePanel flash={flash} />}
     </div>
   )
 }
@@ -660,7 +663,7 @@ function StyleSection({ coll, styles, setStyles, meterRaw, onStyleReorder, onUnl
 function Empty({ hint }: { hint: string }) { return <div className="rounded-2xl px-6 py-10 text-center" style={{ background: 'var(--bg-surface)', border: '1px dashed var(--border-default)' }}><div className="text-[14px]" style={{ color: 'var(--text-muted)' }}>{hint}</div></div> }
 
 // ── ICONS (inline SVG) ─────────────────────────────────────────────────────
-type IcoName = 'person' | 'disc' | 'note' | 'moon' | 'sliders' | 'star' | 'heart' | 'heartFull' | 'repeat' | 'play' | 'books' | 'download' | 'eye' | 'x' | 'up' | 'down' | 'grip' | 'sort' | 'sparkle' | 'target' | 'plus' | 'compass'
+type IcoName = 'person' | 'disc' | 'note' | 'moon' | 'sliders' | 'star' | 'heart' | 'heartFull' | 'repeat' | 'play' | 'books' | 'download' | 'eye' | 'x' | 'up' | 'down' | 'grip' | 'sort' | 'sparkle' | 'target' | 'plus' | 'compass' | 'mic'
 function Ico({ name, size = 16 }: { name: IcoName; size?: number }) {
   const p: Record<IcoName, ReactNode> = {
     person: <><circle cx="12" cy="8" r="4" /><path d="M5 20c0-3.3 3.1-6 7-6s7 2.7 7 6" /></>,
@@ -684,6 +687,7 @@ function Ico({ name, size = 16 }: { name: IcoName; size?: number }) {
     sparkle: <path d="M12 3l1.8 5.2L19 10l-5.2 1.8L12 17l-1.8-5.2L5 10l5.2-1.8z" />,
     target: <><circle cx="12" cy="12" r="8" /><circle cx="12" cy="12" r="3.5" /></>,
     compass: <><circle cx="12" cy="12" r="9" /><path d="m15.5 8.5-2 5-5 2 2-5z" /></>,
+    mic: <><rect x="9" y="2" width="6" height="12" rx="3" /><path d="M5 11a7 7 0 0 0 14 0" /><path d="M12 18v3M8 21h8" /></>,
   }
   const filled = name === 'star' || name === 'grip' || name === 'sparkle' || name === 'play' || name === 'heartFull'
   return <svg width={size} height={size} viewBox="0 0 24 24" fill={filled ? 'currentColor' : 'none'} stroke="currentColor" strokeWidth={name === 'x' || name === 'up' || name === 'down' ? 2.2 : 1.8} strokeLinecap="round" strokeLinejoin="round" aria-hidden style={{ flexShrink: 0 }}>{p[name]}</svg>
