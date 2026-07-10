@@ -305,13 +305,16 @@ function Wizard({ onAdded, flash, onClose, fullscreen = false, likedArtists = []
                     })}
                   </ul>
                 )}
-                {/* Sukurti savo renginį — jei nerandi sąraše */}
-                <button onClick={() => { setEvent(null); setDescribe(true); setStep(2) }}
-                  className="mt-2.5 flex w-full items-center justify-center gap-2 rounded-lg border border-dashed py-2.5 text-[14px] font-bold"
-                  style={{ borderColor: 'var(--border-default)', color: 'var(--accent-orange)' }}>
-                  <span className="text-[16px]">＋</span> Sukurti savo renginį
-                </button>
-                {event && <p className="mt-1.5 text-[12px]" style={{ color: 'var(--accent-orange)' }}>Pasirinktas renginys — 2 žingsnyje bus pririštas.</p>}
+                {/* Sukurti savo renginį — tik jei koncertas iš sąrašo NEpasirinktas */}
+                {!event ? (
+                  <button onClick={() => { setEvent(null); setDescribe(true); setStep(2) }}
+                    className="mt-2.5 flex w-full items-center justify-center gap-2 rounded-lg border border-dashed py-2.5 text-[14px] font-bold"
+                    style={{ borderColor: 'var(--border-default)', color: 'var(--accent-orange)' }}>
+                    <span className="text-[16px]">＋</span> Sukurti savo renginį
+                  </button>
+                ) : (
+                  <p className="mt-2 text-[12px]" style={{ color: 'var(--accent-orange)' }}>✓ Renginys pasirinktas — 2 žingsnyje pririštas.</p>
+                )}
               </div>
             </div>
           ) : proposeArtist ? (
@@ -401,15 +404,17 @@ function Wizard({ onAdded, flash, onClose, fullscreen = false, likedArtists = []
             </div>
           )}
 
-          {/* Kada — atskiri laukai; galima tik metus */}
-          <div className="mt-4">
-            <label className="mb-1 block text-[12px] font-bold uppercase tracking-wide" style={{ color: 'var(--text-faint)' }}>Kada matei? (užtenka metų)</label>
-            <div className="grid grid-cols-3 gap-2">
-              <input value={year} onChange={(e) => setYear(e.target.value.replace(/\D/g, '').slice(0, 4))} placeholder="Metai" inputMode="numeric" className="w-full rounded-lg px-3 py-2 text-[14px] outline-none ring-1" style={{ background: 'var(--bg-elevated)', color: 'var(--text-primary)', ['--tw-ring-color' as any]: 'var(--border-default)' } as any} />
-              <input value={month} onChange={(e) => setMonth(e.target.value.replace(/\D/g, '').slice(0, 2))} placeholder="Mėnuo" inputMode="numeric" className="w-full rounded-lg px-3 py-2 text-[14px] outline-none ring-1" style={{ background: 'var(--bg-elevated)', color: 'var(--text-primary)', ['--tw-ring-color' as any]: 'var(--border-default)' } as any} />
-              <input value={day} onChange={(e) => setDay(e.target.value.replace(/\D/g, '').slice(0, 2))} placeholder="Diena" inputMode="numeric" className="w-full rounded-lg px-3 py-2 text-[14px] outline-none ring-1" style={{ background: 'var(--bg-elevated)', color: 'var(--text-primary)', ['--tw-ring-color' as any]: 'var(--border-default)' } as any} />
+          {/* Kada — tik jei renginys NEpririštas (kitaip data imama iš renginio) */}
+          {!event && (
+            <div className="mt-4">
+              <label className="mb-1 block text-[12px] font-bold uppercase tracking-wide" style={{ color: 'var(--text-faint)' }}>Kada matei? (užtenka metų)</label>
+              <div className="grid grid-cols-3 gap-2">
+                <input value={year} onChange={(e) => setYear(e.target.value.replace(/\D/g, '').slice(0, 4))} placeholder="Metai" inputMode="numeric" className="w-full rounded-lg px-3 py-2 text-[14px] outline-none ring-1" style={{ background: 'var(--bg-elevated)', color: 'var(--text-primary)', ['--tw-ring-color' as any]: 'var(--border-default)' } as any} />
+                <input value={month} onChange={(e) => setMonth(e.target.value.replace(/\D/g, '').slice(0, 2))} placeholder="Mėnuo" inputMode="numeric" className="w-full rounded-lg px-3 py-2 text-[14px] outline-none ring-1" style={{ background: 'var(--bg-elevated)', color: 'var(--text-primary)', ['--tw-ring-color' as any]: 'var(--border-default)' } as any} />
+                <input value={day} onChange={(e) => setDay(e.target.value.replace(/\D/g, '').slice(0, 2))} placeholder="Diena" inputMode="numeric" className="w-full rounded-lg px-3 py-2 text-[14px] outline-none ring-1" style={{ background: 'var(--bg-elevated)', color: 'var(--text-primary)', ['--tw-ring-color' as any]: 'var(--border-default)' } as any} />
+              </div>
             </div>
-          </div>
+          )}
           <StepNav onBack={() => setStep(1)} onNext={() => setStep(3)} />
         </div>
       )}
