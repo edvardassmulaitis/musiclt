@@ -55,9 +55,12 @@ export default function SeenLiveMediaViewer({ row, onClose }: { row: ViewerRow; 
             {row.media.map((m, i) => (
               <div key={i} className="overflow-hidden rounded-xl bg-black">
                 {m.type === 'video' ? (
-                  <div>
-                    <video src={m.url} controls playsInline preload="metadata" className="block max-h-[75vh] min-h-[220px] w-full bg-black" />
-                    <a href={m.url} target="_blank" rel="noreferrer noopener" className="block px-3 py-2 text-center text-[12px] text-white/60 hover:text-white">Nepavyksta atkurti? Atsidaryti video →</a>
+                  <div className="bg-black">
+                    <video src={m.url} controls playsInline preload="metadata" className="block max-h-[75vh] min-h-[240px] w-full bg-black" />
+                    <a href={m.url} target="_blank" rel="noreferrer noopener" className="flex items-center justify-center gap-2 border-t border-white/10 px-3 py-2.5 text-[13px] font-bold text-white">
+                      <svg viewBox="0 0 24 24" width={14} height={14} fill="currentColor"><polygon points="6 4 20 12 6 20 6 4" /></svg>
+                      Atidaryti / groti pilnu ekranu
+                    </a>
                   </div>
                 ) : (
                   // eslint-disable-next-line @next/next/no-img-element

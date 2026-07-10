@@ -521,34 +521,66 @@ export default function BendruomeneSection() {
   )
 }
 
-// ── „Iš koncertų" kortelė (Matyti gyvai media) ─────────────────────────────
+// ── „Koncerto akimirkos" kortelė (Matyti gyvai media) ──────────────────────
+// Atrodo kaip „koncerto įspūdžių" kortelė: viršelis + antraštė + autorius +
+// badge „Koncerto akimirkos" + maži media thumbnail'ai. Paspaudus — peržiūra.
 function SightingCard({ it, onOpen }: { it: SeenLiveRecent; onOpen: () => void }) {
-  const media = it.media[0]
-  const isVideo = media?.type === 'video'
   const name = it.artist?.name || it.raw_artist_name || '—'
+  const cover = it.artist?.cover_image_url || it.media.find(m => m.type === 'image')?.url || null
+  const h = strHue(name)
   const y = it.seen_year || (it.event?.start_date ? Number(String(it.event.start_date).slice(0, 4)) : null)
+  const evLabel = it.event?.title || it.raw_event_title || (it.raw_event_is_festival ? 'Festivalis' : null)
+  const place = [it.event?.city || it.raw_event_city, (it.raw_event_country && it.raw_event_country !== 'Lietuva') ? it.raw_event_country : null].filter(Boolean).join(', ')
+  const sub = [evLabel, place || null, y ? String(y) : null].filter(Boolean).join(' · ')
+  const thumbs = it.media.slice(0, 4)
+  const uname = it.user?.username || null
+
   return (
-    <button onClick={onOpen} className="w-[150px] shrink-0 text-left">
-      <div className="relative h-[200px] w-full overflow-hidden rounded-xl" style={{ background: 'var(--cover-placeholder)' }}>
-        {media && !isVideo ? (
+    <button onClick={onOpen} className="hp-card group relative flex flex-col overflow-hidden p-0 text-left" style={{ width: CARD_W, minHeight: CARD_MIN_H, flexShrink: 0 }}>
+      <span className="absolute left-2.5 top-2.5 z-[2] rounded-md px-1.5 py-0.5 font-['Outfit',sans-serif] text-[12px] font-bold uppercase tracking-[0.03em] text-white" style={{ background: 'var(--accent-orange)' }}>Koncerto akimirkos</span>
+
+      <div className="relative shrink-0 overflow-hidden" style={{ height: 134 }}>
+        {cover ? (
           // eslint-disable-next-line @next/next/no-img-element
-          <img src={proxyImg(media.url)} alt="" referrerPolicy="no-referrer" className="h-full w-full object-cover" />
+          <img src={proxyImg(cover)} alt={name} loading="lazy" className="h-full w-full object-cover transition-transform duration-500 group-hover:scale-[1.05]" />
         ) : (
-          <div className="flex h-full w-full items-center justify-center text-[32px]" style={{ background: 'linear-gradient(160deg,#2a2f3a,#171a22)' }}>🎬</div>
+          <div className="flex h-full w-full items-center justify-center text-[34px] text-white/30" style={{ background: `linear-gradient(135deg,hsl(${h},34%,22%),hsl(${(h + 40) % 360},30%,12%))` }}>🎤</div>
         )}
-        {isVideo && (
-          <div className="absolute inset-0 flex items-center justify-center">
-            <span className="flex h-10 w-10 items-center justify-center rounded-full bg-black/55 text-white">
-              <svg viewBox="0 0 24 24" width={18} height={18} fill="currentColor"><polygon points="6 4 20 12 6 20 6 4" /></svg>
-            </span>
-          </div>
-        )}
-        {it.media.length > 1 && <span className="absolute right-1.5 top-1.5 rounded-full bg-black/60 px-1.5 py-0.5 text-[11px] font-bold text-white">{it.media.length}</span>}
-        <span className="absolute left-1.5 top-1.5 rounded-full bg-[var(--accent-orange)] px-1.5 py-0.5 text-[10px] font-black uppercase tracking-wide text-white">Koncertas</span>
-        <div className="absolute inset-x-0 bottom-0 bg-gradient-to-t from-black/80 to-transparent p-2 pt-6">
-          <div className="truncate font-['Outfit',sans-serif] text-[14px] font-extrabold text-white">{name}</div>
-          <div className="truncate text-[11px] text-white/75">{[it.user?.username ? `@${it.user.username}` : null, y ? String(y) : null].filter(Boolean).join(' · ')}</div>
+        <div className="pointer-events-none absolute inset-0" style={{ background: 'linear-gradient(to bottom,transparent 45%,rgba(13,19,32,0.75))' }} />
+      </div>
+
+      <div className="flex flex-1 flex-col gap-1.5 px-3 pb-2 pt-2.5">
+        <p className="m-0 line-clamp-1 text-[16px] font-extrabold leading-snug text-[var(--text-primary)] transition-colors group-hover:text-[var(--accent-orange)]" style={{ fontFamily: "'Outfit',sans-serif" }}>{name}</p>
+        {sub && <p className="m-0 line-clamp-1 text-[14px] font-semibold text-[var(--text-muted)]" style={{ fontFamily: "'Outfit',sans-serif" }}>{sub}</p>}
+
+        {/* Maži media thumbnail'ai */}
+        <div className="mt-1 flex gap-1.5">
+          {thumbs.map((m, i) => (
+            <div key={i} className="relative h-11 w-11 shrink-0 overflow-hidden rounded-md" style={{ background: 'var(--cover-placeholder)' }}>
+              {m.type === 'image' ? (
+                // eslint-disable-next-line @next/next/no-img-element
+                <img src={proxyImg(m.url)} alt="" loading="lazy" referrerPolicy="no-referrer" className="h-full w-full object-cover" />
+              ) : (
+                <div className="flex h-full w-full items-center justify-center" style={{ background: 'linear-gradient(160deg,#2a2f3a,#171a22)' }}>
+                  <svg viewBox="0 0 24 24" width={14} height={14} fill="#fff"><polygon points="6 4 20 12 6 20 6 4" /></svg>
+                </div>
+              )}
+            </div>
+          ))}
+          {it.media.length > 4 && (
+            <div className="flex h-11 w-11 shrink-0 items-center justify-center rounded-md text-[13px] font-bold text-[var(--text-muted)]" style={{ background: 'var(--bg-elevated)' }}>+{it.media.length - 4}</div>
+          )}
         </div>
+      </div>
+
+      {/* Autorius */}
+      <div className="mt-auto flex items-center gap-1.5 border-t border-[var(--border-subtle)] px-3 py-2.5">
+        {it.user?.avatar_url
+          ? /* eslint-disable-next-line @next/next/no-img-element */ <img src={proxyImg(it.user.avatar_url)} alt="" loading="lazy" className="h-[18px] w-[18px] shrink-0 rounded-full object-cover" />
+          : <div className="flex h-[18px] w-[18px] shrink-0 items-center justify-center rounded-full text-[12px] font-extrabold" style={{ fontFamily: "'Outfit',sans-serif", background: `hsl(${strHue(uname || name)},32%,18%)`, color: `hsl(${strHue(uname || name)},45%,55%)` }}>{(uname || name).charAt(0).toUpperCase()}</div>
+        }
+        <span className="min-w-0 flex-1 truncate text-[14px] font-semibold text-[var(--text-secondary)]" style={{ fontFamily: "'Outfit',sans-serif" }}>{uname ? `@${uname}` : 'narys'}</span>
+        <span className="shrink-0 text-[12px] text-[var(--accent-orange)]">{it.media.some(m => m.type === 'video') ? '🎬' : '📷'} {it.media.length}</span>
       </div>
     </button>
   )
