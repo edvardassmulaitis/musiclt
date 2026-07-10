@@ -59,8 +59,9 @@ export async function GET(req: Request) {
     if (withUrl.length < SET_MIN) continue
 
     const top = withUrl.slice(0, SET_MAX)            // populiarumo tvarka (didžiausi pirmi)
-    const maxV = Math.max(1, ...top.map(t => t.views))
-    const withPop = top.map(t => ({ title: t.title, url: t.url, pop: Math.max(0.2, Math.min(1, t.views / maxV)) }))
+    // pop pagal RANGĄ (ne žalius views — jų dažnai nėra), kad setas visada svyruotų
+    const n = top.length
+    const withPop = top.map((t, i) => ({ title: t.title, url: t.url, pop: n > 1 ? 0.35 + (1 - i / (n - 1)) * 0.65 : 1 }))
 
     // FINALE = didžiausias hitas; likusios sumaišytos, kad intensyvumas svyruotų
     const finale = withPop[0]
