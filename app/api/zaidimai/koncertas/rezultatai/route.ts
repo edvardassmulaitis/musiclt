@@ -14,12 +14,14 @@ export async function GET() {
   const sb = createAdminClient()
   const { data } = await sb
     .from('game_scores')
-    .select('score')
+    .select('score, round_count')
     .eq('game', 'koncertas')
     .order('score', { ascending: false })
     .limit(100)
-  const scores = ((data as any[]) || []).map(r => r.score as number).filter(n => Number.isFinite(n))
-  return NextResponse.json({ scores })
+  const rows = (data as any[]) || []
+  const scores = rows.map(r => r.score as number).filter(n => Number.isFinite(n))
+  const songsReached = rows.map(r => r.round_count as number).filter(n => Number.isFinite(n))
+  return NextResponse.json({ scores, songsReached })
 }
 
 export async function POST(req: Request) {
