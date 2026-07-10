@@ -4,8 +4,8 @@ import GaudykleClient from './GaudykleClient'
 export const dynamic = 'force-dynamic'
 
 export const metadata: Metadata = {
-  title: 'Natų gaudyklė — greitas žaidimas | music.lt',
-  description: 'Gaudyk krentančias natas krepšeliu, venk bombų. Be garso, veikia visur.',
+  title: 'Atlikėjų gaudyklė — greitas žaidimas | music.lt',
+  description: 'Gaudyk krentančius atlikėjus krepšeliu — daugiau taškų už populiaresnius. 45 sekundės.',
   robots: { index: false, follow: false },
 }
 

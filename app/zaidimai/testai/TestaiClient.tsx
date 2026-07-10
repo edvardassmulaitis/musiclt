@@ -26,8 +26,8 @@ const ICONS = {
 }
 
 const GAMES = [
-  { href: '/zaidimai/ritmas', icon: ICONS.target, title: 'Pataikyk į bitą 🆕', desc: 'Ritmo žaidimas — baksteli pagal tikrą dainą' },
-  { href: '/zaidimai/gaudykle', icon: ICONS.note, title: 'Natų gaudyklė 🆕', desc: 'Gaudyk krentančias natas — be garso' },
+  { href: '/zaidimai/ritmas', icon: ICONS.target, title: 'Ritmo plytelės 🆕', desc: 'Bakstelk krentančias plyteles pagal dainą' },
+  { href: '/zaidimai/gaudykle', icon: ICONS.note, title: 'Atlikėjų gaudyklė 🆕', desc: 'Gaudyk populiarius atlikėjus — daugiau taškų už žvaigždes' },
   { href: '/zaidimai/dienos', icon: ICONS.zap, title: 'Dienos iššūkis', desc: 'Visas kasdienis rinkinys iš eilės' },
   { href: '/zaidimai/dainu-kvizas', icon: ICONS.headphones, title: 'Atspėk dainą', desc: 'Audio kvizas, 4 variantai' },
   { href: '/zaidimai/atspek-is-sekundes', icon: ICONS.timer, title: 'Atspėk iš sekundės', desc: '1 s → +3 s → +5 s ištrauka' },
