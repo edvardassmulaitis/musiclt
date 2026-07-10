@@ -469,6 +469,49 @@ function StepNav({ onBack, onNext, nextDisabled }: { onBack?: () => void; onNext
 }
 
 // ── Media įkėlimas ──────────────────────────────────────────────────────────
+// Sugeneruoja video poster kadrą (client-side, iš pasirinkto failo). Grąžina
+// Blob (jpeg) arba null. Veikia ten, kur naršyklė gali dekoduoti video (iOS
+// Safari — savo įrašytą HEVC gali; desktop HEVC — dažnai ne, tada null).
+async function makeVideoPoster(file: File): Promise<Blob | null> {
+  return new Promise((resolve) => {
+    let settled = false
+    const done = (b: Blob | null) => { if (!settled) { settled = true; try { URL.revokeObjectURL(url) } catch {} resolve(b) } }
+    const url = URL.createObjectURL(file)
+    const v = document.createElement('video')
+    v.preload = 'metadata'; v.muted = true; (v as any).playsInline = true; v.src = url
+    const timer = setTimeout(() => done(null), 8000)
+    v.onloadeddata = () => { try { v.currentTime = Math.min(0.15, (v.duration || 1) / 3) } catch { clearTimeout(timer); done(null) } }
+    v.onseeked = () => {
+      clearTimeout(timer)
+      try {
+        const w = v.videoWidth || 320, h = v.videoHeight || 180
+        const scale = Math.min(1, 640 / Math.max(w, h))
+        const c = document.createElement('canvas')
+        c.width = Math.round(w * scale); c.height = Math.round(h * scale)
+        const ctx = c.getContext('2d'); if (!ctx) return done(null)
+        ctx.drawImage(v, 0, 0, c.width, c.height)
+        c.toBlob((b) => done(b), 'image/jpeg', 0.8)
+      } catch { done(null) }
+    }
+    v.onerror = () => { clearTimeout(timer); done(null) }
+  })
+}
+
+// Įkelia Blob/File per signed URL, grąžina viešą URL arba null.
+async function uploadBlob(blob: Blob, contentType: string): Promise<string | null> {
+  try {
+    const signRes = await fetch('/api/mano-muzika/seen-live/media-url', {
+      method: 'POST', headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ filename: 'f', contentType }),
+    })
+    const sign = await signRes.json().catch(() => ({}))
+    if (!signRes.ok) return null
+    const put = await fetch(sign.uploadUrl, { method: 'PUT', headers: { 'Content-Type': contentType }, body: blob })
+    if (!put.ok) return null
+    return sign.publicUrl as string
+  } catch { return null }
+}
+
 function MediaUploader({ media, setMedia, flash }: { media: SeenLiveMedia[]; setMedia: (m: SeenLiveMedia[]) => void; flash: (m: string) => void }) {
   const [progress, setProgress] = useState<{ done: number; total: number } | null>(null)
   const inputRef = useRef<HTMLInputElement | null>(null)
@@ -486,6 +529,12 @@ function MediaUploader({ media, setMedia, flash }: { media: SeenLiveMedia[]; set
         const cap = isVideo ? 50 * 1024 * 1024 : 25 * 1024 * 1024
         if (file.size > cap) { flash(isVideo ? 'Video per didelis (max 50MB)' : 'Nuotrauka per didelė (max 25MB)'); setProgress((p) => p && { ...p, done: p.done + 1 }); continue }
         try {
+          // Video: pirma bandom sugeneruoti poster kadrą (thumbnail'ui)
+          let poster: string | null = null
+          if (isVideo) {
+            const blob = await makeVideoPoster(file).catch(() => null)
+            if (blob) poster = await uploadBlob(blob, 'image/jpeg')
+          }
           const signRes = await fetch('/api/mano-muzika/seen-live/media-url', {
             method: 'POST', headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify({ filename: file.name, contentType: file.type }),
@@ -494,7 +543,7 @@ function MediaUploader({ media, setMedia, flash }: { media: SeenLiveMedia[]; set
           if (!signRes.ok) throw new Error(sign.error || 'Įkelti nepavyko')
           const put = await fetch(sign.uploadUrl, { method: 'PUT', headers: { 'Content-Type': file.type }, body: file })
           if (!put.ok) throw new Error('Įkelti nepavyko')
-          added.push({ url: sign.publicUrl, type: sign.type })
+          added.push({ url: sign.publicUrl, type: sign.type, poster })
         } catch (e: any) { flash(e?.message || 'Įkelti nepavyko') }
         setProgress((p) => p && { ...p, done: p.done + 1 })
       }
@@ -512,6 +561,12 @@ function MediaUploader({ media, setMedia, flash }: { media: SeenLiveMedia[]; set
             {m.type === 'image' ? (
               // eslint-disable-next-line @next/next/no-img-element
               <img src={proxyImg(m.url)} alt="" referrerPolicy="no-referrer" className="h-full w-full object-cover" />
+            ) : m.poster ? (
+              <>
+                {/* eslint-disable-next-line @next/next/no-img-element */}
+                <img src={proxyImg(m.poster)} alt="" referrerPolicy="no-referrer" className="h-full w-full object-cover" />
+                <span className="absolute inset-0 flex items-center justify-center"><span className="flex h-6 w-6 items-center justify-center rounded-full bg-black/55 text-white"><svg viewBox="0 0 24 24" width={11} height={11} fill="currentColor"><polygon points="6 4 20 12 6 20 6 4" /></svg></span></span>
+              </>
             ) : (
               <div className="flex h-full w-full items-center justify-center text-[22px]">🎬</div>
             )}

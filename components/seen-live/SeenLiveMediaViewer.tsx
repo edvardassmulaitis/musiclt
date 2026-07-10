@@ -6,7 +6,8 @@
 // naršyklė nepajėgia atkurti .mov/HEVC), atlikėją, renginį, pastabą.
 // ────────────────────────────────────────────────────────────────────────────
 
-import { useEffect } from 'react'
+import { useEffect, useState } from 'react'
+import { createPortal } from 'react-dom'
 import Link from 'next/link'
 import { proxyImg } from '@/lib/img-proxy'
 import type { SeenLiveRow } from '@/lib/seen-live'
@@ -21,6 +22,8 @@ function yearOf(r: ViewerRow): number | null {
 }
 
 export default function SeenLiveMediaViewer({ row, onClose }: { row: ViewerRow; onClose: () => void }) {
+  const [mounted, setMounted] = useState(false)
+  useEffect(() => { setMounted(true) }, [])
   useEffect(() => {
     const prev = document.body.style.overflow
     document.body.style.overflow = 'hidden'
@@ -35,7 +38,9 @@ export default function SeenLiveMediaViewer({ row, onClose }: { row: ViewerRow; 
   const y = yearOf(row)
   const username = row.user?.username || null
 
-  return (
+  if (!mounted) return null
+
+  const overlay = (
     <div className="fixed inset-0 z-[300] overflow-y-auto overscroll-contain" style={{ background: 'rgba(0,0,0,0.92)' }} onClick={onClose}>
       <div className="mx-auto min-h-full w-full max-w-2xl px-3 py-4" style={{ paddingTop: 'max(1rem, env(safe-area-inset-top))' }} onClick={(e) => e.stopPropagation()}>
         <div className="mb-3 flex items-start justify-between gap-3">
@@ -56,7 +61,7 @@ export default function SeenLiveMediaViewer({ row, onClose }: { row: ViewerRow; 
               <div key={i} className="overflow-hidden rounded-xl bg-black">
                 {m.type === 'video' ? (
                   <div className="bg-black">
-                    <video src={m.url} controls playsInline preload="metadata" className="block max-h-[75vh] min-h-[240px] w-full bg-black" />
+                    <video src={m.url} poster={m.poster ? proxyImg(m.poster) : undefined} controls playsInline preload="metadata" className="block max-h-[75vh] min-h-[240px] w-full bg-black" />
                     <a href={m.url} target="_blank" rel="noreferrer noopener" className="flex items-center justify-center gap-2 border-t border-white/10 px-3 py-2.5 text-[13px] font-bold text-white">
                       <svg viewBox="0 0 24 24" width={14} height={14} fill="currentColor"><polygon points="6 4 20 12 6 20 6 4" /></svg>
                       Atidaryti / groti pilnu ekranu
@@ -83,4 +88,6 @@ export default function SeenLiveMediaViewer({ row, onClose }: { row: ViewerRow; 
       </div>
     </div>
   )
+
+  return createPortal(overlay, document.body)
 }

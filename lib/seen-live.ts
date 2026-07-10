@@ -15,7 +15,7 @@ import { slugify } from '@/lib/slugify'
 
 export type SeenLiveStatus = 'approved' | 'pending' | 'rejected'
 
-export type SeenLiveMedia = { url: string; type: 'image' | 'video' }
+export type SeenLiveMedia = { url: string; type: 'image' | 'video'; poster?: string | null }
 
 // ── Nario įrašo forma (POST /api/mano-muzika/seen-live) ─────────────────────
 export type SeenLiveInput = {
@@ -98,7 +98,11 @@ function sanitizeMedia(v: any): SeenLiveMedia[] {
   return v
     .filter((m) => m && typeof m.url === 'string' && /^https?:\/\//.test(m.url))
     .slice(0, 12)
-    .map((m) => ({ url: m.url, type: m.type === 'video' ? 'video' : 'image' }))
+    .map((m) => ({
+      url: m.url,
+      type: m.type === 'video' ? 'video' : 'image',
+      poster: (typeof m.poster === 'string' && /^https?:\/\//.test(m.poster)) ? m.poster : null,
+    }))
 }
 
 const clean = (v: any): string | null => {

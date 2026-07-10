@@ -39,7 +39,7 @@ export function SeenLiveSection({ items }: { items: SeenLiveRow[] }) {
       <div className="grid gap-2.5 sm:grid-cols-2 lg:grid-cols-3">
         {items.map((r) => {
           const name = r.artist?.name || r.raw_artist_name || '—'
-          const cover = r.artist?.cover_image_url || (r.media.find((m) => m.type === 'image')?.url ?? null)
+          const cover = r.artist?.cover_image_url || (r.media.find((m) => m.type === 'image')?.url ?? null) || (r.media.find((m) => m.poster)?.poster ?? null)
           const sub = subtitle(r)
           return (
             <button key={r.id} onClick={() => setViewer(r)}

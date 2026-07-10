@@ -526,7 +526,7 @@ export default function BendruomeneSection() {
 // badge „Koncerto akimirkos" + maži media thumbnail'ai. Paspaudus — peržiūra.
 function SightingCard({ it, onOpen }: { it: SeenLiveRecent; onOpen: () => void }) {
   const name = it.artist?.name || it.raw_artist_name || '—'
-  const cover = it.artist?.cover_image_url || it.media.find(m => m.type === 'image')?.url || null
+  const cover = it.artist?.cover_image_url || it.media.find(m => m.type === 'image')?.url || it.media.find(m => m.poster)?.poster || null
   const h = strHue(name)
   const y = it.seen_year || (it.event?.start_date ? Number(String(it.event.start_date).slice(0, 4)) : null)
   const evLabel = it.event?.title || it.raw_event_title || (it.raw_event_is_festival ? 'Festivalis' : null)
@@ -560,6 +560,12 @@ function SightingCard({ it, onOpen }: { it: SeenLiveRecent; onOpen: () => void }
               {m.type === 'image' ? (
                 // eslint-disable-next-line @next/next/no-img-element
                 <img src={proxyImg(m.url)} alt="" loading="lazy" referrerPolicy="no-referrer" className="h-full w-full object-cover" />
+              ) : m.poster ? (
+                <>
+                  {/* eslint-disable-next-line @next/next/no-img-element */}
+                  <img src={proxyImg(m.poster)} alt="" loading="lazy" referrerPolicy="no-referrer" className="h-full w-full object-cover" />
+                  <span className="absolute inset-0 flex items-center justify-center"><svg viewBox="0 0 24 24" width={12} height={12} fill="#fff"><polygon points="6 4 20 12 6 20 6 4" /></svg></span>
+                </>
               ) : (
                 <div className="flex h-full w-full items-center justify-center" style={{ background: 'linear-gradient(160deg,#2a2f3a,#171a22)' }}>
                   <svg viewBox="0 0 24 24" width={14} height={14} fill="#fff"><polygon points="6 4 20 12 6 20 6 4" /></svg>
