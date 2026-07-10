@@ -10,7 +10,7 @@
 import Link from 'next/link'
 import { useEffect, useState } from 'react'
 import ZaidimoLangas from '@/components/zaidimai/ZaidimoLangas'
-import type { DailyStep, DailyTopRow, FantasyInfo } from './page'
+import type { DailyStep, DailyTopRow, FantasyInfo, GilynInfo } from './page'
 
 type Props = {
   isAuthenticated: boolean
@@ -25,6 +25,7 @@ type Props = {
   }
   todayTop: DailyTopRow[]
   fantasy: FantasyInfo
+  gilyn: GilynInfo
 }
 
 /** Kiek liko iki naujo iššūkio (LT vidurnaktis). */
@@ -37,7 +38,7 @@ function ikiRytojaus(): string {
   return h > 0 ? `${h} val. ${min % 60} min.` : `${min % 60} min.`
 }
 
-export default function ZaidimaiHubClient({ isAuthenticated, streak, totalXp, daily, todayTop, fantasy }: Props) {
+export default function ZaidimaiHubClient({ isAuthenticated, streak, totalXp, daily, todayTop, fantasy, gilyn }: Props) {
   const [liko, setLiko] = useState('')
   useEffect(() => {
     if (!daily.allDone) return
@@ -73,6 +74,23 @@ export default function ZaidimaiHubClient({ isAuthenticated, streak, totalXp, da
           <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><path d="m9 18 6-6-6-6" /></svg>
         </Link>
         {daily.allDone && liko && <p className="dh-timer">Naujas iššūkis po {liko}</p>}
+      </div>
+
+      {/* ── 1b. Gilyn — dienos dėžė ── */}
+      <div className="dh-box dh-gilyn">
+        <div className="dh-head">
+          <h2 className="dh-title sm">💿 Gilyn</h2>
+          {gilyn?.status === 'done' && <span className="dh-badge">Kelias nueitas</span>}
+        </div>
+        <p className="dh-liga-hint">
+          {gilyn?.status === 'done'
+            ? 'Šiandienos kelias baigtas. Pažiūrėk, kaip rinkosi kiti, ir patyrinėk savo žemėlapį.'
+            : <>Nauja: <b>20 plokštelių dėžė</b> — ta pati visiems. Laikyk vieną vinilą, dėžės gale jis taps durimis gilyn į muzikos pasaulį.</>}
+        </p>
+        <Link href="/zaidimai/gilyn" className="dh-cta gilyn">
+          {!gilyn ? 'Atidaryti dėžę' : gilyn.status === 'done' ? 'Peržiūrėti kelią' : 'Tęsti kasimąsi'}
+          <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><path d="m9 18 6-6-6-6" /></svg>
+        </Link>
       </div>
 
       {/* ── 2. Muzikos lyga ── */}
@@ -148,6 +166,8 @@ const css = `
 .dh-daily { border-top: 3px solid var(--accent-orange); }
 .dh-daily.done { border-top-color: var(--accent-green); }
 .dh-liga { border-top: 3px solid var(--accent-blue); background: color-mix(in srgb, var(--accent-blue) 6%, var(--bg-surface)); }
+.dh-gilyn { border-top: 3px solid #a855f7; background: color-mix(in srgb, #a855f7 5%, var(--bg-surface)); }
+.dh-cta.gilyn { background: #a855f7; }
 .dh-stats { border-top: 3px solid rgba(140,160,190,0.5); }
 
 .dh-head { display: flex; align-items: center; justify-content: space-between; gap: 8px; margin-bottom: 11px; }

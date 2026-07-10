@@ -28,6 +28,7 @@ export const metadata: Metadata = {
 
 export type DailyStep = { key: string; label: string; present: boolean; done: boolean }
 export type DailyTopRow = { name: string; isAnon: boolean; score: number }
+export type GilynInfo = { status: 'box' | 'dig' | 'done' } | null
 export type FantasyInfo = {
   name: string
   weeks: { week: string; points: number }[]   // paskutinės savaitės grafikui
@@ -68,7 +69,15 @@ async function loadHub() {
     return null
   }
 
-  const [meRes, dailyTopRes, myDailyScoreRes, dailyTotalRes, myTeamRes, completions] = await Promise.all([
+  const gilynRunP = (() => {
+    let q = sb.from('gilyn_runs').select('status').eq('day', todayLT())
+    if (viewer.userId) q = q.eq('user_id', viewer.userId)
+    else if (viewer.anonId) q = q.eq('anon_id', viewer.anonId)
+    else return Promise.resolve({ data: null })
+    return q.maybeSingle()
+  })()
+
+  const [meRes, dailyTopRes, myDailyScoreRes, dailyTotalRes, myTeamRes, completions, gilynRes] = await Promise.all([
     (viewer.userId || viewer.anonId)
       ? sb.from('boombox_streaks').select('current_streak, total_xp')
           .match(viewer.userId ? { user_id: viewer.userId } : { anon_id: viewer.anonId! }).maybeSingle()
@@ -92,6 +101,7 @@ async function loadHub() {
       return q.maybeSingle()
     })(),
     completionsP,
+    gilynRunP,
   ])
 
   const quizDone = !!(myDailyScoreRes as any).data
@@ -149,6 +159,8 @@ async function loadHub() {
     }
   }
 
+  const gilyn: GilynInfo = (gilynRes as any).data ? { status: (gilynRes as any).data.status } : null
+
   return {
     isAuthenticated: viewer.isAuthenticated,
     streak: (meRes as any).data?.current_streak || 0,
@@ -156,6 +168,7 @@ async function loadHub() {
     daily: { steps, doneCount, total: steps.length, allDone, rank: dailyRank },
     todayTop,
     fantasy,
+    gilyn,
   }
 }
 
