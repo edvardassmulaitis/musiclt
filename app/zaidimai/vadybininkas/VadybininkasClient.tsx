@@ -560,7 +560,10 @@ export default function VadybininkasClient() {
           <button className="fl-captain-bar" onClick={() => setModal('kapitonas')}>
             👑 Kapitonas:{' '}
             {team.captainArtistId
-              ? <b>{roster.find(r => r.artistId === team.captainArtistId)?.name || '—'} <em>×2 taškai</em></b>
+              ? (() => {
+                  const kap = roster.find(r => r.artistId === team.captainArtistId)
+                  return <b>{kap?.name || '—'} <em>×2 taškai</em>{kap?.countsFromNextWeek ? <em style={{ background: 'rgba(239,68,68,0.12)', color: '#b91c1c' }}>nuo pirmadienio</em> : null}</b>
+                })()
               : <b className="fl-captain-none">nepaskirtas — pasirink ir gauk ×2 taškus!</b>}
             <span className="fl-captain-go">›</span>
           </button>
@@ -812,7 +815,9 @@ export default function VadybininkasClient() {
                       <span className="fl-p-img"><Ava name={r.name} image={r.image} size={46} /></span>
                       <span className="fl-p-mid">
                         <span className="fl-p-name">{r.name}</span>
-                        <span className="fl-p-status">šią sav. {r.livePoints} tšk.{r.lastWeekPoints != null ? ` · pr. sav. ${r.lastWeekPoints}` : ''}</span>
+                        <span className={`fl-p-status${r.countsFromNextWeek ? ' new' : ''}`}>
+                          {r.countsFromNextWeek ? '⚠️ skaičiuosis tik nuo pirmadienio' : `šią sav. ${r.livePoints} tšk.${r.lastWeekPoints != null ? ` · pr. sav. ${r.lastWeekPoints}` : ''}`}
+                        </span>
                       </span>
                       <span className="fl-p-pts">{r.isCaptain ? <b style={{ fontSize: 15 }}>👑 ✕</b> : <i>skirti ›</i>}</span>
                     </button>

@@ -280,10 +280,12 @@ export async function GET(req: NextRequest) {
     if (!d) continue
     const nm = r.artist?.name || '—'
     const img = r.artist?.cover_image_url || null
+    // +tšk. badge rodomas TIK jei atlikėjas šią savaitę skaičiuojasi
+    const countsNow = graceWeek || r.signed_at < weekStartUtcNow
     for (const e of (d.chart_entries || []).slice(0, 4)) {
       const chartName = e.chart ? e.chart : e.top === 'top40' ? 'TOP40' : 'LT TOP30'
       const kap = r.artist_id === captainId
-      events.push({ artistId: r.artist_id, name: nm, image: img, cat: 'chart', pos: e.pos, pts: e.pts ? (kap ? e.pts * 2 : e.pts) : undefined, text: `${chartName}: #${e.pos}${e.title ? ` — „${e.title}“` : ''}` })
+      events.push({ artistId: r.artist_id, name: nm, image: img, cat: 'chart', pos: e.pos, pts: countsNow && e.pts ? (kap ? e.pts * 2 : e.pts) : undefined, text: `${chartName}: #${e.pos}${e.title ? ` — „${e.title}“` : ''}` })
     }
     if ((d.releases || 0) > 0) {
       events.push({ artistId: r.artist_id, name: nm, image: img, cat: 'rel', text: d.releases === 1 ? 'Nauja daina šią savaitę' : `Naujos dainos: ${d.releases}` })
