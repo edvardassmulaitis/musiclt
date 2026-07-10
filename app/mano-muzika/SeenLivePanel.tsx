@@ -162,12 +162,18 @@ function EditSighting({ row, flash, onClose, onSaved }: { row: SeenLiveRow; flas
   async function save() {
     setBusy(true)
     try {
-      const y = year ? Number(year) : null
-      const m = month ? Number(month) : null
-      const d = day ? Number(day) : null
-      let seen_date: string | null = null
-      if (y && m && m >= 1 && m <= 12 && d && d >= 1 && d <= 31) seen_date = `${y}-${String(m).padStart(2, '0')}-${String(d).padStart(2, '0')}`
-      const { item } = await api('/seen-live', 'PATCH', { id: row.id, media, note: note.trim() || null, seen_year: y, seen_date })
+      const payload: any = { id: row.id, media, note: note.trim() || null }
+      // Datą leidžiam keisti tik kai renginys NEpririštas (kitaip data iš renginio).
+      if (!row.event) {
+        const y = year ? Number(year) : null
+        const m = month ? Number(month) : null
+        const d = day ? Number(day) : null
+        let seen_date: string | null = null
+        if (y && m && m >= 1 && m <= 12 && d && d >= 1 && d <= 31) seen_date = `${y}-${String(m).padStart(2, '0')}-${String(d).padStart(2, '0')}`
+        payload.seen_year = y
+        payload.seen_date = seen_date
+      }
+      const { item } = await api('/seen-live', 'PATCH', payload)
       onSaved(item)
       flash('Išsaugota')
     } catch (e: any) { flash(e.message || 'Klaida') } finally { setBusy(false) }
@@ -191,12 +197,20 @@ function EditSighting({ row, flash, onClose, onSaved }: { row: SeenLiveRow; flas
         <label className="mb-1 block text-[12px] font-bold uppercase tracking-wide" style={{ color: 'var(--text-faint)' }}>Nuotraukos / video</label>
         <MediaUploader media={media} setMedia={setMedia} flash={flash} />
 
-        <label className="mt-4 mb-1 block text-[12px] font-bold uppercase tracking-wide" style={{ color: 'var(--text-faint)' }}>Kada matei? (užtenka metų)</label>
-        <div className="grid grid-cols-3 gap-2">
-          <input value={year} onChange={(e) => setYear(e.target.value.replace(/\D/g, '').slice(0, 4))} placeholder="Metai" inputMode="numeric" className={inputCls} style={inputStyle} />
-          <input value={month} onChange={(e) => setMonth(e.target.value.replace(/\D/g, '').slice(0, 2))} placeholder="Mėnuo" inputMode="numeric" className={inputCls} style={inputStyle} />
-          <input value={day} onChange={(e) => setDay(e.target.value.replace(/\D/g, '').slice(0, 2))} placeholder="Diena" inputMode="numeric" className={inputCls} style={inputStyle} />
-        </div>
+        {row.event ? (
+          <div className="mt-4 rounded-lg px-3 py-2 text-[13px] ring-1" style={{ background: 'var(--bg-elevated)', color: 'var(--text-muted)', ['--tw-ring-color' as any]: 'var(--border-subtle)' } as any}>
+            Renginys: <b style={{ color: 'var(--text-secondary)' }}>{row.event.title}</b>{row.event.start_date ? ` · ${String(row.event.start_date).slice(0, 10)}` : ''} <span style={{ color: 'var(--text-faint)' }}>(data iš renginio)</span>
+          </div>
+        ) : (
+          <>
+            <label className="mt-4 mb-1 block text-[12px] font-bold uppercase tracking-wide" style={{ color: 'var(--text-faint)' }}>Kada matei? (užtenka metų)</label>
+            <div className="grid grid-cols-3 gap-2">
+              <input value={year} onChange={(e) => setYear(e.target.value.replace(/\D/g, '').slice(0, 4))} placeholder="Metai" inputMode="numeric" className={inputCls} style={inputStyle} />
+              <input value={month} onChange={(e) => setMonth(e.target.value.replace(/\D/g, '').slice(0, 2))} placeholder="Mėnuo" inputMode="numeric" className={inputCls} style={inputStyle} />
+              <input value={day} onChange={(e) => setDay(e.target.value.replace(/\D/g, '').slice(0, 2))} placeholder="Diena" inputMode="numeric" className={inputCls} style={inputStyle} />
+            </div>
+          </>
+        )}
 
         <label className="mt-3 mb-1 block text-[12px] font-bold uppercase tracking-wide" style={{ color: 'var(--text-faint)' }}>Pastaba</label>
         <textarea value={note} onChange={(e) => setNote(e.target.value)} rows={2} placeholder="Įspūdis, su kuo buvai…" className="w-full resize-none rounded-lg px-3 py-2 text-[14px] outline-none ring-1" style={inputStyle} />
