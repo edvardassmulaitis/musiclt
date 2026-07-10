@@ -580,7 +580,7 @@ export default function KoncertasClient() {
           <div className="kc-badge">DIENOS KONCERTAS</div>
           <div className="kc-artwrap"><img className="kc-art" src={proxyImg(artist.image, 240)} alt={artist.name} /></div>
           <h1 className="kc-h1">{artist.name}</h1>
-          <p className="kc-lead">Šiandien scenoje — <b>{artist.name}</b>. <b>{setlistLen} dainų setas</b>, finale — hitai. Iš minios kyla ženklai — <b>baksteli</b> ♪ ♫ ★ ♥, retas <b>💎</b> duoda boost'ą. Venk <b>✕</b> (−gyvybė) ir <b>📵</b> (nutraukia seriją). Populiari daina = <b>HITAS</b>: greičiau, bet taškai <b>×2</b>. 3 gyvybės.</p>
+          <p className="kc-lead">Šiandien scenoje — <b>{artist.name}</b>. <b>{setlistLen} dainų setas</b>, finale — didžiausias hitas. Iš minios kyla <b>švytintys ženklai</b> — baksteli juos (šviesos, širdukai, žvaigždės), o retas <b>💎</b> duoda daugiau taškų. Venk <b>pilkų</b>: ✕ atima gyvybę, 📵 nutraukia seriją. Populiari daina = <b>HITAS</b>: greičiau, bet taškai <b>×2</b>. 3 gyvybės.</p>
           <button className="kc-cta big" onClick={start}>▶ Į koncertą</button>
           <button className="kc-cta ghost sm" onClick={() => void init(true)}>🔀 Kitas atlikėjas</button>
           <p className="kc-tiny">🔊 Įsijunk garsą — dainos valdo minią.</p>
