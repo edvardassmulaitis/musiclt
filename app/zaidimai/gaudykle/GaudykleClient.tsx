@@ -23,7 +23,7 @@ export default function GaudykleClient() {
   const [phase, setPhase] = useState<Phase>('loading')
   const [genre, setGenre] = useState('')
   const [err, setErr] = useState<string | null>(null)
-  const [results, setResults] = useState<{ score: number; level: number; best: number; missed: number } | null>(null)
+  const [results, setResults] = useState<{ score: number; level: number; best: number; caught: number; missed: number; wrong: number; scores: number[]; percentile: number } | null>(null)
 
   const poolRef = useRef<Artist[]>([])
   const imgRef = useRef<Map<string, HTMLImageElement>>(new Map())
@@ -37,6 +37,8 @@ export default function GaudykleClient() {
   const livesRef = useRef(3)
   const levelRef = useRef(1)
   const caughtRef = useRef(0)
+  const wrongRef = useRef(0)
+  const lastSpawnXRef = useRef(0.5)
   const lastRef = useRef(0)
   const spawnAccRef = useRef(0)
   const elapsedRef = useRef(0)
@@ -78,9 +80,9 @@ export default function GaudykleClient() {
 
   function start() {
     itemsRef.current = []; floatsRef.current = []
-    scoreRef.current = 0; comboRef.current = 0; livesRef.current = 3; levelRef.current = 1; caughtRef.current = 0
+    scoreRef.current = 0; comboRef.current = 0; livesRef.current = 3; levelRef.current = 1; caughtRef.current = 0; wrongRef.current = 0
     elapsedRef.current = 0; spawnAccRef.current = 0; lastRef.current = 0; spawnIdxRef.current = 0; levelFlashRef.current = -9
-    missFlashRef.current = -9; missedRef.current = 0; lifeFlashRef.current = -9
+    missFlashRef.current = -9; missedRef.current = 0; lifeFlashRef.current = -9; lastSpawnXRef.current = 0.5
     catcherXRef.current = 0.5
     try { if (musicRef.current) { musicRef.current.loop = true; musicRef.current.currentTime = 0; void musicRef.current.play().catch(() => {}) } } catch { /* nebūtina */ }
     setPhase('play')
@@ -115,10 +117,27 @@ export default function GaudykleClient() {
   function finish() {
     cancelAnimationFrame(rafRef.current)
     try { musicRef.current?.pause() } catch { /* ok */ }
-    const best = Math.max(scoreRef.current, Number(lsGet('gaudykle_best') || 0))
+    const score = scoreRef.current
+    const best = Math.max(score, Number(lsGet('gaudykle_best') || 0))
     lsSet('gaudykle_best', String(best))
-    setResults({ score: scoreRef.current, level: levelRef.current, best, missed: missedRef.current })
+    const caught = caughtRef.current, missed = missedRef.current, wrong = wrongRef.current
+    setResults({ score, level: levelRef.current, best, caught, missed, wrong, scores: [], percentile: -1 })
     setPhase('results')
+    // rezultatų lenta — įrašom rezultatą ir gaunam paskutinių 100 geriausių pasiskirstymą
+    void (async () => {
+      try {
+        const res = await fetch('/api/zaidimai/gaudykle/rezultatai', {
+          method: 'POST', headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ score, caught, missed, wrong, genre }),
+        })
+        const j = await res.json()
+        const scores: number[] = Array.isArray(j?.scores) ? j.scores.filter((n: any) => Number.isFinite(n)) : []
+        const beat = scores.length ? scores.filter(s => score >= s).length / scores.length : 1
+        setResults(r => r ? { ...r, scores, percentile: Math.round(beat * 100) } : r)
+      } catch {
+        setResults(r => r ? { ...r, percentile: -2 } : r)
+      }
+    })()
   }
 
   function loop(ts: number) {
@@ -132,11 +151,11 @@ export default function GaudykleClient() {
     if (dt > 0.05) dt = 0.05
     elapsedRef.current += dt
 
-    // lygis pagal pagautų skaičių — greitis auga
-    const level = 1 + Math.floor(caughtRef.current / 8)
+    // lygis pagal pagautų skaičių — greitis auga LĖTAI, pirmas lygis ramus
+    const level = 1 + Math.floor(caughtRef.current / 10)
     if (level !== levelRef.current) { levelRef.current = level; levelFlashRef.current = elapsedRef.current }
-    const speedMul = 1 + (level - 1) * 0.16
-    const spawnEvery = Math.max(0.55, 1.15 - (level - 1) * 0.06)
+    const speedMul = 1 + (level - 1) * 0.11
+    const spawnEvery = Math.max(0.78, 1.55 - (level - 1) * 0.07)
 
     spawnAccRef.current += dt
     if (spawnAccRef.current >= spawnEvery && poolRef.current.length) {
@@ -145,18 +164,27 @@ export default function GaudykleClient() {
       const wantTarget = Math.random() < 0.48
       const pool = poolRef.current.filter(a => a.target === wantTarget)
       const a = (pool.length ? pool : poolRef.current)[(spawnIdxRef.current++ ) % (pool.length || poolRef.current.length)]
-      itemsRef.current.push({ x: 0.09 + Math.random() * 0.82, y: -34, vy: (95 + Math.random() * 35) * speedMul, a })
+      // Vieta: pakankamas horizontalus tarpas nuo ankstesnio kritusio, kad
+      // žinant atsakymus visada BŪTŲ įmanoma nuspėti ir spėti nubėgti.
+      let x = 0.10 + Math.random() * 0.80
+      for (let tries = 0; tries < 6; tries++) {
+        if (Math.abs(x - lastSpawnXRef.current) > 0.22) break
+        x = 0.10 + Math.random() * 0.80
+      }
+      lastSpawnXRef.current = x
+      itemsRef.current.push({ x, y: -34, vy: (56 + Math.random() * 16) * speedMul, a })
     }
 
-    const catcherY = h - 50
-    const catcherW = Math.max(78, w * 0.26)
+    const catcherY = h - 56
+    const discR = 30                          // muzikinio disko spindulys
     const catcherX = catcherXRef.current * w
     const R = 24
 
     const keep: Item[] = []
     for (const it of itemsRef.current) {
       it.y += it.vy * dt * (h / 560)
-      const caught = it.y > catcherY - 28 && it.y < catcherY + 30 && Math.abs(it.x * w - catcherX) < catcherW / 2 + R
+      // pagavimas: diskas turi būti PO atlikėju (nedidelis, tikslus)
+      const caught = it.y > catcherY - discR && it.y < catcherY + discR && Math.abs(it.x * w - catcherX) < discR + R * 0.35
       if (caught) {
         if (it.a.target) {
           comboRef.current++; caughtRef.current++
@@ -171,7 +199,7 @@ export default function GaudykleClient() {
             floatsRef.current.push({ x: w / 2, y: catcherY - 44, text: '+1 gyvybė ❤', color: '#22c55e', at: elapsedRef.current })
           }
         } else {
-          livesRef.current--; comboRef.current = 0
+          livesRef.current--; comboRef.current = 0; wrongRef.current++
           floatsRef.current.push({ x: it.x * w, y: catcherY - 12, text: '✕ ne tas stilius', color: '#f87171', at: elapsedRef.current })
         }
         continue
@@ -218,9 +246,21 @@ export default function GaudykleClient() {
       g.fillText(nm, x, y + R + 13)
     }
 
-    // krepšelis
-    g.fillStyle = '#f97316'; roundRect(g, catcherX - catcherW / 2, catcherY, catcherW, 14, 7); g.fill()
-    g.fillStyle = 'rgba(249,115,22,0.22)'; roundRect(g, catcherX - catcherW / 2 - 5, catcherY - 5, catcherW + 10, 24, 11); g.fill()
+    // muzikinis diskas (vinilas) — gaudyklė
+    g.save()
+    g.beginPath(); g.arc(catcherX, catcherY, discR + 4, 0, Math.PI * 2)
+    g.fillStyle = 'rgba(249,115,22,0.18)'; g.fill()
+    // juodas diskas
+    g.beginPath(); g.arc(catcherX, catcherY, discR, 0, Math.PI * 2)
+    g.fillStyle = '#12151d'; g.fill()
+    g.lineWidth = 2; g.strokeStyle = 'rgba(249,115,22,0.85)'; g.stroke()
+    // grioveliai
+    g.strokeStyle = 'rgba(148,163,184,0.28)'; g.lineWidth = 1
+    for (let rr = discR - 5; rr > 11; rr -= 5) { g.beginPath(); g.arc(catcherX, catcherY, rr, 0, Math.PI * 2); g.stroke() }
+    // etiketė + skylė
+    g.beginPath(); g.arc(catcherX, catcherY, 10, 0, Math.PI * 2); g.fillStyle = '#f97316'; g.fill()
+    g.beginPath(); g.arc(catcherX, catcherY, 2.6, 0, Math.PI * 2); g.fillStyle = '#0b0f18'; g.fill()
+    g.restore()
 
     // plaukiantys taškai
     const nf: typeof floatsRef.current = []
@@ -234,13 +274,22 @@ export default function GaudykleClient() {
     }
     floatsRef.current = nf
 
-    // HUD
-    g.fillStyle = '#e7ebf2'; g.font = '900 22px Outfit, system-ui, sans-serif'; g.textAlign = 'left'
-    g.fillText(`${scoreRef.current}`, 16, 34)
-    g.textAlign = 'right'; g.font = '900 19px Outfit, system-ui, sans-serif'; g.fillStyle = '#f87171'
-    g.fillText('❤'.repeat(Math.max(0, livesRef.current)), w - 14, 32)
-    g.fillStyle = 'var(--text-muted)'; g.fillStyle = '#8ea0b8'; g.font = '800 12px Outfit, system-ui, sans-serif'
-    g.fillText(`Lygis ${level}`, w - 14, 52)
+    // HUD viršuje — statistika (be taškų; taškai rodomi tik pabaigoje)
+    g.textAlign = 'left'; g.textBaseline = 'alphabetic'
+    g.font = '900 13px Outfit, system-ui, sans-serif'
+    g.fillStyle = '#22c55e'; g.fillText(`✓ ${caughtRef.current}`, 16, 30)
+    g.fillStyle = '#f59e0b'; g.fillText(`praleista ${missedRef.current}`, 16 + 58, 30)
+    g.fillStyle = '#f87171'; g.fillText(`klaidos ${wrongRef.current}`, 16 + 58 + 96, 30)
+    // serija
+    if (comboRef.current >= 2) {
+      g.fillStyle = '#f59e0b'; g.font = '900 12px Outfit, system-ui, sans-serif'
+      g.fillText(`serija ×${comboRef.current}`, 16, 48)
+    }
+    // dešinėje — gyvybės + lygis
+    g.textAlign = 'right'; g.font = '900 18px Outfit, system-ui, sans-serif'; g.fillStyle = '#f87171'
+    g.fillText('❤'.repeat(Math.max(0, livesRef.current)), w - 14, 30)
+    g.fillStyle = '#8ea0b8'; g.font = '800 12px Outfit, system-ui, sans-serif'
+    g.fillText(`Lygis ${level}`, w - 14, 48)
 
     // lygio blyksnis
     const lage = elapsedRef.current - levelFlashRef.current
@@ -286,7 +335,7 @@ export default function GaudykleClient() {
           <div className="gd-badge">GREITAS ŽAIDIMAS</div>
           <h1 className="gd-h1">Atlikėjų gaudyklė</h1>
           <div className="gd-target">🎯 Gaudyk tik: <b>{genre}</b></div>
-          <p className="gd-lead"><b>Tempk krepšelį pirštu</b> ir gaudyk tik nurodyto stiliaus atlikėjus. Kitus <b>praleisk</b> — pagavai ne tą stilių, minus gyvybė. Pradedi su <b>3 gyvybėmis</b>; žaidi tol, kol jų turi. <b>10 iš eilės teisingų → +1 gyvybė.</b> Greitis auga su lygiais.</p>
+          <p className="gd-lead"><b>Vesk diską pirštu</b> po krentančiais atlikėjais ir gaudyk tik nurodyto stiliaus. Kitus <b>praleisk</b> — pagavai ne tą stilių, minus gyvybė. Pradedi su <b>3 gyvybėmis</b>; žaidi tol, kol jų turi. <b>10 iš eilės teisingų → +1 gyvybė.</b> Greitis lėtai auga su lygiais.</p>
           <button className="gd-cta big" onClick={start}>▶ Pradėti</button>
           <p className="gd-tiny">🔊 Fone groja <b>{genre}</b> stiliaus daina (garsas nebūtinas).</p>
         </div>
@@ -303,7 +352,12 @@ export default function GaudykleClient() {
         <div className="gd-ready">
           <div className="gd-badge">REZULTATAS</div>
           <div className="gd-score">{results.score}</div>
-          <p className="gd-lead">Pasiektas lygis <b>{results.level}</b> · praleista teisingų <b>{results.missed}</b> · geriausias rezultatas <b>{results.best}</b></p>
+          <div className="gd-stats">
+            <span className="gd-stat s-ok"><b>{results.caught}</b>pagauta</span>
+            <span className="gd-stat s-warn"><b>{results.missed}</b>praleista</span>
+            <span className="gd-stat s-bad"><b>{results.wrong}</b>klaidos</span>
+          </div>
+          <ScoreDistribution scores={results.scores} score={results.score} percentile={results.percentile} />
           <div className="gd-actions">
             <button className="gd-cta" onClick={start}>Dar kartą</button>
             <button className="gd-cta ghost" onClick={() => void init()}>Kitas stilius →</button>
@@ -315,10 +369,27 @@ export default function GaudykleClient() {
   )
 }
 
-function roundRect(g: CanvasRenderingContext2D, x: number, y: number, w: number, h: number, r: number) {
-  g.beginPath(); g.moveTo(x + r, y)
-  g.arcTo(x + w, y, x + w, y + h, r); g.arcTo(x + w, y + h, x, y + h, r)
-  g.arcTo(x, y + h, x, y, r); g.arcTo(x, y, x + w, y, r); g.closePath()
+function ScoreDistribution({ scores, score, percentile }: { scores: number[]; score: number; percentile: number }) {
+  if (percentile === -1) return <div className="gd-dist gd-dist-note">Skaičiuojam, kaip pasirodei…</div>
+  if (percentile === -2) return <div className="gd-dist gd-dist-note">Rezultatų lentos įkelti nepavyko</div>
+  if (!scores.length) return <div className="gd-dist gd-dist-note">🎉 Tavo rezultatas — pirmasis lentoje!</div>
+  const bins = 14
+  const max = Math.max(score, ...scores, 1)
+  const counts = new Array(bins).fill(0)
+  for (const s of scores) { const i = Math.min(bins - 1, Math.floor((s / max) * bins)); counts[i]++ }
+  const myBin = Math.min(bins - 1, Math.floor((score / max) * bins))
+  const maxC = Math.max(...counts, 1)
+  return (
+    <div className="gd-dist">
+      <div className="gd-dist-title">Paskutiniai 100 geriausių · <b>lenki {percentile}%</b></div>
+      <div className="gd-bars">
+        {counts.map((c, i) => (
+          <div key={i} className={'gd-bar' + (i === myBin ? ' me' : '')} style={{ height: `${8 + (c / maxC) * 46}px` }} />
+        ))}
+      </div>
+      <div className="gd-dist-legend"><span className="me-dot" /> tavo rezultatas ({score})</div>
+    </div>
+  )
 }
 function lsGet(k: string): string | null { try { return window.localStorage.getItem(k) } catch { return null } }
 function lsSet(k: string, v: string) { try { window.localStorage.setItem(k, v) } catch { /* ok */ } }
@@ -336,6 +407,21 @@ const css = `
 .gd-lead { font-size: 14px; color: var(--text-secondary); line-height: 1.6; max-width: 380px; margin: 0 0 20px; }
 .gd-lead b { color: var(--text-primary); }
 .gd-score { font-size: 60px; font-weight: 900; color: var(--accent-orange); line-height: 1; margin: 6px 0; }
+.gd-stats { display: flex; gap: 10px; justify-content: center; margin: 4px 0 16px; }
+.gd-stat { display: flex; flex-direction: column; align-items: center; font-size: 11px; color: var(--text-muted); font-weight: 700; min-width: 66px; padding: 9px 6px; background: var(--bg-surface); border: 1px solid rgba(140,160,190,0.18); border-radius: 12px; }
+.gd-stat b { font-size: 21px; font-weight: 900; line-height: 1; margin-bottom: 3px; }
+.gd-stat.s-ok b { color: #22c55e; }
+.gd-stat.s-warn b { color: #f59e0b; }
+.gd-stat.s-bad b { color: #f87171; }
+.gd-dist { width: 100%; max-width: 340px; margin: 2px 0 18px; }
+.gd-dist-note { font-size: 12.5px; color: var(--text-muted); text-align: center; padding: 14px 0; }
+.gd-dist-title { font-size: 12.5px; color: var(--text-secondary); text-align: center; margin-bottom: 8px; }
+.gd-dist-title b { color: var(--accent-orange); }
+.gd-bars { display: flex; align-items: flex-end; gap: 3px; height: 56px; padding: 0 4px; }
+.gd-bar { flex: 1; background: rgba(148,163,184,0.32); border-radius: 3px 3px 0 0; min-height: 8px; }
+.gd-bar.me { background: var(--accent-orange); box-shadow: 0 0 10px rgba(249,115,22,0.6); }
+.gd-dist-legend { font-size: 11px; color: var(--text-muted); text-align: center; margin-top: 7px; display: flex; align-items: center; justify-content: center; gap: 6px; }
+.me-dot { width: 9px; height: 9px; border-radius: 2px; background: var(--accent-orange); display: inline-block; }
 .gd-cta { font-size: 16px; font-weight: 800; color: #fff; cursor: pointer; border: 0; border-radius: 999px; padding: 13px 28px; background: var(--accent-orange); }
 .gd-cta.big { font-size: 19px; padding: 16px 46px; }
 .gd-cta.ghost { background: var(--bg-surface); color: var(--text-primary); border: 1px solid rgba(140,160,190,0.3); }
