@@ -16,6 +16,7 @@ import { useEffect, useRef, useState } from 'react'
 import { proxyImg } from '@/lib/img-proxy'
 import MusicSearchPicker, { type AttachmentHit } from '@/components/MusicSearchPicker'
 import GeoPicker, { EMPTY_GEO, type GeoValue } from '@/components/geo/GeoPicker'
+import SeenLiveMediaViewer from '@/components/seen-live/SeenLiveMediaViewer'
 import type { SeenLiveRow, SeenLiveMedia } from '@/lib/seen-live'
 
 type EventPick = { id: string; title: string; slug: string; start_date: string | null; city: string | null }
@@ -48,6 +49,7 @@ export default function SeenLivePanel({ flash, likedArtists = [] }: { flash: (m:
   const [loaded, setLoaded] = useState(false)
   const [wizardOpen, setWizardOpen] = useState(false)
   const [editing, setEditing] = useState<SeenLiveRow | null>(null)
+  const [preview, setPreview] = useState<SeenLiveRow | null>(null)
 
   useEffect(() => {
     let alive = true
@@ -100,21 +102,23 @@ export default function SeenLivePanel({ flash, likedArtists = [] }: { flash: (m:
               const place = [it.raw_event_venue, it.raw_event_city, (it.raw_event_country && it.raw_event_country !== 'Lietuva') ? it.raw_event_country : null].filter(Boolean).join(', ')
               return (
                 <li key={it.id} className="flex items-center gap-3 rounded-xl p-2.5 pr-3 ring-1" style={{ background: 'var(--bg-surface)', ['--tw-ring-color' as any]: 'var(--border-subtle)' }}>
-                  <div className="relative h-11 w-11 shrink-0 overflow-hidden rounded-lg" style={{ background: 'var(--cover-placeholder)' }}>
-                    {cover ? (
-                      // eslint-disable-next-line @next/next/no-img-element
-                      <img src={proxyImg(cover)} alt="" referrerPolicy="no-referrer" className="h-full w-full object-cover" />
-                    ) : <div className="flex h-full w-full items-center justify-center text-[16px]" style={{ color: 'var(--text-faint)' }}>🎤</div>}
-                    {it.media.length > 0 && <span className="absolute bottom-0 right-0 rounded-tl bg-black/60 px-1 text-[10px] font-bold text-white">{it.media.length}</span>}
-                  </div>
-                  <div className="min-w-0 flex-1">
-                    <div className="flex items-center gap-2">
-                      <span className="truncate font-['Outfit',sans-serif] text-[15px] font-bold" style={{ color: 'var(--text-primary)' }}>{name}</span>
-                      {it.status === 'pending' && <span className="shrink-0 rounded-full px-1.5 py-0.5 text-[10px] font-black uppercase tracking-wide" style={{ background: 'rgba(245,158,11,0.16)', color: 'var(--accent-orange)' }}>Laukia</span>}
-                      {it.status === 'rejected' && <span className="shrink-0 rounded-full px-1.5 py-0.5 text-[10px] font-black uppercase tracking-wide" style={{ background: 'rgba(248,113,113,0.14)', color: 'var(--accent-red)' }}>Atmesta</span>}
+                  <button onClick={() => setPreview(it)} className="flex min-w-0 flex-1 items-center gap-3 text-left" title="Peržiūrėti">
+                    <div className="relative h-11 w-11 shrink-0 overflow-hidden rounded-lg" style={{ background: 'var(--cover-placeholder)' }}>
+                      {cover ? (
+                        // eslint-disable-next-line @next/next/no-img-element
+                        <img src={proxyImg(cover)} alt="" referrerPolicy="no-referrer" className="h-full w-full object-cover" />
+                      ) : <div className="flex h-full w-full items-center justify-center text-[16px]" style={{ color: 'var(--text-faint)' }}>🎤</div>}
+                      {it.media.length > 0 && <span className="absolute bottom-0 right-0 rounded-tl bg-black/60 px-1 text-[10px] font-bold text-white">{it.media.length}</span>}
                     </div>
-                    <div className="truncate text-[12px]" style={{ color: 'var(--text-muted)' }}>{[evLabel, place, y ? String(y) : null].filter(Boolean).join(' · ') || 'Be renginio'}</div>
-                  </div>
+                    <div className="min-w-0 flex-1">
+                      <div className="flex items-center gap-2">
+                        <span className="truncate font-['Outfit',sans-serif] text-[15px] font-bold" style={{ color: 'var(--text-primary)' }}>{name}</span>
+                        {it.status === 'pending' && <span className="shrink-0 rounded-full px-1.5 py-0.5 text-[10px] font-black uppercase tracking-wide" style={{ background: 'rgba(245,158,11,0.16)', color: 'var(--accent-orange)' }}>Laukia</span>}
+                        {it.status === 'rejected' && <span className="shrink-0 rounded-full px-1.5 py-0.5 text-[10px] font-black uppercase tracking-wide" style={{ background: 'rgba(248,113,113,0.14)', color: 'var(--accent-red)' }}>Atmesta</span>}
+                      </div>
+                      <div className="truncate text-[12px]" style={{ color: 'var(--text-muted)' }}>{[evLabel, place, y ? String(y) : null].filter(Boolean).join(' · ') || 'Be renginio'}</div>
+                    </div>
+                  </button>
                   <button onClick={() => setEditing(it)} aria-label="Redaguoti" className="flex h-7 w-7 shrink-0 items-center justify-center rounded-full transition-colors hover:bg-[var(--bg-hover)]" style={{ color: 'var(--text-muted)' }}>
                     <svg viewBox="0 0 24 24" width={14} height={14} fill="none" stroke="currentColor" strokeWidth={2} strokeLinecap="round" strokeLinejoin="round"><path d="M12 20h9" /><path d="M16.5 3.5a2.1 2.1 0 0 1 3 3L7 19l-4 1 1-4z" /></svg>
                   </button>
@@ -144,6 +148,8 @@ export default function SeenLivePanel({ flash, likedArtists = [] }: { flash: (m:
         <EditSighting row={editing} flash={flash} onClose={() => setEditing(null)}
           onSaved={(item) => { setItems((l) => l.map((x) => x.id === item.id ? item : x)); setEditing(null) }} />
       )}
+
+      {preview && <SeenLiveMediaViewer row={preview} onClose={() => setPreview(null)} />}
     </div>
   )
 }
