@@ -45,6 +45,8 @@ export default function GaudykleClient() {
   const levelFlashRef = useRef(-9)
   const missFlashRef = useRef(-9)
   const missedRef = useRef(0)
+  const lifeFlashRef = useRef(-9)
+  const MAX_LIVES = 5
 
   useEffect(() => {
     void init()
@@ -78,9 +80,9 @@ export default function GaudykleClient() {
     itemsRef.current = []; floatsRef.current = []
     scoreRef.current = 0; comboRef.current = 0; livesRef.current = 3; levelRef.current = 1; caughtRef.current = 0
     elapsedRef.current = 0; spawnAccRef.current = 0; lastRef.current = 0; spawnIdxRef.current = 0; levelFlashRef.current = -9
-    missFlashRef.current = -9; missedRef.current = 0
+    missFlashRef.current = -9; missedRef.current = 0; lifeFlashRef.current = -9
     catcherXRef.current = 0.5
-    try { if (musicRef.current) { musicRef.current.currentTime = 0; void musicRef.current.play().catch(() => {}) } } catch { /* nebūtina */ }
+    try { if (musicRef.current) { musicRef.current.loop = true; musicRef.current.currentTime = 0; void musicRef.current.play().catch(() => {}) } } catch { /* nebūtina */ }
     setPhase('play')
   }
 
@@ -162,6 +164,12 @@ export default function GaudykleClient() {
           const pts = Math.round(20 * mult)
           scoreRef.current += pts
           floatsRef.current.push({ x: it.x * w, y: catcherY - 12, text: `+${pts}`, color: '#22c55e', at: elapsedRef.current })
+          // 10 iš eilės → +1 gyvybė (iki MAX_LIVES)
+          if (comboRef.current > 0 && comboRef.current % 10 === 0 && livesRef.current < MAX_LIVES) {
+            livesRef.current++
+            lifeFlashRef.current = elapsedRef.current
+            floatsRef.current.push({ x: w / 2, y: catcherY - 44, text: '+1 gyvybė ❤', color: '#22c55e', at: elapsedRef.current })
+          }
         } else {
           livesRef.current--; comboRef.current = 0
           floatsRef.current.push({ x: it.x * w, y: catcherY - 12, text: '✕ ne tas stilius', color: '#f87171', at: elapsedRef.current })
@@ -251,6 +259,18 @@ export default function GaudykleClient() {
       g.fillStyle = grad; g.fillRect(0, h - 80, w, 80); g.globalAlpha = 1
     }
 
+    // premijinės gyvybės blyksnis — žalias kraštas + užrašas
+    const gage = elapsedRef.current - lifeFlashRef.current
+    if (gage >= 0 && gage < 1.2) {
+      g.globalAlpha = Math.max(0, (1 - gage / 1.2) * 0.5)
+      const gr = g.createLinearGradient(0, 0, 0, 90)
+      gr.addColorStop(0, 'rgba(34,197,94,0.9)'); gr.addColorStop(1, 'rgba(34,197,94,0)')
+      g.fillStyle = gr; g.fillRect(0, 0, w, 90); g.globalAlpha = 1
+      g.globalAlpha = Math.max(0, 1 - gage / 1.2)
+      g.fillStyle = '#22c55e'; g.font = '900 26px Outfit, system-ui, sans-serif'; g.textAlign = 'center'
+      g.fillText('10 iš eilės! +1 ❤', w / 2, h * 0.36); g.globalAlpha = 1
+    }
+
     rafRef.current = requestAnimationFrame(loop)
   }
 
@@ -266,7 +286,7 @@ export default function GaudykleClient() {
           <div className="gd-badge">GREITAS ŽAIDIMAS</div>
           <h1 className="gd-h1">Atlikėjų gaudyklė</h1>
           <div className="gd-target">🎯 Gaudyk tik: <b>{genre}</b></div>
-          <p className="gd-lead"><b>Tempk krepšelį pirštu</b> ir gaudyk tik nurodyto stiliaus atlikėjus. Kitus <b>praleisk</b> — pagavai ne tą stilių, minus gyvybė. Turi <b>3 gyvybes</b>; greitis auga su lygiais.</p>
+          <p className="gd-lead"><b>Tempk krepšelį pirštu</b> ir gaudyk tik nurodyto stiliaus atlikėjus. Kitus <b>praleisk</b> — pagavai ne tą stilių, minus gyvybė. Pradedi su <b>3 gyvybėmis</b>; žaidi tol, kol jų turi. <b>10 iš eilės teisingų → +1 gyvybė.</b> Greitis auga su lygiais.</p>
           <button className="gd-cta big" onClick={start}>▶ Pradėti</button>
           <p className="gd-tiny">🔊 Fone groja <b>{genre}</b> stiliaus daina (garsas nebūtinas).</p>
         </div>
