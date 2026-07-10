@@ -13,35 +13,22 @@ import { quizCategory, loadQuizPool, shuffleArr } from '@/lib/zaidimai'
 
 export const dynamic = 'force-dynamic'
 
-function tierOf(score: number): number {
-  if (score >= 62) return 3
-  if (score >= 42) return 2
-  return 1
-}
-
 export async function GET() {
   const sb = createAdminClient()
 
-  // Atlikėjai su populiarumu (mišrus LT + pasaulio, kad būtų atpažįstamų)
-  const { data } = await sb
-    .from('artists')
-    .select('name, score, country')
-    .gt('score', 20)
-    .order('score', { ascending: false })
-    .limit(600)
-
-  const rows = (data as { name: string; score: number; country: string | null }[]) || []
-  // Paimam po dalį iš kiekvienos pakopos, kad kristų ir žvaigždės, ir mažiau žinomi
-  const byTier: Record<number, { name: string; tier: number }[]> = { 1: [], 2: [], 3: [] }
-  for (const r of rows) {
-    if (!r.name) continue
-    const t = tierOf(r.score || 0)
-    byTier[t].push({ name: r.name, tier: t })
-  }
+  // Kiekviena populiarumo pakopa — atskira užklausa, kad kristų ir žvaigždės,
+  // ir mažiau žinomi (kitaip top-N nusemtų visus žinomus)
+  const [{ data: t3 }, { data: t2 }, { data: t1 }] = await Promise.all([
+    sb.from('artists').select('name, score').gte('score', 62).order('score', { ascending: false }).limit(120),
+    sb.from('artists').select('name, score').gte('score', 42).lt('score', 62).limit(200),
+    sb.from('artists').select('name, score').gte('score', 24).lt('score', 42).limit(300),
+  ])
+  const pick = (rows: any[] | null, tier: number, n: number) =>
+    shuffleArr((rows || []).filter(r => r.name)).slice(0, n).map(r => ({ name: r.name as string, tier }))
   const artists = [
-    ...shuffleArr(byTier[3]).slice(0, 24),
-    ...shuffleArr(byTier[2]).slice(0, 22),
-    ...shuffleArr(byTier[1]).slice(0, 18),
+    ...pick(t3, 3, 22),
+    ...pick(t2, 2, 20),
+    ...pick(t1, 1, 20),
   ]
   if (artists.length < 12) return NextResponse.json({ error: 'Per mažai atlikėjų' }, { status: 503 })
 
