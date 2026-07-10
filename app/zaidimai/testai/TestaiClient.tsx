@@ -26,7 +26,7 @@ const ICONS = {
 }
 
 const GAMES = [
-  { href: '/zaidimai/ritmas', icon: ICONS.target, title: 'Ritmo plytelės 🆕', desc: 'Bakstelk krentančias plyteles pagal dainą' },
+  { href: '/zaidimai/ritmas', icon: ICONS.target, title: 'Skrisk pro bitą 🆕', desc: 'Skrisk pro tunelį, kurio sienos juda pagal dainą' },
   { href: '/zaidimai/gaudykle', icon: ICONS.note, title: 'Atlikėjų gaudyklė 🆕', desc: 'Gaudyk populiarius atlikėjus — daugiau taškų už žvaigždes' },
   { href: '/zaidimai/dienos', icon: ICONS.zap, title: 'Dienos iššūkis', desc: 'Visas kasdienis rinkinys iš eilės' },
   { href: '/zaidimai/dainu-kvizas', icon: ICONS.headphones, title: 'Atspėk dainą', desc: 'Audio kvizas, 4 variantai' },
