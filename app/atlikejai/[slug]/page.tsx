@@ -7,6 +7,7 @@ import { getDiscoveriesByArtist } from '@/lib/discoveries'
 import { getArtistRecordings } from '@/lib/concert-recordings'
 import ArtistProfileClient from './artist-profile-client'
 import ArtistSocialSection from '@/components/ArtistSocialSection'
+import ArtistSightingsStrip from '@/components/artist/ArtistSightingsStrip'
 import { PageLoader } from '@/components/PageLoader'
 import type { Metadata } from 'next'
 
@@ -1487,6 +1488,7 @@ async function ArtistContent({ artist }: { artist: any }) {
       mainDiscussionId={mainDiscussionId}
       mainDiscussion={mainDiscussion}
     />
+    <ArtistSightingsStrip artistId={artist.id} />
     <ArtistSocialSection artistId={artist.id} slug={artist.slug} name={artist.name} isClaimed={(artist as any).is_claimed} />
     </>
   )
