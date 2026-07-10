@@ -484,41 +484,125 @@ export default function VadybininkasClient() {
       {view === 'valdymas' && team && (
         <div className="fl-desk">
         <div className="fl-desk-main">
-          {/* 1. VIENA tiesos kortelė: live taškai + deadline countdown */}
-          <div className="fl-live-hero">
-            <div className="fl-live-main">
-              <span className="fl-live-lbl"><i className="fl-live-dot" /> Šią savaitę · LIVE</span>
-              <span className="fl-live-num"><CountUp value={team.liveWeekPoints} /><i>tšk.</i></span>
-              {data?.deadline && (
-                <span className="fl-live-deadline">🔒 Fiksuojama pirmadienį — liko <b>{likoIki(data.deadline)}</b></span>
-              )}
+          {/* ══ SCENA — tavo lineup'as gyvai ══ */}
+          <div className="fl-stage">
+            <div className="fl-stage-glow" aria-hidden />
+            <div className="fl-stage-top">
+              <div className="fl-stage-live">
+                <span className="fl-stage-lbl"><i className="fl-live-dot" /> ŠIĄ SAVAITĘ · LIVE</span>
+                <span className="fl-stage-num"><CountUp value={team.liveWeekPoints} /><i>tšk.</i></span>
+                {data?.deadline && (
+                  <span className="fl-stage-deadline">🔒 Fiksuojama pirmadienį · liko <b>{likoIki(data.deadline)}</b></span>
+                )}
+              </div>
+              <div className="fl-stage-chips">
+                <button className="fl-chip" onClick={() => setModal('lyga')}>
+                  {(() => { const w = data!.boards.week; const i = w.findIndex(r => r.isMe); return i >= 0 ? `#${i + 1} lygoje` : 'lyga' })()}
+                  {(() => {
+                    const w = data!.boards.week
+                    const i = w.findIndex(r => r.isMe)
+                    if (i > 0) return <i> · iki #{i}: {w[i - 1].points - w[i].points + 1}</i>
+                    if (i === 0) return <i> · lyderis 🔥</i>
+                    return null
+                  })()}
+                </button>
+                <button className="fl-chip" onClick={() => setModal('lyga')}>sezonas {team.seasonPoints}{team.seasonRank ? ` · #${team.seasonRank}` : ''}</button>
+                <button className="fl-chip act" onClick={() => setView('mainai')}>↔ Mainai · {roster.length}/{rosterSize}</button>
+              </div>
             </div>
-            <div className="fl-live-side">
-              <button className="fl-live-cell" onClick={() => setModal('lyga')}>
-                <b>{(() => { const w = data!.boards.week; const i = w.findIndex(r => r.isMe); return i >= 0 ? `#${i + 1}` : '—' })()}</b>
-                <span>{(() => {
-                  const w = data!.boards.week
-                  const i = w.findIndex(r => r.isMe)
-                  if (i > 0) return `iki #${i}: ${w[i - 1].points - w[i].points + 1} tšk.`
-                  if (i === 0) return 'savaitės lyderis! 🔥'
-                  return 'savaitės vieta'
-                })()}</span>
-              </button>
-              <button className="fl-live-cell" onClick={() => setModal('lyga')}>
-                <b>{team.seasonPoints}</b>
-                <span>sezono taškai{team.seasonRank ? ` · #${team.seasonRank}` : ''}</span>
-              </button>
+
+            <div className="fl-lineup">
+              {(() => {
+                const kap = roster.filter(r => r.isCaptain)
+                const kiti = roster.filter(r => !r.isCaptain).sort((a, b) => b.livePoints - a.livePoints)
+                const vidurys = Math.ceil(kiti.length / 2)
+                const eile = [...kiti.slice(0, vidurys), ...kap, ...kiti.slice(vidurys)]
+                return eile.map(r => {
+                  const rodomiTsk = r.isCaptain ? r.livePoints * 2 : r.livePoints
+                  const busena = r.countsFromNextWeek ? 'pending' : rodomiTsk > 0 ? 'hot' : 'cold'
+                  return (
+                    <button key={r.artistId} className={`fl-art ${busena}${r.isCaptain ? ' cap' : ''}`} onClick={() => void openArtist(r.artistId)}>
+                      <span className="fl-art-img"><Ava name={r.name} image={r.image} size={r.isCaptain ? 84 : 64} /></span>
+                      {r.isCaptain && <em className="fl-art-crown">👑</em>}
+                      <b className="fl-art-name">{r.name}</b>
+                      <span className="fl-art-pts">
+                        {r.countsFromNextWeek ? 'nuo pirm.' : rodomiTsk > 0 ? `+${rodomiTsk}` : '0'}
+                        {r.isCaptain ? ' ×2' : ''}
+                      </span>
+                    </button>
+                  )
+                })
+              })()}
+              {Array.from({ length: slotsLeft }).map((_, i) => (
+                <button key={`tuscia${i}`} className="fl-art empty" onClick={() => setView('mainai')}>
+                  <span className="fl-art-img"><span className="fl-art-plus">+</span></span>
+                  <b className="fl-art-name dim">Laisva vieta</b>
+                  <span className="fl-art-pts dim">pasirašyk</span>
+                </button>
+              ))}
             </div>
+
+            {(data?.events || []).length > 0 && (
+              <div className="fl-ticker" aria-hidden>
+                <div className="fl-ticker-track">
+                  {[0, 1].map(k => (
+                    <span key={k}>
+                      {(data!.events || []).map((e, i) => (
+                        <span key={i} className="fl-ticker-item">
+                          {e.cat === 'chart' ? '📈' : e.cat === 'rel' ? '🎵' : '▶️'} {e.name}: {e.text}
+                          {e.pts ? <b> +{e.pts}</b> : null}
+                          <i> • </i>
+                        </span>
+                      ))}
+                    </span>
+                  ))}
+                </div>
+              </div>
+            )}
+
+            <svg className="fl-crowd" viewBox="0 0 1200 70" preserveAspectRatio="none" aria-hidden>
+              <path d="M0,70 L0,46 Q20,30 40,44 Q52,20 70,40 Q90,26 108,42 Q125,14 145,38 Q165,28 185,44 Q200,18 220,40 Q240,30 260,44 Q275,22 295,40 Q315,28 335,44 Q350,16 372,38 Q392,28 412,44 Q428,20 448,40 Q468,30 488,44 Q502,18 522,38 Q542,28 562,44 Q578,22 598,40 Q618,30 638,44 Q652,16 672,38 Q692,28 712,44 Q728,20 748,40 Q768,30 788,44 Q802,22 822,38 Q842,28 862,44 Q878,16 898,40 Q918,30 938,44 Q952,20 972,38 Q992,28 1012,44 Q1028,22 1048,40 Q1068,30 1088,44 Q1102,16 1122,38 Q1142,28 1162,44 Q1180,32 1200,44 L1200,70 Z" fill="rgba(0,0,0,0.55)" />
+              <path d="M0,70 L0,56 Q30,44 60,56 Q90,42 120,56 Q150,46 180,58 Q210,44 240,56 Q270,46 300,58 Q330,44 360,56 Q390,46 420,58 Q450,44 480,56 Q510,46 540,58 Q570,44 600,56 Q630,46 660,58 Q690,44 720,56 Q750,46 780,58 Q810,44 840,56 Q870,46 900,58 Q930,44 960,56 Q990,46 1020,58 Q1050,44 1080,56 Q1110,46 1140,58 Q1170,48 1200,58 L1200,70 Z" fill="rgba(0,0,0,0.8)" />
+            </svg>
           </div>
 
-          {/* 3. Naujos komandos padrąsinimas */}
+          {/* Kapitonas */}
+          <button className="fl-captain-bar" onClick={() => setModal('kapitonas')}>
+            👑 Kapitonas:{' '}
+            {team.captainArtistId
+              ? (() => {
+                  const kap = roster.find(r => r.artistId === team.captainArtistId)
+                  return <b>{kap?.name || '—'} <em>×2 taškai</em>{kap?.countsFromNextWeek ? <em style={{ background: 'rgba(239,68,68,0.12)', color: '#b91c1c' }}>nuo pirmadienio</em> : null}</b>
+                })()
+              : <b className="fl-captain-none">nepaskirtas — pasirink ir gauk ×2 taškus!</b>}
+            <span className="fl-captain-go">›</span>
+          </button>
+
           {team.weeks.length === 0 && (
             <div className="fl-firsttime">
               Komanda sudaryta! Kol kas taškų dar nėra — jie atsiras po pirmo skaičiavimo. Iki tol gali laisvai keisti sudėtį.
             </div>
           )}
 
-          {/* 4. Savaičių istorija (kai jau yra) */}
+          {/* Šios savaitės realūs įvykiai */}
+          <div className="fl-feed">
+            <div className="fl-hist-head">📡 Šios savaitės įvykiai</div>
+            {(data?.events || []).length === 0 ? (
+              <div className="fl-feed-empty">Kol kas tylu — kai tavo atlikėjai pajudės topuose, išleis dainą ar augs YouTube, matysi čia.</div>
+            ) : (
+              <ul className="fl-feed-list">
+                {(data!.events || []).slice(0, 8).map((e, i) => (
+                  <li key={i} className={`fl-feed-row c-${e.cat}`} onClick={() => void openArtist(e.artistId)}>
+                    <span className="fl-feed-img"><Ava name={e.name} image={e.image} size={34} /></span>
+                    <span className="fl-feed-body"><b>{e.name}</b> · {e.text}</span>
+                    {e.pts ? <em className="fl-feed-pts">+{e.pts}</em> : null}
+                  </li>
+                ))}
+              </ul>
+            )}
+          </div>
+
+          {/* Savaičių istorija */}
           {team.weeks.length > 1 && (
             <div className="fl-hist">
               <div className="fl-hist-head">Savaičių taškai</div>
@@ -537,78 +621,6 @@ export default function VadybininkasClient() {
               </div>
             </div>
           )}
-
-          {/* 4b. Šios savaitės realūs įvykiai */}
-          <div className="fl-feed">
-            <div className="fl-hist-head">📡 Šios savaitės įvykiai</div>
-            {(data?.events || []).length === 0 ? (
-              <div className="fl-feed-empty">Kol kas tylu — kai tavo atlikėjai pajudės topuose, išleis dainą ar augs YouTube, matysi čia.</div>
-            ) : (
-              <ul className="fl-feed-list">
-                {(data!.events || []).slice(0, 8).map((e, i) => (
-                  <li key={i} className="fl-feed-row" onClick={() => void openArtist(e.artistId)}>
-                    <span className="fl-feed-img"><Ava name={e.name} image={e.image} size={34} /></span>
-                    <span className="fl-feed-body"><b>{e.name}</b> · {e.text}</span>
-                    {e.pts ? <em className="fl-feed-pts">+{e.pts}</em> : <i className={`dot ${e.cat === 'chart' ? 'chart' : e.cat === 'rel' ? 'rel' : 'yt'}`} />}
-                  </li>
-                ))}
-              </ul>
-            )}
-          </div>
-
-          {/* 4c. Kapitonas — vienas strateginis sprendimas */}
-          <button className="fl-captain-bar" onClick={() => setModal('kapitonas')}>
-            👑 Kapitonas:{' '}
-            {team.captainArtistId
-              ? (() => {
-                  const kap = roster.find(r => r.artistId === team.captainArtistId)
-                  return <b>{kap?.name || '—'} <em>×2 taškai</em>{kap?.countsFromNextWeek ? <em style={{ background: 'rgba(239,68,68,0.12)', color: '#b91c1c' }}>nuo pirmadienio</em> : null}</b>
-                })()
-              : <b className="fl-captain-none">nepaskirtas — pasirink ir gauk ×2 taškus!</b>}
-            <span className="fl-captain-go">›</span>
-          </button>
-
-          {/* 5. Komanda */}
-          <div className="fl-sec-head">
-            <h2 className="fl-h2">Tavo komanda <span className="fl-sec-count">{roster.length}/{rosterSize}</span></h2>
-            <button className="fl-btn-market" onClick={() => setView('mainai')}>↔ Keisti sudėtį</button>
-          </div>
-
-          <div className="fl-roster">
-            {roster.map(r => {
-              const src = topSource(r.liveBreakdown)
-              const statusas = r.countsFromNextWeek
-                ? `Skaičiuosis nuo pirmadienio${r.livePoints > 0 ? ` · dabar būtų +${r.livePoints}` : ''}`
-                : r.livePoints > 0
-                ? (src ? `Daugiausia iš ${src}` : 'Renka taškus')
-                : 'Šią savaitę dar tylu'
-              const rodomiTsk = r.isCaptain ? r.livePoints * 2 : r.livePoints
-              return (
-                <button key={r.artistId} className={`fl-p${r.isCaptain ? ' cap' : ''}`} onClick={() => void openArtist(r.artistId)}>
-                  <span className="fl-p-img">
-                    <Ava name={r.name} image={r.image} size={46} />
-                    {r.isCaptain && <em className="fl-p-cap">👑</em>}
-                  </span>
-                  <span className="fl-p-mid">
-                    <span className="fl-p-name">{r.name}{r.isCaptain && <i className="fl-x2">×2</i>}</span>
-                    <span className={`fl-p-status${r.countsFromNextWeek ? ' new' : ''}`}>{statusas}</span>
-                  </span>
-                  <span className={`fl-p-pts${r.countsFromNextWeek ? ' pending' : ''}`}>
-                    <b>{rodomiTsk}</b>
-                    <i>tšk. ›</i>
-                  </span>
-                </button>
-              )
-            })}
-            {slotsLeft > 0 && (
-              <button className="fl-p fl-p-add" onClick={() => setView('mainai')}>
-                <span className="fl-p-plus">+</span>
-                <span className="fl-p-addlbl">Laisva vieta — pasirašyk atlikėją</span>
-                <span className="fl-p-addgo">›</span>
-              </button>
-            )}
-          </div>
-
         </div>{/* /fl-desk-main */}
 
         {/* ── Dešinė juosta: lyga visada matoma ── */}
@@ -619,15 +631,23 @@ export default function VadybininkasClient() {
               <button className="fl-rail-more" onClick={() => setModal('lyga')}>Visa →</button>
             </div>
             <ol className="fl-board-list">
-              {data!.boards.week.slice(0, 9).map((r, i) => (
-                <li key={i}>
-                  <button className={`fl-board-row btn${r.isMe ? ' me' : ''}`} onClick={() => r.isMe ? setModal('lyga') : void openTeam(r.teamId)}>
-                    <span className={`fl-rank r${i + 1}`}>{i + 1}</span>
-                    <span className="fl-board-name">{r.name}{r.isMe ? ' (tu)' : ''}{r.isBot ? <i className="fl-bot"> 🤖</i> : null}</span>
-                    <span className="fl-board-pts">{r.points}</span>
-                  </button>
-                </li>
-              ))}
+              {(() => {
+                const rows = data!.boards.week.slice(0, 9)
+                const mx = Math.max(1, ...rows.map(r => r.points))
+                return rows.map((r, i) => (
+                  <li key={i}>
+                    <button
+                      className={`fl-board-row btn bar${r.isMe ? ' me' : ''}`}
+                      style={{ ['--w']: `${Math.max(4, Math.round((r.points / mx) * 100))}%` } as React.CSSProperties}
+                      onClick={() => r.isMe ? setModal('lyga') : void openTeam(r.teamId)}
+                    >
+                      <span className={`fl-rank r${i + 1}`}>{i + 1}</span>
+                      <span className="fl-board-name">{r.name}{r.isMe ? ' (tu)' : ''}{r.isBot ? <i className="fl-bot"> 🤖</i> : null}</span>
+                      <span className="fl-board-pts">{r.points}</span>
+                    </button>
+                  </li>
+                ))
+              })()}
             </ol>
             <p className="fl-rail-hint">Bakstelk komandą — pamatysi jos sudėtį</p>
           </div>
@@ -1177,6 +1197,86 @@ const css = `
 .fl-week-chip.live span { color: #10b981; font-weight: 900; }
 .fl-bot { font-style: normal; font-size: 12px; }
 
+/* ── v5: SCENA ── */
+.fl-stage {
+  position: relative; overflow: hidden; border-radius: 20px; margin-bottom: 14px;
+  background: linear-gradient(180deg, #2a1e56 0%, #171233 55%, #0c0922 100%);
+  border: 1px solid rgba(129,140,248,0.35);
+  padding: 18px 18px 0;
+}
+.fl-stage-glow { position: absolute; inset: 0; pointer-events: none;
+  background:
+    radial-gradient(ellipse 40% 55% at 18% -8%, rgba(129,140,248,0.4), transparent 70%),
+    radial-gradient(ellipse 40% 55% at 82% -8%, rgba(236,72,153,0.32), transparent 70%),
+    radial-gradient(ellipse 62% 70% at 50% -16%, rgba(255,255,255,0.14), transparent 72%);
+}
+.fl-stage-top { position: relative; display: flex; align-items: flex-start; justify-content: space-between; gap: 12px; flex-wrap: wrap; margin-bottom: 6px; }
+.fl-stage-live { display: flex; flex-direction: column; gap: 3px; }
+.fl-stage-lbl { display: flex; align-items: center; gap: 7px; font-size: 10px; font-weight: 900; letter-spacing: 0.09em; color: #6ee7b7; }
+.fl-stage-num { font-size: 46px; font-weight: 900; color: #fff; line-height: 1; text-shadow: 0 2px 18px rgba(110,231,183,0.35); }
+.fl-stage-num i { font-style: normal; font-size: 14px; font-weight: 700; color: rgba(255,255,255,0.55); margin-left: 6px; }
+.fl-stage-deadline { font-size: 11px; color: rgba(255,255,255,0.6); }
+.fl-stage-deadline b { color: #fcd34d; }
+.fl-stage-chips { display: flex; flex-direction: column; gap: 6px; align-items: flex-end; }
+.fl-chip {
+  font-size: 11px; font-weight: 800; color: rgba(255,255,255,0.85); cursor: pointer; white-space: nowrap;
+  background: rgba(255,255,255,0.09); border: 1px solid rgba(255,255,255,0.18); border-radius: 999px; padding: 6px 12px;
+  backdrop-filter: blur(4px);
+}
+.fl-chip i { font-style: normal; color: #6ee7b7; }
+.fl-chip:hover { background: rgba(255,255,255,0.16); }
+.fl-chip.act { background: var(--accent-orange); border-color: transparent; color: #fff; }
+.fl-lineup {
+  position: relative; z-index: 2; display: flex; flex-wrap: wrap; justify-content: center; align-items: flex-end;
+  gap: 6px 10px; padding: 14px 0 30px; min-height: 150px;
+}
+.fl-art {
+  position: relative; display: flex; flex-direction: column; align-items: center; gap: 4px;
+  width: 92px; background: transparent; border: 0; cursor: pointer; padding: 0;
+}
+.fl-art .fl-art-img {
+  width: 64px; height: 64px; border-radius: 50%; overflow: hidden; display: block; position: relative;
+  background: rgba(255,255,255,0.08); border: 2px solid transparent; transition: transform .15s ease;
+}
+.fl-art:hover .fl-art-img { transform: translateY(-4px) scale(1.05); }
+.fl-art .fl-art-img img { width: 100%; height: 100%; object-fit: cover; display: block; }
+.fl-art.hot .fl-art-img { border-color: #10b981; box-shadow: 0 0 22px rgba(16,185,129,0.55), 0 0 0 1px rgba(16,185,129,0.4); }
+.fl-art.cold .fl-art-img { border-color: rgba(148,163,184,0.55); opacity: 0.82; filter: saturate(0.75); }
+.fl-art.pending .fl-art-img { border-style: dashed; border-color: #f59e0b; box-shadow: 0 0 14px rgba(245,158,11,0.3); }
+.fl-art.cap { width: 116px; }
+.fl-art.cap .fl-art-img { width: 84px; height: 84px; border-width: 3px; border-color: #f59e0b; box-shadow: 0 0 30px rgba(245,158,11,0.65), 0 0 0 1px rgba(245,158,11,0.5); }
+.fl-art.cap.pending .fl-art-img { border-style: dashed; }
+.fl-art-crown { position: absolute; top: -13px; left: 50%; transform: translateX(-50%); font-size: 17px; font-style: normal; filter: drop-shadow(0 2px 6px rgba(0,0,0,0.6)); }
+.fl-art-name { font-size: 11px; font-weight: 800; color: #fff; max-width: 100%; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; text-shadow: 0 1px 6px rgba(0,0,0,0.7); }
+.fl-art-name.dim { color: rgba(255,255,255,0.45); }
+.fl-art-pts { font-size: 10px; font-weight: 900; border-radius: 999px; padding: 2px 8px; }
+.fl-art.hot .fl-art-pts { color: #052e1e; background: #34d399; box-shadow: 0 2px 10px rgba(16,185,129,0.5); }
+.fl-art.cold .fl-art-pts { color: rgba(255,255,255,0.55); background: rgba(255,255,255,0.1); }
+.fl-art.pending .fl-art-pts { color: #78350f; background: #fcd34d; }
+.fl-art-pts.dim { color: rgba(255,255,255,0.4); background: rgba(255,255,255,0.07); }
+.fl-art.empty .fl-art-img { border: 2px dashed rgba(255,255,255,0.35); display: flex; align-items: center; justify-content: center; }
+.fl-art-plus { font-size: 26px; color: rgba(255,255,255,0.5); width: 100%; height: 100%; display: flex; align-items: center; justify-content: center; }
+.fl-art.empty:hover .fl-art-img { border-color: rgba(255,255,255,0.7); }
+.fl-ticker { position: relative; z-index: 2; overflow: hidden; margin: 0 -18px; padding: 7px 0; background: rgba(0,0,0,0.35); border-top: 1px solid rgba(255,255,255,0.09); }
+.fl-ticker-track { display: inline-block; white-space: nowrap; animation: flticker 36s linear infinite; }
+@keyframes flticker { to { transform: translateX(-50%); } }
+.fl-ticker-item { font-size: 11px; color: rgba(255,255,255,0.7); }
+.fl-ticker-item b { color: #6ee7b7; }
+.fl-ticker-item i { font-style: normal; color: rgba(255,255,255,0.3); margin: 0 8px; }
+.fl-crowd { position: relative; z-index: 1; display: block; width: calc(100% + 36px); margin: 0 -18px; height: 44px; }
+@media (max-width: 620px) {
+  .fl-stage { padding: 14px 14px 0; }
+  .fl-stage-num { font-size: 38px; }
+  .fl-stage-chips { flex-direction: row; flex-wrap: wrap; align-items: flex-start; }
+  .fl-art { width: 76px; }
+  .fl-art .fl-art-img { width: 54px; height: 54px; }
+  .fl-art.cap { width: 96px; }
+  .fl-art.cap .fl-art-img { width: 72px; height: 72px; }
+}
+.fl-feed-row.c-chart { border-left: 3px solid var(--accent-orange); }
+.fl-feed-row.c-rel { border-left: 3px solid var(--accent-link); }
+.fl-feed-row.c-yt { border-left: 3px solid #ef4444; }
+
 /* ── v4: desktop layout — lyga visada matoma ── */
 .fl-desk { display: grid; grid-template-columns: 1fr; gap: 20px; align-items: start; }
 @media (min-width: 1020px) {
@@ -1190,6 +1290,9 @@ const css = `
 .fl-rail-hint { font-size: 10px; color: var(--text-muted); margin: 8px 2px 0; }
 .fl-board-row.btn { width: 100%; background: transparent; border: 0; cursor: pointer; text-align: left; font-size: 13px; }
 .fl-board-row.btn:hover { background: color-mix(in srgb, var(--text-primary) 7%, transparent); }
+.fl-board-row.bar { position: relative; overflow: hidden; }
+.fl-board-row.bar::before { content: ''; position: absolute; left: 0; top: 0; bottom: 0; width: var(--w, 0%); background: linear-gradient(90deg, rgba(16,185,129,0.16), rgba(16,185,129,0.04)); pointer-events: none; }
+.fl-board-row.bar > * { position: relative; }
 .fl-desk-rail .fl-board-pts { font-size: 12px; }
 .fl-desk-rail .fl-more-row { margin-top: 10px; }
 .fl-feed-pts { font-style: normal; font-size: 12px; font-weight: 900; color: #10b981; flex-shrink: 0; }
