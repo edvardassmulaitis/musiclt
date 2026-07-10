@@ -222,9 +222,14 @@ export async function GET(req: NextRequest) {
   const seasonPoints = seasonBoard.find(r => r.team_id === team.id)?.points || 0
   const seasonRank = seasonBoard.findIndex(r => r.team_id === team.id)
   const captainId: number | null = (team as any).captain_artist_id || null
-  const liveTotal = artistIds.reduce((s, id) => {
-    const p = livePoints.get(id)?.total_points || 0
-    return s + (id === captainId ? p * 2 : p)
+  // LIVE suma = TIK tie, kurie skaičiuosis pirmadienį (naujokai be pirmos
+  // savaitės malonės nesumuojami — kitaip pirmadienį skaičius „nukristų")
+  const weekStartUtcNow = ltDayStartUtc(thisWeek)
+  const graceWeek = team.created_at >= weekStartUtcNow
+  const liveTotal = roster.reduce((s: number, r: any) => {
+    if (!graceWeek && r.signed_at >= weekStartUtcNow) return s
+    const p = livePoints.get(r.artist_id)?.total_points || 0
+    return s + (r.artist_id === captainId ? p * 2 : p)
   }, 0)
 
   // Savaitės LIVE lentelėje mano skaičius = ką tik suskaičiuotas (snapshot gali vėluoti iki paros)
@@ -284,8 +289,6 @@ export async function GET(req: NextRequest) {
     roster: roster.map((r: any) => {
       const live = livePoints.get(r.artist_id)
       const official: any = officialByArtist.get(r.artist_id)
-      const weekStartUtc = ltDayStartUtc(thisWeek)
-      const firstWeekGrace = team.created_at >= weekStartUtc
       return {
         artistId: r.artist_id,
         name: r.artist?.name || '—',
@@ -293,7 +296,7 @@ export async function GET(req: NextRequest) {
         image: r.artist?.cover_image_url || null,
         price: r.price,
         signedAt: r.signed_at,
-        countsFromNextWeek: !firstWeekGrace && r.signed_at >= weekStartUtc,
+        countsFromNextWeek: !graceWeek && r.signed_at >= weekStartUtcNow,
         lastWeekPoints: official?.total_points ?? null,
         isCaptain: r.artist_id === captainId,
         livePoints: live?.total_points ?? 0,
