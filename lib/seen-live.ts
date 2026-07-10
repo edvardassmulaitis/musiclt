@@ -289,6 +289,40 @@ export async function getArtistSightingMedia(artistId: number, limit = 24): Prom
     .filter((r) => r.media.length > 0)
 }
 
+// ── Renginio dalyviai (Matyti gyvai) ────────────────────────────────────────
+export async function getEventSightings(eventId: string, limit = 60): Promise<SeenLiveRecent[]> {
+  const sb = createAdminClient()
+  const { data, error } = await sb
+    .from('profile_seen_live')
+    .select(ROW_SELECT + `, user:user_id ( username, avatar_url )`)
+    .eq('status', 'approved')
+    .eq('event_id', eventId)
+    .order('created_at', { ascending: false })
+    .limit(limit)
+  if (error) throw error
+  const rows = (data || []).map((r: any) => ({ ...mapRow(r), user: one(r.user) }))
+  // Su media — priekyje.
+  rows.sort((a, b) => (b.media.length > 0 ? 1 : 0) - (a.media.length > 0 ? 1 : 0))
+  return rows
+}
+
+// Dalyvių skaičiai keliems renginiams (sąrašo badge'ams).
+export async function getEventSightingCounts(eventIds: string[]): Promise<Record<string, number>> {
+  if (!eventIds.length) return {}
+  const sb = createAdminClient()
+  const { data, error } = await sb
+    .from('profile_seen_live')
+    .select('event_id')
+    .eq('status', 'approved')
+    .in('event_id', eventIds)
+  if (error) throw error
+  const map: Record<string, number> = {}
+  for (const r of (data || []) as any[]) {
+    if (r.event_id) map[r.event_id] = (map[r.event_id] || 0) + 1
+  }
+  return map
+}
+
 // ── ADMIN: pending eilė ─────────────────────────────────────────────────────
 export type SeenLivePending = SeenLiveRow & {
   user: { id: string; username: string | null; avatar_url: string | null } | null

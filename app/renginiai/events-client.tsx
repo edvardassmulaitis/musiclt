@@ -195,7 +195,7 @@ const PRICE_OPTS = [
 
 const PRIMARY_CITIES = ['Vilnius', 'Kaunas']
 
-export default function EventsClient({ events, cities, abroadConcerts = [], destinations = [] }: { events: Event[]; cities: string[]; abroadConcerts?: Concert[]; destinations?: Destination[] }) {
+export default function EventsClient({ events, cities, abroadConcerts = [], destinations = [], attendeeCounts = {} }: { events: Event[]; cities: string[]; abroadConcerts?: Concert[]; destinations?: Destination[]; attendeeCounts?: Record<string, number> }) {
   const [city, setCity] = useState('Visi')
   const [from, setFrom] = useState<Date | null>(null)
   const [to, setTo] = useState<Date | null>(null)
@@ -219,7 +219,10 @@ export default function EventsClient({ events, cities, abroadConcerts = [], dest
     (e.status === 'upcoming' || e.status === 'ongoing') &&
     startOfDay(new Date(e.end_date || e.start_date)).getTime() >= today.getTime()
   ), [events, today])
-  const past = useMemo(() => events.filter(e => !e.is_abroad && !active.includes(e)), [events, active])
+  // „Praėję" — LT praėję + lankyti (turintys dalyvių) net užsienio renginiai.
+  const past = useMemo(() => events.filter(e =>
+    !active.includes(e) && (!e.is_abroad || (attendeeCounts[e.id] || 0) > 0)
+  ), [events, active, attendeeCounts])
   const base = archive ? past : active
 
   const availStyles = useMemo(() => {
@@ -444,7 +447,7 @@ export default function EventsClient({ events, cities, abroadConcerts = [], dest
             <div key={grp.label}>
               <div className="ev-month-head"><span>{grp.label}</span><i /></div>
               <div className="ev-grid">
-                {grp.items.map(ev => <EventCard key={ev.id} ev={ev} />)}
+                {grp.items.map(ev => <EventCard key={ev.id} ev={ev} attendees={attendeeCounts[ev.id] || 0} />)}
               </div>
             </div>
           ))}
@@ -462,7 +465,7 @@ export default function EventsClient({ events, cities, abroadConcerts = [], dest
 }
 
 /* ── Renginio kortelė: pilnas plakatas (blur fill), info po juo ── */
-function EventCard({ ev }: { ev: Event }) {
+function EventCard({ ev, attendees = 0 }: { ev: Event; attendees?: number }) {
   const isCancelled = ev.status === 'cancelled'
   const artists = eventArtists(ev)
   const main = artists[0]
@@ -493,6 +496,11 @@ function EventCard({ ev }: { ev: Event }) {
           {ev.is_festival && <span className="ev-tag fest">FESTIVALIS</span>}
           {ev.is_featured && !isCancelled && <span className="ev-tag star">★</span>}
         </div>
+        {attendees > 0 && (
+          <span style={{ position: 'absolute', left: 8, bottom: 8, zIndex: 2, display: 'inline-flex', alignItems: 'center', gap: 4, padding: '3px 8px', borderRadius: 100, background: 'rgba(0,0,0,0.6)', backdropFilter: 'blur(4px)', color: '#fff', fontFamily: "'Outfit',sans-serif", fontSize: 12, fontWeight: 800 }}>
+            🎤 {attendees} dalyvavo
+          </span>
+        )}
       </div>
       <div className="ev-card-body">
         <span className="ev-card-when">{whenLine}</span>
