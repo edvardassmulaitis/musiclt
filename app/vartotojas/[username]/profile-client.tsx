@@ -45,6 +45,8 @@ import { GenreFilterModal } from '@/components/profile/GenreFilterModal'
 import { MoreItemsModal } from '@/components/profile/MoreItemsModal'
 import { FavoriteArtistsCollage } from '@/components/profile/FavoriteArtistsCollage'
 import { SeenLiveSection } from '@/components/profile/SeenLiveSection'
+import SeenLiveMediaViewer from '@/components/seen-live/SeenLiveMediaViewer'
+import { proxyImg } from '@/lib/img-proxy'
 import { FollowButton } from '@/components/profile/FollowButton'
 import { MoodPlaylistModal } from '@/components/profile/MoodPlaylistModal'
 
@@ -487,6 +489,7 @@ function MobileProfileView(props: any) {
       favoriteArtists: favoriteArtists || [],
       favoriteAlbums: favoriteAlbums || [],
       favoriteTracks: favoriteTracks || [],
+      seenLive: seenLive || [],
     })
     for (const c of (recentComments || [])) {
       const re = resolveCommentEntity(c)
@@ -1103,6 +1106,7 @@ function MergedFeed({
     if (it.kind === 'post') return <FeedPostCard key={it.id} post={it.post} laneType={it.laneType} blogSlug={blogSlug} compact />
     if (it.kind === 'ddweek') return <DdWeekCard key={it.id} picks={it.picks} label={it.label} username={username} streak={streak} />
     if (it.kind === 'likecluster') return <LikesClusterCard key={it.id} likes={it.likes} label={it.label} onOpenMore={onOpenMore} />
+    if (it.kind === 'sighting') return <SeenLiveFeedCard key={it.id} sighting={it.sighting} />
     return <ul key={it.id} className="list-none"><RecentItemRow item={it} /></ul>
   }
 
@@ -2260,12 +2264,13 @@ function resolveCommentEntity(c: any): { url: string | null; title: string | nul
 type FeedItem = {
   id: string
   date: string
-  kind: 'post' | 'ddweek' | 'likecluster'
+  kind: 'post' | 'ddweek' | 'likecluster' | 'sighting'
   post?: any
   laneType?: string
   picks?: any[]
   likes?: any[]
   label?: string
+  sighting?: any
 }
 
 const LT_MONTHS_GEN = ['sausio', 'vasario', 'kovo', 'balandžio', 'gegužės', 'birželio', 'liepos', 'rugpjūčio', 'rugsėjo', 'spalio', 'lapkričio', 'gruodžio']
@@ -2292,17 +2297,79 @@ function monthLabelLt(dateStr: string): string {
   return `${d.getFullYear()} m. ${LT_MONTHS_NOM[d.getMonth()]}`
 }
 
+// „Matyti gyvai" feed kortelė — dalyvautas koncertas timeline'e. Paspaudus —
+// peržiūra (nuotraukos/video). Turi savo viewer state (nepriklauso nuo feed'o).
+function SeenLiveFeedCard({ sighting: s }: { sighting: any }) {
+  const [open, setOpen] = useState(false)
+  const name = s.artist?.name || s.raw_artist_name || '—'
+  const y = s.seen_year || (s.event?.start_date ? Number(String(s.event.start_date).slice(0, 4)) : (s.seen_date ? Number(String(s.seen_date).slice(0, 4)) : null))
+  const evLabel = s.event?.title || s.raw_event_title || (s.raw_event_is_festival ? 'Festivalis' : null)
+  const place = [s.event?.city || s.raw_event_city, (s.raw_event_country && s.raw_event_country !== 'Lietuva') ? s.raw_event_country : null].filter(Boolean).join(', ')
+  const sub = [evLabel, place || null, y ? String(y) : null].filter(Boolean).join(' · ')
+  const cover = s.artist?.cover_image_url || s.media?.find((m: any) => m.type === 'image')?.url || s.media?.find((m: any) => m.poster)?.poster || null
+  const thumbs = (s.media || []).slice(0, 4)
+
+  return (
+    <>
+      <button onClick={() => setOpen(true)} className="group w-full overflow-hidden rounded-2xl text-left ring-1 transition-colors hover:bg-[var(--bg-hover)]"
+        style={{ background: 'var(--card-bg, var(--bg-surface))', ['--tw-ring-color' as any]: 'var(--border-subtle)' } as any}>
+        <div className="flex items-center gap-3 p-3">
+          <div className="relative h-14 w-14 shrink-0 overflow-hidden rounded-xl" style={{ background: 'var(--cover-placeholder)' }}>
+            {cover ? (
+              // eslint-disable-next-line @next/next/no-img-element
+              <img src={proxyImg(cover)} alt="" referrerPolicy="no-referrer" className="h-full w-full object-cover" />
+            ) : <div className="flex h-full w-full items-center justify-center text-[22px]">🎤</div>}
+          </div>
+          <div className="min-w-0 flex-1">
+            <div className="text-[12px] font-bold uppercase tracking-wide" style={{ color: 'var(--accent-orange)' }}>🎤 Dalyvavo koncerte</div>
+            <div className="truncate font-['Outfit',sans-serif] text-[16px] font-extrabold" style={{ color: 'var(--text-primary)' }}>{name}</div>
+            {sub && <div className="truncate text-[13px]" style={{ color: 'var(--text-muted)' }}>{sub}</div>}
+          </div>
+          {thumbs.length > 0 && (
+            <div className="hidden shrink-0 gap-1 sm:flex">
+              {thumbs.map((m: any, i: number) => (
+                <div key={i} className="relative h-11 w-11 overflow-hidden rounded-md" style={{ background: 'var(--cover-placeholder)' }}>
+                  {(m.type === 'image' || m.poster) ? (
+                    // eslint-disable-next-line @next/next/no-img-element
+                    <img src={proxyImg(m.type === 'image' ? m.url : m.poster)} alt="" referrerPolicy="no-referrer" className="h-full w-full object-cover" />
+                  ) : (
+                    <div className="flex h-full w-full items-center justify-center" style={{ background: 'linear-gradient(160deg,#2a2f3a,#171a22)' }}><svg viewBox="0 0 24 24" width={12} height={12} fill="#fff"><polygon points="6 4 20 12 6 20 6 4" /></svg></div>
+                  )}
+                </div>
+              ))}
+            </div>
+          )}
+        </div>
+      </button>
+      {open && <SeenLiveMediaViewer row={s} onClose={() => setOpen(false)} />}
+    </>
+  )
+}
+
 // Posts iš contentLanes + dienos dainų savaitės + (fallback) like klasteriai.
 function buildFeedItems({
-  contentLanes, dailyPicks, favoriteArtists, favoriteAlbums, favoriteTracks,
+  contentLanes, dailyPicks, favoriteArtists, favoriteAlbums, favoriteTracks, seenLive,
 }: {
   contentLanes: { type: string; count: number; posts: any[] }[]
   dailyPicks: any[]
   favoriteArtists: any[]
   favoriteAlbums: any[]
   favoriteTracks: any[]
+  seenLive?: any[]
 }): FeedItem[] {
   const items: FeedItem[] = []
+
+  // „Matyti gyvai" — dalyvauti koncertai į timeline (naujausi 30, kad neužtvindytų).
+  const slSorted = [...(seenLive || [])].sort((a, b) => {
+    const da = a.event?.start_date || a.seen_date || (a.seen_year ? `${a.seen_year}-01-01` : a.created_at)
+    const db = b.event?.start_date || b.seen_date || (b.seen_year ? `${b.seen_year}-01-01` : b.created_at)
+    return String(db).localeCompare(String(da))
+  }).slice(0, 30)
+  for (const s of slSorted) {
+    const date = s.event?.start_date || s.seen_date || (s.seen_year ? `${s.seen_year}-06-01T00:00:00Z` : s.created_at)
+    if (!date) continue
+    items.push({ id: `sighting-${s.id}`, kind: 'sighting', date: new Date(date).toISOString(), sighting: s })
+  }
 
   for (const lane of (contentLanes || [])) {
     for (const p of (lane.posts || [])) {
@@ -2479,8 +2546,8 @@ function ProfileBodyDesktop(props: any) {
   const hasLikes = (favoriteArtists?.length || 0) > 0 || (favoriteAlbums?.length || 0) > 0 || (favoriteTracks?.length || 0) > 0
 
   const feedItems = useMemo(
-    () => buildFeedItems({ contentLanes, dailyPicks, favoriteArtists, favoriteAlbums, favoriteTracks }),
-    [contentLanes, dailyPicks, favoriteArtists, favoriteAlbums, favoriteTracks],
+    () => buildFeedItems({ contentLanes, dailyPicks, favoriteArtists, favoriteAlbums, favoriteTracks, seenLive }),
+    [contentLanes, dailyPicks, favoriteArtists, favoriteAlbums, favoriteTracks, seenLive],
   )
   // Dienos dainu pill'a rodom TIK kai is tikro yra resolvintu savaiciu (ne pagal stats skaiciu).
   const hasDdWeeks = feedItems.some((it) => it.kind === 'ddweek')
@@ -2578,6 +2645,8 @@ function ProfileBodyDesktop(props: any) {
                   <FeedPostCard key={it.id} post={it.post} laneType={it.laneType!} blogSlug={blog?.slug || ''} />
                 ) : it.kind === 'ddweek' ? (
                   <DdWeekCard key={it.id} picks={it.picks!} label={it.label!} username={profile.username} streak={stats?.daily_picks || 0} />
+                ) : it.kind === 'sighting' ? (
+                  <SeenLiveFeedCard key={it.id} sighting={it.sighting} />
                 ) : (
                   <LikesClusterCard key={it.id} likes={it.likes!} label={it.label!} onOpenMore={onOpenMore} />
                 )
