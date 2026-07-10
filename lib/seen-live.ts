@@ -219,6 +219,26 @@ export async function removeSeenLive(userId: string, id: number): Promise<void> 
   if (error) throw error
 }
 
+// ── Homepage: naujausi koncertų foto/video ──────────────────────────────────
+export type SeenLiveRecent = SeenLiveRow & {
+  user: { username: string | null; avatar_url: string | null } | null
+}
+
+export async function getRecentSightingMedia(limit = 18): Promise<SeenLiveRecent[]> {
+  const sb = createAdminClient()
+  const { data, error } = await sb
+    .from('profile_seen_live')
+    .select(ROW_SELECT + `, user:user_id ( username, avatar_url )`)
+    .eq('status', 'approved')
+    .order('created_at', { ascending: false })
+    .limit(limit * 4)
+  if (error) throw error
+  return (data || [])
+    .map((r: any) => ({ ...mapRow(r), user: one(r.user) }))
+    .filter((r) => r.media.length > 0)
+    .slice(0, limit)
+}
+
 // ── ADMIN: pending eilė ─────────────────────────────────────────────────────
 export type SeenLivePending = SeenLiveRow & {
   user: { id: string; username: string | null; avatar_url: string | null } | null
