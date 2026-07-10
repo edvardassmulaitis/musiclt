@@ -20,6 +20,17 @@ export const dynamic = 'force-dynamic'
 const SET_MAX = 10
 const SET_MIN = 6
 
+// ne studijinės versijos (metam laukan)
+const JUNK = /(\blive\b|unplugged|acoustic|remix|remaster|instrumental|karaoke|\bdemo\b|radio edit|extended|\bmix\b|reprise|session|rehearsal|cover|tribute)/i
+function baseTitle(t: string): string {
+  return t.toLowerCase()
+    .replace(/\(.*?\)|\[.*?\]/g, '')
+    .replace(/\s*-\s*.*$/, '')
+    .replace(/feat\.?.*$/, '')
+    .replace(/\s+/g, ' ')
+    .trim()
+}
+
 export async function GET(req: Request) {
   const sb = createAdminClient()
   const date = todayLT()
@@ -46,9 +57,21 @@ export async function GET(req: Request) {
       .select('id, title, video_views')
       .eq('artist_id', a.id)
       .order('video_views', { ascending: false, nullsFirst: false })
-      .limit(16)
-    const rows = ((trk as any[]) || []).filter(t => t.title)
-    if (rows.length < SET_MIN) continue
+      .limit(30)
+    const raw = ((trk as any[]) || []).filter(t => t.title)
+    if (raw.length < SET_MIN) continue
+
+    // Išmetam ne studijines versijas + dedublikuojam pagal bazinį pavadinimą,
+    // kad į setą patektų tikros dainos (ne „live/unplugged/remix" kopijos).
+    const seen = new Set<string>()
+    const cleaned: any[] = []
+    for (const t of raw) {
+      if (JUNK.test(t.title)) continue
+      const b = baseTitle(t.title)
+      if (!b || seen.has(b)) continue
+      seen.add(b); cleaned.push(t)
+    }
+    const rows = (cleaned.length >= SET_MIN ? cleaned : raw).slice(0, 14)
 
     const previews = await ensurePreviews(rows.map(t => ({ id: t.id, title: t.title, artist: a.name })))
     const withUrl: { title: string; url: string; views: number }[] = []

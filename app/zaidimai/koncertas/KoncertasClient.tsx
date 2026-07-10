@@ -25,9 +25,10 @@ type OverInfo = { score: number; songNo: number; pctReached: number } | null
 
 const MAX_LIVES = 5
 const FRAME = 0.02
-const HIT_POP = 0.75
+const HIT_POP = 0.9
 
-const KIND_W: Record<Kind, number> = { note: 10, heart: 12, star: 20, gem: 100, x: 0, mute: 0 }
+// Paprasti taškai (1..5), be kosminių skaičių. Hitas/drop dvigubina.
+const KIND_W: Record<Kind, number> = { note: 1, heart: 2, star: 3, gem: 5, x: 0, mute: 0 }
 const GOOD_COLORS = ['#f59e0b', '#22d3ee', '#ec4899', '#a78bfa']
 
 function buildEnvelope(buf: AudioBuffer): { env: Float32Array; frameT: number } {
@@ -84,6 +85,8 @@ export default function KoncertasClient() {
   const comboRef = useRef(0)
   const maxComboRef = useRef(0)
   const hypeRef = useRef(0)
+  const songHypeRef = useRef(0)
+  const interMsgRef = useRef('Kita daina')
   const missedRef = useRef(0)
   const livesRef = useRef(3)
   const lifeFlashRef = useRef(-9)
@@ -142,6 +145,7 @@ export default function KoncertasClient() {
     popRef.current = typeof s.pop === 'number' ? s.pop : 0.5
     hitRef.current = popRef.current >= HIT_POP
     setHitMode(hitRef.current)
+    songHypeRef.current = 0
     a.src = s.url
     try { a.currentTime = 0 } catch { /* ok */ }
     void a.play().catch(() => {})
@@ -154,7 +158,9 @@ export default function KoncertasClient() {
     if (endedRef.current || deadRef.current) return
     const next = songIdxRef.current + 1
     if (next >= setlistRef.current.length) { finish(); return }
-    // tarp dainų — trumpa pauzė su padrąsinimu
+    // tarp dainų — trumpa pauzė; padrąsinimas pagal tai, kaip sekėsi
+    const sh = songHypeRef.current
+    interMsgRef.current = sh >= 12 ? '🔥 Puiku!' : sh >= 5 ? '👏 Neblogai!' : 'Kita daina'
     pendingRef.current = next
     interTitleRef.current = setlistRef.current[next].title
     pauseUntilRef.current = gtRef.current + 1.9
@@ -175,7 +181,7 @@ export default function KoncertasClient() {
   function start() {
     iconsRef.current = []; floatsRef.current = []
     gtRef.current = 0; lastTsRef.current = 0; spawnAccRef.current = 0
-    scoreRef.current = 0; comboRef.current = 0; maxComboRef.current = 0; hypeRef.current = 0; missedRef.current = 0
+    scoreRef.current = 0; comboRef.current = 0; maxComboRef.current = 0; hypeRef.current = 0; songHypeRef.current = 0; missedRef.current = 0
     livesRef.current = 3; lifeFlashRef.current = -9; endedRef.current = false; deadRef.current = false; pausedRef.current = false
     pendingRef.current = null; pauseUntilRef.current = 0
     songIdxRef.current = 0
@@ -288,10 +294,10 @@ export default function KoncertasClient() {
     const mult = Math.max(hitRef.current ? 2 : 1, drop ? 2 : 1)
     const good = it.kind !== 'x' && it.kind !== 'mute'
     if (good) {
-      comboRef.current++; hypeRef.current++
+      comboRef.current++; hypeRef.current++; songHypeRef.current++
       if (comboRef.current > maxComboRef.current) maxComboRef.current = comboRef.current
       const base = KIND_W[it.kind]
-      const pts = Math.round(base * (1 + Math.min(comboRef.current, 25) * 0.04) * mult)
+      const pts = base * mult   // paprasti taškai 1..5, hitas/drop ×2
       scoreRef.current += pts
       const label = it.kind === 'gem' ? `💎 +${pts}` : `+${pts}`
       floatsRef.current.push({ x: it.x, y: it.y - 16, text: label, color: it.kind === 'gem' ? '#a78bfa' : (mult > 1 ? '#f59e0b' : '#22c55e'), at: gt })
@@ -360,7 +366,7 @@ export default function KoncertasClient() {
           const kind = pickKind()
           const good = kind !== 'x' && kind !== 'mute'
           const x = w * (0.12 + Math.random() * 0.76)
-          const vy = h * (0.10 + intensity * 0.06 + energy * 0.08) * speedFactor
+          const vy = h * (0.135 + intensity * 0.075 + energy * 0.09) * speedFactor
           const gi = Math.floor(Math.random() * GOOD_COLORS.length)
           const color = kind === 'gem' ? '#c4b5fd' : good ? GOOD_COLORS[gi] : '#5b6577'
           iconsRef.current.push({ x, y: crowdTop, vy, kind, color, born: gt, resolved: false })
@@ -387,8 +393,8 @@ export default function KoncertasClient() {
     if (inInter) {
       g.fillStyle = 'rgba(5,7,12,0.55)'; g.fillRect(0, 0, w, h)
       g.textAlign = 'center'
-      g.fillStyle = '#f59e0b'; g.font = '900 34px Outfit, system-ui, sans-serif'
-      g.fillText('👏 Šauniai!', w / 2, h * 0.42)
+      g.fillStyle = '#f59e0b'; g.font = '900 30px Outfit, system-ui, sans-serif'
+      g.fillText(interMsgRef.current, w / 2, h * 0.42)
       g.fillStyle = '#e7ebf2'; g.font = '800 15px Outfit, system-ui, sans-serif'
       g.fillText('Kita daina:', w / 2, h * 0.50)
       g.fillStyle = '#22d3ee'; g.font = '900 18px Outfit, system-ui, sans-serif'
@@ -416,8 +422,8 @@ export default function KoncertasClient() {
     g.beginPath(); g.moveTo(w * 0.68, 0); g.lineTo(w * 0.94, stageLine); g.lineTo(w * 0.74, stageLine); g.closePath(); g.fill()
 
     // LED ekranas su atlikėju
-    const ledW = Math.min(w * 0.62, 260), ledH = ledW * 0.5
-    const ledX = w / 2 - ledW / 2, ledY = h * 0.04
+    const ledW = Math.min(w * 0.58, 240), ledH = ledW * 0.5
+    const ledX = w / 2 - ledW / 2, ledY = h * 0.115
     g.save()
     roundRectPath(g, ledX, ledY, ledW, ledH, 10); g.clip()
     const img = artistImgRef.current
@@ -554,7 +560,7 @@ export default function KoncertasClient() {
 
       {phase === 'play' && (
         <div className="kc-stage" onPointerDown={onPointerDown}>
-          <div className="kc-topbar">🎤 {songNo}/{setlistLen} · {songLabel}{hitMode ? '  🔥 HITAS ×2' : ''}</div>
+          <div className="kc-topbar">🎤 {songNo}/{setlistLen} · {songLabel.length > 22 ? songLabel.slice(0, 21) + '…' : songLabel}{hitMode ? '  🔥×2' : ''}</div>
           <canvas ref={canvasRef} className="kc-canvas" />
           {!over && <div className="kc-hint">baksteli ♪ ♫ ★ ♥ 💎 · venk ✕ 📵</div>}
           {over && (
@@ -694,7 +700,7 @@ const css = `
 .me-dot { width: 9px; height: 9px; border-radius: 2px; background: var(--accent-orange); display: inline-block; }
 .kc-stage { position: relative; width: 100%; height: 74vh; touch-action: none; user-select: none; cursor: pointer; }
 .kc-canvas { width: 100%; height: 100%; display: block; }
-.kc-topbar { position: absolute; top: 8px; left: 50%; transform: translateX(-50%); z-index: 3; max-width: 94%; font-size: 11px; font-weight: 800; color: #cbd5e1; background: rgba(11,15,24,0.7); border: 1px solid rgba(140,160,190,0.2); border-radius: 999px; padding: 4px 12px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; pointer-events: none; }
+.kc-topbar { position: absolute; top: 8px; left: 50%; transform: translateX(-50%); z-index: 3; max-width: 62%; font-size: 11px; font-weight: 800; color: #cbd5e1; background: rgba(11,15,24,0.7); border: 1px solid rgba(140,160,190,0.2); border-radius: 999px; padding: 4px 12px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; pointer-events: none; }
 .kc-hint { position: absolute; bottom: 10px; left: 0; right: 0; text-align: center; font-size: 12px; color: rgba(231,235,242,0.7); pointer-events: none; }
 .kc-over { position: absolute; inset: 0; z-index: 5; display: flex; align-items: center; justify-content: center; background: rgba(5,7,12,0.55); }
 .kc-over-card { background: var(--bg-surface, #1e2430); border: 1px solid rgba(140,160,190,0.25); border-radius: 20px; padding: 22px 24px; text-align: center; max-width: 300px; box-shadow: 0 20px 50px rgba(0,0,0,0.5); }
