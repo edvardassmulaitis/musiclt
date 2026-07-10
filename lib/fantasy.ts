@@ -138,7 +138,7 @@ export async function computeArtistWeekPoints(
         const pts = Math.max(0, size - e.position) * (e.top_type === 'top40' ? 1 : 0.8)
         const cur = chartByArtist.get(aId) || { pts: 0, entries: [] }
         cur.pts += pts
-        cur.entries.push({ top: e.top_type, pos: e.position, title: t?.title })
+        cur.entries.push({ top: e.top_type, pos: e.position, title: t?.title, pts: Math.round(pts) })
         chartByArtist.set(aId, cur)
       }
     }
@@ -167,7 +167,7 @@ export async function computeArtistWeekPoints(
         const pts = (Math.max(0, size + 1 - e.position) / size) * 22 // topo viršūnė ≈ 22
         const cur = extByArtist.get(e.artist_id) || { pts: 0, entries: [] }
         cur.pts += pts
-        cur.entries.push({ chart: meta?.title || meta?.source, pos: e.position, title: e.title })
+        cur.entries.push({ chart: meta?.title || meta?.source, pos: e.position, title: e.title, pts: Math.round(pts) })
         extByArtist.set(e.artist_id, cur)
       }
     }

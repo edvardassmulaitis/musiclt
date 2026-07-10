@@ -30,9 +30,9 @@ type RosterArtist = {
   livePoints: number
   liveBreakdown: { chart: number; yt: number; rel: number; base: number } | null
 }
-type BoardRow = { name: string; points: number; isMe: boolean; isBot?: boolean }
+type BoardRow = { teamId?: number; name: string; points: number; isMe: boolean; isBot?: boolean }
 type Boards = { week: BoardRow[]; month: BoardRow[]; season: BoardRow[]; weekLabel: string; weekIsLive?: boolean; totalTeams: number }
-type FeedEvent = { artistId: number; name: string; image: string | null; cat: string; text: string }
+type FeedEvent = { artistId: number; name: string; image: string | null; cat: string; text: string; pts?: number }
 type League = { id: number; name: string; code: string; members: number }
 type TeamData = {
   team: {
@@ -84,6 +84,29 @@ function Ava({ name, image, size }: { name: string; image: string | null; size: 
   )
 }
 
+/** Skaičius „subėga" į vietą — juice'as, kad taškai jaustųsi gyvi. */
+function CountUp({ value }: { value: number }) {
+  const [shown, setShown] = useState(value)
+  const prev = useRef(value)
+  useEffect(() => {
+    const from = prev.current
+    prev.current = value
+    if (from === value) { setShown(value); return }
+    const t0 = performance.now()
+    const dur = 750
+    let raf = 0
+    const step = (t: number) => {
+      const k = Math.min(1, (t - t0) / dur)
+      const eased = 1 - Math.pow(1 - k, 3)
+      setShown(Math.round(from + (value - from) * eased))
+      if (k < 1) raf = requestAnimationFrame(step)
+    }
+    raf = requestAnimationFrame(step)
+    return () => cancelAnimationFrame(raf)
+  }, [value])
+  return <>{shown}</>
+}
+
 /** Countdown iki deadline: „2 d. 14 val." / „14 val. 05 min." */
 function likoIki(deadlineIso: string): string {
   const ms = Date.parse(deadlineIso) - Date.now()
@@ -121,6 +144,7 @@ export default function VadybininkasClient() {
   const [boardTab, setBoardTab] = useState<'week' | 'month' | 'season'>('week')
   const [modal, setModal] = useState<'lyga' | 'info' | 'kapitonas' | null>(null)
   const [artistModal, setArtistModal] = useState<any>(null)   // {loading} | duomenys
+  const [rivalModal, setRivalModal] = useState<any>(null)     // {loading} | {rival}
 
   // Privačios lygos
   const [activeLeague, setActiveLeague] = useState<number | null>(null) // null = visi
@@ -186,6 +210,16 @@ export default function VadybininkasClient() {
     setMarketQ(v)
     if (searchTimer.current) clearTimeout(searchTimer.current)
     searchTimer.current = setTimeout(() => void loadMarket(v, 0, marketSort, marketSalis, tikIperkami, team?.budgetLeft || 0), 350)
+  }
+
+  async function openTeam(teamId?: number) {
+    if (!teamId || teamId === team?.id) return
+    setRivalModal({ loading: true })
+    try {
+      const res = await fetch(`/api/zaidimai/vadybininkas?komanda=${teamId}`)
+      const json = await res.json()
+      setRivalModal(res.ok ? json : { klaida: json.error || 'Nepavyko įkelti' })
+    } catch { setRivalModal({ klaida: 'Tinklo klaida' }) }
   }
 
   async function openArtist(id: number) {
@@ -448,12 +482,13 @@ export default function VadybininkasClient() {
 
       {/* ══════════ VALDYMAS ══════════ */}
       {view === 'valdymas' && team && (
-        <>
+        <div className="fl-desk">
+        <div className="fl-desk-main">
           {/* 1. VIENA tiesos kortelė: live taškai + deadline countdown */}
           <div className="fl-live-hero">
             <div className="fl-live-main">
               <span className="fl-live-lbl"><i className="fl-live-dot" /> Šią savaitę · LIVE</span>
-              <span className="fl-live-num">{team.liveWeekPoints}<i>tšk.</i></span>
+              <span className="fl-live-num"><CountUp value={team.liveWeekPoints} /><i>tšk.</i></span>
               {data?.deadline && (
                 <span className="fl-live-deadline">🔒 Fiksuojama pirmadienį — liko <b>{likoIki(data.deadline)}</b></span>
               )}
@@ -461,7 +496,13 @@ export default function VadybininkasClient() {
             <div className="fl-live-side">
               <button className="fl-live-cell" onClick={() => setModal('lyga')}>
                 <b>{(() => { const w = data!.boards.week; const i = w.findIndex(r => r.isMe); return i >= 0 ? `#${i + 1}` : '—' })()}</b>
-                <span>savaitės vieta</span>
+                <span>{(() => {
+                  const w = data!.boards.week
+                  const i = w.findIndex(r => r.isMe)
+                  if (i > 0) return `iki #${i}: ${w[i - 1].points - w[i].points + 1} tšk.`
+                  if (i === 0) return 'savaitės lyderis! 🔥'
+                  return 'savaitės vieta'
+                })()}</span>
               </button>
               <button className="fl-live-cell" onClick={() => setModal('lyga')}>
                 <b>{team.seasonPoints}</b>
@@ -508,7 +549,7 @@ export default function VadybininkasClient() {
                   <li key={i} className="fl-feed-row" onClick={() => void openArtist(e.artistId)}>
                     <span className="fl-feed-img"><Ava name={e.name} image={e.image} size={34} /></span>
                     <span className="fl-feed-body"><b>{e.name}</b> · {e.text}</span>
-                    <i className={`dot ${e.cat === 'chart' ? 'chart' : e.cat === 'rel' ? 'rel' : 'yt'}`} />
+                    {e.pts ? <em className="fl-feed-pts">+{e.pts}</em> : <i className={`dot ${e.cat === 'chart' ? 'chart' : e.cat === 'rel' ? 'rel' : 'yt'}`} />}
                   </li>
                 ))}
               </ul>
@@ -565,12 +606,33 @@ export default function VadybininkasClient() {
             )}
           </div>
 
-          {/* 6. Detalės — modaluose */}
+        </div>{/* /fl-desk-main */}
+
+        {/* ── Dešinė juosta: lyga visada matoma ── */}
+        <aside className="fl-desk-rail">
+          <div className="fl-rail-league">
+            <div className="fl-rail-head">
+              <span className="fl-hist-head" style={{ margin: 0 }}>🏆 Lyga · savaitė LIVE</span>
+              <button className="fl-rail-more" onClick={() => setModal('lyga')}>Visa →</button>
+            </div>
+            <ol className="fl-board-list">
+              {data!.boards.week.slice(0, 9).map((r, i) => (
+                <li key={i}>
+                  <button className={`fl-board-row btn${r.isMe ? ' me' : ''}`} onClick={() => r.isMe ? setModal('lyga') : void openTeam(r.teamId)}>
+                    <span className={`fl-rank r${i + 1}`}>{i + 1}</span>
+                    <span className="fl-board-name">{r.name}{r.isMe ? ' (tu)' : ''}{r.isBot ? <i className="fl-bot"> 🤖</i> : null}</span>
+                    <span className="fl-board-pts">{r.points}</span>
+                  </button>
+                </li>
+              ))}
+            </ol>
+            <p className="fl-rail-hint">Bakstelk komandą — pamatysi jos sudėtį</p>
+          </div>
           <div className="fl-more-row">
-            <button className="fl-more-btn" onClick={() => setModal('lyga')}>🏆 Lygos lentelė</button>
             <button className="fl-more-btn" onClick={() => setModal('info')}>ℹ️ Kaip renkami taškai</button>
           </div>
-        </>
+        </aside>
+        </div>
       )}
 
       {/* ── Atlikėjo kortelė ── */}
@@ -641,6 +703,38 @@ export default function VadybininkasClient() {
         </div>
       )}
 
+      {/* ── Varžovo komanda ── */}
+      {rivalModal && (
+        <div className="fl-modal-back" onClick={() => setRivalModal(null)}>
+          <div className="fl-modal" onClick={e => e.stopPropagation()}>
+            <button className="fl-modal-x" onClick={() => setRivalModal(null)} aria-label="Uždaryti">✕</button>
+            {rivalModal.loading && <div className="fl-center small"><div className="fl-spinner" /></div>}
+            {rivalModal.klaida && <div className="fl-error">{rivalModal.klaida}</div>}
+            {rivalModal.rival && (
+              <div>
+                <h2 className="fl-h2">{rivalModal.rival.name}{rivalModal.rival.isBot ? ' 🤖' : ''}</h2>
+                <p className="fl-dim" style={{ margin: '4px 0 14px' }}>
+                  Šią savaitę: <b style={{ color: '#10b981' }}>{rivalModal.rival.weekPoints ?? '—'} tšk.</b>
+                  {rivalModal.rival.isBot ? ' · kompiuterio valdoma komanda' : ''}
+                </p>
+                <div className="fl-roster">
+                  {rivalModal.rival.roster.map((r: any) => (
+                    <button key={r.artistId} className={`fl-p${r.isCaptain ? ' cap' : ''}`} onClick={() => { setRivalModal(null); void openArtist(r.artistId) }}>
+                      <span className="fl-p-img"><Ava name={r.name} image={r.image} size={46} /></span>
+                      <span className="fl-p-mid">
+                        <span className="fl-p-name">{r.name}{r.isCaptain && <i className="fl-x2">×2</i>}</span>
+                        <span className="fl-p-status">kaina {r.price} tšk.</span>
+                      </span>
+                      <span className="fl-p-pts"><b>{r.livePoints}</b><i>tšk. ›</i></span>
+                    </button>
+                  ))}
+                </div>
+              </div>
+            )}
+          </div>
+        </div>
+      )}
+
       {/* ── Modalai ── */}
       {modal && (
         <div className="fl-modal-back" onClick={() => setModal(null)}>
@@ -658,7 +752,7 @@ export default function VadybininkasClient() {
                 )}
                 {activeLeague != null && !leagueBoards
                   ? <div className="fl-center small"><div className="fl-spinner" /></div>
-                  : <LeagueBoards boards={activeLeague != null ? leagueBoards! : data!.boards} tab={boardTab} setTab={setBoardTab} />}
+                  : <LeagueBoards boards={activeLeague != null ? leagueBoards! : data!.boards} tab={boardTab} setTab={setBoardTab} onTeam={id => { setModal(null); void openTeam(id) }} />}
 
                 {activeLeague != null && (() => {
                   const lg = (data?.leagues || []).find(l => l.id === activeLeague)
@@ -859,11 +953,12 @@ function MarketPanel(props: {
 
 // ── Lygos lentelės ────────────────────────────────────────────────────────
 
-function LeagueBoards({ boards, tab, setTab, compact }: {
+function LeagueBoards({ boards, tab, setTab, compact, onTeam }: {
   boards?: Boards
   tab: 'week' | 'month' | 'season'
   setTab: (t: 'week' | 'month' | 'season') => void
   compact?: boolean
+  onTeam?: (teamId?: number) => void
 }) {
   if (!boards) return null
   const rows = boards[tab]
@@ -884,10 +979,12 @@ function LeagueBoards({ boards, tab, setTab, compact }: {
       ) : (
         <ol className="fl-board-list">
           {rows.map((r, i) => (
-            <li key={i} className={`fl-board-row${r.isMe ? ' me' : ''}`}>
-              <span className={`fl-rank r${i + 1}`}>{i + 1}</span>
-              <span className="fl-board-name">{r.name}{r.isMe ? ' (tu)' : ''}{r.isBot ? <i className="fl-bot" title="Kompiuterio komanda"> 🤖</i> : null}</span>
-              <span className="fl-board-pts">{r.points} tšk.</span>
+            <li key={i}>
+              <button className={`fl-board-row btn${r.isMe ? ' me' : ''}`} onClick={() => !r.isMe && onTeam?.(r.teamId)}>
+                <span className={`fl-rank r${i + 1}`}>{i + 1}</span>
+                <span className="fl-board-name">{r.name}{r.isMe ? ' (tu)' : ''}{r.isBot ? <i className="fl-bot" title="Kompiuterio komanda"> 🤖</i> : null}</span>
+                <span className="fl-board-pts">{r.points} tšk.</span>
+              </button>
             </li>
           ))}
         </ol>
@@ -1074,6 +1171,23 @@ const css = `
 .fl-week-chip.live { border-color: rgba(16,185,129,0.55); }
 .fl-week-chip.live span { color: #10b981; font-weight: 900; }
 .fl-bot { font-style: normal; font-size: 12px; }
+
+/* ── v4: desktop layout — lyga visada matoma ── */
+.fl-desk { display: grid; grid-template-columns: 1fr; gap: 20px; align-items: start; }
+@media (min-width: 1020px) {
+  .fl-desk { grid-template-columns: minmax(0, 1fr) 330px; }
+  .fl-desk-rail { position: sticky; top: 8px; }
+}
+.fl-desk-main { min-width: 0; }
+.fl-rail-league { background: var(--bg-surface); border: 1px solid rgba(140,160,190,0.2); border-radius: 16px; padding: 14px; }
+.fl-rail-head { display: flex; align-items: center; justify-content: space-between; margin-bottom: 8px; }
+.fl-rail-more { font-size: 12px; font-weight: 800; color: #10b981; background: transparent; border: 0; cursor: pointer; }
+.fl-rail-hint { font-size: 10px; color: var(--text-muted); margin: 8px 2px 0; }
+.fl-board-row.btn { width: 100%; background: transparent; border: 0; cursor: pointer; text-align: left; font-size: 13px; }
+.fl-board-row.btn:hover { background: color-mix(in srgb, var(--text-primary) 7%, transparent); }
+.fl-desk-rail .fl-board-pts { font-size: 12px; }
+.fl-desk-rail .fl-more-row { margin-top: 10px; }
+.fl-feed-pts { font-style: normal; font-size: 12px; font-weight: 900; color: #10b981; flex-shrink: 0; }
 
 /* ── 3 žingsnis ── */
 .fl-startas { display: flex; flex-direction: column; align-items: center; text-align: center; padding-top: 20px; }

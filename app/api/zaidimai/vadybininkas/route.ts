@@ -107,6 +107,38 @@ export async function GET(req: NextRequest) {
   // Deadline: kito pirmadienio 00:00 LT — iki tada fiksuojami savaitės taškai
   const deadline = ltDayStartUtc(weekEnd(thisWeek))
 
+  // ── Varžovo komandos peržiūra (?komanda=ID) — scouting'as ──
+  const komandaId = parseInt(new URL(req.url).searchParams.get('komanda') || '') || null
+  if (komandaId) {
+    const { data: t } = await sb.from('fantasy_teams').select('id, name, is_bot, captain_artist_id, created_at').eq('id', komandaId).maybeSingle()
+    if (!t) return NextResponse.json({ error: 'Komanda nerasta' }, { status: 404 })
+    const { data: ros } = await sb
+      .from('fantasy_roster')
+      .select('artist_id, price, artists:artist_id ( id, name, slug, cover_image_url )')
+      .eq('team_id', t.id)
+      .is('released_at', null)
+      .order('price', { ascending: false })
+    const ids = (ros || []).map((r: any) => r.artist_id)
+    const { data: aw } = ids.length
+      ? await sb.from('fantasy_artist_weeks').select('artist_id, total_points').eq('week_start', thisWeek).in('artist_id', ids)
+      : { data: [] as any[] }
+    const ptsBy = new Map(((aw || []) as any[]).map(r => [r.artist_id, r.total_points]))
+    const { data: tw } = await sb.from('fantasy_team_weeks').select('points').eq('team_id', t.id).eq('week_start', thisWeek).maybeSingle()
+    return NextResponse.json({
+      rival: {
+        name: t.name,
+        isBot: !!(t as any).is_bot,
+        weekPoints: tw?.points ?? null,
+        roster: (ros || []).map((r: any) => {
+          const a = Array.isArray(r.artists) ? r.artists[0] : r.artists
+          const isCaptain = (t as any).captain_artist_id === r.artist_id
+          const base = ptsBy.get(r.artist_id) || 0
+          return { artistId: r.artist_id, name: a?.name || '—', image: a?.cover_image_url || null, price: r.price, isCaptain, livePoints: isCaptain ? base * 2 : base }
+        }),
+      },
+    })
+  }
+
   // Privačios lygos filtras (?lyga=ID) — lentelės tik tarp tos lygos narių
   const lygaId = parseInt(new URL(req.url).searchParams.get('lyga') || '') || null
   let lygaTeamIds: Set<number> | null = null
@@ -151,6 +183,7 @@ export async function GET(req: NextRequest) {
     }
     const withNames = (rows: Array<{ team_id: number; points: number }>) =>
       rows.map(r => ({
+        teamId: r.team_id,
         name: teamById.get(r.team_id)?.name || 'Komanda',
         points: r.points,
         isMe: team?.id === r.team_id,
@@ -241,7 +274,7 @@ export async function GET(req: NextRequest) {
   }
 
   // ── ŠIOS SAVAITĖS ĮVYKIAI — realūs faktai iš roster'io atlikėjų ──
-  const events: Array<{ artistId: number; name: string; image: string | null; cat: string; text: string; pos?: number }> = []
+  const events: Array<{ artistId: number; name: string; image: string | null; cat: string; text: string; pos?: number; pts?: number }> = []
   for (const r of roster) {
     const d: any = livePoints.get(r.artist_id)?.details
     if (!d) continue
@@ -249,7 +282,8 @@ export async function GET(req: NextRequest) {
     const img = r.artist?.cover_image_url || null
     for (const e of (d.chart_entries || []).slice(0, 4)) {
       const chartName = e.chart ? e.chart : e.top === 'top40' ? 'TOP40' : 'LT TOP30'
-      events.push({ artistId: r.artist_id, name: nm, image: img, cat: 'chart', pos: e.pos, text: `${chartName}: #${e.pos}${e.title ? ` — „${e.title}“` : ''}` })
+      const kap = r.artist_id === captainId
+      events.push({ artistId: r.artist_id, name: nm, image: img, cat: 'chart', pos: e.pos, pts: e.pts ? (kap ? e.pts * 2 : e.pts) : undefined, text: `${chartName}: #${e.pos}${e.title ? ` — „${e.title}“` : ''}` })
     }
     if ((d.releases || 0) > 0) {
       events.push({ artistId: r.artist_id, name: nm, image: img, cat: 'rel', text: d.releases === 1 ? 'Nauja daina šią savaitę' : `Naujos dainos: ${d.releases}` })
