@@ -47,6 +47,7 @@ export default function SeenLivePanel({ flash, likedArtists = [] }: { flash: (m:
   const [items, setItems] = useState<SeenLiveRow[]>([])
   const [loaded, setLoaded] = useState(false)
   const [wizardOpen, setWizardOpen] = useState(false)
+  const [editing, setEditing] = useState<SeenLiveRow | null>(null)
 
   useEffect(() => {
     let alive = true
@@ -55,13 +56,13 @@ export default function SeenLivePanel({ flash, likedArtists = [] }: { flash: (m:
     return () => { alive = false }
   }, [])
 
-  // Užrakinam fono scroll'ą, kol atidarytas full-screen wizard'as (mobile).
+  // Užrakinam fono scroll'ą, kol atidarytas full-screen wizard'as/redagavimas.
   useEffect(() => {
-    if (!wizardOpen) return
+    if (!wizardOpen && !editing) return
     const prev = document.body.style.overflow
     document.body.style.overflow = 'hidden'
     return () => { document.body.style.overflow = prev }
-  }, [wizardOpen])
+  }, [wizardOpen, editing])
 
   async function remove(id: number) {
     const prev = items
@@ -114,6 +115,9 @@ export default function SeenLivePanel({ flash, likedArtists = [] }: { flash: (m:
                     </div>
                     <div className="truncate text-[12px]" style={{ color: 'var(--text-muted)' }}>{[evLabel, place, y ? String(y) : null].filter(Boolean).join(' · ') || 'Be renginio'}</div>
                   </div>
+                  <button onClick={() => setEditing(it)} aria-label="Redaguoti" className="flex h-7 w-7 shrink-0 items-center justify-center rounded-full transition-colors hover:bg-[var(--bg-hover)]" style={{ color: 'var(--text-muted)' }}>
+                    <svg viewBox="0 0 24 24" width={14} height={14} fill="none" stroke="currentColor" strokeWidth={2} strokeLinecap="round" strokeLinejoin="round"><path d="M12 20h9" /><path d="M16.5 3.5a2.1 2.1 0 0 1 3 3L7 19l-4 1 1-4z" /></svg>
+                  </button>
                   <button onClick={() => remove(it.id)} aria-label="Pašalinti" className="flex h-7 w-7 shrink-0 items-center justify-center rounded-full transition-colors hover:bg-[var(--bg-hover)]" style={{ color: 'var(--text-faint)' }}>
                     <svg viewBox="0 0 16 16" width={11} height={11} fill="none" stroke="currentColor" strokeWidth={2.2} strokeLinecap="round"><path d="M3 3l10 10M13 3L3 13" /></svg>
                   </button>
@@ -135,6 +139,73 @@ export default function SeenLivePanel({ flash, likedArtists = [] }: { flash: (m:
           </div>
         </div>
       )}
+
+      {editing && (
+        <EditSighting row={editing} flash={flash} onClose={() => setEditing(null)}
+          onSaved={(item) => { setItems((l) => l.map((x) => x.id === item.id ? item : x)); setEditing(null) }} />
+      )}
+    </div>
+  )
+}
+
+// ── Redagavimas (media / pastaba / metai) ──────────────────────────────────
+function EditSighting({ row, flash, onClose, onSaved }: { row: SeenLiveRow; flash: (m: string) => void; onClose: () => void; onSaved: (item: SeenLiveRow) => void }) {
+  const [media, setMedia] = useState<SeenLiveMedia[]>(row.media || [])
+  const [note, setNote] = useState(row.note || '')
+  const initDate = row.seen_date || ''
+  const [year, setYear] = useState(row.seen_year ? String(row.seen_year) : (initDate ? initDate.slice(0, 4) : ''))
+  const [month, setMonth] = useState(initDate ? String(Number(initDate.slice(5, 7))) : '')
+  const [day, setDay] = useState(initDate ? String(Number(initDate.slice(8, 10))) : '')
+  const [busy, setBusy] = useState(false)
+  const name = row.artist?.name || row.raw_artist_name || '—'
+
+  async function save() {
+    setBusy(true)
+    try {
+      const y = year ? Number(year) : null
+      const m = month ? Number(month) : null
+      const d = day ? Number(day) : null
+      let seen_date: string | null = null
+      if (y && m && m >= 1 && m <= 12 && d && d >= 1 && d <= 31) seen_date = `${y}-${String(m).padStart(2, '0')}-${String(d).padStart(2, '0')}`
+      const { item } = await api('/seen-live', 'PATCH', { id: row.id, media, note: note.trim() || null, seen_year: y, seen_date })
+      onSaved(item)
+      flash('Išsaugota')
+    } catch (e: any) { flash(e.message || 'Klaida') } finally { setBusy(false) }
+  }
+
+  const inputCls = 'w-full rounded-lg px-3 py-2 text-[14px] outline-none ring-1'
+  const inputStyle = { background: 'var(--bg-elevated)', color: 'var(--text-primary)', ['--tw-ring-color' as any]: 'var(--border-default)' } as any
+
+  return (
+    <div className="seenlive-noZoom fixed inset-0 z-[210] overflow-y-auto overscroll-contain" style={{ background: 'var(--bg-body)' }}>
+      <div className="mx-auto min-h-full w-full max-w-md p-3" style={{ paddingTop: 'max(0.75rem, env(safe-area-inset-top))', paddingBottom: 'max(1.5rem, env(safe-area-inset-bottom))' }}>
+        <div className="mb-4 flex items-center justify-between">
+          <h3 className="font-['Outfit',sans-serif] text-[20px] font-extrabold" style={{ color: 'var(--text-primary)' }}>Redaguoti</h3>
+          <button onClick={onClose} aria-label="Uždaryti" className="flex h-8 w-8 items-center justify-center rounded-full" style={{ background: 'var(--bg-elevated)', color: 'var(--text-muted)' }}>
+            <svg viewBox="0 0 16 16" width={13} height={13} fill="none" stroke="currentColor" strokeWidth={2} strokeLinecap="round"><path d="M3 3l10 10M13 3L3 13" /></svg>
+          </button>
+        </div>
+
+        <div className="mb-3 text-[14px] font-bold" style={{ color: 'var(--text-primary)' }}>{name}</div>
+
+        <label className="mb-1 block text-[12px] font-bold uppercase tracking-wide" style={{ color: 'var(--text-faint)' }}>Nuotraukos / video</label>
+        <MediaUploader media={media} setMedia={setMedia} flash={flash} />
+
+        <label className="mt-4 mb-1 block text-[12px] font-bold uppercase tracking-wide" style={{ color: 'var(--text-faint)' }}>Kada matei? (užtenka metų)</label>
+        <div className="grid grid-cols-3 gap-2">
+          <input value={year} onChange={(e) => setYear(e.target.value.replace(/\D/g, '').slice(0, 4))} placeholder="Metai" inputMode="numeric" className={inputCls} style={inputStyle} />
+          <input value={month} onChange={(e) => setMonth(e.target.value.replace(/\D/g, '').slice(0, 2))} placeholder="Mėnuo" inputMode="numeric" className={inputCls} style={inputStyle} />
+          <input value={day} onChange={(e) => setDay(e.target.value.replace(/\D/g, '').slice(0, 2))} placeholder="Diena" inputMode="numeric" className={inputCls} style={inputStyle} />
+        </div>
+
+        <label className="mt-3 mb-1 block text-[12px] font-bold uppercase tracking-wide" style={{ color: 'var(--text-faint)' }}>Pastaba</label>
+        <textarea value={note} onChange={(e) => setNote(e.target.value)} rows={2} placeholder="Įspūdis, su kuo buvai…" className="w-full resize-none rounded-lg px-3 py-2 text-[14px] outline-none ring-1" style={inputStyle} />
+
+        <div className="mt-4 flex items-center gap-2">
+          <button onClick={onClose} className="rounded-xl px-4 py-2.5 text-[14px] font-bold ring-1" style={{ color: 'var(--text-secondary)', ['--tw-ring-color' as any]: 'var(--border-default)' } as any}>Atšaukti</button>
+          <button onClick={save} disabled={busy} className="flex-1 rounded-xl py-2.5 text-[14px] font-bold text-white transition-transform hover:scale-[1.01] disabled:opacity-45" style={{ background: 'var(--accent-orange)' }}>{busy ? 'Saugoma…' : 'Išsaugoti'}</button>
+        </div>
+      </div>
     </div>
   )
 }

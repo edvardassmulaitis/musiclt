@@ -4,7 +4,7 @@
 // DELETE { id } → pašalinti savo įrašą
 import { NextRequest, NextResponse } from 'next/server'
 import { getUserId } from '../_auth'
-import { getUserSeenLive, addSeenLive, removeSeenLive } from '@/lib/seen-live'
+import { getUserSeenLive, addSeenLive, removeSeenLive, updateSeenLive } from '@/lib/seen-live'
 
 export const dynamic = 'force-dynamic'
 
@@ -25,6 +25,25 @@ export async function POST(req: NextRequest) {
   try {
     const row = await addSeenLive(userId, body)
     return NextResponse.json({ item: row })
+  } catch (e: any) {
+    return NextResponse.json({ error: e.message || 'Klaida' }, { status: 400 })
+  }
+}
+
+export async function PATCH(req: NextRequest) {
+  const userId = await getUserId()
+  if (!userId) return NextResponse.json({ error: 'Prisijunk' }, { status: 401 })
+  const body = await req.json().catch(() => ({}))
+  const id = Number(body.id)
+  if (!Number.isFinite(id)) return NextResponse.json({ error: 'Blogi duomenys' }, { status: 400 })
+  try {
+    const item = await updateSeenLive(userId, id, {
+      media: body.media,
+      note: body.note,
+      seen_year: body.seen_year,
+      seen_date: body.seen_date,
+    })
+    return NextResponse.json({ item })
   } catch (e: any) {
     return NextResponse.json({ error: e.message || 'Klaida' }, { status: 400 })
   }
