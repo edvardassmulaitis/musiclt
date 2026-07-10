@@ -1,6 +1,8 @@
 import { notFound, redirect } from 'next/navigation'
 import Link from 'next/link'
 import { getEventBySlug, eventHref } from '@/lib/supabase-events'
+import { getEventSightings } from '@/lib/seen-live'
+import EventAttendees from '@/components/events/EventAttendees'
 import FestivalLineup, { type LineupArtist } from '../../festivaliai/[slug]/festival-lineup'
 
 type Artist = { id: number; name: string; slug: string; cover_image_url: string | null; country?: string | null }
@@ -63,6 +65,8 @@ export default async function EventPage({ params }: { params: Promise<{ slug: st
   // forma ar kitoks slug — 308 redirect į gražų URL (SEO + UX).
   const canonical = eventHref(ev)
   if (ev.legacy_id != null && `/renginiai/${slug}` !== canonical) redirect(canonical)
+
+  const eventSightings = await getEventSightings(ev.id).catch(() => [])
 
   const siteUrl = process.env.NEXT_PUBLIC_SITE_URL || 'https://musiclt.vercel.app'
   const genresByArtist: Record<number, string[]> = ev.artistGenres || {}
@@ -170,21 +174,7 @@ export default async function EventPage({ params }: { params: Promise<{ slug: st
               </section>
             )}
 
-            {ev.attendees && ev.attendees.length > 0 && (
-              <section className="ep-block">
-                <h2 className="ep-h2">Dalyvauja <span className="ep-h2-count">{ev.attendees.length}</span></h2>
-                <div className="ep-att">
-                  {ev.attendees.slice(0, 30).map((att: any, i: number) => (
-                    <Link key={`${att.user_username}-${i}`} href={`/vartotojas/${att.user_username}`} className="ep-att-chip" title={att.user_username}>
-                      <span className="ep-att-av" style={{ background: `hsl(${(att.user_username.charCodeAt(0) || 65) * 17 % 360},32%,18%)` }}>
-                        {att.user_avatar_url ? <img src={att.user_avatar_url} alt={att.user_username} /> : att.user_username[0]?.toUpperCase()}
-                      </span>
-                      <span className="ep-att-name">{att.user_username}</span>
-                    </Link>
-                  ))}
-                </div>
-              </section>
-            )}
+            {/* Dalyviai + jų turinys rodomi žemiau (EventAttendees) */}
           </div>
 
           {/* ── Šoninė — VIENAS bilietų CTA + glausta info (be datos/vietos
@@ -219,6 +209,8 @@ export default async function EventPage({ params }: { params: Promise<{ slug: st
             </div>
           </aside>
         </div>
+
+        <EventAttendees sightings={eventSightings as any} attendees={(ev.attendees || []) as any} />
 
         <div className="ep-back">
           <Link href="/koncertai">← Visi koncertai</Link>

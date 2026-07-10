@@ -1,6 +1,7 @@
 import { Metadata } from 'next'
 import { getEvents, getEventCities } from '@/lib/supabase-events'
 import { getVertaKelionesData } from '@/lib/verta-keliones-db'
+import { getEventSightingCounts } from '@/lib/seen-live'
 import EventsClient from '../renginiai/events-client'
 
 export const metadata: Metadata = {
@@ -20,5 +21,8 @@ export default async function KoncertaiPage() {
     getVertaKelionesData(),
   ])
 
-  return <EventsClient events={events as any} cities={cities} abroadConcerts={vk.concerts} destinations={vk.destinations} />
+  // Dalyvių skaičiai (Matyti gyvai) — badge'ams + lankytiems užsienio renginiams rodyti.
+  const attendeeCounts = await getEventSightingCounts((events as any[]).map((e) => e.id).filter(Boolean)).catch(() => ({}))
+
+  return <EventsClient events={events as any} cities={cities} abroadConcerts={vk.concerts} destinations={vk.destinations} attendeeCounts={attendeeCounts} />
 }
