@@ -86,8 +86,11 @@ export default function KoncertasClient() {
   const maxComboRef = useRef(0)
   const hypeRef = useRef(0)
   const songHypeRef = useRef(0)
+  const songScoreRef = useRef<number[]>([])
   const interMsgRef = useRef('Kita daina')
   const missedRef = useRef(0)
+  const previewRef = useRef<HTMLAudioElement | null>(null)
+  const [playingIdx, setPlayingIdx] = useState<number>(-1)
   const livesRef = useRef(3)
   const lifeFlashRef = useRef(-9)
   const floatsRef = useRef<{ x: number; y: number; text: string; color: string; at: number }[]>([])
@@ -104,7 +107,7 @@ export default function KoncertasClient() {
     a.addEventListener('ended', onSongEnded)
     audioRef.current = a
     void init()
-    return () => { cancelAnimationFrame(rafRef.current); try { a.pause() } catch { /* ok */ } }
+    return () => { cancelAnimationFrame(rafRef.current); try { a.pause() } catch { /* ok */ }; try { previewRef.current?.pause() } catch { /* ok */ } }
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [])
 
@@ -155,7 +158,7 @@ export default function KoncertasClient() {
   }
 
   function onSongEnded() {
-    if (endedRef.current || deadRef.current) return
+    if (endedRef.current) return
     const next = songIdxRef.current + 1
     if (next >= setlistRef.current.length) { finish(); return }
     // tarp dainų — trumpa pauzė; padrąsinimas pagal tai, kaip sekėsi
@@ -182,6 +185,8 @@ export default function KoncertasClient() {
     iconsRef.current = []; floatsRef.current = []
     gtRef.current = 0; lastTsRef.current = 0; spawnAccRef.current = 0
     scoreRef.current = 0; comboRef.current = 0; maxComboRef.current = 0; hypeRef.current = 0; songHypeRef.current = 0; missedRef.current = 0
+    songScoreRef.current = new Array(setlistRef.current.length).fill(0)
+    try { previewRef.current?.pause() } catch { /* ok */ }; setPlayingIdx(-1)
     livesRef.current = 3; lifeFlashRef.current = -9; endedRef.current = false; deadRef.current = false; pausedRef.current = false
     pendingRef.current = null; pauseUntilRef.current = 0
     songIdxRef.current = 0
@@ -217,6 +222,22 @@ export default function KoncertasClient() {
         setOver(o => o ? { ...o, pctReached: pct } : o)
       } catch { setOver(o => o ? { ...o, pctReached: -2 } : o) }
     })()
+  }
+
+  function playPreview(i: number) {
+    const s = setlistRef.current[i]
+    if (!s) return
+    if (!previewRef.current) {
+      const au = new Audio(); au.loop = false
+      au.addEventListener('ended', () => setPlayingIdx(-1))
+      previewRef.current = au
+    }
+    const au = previewRef.current
+    if (playingIdx === i) { try { au.pause() } catch { /* ok */ }; setPlayingIdx(-1); return }
+    au.src = s.url
+    try { au.currentTime = 0 } catch { /* ok */ }
+    void au.play().catch(() => {})
+    setPlayingIdx(i)
   }
 
   function stayInConcert() {
@@ -290,6 +311,8 @@ export default function KoncertasClient() {
     if (bi < 0) return
     const it = iconsRef.current[bi]
     it.resolved = true
+    // spectator (be gyvybių) — ženklą pašalinam, bet taškai nedidėja
+    if (deadRef.current) return
     const drop = energyNow() > 0.6
     const mult = Math.max(hitRef.current ? 2 : 1, drop ? 2 : 1)
     const good = it.kind !== 'x' && it.kind !== 'mute'
@@ -299,6 +322,8 @@ export default function KoncertasClient() {
       const base = KIND_W[it.kind]
       const pts = base * mult   // paprasti taškai 1..5, hitas/drop ×2
       scoreRef.current += pts
+      const si = songIdxRef.current
+      if (songScoreRef.current[si] != null) songScoreRef.current[si] += pts
       const label = it.kind === 'gem' ? `💎 +${pts}` : `+${pts}`
       floatsRef.current.push({ x: it.x, y: it.y - 16, text: label, color: it.kind === 'gem' ? '#a78bfa' : (mult > 1 ? '#f59e0b' : '#22c55e'), at: gt })
       if (comboRef.current > 0 && comboRef.current % 25 === 0 && livesRef.current < MAX_LIVES) {
@@ -422,8 +447,8 @@ export default function KoncertasClient() {
     g.beginPath(); g.moveTo(w * 0.68, 0); g.lineTo(w * 0.94, stageLine); g.lineTo(w * 0.74, stageLine); g.closePath(); g.fill()
 
     // LED ekranas su atlikėju
-    const ledW = Math.min(w * 0.58, 240), ledH = ledW * 0.5
-    const ledX = w / 2 - ledW / 2, ledY = h * 0.115
+    const ledW = Math.min(w * 0.56, 230), ledH = ledW * 0.5
+    const ledX = w / 2 - ledW / 2, ledY = h * 0.15
     g.save()
     roundRectPath(g, ledX, ledY, ledW, ledH, 10); g.clip()
     const img = artistImgRef.current
@@ -491,13 +516,13 @@ export default function KoncertasClient() {
     }
     if (!frozen) floatsRef.current = nf
 
-    // HUD
+    // HUD — po viršutine juosta (kad nelįstų ant pavadinimo)
     g.textAlign = 'left'; g.textBaseline = 'alphabetic'
     g.fillStyle = '#e7ebf2'; g.font = '900 20px Outfit, system-ui, sans-serif'
-    g.fillText(`${scoreRef.current}`, 14, 26)
-    if (comboRef.current >= 2) { g.fillStyle = '#f59e0b'; g.font = '900 12px Outfit, system-ui, sans-serif'; g.fillText(`serija ×${comboRef.current}`, 14, 44) }
+    g.fillText(`${scoreRef.current}`, 14, 52)
+    if (comboRef.current >= 2) { g.fillStyle = '#f59e0b'; g.font = '900 12px Outfit, system-ui, sans-serif'; g.fillText(`serija ×${comboRef.current}`, 14, 70) }
     g.textAlign = 'right'; g.font = '900 17px Outfit, system-ui, sans-serif'; g.fillStyle = '#f87171'
-    g.fillText(deadRef.current ? '🎶' : '❤'.repeat(Math.max(0, livesRef.current)), w - 12, 26)
+    g.fillText(deadRef.current ? '🎶' : '❤'.repeat(Math.max(0, livesRef.current)), w - 12, 52)
 
     const gage = gt - lifeFlashRef.current
     if (gage >= 0 && gage < 1) {
@@ -526,10 +551,14 @@ export default function KoncertasClient() {
     const grd = g.createRadialGradient(x, y, 1, x, y, R + 10)
     grd.addColorStop(0, it.color); grd.addColorStop(1, hexA(it.color, 0))
     g.fillStyle = grd; g.beginPath(); g.arc(x, y, R + 10, 0, Math.PI * 2); g.fill()
-    if (it.kind === 'note' || it.kind === 'heart') {
-      g.fillStyle = it.color; g.beginPath(); g.arc(x, y, R, 0, Math.PI * 2); g.fill()
-      g.fillStyle = '#0b0f18'; g.font = '900 16px Outfit, system-ui, sans-serif'; g.textAlign = 'center'; g.textBaseline = 'middle'
-      g.fillText(it.kind === 'heart' ? '♥' : '♪', x, y + 1); g.textBaseline = 'alphabetic'
+    if (it.kind === 'note') {
+      // moderni švytinti sfera (koncerto šviesa)
+      const s = g.createRadialGradient(x - R * 0.35, y - R * 0.35, 1, x, y, R)
+      s.addColorStop(0, '#ffffff'); s.addColorStop(0.35, it.color); s.addColorStop(1, hexA(it.color, 0.85))
+      g.fillStyle = s; g.beginPath(); g.arc(x, y, R, 0, Math.PI * 2); g.fill()
+      g.fillStyle = 'rgba(255,255,255,0.9)'; g.beginPath(); g.arc(x - R * 0.32, y - R * 0.32, R * 0.22, 0, Math.PI * 2); g.fill()
+    } else if (it.kind === 'heart') {
+      drawHeart(g, x, y, R, it.color)
     } else if (it.kind === 'star') {
       drawStar(g, x, y, R, R * 0.45, '#fde68a')
     } else if (it.kind === 'gem') {
@@ -562,7 +591,6 @@ export default function KoncertasClient() {
         <div className="kc-stage" onPointerDown={onPointerDown}>
           <div className="kc-topbar">🎤 {songNo}/{setlistLen} · {songLabel.length > 22 ? songLabel.slice(0, 21) + '…' : songLabel}{hitMode ? '  🔥×2' : ''}</div>
           <canvas ref={canvasRef} className="kc-canvas" />
-          {!over && <div className="kc-hint">baksteli ♪ ♫ ★ ♥ 💎 · venk ✕ 📵</div>}
           {over && (
             <div className="kc-over">
               <div className="kc-over-card">
@@ -595,6 +623,17 @@ export default function KoncertasClient() {
             <span className="kc-stat s-star"><b>{results.best}</b>rekordas</span>
           </div>
           <ScoreDistribution scores={results.scores} score={results.score} percentile={results.percentile} />
+          <div className="kc-songs">
+            <div className="kc-songs-h">Koncerto dainos · bakstelk pasiklausyti 🎧</div>
+            {setlistRef.current.map((s, i) => (
+              <button key={i} className={'kc-song' + (playingIdx === i ? ' on' : '')} onClick={() => playPreview(i)}>
+                <span className="kc-song-play">{playingIdx === i ? '⏸' : '▶'}</span>
+                <span className="kc-song-n">{i + 1}</span>
+                <span className="kc-song-t">{s.title}</span>
+                <span className="kc-song-pts">{songScoreRef.current[i] ?? 0}</span>
+              </button>
+            ))}
+          </div>
           <div className="kc-actions">
             <button className="kc-cta" onClick={start}>Dar kartą</button>
             <button className="kc-cta ghost" onClick={() => void init(true)}>🔀 Kitas atlikėjas</button>
@@ -643,6 +682,22 @@ function drawStar(g: CanvasRenderingContext2D, cx: number, cy: number, outer: nu
   g.closePath()
   g.fillStyle = color; g.fill()
   g.strokeStyle = '#f59e0b'; g.lineWidth = 1.5; g.stroke()
+}
+function drawHeart(g: CanvasRenderingContext2D, cx: number, cy: number, r: number, color: string) {
+  const s = r / 14
+  g.save(); g.translate(cx, cy + r * 0.15); g.scale(s, s)
+  g.beginPath()
+  g.moveTo(0, 4)
+  g.bezierCurveTo(-1, 1, -6, -1, -9, -3)
+  g.bezierCurveTo(-14, -7, -12, -14, -6, -14)
+  g.bezierCurveTo(-2, -14, 0, -10, 0, -8)
+  g.bezierCurveTo(0, -10, 2, -14, 6, -14)
+  g.bezierCurveTo(12, -14, 14, -7, 9, -3)
+  g.bezierCurveTo(6, -1, 1, 1, 0, 4)
+  g.closePath()
+  g.fillStyle = color; g.fill()
+  g.strokeStyle = 'rgba(255,255,255,0.5)'; g.lineWidth = 1.2; g.stroke()
+  g.restore()
 }
 function drawGem(g: CanvasRenderingContext2D, cx: number, cy: number, r: number) {
   const grd = g.createLinearGradient(cx, cy - r, cx, cy + r)
@@ -698,7 +753,15 @@ const css = `
 .kc-bar.me { background: var(--accent-orange); box-shadow: 0 0 10px rgba(249,115,22,0.6); }
 .kc-dist-legend { font-size: 11px; color: var(--text-muted); text-align: center; margin-top: 7px; display: flex; align-items: center; justify-content: center; gap: 6px; }
 .me-dot { width: 9px; height: 9px; border-radius: 2px; background: var(--accent-orange); display: inline-block; }
-.kc-stage { position: relative; width: 100%; height: 74vh; touch-action: none; user-select: none; cursor: pointer; }
+.kc-songs { width: 100%; max-width: 360px; margin: 2px 0 18px; }
+.kc-songs-h { font-size: 12.5px; color: var(--text-secondary); text-align: center; margin-bottom: 8px; }
+.kc-song { display: flex; align-items: center; gap: 10px; width: 100%; text-align: left; background: var(--bg-surface); border: 1px solid rgba(140,160,190,0.18); border-radius: 10px; padding: 9px 12px; margin-bottom: 6px; cursor: pointer; color: var(--text-primary); }
+.kc-song.on { border-color: var(--accent-orange); background: rgba(249,115,22,0.1); }
+.kc-song-play { font-size: 12px; color: var(--accent-orange); width: 14px; }
+.kc-song-n { font-size: 11px; font-weight: 900; color: var(--text-muted); width: 16px; }
+.kc-song-t { flex: 1; font-size: 13px; font-weight: 700; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.kc-song-pts { font-size: 13px; font-weight: 900; color: var(--accent-orange); }
+.kc-stage { position: relative; width: 100%; height: 84vh; touch-action: none; user-select: none; cursor: pointer; }
 .kc-canvas { width: 100%; height: 100%; display: block; }
 .kc-topbar { position: absolute; top: 8px; left: 50%; transform: translateX(-50%); z-index: 3; max-width: 62%; font-size: 11px; font-weight: 800; color: #cbd5e1; background: rgba(11,15,24,0.7); border: 1px solid rgba(140,160,190,0.2); border-radius: 999px; padding: 4px 12px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; pointer-events: none; }
 .kc-hint { position: absolute; bottom: 10px; left: 0; right: 0; text-align: center; font-size: 12px; color: rgba(231,235,242,0.7); pointer-events: none; }

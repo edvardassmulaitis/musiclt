@@ -71,7 +71,7 @@ export async function GET(req: Request) {
       if (!b || seen.has(b)) continue
       seen.add(b); cleaned.push(t)
     }
-    const rows = (cleaned.length >= SET_MIN ? cleaned : raw).slice(0, 14)
+    const rows = (cleaned.length >= SET_MIN ? cleaned : raw).slice(0, 20)
 
     const previews = await ensurePreviews(rows.map(t => ({ id: t.id, title: t.title, artist: a.name })))
     const withUrl: { title: string; url: string; views: number }[] = []
@@ -81,15 +81,23 @@ export async function GET(req: Request) {
     }
     if (withUrl.length < SET_MIN) continue
 
-    const top = withUrl.slice(0, SET_MAX)            // populiarumo tvarka (didžiausi pirmi)
-    // pop pagal RANGĄ (ne žalius views — jų dažnai nėra), kad setas visada svyruotų
-    const n = top.length
-    const withPop = top.map((t, i) => ({ title: t.title, url: t.url, pop: n > 1 ? 0.35 + (1 - i / (n - 1)) * 0.65 : 1 }))
+    // pop pagal populiarumo rangą (0 = didžiausias hitas)
+    const wp = withUrl.map((t, i) => ({ title: t.title, url: t.url, pop: Math.max(0.3, Math.min(1, 1 - i * 0.05)) }))
 
-    // FINALE = didžiausias hitas; likusios sumaišytos, kad intensyvumas svyruotų
-    const finale = withPop[0]
-    const rest = seededShuffle(withPop.slice(1), mulberry32((seed ^ 0x9e3779b9) >>> 0))
-    const setlist = [...rest, finale]
+    // Top 5 — visada įtraukiam; likusias 5 imam atsitiktinai iš top 6–20;
+    // top hitus imaišom po vieną su atsitiktinėmis; FINALE = didžiausias hitas.
+    const top5 = wp.slice(0, 5)
+    const rng = mulberry32((seed ^ 0x9e3779b9) >>> 0)
+    const rest = seededShuffle(wp.slice(5), rng).slice(0, Math.max(0, SET_MAX - top5.length))
+    const finale = top5[0]
+    const midTop = top5.slice(1)
+    const inter: typeof wp = []
+    const maxLen = Math.max(midTop.length, rest.length)
+    for (let i = 0; i < maxLen; i++) {
+      if (i < midTop.length) inter.push(midTop[i])
+      if (i < rest.length) inter.push(rest[i])
+    }
+    const setlist = [...inter, finale]
 
     return NextResponse.json({
       artist: { name: a.name, image: a.cover_image_url },
