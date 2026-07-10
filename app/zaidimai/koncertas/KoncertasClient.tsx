@@ -2,10 +2,10 @@
 
 // app/zaidimai/koncertas/KoncertasClient.tsx
 //
-// „Dienos koncertas" — vienas dienos atlikėjas, jo dainų setas (~10) sukamas
-// viena po kitos. Iš minios kyla hype ženklai (🙌❤️✨) — baksteli juos.
-// Dainos energija valdo, kiek hype kyla; link finalo (didžiausi hitai) —
-// vis daugiau. 📵 nespaudi. 3 gyvybės. Canvas 60fps, HTML5 audio (iOS).
+// „Dienos koncertas" — dienos atlikėjas, jo dainų setas (~10). Iš minios
+// (priekyje, apačioje) kyla švytintys ženklai link scenos — baksteli juos.
+// Intensyvumą valdo dainos populiarumas (hitai — gausiau) + dainos energija
+// (priedainis/drop — sprogimas). ✕ ženklų venk. 3 gyvybės. Canvas 60fps.
 
 import { useEffect, useRef, useState } from 'react'
 import Link from 'next/link'
@@ -13,15 +13,16 @@ import { proxyImg } from '@/lib/img-proxy'
 import ZaidimoLangas from '@/components/zaidimai/ZaidimoLangas'
 
 type Phase = 'loading' | 'ready' | 'play' | 'results' | 'error'
-type Song = { title: string; url: string }
-type Icon = { x: number; y: number; vy: number; emoji: string; good: boolean; born: number; resolved: boolean }
+type Song = { title: string; url: string; pop: number }
+type Icon = { x: number; y: number; vy: number; good: boolean; glyph: string; color: string; born: number; resolved: boolean }
 
-const GOOD = ['🙌', '❤️', '✨', '🔥', '🎉', '🤟']
-const BAD = ['📵']
+// Solidūs (ne emoji) švytintys ženklai
+const GOOD_GLYPHS = ['♪', '♫', '★', '♥']
+const GOOD_COLORS = ['#f59e0b', '#22d3ee', '#ec4899', '#a78bfa']
 const MAX_LIVES = 5
 const FRAME = 0.02
 
-function buildEnvelope(buf: AudioBuffer): { env: Float32Array; frameT: number; dur: number } {
+function buildEnvelope(buf: AudioBuffer): { env: Float32Array; frameT: number } {
   const ch = buf.getChannelData(0)
   const sr = buf.sampleRate
   const hop = Math.max(1, Math.round(sr * FRAME))
@@ -42,7 +43,7 @@ function buildEnvelope(buf: AudioBuffer): { env: Float32Array; frameT: number; d
     for (let k = Math.max(0, i - win); k <= Math.min(n - 1, i + win); k++) { sum += raw[k]; cnt++ }
     env[i] = Math.min(1, (sum / cnt) / mx)
   }
-  return { env, frameT, dur: buf.duration }
+  return { env, frameT }
 }
 
 export default function KoncertasClient() {
@@ -55,6 +56,7 @@ export default function KoncertasClient() {
 
   const setlistRef = useRef<Song[]>([])
   const songIdxRef = useRef(0)
+  const popRef = useRef(0.5)
   const audioRef = useRef<HTMLAudioElement | null>(null)
   const artistImgRef = useRef<HTMLImageElement | null>(null)
   const envRef = useRef<Float32Array>(new Float32Array([0.5]))
@@ -70,7 +72,7 @@ export default function KoncertasClient() {
   const scoreRef = useRef(0)
   const comboRef = useRef(0)
   const maxComboRef = useRef(0)
-  const hypeRef = useRef(0)       // pagautų hype skaičius
+  const hypeRef = useRef(0)
   const missedRef = useRef(0)
   const livesRef = useRef(3)
   const lifeFlashRef = useRef(-9)
@@ -87,10 +89,11 @@ export default function KoncertasClient() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [])
 
-  async function init() {
+  async function init(kitas = false) {
     setPhase('loading'); setErr(null)
+    try { audioRef.current?.pause() } catch { /* ok */ }
     try {
-      const res = await fetch('/api/zaidimai/koncertas')
+      const res = await fetch('/api/zaidimai/koncertas' + (kitas ? '?kitas=1' : ''))
       const j = await res.json()
       if (!res.ok || !j.setlist?.length || !j.artist) { setErr(j.error || 'Nepavyko įkelti'); setPhase('error'); return }
       setlistRef.current = j.setlist
@@ -115,12 +118,12 @@ export default function KoncertasClient() {
   }
 
   function playSong(i: number) {
-    const list = setlistRef.current
-    const s = list[i]
+    const s = setlistRef.current[i]
     const a = audioRef.current
     if (!s || !a) return
     const token = ++decodeTokenRef.current
-    envRef.current = new Float32Array([0.5])   // kol dekoduojam — vidutinė
+    envRef.current = new Float32Array([0.5])
+    popRef.current = typeof s.pop === 'number' ? s.pop : 0.5
     a.src = s.url
     try { a.currentTime = 0 } catch { /* ok */ }
     void a.play().catch(() => {})
@@ -132,7 +135,7 @@ export default function KoncertasClient() {
   function onSongEnded() {
     if (endedRef.current) return
     const next = songIdxRef.current + 1
-    if (next >= setlistRef.current.length) { finish(true); return }
+    if (next >= setlistRef.current.length) { finish(); return }
     songIdxRef.current = next
     playSong(next)
   }
@@ -140,7 +143,7 @@ export default function KoncertasClient() {
   function energyNow(): number {
     const a = audioRef.current
     const env = envRef.current
-    if (env.length <= 1) return 0.42 + 0.18 * Math.sin(gtRef.current * 3)   // sintetinė kol nedekoduota
+    if (env.length <= 1) return 0.45 + 0.28 * Math.sin(gtRef.current * 2.4)  // sintetinė kol nedekoduota
     const t = a ? a.currentTime : gtRef.current
     const f = t / frameTRef.current
     const i = Math.floor(f)
@@ -158,7 +161,7 @@ export default function KoncertasClient() {
     setPhase('play')
   }
 
-  function finish(_survivedAll: boolean) {
+  function finish() {
     endedRef.current = true
     cancelAnimationFrame(rafRef.current)
     try { audioRef.current?.pause() } catch { /* ok */ }
@@ -214,26 +217,26 @@ export default function KoncertasClient() {
       if (it.resolved) continue
       const dx = px - it.x, dy = py - it.y
       const d = dx * dx + dy * dy
-      if (d < 34 * 34 && d < bd) { bd = d; bi = i }
+      if (d < 36 * 36 && d < bd) { bd = d; bi = i }
     }
     if (bi < 0) return
     const it = iconsRef.current[bi]
     it.resolved = true
-    const drop = energyNow() > 0.66
+    const drop = energyNow() > 0.6
     if (it.good) {
       comboRef.current++; hypeRef.current++
       if (comboRef.current > maxComboRef.current) maxComboRef.current = comboRef.current
       const pts = Math.round(12 * (1 + Math.min(comboRef.current, 25) * 0.04) * (drop ? 2 : 1))
       scoreRef.current += pts
-      floatsRef.current.push({ x: it.x, y: it.y - 14, text: `+${pts}`, color: drop ? '#f59e0b' : '#22c55e', at: gt })
+      floatsRef.current.push({ x: it.x, y: it.y - 16, text: `+${pts}`, color: drop ? '#f59e0b' : '#22c55e', at: gt })
       if (comboRef.current > 0 && comboRef.current % 25 === 0 && livesRef.current < MAX_LIVES) {
         livesRef.current++; lifeFlashRef.current = gt
-        floatsRef.current.push({ x: it.x, y: it.y - 40, text: '+1 gyvybė ❤', color: '#22c55e', at: gt })
+        floatsRef.current.push({ x: it.x, y: it.y - 42, text: '+1 gyvybė ❤', color: '#22c55e', at: gt })
       }
     } else {
       livesRef.current--; comboRef.current = 0
-      floatsRef.current.push({ x: it.x, y: it.y - 14, text: '📵 −1', color: '#f87171', at: gt })
-      if (livesRef.current <= 0) { finish(false) }
+      floatsRef.current.push({ x: it.x, y: it.y - 16, text: '−1', color: '#f87171', at: gt })
+      if (livesRef.current <= 0) finish()
     }
   }
 
@@ -249,125 +252,138 @@ export default function KoncertasClient() {
     gtRef.current += dt
     const gt = gtRef.current
 
-    const len = setlistRef.current.length || 1
-    const songProgress = songIdxRef.current / Math.max(1, len - 1)     // 0..1 link finalo
+    const pop = popRef.current
     const energy = Math.max(0, Math.min(1, energyNow()))
-    const drop = energy > 0.66
-    const intensity = 0.5 + songProgress * 0.9                          // finale intensyviau
+    const drop = energy > 0.6
+    // intensyvumas: dainos populiarumas (bazė) + energija (svyravimas)
+    const intensity = 0.30 + pop * 0.85
 
-    // spawn — daugiau hype su energija ir link finalo
-    const spawnEvery = Math.max(0.16, 0.9 - intensity * 0.28 - energy * 0.34)
+    // scenos geometrija
+    const stageLine = h * 0.34          // scenos priekis (žemiau — „oras", aukščiau — scena)
+    const crowdTop = h * 0.72
+
+    // spawn — hype gausa svyruoja pagal populiarumą + energiją
+    const spawnEvery = Math.max(0.22, 1.15 - intensity * 0.5 - energy * 0.5)
     spawnAccRef.current += dt
     if (spawnAccRef.current >= spawnEvery) {
       spawnAccRef.current = 0
       const n = drop ? 2 : 1
       for (let k = 0; k < n; k++) {
-        const good = Math.random() > 0.12    // ~12% blogų (📵), pastoviai
-        const emoji = good ? GOOD[Math.floor(Math.random() * GOOD.length)] : BAD[0]
+        const good = Math.random() > 0.12
+        const gi = Math.floor(Math.random() * GOOD_GLYPHS.length)
         const x = w * (0.12 + Math.random() * 0.76)
-        const vy = h * (0.24 + intensity * 0.16 + energy * 0.14)   // px/s aukštyn
-        iconsRef.current.push({ x, y: h * 0.72, vy, emoji, good, born: gt, resolved: false })
+        const vy = h * (0.15 + intensity * 0.10 + energy * 0.12)   // px/s aukštyn — mažesnis bazinis, svyruoja
+        iconsRef.current.push({
+          x, y: crowdTop, vy, good,
+          glyph: good ? GOOD_GLYPHS[gi] : '✕',
+          color: good ? GOOD_COLORS[gi] : '#5b6577',
+          born: gt, resolved: false,
+        })
       }
     }
 
-    // judesys + praleisti
-    const topZone = h * 0.30
+    // judesys + praleisti (pasiekė sceną)
     const keep: Icon[] = []
     for (const it of iconsRef.current) {
-      if (!it.resolved) {
-        it.y -= it.vy * dt
-        if (it.y < topZone) {
-          it.resolved = true
-          if (it.good) { comboRef.current = 0; missedRef.current++ }   // praleidai — tik serija (nebaudžia gyvybe)
-          continue
-        }
-      } else {
+      if (it.resolved) continue
+      it.y -= it.vy * dt
+      if (it.y < stageLine) {
+        if (it.good) { comboRef.current = 0; missedRef.current++ }  // praleidai — tik serija
         continue
       }
       keep.push(it)
     }
     iconsRef.current = keep
-    if (livesRef.current <= 0 && !endedRef.current) { finish(false); return }
+    if (livesRef.current <= 0 && !endedRef.current) { finish(); return }
 
     // ── piešimas ──
     g.clearRect(0, 0, w, h)
-    // dangus / salė — įsidega su energija
     const bg = g.createLinearGradient(0, 0, 0, h)
-    bg.addColorStop(0, `rgb(${10 + energy * 26},${12 + energy * 12},${24 + energy * 30})`)
-    bg.addColorStop(0.6, '#0c1120')
+    bg.addColorStop(0, `rgb(${12 + energy * 26},${12 + energy * 12},${26 + energy * 30})`)
+    bg.addColorStop(0.55, '#0b1020')
     bg.addColorStop(1, '#05070c')
     g.fillStyle = bg; g.fillRect(0, 0, w, h)
 
-    // prožektorių spinduliai
-    const beamA = 0.06 + energy * 0.16
+    // prožektoriai iš viršaus (scenos link)
+    const beamA = 0.05 + energy * 0.18
     g.fillStyle = `rgba(249,158,11,${beamA})`
-    g.beginPath(); g.moveTo(w * 0.30, h * 0.16); g.lineTo(w * 0.05, h * 0.72); g.lineTo(w * 0.22, h * 0.72); g.closePath(); g.fill()
-    g.beginPath(); g.moveTo(w * 0.70, h * 0.16); g.lineTo(w * 0.95, h * 0.72); g.lineTo(w * 0.78, h * 0.72); g.closePath(); g.fill()
+    g.beginPath(); g.moveTo(w * 0.32, 0); g.lineTo(w * 0.06, stageLine); g.lineTo(w * 0.26, stageLine); g.closePath(); g.fill()
+    g.beginPath(); g.moveTo(w * 0.68, 0); g.lineTo(w * 0.94, stageLine); g.lineTo(w * 0.74, stageLine); g.closePath(); g.fill()
 
-    // LED ekranas su atlikėjo nuotrauka + daina
-    const ledW = Math.min(w * 0.52, 230), ledH = ledW * 0.56
-    const ledX = w / 2 - ledW / 2, ledY = h * 0.075
+    // LED ekranas (scenos fonas, viršuje) su atlikėjo nuotrauka
+    const ledW = Math.min(w * 0.62, 260), ledH = ledW * 0.5
+    const ledX = w / 2 - ledW / 2, ledY = h * 0.045
     g.save()
-    g.beginPath(); roundRectPath(g, ledX, ledY, ledW, ledH, 10); g.clip()
+    roundRectPath(g, ledX, ledY, ledW, ledH, 10); g.clip()
     const img = artistImgRef.current
     if (img && img.complete && img.naturalWidth > 0) {
-      // cover
       const ar = img.naturalWidth / img.naturalHeight, tr = ledW / ledH
       let dw = ledW, dh = ledH, ox = 0, oy = 0
       if (ar > tr) { dh = ledH; dw = dh * ar; ox = (ledW - dw) / 2 } else { dw = ledW; dh = dw / ar; oy = (ledH - dh) / 2 }
       g.drawImage(img, ledX + ox, ledY + oy, dw, dh)
     } else { g.fillStyle = '#1a1330'; g.fillRect(ledX, ledY, ledW, ledH) }
-    // titulinė juosta
-    g.fillStyle = 'rgba(0,0,0,0.6)'; g.fillRect(ledX, ledY + ledH - 18, ledW, 18)
     g.restore()
-    g.strokeStyle = `rgba(139,92,246,${0.5 + energy * 0.4})`; g.lineWidth = 2
+    g.strokeStyle = `rgba(139,92,246,${0.45 + energy * 0.45})`; g.lineWidth = 2
     roundRectPath(g, ledX, ledY, ledW, ledH, 10); g.stroke()
 
-    // scena
-    g.fillStyle = '#141a2b'; g.fillRect(0, h * 0.70, w, h * 0.06)
-    g.fillStyle = 'rgba(140,160,190,0.25)'; g.fillRect(0, h * 0.70, w, 1.5)
-    // atlikėjo siluetas ant scenos
-    g.fillStyle = '#0b0f18'; g.strokeStyle = `rgba(249,115,22,${0.5 + energy * 0.4})`; g.lineWidth = 1.5
-    const axc = w / 2
-    g.beginPath(); roundRectPath(g, axc - 7, h * 0.615, 14, h * 0.085, 6); g.fill(); g.stroke()
-    g.beginPath(); g.arc(axc, h * 0.605, 7, 0, Math.PI * 2); g.fill(); g.stroke()
+    // scenos priekio kraštas + rampos šviesos
+    const sg = g.createLinearGradient(0, stageLine - 10, 0, stageLine + 4)
+    sg.addColorStop(0, 'rgba(249,158,11,0)'); sg.addColorStop(1, `rgba(249,158,11,${0.25 + energy * 0.3})`)
+    g.fillStyle = sg; g.fillRect(0, stageLine - 10, w, 14)
+    g.fillStyle = 'rgba(140,160,190,0.35)'; g.fillRect(0, stageLine, w, 2)
 
-    // minia + telefonų šviesos (ryškėja su energija)
-    g.fillStyle = '#0a0e18'; g.fillRect(0, h * 0.76, w, h * 0.24)
-    const heads = 14
-    for (let i = 0; i < heads; i++) {
-      const hx = (w / heads) * (i + 0.5)
-      g.fillStyle = '#131a2b'
-      g.beginPath(); g.arc(hx, h * 0.80 + (i % 2) * 6, 7, 0, Math.PI * 2); g.fill()
-      g.beginPath(); roundRectPath(g, hx - 8, h * 0.82 + (i % 2) * 6, 16, h * 0.12, 6); g.fill()
-    }
-    // šviesos taškai
-    const lights = Math.round(4 + energy * 12)
-    for (let i = 0; i < lights; i++) {
-      const lx = ((i * 53) % 100) / 100 * w
-      const ly = h * (0.78 + ((i * 37) % 12) / 100)
-      const cols = ['#f59e0b', '#22d3ee', '#ec4899', '#a78bfa']
-      g.fillStyle = cols[i % cols.length]
-      g.globalAlpha = 0.5 + energy * 0.5
-      g.beginPath(); g.arc(lx, ly, 2.4, 0, Math.PI * 2); g.fill(); g.globalAlpha = 1
-    }
-
-    // drop banga
-    if (drop) {
-      g.strokeStyle = 'rgba(249,115,22,0.5)'; g.lineWidth = 3
-      roundRectPath(g, 3, 3, w - 6, h - 6, 20); g.stroke()
-    }
-
-    // hype ženklai
-    g.textAlign = 'center'; g.textBaseline = 'middle'
+    // hype ženklai (nupiešti, švytintys)
     for (const it of iconsRef.current) {
       if (it.resolved) continue
-      g.font = `${it.good ? 26 : 24}px system-ui, sans-serif`
-      if (it.good) { g.shadowColor = 'rgba(249,158,11,0.7)'; g.shadowBlur = 10 }
-      g.fillText(it.emoji, it.x, it.y)
-      g.shadowBlur = 0
+      const R = it.good ? 15 : 13
+      if (it.good) {
+        const grd = g.createRadialGradient(it.x, it.y, 1, it.x, it.y, R + 9)
+        grd.addColorStop(0, it.color); grd.addColorStop(1, hexA(it.color, 0))
+        g.fillStyle = grd; g.beginPath(); g.arc(it.x, it.y, R + 9, 0, Math.PI * 2); g.fill()
+        g.fillStyle = it.color; g.beginPath(); g.arc(it.x, it.y, R, 0, Math.PI * 2); g.fill()
+        g.fillStyle = '#0b0f18'; g.font = '900 16px Outfit, system-ui, sans-serif'; g.textAlign = 'center'; g.textBaseline = 'middle'
+        g.fillText(it.glyph, it.x, it.y + 1)
+      } else {
+        g.fillStyle = 'rgba(70,80,98,0.9)'; g.beginPath(); g.arc(it.x, it.y, R, 0, Math.PI * 2); g.fill()
+        g.strokeStyle = 'rgba(200,210,225,0.55)'; g.lineWidth = 2
+        g.beginPath(); g.arc(it.x, it.y, R, 0, Math.PI * 2); g.stroke()
+        g.fillStyle = 'rgba(210,220,235,0.8)'; g.font = '900 15px Outfit, system-ui, sans-serif'; g.textAlign = 'center'; g.textBaseline = 'middle'
+        g.fillText('✕', it.x, it.y + 1)
+      }
     }
     g.textBaseline = 'alphabetic'
+
+    // minia (priekyje, apačioje) — aiškūs siluetai + keli telefonų žiburiai
+    const cg = g.createLinearGradient(0, crowdTop - 6, 0, h)
+    cg.addColorStop(0, 'rgba(6,9,15,0.5)'); cg.addColorStop(0.25, '#05070c'); cg.addColorStop(1, '#04060a')
+    g.fillStyle = cg; g.fillRect(0, crowdTop - 6, w, h - crowdTop + 6)
+    // dvi eilės galvų+pečių
+    g.fillStyle = '#0e1421'
+    const cols = Math.max(7, Math.round(w / 30))
+    for (let row = 0; row < 2; row++) {
+      const baseY = crowdTop + 14 + row * 20
+      for (let i = 0; i <= cols; i++) {
+        const hx = (w / cols) * i + (row % 2 ? w / cols / 2 : 0)
+        g.beginPath(); g.arc(hx, baseY, 8, 0, Math.PI * 2); g.fill()
+        g.beginPath(); roundRectPath(g, hx - 11, baseY + 5, 22, h - baseY, 9); g.fill()
+      }
+    }
+    // pakelti telefonų žiburiai (ryškėja su energija)
+    const lights = Math.round(2 + energy * 6)
+    for (let i = 0; i < lights; i++) {
+      const lx = ((i * 61 + 13) % 100) / 100 * w
+      const ly = crowdTop + 2 + ((i * 29) % 8)
+      g.strokeStyle = 'rgba(120,130,150,0.4)'; g.lineWidth = 1.5
+      g.beginPath(); g.moveTo(lx, ly + 12); g.lineTo(lx, ly); g.stroke()
+      const col = GOOD_COLORS[i % GOOD_COLORS.length]
+      const gr = g.createRadialGradient(lx, ly, 0, lx, ly, 7)
+      gr.addColorStop(0, col); gr.addColorStop(1, hexA(col, 0))
+      g.fillStyle = gr; g.globalAlpha = 0.6 + energy * 0.4
+      g.beginPath(); g.arc(lx, ly, 6, 0, Math.PI * 2); g.fill(); g.globalAlpha = 1
+    }
+
+    // drop rėmelis
+    if (drop) { g.strokeStyle = 'rgba(249,115,22,0.5)'; g.lineWidth = 3; roundRectPath(g, 3, 3, w - 6, h - 6, 20); g.stroke() }
 
     // floats
     const nf: typeof floatsRef.current = []
@@ -375,7 +391,7 @@ export default function KoncertasClient() {
       const age = gt - f.at
       if (age > 0.8) continue
       g.globalAlpha = Math.max(0, 1 - age / 0.8)
-      g.fillStyle = f.color; g.font = '900 15px Outfit, system-ui, sans-serif'; g.textAlign = 'center'
+      g.fillStyle = f.color; g.font = '900 16px Outfit, system-ui, sans-serif'; g.textAlign = 'center'
       g.fillText(f.text, f.x, f.y - age * 34); g.globalAlpha = 1
       nf.push(f)
     }
@@ -384,12 +400,11 @@ export default function KoncertasClient() {
     // HUD
     g.textAlign = 'left'; g.textBaseline = 'alphabetic'
     g.fillStyle = '#e7ebf2'; g.font = '900 20px Outfit, system-ui, sans-serif'
-    g.fillText(`${scoreRef.current}`, 14, 28)
-    if (comboRef.current >= 2) { g.fillStyle = '#f59e0b'; g.font = '900 12px Outfit, system-ui, sans-serif'; g.fillText(`serija ×${comboRef.current}${drop ? '  🔥×2' : ''}`, 14, 46) }
+    g.fillText(`${scoreRef.current}`, 14, 26)
+    if (comboRef.current >= 2) { g.fillStyle = '#f59e0b'; g.font = '900 12px Outfit, system-ui, sans-serif'; g.fillText(`serija ×${comboRef.current}${drop ? '  🔥×2' : ''}`, 14, 44) }
     g.textAlign = 'right'; g.font = '900 17px Outfit, system-ui, sans-serif'; g.fillStyle = '#f87171'
-    g.fillText('❤'.repeat(Math.max(0, livesRef.current)), w - 12, 28)
+    g.fillText('❤'.repeat(Math.max(0, livesRef.current)), w - 12, 26)
 
-    // premijinės gyvybės blyksnis
     const gage = gt - lifeFlashRef.current
     if (gage >= 0 && gage < 1) {
       g.globalAlpha = Math.max(0, (1 - gage) * 0.5)
@@ -404,7 +419,7 @@ export default function KoncertasClient() {
     <ZaidimoLangas title="Dienos koncertas" backHref="/zaidimai/testai" maxWidth={560}>
       <style>{css}</style>
 
-      {phase === 'loading' && <div className="kc-center"><div className="kc-spinner" /><p className="kc-note">{artist ? `Ruošiam ${artist.name} koncertą…` : 'Renkam dienos atlikėją…'}</p></div>}
+      {phase === 'loading' && <div className="kc-center"><div className="kc-spinner" /><p className="kc-note">{artist ? `Ruošiam ${artist.name} koncertą…` : 'Renkam atlikėją…'}</p></div>}
       {phase === 'error' && <div className="kc-center"><div className="kc-error">{err}</div><button className="kc-cta" onClick={() => void init()}>Bandyti dar</button></div>}
 
       {phase === 'ready' && artist && (
@@ -412,9 +427,10 @@ export default function KoncertasClient() {
           <div className="kc-badge">DIENOS KONCERTAS</div>
           <div className="kc-artwrap"><img className="kc-art" src={proxyImg(artist.image, 240)} alt={artist.name} /></div>
           <h1 className="kc-h1">{artist.name}</h1>
-          <p className="kc-lead">Šiandien scenoje — <b>{artist.name}</b>. Groja jo <b>{setlistRef.current.length} dainų setas</b>, finale — didžiausi hitai. Iš minios kyla hype (🙌❤️✨) — <b>baksteli juos</b>, kad minia siaustų. <b>📵 nespaudi.</b> Kuo arčiau finalo ir priedainių, tuo karščiau. 3 gyvybės.</p>
+          <p className="kc-lead">Šiandien scenoje — <b>{artist.name}</b>. Groja <b>{setlistRef.current.length} dainų setas</b>, finale — didžiausias hitas. Iš minios kyla švytintys ženklai (♪ ♫ ★ ♥) — <b>baksteli juos</b>. <b>✕ nespaudi.</b> Kuo populiaresnė daina ir kuo karštesnis priedainis, tuo daugiau kyla. 3 gyvybės.</p>
           <button className="kc-cta big" onClick={start}>▶ Į koncertą</button>
-          <p className="kc-tiny">🔊 Įsijunk garsą — dainos energija valdo minią.</p>
+          <button className="kc-cta ghost sm" onClick={() => void init(true)}>🔀 Kitas atlikėjas</button>
+          <p className="kc-tiny">🔊 Įsijunk garsą — dainos valdo minią.</p>
         </div>
       )}
 
@@ -422,7 +438,7 @@ export default function KoncertasClient() {
         <div className="kc-stage" onPointerDown={onPointerDown}>
           <div className="kc-topbar">🎤 {songNo}/{setlistRef.current.length} · {songLabel}</div>
           <canvas ref={canvasRef} className="kc-canvas" />
-          <div className="kc-hint">baksteli 🙌❤️✨ · venk 📵</div>
+          <div className="kc-hint">baksteli ♪ ♫ ★ ♥ · venk ✕</div>
         </div>
       )}
 
@@ -439,6 +455,7 @@ export default function KoncertasClient() {
           <ScoreDistribution scores={results.scores} score={results.score} percentile={results.percentile} />
           <div className="kc-actions">
             <button className="kc-cta" onClick={start}>Dar kartą</button>
+            <button className="kc-cta ghost" onClick={() => void init(true)}>🔀 Kitas atlikėjas</button>
           </div>
           <Link href="/zaidimai/testai" className="kc-back">← Į testavimą</Link>
         </div>
@@ -473,6 +490,11 @@ function roundRectPath(g: CanvasRenderingContext2D, x: number, y: number, w: num
   g.arcTo(x + w, y, x + w, y + h, r); g.arcTo(x + w, y + h, x, y + h, r)
   g.arcTo(x, y + h, x, y, r); g.arcTo(x, y, x + w, y, r); g.closePath()
 }
+function hexA(hex: string, a: number): string {
+  const m = hex.replace('#', '')
+  const r = parseInt(m.slice(0, 2), 16), gg = parseInt(m.slice(2, 4), 16), b = parseInt(m.slice(4, 6), 16)
+  return `rgba(${r},${gg},${b},${a})`
+}
 function lsGet(k: string): string | null { try { return window.localStorage.getItem(k) } catch { return null } }
 function lsSet(k: string, v: string) { try { window.localStorage.setItem(k, v) } catch { /* ok */ } }
 
@@ -487,7 +509,7 @@ const css = `
 .kc-artwrap { width: 128px; height: 128px; border-radius: 18px; overflow: hidden; margin: 12px 0 8px; border: 1px solid rgba(140,160,190,0.25); box-shadow: 0 10px 30px rgba(0,0,0,0.4); }
 .kc-art { width: 100%; height: 100%; object-fit: cover; display: block; }
 .kc-h1 { font-size: 26px; font-weight: 900; letter-spacing: -0.02em; margin: 4px 0 12px; color: var(--text-primary); }
-.kc-lead { font-size: 14px; color: var(--text-secondary); line-height: 1.6; max-width: 380px; margin: 0 0 18px; }
+.kc-lead { font-size: 14px; color: var(--text-secondary); line-height: 1.6; max-width: 380px; margin: 0 0 16px; }
 .kc-lead b { color: var(--text-primary); }
 .kc-score { font-size: 60px; font-weight: 900; color: var(--accent-orange); line-height: 1; margin: 6px 0; }
 .kc-stats { display: flex; gap: 10px; justify-content: center; margin: 4px 0 16px; }
@@ -498,6 +520,8 @@ const css = `
 .kc-stat.s-star b { color: var(--accent-orange); }
 .kc-cta { font-size: 16px; font-weight: 800; color: #fff; cursor: pointer; border: 0; border-radius: 999px; padding: 13px 28px; background: var(--accent-orange); }
 .kc-cta.big { font-size: 19px; padding: 16px 42px; }
+.kc-cta.sm { margin-top: 10px; padding: 10px 20px; font-size: 14px; }
+.kc-cta.ghost { background: var(--bg-surface); color: var(--text-primary); border: 1px solid rgba(140,160,190,0.3); }
 .kc-actions { display: flex; gap: 12px; flex-wrap: wrap; justify-content: center; margin-bottom: 12px; }
 .kc-tiny { font-size: 12px; color: var(--text-muted); margin: 12px 0 0; }
 .kc-back { font-size: 14px; color: var(--text-secondary); text-decoration: none; }

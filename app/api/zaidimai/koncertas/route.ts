@@ -1,10 +1,13 @@
 // app/api/zaidimai/koncertas/route.ts
 //
 // „Dienos koncertas" — kiekvieną dieną vienas atlikėjas (visiems tas pats),
-// jo dainų SETAS (~10) sukamas viena po kitos. Setas surikiuotas taip, kad
-// FINALE grotų didžiausi hitai (kulminacija).
+// jo dainų SETAS (~10). Setas: didžiausias hitas FINALE, likusios sumaišytos,
+// kad intensyvumas svyruotų. Kiekviena daina turi `pop` (0..1 populiarumas),
+// kuris kliente valdo hype gausą/greitį (hitai — karščiau, retesnės — ramiau).
 //
-//   GET → { artist: { name, image }, setlist: [{ title, url }], date }
+//   GET            → dienos atlikėjas (deterministinis, visiems tas pats)
+//   GET ?kitas=1   → atsitiktinis kitas atlikėjas (testavimui / VIP)
+//   → { artist: { name, image }, setlist: [{ title, url, pop }], date }
 
 import { NextResponse } from 'next/server'
 import { createAdminClient } from '@/lib/supabase'
@@ -17,11 +20,12 @@ export const dynamic = 'force-dynamic'
 const SET_MAX = 10
 const SET_MIN = 6
 
-export async function GET() {
+export async function GET(req: Request) {
   const sb = createAdminClient()
   const date = todayLT()
+  const kitas = new URL(req.url).searchParams.has('kitas')
+  const seed = kitas ? (Math.floor(Math.random() * 1e9) >>> 0) : dailySeed('koncertas')
 
-  // Kandidatai — žinomi atlikėjai su nuotrauka (turi ką rodyti LED ekrane)
   const { data: cands } = await sb
     .from('artists')
     .select('id, name, cover_image_url, score')
@@ -33,8 +37,7 @@ export async function GET() {
   const pool = ((cands as any[]) || []).filter(a => a.name && a.cover_image_url)
   if (!pool.length) return NextResponse.json({ error: 'Nėra atlikėjų' }, { status: 503 })
 
-  // Deterministinis dienos pasirinkimas
-  const ordered = seededShuffle(pool, mulberry32(dailySeed('koncertas')))
+  const ordered = seededShuffle(pool, mulberry32(seed))
 
   for (let attempt = 0; attempt < 6 && attempt < ordered.length; attempt++) {
     const a = ordered[attempt]
@@ -48,14 +51,21 @@ export async function GET() {
     if (rows.length < SET_MIN) continue
 
     const previews = await ensurePreviews(rows.map(t => ({ id: t.id, title: t.title, artist: a.name })))
-    // populiarumo tvarka (didžiausi hitai pirmi)
-    const withUrl: { title: string; url: string }[] = []
-    for (const t of rows) { const u = previews.get(t.id); if (u) withUrl.push({ title: t.title, url: u }) }
+    const withUrl: { title: string; url: string; views: number }[] = []
+    for (const t of rows) {
+      const u = previews.get(t.id)
+      if (u) withUrl.push({ title: t.title, url: u, views: Number(t.video_views) || 0 })
+    }
     if (withUrl.length < SET_MIN) continue
 
-    const top = withUrl.slice(0, SET_MAX)
-    // FINALE = didžiausias hitas → apverčiam (dabar didžiausi gale)
-    const setlist = top.reverse()
+    const top = withUrl.slice(0, SET_MAX)            // populiarumo tvarka (didžiausi pirmi)
+    const maxV = Math.max(1, ...top.map(t => t.views))
+    const withPop = top.map(t => ({ title: t.title, url: t.url, pop: Math.max(0.2, Math.min(1, t.views / maxV)) }))
+
+    // FINALE = didžiausias hitas; likusios sumaišytos, kad intensyvumas svyruotų
+    const finale = withPop[0]
+    const rest = seededShuffle(withPop.slice(1), mulberry32((seed ^ 0x9e3779b9) >>> 0))
+    const setlist = [...rest, finale]
 
     return NextResponse.json({
       artist: { name: a.name, image: a.cover_image_url },
