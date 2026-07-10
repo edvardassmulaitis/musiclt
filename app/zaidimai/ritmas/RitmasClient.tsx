@@ -65,6 +65,7 @@ export default function RitmasClient() {
   const scoreRef = useRef(0)
   const livesRef = useRef(3)
   const invulnRef = useRef(0)
+  const graceRef = useRef(0)       // starto malonės laikas (be kliūčių)
   const flashRef = useRef(0)
   const endedRef = useRef(false)
 
@@ -120,7 +121,7 @@ export default function RitmasClient() {
   function start() {
     const a = audioRef.current!
     gtRef.current = 0; lastTsRef.current = 0; flyRef.current = 0.5; vyRef.current = 0
-    scoreRef.current = 0; livesRef.current = 3; invulnRef.current = 0; flashRef.current = 0
+    scoreRef.current = 0; livesRef.current = 3; invulnRef.current = 0; graceRef.current = 2.2; flashRef.current = 0
     endedRef.current = false; holdingRef.current = false
     a.currentTime = 0
     const p = a.play()
@@ -158,11 +159,12 @@ export default function RitmasClient() {
   }
 
   // tunelio kraštai laikui t (santykiniai 0..1 nuo aukščio)
+  // Platus, atlaidus koridorius; garsumas jį truputį siaurina, centras lėtai banguoja.
   function walls(t: number, difficulty: number): { top: number; bot: number } {
     const e = envAt(t)
-    const center = 0.5 + Math.sin(t * 0.9) * 0.14
-    const baseHalf = 0.30 - difficulty * 0.06
-    const minHalf = 0.14 - difficulty * 0.03
+    const center = 0.5 + Math.sin(t * 0.55) * 0.10
+    const baseHalf = 0.34 - difficulty * 0.05   // tylu → platu
+    const minHalf = 0.23 - difficulty * 0.04    // garsu → siauriau (bet vis dar atlaidu)
     const half = minHalf + (1 - e) * (baseHalf - minHalf)
     return { top: center - half, bot: center + half }
   }
@@ -179,27 +181,30 @@ export default function RitmasClient() {
     gtRef.current += dt
     const gt = gtRef.current
 
-    const difficulty = Math.min(0.7, gt / 90)          // pamažu sunkėja
-    const pps = 150 + gt * 4                            // px/s (greitis auga)
+    const difficulty = Math.min(0.55, gt / 120)        // labai pamažu sunkėja
+    const pps = 115 + gt * 2.6                          // px/s (greitis lėtai auga)
     const flyerX = w * 0.28
 
-    // fizika
+    // fizika — su oro pasipriešinimu (drag), kad būtų sklandu ir valdoma (Copter jausmas):
+    // laikai → kyla iki pastovaus greičio, paleidi → leidiesi iki pastovaus greičio.
     const grav = h * 1.5
-    const thrust = h * 3.4
+    const thrust = h * 3.0
     vyRef.current += (holdingRef.current ? -thrust : grav) * dt
-    vyRef.current = Math.max(-h * 0.9, Math.min(h * 0.9, vyRef.current))
+    vyRef.current -= vyRef.current * 2.4 * dt          // drag → nėra staigių šuolių
+    vyRef.current = Math.max(-h * 0.55, Math.min(h * 0.55, vyRef.current))
     flyRef.current += (vyRef.current / h) * dt
     const flyerY = flyRef.current
 
     // taškai — už nuskristą atstumą
     scoreRef.current += Math.round(pps * dt / 12)
     if (invulnRef.current > 0) invulnRef.current -= dt
+    if (graceRef.current > 0) graceRef.current -= dt
     if (flashRef.current > 0) flashRef.current -= dt
 
     // kolizija ties flyerX (laikas = gt)
     const wl = walls(gt, difficulty)
     const R = 0.028
-    if (invulnRef.current <= 0) {
+    if (invulnRef.current <= 0 && graceRef.current <= 0) {
       if (flyerY - R < wl.top || flyerY + R > wl.bot) {
         livesRef.current--; invulnRef.current = 1.1; flashRef.current = 0.3
         vyRef.current = 0; flyRef.current = (wl.top + wl.bot) / 2   // į koridoriaus vidurį
@@ -250,6 +255,16 @@ export default function RitmasClient() {
     g.fillText(`${scoreRef.current}`, 16, 34)
     g.textAlign = 'right'; g.font = '900 19px Outfit, system-ui, sans-serif'; g.fillStyle = '#f87171'
     g.fillText('❤'.repeat(Math.max(0, livesRef.current)), w - 14, 32)
+
+    // starto malonė — užuomina + centro linija, kad spėtum susigaudyti
+    if (graceRef.current > 0) {
+      g.globalAlpha = Math.min(1, graceRef.current / 0.6)
+      g.fillStyle = '#f59e0b'; g.font = '900 26px Outfit, system-ui, sans-serif'; g.textAlign = 'center'
+      g.fillText(holdingRef.current ? 'kyli ↑' : 'laikyk — kilk ↑', w / 2, h * 0.30)
+      g.font = '800 13px Outfit, system-ui, sans-serif'; g.fillStyle = '#cbd5e1'
+      g.fillText('paleisk — leidiesi ↓', w / 2, h * 0.30 + 24)
+      g.globalAlpha = 1
+    }
 
     if (!endedRef.current) rafRef.current = requestAnimationFrame(loop)
   }

@@ -9,7 +9,7 @@
 import { NextResponse } from 'next/server'
 import { createAdminClient } from '@/lib/supabase'
 import { ensurePreviews } from '@/lib/itunes'
-import { quizCategory, loadQuizPool, shuffleArr } from '@/lib/zaidimai'
+import { shuffleArr } from '@/lib/zaidimai'
 
 export const dynamic = 'force-dynamic'
 
@@ -65,13 +65,24 @@ export async function GET() {
   const distr = shuffleArr(distractors).slice(0, 30)
   if (target.length < 8 || distr.length < 8) return NextResponse.json({ error: 'Per mažai atlikėjų' }, { status: 503 })
 
-  // Foninė muzika
+  // Foninė muzika — TO PATIES STILIAUS (tikslinio žanro atlikėjų dainos)
   let musicUrl: string | null = null
   try {
-    const pool = [...(await loadQuizPool(quizCategory('pasaulis')!)).slice(0, 40), ...(await loadQuizPool(quizCategory('lt-mix')!)).slice(0, 20)]
-    const pick = shuffleArr(pool).slice(0, 6)
-    const previews = await ensurePreviews(pick.map(t => ({ id: t.id, title: t.title, artist: t.artist })))
-    for (const t of pick) { const u = previews.get(t.id); if (u) { musicUrl = u; break } }
+    const ids = Array.from(targetSet)
+    if (ids.length) {
+      const { data: trk } = await sb
+        .from('tracks')
+        .select('id, title, artist_id, video_views, artists:artist_id!inner(name)')
+        .in('artist_id', ids)
+        .order('video_views', { ascending: false, nullsFirst: false })
+        .limit(50)
+      const cand = shuffleArr((trk as any[]) || [])
+        .slice(0, 14)
+        .map(r => ({ id: r.id as number, title: r.title as string, artist: (Array.isArray(r.artists) ? r.artists[0]?.name : r.artists?.name) as string }))
+        .filter(t => t.artist)
+      const previews = await ensurePreviews(cand.map(t => ({ id: t.id, title: t.title, artist: t.artist })))
+      for (const t of cand) { const u = previews.get(t.id); if (u) { musicUrl = u; break } }
+    }
   } catch { /* nebūtina */ }
 
   return NextResponse.json({ genre, artists: shuffleArr([...target, ...distr]), musicUrl })

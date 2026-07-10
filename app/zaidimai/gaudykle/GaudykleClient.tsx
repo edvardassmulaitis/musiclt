@@ -23,7 +23,7 @@ export default function GaudykleClient() {
   const [phase, setPhase] = useState<Phase>('loading')
   const [genre, setGenre] = useState('')
   const [err, setErr] = useState<string | null>(null)
-  const [results, setResults] = useState<{ score: number; level: number; best: number } | null>(null)
+  const [results, setResults] = useState<{ score: number; level: number; best: number; missed: number } | null>(null)
 
   const poolRef = useRef<Artist[]>([])
   const imgRef = useRef<Map<string, HTMLImageElement>>(new Map())
@@ -43,6 +43,8 @@ export default function GaudykleClient() {
   const spawnIdxRef = useRef(0)
   const floatsRef = useRef<{ x: number; y: number; text: string; color: string; at: number }[]>([])
   const levelFlashRef = useRef(-9)
+  const missFlashRef = useRef(-9)
+  const missedRef = useRef(0)
 
   useEffect(() => {
     void init()
@@ -76,6 +78,7 @@ export default function GaudykleClient() {
     itemsRef.current = []; floatsRef.current = []
     scoreRef.current = 0; comboRef.current = 0; livesRef.current = 3; levelRef.current = 1; caughtRef.current = 0
     elapsedRef.current = 0; spawnAccRef.current = 0; lastRef.current = 0; spawnIdxRef.current = 0; levelFlashRef.current = -9
+    missFlashRef.current = -9; missedRef.current = 0
     catcherXRef.current = 0.5
     try { if (musicRef.current) { musicRef.current.currentTime = 0; void musicRef.current.play().catch(() => {}) } } catch { /* nebūtina */ }
     setPhase('play')
@@ -112,7 +115,7 @@ export default function GaudykleClient() {
     try { musicRef.current?.pause() } catch { /* ok */ }
     const best = Math.max(scoreRef.current, Number(lsGet('gaudykle_best') || 0))
     lsSet('gaudykle_best', String(best))
-    setResults({ score: scoreRef.current, level: levelRef.current, best })
+    setResults({ score: scoreRef.current, level: levelRef.current, best, missed: missedRef.current })
     setPhase('results')
   }
 
@@ -165,7 +168,16 @@ export default function GaudykleClient() {
         }
         continue
       }
-      if (it.y > h + 34) { if (it.a.target) comboRef.current = 0; continue }
+      if (it.y > h + 34) {
+        if (it.a.target) {
+          // praleidai teisingą — serija nutrūksta + aiškus ženklas
+          comboRef.current = 0; missedRef.current++
+          missFlashRef.current = elapsedRef.current
+          const nm = it.a.name.length > 14 ? it.a.name.slice(0, 13) + '…' : it.a.name
+          floatsRef.current.push({ x: Math.max(60, Math.min(w - 60, it.x * w)), y: h - 66, text: `praleidai: ${nm}`, color: '#f59e0b', at: elapsedRef.current })
+        }
+        continue
+      }
       keep.push(it)
     }
     itemsRef.current = keep
@@ -230,6 +242,15 @@ export default function GaudykleClient() {
       g.fillText(`LYGIS ${level}`, w / 2, h * 0.28); g.globalAlpha = 1
     }
 
+    // praleisto teisingo blyksnis — apatinis gintarinis kraštas
+    const mage = elapsedRef.current - missFlashRef.current
+    if (mage >= 0 && mage < 0.5) {
+      g.globalAlpha = Math.max(0, (1 - mage / 0.5) * 0.6)
+      const grad = g.createLinearGradient(0, h, 0, h - 80)
+      grad.addColorStop(0, 'rgba(245,158,11,0.9)'); grad.addColorStop(1, 'rgba(245,158,11,0)')
+      g.fillStyle = grad; g.fillRect(0, h - 80, w, 80); g.globalAlpha = 1
+    }
+
     rafRef.current = requestAnimationFrame(loop)
   }
 
@@ -247,7 +268,7 @@ export default function GaudykleClient() {
           <div className="gd-target">🎯 Gaudyk tik: <b>{genre}</b></div>
           <p className="gd-lead"><b>Tempk krepšelį pirštu</b> ir gaudyk tik nurodyto stiliaus atlikėjus. Kitus <b>praleisk</b> — pagavai ne tą stilių, minus gyvybė. Turi <b>3 gyvybes</b>; greitis auga su lygiais.</p>
           <button className="gd-cta big" onClick={start}>▶ Pradėti</button>
-          <p className="gd-tiny">🔊 Groja foninė muzika (garsas nebūtinas).</p>
+          <p className="gd-tiny">🔊 Fone groja <b>{genre}</b> stiliaus daina (garsas nebūtinas).</p>
         </div>
       )}
 
@@ -262,7 +283,7 @@ export default function GaudykleClient() {
         <div className="gd-ready">
           <div className="gd-badge">REZULTATAS</div>
           <div className="gd-score">{results.score}</div>
-          <p className="gd-lead">Pasiektas lygis <b>{results.level}</b> · geriausias rezultatas <b>{results.best}</b></p>
+          <p className="gd-lead">Pasiektas lygis <b>{results.level}</b> · praleista teisingų <b>{results.missed}</b> · geriausias rezultatas <b>{results.best}</b></p>
           <div className="gd-actions">
             <button className="gd-cta" onClick={start}>Dar kartą</button>
             <button className="gd-cta ghost" onClick={() => void init()}>Kitas stilius →</button>
