@@ -53,8 +53,9 @@ function ReviewCard({ item, onDone, onError }: { item: SeenLivePending; onDone: 
 
   // Renginys
   const hasEvent = !!item.event
-  const proposedEvent = !!(item.raw_event_title || item.raw_event_venue || item.raw_event_city)
-  const [evMode, setEvMode] = useState<EventMode>('keep')
+  const proposedEvent = !!(item.raw_event_title || item.raw_event_venue || item.raw_event_city || item.raw_event_is_festival)
+  // Kai narys pasiūlė renginį — numatytai KURIAM realų renginį DB (kad kiti galėtų pasirinkti).
+  const [evMode, setEvMode] = useState<EventMode>(proposedEvent ? 'create' : 'keep')
   const [geo, setGeo] = useState<GeoValue>({
     ...EMPTY_GEO,
     countryName: item.raw_event_country || 'Lietuva',
@@ -63,7 +64,7 @@ function ReviewCard({ item, onDone, onError }: { item: SeenLivePending; onDone: 
   })
   const [isFestival, setIsFestival] = useState(!!item.raw_event_is_festival)
   const [evTitle, setEvTitle] = useState(item.raw_event_title || '')
-  const [evDate, setEvDate] = useState(item.seen_date || '')
+  const [evDate, setEvDate] = useState(item.seen_date || (item.seen_year ? `${item.seen_year}-01-01` : ''))
   const [extraArtists, setExtraArtists] = useState<ArtistHit[]>([])
   const [linkedEvent, setLinkedEvent] = useState<EventHit | null>(null)
   const [year, setYear] = useState(item.seen_year ? String(item.seen_year) : '')
