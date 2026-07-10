@@ -503,16 +503,21 @@ export default function BendruomeneSection() {
       </div>
 
       <Scroller gap={12} ariaLabel="Bendruomenė">
-        {sightings.map(s => <SightingCard key={`sl-${s.id}`} it={s} onOpen={() => setViewer(s)} />)}
         {loading
           ? Array(5).fill(null).map((_, i) => <CardSkel key={i} />)
-          : items.map(it => {
-              if (it.type === 'dd') return <DDCard key={it.id} it={it} />
-              if (it.type === 'discussion') return <DiscCard key={it.id} it={it} />
-              if (it.type === 'atradimas') return <AtradimasCard key={it.id} it={it} />
-              if (it.subtype === 'topas') return <TopasCard key={it.id} it={it} />
-              return <BlogCard key={it.id} it={it} />
-            })
+          : (() => {
+              const cards = items.map(it => {
+                if (it.type === 'dd') return <DDCard key={it.id} it={it} />
+                if (it.type === 'discussion') return <DiscCard key={it.id} it={it} />
+                if (it.type === 'atradimas') return <AtradimasCard key={it.id} it={it} />
+                if (it.subtype === 'topas') return <TopasCard key={it.id} it={it} />
+                return <BlogCard key={it.id} it={it} />
+              })
+              // Vienas naujausias koncerto įrašas — įterpiamas 2-oje vietoje (ne pirmas).
+              const one = sightings[0]
+              if (one) cards.splice(Math.min(1, cards.length), 0, <SightingCard key={`sl-${one.id}`} it={one} onOpen={() => setViewer(one)} />)
+              return cards
+            })()
         }
       </Scroller>
 
