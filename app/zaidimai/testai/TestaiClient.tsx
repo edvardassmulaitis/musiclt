@@ -21,9 +21,13 @@ const ICONS = {
   calendar: ic(<><rect x="3" y="4" width="18" height="18" rx="2" /><line x1="16" x2="16" y1="2" y2="6" /><line x1="8" x2="8" y1="2" y2="6" /><line x1="3" x2="21" y1="10" y2="10" /></>),
   swords: ic(<><polyline points="14.5 17.5 3 6 3 3 6 3 17.5 14.5" /><line x1="13" x2="19" y1="19" y2="13" /><line x1="16" x2="20" y1="16" y2="20" /><line x1="19" x2="21" y1="21" y2="19" /><polyline points="14.5 6.5 18 3 21 3 21 6 17.5 9.5" /><line x1="5" x2="9" y1="14" y2="18" /><line x1="7" x2="4" y1="17" y2="20" /><line x1="3" x2="5" y1="19" y2="21" /></>),
   briefcase: ic(<><rect x="2" y="7" width="20" height="14" rx="2" /><path d="M16 21V5a2 2 0 0 0-2-2h-4a2 2 0 0 0-2 2v16" /></>),
+  target: ic(<><circle cx="12" cy="12" r="10" /><circle cx="12" cy="12" r="6" /><circle cx="12" cy="12" r="2" /></>),
+  note: ic(<><circle cx="8" cy="18" r="3" /><circle cx="18" cy="16" r="3" /><path d="M11 18V5l10-2v13" /></>),
 }
 
 const GAMES = [
+  { href: '/zaidimai/ritmas', icon: ICONS.target, title: 'Pataikyk į bitą 🆕', desc: 'Ritmo žaidimas — baksteli pagal tikrą dainą' },
+  { href: '/zaidimai/gaudykle', icon: ICONS.note, title: 'Natų gaudyklė 🆕', desc: 'Gaudyk krentančias natas — be garso' },
   { href: '/zaidimai/dienos', icon: ICONS.zap, title: 'Dienos iššūkis', desc: 'Visas kasdienis rinkinys iš eilės' },
   { href: '/zaidimai/dainu-kvizas', icon: ICONS.headphones, title: 'Atspėk dainą', desc: 'Audio kvizas, 4 variantai' },
   { href: '/zaidimai/atspek-is-sekundes', icon: ICONS.timer, title: 'Atspėk iš sekundės', desc: '1 s → +3 s → +5 s ištrauka' },
