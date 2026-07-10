@@ -4,8 +4,8 @@ import RitmasClient from './RitmasClient'
 export const dynamic = 'force-dynamic'
 
 export const metadata: Metadata = {
-  title: 'Skrisk pro bitą — muzikos žaidimas | music.lt',
-  description: 'Skrisk pro tunelį, kurio sienos juda pagal tikrą dainos garsumą. Laikai — kyla, paleidi — leidžiasi.',
+  title: 'Pataikyk į taktą — muzikos žaidimas | music.lt',
+  description: 'Taikiniai atsiranda tiksliai ant dainos bitų — bakstelėk, kai žiedas užsidaro. Timing, serijos, gyvybės.',
   robots: { index: false, follow: false },
 }
 

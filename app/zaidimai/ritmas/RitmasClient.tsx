@@ -2,12 +2,13 @@
 
 // app/zaidimai/ritmas/RitmasClient.tsx
 //
-// „Skrisk pro bitą" — skrendi pro tunelį, kurio SIENOS formuojamos iš TIKRO
-// dainos garsumo (envelope). Laikai — kyli, paleidi — leidiesi. Venk sienų.
+// „Pataikyk į taktą" — taikiniai atsiranda TIKSLIAI ant dainos bitų (onset'ai
+// surandami iš anksto dekodavus ištrauką). Aplink taikinį traukiasi žiedas;
+// bakstelėk tą akimirką, kai žiedas užsidaro — o tai ir yra bitas.
+//   * Timing: Perfect / Gerai / Pro šalį; serija augina daugiklį.
 //   * GARSAS: HTML5 <audio> (iOS Safari kelias), grojama kilpa.
-//   * Sienos ir scenos pulsavimas — iš dainos garsumo (skaičiuojama iš anksto
-//     dekodavus ištrauką → patikima ir iOS, be realaus laiko analizės).
-//   * 3 gyvybės; greitis auga; canvas 60fps.
+//   * 3 gyvybės; 20 iš eilės → +1 gyvybė; kartojant dainą greitėja žiedas.
+//   * Canvas 60fps; fonas pulsuoja pagal tikrą dainos garsumą.
 
 import { useEffect, useRef, useState } from 'react'
 import Link from 'next/link'
@@ -15,58 +16,92 @@ import ZaidimoLangas from '@/components/zaidimai/ZaidimoLangas'
 
 type Track = { id: number; title: string; artist: string; previewUrl: string }
 type Phase = 'loading' | 'ready' | 'play' | 'results' | 'error'
+type Target = { hitT: number; x: number; y: number; resolved: boolean; judge: '' | 'perfect' | 'good' | 'miss'; deadAt: number }
 
-const FRAME = 0.02   // s — envelope skiriamoji geba
+const MAX_LIVES = 5
+const PERFECT = 0.075   // s — puikaus pataikymo langas
+const GOOD = 0.155      // s — gero pataikymo langas
+const MISS_AFTER = 0.19 // s po bito — praleista
 
-// Garsumo „envelope" (0..1) iš dekoduoto buferio + lengvas išlyginimas
-function buildEnvelope(buf: AudioBuffer): { env: Float32Array; dur: number } {
+// Garsumo envelope (0..1) fonui + onset'ai (bitai) žaidimui — viskas iš vieno dekodavimo.
+function analyze(buf: AudioBuffer): { env: Float32Array; frameT: number; onsets: number[]; dur: number } {
   const ch = buf.getChannelData(0)
   const sr = buf.sampleRate
-  const hop = Math.max(1, Math.round(sr * FRAME))
+  const hop = Math.max(1, Math.round(sr * 0.011))
+  const frameT = hop / sr
   const n = Math.floor(ch.length / hop)
-  const raw = new Float32Array(n)
+  const e = new Float32Array(n)
   let mx = 1e-6
   for (let i = 0; i < n; i++) {
     let s = 0
     for (let j = 0; j < hop; j++) { const v = ch[i * hop + j] || 0; s += v * v }
-    raw[i] = Math.sqrt(s / hop)
-    if (raw[i] > mx) mx = raw[i]
+    e[i] = Math.sqrt(s / hop)
+    if (e[i] > mx) mx = e[i]
   }
-  // normalizuojam + išlyginam (slenkantis vidurkis)
+  // fono envelope — normalizuota + išlyginta
   const env = new Float32Array(n)
   const win = 4
   for (let i = 0; i < n; i++) {
     let sum = 0, cnt = 0
-    for (let k = Math.max(0, i - win); k <= Math.min(n - 1, i + win); k++) { sum += raw[k]; cnt++ }
+    for (let k = Math.max(0, i - win); k <= Math.min(n - 1, i + win); k++) { sum += e[k]; cnt++ }
     env[i] = Math.min(1, (sum / cnt) / mx)
   }
-  return { env, dur: buf.duration }
+  // onset'ai — teigiamas energijos pokytis (flux) + adaptyvus slenkstis
+  const flux = new Float32Array(n)
+  for (let i = 1; i < n; i++) flux[i] = Math.max(0, e[i] - e[i - 1])
+  const W = Math.round(0.22 / frameT)
+  const minGap = Math.round(0.26 / frameT)
+  const pick = (k: number): number[] => {
+    const out: number[] = []
+    let last = -1e9
+    for (let i = 1; i < n - 1; i++) {
+      let sum = 0, cnt = 0
+      for (let m = Math.max(0, i - W); m <= Math.min(n - 1, i + W); m++) { sum += flux[m]; cnt++ }
+      const thr = (sum / cnt) * k + 1e-4
+      if (flux[i] > thr && flux[i] >= flux[i - 1] && flux[i] >= flux[i + 1] && (i - last) >= minGap) {
+        out.push(i * frameT); last = i
+      }
+    }
+    return out
+  }
+  let onsets = pick(1.7)
+  if (onsets.length < 20) onsets = pick(1.3)
+  if (onsets.length < 12) onsets = pick(1.0)
+  if (onsets.length < 8) { onsets = []; for (let t = 0.5; t < buf.duration - 0.2; t += 0.5) onsets.push(t) }
+  return { env, frameT, onsets, dur: buf.duration }
 }
 
 export default function RitmasClient() {
   const [phase, setPhase] = useState<Phase>('loading')
   const [track, setTrack] = useState<Track | null>(null)
   const [err, setErr] = useState<string | null>(null)
-  const [results, setResults] = useState<{ score: number; best: number } | null>(null)
+  const [results, setResults] = useState<{ score: number; maxCombo: number; perfect: number; best: number } | null>(null)
 
   const tracksRef = useRef<Track[]>([])
   const trackIdxRef = useRef(0)
   const audioRef = useRef<HTMLAudioElement | null>(null)
   const envRef = useRef<Float32Array>(new Float32Array([0]))
+  const frameTRef = useRef(0.011)
+  const onsetsRef = useRef<number[]>([])
   const durRef = useRef(30)
   const canvasRef = useRef<HTMLCanvasElement | null>(null)
   const rafRef = useRef(0)
 
-  const holdingRef = useRef(false)
-  const gtRef = useRef(0)          // žaidimo laikas (nepertraukiamas)
+  const gtRef = useRef(0)
   const lastTsRef = useRef(0)
-  const flyRef = useRef(0.5)       // 0..1 (santykinis y)
-  const vyRef = useRef(0)
+  const loopBaseRef = useRef(0)
+  const spawnCursorRef = useRef(0)
+  const diffRef = useRef(0)
+  const targetsRef = useRef<Target[]>([])
+  const lastPosRef = useRef<{ x: number; y: number }>({ x: 0.5, y: 0.5 })
+
   const scoreRef = useRef(0)
+  const comboRef = useRef(0)
+  const maxComboRef = useRef(0)
+  const perfectRef = useRef(0)
   const livesRef = useRef(3)
-  const invulnRef = useRef(0)
-  const graceRef = useRef(0)       // starto malonės laikas (be kliūčių)
-  const flashRef = useRef(0)
+  const lifeFlashRef = useRef(-9)
+  const floatsRef = useRef<{ x: number; y: number; text: string; color: string; at: number }[]>([])
   const endedRef = useRef(false)
 
   useEffect(() => {
@@ -98,8 +133,8 @@ export default function RitmasClient() {
       const AC = (window.AudioContext || (window as any).webkitAudioContext)
       const ctx = new AC()
       const buf = await ctx.decodeAudioData(ab.slice(0))
-      const { env, dur } = buildEnvelope(buf)
-      envRef.current = env; durRef.current = dur
+      const { env, frameT, onsets, dur } = analyze(buf)
+      envRef.current = env; frameTRef.current = frameT; onsetsRef.current = onsets; durRef.current = dur
       try { await ctx.close() } catch { /* ok */ }
       audioRef.current!.src = t.previewUrl
       audioRef.current!.load()
@@ -111,19 +146,33 @@ export default function RitmasClient() {
     const dur = durRef.current
     let tt = t % dur; if (tt < 0) tt += dur
     const env = envRef.current
-    const f = tt / FRAME
+    const f = tt / frameTRef.current
     const i = Math.floor(f)
-    const frac = f - i
     const a = env[i] || 0, b = env[(i + 1) % env.length] || 0
-    return a + (b - a) * frac
+    return a + (b - a) * (f - i)
+  }
+
+  function nextPos(): { x: number; y: number } {
+    // atsitiktinė vieta, bet ne per arti ankstesnės (verčia judinti pirštą)
+    const prev = lastPosRef.current
+    let x = 0.5, y = 0.5
+    for (let tries = 0; tries < 8; tries++) {
+      x = 0.15 + Math.random() * 0.70
+      y = 0.20 + Math.random() * 0.56
+      const dx = x - prev.x, dy = y - prev.y
+      if (dx * dx + dy * dy > 0.05) break
+    }
+    lastPosRef.current = { x, y }
+    return { x, y }
   }
 
   function start() {
+    gtRef.current = 0; lastTsRef.current = 0; loopBaseRef.current = 0; spawnCursorRef.current = 0; diffRef.current = 0
+    targetsRef.current = []; floatsRef.current = []; lastPosRef.current = { x: 0.5, y: 0.5 }
+    scoreRef.current = 0; comboRef.current = 0; maxComboRef.current = 0; perfectRef.current = 0
+    livesRef.current = 3; lifeFlashRef.current = -9; endedRef.current = false
     const a = audioRef.current!
-    gtRef.current = 0; lastTsRef.current = 0; flyRef.current = 0.5; vyRef.current = 0
-    scoreRef.current = 0; livesRef.current = 3; invulnRef.current = 0; graceRef.current = 2.2; flashRef.current = 0
-    endedRef.current = false; holdingRef.current = false
-    a.currentTime = 0
+    a.loop = true; a.currentTime = 0
     const p = a.play()
     if (p?.catch) p.catch(() => { setErr('Naršyklė neleido paleisti garso — bakstelk dar kartą'); setPhase('error') })
     setPhase('play')
@@ -133,9 +182,9 @@ export default function RitmasClient() {
     endedRef.current = true
     cancelAnimationFrame(rafRef.current)
     try { audioRef.current?.pause() } catch { /* ok */ }
-    const best = Math.max(scoreRef.current, Number(lsGet('ritmas_best') || 0))
-    lsSet('ritmas_best', String(best))
-    setResults({ score: scoreRef.current, best })
+    const best = Math.max(scoreRef.current, Number(lsGet('taktas_best') || 0))
+    lsSet('taktas_best', String(best))
+    setResults({ score: scoreRef.current, maxCombo: maxComboRef.current, perfect: perfectRef.current, best })
     setPhase('results')
   }
 
@@ -158,20 +207,62 @@ export default function RitmasClient() {
     c.getContext('2d')!.setTransform(dpr, 0, 0, dpr, 0, 0)
   }
 
-  // tunelio kraštai laikui t (santykiniai 0..1 nuo aukščio)
-  // Platus, atlaidus koridorius; garsumas jį truputį siaurina, centras lėtai banguoja.
-  function walls(t: number, difficulty: number): { top: number; bot: number } {
-    const e = envAt(t)
-    const center = 0.5 + Math.sin(t * 0.55) * 0.10
-    const baseHalf = 0.34 - difficulty * 0.05   // tylu → platu
-    const minHalf = 0.23 - difficulty * 0.04    // garsu → siauriau (bet vis dar atlaidu)
-    const half = minHalf + (1 - e) * (baseHalf - minHalf)
-    return { top: center - half, bot: center + half }
+  function approachDur(): number { return Math.max(0.60, 1.05 - diffRef.current * 0.08) }
+
+  function multiplier(): number {
+    const c = comboRef.current
+    if (c >= 35) return 5
+    if (c >= 20) return 4
+    if (c >= 10) return 3
+    if (c >= 5) return 2
+    return 1
+  }
+
+  function judgeTap(px: number, py: number, w: number, h: number) {
+    const gt = gtRef.current
+    let bestI = -1, bestDt = 1e9
+    for (let i = 0; i < targetsRef.current.length; i++) {
+      const t = targetsRef.current[i]
+      if (t.resolved) continue
+      const dt = Math.abs(gt - t.hitT)
+      if (dt > GOOD) continue
+      // ar bakstelėta ant taikinio (su atsarga)
+      const dx = px - t.x * w, dy = py - t.y * h
+      const R = 26
+      if (dx * dx + dy * dy > (R * 1.8) * (R * 1.8)) continue
+      if (dt < bestDt) { bestDt = dt; bestI = i }
+    }
+    if (bestI < 0) return
+    const t = targetsRef.current[bestI]
+    t.resolved = true; t.deadAt = gt + 0.35
+    const mult = multiplier()
+    if (bestDt <= PERFECT) {
+      t.judge = 'perfect'; comboRef.current++; perfectRef.current++
+      scoreRef.current += 100 * mult
+      floatsRef.current.push({ x: t.x * w, y: t.y * h - 34, text: `PERFECT ×${mult}`, color: '#22c55e', at: gt })
+    } else {
+      t.judge = 'good'; comboRef.current++
+      scoreRef.current += 50 * mult
+      floatsRef.current.push({ x: t.x * w, y: t.y * h - 34, text: `Gerai ×${mult}`, color: '#22d3ee', at: gt })
+    }
+    if (comboRef.current > maxComboRef.current) maxComboRef.current = comboRef.current
+    // 20 iš eilės → +1 gyvybė
+    if (comboRef.current > 0 && comboRef.current % 20 === 0 && livesRef.current < MAX_LIVES) {
+      livesRef.current++; lifeFlashRef.current = gt
+      floatsRef.current.push({ x: t.x * w, y: t.y * h - 60, text: '+1 gyvybė ❤', color: '#22c55e', at: gt })
+    }
+  }
+
+  function onPointerDown(e: React.PointerEvent) {
+    const c = canvasRef.current
+    if (!c) return
+    const rect = c.getBoundingClientRect()
+    judgeTap(e.clientX - rect.left, e.clientY - rect.top, rect.width, rect.height)
   }
 
   function loop(ts: number) {
-    const c = canvasRef.current, a = audioRef.current
-    if (!c || !a) { rafRef.current = requestAnimationFrame(loop); return }
+    const c = canvasRef.current
+    if (!c) { rafRef.current = requestAnimationFrame(loop); return }
     const g = c.getContext('2d')!
     const w = c.clientWidth, h = c.clientHeight
     if (!lastTsRef.current) lastTsRef.current = ts
@@ -180,96 +271,102 @@ export default function RitmasClient() {
     if (dt > 0.05) dt = 0.05
     gtRef.current += dt
     const gt = gtRef.current
+    const approach = approachDur()
 
-    const difficulty = Math.min(0.55, gt / 120)        // labai pamažu sunkėja
-    const pps = 115 + gt * 2.6                          // px/s (greitis lėtai auga)
-    const flyerX = w * 0.28
+    // spawn'inam taikinius, kai artėja jų bitas
+    const onsets = onsetsRef.current
+    while (spawnCursorRef.current < onsets.length && gt >= loopBaseRef.current + onsets[spawnCursorRef.current] - approach) {
+      const hitT = loopBaseRef.current + onsets[spawnCursorRef.current]
+      const pos = nextPos()
+      targetsRef.current.push({ hitT, x: pos.x, y: pos.y, resolved: false, judge: '', deadAt: 0 })
+      spawnCursorRef.current++
+    }
+    if (spawnCursorRef.current >= onsets.length && onsets.length) {
+      loopBaseRef.current += durRef.current
+      spawnCursorRef.current = 0
+      diffRef.current++    // kita daina greitesnė
+    }
 
-    // fizika — su oro pasipriešinimu (drag), kad būtų sklandu ir valdoma (Copter jausmas):
-    // laikai → kyla iki pastovaus greičio, paleidi → leidiesi iki pastovaus greičio.
-    const grav = h * 1.5
-    const thrust = h * 3.0
-    vyRef.current += (holdingRef.current ? -thrust : grav) * dt
-    vyRef.current -= vyRef.current * 2.4 * dt          // drag → nėra staigių šuolių
-    vyRef.current = Math.max(-h * 0.55, Math.min(h * 0.55, vyRef.current))
-    flyRef.current += (vyRef.current / h) * dt
-    const flyerY = flyRef.current
-
-    // taškai — už nuskristą atstumą
-    scoreRef.current += Math.round(pps * dt / 12)
-    if (invulnRef.current > 0) invulnRef.current -= dt
-    if (graceRef.current > 0) graceRef.current -= dt
-    if (flashRef.current > 0) flashRef.current -= dt
-
-    // kolizija ties flyerX (laikas = gt)
-    const wl = walls(gt, difficulty)
-    const R = 0.028
-    if (invulnRef.current <= 0 && graceRef.current <= 0) {
-      if (flyerY - R < wl.top || flyerY + R > wl.bot) {
-        livesRef.current--; invulnRef.current = 1.1; flashRef.current = 0.3
-        vyRef.current = 0; flyRef.current = (wl.top + wl.bot) / 2   // į koridoriaus vidurį
-        if (livesRef.current <= 0) { finish(); return }
+    // praleisti taikiniai (nespėta bakstelėti)
+    for (const t of targetsRef.current) {
+      if (!t.resolved && gt - t.hitT > MISS_AFTER) {
+        t.resolved = true; t.judge = 'miss'; t.deadAt = gt + 0.35
+        comboRef.current = 0; livesRef.current--
+        floatsRef.current.push({ x: t.x * w, y: t.y * h - 34, text: 'Pro šalį', color: '#f87171', at: gt })
       }
     }
-    // neišskristi pro viršų/apačią
-    if (flyRef.current < 0.02) { flyRef.current = 0.02; vyRef.current = 0 }
-    if (flyRef.current > 0.98) { flyRef.current = 0.98; vyRef.current = 0 }
+    targetsRef.current = targetsRef.current.filter(t => !(t.resolved && gt > t.deadAt))
+    if (livesRef.current <= 0) { finish(); return }
 
     // ── piešimas ──
     const eNow = envAt(gt)
     g.clearRect(0, 0, w, h)
-    // fonas — pulsuoja pagal garsumą
-    g.fillStyle = `rgb(${10 + eNow * 24},${16 + eNow * 20},${30 + eNow * 26})`
+    g.fillStyle = `rgb(${10 + eNow * 20},${14 + eNow * 16},${26 + eNow * 26})`
     g.fillRect(0, 0, w, h)
+    // pulsuojantis švytėjimas centre pagal garsumą
+    const glow = g.createRadialGradient(w / 2, h / 2, 0, w / 2, h / 2, Math.max(w, h) * 0.6)
+    glow.addColorStop(0, `rgba(236,72,153,${0.05 + eNow * 0.13})`); glow.addColorStop(1, 'rgba(236,72,153,0)')
+    g.fillStyle = glow; g.fillRect(0, 0, w, h)
 
-    // sienos (iš envelope) — imam stulpelius per visą plotį
-    const step = 6
-    g.fillStyle = 'rgba(139,92,246,0.6)'
-    // viršus
-    g.beginPath(); g.moveTo(0, 0)
-    for (let x = 0; x <= w; x += step) { const t = gt + (x - flyerX) / pps; g.lineTo(x, walls(t, difficulty).top * h) }
-    g.lineTo(w, 0); g.closePath(); g.fill()
-    // apačia
-    g.beginPath(); g.moveTo(0, h)
-    for (let x = 0; x <= w; x += step) { const t = gt + (x - flyerX) / pps; g.lineTo(x, walls(t, difficulty).bot * h) }
-    g.lineTo(w, h); g.closePath(); g.fill()
-    // sienų kraštų linija (ryškesnė)
-    g.strokeStyle = 'rgba(196,181,253,0.7)'; g.lineWidth = 2
-    g.beginPath(); for (let x = 0; x <= w; x += step) { const t = gt + (x - flyerX) / pps; const y = walls(t, difficulty).top * h; x === 0 ? g.moveTo(x, y) : g.lineTo(x, y) } g.stroke()
-    g.beginPath(); for (let x = 0; x <= w; x += step) { const t = gt + (x - flyerX) / pps; const y = walls(t, difficulty).bot * h; x === 0 ? g.moveTo(x, y) : g.lineTo(x, y) } g.stroke()
-
-    // flyeris (mirksi kai invuln)
-    const blink = invulnRef.current > 0 && (Math.floor(gt * 12) % 2 === 0)
-    if (!blink) {
-      const fy = flyerY * h
-      g.shadowColor = '#22d3ee'; g.shadowBlur = 16
-      g.fillStyle = '#22d3ee'; g.beginPath(); g.arc(flyerX, fy, R * h, 0, Math.PI * 2); g.fill()
-      g.shadowBlur = 0
+    const R = 26
+    for (const t of targetsRef.current) {
+      const cx = t.x * w, cy = t.y * h
+      const tth = t.hitT - gt
+      if (!t.resolved) {
+        // artėjantis žiedas: nuo didelio iki taikinio spindulio ties bitu
+        const prog = Math.max(0, Math.min(1, tth / approach))   // 1 = ką tik atsirado, 0 = bitas
+        const ringR = R + prog * R * 3.2
+        const near = tth < PERFECT * 1.4 && tth > -PERFECT * 1.4
+        g.strokeStyle = near ? 'rgba(34,197,94,0.95)' : 'rgba(34,211,238,0.85)'
+        g.lineWidth = near ? 4 : 3
+        g.beginPath(); g.arc(cx, cy, ringR, 0, Math.PI * 2); g.stroke()
+        // taikinys
+        g.shadowColor = 'rgba(236,72,153,0.8)'; g.shadowBlur = 16
+        g.fillStyle = '#ec4899'; g.beginPath(); g.arc(cx, cy, R, 0, Math.PI * 2); g.fill()
+        g.shadowBlur = 0
+        g.fillStyle = '#fff'; g.font = '900 20px Outfit, system-ui, sans-serif'; g.textAlign = 'center'; g.textBaseline = 'middle'
+        g.fillText('♪', cx, cy + 1); g.textBaseline = 'alphabetic'
+      } else if (t.judge === 'perfect' || t.judge === 'good') {
+        // trumpas „sprogimo" žiedas pataikius
+        const age = gt - (t.deadAt - 0.35)
+        const rr = R + age * 120
+        g.globalAlpha = Math.max(0, 1 - age / 0.35)
+        g.strokeStyle = t.judge === 'perfect' ? 'rgba(34,197,94,0.9)' : 'rgba(34,211,238,0.9)'
+        g.lineWidth = 3; g.beginPath(); g.arc(cx, cy, rr, 0, Math.PI * 2); g.stroke(); g.globalAlpha = 1
+      }
     }
 
-    // blyksnis susidūrus
-    if (flashRef.current > 0) { g.fillStyle = `rgba(239,68,68,${flashRef.current})`; g.fillRect(0, 0, w, h) }
+    // plaukiantys užrašai
+    const nf: typeof floatsRef.current = []
+    for (const f of floatsRef.current) {
+      const age = gt - f.at
+      if (age > 0.8) continue
+      g.globalAlpha = Math.max(0, 1 - age / 0.8)
+      g.fillStyle = f.color; g.font = '900 16px Outfit, system-ui, sans-serif'; g.textAlign = 'center'
+      g.fillText(f.text, f.x, f.y - age * 34); g.globalAlpha = 1
+      nf.push(f)
+    }
+    floatsRef.current = nf
 
     // HUD
     g.fillStyle = '#e7ebf2'; g.font = '900 22px Outfit, system-ui, sans-serif'; g.textAlign = 'left'
     g.fillText(`${scoreRef.current}`, 16, 34)
+    g.fillStyle = '#f59e0b'; g.font = '900 14px Outfit, system-ui, sans-serif'
+    g.fillText(`×${multiplier()}  serija ${comboRef.current}`, 16, 54)
     g.textAlign = 'right'; g.font = '900 19px Outfit, system-ui, sans-serif'; g.fillStyle = '#f87171'
     g.fillText('❤'.repeat(Math.max(0, livesRef.current)), w - 14, 32)
 
-    // starto malonė — užuomina + centro linija, kad spėtum susigaudyti
-    if (graceRef.current > 0) {
-      g.globalAlpha = Math.min(1, graceRef.current / 0.6)
-      g.fillStyle = '#f59e0b'; g.font = '900 26px Outfit, system-ui, sans-serif'; g.textAlign = 'center'
-      g.fillText(holdingRef.current ? 'kyli ↑' : 'laikyk — kilk ↑', w / 2, h * 0.30)
-      g.font = '800 13px Outfit, system-ui, sans-serif'; g.fillStyle = '#cbd5e1'
-      g.fillText('paleisk — leidiesi ↓', w / 2, h * 0.30 + 24)
-      g.globalAlpha = 1
+    // premijinės gyvybės blyksnis
+    const gage = gt - lifeFlashRef.current
+    if (gage >= 0 && gage < 1) {
+      g.globalAlpha = Math.max(0, (1 - gage) * 0.5)
+      const gr = g.createLinearGradient(0, 0, 0, 80)
+      gr.addColorStop(0, 'rgba(34,197,94,0.9)'); gr.addColorStop(1, 'rgba(34,197,94,0)')
+      g.fillStyle = gr; g.fillRect(0, 0, w, 80); g.globalAlpha = 1
     }
 
     if (!endedRef.current) rafRef.current = requestAnimationFrame(loop)
   }
-
-  const setHold = (v: boolean) => () => { holdingRef.current = v }
 
   function nextSong() {
     trackIdxRef.current = (trackIdxRef.current + 1) % tracksRef.current.length
@@ -277,46 +374,42 @@ export default function RitmasClient() {
   }
 
   return (
-    <ZaidimoLangas title="Skrisk pro bitą" backHref="/zaidimai/testai" maxWidth={560}>
+    <ZaidimoLangas title="Pataikyk į taktą" backHref="/zaidimai/testai" maxWidth={560}>
       <style>{css}</style>
 
-      {phase === 'loading' && <div className="rt-center"><div className="rt-spinner" /><p className="rt-note">{track ? `Ruošiam: ${track.artist} — ${track.title}` : 'Renkam dainą…'}</p></div>}
-      {phase === 'error' && <div className="rt-center"><div className="rt-error">{err}</div><button className="rt-cta" onClick={() => void init()}>Bandyti dar</button></div>}
+      {phase === 'loading' && <div className="tk-center"><div className="tk-spinner" /><p className="tk-note">{track ? `Ruošiam: ${track.artist} — ${track.title}` : 'Renkam dainą…'}</p></div>}
+      {phase === 'error' && <div className="tk-center"><div className="tk-error">{err}</div><button className="tk-cta" onClick={() => void init()}>Bandyti dar</button></div>}
 
       {phase === 'ready' && track && (
-        <div className="rt-ready">
-          <div className="rt-badge">SKRYDŽIO ŽAIDIMAS</div>
-          <h1 className="rt-h1">Skrisk pro bitą</h1>
-          <div className="rt-demo">
-            <span className="rt-demo-top" /><span className="rt-demo-bot" /><span className="rt-demo-fly" />
-          </div>
-          <p className="rt-lead">Tunelio sienos formuojamos iš <b>tikro dainos garsumo</b>. <b>Laikyk pirštą — kyli, paleisk — leidiesi.</b> Skrisk pro tarpą, neatsitrenk į sienas. Turi <b>3 gyvybes</b> — nuskrisk kuo toliau!</p>
-          <div className="rt-song">🎵 {track.artist} — {track.title}</div>
-          <button className="rt-cta big" onClick={start}>▶ Pradėti</button>
-          <p className="rt-tiny">Įsijunk garsą 🔊 — sienos juda pagal dainą.</p>
+        <div className="tk-ready">
+          <div className="tk-badge">MUZIKOS ŽAIDIMAS</div>
+          <h1 className="tk-h1">Pataikyk į taktą</h1>
+          <div className="tk-demo"><span className="tk-demo-ring" /><span className="tk-demo-dot">♪</span></div>
+          <p className="tk-lead">Taikiniai atsiranda <b>tiksliai ant dainos bitų</b>. Aplink kiekvieną <b>traukiasi žiedas</b> — bakstelėk taikinį tą akimirką, kai žiedas jį pasiekia. Kuo tiksliau, tuo daugiau: <b>Perfect</b> arba <b>Gerai</b>. Serija augina daugiklį; <b>20 iš eilės → +1 gyvybė</b>.</p>
+          <div className="tk-song">🎵 {track.artist} — {track.title}</div>
+          <button className="tk-cta big" onClick={start}>▶ Pradėti</button>
+          <p className="tk-tiny">🔊 Įsijunk garsą — taikiniai eina pagal dainą.</p>
         </div>
       )}
 
       {phase === 'play' && (
-        <div className="rt-stage"
-          onPointerDown={setHold(true)} onPointerUp={setHold(false)}
-          onPointerLeave={setHold(false)} onPointerCancel={setHold(false)}>
-          <canvas ref={canvasRef} className="rt-canvas" />
-          <div className="rt-taphint">laikyk — kyli · paleisk — leidiesi</div>
+        <div className="tk-stage" onPointerDown={onPointerDown}>
+          <canvas ref={canvasRef} className="tk-canvas" />
+          <div className="tk-taphint">bakstelėk taikinį, kai žiedas užsidaro</div>
         </div>
       )}
 
       {phase === 'results' && results && (
-        <div className="rt-ready">
-          <div className="rt-badge">REZULTATAS</div>
-          <div className="rt-score">{results.score}</div>
-          <p className="rt-lead">Geriausias tavo rezultatas: <b>{results.best}</b></p>
-          {track && <div className="rt-song">🎵 {track.artist} — {track.title}</div>}
-          <div className="rt-actions">
-            <button className="rt-cta" onClick={() => setPhase('ready')}>Dar kartą</button>
-            <button className="rt-cta ghost" onClick={nextSong}>Kita daina →</button>
+        <div className="tk-ready">
+          <div className="tk-badge">REZULTATAS</div>
+          <div className="tk-score">{results.score}</div>
+          <p className="tk-lead">Ilgiausia serija <b>{results.maxCombo}</b> · tiksliai (Perfect) <b>{results.perfect}</b> · geriausias <b>{results.best}</b></p>
+          {track && <div className="tk-song">🎵 {track.artist} — {track.title}</div>}
+          <div className="tk-actions">
+            <button className="tk-cta" onClick={() => setPhase('ready')}>Dar kartą</button>
+            <button className="tk-cta ghost" onClick={nextSong}>Kita daina →</button>
           </div>
-          <Link href="/zaidimai/testai" className="rt-back">← Į testavimą</Link>
+          <Link href="/zaidimai/testai" className="tk-back">← Į testavimą</Link>
         </div>
       )}
     </ZaidimoLangas>
@@ -327,32 +420,29 @@ function lsGet(k: string): string | null { try { return window.localStorage.getI
 function lsSet(k: string, v: string) { try { window.localStorage.setItem(k, v) } catch { /* ok */ } }
 
 const css = `
-.rt-center { display: flex; flex-direction: column; align-items: center; gap: 14px; padding: 80px 0; }
-.rt-spinner { width: 40px; height: 40px; border-radius: 50%; border: 3px solid rgba(148,163,184,0.25); border-top-color: var(--accent-orange); animation: rtspin .8s linear infinite; }
-@keyframes rtspin { to { transform: rotate(360deg); } }
-.rt-note { font-size: 13px; color: var(--text-muted); }
-.rt-error { font-size: 14px; color: var(--accent-red); background: rgba(248,113,113,0.1); border-radius: 10px; padding: 10px 14px; }
-.rt-ready { display: flex; flex-direction: column; align-items: center; text-align: center; padding: 22px 0; }
-.rt-badge { font-size: 11px; font-weight: 900; letter-spacing: 0.1em; color: var(--accent-orange); }
-.rt-h1 { font-size: 28px; font-weight: 900; letter-spacing: -0.02em; margin: 8px 0 14px; color: var(--text-primary); }
-.rt-demo { position: relative; width: 160px; height: 100px; border-radius: 12px; overflow: hidden; background: #0f1424; border: 1px solid rgba(140,160,190,0.2); margin-bottom: 14px; }
-.rt-demo-top, .rt-demo-bot { position: absolute; left: -20%; width: 140%; height: 34px; background: rgba(139,92,246,0.6); }
-.rt-demo-top { top: 0; border-radius: 0 0 60% 40%; animation: rtwave 2.4s ease-in-out infinite; }
-.rt-demo-bot { bottom: 0; border-radius: 40% 60% 0 0; animation: rtwave 2.4s ease-in-out infinite reverse; }
-@keyframes rtwave { 0%,100% { transform: translateY(0) } 50% { transform: translateY(-8px) } }
-.rt-demo-fly { position: absolute; left: 30%; top: 45%; width: 14px; height: 14px; border-radius: 50%; background: #22d3ee; box-shadow: 0 0 12px #22d3ee; animation: rtfly 1.4s ease-in-out infinite; }
-@keyframes rtfly { 0%,100% { top: 32% } 50% { top: 56% } }
-.rt-lead { font-size: 14px; color: var(--text-secondary); line-height: 1.55; max-width: 360px; margin: 0 0 16px; }
-.rt-lead b { color: var(--text-primary); }
-.rt-song { font-size: 14px; font-weight: 800; color: var(--text-primary); background: var(--bg-surface); border: 1px solid rgba(140,160,190,0.22); border-radius: 999px; padding: 9px 18px; margin-bottom: 16px; }
-.rt-score { font-size: 60px; font-weight: 900; color: var(--accent-orange); line-height: 1; margin: 6px 0; }
-.rt-cta { font-size: 16px; font-weight: 800; color: #fff; cursor: pointer; border: 0; border-radius: 999px; padding: 13px 28px; background: var(--accent-orange); }
-.rt-cta.big { font-size: 19px; padding: 16px 46px; }
-.rt-cta.ghost { background: var(--bg-surface); color: var(--text-primary); border: 1px solid rgba(140,160,190,0.3); }
-.rt-actions { display: flex; gap: 12px; flex-wrap: wrap; justify-content: center; margin-bottom: 14px; }
-.rt-tiny { font-size: 12px; color: var(--text-muted); margin: 12px 0 0; }
-.rt-back { font-size: 14px; color: var(--text-secondary); text-decoration: none; }
-.rt-stage { position: relative; width: 100%; height: 72vh; touch-action: none; user-select: none; cursor: pointer; }
-.rt-canvas { width: 100%; height: 100%; display: block; }
-.rt-taphint { position: absolute; bottom: 12px; left: 0; right: 0; text-align: center; font-size: 12px; color: rgba(231,235,242,0.7); pointer-events: none; }
+.tk-center { display: flex; flex-direction: column; align-items: center; gap: 14px; padding: 80px 0; }
+.tk-spinner { width: 40px; height: 40px; border-radius: 50%; border: 3px solid rgba(148,163,184,0.25); border-top-color: var(--accent-orange); animation: tkspin .8s linear infinite; }
+@keyframes tkspin { to { transform: rotate(360deg); } }
+.tk-note { font-size: 13px; color: var(--text-muted); }
+.tk-error { font-size: 14px; color: var(--accent-red); background: rgba(248,113,113,0.1); border-radius: 10px; padding: 10px 14px; }
+.tk-ready { display: flex; flex-direction: column; align-items: center; text-align: center; padding: 22px 0; }
+.tk-badge { font-size: 11px; font-weight: 900; letter-spacing: 0.1em; color: var(--accent-orange); }
+.tk-h1 { font-size: 28px; font-weight: 900; letter-spacing: -0.02em; margin: 8px 0 14px; color: var(--text-primary); }
+.tk-demo { position: relative; width: 110px; height: 110px; display: flex; align-items: center; justify-content: center; margin-bottom: 14px; }
+.tk-demo-ring { position: absolute; width: 44px; height: 44px; border-radius: 50%; border: 3px solid #22d3ee; animation: tkring 1.4s ease-in-out infinite; }
+@keyframes tkring { 0% { width: 104px; height: 104px; opacity: .2 } 70% { width: 50px; height: 50px; opacity: 1 } 72% { border-color: #22c55e } 100% { width: 104px; height: 104px; opacity: .2; border-color: #22d3ee } }
+.tk-demo-dot { width: 44px; height: 44px; border-radius: 50%; background: #ec4899; box-shadow: 0 0 18px rgba(236,72,153,.7); display: flex; align-items: center; justify-content: center; color: #fff; font-weight: 900; font-size: 20px; }
+.tk-lead { font-size: 14px; color: var(--text-secondary); line-height: 1.6; max-width: 380px; margin: 0 0 16px; }
+.tk-lead b { color: var(--text-primary); }
+.tk-song { font-size: 14px; font-weight: 800; color: var(--text-primary); background: var(--bg-surface); border: 1px solid rgba(140,160,190,0.22); border-radius: 999px; padding: 9px 18px; margin-bottom: 16px; }
+.tk-score { font-size: 60px; font-weight: 900; color: var(--accent-orange); line-height: 1; margin: 6px 0; }
+.tk-cta { font-size: 16px; font-weight: 800; color: #fff; cursor: pointer; border: 0; border-radius: 999px; padding: 13px 28px; background: var(--accent-orange); }
+.tk-cta.big { font-size: 19px; padding: 16px 46px; }
+.tk-cta.ghost { background: var(--bg-surface); color: var(--text-primary); border: 1px solid rgba(140,160,190,0.3); }
+.tk-actions { display: flex; gap: 12px; flex-wrap: wrap; justify-content: center; margin-bottom: 14px; }
+.tk-tiny { font-size: 12px; color: var(--text-muted); margin: 12px 0 0; }
+.tk-back { font-size: 14px; color: var(--text-secondary); text-decoration: none; }
+.tk-stage { position: relative; width: 100%; height: 72vh; touch-action: none; user-select: none; cursor: pointer; }
+.tk-canvas { width: 100%; height: 100%; display: block; }
+.tk-taphint { position: absolute; bottom: 12px; left: 0; right: 0; text-align: center; font-size: 12px; color: rgba(231,235,242,0.7); pointer-events: none; }
 `
