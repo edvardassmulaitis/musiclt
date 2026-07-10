@@ -263,13 +263,30 @@ export async function getRecentSightingMedia(limit = 18): Promise<SeenLiveRecent
     .from('profile_seen_live')
     .select(ROW_SELECT + `, user:user_id ( username, avatar_url )`)
     .eq('status', 'approved')
+    .neq('media', '[]')          // tik su media (DB lygyje — kad importuoti be media neužgožtų)
     .order('created_at', { ascending: false })
-    .limit(limit * 4)
+    .limit(limit)
   if (error) throw error
   return (data || [])
     .map((r: any) => ({ ...mapRow(r), user: one(r.user) }))
     .filter((r) => r.media.length > 0)
-    .slice(0, limit)
+}
+
+// ── Atlikėjo koncertų akimirkos (narių media tam atlikėjui) ─────────────────
+export async function getArtistSightingMedia(artistId: number, limit = 24): Promise<SeenLiveRecent[]> {
+  const sb = createAdminClient()
+  const { data, error } = await sb
+    .from('profile_seen_live')
+    .select(ROW_SELECT + `, user:user_id ( username, avatar_url )`)
+    .eq('status', 'approved')
+    .eq('artist_id', artistId)
+    .neq('media', '[]')
+    .order('created_at', { ascending: false })
+    .limit(limit)
+  if (error) throw error
+  return (data || [])
+    .map((r: any) => ({ ...mapRow(r), user: one(r.user) }))
+    .filter((r) => r.media.length > 0)
 }
 
 // ── ADMIN: pending eilė ─────────────────────────────────────────────────────
