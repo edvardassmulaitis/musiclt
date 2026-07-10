@@ -24,6 +24,7 @@ import {
   priceFor,
   weekStartOf,
   prevWeekStart,
+  weekEnd,
   computeArtistWeekPoints,
 } from '@/lib/fantasy'
 
@@ -53,7 +54,7 @@ async function fetchAllTeamWeeks(
 }
 
 async function getTeam(sb: ReturnType<typeof createAdminClient>, userId: string | null, anonId: string | null) {
-  let q = sb.from('fantasy_teams').select('id, name, budget, created_at, user_id, anon_id')
+  let q = sb.from('fantasy_teams').select('id, name, budget, created_at, user_id, anon_id, captain_artist_id')
   if (userId) q = q.eq('user_id', userId)
   else if (anonId) q = q.eq('anon_id', anonId)
   else return null
@@ -96,18 +97,29 @@ async function spentBudget(sb: ReturnType<typeof createAdminClient>, teamId: num
 
 // ── GET ───────────────────────────────────────────────────────────────────
 
-export async function GET(_req: NextRequest) {
+export async function GET(req: NextRequest) {
   const viewer = await resolveViewer()
   const sb = createAdminClient()
   const team = await getTeam(sb, viewer.userId, viewer.anonId)
 
   const thisWeek = weekStartOf()
   const lastWeek = prevWeekStart(thisWeek)
+  // Deadline: kito pirmadienio 00:00 LT — iki tada fiksuojami savaitės taškai
+  const deadline = ltDayStartUtc(weekEnd(thisWeek))
 
-  // Lygos lentelės — visada rodom (net be komandos, kaip motyvacija)
+  // Privačios lygos filtras (?lyga=ID) — lentelės tik tarp tos lygos narių
+  const lygaId = parseInt(new URL(req.url).searchParams.get('lyga') || '') || null
+  let lygaTeamIds: Set<number> | null = null
+  if (lygaId) {
+    const { data: mem } = await sb.from('fantasy_league_members').select('team_id').eq('league_id', lygaId)
+    lygaTeamIds = new Set(((mem || []) as any[]).map(m => m.team_id))
+  }
+
+  // Lygos lentelės — visada rodom (net be komandos, kaip motyvacija).
+  // Savaitės lentelė = EINAMOJI savaitė LIVE (dienos snapshot iš cron ?live=1).
   const monthStart = `${thisWeek.slice(0, 7)}-01`
-  const [lastWeekRows, monthRows, seasonRows, teamsCountRes] = await Promise.all([
-    sb.from('fantasy_team_weeks').select('team_id, points').eq('week_start', lastWeek).order('points', { ascending: false }).limit(10),
+  const [liveWeekRows, monthRows, seasonRows, teamsCountRes] = await Promise.all([
+    sb.from('fantasy_team_weeks').select('team_id, points').eq('week_start', thisWeek).order('points', { ascending: false }).limit(500),
     fetchAllTeamWeeks(sb, monthStart),
     fetchAllTeamWeeks(sb, null),
     sb.from('fantasy_teams').select('id', { count: 'exact', head: true }),
@@ -119,31 +131,55 @@ export async function GET(_req: NextRequest) {
     return Array.from(m.entries()).map(([team_id, points]) => ({ team_id, points })).sort((a, b) => b.points - a.points)
   }
 
-  const weekBoard = ((lastWeekRows.data || []) as any[]).map(r => ({ team_id: r.team_id, points: r.points }))
-  const monthBoard = aggregate(monthRows.data || []).slice(0, 10)
-  const seasonBoard = aggregate(seasonRows.data || [])
+  const inLyga = (tid: number) => !lygaTeamIds || lygaTeamIds.has(tid)
+  let weekBoard = ((liveWeekRows.data || []) as any[]).filter(r => inLyga(r.team_id)).map(r => ({ team_id: r.team_id, points: r.points }))
+  const monthBoard = aggregate((monthRows.data || []).filter(r => inLyga(r.team_id))).slice(0, 10)
+  const seasonBoard = aggregate((seasonRows.data || []).filter(r => inLyga(r.team_id)))
   const seasonTop = seasonBoard.slice(0, 10)
 
   // Komandų vardai lentelėms
-  const boardTeamIds = Array.from(new Set([
-    ...weekBoard.map(r => r.team_id),
-    ...monthBoard.map(r => r.team_id),
-    ...seasonTop.map(r => r.team_id),
-  ]))
-  const teamNameById = new Map<number, string>()
-  if (boardTeamIds.length) {
-    const { data } = await sb.from('fantasy_teams').select('id, name').in('id', boardTeamIds)
-    for (const t of data || []) teamNameById.set(t.id, t.name)
+  const makeBoards = async () => {
+    const boardTeamIds = Array.from(new Set([
+      ...weekBoard.map(r => r.team_id),
+      ...monthBoard.map(r => r.team_id),
+      ...seasonTop.map(r => r.team_id),
+    ]))
+    const teamById = new Map<number, { name: string; is_bot: boolean }>()
+    if (boardTeamIds.length) {
+      const { data } = await sb.from('fantasy_teams').select('id, name, is_bot').in('id', boardTeamIds)
+      for (const t of data || []) teamById.set(t.id, { name: t.name, is_bot: !!(t as any).is_bot })
+    }
+    const withNames = (rows: Array<{ team_id: number; points: number }>) =>
+      rows.map(r => ({
+        name: teamById.get(r.team_id)?.name || 'Komanda',
+        points: r.points,
+        isMe: team?.id === r.team_id,
+        isBot: teamById.get(r.team_id)?.is_bot || false,
+      }))
+    return {
+      week: withNames(weekBoard.slice(0, 10)),
+      month: withNames(monthBoard),
+      season: withNames(seasonTop),
+      weekLabel: thisWeek,
+      weekIsLive: true,
+      totalTeams: (teamsCountRes as any).count || 0,
+    }
   }
-  const withNames = (rows: Array<{ team_id: number; points: number }>) =>
-    rows.map(r => ({ name: teamNameById.get(r.team_id) || 'Komanda', points: r.points, isMe: team?.id === r.team_id }))
 
-  const boards = {
-    week: withNames(weekBoard),
-    month: withNames(monthBoard),
-    season: withNames(seasonTop),
-    weekLabel: lastWeek,
-    totalTeams: (teamsCountRes as any).count || 0,
+  // Mano privačios lygos (sąrašui)
+  const myLeagues: Array<{ id: number; name: string; code: string; members: number }> = []
+  if (team) {
+    const { data: mem } = await sb.from('fantasy_league_members').select('league_id').eq('team_id', team.id)
+    const lids = ((mem || []) as any[]).map(m => m.league_id)
+    if (lids.length) {
+      const [{ data: lgs }, { data: allMem }] = await Promise.all([
+        sb.from('fantasy_leagues').select('id, name, code').in('id', lids),
+        sb.from('fantasy_league_members').select('league_id').in('league_id', lids),
+      ])
+      const cnt = new Map<number, number>()
+      for (const m of (allMem || []) as any[]) cnt.set(m.league_id, (cnt.get(m.league_id) || 0) + 1)
+      for (const l of (lgs || []) as any[]) myLeagues.push({ id: l.id, name: l.name, code: l.code, members: cnt.get(l.id) || 0 })
+    }
   }
 
   if (!team) {
@@ -152,7 +188,9 @@ export async function GET(_req: NextRequest) {
       budget: FANTASY_BUDGET,
       rosterSize: ROSTER_SIZE,
       rosterMin: ROSTER_MIN,
-      boards,
+      deadline,
+      boards: await makeBoards(),
+      leagues: [],
       isAuthenticated: viewer.isAuthenticated,
     })
   }
@@ -183,7 +221,44 @@ export async function GET(_req: NextRequest) {
   const monthRank = monthAgg.findIndex(r => r.team_id === team.id)
   const seasonPoints = seasonBoard.find(r => r.team_id === team.id)?.points || 0
   const seasonRank = seasonBoard.findIndex(r => r.team_id === team.id)
-  const liveTotal = artistIds.reduce((s, id) => s + (livePoints.get(id)?.total_points || 0), 0)
+  const captainId: number | null = (team as any).captain_artist_id || null
+  const liveTotal = artistIds.reduce((s, id) => {
+    const p = livePoints.get(id)?.total_points || 0
+    return s + (id === captainId ? p * 2 : p)
+  }, 0)
+
+  // Savaitės LIVE lentelėje mano skaičius = ką tik suskaičiuotas (snapshot gali vėluoti iki paros)
+  {
+    const idx = weekBoard.findIndex(r => r.team_id === team.id)
+    if (idx >= 0) weekBoard[idx] = { team_id: team.id, points: liveTotal }
+    else if (!lygaTeamIds || lygaTeamIds.has(team.id)) weekBoard.push({ team_id: team.id, points: liveTotal })
+    weekBoard = weekBoard.sort((a, b) => b.points - a.points)
+  }
+
+  // ── ŠIOS SAVAITĖS ĮVYKIAI — realūs faktai iš roster'io atlikėjų ──
+  const events: Array<{ artistId: number; name: string; image: string | null; cat: string; text: string; pos?: number }> = []
+  for (const r of roster) {
+    const d: any = livePoints.get(r.artist_id)?.details
+    if (!d) continue
+    const nm = r.artist?.name || '—'
+    const img = r.artist?.cover_image_url || null
+    for (const e of (d.chart_entries || []).slice(0, 4)) {
+      const chartName = e.chart ? e.chart : e.top === 'top40' ? 'TOP40' : 'LT TOP30'
+      events.push({ artistId: r.artist_id, name: nm, image: img, cat: 'chart', pos: e.pos, text: `${chartName}: #${e.pos}${e.title ? ` — „${e.title}“` : ''}` })
+    }
+    if ((d.releases || 0) > 0) {
+      events.push({ artistId: r.artist_id, name: nm, image: img, cat: 'rel', text: d.releases === 1 ? 'Nauja daina šią savaitę' : `Naujos dainos: ${d.releases}` })
+    }
+    const ytp = livePoints.get(r.artist_id)?.yt_points || 0
+    if (ytp >= 8) {
+      events.push({ artistId: r.artist_id, name: nm, image: img, cat: 'yt', text: `YouTube augimas → +${ytp} tšk.` })
+    }
+  }
+  events.sort((a, b) => {
+    const ord: Record<string, number> = { chart: 0, rel: 1, yt: 2 }
+    if (ord[a.cat] !== ord[b.cat]) return ord[a.cat] - ord[b.cat]
+    return (a.pos || 999) - (b.pos || 999)
+  })
 
   return NextResponse.json({
     team: {
@@ -199,8 +274,12 @@ export async function GET(_req: NextRequest) {
       monthPoints,
       monthRank: monthRank >= 0 ? monthRank + 1 : null,
       liveWeekPoints: liveTotal,
-      weeks: myWeeks || [],
+      captainArtistId: captainId,
+      weeks: (myWeeks || []).map((w: any) => w.week_start === thisWeek ? { ...w, points: liveTotal, live: true } : w),
     },
+    deadline,
+    events: events.slice(0, 14),
+    leagues: myLeagues,
     rosterMin: ROSTER_MIN,
     roster: roster.map((r: any) => {
       const live = livePoints.get(r.artist_id)
@@ -216,12 +295,13 @@ export async function GET(_req: NextRequest) {
         signedAt: r.signed_at,
         countsFromNextWeek: !firstWeekGrace && r.signed_at >= weekStartUtc,
         lastWeekPoints: official?.total_points ?? null,
+        isCaptain: r.artist_id === captainId,
         livePoints: live?.total_points ?? 0,
         liveBreakdown: live ? { chart: live.chart_points, yt: live.yt_points, rel: live.release_points, base: live.base_points } : null,
       }
     }),
     rosterSize: ROSTER_SIZE,
-    boards,
+    boards: await makeBoards(),
     isAuthenticated: viewer.isAuthenticated,
   })
 }
@@ -339,6 +419,65 @@ export async function POST(req: NextRequest) {
       transfersThisWeek(sb, team.id), // perskaičiuojam (1 val. taisyklė gali nedeginti limito)
     ])
     return NextResponse.json({ ok: true, released: artistId, budgetLeft: team.budget - spent, transfersLeft: Math.max(0, TRANSFERS_PER_WEEK - transfersAfter) })
+  }
+
+  // ── Kapitonas (×2 taškai) ──
+  if (action === 'captain') {
+    if (!artistId) {
+      await sb.from('fantasy_teams').update({ captain_artist_id: null }).eq('id', team.id)
+      return NextResponse.json({ ok: true, captainArtistId: null })
+    }
+    const { data: row } = await sb
+      .from('fantasy_roster')
+      .select('id')
+      .eq('team_id', team.id)
+      .eq('artist_id', artistId)
+      .is('released_at', null)
+      .maybeSingle()
+    if (!row) return jsonErr('Kapitonu gali skirti tik savo komandos atlikėją')
+    await sb.from('fantasy_teams').update({ captain_artist_id: artistId }).eq('id', team.id)
+    return NextResponse.json({ ok: true, captainArtistId: artistId })
+  }
+
+  // ── Privačios lygos ──
+  if (action === 'league_create') {
+    const name = String(body.name || '').trim()
+    if (name.length < 2 || name.length > 40) return jsonErr('Lygos pavadinimas 2–40 simbolių')
+    const ABC = 'ABCDEFGHJKLMNPQRSTUVWXYZ23456789'
+    for (let attempt = 0; attempt < 4; attempt++) {
+      const code = Array.from({ length: 6 }, () => ABC[Math.floor(Math.random() * ABC.length)]).join('')
+      const { data: lg, error } = await sb
+        .from('fantasy_leagues')
+        .insert({ code, name, owner_team_id: team.id })
+        .select('id, name, code')
+        .single()
+      if (error) {
+        if ((error as any).code === '23505') continue // kodo kolizija — bandome kitą
+        return jsonErr('Nepavyko sukurti lygos: ' + error.message, 500)
+      }
+      await sb.from('fantasy_league_members').insert({ league_id: lg.id, team_id: team.id })
+      return NextResponse.json({ ok: true, league: lg })
+    }
+    return jsonErr('Nepavyko sugeneruoti lygos kodo — pabandyk dar kartą', 500)
+  }
+
+  if (action === 'league_join') {
+    const code = String(body.code || '').trim().toUpperCase()
+    if (code.length !== 6) return jsonErr('Lygos kodas — 6 simboliai')
+    const { data: lg } = await sb.from('fantasy_leagues').select('id, name, code').eq('code', code).maybeSingle()
+    if (!lg) return jsonErr('Lyga su tokiu kodu nerasta')
+    const { count } = await sb.from('fantasy_league_members').select('team_id', { count: 'exact', head: true }).eq('league_id', lg.id)
+    if ((count || 0) >= 200) return jsonErr('Ši lyga jau pilna')
+    const { error } = await sb.from('fantasy_league_members').insert({ league_id: lg.id, team_id: team.id })
+    if (error && (error as any).code !== '23505') return jsonErr('Nepavyko prisijungti: ' + error.message, 500)
+    return NextResponse.json({ ok: true, league: lg })
+  }
+
+  if (action === 'league_leave') {
+    const leagueId = parseInt(body.leagueId)
+    if (!leagueId) return jsonErr('Trūksta leagueId')
+    await sb.from('fantasy_league_members').delete().eq('league_id', leagueId).eq('team_id', team.id)
+    return NextResponse.json({ ok: true })
   }
 
   return jsonErr('Netinkama užklausa — perkrauk puslapį')

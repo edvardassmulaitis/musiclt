@@ -132,6 +132,20 @@ export async function GET(req: NextRequest) {
     }
   }
 
+  // Kainos pokytis: kaina praėjusią savaitę (pagal užpraeitos sav. formą)
+  const prevPtsByArtist = new Map<number, number>()
+  {
+    const ids = (artists || []).map(a => a.id)
+    if (ids.length) {
+      const { data: prevPts } = await sb
+        .from('fantasy_artist_weeks')
+        .select('artist_id, total_points')
+        .eq('week_start', prevWeekStart(lastWeek))
+        .in('artist_id', ids)
+      for (const p of prevPts || []) prevPtsByArtist.set(p.artist_id, p.total_points)
+    }
+  }
+
   // Trending riba (top ~20% pagal trending tarp turinčių)
   const trendVals = (artists || []).map(a => a.score_trending || 0).filter(v => v > 0).sort((a, b) => b - a)
   const trendCut = trendVals[Math.floor(trendVals.length * 0.3)] || Infinity
@@ -142,6 +156,7 @@ export async function GET(req: NextRequest) {
     slug: a.slug,
     image: a.cover_image_url || null,
     price: priceFor(a.score, ptsByArtist.get(a.id) ?? 0),
+    priceDelta: priceFor(a.score, ptsByArtist.get(a.id) ?? 0) - priceFor(a.score, prevPtsByArtist.get(a.id) ?? 0),
     country: (a as any).country === 'Lietuva' ? 'LT' : 'užsienio',
     lastWeekPoints: ptsByArtist.get(a.id) ?? null,
     trending: (a.score_trending || 0) >= trendCut && (a.score_trending || 0) > 0,

@@ -332,10 +332,10 @@ export async function computeFantasyWeek(weekStart: string, live = false): Promi
   const weekStartUtc = ltDayStartUtc(weekStart)
   const wEndUtc = ltDayStartUtc(wEnd)
 
-  const teams: Array<{ id: number; created_at: string }> = []
+  const teams: Array<{ id: number; created_at: string; captain_artist_id: number | null }> = []
   for (let offset = 0; ; offset += 1000) {
     const { data: page } = await sb
-      .from('fantasy_teams').select('id, created_at')
+      .from('fantasy_teams').select('id, created_at, captain_artist_id')
       .range(offset, offset + 999)
     teams.push(...((page as any[]) || []))
     if (!page || page.length < 1000) break
@@ -353,7 +353,10 @@ export async function computeFantasyWeek(weekStart: string, live = false): Promi
     const breakdown = (roster || []).map((r: any) => {
       const a = Array.isArray(r.artists) ? r.artists[0] : r.artists
       const p = allPoints.get(r.artist_id)
-      return { artist_id: r.artist_id, name: a?.name || '—', points: p?.total_points || 0 }
+      const isCaptain = team.captain_artist_id === r.artist_id
+      const base = p?.total_points || 0
+      // Kapitonas neša dvigubai — vienas strateginis sprendimas per savaitę
+      return { artist_id: r.artist_id, name: a?.name || '—', points: isCaptain ? base * 2 : base, captain: isCaptain || undefined }
     })
     const points = breakdown.reduce((s, b) => s + b.points, 0)
     await sb.from('fantasy_team_weeks').upsert({
