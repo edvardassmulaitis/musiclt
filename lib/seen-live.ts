@@ -223,6 +223,35 @@ export async function removeSeenLive(userId: string, id: number): Promise<void> 
   if (error) throw error
 }
 
+// ── Redaguoti savo įrašą (media / pastaba / metai / data) ───────────────────
+// Neliečia atlikėjo/renginio susiejimo ir statuso — tik nario turinį.
+export async function updateSeenLive(
+  userId: string,
+  id: number,
+  patch: { media?: SeenLiveMedia[]; note?: string | null; seen_year?: number | null; seen_date?: string | null },
+): Promise<SeenLiveRow> {
+  const sb = createAdminClient()
+  const upd: Record<string, any> = {}
+  if (patch.media !== undefined) upd.media = sanitizeMedia(patch.media)
+  if (patch.note !== undefined) upd.note = clean(patch.note)
+  if (patch.seen_date !== undefined) upd.seen_date = clean(patch.seen_date)
+  if (patch.seen_year !== undefined) {
+    const y = Number(patch.seen_year)
+    upd.seen_year = (Number.isFinite(y) && y >= 1900 && y <= 2100) ? Math.trunc(y) : null
+  }
+  if (Object.keys(upd).length === 0) throw new Error('Nėra ką atnaujinti')
+
+  const { data, error } = await sb
+    .from('profile_seen_live')
+    .update(upd)
+    .eq('id', id)
+    .eq('user_id', userId)
+    .select(ROW_SELECT)
+    .single()
+  if (error) throw error
+  return mapRow(data)
+}
+
 // ── Homepage: naujausi koncertų foto/video ──────────────────────────────────
 export type SeenLiveRecent = SeenLiveRow & {
   user: { username: string | null; avatar_url: string | null } | null
