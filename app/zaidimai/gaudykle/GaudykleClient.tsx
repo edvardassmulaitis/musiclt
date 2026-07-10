@@ -22,12 +22,15 @@ type Item = { x: number; y: number; vy: number; a: Artist }
 export default function GaudykleClient() {
   const [phase, setPhase] = useState<Phase>('loading')
   const [genre, setGenre] = useState('')
+  const [nowPlaying, setNowPlaying] = useState('')
   const [err, setErr] = useState<string | null>(null)
   const [results, setResults] = useState<{ score: number; level: number; best: number; caught: number; missed: number; wrong: number; scores: number[]; percentile: number } | null>(null)
 
   const poolRef = useRef<Artist[]>([])
   const imgRef = useRef<Map<string, HTMLImageElement>>(new Map())
   const musicRef = useRef<HTMLAudioElement | null>(null)
+  const musicListRef = useRef<{ url: string; title: string; artist: string }[]>([])
+  const musicIdxRef = useRef(0)
   const canvasRef = useRef<HTMLCanvasElement | null>(null)
   const rafRef = useRef(0)
   const itemsRef = useRef<Item[]>([])
@@ -73,9 +76,36 @@ export default function GaudykleClient() {
         m.set(a.name, img)
       }
       imgRef.current = m
-      if (j.musicUrl) { const au = new Audio(j.musicUrl); au.loop = true; au.volume = 0.6; musicRef.current = au }
+      // Kelios to stiliaus dainos — grojant keisis viena po kitos
+      const list: { url: string; title: string; artist: string }[] =
+        Array.isArray(j.musicList) && j.musicList.length ? j.musicList
+        : (j.musicUrl ? [{ url: j.musicUrl, title: '', artist: '' }] : [])
+      musicListRef.current = list; musicIdxRef.current = 0
+      if (list.length) {
+        const au = new Audio()
+        au.volume = 0.6
+        au.loop = list.length <= 1   // vieną kartojam kilpa; kelias — keičiam
+        au.addEventListener('ended', () => {
+          const l = musicListRef.current
+          if (l.length <= 1) return
+          musicIdxRef.current = (musicIdxRef.current + 1) % l.length
+          playMusicIdx(musicIdxRef.current)
+        })
+        musicRef.current = au
+      }
       setPhase('ready')
     } catch { setErr('Tinklo klaida'); setPhase('error') }
+  }
+
+  function playMusicIdx(i: number) {
+    const l = musicListRef.current
+    const t = l[i]
+    const au = musicRef.current
+    if (!t || !au) return
+    au.src = t.url
+    setNowPlaying(t.artist ? `${t.artist} — ${t.title}` : '')
+    try { au.currentTime = 0 } catch { /* ok */ }
+    void au.play().catch(() => {})
   }
 
   function start() {
@@ -84,7 +114,9 @@ export default function GaudykleClient() {
     elapsedRef.current = 0; spawnAccRef.current = 0; lastRef.current = 0; spawnIdxRef.current = 0; levelFlashRef.current = -9
     missFlashRef.current = -9; missedRef.current = 0; lifeFlashRef.current = -9; lastSpawnXRef.current = 0.5
     catcherXRef.current = 0.5
-    try { if (musicRef.current) { musicRef.current.loop = true; musicRef.current.currentTime = 0; void musicRef.current.play().catch(() => {}) } } catch { /* nebūtina */ }
+    // muzika: pradedam nuo pirmos, toliau keisis per 'ended'
+    musicIdxRef.current = 0
+    if (musicListRef.current.length) playMusicIdx(0)
     setPhase('play')
   }
 
@@ -344,6 +376,7 @@ export default function GaudykleClient() {
       {phase === 'play' && (
         <div className="gd-stage" onPointerMove={movePointer} onPointerDown={movePointer}>
           <div className="gd-banner">🎯 Gaudyk: <b>{genre}</b></div>
+          {nowPlaying && <div className="gd-now">🔊 {nowPlaying}</div>}
           <canvas ref={canvasRef} className="gd-canvas" />
         </div>
       )}
@@ -432,4 +465,5 @@ const css = `
 .gd-canvas { width: 100%; height: 100%; display: block; }
 .gd-banner { position: absolute; top: 8px; left: 50%; transform: translateX(-50%); z-index: 3; font-size: 12px; font-weight: 800; color: var(--text-secondary); background: rgba(11,15,24,0.7); border: 1px solid rgba(140,160,190,0.2); border-radius: 999px; padding: 5px 14px; pointer-events: none; }
 .gd-banner b { color: var(--accent-orange); }
+.gd-now { position: absolute; bottom: 8px; left: 50%; transform: translateX(-50%); z-index: 3; max-width: 90%; font-size: 11px; font-weight: 800; color: #cbd5e1; background: rgba(11,15,24,0.7); border: 1px solid rgba(140,160,190,0.2); border-radius: 999px; padding: 4px 12px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; pointer-events: none; }
 `
