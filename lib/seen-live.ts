@@ -385,7 +385,12 @@ export async function reviewSeenLive(
     if (overrides.event_id && clean(overrides.event_id)) {
       eventId = clean(overrides.event_id)
     } else if (overrides.create_event) {
-      const title = clean(overrides.event_title) || clean(row.raw_event_title) || clean(row.raw_artist_name)
+      let title = clean(overrides.event_title) || clean(row.raw_event_title) || clean(row.raw_artist_name)
+      // Vieno atlikėjo koncertui pavadinimo nėra kur vesti — imam atlikėjo vardą.
+      if (!title && artistId) {
+        const { data: art } = await sb.from('artists').select('name').eq('id', artistId).maybeSingle()
+        title = clean(art?.name)
+      }
       const date = clean(overrides.event_date)
       if (!title) throw new Error('Trūksta renginio pavadinimo')
       if (!date) throw new Error('Kuriant renginį reikia datos')
