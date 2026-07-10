@@ -313,7 +313,7 @@ function Wizard({ onAdded, flash, onClose, fullscreen = false, likedArtists = []
                     <span className="text-[16px]">＋</span> Sukurti savo renginį
                   </button>
                 ) : (
-                  <p className="mt-2 text-[12px]" style={{ color: 'var(--accent-orange)' }}>✓ Renginys pasirinktas — 2 žingsnyje pririštas.</p>
+                  <p className="mt-2 text-[12px]" style={{ color: 'var(--accent-orange)' }}>✓ Renginys pasirinktas — spausk „Toliau".</p>
                 )}
               </div>
             </div>
@@ -337,7 +337,7 @@ function Wizard({ onAdded, flash, onClose, fullscreen = false, likedArtists = []
               )}
             </div>
           )}
-          <StepNav onNext={() => hasArtist && setStep(2)} nextDisabled={!hasArtist} />
+          <StepNav onNext={() => hasArtist && setStep(event ? 3 : 2)} nextDisabled={!hasArtist} />
         </div>
       )}
 
@@ -428,7 +428,7 @@ function Wizard({ onAdded, flash, onClose, fullscreen = false, likedArtists = []
           <textarea value={note} onChange={(e) => setNote(e.target.value)} rows={2} placeholder="Įspūdis, su kuo buvai…" className="w-full resize-none rounded-lg px-3 py-2 text-[14px] outline-none ring-1" style={{ background: 'var(--bg-elevated)', color: 'var(--text-primary)', ['--tw-ring-color' as any]: 'var(--border-default)' } as any} />
           {willBeDraft && <p className="mt-2 rounded-lg px-2.5 py-1.5 text-[12px]" style={{ background: 'rgba(245,158,11,0.10)', color: 'var(--accent-orange)' }}>Naujas atlikėjas/renginys — atsiras profilyje po admino patvirtinimo.</p>}
           <div className="mt-3 flex items-center gap-2">
-            <button onClick={() => setStep(2)} className="rounded-xl px-3 py-2.5 text-[14px] font-bold ring-1" style={{ color: 'var(--text-secondary)', ['--tw-ring-color' as any]: 'var(--border-default)' } as any}>← Atgal</button>
+            <button onClick={() => setStep(event ? 1 : 2)} className="rounded-xl px-3 py-2.5 text-[14px] font-bold ring-1" style={{ color: 'var(--text-secondary)', ['--tw-ring-color' as any]: 'var(--border-default)' } as any}>← Atgal</button>
             <button onClick={submit} disabled={!hasArtist || busy} className="flex-1 rounded-xl py-2.5 text-[14px] font-bold text-white transition-transform hover:scale-[1.01] disabled:opacity-45" style={{ background: 'var(--accent-orange)' }}>{busy ? 'Pridedama…' : 'Pridėti'}</button>
           </div>
         </div>
@@ -470,33 +470,39 @@ function StepNav({ onBack, onNext, nextDisabled }: { onBack?: () => void; onNext
 
 // ── Media įkėlimas ──────────────────────────────────────────────────────────
 function MediaUploader({ media, setMedia, flash }: { media: SeenLiveMedia[]; setMedia: (m: SeenLiveMedia[]) => void; flash: (m: string) => void }) {
-  const [uploading, setUploading] = useState(false)
+  const [progress, setProgress] = useState<{ done: number; total: number } | null>(null)
   const inputRef = useRef<HTMLInputElement | null>(null)
+  const uploading = progress != null
 
   async function onFiles(files: FileList | null) {
     if (!files || !files.length) return
-    setUploading(true)
+    const list = Array.from(files).slice(0, 12)
+    setProgress({ done: 0, total: list.length })
     const added: SeenLiveMedia[] = []
     try {
-      for (const file of Array.from(files).slice(0, 12)) {
+      for (let i = 0; i < list.length; i++) {
+        const file = list[i]
         const isVideo = file.type.startsWith('video/')
         const cap = isVideo ? 50 * 1024 * 1024 : 25 * 1024 * 1024
-        if (file.size > cap) { flash(isVideo ? 'Video per didelis (max 50MB)' : 'Nuotrauka per didelė (max 25MB)'); continue }
-        // 1) signed upload URL
-        const signRes = await fetch('/api/mano-muzika/seen-live/media-url', {
-          method: 'POST', headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ filename: file.name, contentType: file.type }),
-        })
-        const sign = await signRes.json().catch(() => ({}))
-        if (!signRes.ok) { flash(sign.error || 'Įkelti nepavyko'); continue }
-        // 2) PUT failą tiesiai į Storage
-        const put = await fetch(sign.uploadUrl, { method: 'PUT', headers: { 'Content-Type': file.type }, body: file })
-        if (!put.ok) { flash('Įkelti nepavyko'); continue }
-        added.push({ url: sign.publicUrl, type: sign.type })
+        if (file.size > cap) { flash(isVideo ? 'Video per didelis (max 50MB)' : 'Nuotrauka per didelė (max 25MB)'); setProgress((p) => p && { ...p, done: p.done + 1 }); continue }
+        try {
+          const signRes = await fetch('/api/mano-muzika/seen-live/media-url', {
+            method: 'POST', headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ filename: file.name, contentType: file.type }),
+          })
+          const sign = await signRes.json().catch(() => ({}))
+          if (!signRes.ok) throw new Error(sign.error || 'Įkelti nepavyko')
+          const put = await fetch(sign.uploadUrl, { method: 'PUT', headers: { 'Content-Type': file.type }, body: file })
+          if (!put.ok) throw new Error('Įkelti nepavyko')
+          added.push({ url: sign.publicUrl, type: sign.type })
+        } catch (e: any) { flash(e?.message || 'Įkelti nepavyko') }
+        setProgress((p) => p && { ...p, done: p.done + 1 })
       }
       if (added.length) setMedia([...media, ...added])
-    } finally { setUploading(false); if (inputRef.current) inputRef.current.value = '' }
+    } finally { setProgress(null); if (inputRef.current) inputRef.current.value = '' }
   }
+
+  const remaining = progress ? Math.max(0, progress.total - progress.done) : 0
 
   return (
     <div>
@@ -514,12 +520,27 @@ function MediaUploader({ media, setMedia, flash }: { media: SeenLiveMedia[]; set
             </button>
           </div>
         ))}
-        <button onClick={() => inputRef.current?.click()} disabled={uploading}
-          className="flex h-20 w-20 flex-col items-center justify-center gap-1 rounded-lg border border-dashed text-[12px] disabled:opacity-50"
-          style={{ borderColor: 'var(--border-default)', color: 'var(--text-faint)' }}>
-          {uploading ? '…' : <><span className="text-[20px]">＋</span>foto/video</>}
-        </button>
+        {/* Įkėlimo spinner tiles */}
+        {Array.from({ length: remaining }).map((_, i) => (
+          <div key={`up-${i}`} className="flex h-20 w-20 flex-col items-center justify-center gap-1 rounded-lg ring-1" style={{ background: 'var(--bg-elevated)', ['--tw-ring-color' as any]: 'var(--border-subtle)' } as any}>
+            <span className="h-5 w-5 animate-spin rounded-full border-2 border-[var(--border-default)] border-t-[var(--accent-orange)]" />
+            <span className="text-[10px]" style={{ color: 'var(--text-faint)' }}>Įkeliama…</span>
+          </div>
+        ))}
+        {!uploading && (
+          <button onClick={() => inputRef.current?.click()}
+            className="flex h-20 w-20 flex-col items-center justify-center gap-1 rounded-lg border border-dashed text-[12px]"
+            style={{ borderColor: 'var(--border-default)', color: 'var(--text-faint)' }}>
+            <span className="text-[20px]">＋</span>foto/video
+          </button>
+        )}
       </div>
+      {uploading && (
+        <div className="mt-2 flex items-center gap-2 text-[13px] font-semibold" style={{ color: 'var(--accent-orange)' }}>
+          <span className="h-4 w-4 animate-spin rounded-full border-2 border-[var(--border-default)] border-t-[var(--accent-orange)]" />
+          Įkeliama {progress!.done}/{progress!.total}… (video gali užtrukti)
+        </div>
+      )}
       <input ref={inputRef} type="file" accept="image/*,video/mp4,video/webm,video/quicktime" multiple hidden onChange={(e) => onFiles(e.target.files)} />
       <p className="mt-1 text-[11px]" style={{ color: 'var(--text-faint)' }}>Nuotraukos + video (mp4/webm/mov, iki 50MB).</p>
     </div>
