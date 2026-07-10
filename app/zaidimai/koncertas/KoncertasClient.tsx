@@ -19,16 +19,16 @@ import ZaidimoLangas from '@/components/zaidimai/ZaidimoLangas'
 
 type Phase = 'loading' | 'ready' | 'play' | 'results' | 'error'
 type Song = { title: string; url: string; pop: number }
-type Kind = 'note' | 'heart' | 'star' | 'gem' | 'x' | 'mute'
+type Kind = 'note' | 'disc' | 'star' | 'gem' | 'x' | 'mute'
 type Icon = { x: number; y: number; vy: number; kind: Kind; color: string; born: number; resolved: boolean }
 type OverInfo = { score: number; songNo: number; pctReached: number } | null
 
 const MAX_LIVES = 5
 const FRAME = 0.02
-const HIT_POP = 0.9
+const HIT_POP = 0.92   // tik patikimiausi (populiariausi) — reti, su liepsnele
 
 // Paprasti taškai (1..5), be kosminių skaičių. Hitas/drop dvigubina.
-const KIND_W: Record<Kind, number> = { note: 1, heart: 2, star: 3, gem: 5, x: 0, mute: 0 }
+const KIND_W: Record<Kind, number> = { note: 1, disc: 2, star: 3, gem: 5, x: 0, mute: 0 }
 const GOOD_COLORS = ['#f59e0b', '#22d3ee', '#ec4899', '#a78bfa']
 
 function buildEnvelope(buf: AudioBuffer): { env: Float32Array; frameT: number } {
@@ -59,9 +59,6 @@ export default function KoncertasClient() {
   const [phase, setPhase] = useState<Phase>('loading')
   const [artist, setArtist] = useState<{ name: string; image: string } | null>(null)
   const [err, setErr] = useState<string | null>(null)
-  const [songLabel, setSongLabel] = useState('')
-  const [songNo, setSongNo] = useState(1)
-  const [hitMode, setHitMode] = useState(false)
   const [over, setOver] = useState<OverInfo>(null)
   const [results, setResults] = useState<{ score: number; hype: number; missed: number; songsSurvived: number; best: number; scores: number[]; percentile: number } | null>(null)
 
@@ -112,7 +109,7 @@ export default function KoncertasClient() {
   }, [])
 
   async function init(kitas = false) {
-    setPhase('loading'); setErr(null); setOver(null)
+    setPhase('loading'); setErr(null); setOver(null); setArtist(null)
     try { audioRef.current?.pause() } catch { /* ok */ }
     try {
       const res = await fetch('/api/zaidimai/koncertas' + (kitas ? '?kitas=1' : ''))
@@ -147,13 +144,10 @@ export default function KoncertasClient() {
     envRef.current = new Float32Array([0.5])
     popRef.current = typeof s.pop === 'number' ? s.pop : 0.5
     hitRef.current = popRef.current >= HIT_POP
-    setHitMode(hitRef.current)
     songHypeRef.current = 0
     a.src = s.url
     try { a.currentTime = 0 } catch { /* ok */ }
     void a.play().catch(() => {})
-    setSongLabel(s.title)
-    setSongNo(i + 1)
     void decodeEnvelope(s.url, token)
   }
 
@@ -202,7 +196,7 @@ export default function KoncertasClient() {
     if (r < 0.17) return 'mute'
     const g = Math.random()
     if (g < 0.20) return 'star'
-    if (g < 0.48) return 'heart'
+    if (g < 0.48) return 'disc'
     return 'note'
   }
 
@@ -448,7 +442,7 @@ export default function KoncertasClient() {
 
     // LED ekranas su atlikėju
     const ledW = Math.min(w * 0.56, 230), ledH = ledW * 0.5
-    const ledX = w / 2 - ledW / 2, ledY = h * 0.15
+    const ledX = w / 2 - ledW / 2, ledY = h * 0.16
     g.save()
     roundRectPath(g, ledX, ledY, ledW, ledH, 10); g.clip()
     const img = artistImgRef.current
@@ -474,31 +468,38 @@ export default function KoncertasClient() {
       drawIcon(g, it)
     }
 
-    // minia (apačioje, žemai — daug erdvės srautui)
-    const cg = g.createLinearGradient(0, crowdTop - 6, 0, h)
-    cg.addColorStop(0, 'rgba(6,9,15,0.5)'); cg.addColorStop(0.25, '#05070c'); cg.addColorStop(1, '#04060a')
-    g.fillStyle = cg; g.fillRect(0, crowdTop - 6, w, h - crowdTop + 6)
-    g.fillStyle = '#0e1421'
-    const cols = Math.max(7, Math.round(w / 30))
-    for (let row = 0; row < 2; row++) {
-      const baseY = crowdTop + 12 + row * 16
-      for (let i = 0; i <= cols; i++) {
-        const hx = (w / cols) * i + (row % 2 ? w / cols / 2 : 0)
-        g.beginPath(); g.arc(hx, baseY, 7, 0, Math.PI * 2); g.fill()
-        g.beginPath(); roundRectPath(g, hx - 10, baseY + 4, 20, h - baseY, 8); g.fill()
+    // minia (apačioje) — tanki, aiškiai matosi daug žmonių
+    const cBase = h * 0.78
+    const cg = g.createLinearGradient(0, cBase - 12, 0, h)
+    cg.addColorStop(0, 'rgba(6,9,15,0.3)'); cg.addColorStop(0.3, '#070b13'); cg.addColorStop(1, '#03050a')
+    g.fillStyle = cg; g.fillRect(0, cBase - 12, w, h - cBase + 12)
+    // kelios tankios galvų eilės (priekinės didesnės ir tamsesnės)
+    const rows = 4
+    for (let row = 0; row < rows; row++) {
+      const baseY = cBase + 8 + row * 15
+      const hr = 6 + row * 1.7
+      const shade = Math.max(6, 22 - row * 4)
+      g.fillStyle = `rgb(${shade},${shade + 4},${shade + 10})`
+      const step = Math.max(16, 24 - row * 2)
+      const ncols = Math.ceil(w / step) + 1
+      for (let i = 0; i <= ncols; i++) {
+        const hx = step * i + (row % 2 ? step / 2 : 0)
+        g.beginPath(); g.arc(hx, baseY, hr, 0, Math.PI * 2); g.fill()
+        g.beginPath(); roundRectPath(g, hx - hr - 2, baseY + hr * 0.6, (hr + 2) * 2, h - baseY, hr); g.fill()
       }
     }
-    const lights = Math.round(2 + energy * 6)
+    // pakelti telefonų žiburiai (daug, išbarstyti virš minios)
+    const lights = Math.round(8 + energy * 16)
     for (let i = 0; i < lights; i++) {
-      const lx = ((i * 61 + 13) % 100) / 100 * w
-      const ly = crowdTop + 2 + ((i * 29) % 8)
-      g.strokeStyle = 'rgba(120,130,150,0.4)'; g.lineWidth = 1.5
-      g.beginPath(); g.moveTo(lx, ly + 12); g.lineTo(lx, ly); g.stroke()
+      const lx = ((i * 61 + 17) % 100) / 100 * w
+      const ly = cBase - 6 + ((i * 43) % 20)
+      g.strokeStyle = 'rgba(120,130,150,0.32)'; g.lineWidth = 1.4
+      g.beginPath(); g.moveTo(lx, ly + 13); g.lineTo(lx, ly); g.stroke()
       const col = GOOD_COLORS[i % GOOD_COLORS.length]
-      const gr = g.createRadialGradient(lx, ly, 0, lx, ly, 7)
+      const gr = g.createRadialGradient(lx, ly, 0, lx, ly, 6)
       gr.addColorStop(0, col); gr.addColorStop(1, hexA(col, 0))
-      g.fillStyle = gr; g.globalAlpha = 0.6 + energy * 0.4
-      g.beginPath(); g.arc(lx, ly, 6, 0, Math.PI * 2); g.fill(); g.globalAlpha = 1
+      g.fillStyle = gr; g.globalAlpha = 0.55 + energy * 0.45
+      g.beginPath(); g.arc(lx, ly, 5, 0, Math.PI * 2); g.fill(); g.globalAlpha = 1
     }
 
     if (drop) { g.strokeStyle = 'rgba(249,115,22,0.5)'; g.lineWidth = 3; roundRectPath(g, 3, 3, w - 6, h - 6, 20); g.stroke() }
@@ -516,13 +517,29 @@ export default function KoncertasClient() {
     }
     if (!frozen) floatsRef.current = nf
 
-    // HUD — po viršutine juosta (kad nelįstų ant pavadinimo)
+    // HUD viršuje: taškai (kairė) + gyvybės (dešinė, nupieštos širdukai)
     g.textAlign = 'left'; g.textBaseline = 'alphabetic'
     g.fillStyle = '#e7ebf2'; g.font = '900 20px Outfit, system-ui, sans-serif'
-    g.fillText(`${scoreRef.current}`, 14, 52)
-    if (comboRef.current >= 2) { g.fillStyle = '#f59e0b'; g.font = '900 12px Outfit, system-ui, sans-serif'; g.fillText(`serija ×${comboRef.current}`, 14, 70) }
-    g.textAlign = 'right'; g.font = '900 17px Outfit, system-ui, sans-serif'; g.fillStyle = '#f87171'
-    g.fillText(deadRef.current ? '🎶' : '❤'.repeat(Math.max(0, livesRef.current)), w - 12, 52)
+    g.fillText(`${scoreRef.current}`, 14, 30)
+    if (comboRef.current >= 2) { g.fillStyle = '#f59e0b'; g.font = '900 11px Outfit, system-ui, sans-serif'; g.fillText(`serija ×${comboRef.current}`, 14, 46) }
+    if (deadRef.current) {
+      drawNote(g, w - 20, 22, 9, '#22d3ee')
+    } else {
+      const lv = Math.max(0, livesRef.current)
+      for (let i = 0; i < lv; i++) drawHeart(g, w - 16 - i * 19, 22, 8, '#f87171')
+    }
+    // dainos pavadinimas — virš nuotraukos; jei hitas — liepsnelė (ne „HITAS ×2")
+    const cur = setlistRef.current[songIdxRef.current]
+    if (cur) {
+      g.textAlign = 'center'; g.fillStyle = '#cbd5e1'; g.font = '800 12.5px Outfit, system-ui, sans-serif'
+      const full = `${songIdxRef.current + 1}/${setlistRef.current.length} · ${cur.title}`
+      let title = full
+      const maxW = w * 0.74
+      while (g.measureText(title).width > maxW && title.length > 5) title = title.slice(0, -2)
+      if (title !== full) title += '…'
+      g.fillText(title, w / 2, 64)
+      if (hitRef.current) { const tw = g.measureText(title).width; drawFlame(g, w / 2 - tw / 2 - 11, 60, 9) }
+    }
 
     const gage = gt - lifeFlashRef.current
     if (gage >= 0 && gage < 1) {
@@ -552,13 +569,9 @@ export default function KoncertasClient() {
     grd.addColorStop(0, it.color); grd.addColorStop(1, hexA(it.color, 0))
     g.fillStyle = grd; g.beginPath(); g.arc(x, y, R + 10, 0, Math.PI * 2); g.fill()
     if (it.kind === 'note') {
-      // moderni švytinti sfera (koncerto šviesa)
-      const s = g.createRadialGradient(x - R * 0.35, y - R * 0.35, 1, x, y, R)
-      s.addColorStop(0, '#ffffff'); s.addColorStop(0.35, it.color); s.addColorStop(1, hexA(it.color, 0.85))
-      g.fillStyle = s; g.beginPath(); g.arc(x, y, R, 0, Math.PI * 2); g.fill()
-      g.fillStyle = 'rgba(255,255,255,0.9)'; g.beginPath(); g.arc(x - R * 0.32, y - R * 0.32, R * 0.22, 0, Math.PI * 2); g.fill()
-    } else if (it.kind === 'heart') {
-      drawHeart(g, x, y, R, it.color)
+      drawNote(g, x, y, R, it.color)
+    } else if (it.kind === 'disc') {
+      drawDisc(g, x, y, R, it.color)
     } else if (it.kind === 'star') {
       drawStar(g, x, y, R, R * 0.45, '#fde68a')
     } else if (it.kind === 'gem') {
@@ -580,16 +593,21 @@ export default function KoncertasClient() {
           <div className="kc-badge">DIENOS KONCERTAS</div>
           <div className="kc-artwrap"><img className="kc-art" src={proxyImg(artist.image, 240)} alt={artist.name} /></div>
           <h1 className="kc-h1">{artist.name}</h1>
-          <p className="kc-lead">Šiandien scenoje — <b>{artist.name}</b>. <b>{setlistLen} dainų setas</b>, finale — didžiausias hitas. Iš minios kyla <b>švytintys ženklai</b> — baksteli juos (šviesos, širdukai, žvaigždės), o retas <b>💎</b> duoda daugiau taškų. Venk <b>pilkų</b>: ✕ atima gyvybę, 📵 nutraukia seriją. Populiari daina = <b>HITAS</b>: greičiau, bet taškai <b>×2</b>. 3 gyvybės.</p>
-          <button className="kc-cta big" onClick={start}>▶ Į koncertą</button>
-          <button className="kc-cta ghost sm" onClick={() => void init(true)}>🔀 Kitas atlikėjas</button>
-          <p className="kc-tiny">🔊 Įsijunk garsą — dainos valdo minią.</p>
+          <ul className="kc-bullets">
+            <li>🎶 <b>{setlistLen} dainų</b> setas — finale didžiausias hitas</li>
+            <li>👆 Baksteli <b>švytinčius ženklus</b>, kylančius iš minios</li>
+            <li>🚫 Venk <b>pilkų</b> — atima gyvybę ar nutraukia seriją</li>
+            <li>❤ Turi <b>3 gyvybes</b> · 🔥 hito dainoje taškai ×2</li>
+          </ul>
+          <div className="kc-cta-row">
+            <button className="kc-cta big" onClick={start}>▶ Į koncertą</button>
+            <button className="kc-cta ghost" onClick={() => void init(true)}>🔀 Kitas</button>
+          </div>
         </div>
       )}
 
       {phase === 'play' && (
         <div className="kc-stage" onPointerDown={onPointerDown}>
-          <div className="kc-topbar">🎤 {songNo}/{setlistLen} · {songLabel.length > 22 ? songLabel.slice(0, 21) + '…' : songLabel}{hitMode ? '  🔥×2' : ''}</div>
           <canvas ref={canvasRef} className="kc-canvas" />
           {over && (
             <div className="kc-over">
@@ -683,6 +701,41 @@ function drawStar(g: CanvasRenderingContext2D, cx: number, cy: number, outer: nu
   g.fillStyle = color; g.fill()
   g.strokeStyle = '#f59e0b'; g.lineWidth = 1.5; g.stroke()
 }
+function drawNote(g: CanvasRenderingContext2D, cx: number, cy: number, r: number, color: string) {
+  const s = r / 14
+  g.save(); g.translate(cx, cy); g.scale(s, s)
+  g.strokeStyle = color; g.lineWidth = 2.6; g.lineCap = 'round'
+  // du kotai
+  g.beginPath(); g.moveTo(-4, 5); g.lineTo(-4, -11); g.moveTo(7, 2); g.lineTo(7, -13); g.stroke()
+  // vėliavėlė (sujungia)
+  g.lineWidth = 2.6; g.beginPath(); g.moveTo(-4, -11); g.lineTo(7, -13); g.stroke()
+  // dvi galvutės
+  g.fillStyle = color
+  g.beginPath(); g.ellipse(-6.5, 5.5, 4.2, 3, -0.4, 0, Math.PI * 2); g.fill()
+  g.beginPath(); g.ellipse(4.5, 2.5, 4.2, 3, -0.4, 0, Math.PI * 2); g.fill()
+  g.restore()
+}
+function drawDisc(g: CanvasRenderingContext2D, cx: number, cy: number, r: number, color: string) {
+  g.beginPath(); g.arc(cx, cy, r, 0, Math.PI * 2); g.fillStyle = '#14121c'; g.fill()
+  g.strokeStyle = color; g.lineWidth = 2; g.beginPath(); g.arc(cx, cy, r - 1, 0, Math.PI * 2); g.stroke()
+  g.strokeStyle = 'rgba(180,190,210,0.35)'; g.lineWidth = 1
+  g.beginPath(); g.arc(cx, cy, r * 0.62, 0, Math.PI * 2); g.stroke()
+  g.fillStyle = color; g.beginPath(); g.arc(cx, cy, r * 0.34, 0, Math.PI * 2); g.fill()
+  g.fillStyle = '#0b0f18'; g.beginPath(); g.arc(cx, cy, r * 0.1, 0, Math.PI * 2); g.fill()
+}
+function drawFlame(g: CanvasRenderingContext2D, cx: number, cy: number, r: number) {
+  g.save(); g.translate(cx, cy); g.scale(r / 10, r / 10)
+  const grd = g.createLinearGradient(0, -12, 0, 8)
+  grd.addColorStop(0, '#fde68a'); grd.addColorStop(0.5, '#f97316'); grd.addColorStop(1, '#dc2626')
+  g.beginPath()
+  g.moveTo(0, -12)
+  g.bezierCurveTo(7, -6, 7, 2, 3, 6)
+  g.bezierCurveTo(6, 2, 2, -2, 1, -3)
+  g.bezierCurveTo(2, 2, -2, 3, -3, 6)
+  g.bezierCurveTo(-7, 2, -6, -5, 0, -12)
+  g.closePath(); g.fillStyle = grd; g.fill()
+  g.restore()
+}
 function drawHeart(g: CanvasRenderingContext2D, cx: number, cy: number, r: number, color: string) {
   const s = r / 14
   g.save(); g.translate(cx, cy + r * 0.15); g.scale(s, s)
@@ -727,9 +780,14 @@ const css = `
 .kc-badge { font-size: 11px; font-weight: 900; letter-spacing: 0.1em; color: var(--accent-orange); }
 .kc-artwrap { width: 128px; height: 128px; border-radius: 18px; overflow: hidden; margin: 12px 0 8px; border: 1px solid rgba(140,160,190,0.25); box-shadow: 0 10px 30px rgba(0,0,0,0.4); }
 .kc-art { width: 100%; height: 100%; object-fit: cover; display: block; }
-.kc-h1 { font-size: 26px; font-weight: 900; letter-spacing: -0.02em; margin: 4px 0 12px; color: var(--text-primary); }
+.kc-h1 { font-size: 26px; font-weight: 900; letter-spacing: -0.02em; margin: 4px 0 14px; color: var(--text-primary); }
 .kc-lead { font-size: 14px; color: var(--text-secondary); line-height: 1.6; max-width: 380px; margin: 0 0 16px; }
 .kc-lead b { color: var(--text-primary); }
+.kc-bullets { list-style: none; padding: 0; margin: 0 0 20px; text-align: left; max-width: 320px; width: 100%; }
+.kc-bullets li { font-size: 13.5px; color: var(--text-secondary); line-height: 1.5; padding: 7px 0; border-bottom: 1px solid rgba(140,160,190,0.12); }
+.kc-bullets li:last-child { border-bottom: 0; }
+.kc-bullets b { color: var(--text-primary); }
+.kc-cta-row { display: flex; gap: 10px; align-items: center; justify-content: center; flex-wrap: wrap; }
 .kc-score { font-size: 60px; font-weight: 900; color: var(--accent-orange); line-height: 1; margin: 6px 0; }
 .kc-stats { display: flex; gap: 10px; justify-content: center; margin: 4px 0 16px; }
 .kc-stat { display: flex; flex-direction: column; align-items: center; font-size: 11px; color: var(--text-muted); font-weight: 700; min-width: 66px; padding: 9px 6px; background: var(--bg-surface); border: 1px solid rgba(140,160,190,0.18); border-radius: 12px; }
@@ -763,8 +821,6 @@ const css = `
 .kc-song-pts { font-size: 13px; font-weight: 900; color: var(--accent-orange); }
 .kc-stage { position: relative; width: 100%; height: 84vh; touch-action: none; user-select: none; cursor: pointer; }
 .kc-canvas { width: 100%; height: 100%; display: block; }
-.kc-topbar { position: absolute; top: 8px; left: 50%; transform: translateX(-50%); z-index: 3; max-width: 62%; font-size: 11px; font-weight: 800; color: #cbd5e1; background: rgba(11,15,24,0.7); border: 1px solid rgba(140,160,190,0.2); border-radius: 999px; padding: 4px 12px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; pointer-events: none; }
-.kc-hint { position: absolute; bottom: 10px; left: 0; right: 0; text-align: center; font-size: 12px; color: rgba(231,235,242,0.7); pointer-events: none; }
 .kc-over { position: absolute; inset: 0; z-index: 5; display: flex; align-items: center; justify-content: center; background: rgba(5,7,12,0.55); }
 .kc-over-card { background: var(--bg-surface, #1e2430); border: 1px solid rgba(140,160,190,0.25); border-radius: 20px; padding: 22px 24px; text-align: center; max-width: 300px; box-shadow: 0 20px 50px rgba(0,0,0,0.5); }
 .kc-over-t { font-size: 15px; font-weight: 900; color: var(--text-primary, #e7ebf2); }
