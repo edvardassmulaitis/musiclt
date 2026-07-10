@@ -222,11 +222,13 @@ function ReviewCard({ item, onDone, onError }: { item: SeenLivePending; onDone: 
         </div>
       )}
 
-      {/* Metai */}
-      <div className="mb-3 flex items-center gap-2">
-        <span className="text-[11px] font-bold uppercase tracking-wide text-[var(--text-faint)]">Metai</span>
-        <input value={year} onChange={(e) => setYear(e.target.value.replace(/\D/g, '').slice(0, 4))} placeholder="—" inputMode="numeric" className="w-24 rounded-md border border-[var(--border-default)] bg-[var(--bg-elevated)] px-2.5 py-1 text-[13px] text-[var(--text-primary)] outline-none" />
-      </div>
+      {/* Metai — tik kai NĖRA realaus renginio (palikta tekstu); kitur datą duoda renginys */}
+      {!hasEvent && evMode === 'keep' && (
+        <div className="mb-3 flex items-center gap-2">
+          <span className="text-[11px] font-bold uppercase tracking-wide text-[var(--text-faint)]">Metai</span>
+          <input value={year} onChange={(e) => setYear(e.target.value.replace(/\D/g, '').slice(0, 4))} placeholder="—" inputMode="numeric" className="w-24 rounded-md border border-[var(--border-default)] bg-[var(--bg-elevated)] px-2.5 py-1 text-[13px] text-[var(--text-primary)] outline-none" />
+        </div>
+      )}
 
       {/* Veiksmai */}
       <div className="flex flex-wrap items-center gap-2 border-t border-[var(--border-subtle)] pt-3">

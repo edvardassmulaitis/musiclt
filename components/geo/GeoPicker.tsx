@@ -111,8 +111,10 @@ export default function GeoPicker({
     <div className="grid grid-cols-2 gap-2">
       <div>
         <label className={labelCls}>Šalis</label>
-        <input list="geo-countries" value={value.countryName || ''} onChange={(e) => onCountry(e.target.value)} placeholder="Lietuva" className={inputCls} />
-        <datalist id="geo-countries">{countries.map((c) => <option key={c.id} value={c.name} />)}</datalist>
+        <select value={value.countryName || 'Lietuva'} onChange={(e) => onCountry(e.target.value)} className={inputCls}>
+          {!countries.some((c) => c.name === (value.countryName || 'Lietuva')) && <option value={value.countryName || 'Lietuva'}>{value.countryName || 'Lietuva'}</option>}
+          {countries.map((c) => <option key={c.id} value={c.name}>{c.name}</option>)}
+        </select>
       </div>
       <div>
         <label className={labelCls}>Miestas</label>
@@ -129,9 +131,6 @@ export default function GeoPicker({
           <label className={labelCls}>Adresas</label>
           <input value={value.address || ''} onChange={(e) => onChange({ ...value, address: e.target.value || null })} placeholder="Adresas" className={inputCls} />
         </div>
-      )}
-      {(value.countryName && !value.countryId && norm(value.countryName) !== 'lietuva') && (
-        <p className="col-span-2 text-[11px] text-[var(--accent-orange)]">Nauja šalis „{value.countryName}" bus sukurta patvirtinus.</p>
       )}
       {(value.cityName && !value.cityId) && (
         <p className="col-span-2 text-[11px] text-[var(--accent-orange)]">Naujas miestas „{value.cityName}" bus sukurtas.</p>
