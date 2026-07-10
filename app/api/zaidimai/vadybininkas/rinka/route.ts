@@ -38,6 +38,7 @@ export async function GET(req: NextRequest) {
 
   let artists: any[] = []
   let count = 0
+  let inMemory = false // in-memory kelias: puslapiuojam PO iperkamumo filtro
   const ptsByArtist = new Map<number, number>()
 
   if (sort === 'forma' || sort === 'siulomi') {
@@ -84,7 +85,8 @@ export async function GET(req: NextRequest) {
       return (ptsByArtist.get(b.id) || 0) - (ptsByArtist.get(a.id) || 0)
     })
     count = ordered.length
-    artists = ordered.slice(page * PAGE_SIZE, page * PAGE_SIZE + PAGE_SIZE)
+    artists = ordered
+    inMemory = true
   } else {
     let query = sb
       .from('artists')
@@ -92,6 +94,9 @@ export async function GET(req: NextRequest) {
       .gt('score', 0)
     query = salisFilter(query)
     if (q) query = query.ilike('name', `%${q}%`)
+    // Iperkamumo prefiltras DB lygmeny — kitaip filtruotume tik po puslapiavimo
+    // ir puslapis likdavo beveik tuscias (kaina = 0.35*score + 0.9*forma >= 0.35*score)
+    if (tikIperkami && biudzetas > 0) query = query.lte('score', Math.ceil(biudzetas / 0.35))
     query = query
       .order('score', { ascending: sort === 'pigiausi', nullsFirst: false })
       .order('name', { ascending: true })
@@ -144,7 +149,13 @@ export async function GET(req: NextRequest) {
   }))
 
   if (tikIperkami && biudzetas > 0) {
-    list = list.filter(a => a.onMyRoster || a.price <= biudzetas)
+    // rodom TIK ka realiai gali nusipirkti (savu komandos nariu nerodom)
+    list = list.filter(a => !a.onMyRoster && a.price <= biudzetas)
+    if (inMemory) count = list.length
+  }
+  if (inMemory) {
+    if (!(tikIperkami && biudzetas > 0)) count = list.length
+    list = list.slice(page * PAGE_SIZE, page * PAGE_SIZE + PAGE_SIZE)
   }
 
   return NextResponse.json({

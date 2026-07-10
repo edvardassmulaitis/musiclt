@@ -105,8 +105,8 @@ export default function VadybininkasClient() {
       setData(json)
       if (!opts.keepView) {
         if (!json.team) setView('intro')
-        else if ((json.roster || []).length < (json.rosterSize || 5)) setView('draft')
-        else setView('valdymas')
+        else if ((json.roster || []).length === 0) setView('draft')
+        else setView('valdymas') // startavus zaidziama ir su nepilna komanda — draft tik kol tuscia
       }
       return json
     } catch {
