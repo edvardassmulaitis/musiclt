@@ -372,7 +372,8 @@ export default function KoncertasClient() {
     const intensity = 0.30 + pop * 0.85
     const speedFactor = hit ? 1.2 : 1
 
-    const stageLine = h * 0.32
+    const ledH0 = Math.min(w * 0.54, 220) * 0.5
+    const stageLine = Math.max(h * 0.32, 76 + ledH0 + 20)
     const crowdTop = h * 0.80
 
     if (!inInter) {
@@ -426,7 +427,10 @@ export default function KoncertasClient() {
   }
 
   function drawScene(g: CanvasRenderingContext2D, w: number, h: number, energy: number, drop: boolean, frozen: boolean) {
-    const stageLine = h * 0.32
+    // LED matmenys — scenos linija visada po nuotrauka (nesutraiškom)
+    const ledW = Math.min(w * 0.54, 220), ledH = ledW * 0.5
+    const ledX = w / 2 - ledW / 2, ledY = 76
+    const stageLine = Math.max(h * 0.32, ledY + ledH + 20)
     const crowdTop = h * 0.80
     g.clearRect(0, 0, w, h)
     const bg = g.createLinearGradient(0, 0, 0, h)
@@ -441,8 +445,6 @@ export default function KoncertasClient() {
     g.beginPath(); g.moveTo(w * 0.68, 0); g.lineTo(w * 0.94, stageLine); g.lineTo(w * 0.74, stageLine); g.closePath(); g.fill()
 
     // LED ekranas su atlikėju
-    const ledW = Math.min(w * 0.56, 230), ledH = ledW * 0.5
-    const ledX = w / 2 - ledW / 2, ledY = h * 0.16
     g.save()
     roundRectPath(g, ledX, ledY, ledW, ledH, 10); g.clip()
     const img = artistImgRef.current
@@ -526,7 +528,7 @@ export default function KoncertasClient() {
       drawNote(g, w - 20, 22, 9, '#22d3ee')
     } else {
       const lv = Math.max(0, livesRef.current)
-      for (let i = 0; i < lv; i++) drawHeart(g, w - 16 - i * 19, 22, 8, '#f87171')
+      for (let i = 0; i < lv; i++) drawHeart(g, w - 20 - i * 22, 24, 17, '#f43f5e')
     }
     // dainos pavadinimas — virš nuotraukos; jei hitas — liepsnelė (ne „HITAS ×2")
     const cur = setlistRef.current[songIdxRef.current]
@@ -736,20 +738,20 @@ function drawFlame(g: CanvasRenderingContext2D, cx: number, cy: number, r: numbe
   g.closePath(); g.fillStyle = grd; g.fill()
   g.restore()
 }
-function drawHeart(g: CanvasRenderingContext2D, cx: number, cy: number, r: number, color: string) {
-  const s = r / 14
-  g.save(); g.translate(cx, cy + r * 0.15); g.scale(s, s)
+function drawHeart(g: CanvasRenderingContext2D, cx: number, cy: number, size: number, color: string) {
+  // švari širdies forma (size = plotis)
+  const sc = size / 110
+  g.save(); g.translate(cx, cy); g.scale(sc, sc); g.translate(-75, -74)
   g.beginPath()
-  g.moveTo(0, 4)
-  g.bezierCurveTo(-1, 1, -6, -1, -9, -3)
-  g.bezierCurveTo(-14, -7, -12, -14, -6, -14)
-  g.bezierCurveTo(-2, -14, 0, -10, 0, -8)
-  g.bezierCurveTo(0, -10, 2, -14, 6, -14)
-  g.bezierCurveTo(12, -14, 14, -7, 9, -3)
-  g.bezierCurveTo(6, -1, 1, 1, 0, 4)
+  g.moveTo(75, 40)
+  g.bezierCurveTo(75, 37, 70, 25, 50, 25)
+  g.bezierCurveTo(20, 25, 20, 62.5, 20, 62.5)
+  g.bezierCurveTo(20, 80, 40, 102, 75, 120)
+  g.bezierCurveTo(110, 102, 130, 80, 130, 62.5)
+  g.bezierCurveTo(130, 62.5, 130, 25, 100, 25)
+  g.bezierCurveTo(85, 25, 75, 37, 75, 40)
   g.closePath()
   g.fillStyle = color; g.fill()
-  g.strokeStyle = 'rgba(255,255,255,0.5)'; g.lineWidth = 1.2; g.stroke()
   g.restore()
 }
 function drawGem(g: CanvasRenderingContext2D, cx: number, cy: number, r: number) {
