@@ -71,7 +71,7 @@ export default function SeenLivePanel({ flash, likedArtists = [] }: { flash: (m:
   }
 
   return (
-    <div className="grid lg:grid-cols-[minmax(0,1fr)_400px] gap-5 lg:gap-7 items-start">
+    <div className="seenlive-noZoom grid lg:grid-cols-[minmax(0,1fr)_400px] gap-5 lg:gap-7 items-start">
       {/* ── Sąrašas ── */}
       <section className="min-w-0">
         <div className="mb-4 flex items-center justify-between gap-3">
@@ -129,7 +129,7 @@ export default function SeenLivePanel({ flash, likedArtists = [] }: { flash: (m:
         <Wizard onAdded={(item) => setItems((l) => [item, ...l])} flash={flash} likedArtists={likedArtists} />
       </div>
       {wizardOpen && (
-        <div className="lg:hidden fixed inset-0 z-[200] overflow-y-auto overscroll-contain" style={{ background: 'var(--bg-body)' }}>
+        <div className="seenlive-noZoom lg:hidden fixed inset-0 z-[200] overflow-y-auto overscroll-contain" style={{ background: 'var(--bg-body)' }}>
           <div className="min-h-full p-3" style={{ paddingTop: 'max(0.75rem, env(safe-area-inset-top))', paddingBottom: 'max(1.5rem, env(safe-area-inset-bottom))' }}>
             <Wizard onAdded={(item) => { setItems((l) => [item, ...l]); setWizardOpen(false) }} flash={flash} onClose={() => setWizardOpen(false)} fullscreen likedArtists={likedArtists} />
           </div>

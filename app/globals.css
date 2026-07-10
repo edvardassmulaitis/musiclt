@@ -1066,3 +1066,13 @@ main.has-bottom-nav {
   .flt-bar--wrap, .flt-bar--wrap .flt-group { flex-wrap:wrap; overflow:visible; gap:7px; }
   .flt-count { margin-left:8px; }
 }
+
+/* „Matyti gyvai" wizard — iOS auto-zoom fix: laukų šriftas ≥16px mobile,
+   kad Safari nezoomintų turinio focus'inant input'ą. */
+@media (max-width: 767px) {
+  .seenlive-noZoom input,
+  .seenlive-noZoom select,
+  .seenlive-noZoom textarea {
+    font-size: 16px !important;
+  }
+}
