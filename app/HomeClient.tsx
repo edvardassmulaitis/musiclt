@@ -17,7 +17,6 @@ import { HomeListModal } from '@/components/HomeListModal'
 import { HomeListContent } from '@/components/HomeListContent'
 import Scroller from '@/components/ui/Scroller'
 import BendruomeneSection from '@/components/home/BendruomeneSection'
-import SeenLiveStrip from '@/components/home/SeenLiveStrip'
 import { DienosDainaHero } from '@/components/DienosDainaHero'
 
 /* ────────────────────────────── Types ────────────────────────────── */
@@ -4203,13 +4202,8 @@ export default function HomeClient({ initialLatest, initialHero }: { initialLate
           </section>
           </LazySection>
 
-          {/* ── IŠ KONCERTŲ — narių nuotraukos/video (Matyti gyvai) ── */}
-          <LazySection rootMargin="400px" minHeight={230}>
-            <SeenLiveStrip />
-          </LazySection>
-
-          {/* ── BENDRUOMENĖ — pinned DD + blog + diskusijos (pakeičia Pulsas +
-              HotStrip + DienosDainaSection) 2026-06-08 ── */}
+          {/* ── BENDRUOMENĖ — pinned DD + blog + diskusijos + narių koncertų
+              foto/video „Iš koncertų" (priekyje) 2026-06-08 ── */}
           <LazySection rootMargin="400px" minHeight={260}>
             <BendruomeneSection />
           </LazySection>
