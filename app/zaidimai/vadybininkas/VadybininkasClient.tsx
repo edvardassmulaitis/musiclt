@@ -27,6 +27,7 @@ type RosterArtist = {
   countsFromNextWeek?: boolean
   isCaptain?: boolean
   lastWeekPoints: number | null
+  weeksHist?: number[]
   livePoints: number
   liveBreakdown: { chart: number; yt: number; rel: number; base: number } | null
 }
@@ -83,6 +84,21 @@ function Ava({ name, image, size }: { name: string; image: string | null; size: 
         <img src={proxyImg(image, size * 2)} alt="" loading="lazy" />
       )}
     </span>
+  )
+}
+
+/** Mini trend linija — atlikėjo savaitinių taškų eiga. */
+function Spark({ vals, dim }: { vals: number[]; dim?: boolean }) {
+  if (vals.length < 2) return <span className="fl-spark-empty">nauja istorija kuriasi…</span>
+  const w = 120, h = 24
+  const mx = Math.max(1, ...vals)
+  const pts = vals.map((v, i) => `${((i / (vals.length - 1)) * (w - 4) + 2).toFixed(1)},${(h - 3 - (v / mx) * (h - 8)).toFixed(1)}`).join(' ')
+  const last = pts.split(' ').pop()!.split(',')
+  return (
+    <svg className="fl-spark" viewBox={`0 0 ${w} ${h}`} aria-hidden>
+      <polyline points={pts} fill="none" stroke={dim ? 'rgba(255,255,255,0.35)' : '#34d399'} strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" />
+      <circle cx={last[0]} cy={last[1]} r="2.6" fill={dim ? 'rgba(255,255,255,0.5)' : '#34d399'} />
+    </svg>
   )
 }
 
@@ -328,6 +344,7 @@ export default function VadybininkasClient() {
   return (
     <ZaidimoLangas
       title={view === 'valdymas' && team ? `🎵 ${team.name}` : view === 'mainai' ? '↔ Mainai' : 'Muzikos lyga'}
+      maxWidth={view === 'valdymas' ? 1520 : 760}
       right={wizardStep > 0 ? (
         <div className="fl-steps">
           {[1, 2, 3].map(n => (
@@ -336,8 +353,6 @@ export default function VadybininkasClient() {
             </span>
           ))}
         </div>
-      ) : view === 'valdymas' ? (
-        <button className="fl-icon-btn" onClick={() => setModal('lyga')} aria-label="Lygos lentelė">🏆</button>
       ) : null}
     >
       <style>{css}</style>
@@ -489,7 +504,6 @@ export default function VadybininkasClient() {
       {view === 'valdymas' && team && (
         <div className="fl-desk console">
         <div className="fl-desk-main">
-          {/* ══ SCENA — konsolė per visą aukštį ══ */}
           <div className="fl-stage">
             <div className="fl-stage-glow" aria-hidden />
             <div className="fl-stage-top">
@@ -497,87 +511,70 @@ export default function VadybininkasClient() {
                 <span className="fl-stage-lbl"><i className="fl-live-dot" /> LIVE</span>
                 <span className="fl-stage-num"><CountUp value={team.liveWeekPoints} /></span>
                 {data?.deadline && (
-                  <span className="fl-stage-deadline">🔒 pirmadienį · {likoIki(data.deadline)}</span>
+                  <span className="fl-stage-deadline">Savaitė baigsis už <b>{likoIki(data.deadline)}</b></span>
                 )}
               </div>
               <div className="fl-stage-chips">
-                <button className="fl-chip" onClick={() => setModal('kapitonas')}>
-                  <i className="fl-cap-ring" /> {team.captainArtistId ? (roster.find(r => r.artistId === team.captainArtistId)?.name || 'Kapitonas') : 'Kapitonas?'}
-                </button>
+                {!team.captainArtistId && (
+                  <button className="fl-chip" onClick={() => setModal('kapitonas')}><i className="fl-cap-ring" /> Pasirink kapitoną — ×2</button>
+                )}
                 <button className="fl-chip act" onClick={() => setView('mainai')}>↔ Mainai</button>
               </div>
             </div>
 
-            <div className="fl-lineup">
+            <div className="fl-cards">
               {(() => {
-                const kap = roster.filter(r => r.isCaptain)
-                const kiti = roster.filter(r => !r.isCaptain).sort((a, b) => b.livePoints - a.livePoints)
-                const vidurys = Math.ceil(kiti.length / 2)
-                const eile = [...kiti.slice(0, vidurys), ...kap, ...kiti.slice(vidurys)]
+                const evsBy = new Map<number, FeedEvent[]>()
+                for (const e of data?.events || []) {
+                  const arr = evsBy.get(e.artistId) || []
+                  if (arr.length < 2) arr.push(e)
+                  evsBy.set(e.artistId, arr)
+                }
+                const eile = [...roster].sort((a, b) => (b.isCaptain ? 1 : 0) - (a.isCaptain ? 1 : 0) || b.livePoints - a.livePoints)
                 return eile.map(r => {
                   const rodomiTsk = r.isCaptain ? r.livePoints * 2 : r.livePoints
                   const busena = r.countsFromNextWeek ? 'pending' : rodomiTsk > 0 ? 'hot' : 'cold'
+                  const evs = evsBy.get(r.artistId) || []
                   return (
-                    <button
-                      key={r.artistId}
-                      className={`fl-art ${busena}${r.isCaptain ? ' cap' : ''}`}
-                      title={r.countsFromNextWeek ? 'Taškai skaičiuosis nuo kitos savaitės' : undefined}
-                      onClick={() => void openArtist(r.artistId)}
-                    >
-                      <span className="fl-art-img">
-                        <Ava name={r.name} image={r.image} size={64} />
-                        {r.countsFromNextWeek && <em className="fl-art-wait">⏳</em>}
+                    <button key={r.artistId} className={`fl-card ${busena}${r.isCaptain ? ' cap' : ''}`} onClick={() => void openArtist(r.artistId)}>
+                      <span className="fl-card-photo">
+                        <Ava name={r.name} image={r.image} size={150} />
+                        {r.isCaptain && <em className="fl-card-cap">KAPITONAS ×2</em>}
+                        {r.countsFromNextWeek && <em className="fl-card-wait">žais nuo pirmadienio</em>}
                       </span>
-                      <b className="fl-art-name">{r.name}</b>
-                      <span className="fl-art-pts">
-                        {r.countsFromNextWeek ? '—' : `+${rodomiTsk}`}{r.isCaptain ? ' ×2' : ''}
+                      <span className="fl-card-body">
+                        <span className="fl-card-row">
+                          <b className="fl-card-name">{r.name}</b>
+                          <span className="fl-card-pts">{r.countsFromNextWeek ? '—' : `+${rodomiTsk}`}</span>
+                        </span>
+                        <Spark vals={[...(r.weeksHist || []), r.livePoints]} dim={r.countsFromNextWeek} />
+                        {evs.length > 0 ? (
+                          <span className="fl-card-evs">
+                            {evs.map((e, i) => (
+                              <span key={i} className="fl-card-ev">{e.cat === 'chart' ? '📈' : e.cat === 'rel' ? '🎵' : '▶️'} {e.text}{e.pts ? <b> +{e.pts}</b> : null}</span>
+                            ))}
+                          </span>
+                        ) : (
+                          <span className="fl-card-evs dim">šią savaitę įvykių dar nėra</span>
+                        )}
                       </span>
                     </button>
                   )
                 })
               })()}
               {Array.from({ length: slotsLeft }).map((_, i) => (
-                <button key={`tuscia${i}`} className="fl-art empty" onClick={() => setView('mainai')} title="Pasirašyti atlikėją">
-                  <span className="fl-art-img"><span className="fl-art-plus">+</span></span>
+                <button key={`tuscia${i}`} className="fl-card empty" onClick={() => setView('mainai')} title="Pasirašyti atlikėją">
+                  <span className="fl-card-plus">+</span>
                 </button>
               ))}
-            </div>
-            {roster.some(r => r.countsFromNextWeek) && (
-              <p className="fl-stage-legend">⏳ nauji — taškus rinks nuo kitos savaitės</p>
-            )}
-
-            <div className="fl-stage-bottom">
-              {(data?.events || []).length > 0 && (
-                <div className="fl-ticker" aria-hidden>
-                  <div className="fl-ticker-track">
-                    {[0, 1].map(k => (
-                      <span key={k}>
-                        {(data!.events || []).map((e, i) => (
-                          <span key={i} className="fl-ticker-item">
-                            {e.cat === 'chart' ? '📈' : e.cat === 'rel' ? '🎵' : '▶️'} {e.name}: {e.text}
-                            {e.pts ? <b> +{e.pts}</b> : null}
-                            <i> • </i>
-                          </span>
-                        ))}
-                      </span>
-                    ))}
-                  </div>
-                </div>
-              )}
-              <svg className="fl-crowd" viewBox="0 0 1200 70" preserveAspectRatio="none" aria-hidden>
-                <path d="M0,70 L0,46 Q20,30 40,44 Q52,20 70,40 Q90,26 108,42 Q125,14 145,38 Q165,28 185,44 Q200,18 220,40 Q240,30 260,44 Q275,22 295,40 Q315,28 335,44 Q350,16 372,38 Q392,28 412,44 Q428,20 448,40 Q468,30 488,44 Q502,18 522,38 Q542,28 562,44 Q578,22 598,40 Q618,30 638,44 Q652,16 672,38 Q692,28 712,44 Q728,20 748,40 Q768,30 788,44 Q802,22 822,38 Q842,28 862,44 Q878,16 898,40 Q918,30 938,44 Q952,20 972,38 Q992,28 1012,44 Q1028,22 1048,40 Q1068,30 1088,44 Q1102,16 1122,38 Q1142,28 1162,44 Q1180,32 1200,44 L1200,70 Z" fill="rgba(0,0,0,0.55)" />
-                <path d="M0,70 L0,56 Q30,44 60,56 Q90,42 120,56 Q150,46 180,58 Q210,44 240,56 Q270,46 300,58 Q330,44 360,56 Q390,46 420,58 Q450,44 480,56 Q510,46 540,58 Q570,44 600,56 Q630,46 660,58 Q690,44 720,56 Q750,46 780,58 Q810,44 840,56 Q870,46 900,58 Q930,44 960,56 Q990,46 1020,58 Q1050,44 1080,56 Q1110,46 1140,58 Q1170,48 1200,58 L1200,70 Z" fill="rgba(0,0,0,0.8)" />
-              </svg>
             </div>
           </div>
         </div>{/* /fl-desk-main */}
 
-        {/* ── Dešinė: konkurentai + įvykiai ── */}
         <aside className="fl-desk-rail">
           <div className="fl-rail-league">
             <div className="fl-rail-head">
-              <span className="fl-hist-head" style={{ margin: 0 }}>🏆 Lyga</span>
-              <span className="fl-rail-season">Sezonas: <b>{team.seasonPoints}</b>{team.seasonRank ? ` · #${team.seasonRank}` : ''}</span>
+              <span className="fl-hist-head" style={{ margin: 0 }}>Lyga · ši savaitė</span>
               <button className="fl-rail-more" onClick={() => setModal('lyga')}>Visa →</button>
             </div>
             <ol className="fl-board-list">
@@ -599,26 +596,30 @@ export default function VadybininkasClient() {
                 ))
               })()}
             </ol>
+            <p className="fl-rail-hint">Bakstelk komandą — pamatysi jos sudėtį</p>
           </div>
 
-          <div className="fl-rail-events">
-            <div className="fl-rail-head">
-              <span className="fl-hist-head" style={{ margin: 0 }}>📡 Įvykiai</span>
-              <button className="fl-rail-more" onClick={() => setModal('info')}>ℹ️</button>
+          {team.weeks.length > 1 && (
+            <div className="fl-rail-weeks">
+              <div className="fl-rail-head"><span className="fl-hist-head" style={{ margin: 0 }}>Tavo savaitės</span></div>
+              <div className="fl-chart small">
+                {[...team.weeks].reverse().slice(-8).map((w, i, arr) => {
+                  const mx = Math.max(1, ...arr.map(x => x.points))
+                  const paskutinis = i === arr.length - 1
+                  return (
+                    <div key={w.week_start} className="fl-chart-col" title={`${w.week_start}: ${w.points}`}>
+                      {paskutinis && <span className="fl-chart-val">{w.points}</span>}
+                      <i style={{ height: `${Math.max(4, (w.points / mx) * 100)}%` }} className={paskutinis ? 'now' : ''} />
+                      <span className="fl-chart-lbl">{w.live ? 'LIVE' : w.week_start.slice(5)}</span>
+                    </div>
+                  )
+                })}
+              </div>
             </div>
-            {(data?.events || []).length === 0 ? (
-              <div className="fl-feed-empty">Kol kas tylu — kai atlikėjai pajudės topuose, matysi čia.</div>
-            ) : (
-              <ul className="fl-feed-list">
-                {(data!.events || []).map((e, i) => (
-                  <li key={i} className={`fl-feed-row c-${e.cat}`} onClick={() => void openArtist(e.artistId)}>
-                    <span className="fl-feed-img"><Ava name={e.name} image={e.image} size={30} /></span>
-                    <span className="fl-feed-body"><b>{e.name}</b> · {e.text}</span>
-                    {e.pts ? <em className="fl-feed-pts">+{e.pts}</em> : null}
-                  </li>
-                ))}
-              </ul>
-            )}
+          )}
+
+          <div className="fl-more-row">
+            <button className="fl-more-btn" onClick={() => setModal('info')}>Kaip renkami taškai?</button>
           </div>
         </aside>
         </div>
@@ -1173,7 +1174,7 @@ const css = `
   position: relative; overflow: hidden; border-radius: 20px;
   background: linear-gradient(180deg, #2a1e56 0%, #171233 55%, #0c0922 100%);
   border: 1px solid rgba(129,140,248,0.35);
-  padding: 16px 16px 0;
+  padding: 16px 16px 2px;
   display: flex; flex-direction: column; min-height: 430px;
 }
 .fl-stage-glow { position: absolute; inset: 0; pointer-events: none;
@@ -1197,53 +1198,52 @@ const css = `
 .fl-chip:hover { background: rgba(255,255,255,0.16); }
 .fl-chip.act { background: var(--accent-orange); border-color: transparent; color: #fff; }
 .fl-cap-ring { width: 11px; height: 11px; border-radius: 50%; border: 2.5px solid #f59e0b; display: inline-block; }
-.fl-lineup {
-  position: relative; z-index: 2; flex: 1; display: grid; grid-template-columns: repeat(4, minmax(0, 96px));
-  width: 100%; max-width: 460px; margin: 0 auto;
-  justify-content: center; align-content: center; justify-items: center;
-  gap: 18px 12px; padding: 14px 0 10px;
+.fl-cards {
+  position: relative; z-index: 2; flex: 1; display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  gap: 12px; padding: 14px 0 16px; align-content: start;
 }
-.fl-art {
-  position: relative; display: flex; flex-direction: column; align-items: center; gap: 4px;
-  width: 100%; max-width: 96px; min-width: 0; background: transparent; border: 0; cursor: pointer; padding: 0;
+@media (max-width: 900px) { .fl-cards { grid-template-columns: repeat(2, minmax(0, 1fr)); } }
+.fl-card {
+  display: flex; flex-direction: column; text-align: left; cursor: pointer; padding: 0; overflow: hidden;
+  background: rgba(255,255,255,0.06); border: 1px solid rgba(255,255,255,0.13); border-radius: 16px;
+  transition: transform .14s ease, border-color .14s ease;
 }
-.fl-art .fl-art-img {
-  width: 64px; height: 64px; border-radius: 50%; overflow: hidden; display: block; position: relative;
-  background: rgba(255,255,255,0.08); border: 2px solid transparent; transition: transform .15s ease;
+.fl-card:hover { transform: translateY(-3px); border-color: rgba(255,255,255,0.35); }
+.fl-card.hot { border-color: rgba(16,185,129,0.5); }
+.fl-card.cap { border-color: rgba(245,158,11,0.75); box-shadow: 0 0 22px rgba(245,158,11,0.25); }
+.fl-card-photo { position: relative; display: block; width: 100%; aspect-ratio: 16/10; overflow: hidden; background: rgba(255,255,255,0.05); }
+.fl-card-photo .fl-ava-ini { border-radius: 0; }
+.fl-card.pending .fl-card-photo { filter: saturate(0.5) brightness(0.75); }
+.fl-card-cap {
+  position: absolute; top: 8px; left: 8px; font-style: normal; font-size: 9px; font-weight: 900; letter-spacing: 0.07em;
+  color: #78350f; background: #fbbf24; border-radius: 6px; padding: 3px 7px;
 }
-.fl-art:hover .fl-art-img { transform: translateY(-4px) scale(1.05); }
-.fl-art .fl-art-img img { width: 100%; height: 100%; object-fit: cover; display: block; }
-.fl-art.hot .fl-art-img { border-color: #10b981; box-shadow: 0 0 22px rgba(16,185,129,0.5); }
-.fl-art.cold .fl-art-img { border-color: rgba(148,163,184,0.5); opacity: 0.85; filter: saturate(0.8); }
-.fl-art.pending .fl-art-img { border-color: rgba(148,163,184,0.4); opacity: 0.62; filter: saturate(0.55); }
-.fl-art.cap .fl-art-img { border-width: 3px; border-color: #f59e0b !important; box-shadow: 0 0 26px rgba(245,158,11,0.6); opacity: 1; }
-.fl-art-wait { position: absolute; right: -2px; bottom: -2px; font-size: 13px; font-style: normal; filter: drop-shadow(0 1px 3px rgba(0,0,0,0.7)); }
-.fl-art-name { font-size: 11px; font-weight: 800; color: #fff; max-width: 100%; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; text-shadow: 0 1px 6px rgba(0,0,0,0.7); }
-.fl-art-pts { font-size: 10px; font-weight: 900; border-radius: 999px; padding: 2px 8px; }
-.fl-art.hot .fl-art-pts { color: #052e1e; background: #34d399; }
-.fl-art.cold .fl-art-pts { color: rgba(255,255,255,0.55); background: rgba(255,255,255,0.1); }
-.fl-art.pending .fl-art-pts { color: rgba(255,255,255,0.45); background: rgba(255,255,255,0.07); }
-.fl-art.cap .fl-art-pts { outline: 1px solid rgba(245,158,11,0.6); }
-.fl-art.empty .fl-art-img { border: 2px dashed rgba(255,255,255,0.3); display: flex; align-items: center; justify-content: center; }
-.fl-art.empty { width: 100%; max-width: 96px; }
-.fl-art-plus { font-size: 24px; color: rgba(255,255,255,0.45); width: 100%; height: 100%; display: flex; align-items: center; justify-content: center; }
-.fl-art.empty:hover .fl-art-img { border-color: rgba(255,255,255,0.7); }
-.fl-stage-legend { position: relative; z-index: 2; text-align: center; font-size: 10px; color: rgba(255,255,255,0.42); margin: 0 0 6px; }
-.fl-stage-bottom { position: relative; margin-top: auto; }
-.fl-ticker { position: relative; z-index: 2; overflow: hidden; margin: 0 -16px; padding: 7px 0; background: rgba(0,0,0,0.35); border-top: 1px solid rgba(255,255,255,0.09); }
-.fl-ticker-track { display: inline-block; white-space: nowrap; animation: flticker 36s linear infinite; }
-@keyframes flticker { to { transform: translateX(-50%); } }
-.fl-ticker-item { font-size: 11px; color: rgba(255,255,255,0.7); }
-.fl-ticker-item b { color: #6ee7b7; }
-.fl-ticker-item i { font-style: normal; color: rgba(255,255,255,0.3); margin: 0 8px; }
-.fl-crowd { position: relative; z-index: 1; display: block; width: calc(100% + 32px); margin: 0 -16px; height: 40px; }
+.fl-card-wait {
+  position: absolute; left: 0; right: 0; bottom: 0; font-style: normal; text-align: center;
+  font-size: 10px; font-weight: 800; color: #fde68a; background: rgba(0,0,0,0.55); padding: 4px 6px; backdrop-filter: blur(3px);
+}
+.fl-card-body { display: flex; flex-direction: column; gap: 6px; padding: 10px 12px 12px; }
+.fl-card-row { display: flex; align-items: baseline; justify-content: space-between; gap: 8px; }
+.fl-card-name { font-size: 14px; font-weight: 800; color: #fff; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; min-width: 0; }
+.fl-card-pts { font-size: 16px; font-weight: 900; color: #34d399; flex-shrink: 0; }
+.fl-card.pending .fl-card-pts { color: rgba(255,255,255,0.4); }
+.fl-spark { display: block; width: 100%; height: 24px; }
+.fl-spark-empty { font-size: 10px; color: rgba(255,255,255,0.35); padding: 5px 0; display: block; }
+.fl-card-evs { display: flex; flex-direction: column; gap: 3px; min-height: 30px; }
+.fl-card-ev { font-size: 10.5px; color: rgba(255,255,255,0.68); line-height: 1.35; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.fl-card-ev b { color: #6ee7b7; }
+.fl-card-evs.dim { font-size: 10.5px; color: rgba(255,255,255,0.32); }
+.fl-card.empty { align-items: center; justify-content: center; border-style: dashed; border-color: rgba(255,255,255,0.28); background: transparent; min-height: 180px; }
+.fl-card.empty:hover { border-color: rgba(255,255,255,0.6); }
+.fl-card-plus { font-size: 34px; color: rgba(255,255,255,0.45); }
+.fl-chart.small { height: 68px; padding-top: 16px; margin-bottom: 4px; }
+.fl-rail-weeks { background: var(--bg-surface); border: 1px solid rgba(140,160,190,0.2); border-radius: 16px; padding: 12px 14px; margin-top: 12px; }
 .fl-coin { display: inline-block; width: 9px; height: 9px; border-radius: 50%; margin-left: 3px; vertical-align: baseline;
   background: radial-gradient(circle at 35% 30%, #fde68a, #f59e0b 75%); box-shadow: 0 0 4px rgba(245,158,11,0.55); }
 @media (max-width: 620px) {
-  .fl-stage { padding: 13px 13px 0; min-height: 0; }
+  .fl-stage { padding: 13px 13px 12px; min-height: 0; }
   .fl-stage-num { font-size: 38px; }
-  .fl-art .fl-art-img { width: 54px; height: 54px; }
-  .fl-lineup { grid-template-columns: repeat(4, minmax(0, 78px)); gap: 12px 8px; padding: 14px 0 10px; }
 }
 .fl-feed-row.c-chart { border-left: 3px solid var(--accent-orange); }
 .fl-feed-row.c-rel { border-left: 3px solid var(--accent-link); }
@@ -1260,7 +1260,7 @@ const css = `
   .fl-desk.console { height: calc(100vh - 104px); min-height: 540px; max-height: 860px; overflow: hidden; }
   .fl-desk.console .fl-desk-main { height: 100%; min-height: 0; }
   .fl-desk.console .fl-stage { height: 100%; min-height: 0; }
-  .fl-desk.console .fl-lineup { min-height: 0; overflow: hidden; }
+  .fl-desk.console .fl-cards { min-height: 0; overflow-y: auto; }
   .fl-desk.console .fl-desk-rail { height: 100%; min-height: 0; display: flex; flex-direction: column; position: static; }
   .fl-desk.console .fl-rail-events { flex: 1; min-height: 0; overflow-y: auto; }
 }

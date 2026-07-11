@@ -234,13 +234,24 @@ export async function GET(req: NextRequest) {
 
   // Atlikėjų taškai: praėjusi savaitė (oficiali) + einamoji LIVE
   const artistIds = roster.map((r: any) => r.artist_id)
-  const [officialRes, livePoints] = await Promise.all([
+  let histFrom = thisWeek
+  for (let i = 0; i < 6; i++) histFrom = prevWeekStart(histFrom)
+  const [officialRes, histRes, livePoints] = await Promise.all([
     artistIds.length
       ? sb.from('fantasy_artist_weeks').select('artist_id, total_points, chart_points, yt_points, release_points').eq('week_start', lastWeek).in('artist_id', artistIds)
+      : Promise.resolve({ data: [] }),
+    artistIds.length
+      ? sb.from('fantasy_artist_weeks').select('artist_id, week_start, total_points').in('artist_id', artistIds).gte('week_start', histFrom).lt('week_start', thisWeek).order('week_start', { ascending: true })
       : Promise.resolve({ data: [] }),
     computeArtistWeekPoints(artistIds, thisWeek, { live: true }),
   ])
   const officialByArtist = new Map(((officialRes as any).data || []).map((r: any) => [r.artist_id, r]))
+  const histByArtist = new Map<number, number[]>()
+  for (const h of ((histRes as any).data || []) as any[]) {
+    const arr = histByArtist.get(h.artist_id) || []
+    arr.push(h.total_points)
+    histByArtist.set(h.artist_id, arr)
+  }
 
   // Mano savaitės istorija + sezono suma
   const { data: myWeeks } = await sb
@@ -334,6 +345,7 @@ export async function GET(req: NextRequest) {
         signedAt: r.signed_at,
         countsFromNextWeek: !graceWeek && r.signed_at >= weekStartUtcNow,
         lastWeekPoints: official?.total_points ?? null,
+        weeksHist: histByArtist.get(r.artist_id) || [],
         isCaptain: r.artist_id === captainId,
         livePoints: live?.total_points ?? 0,
         liveBreakdown: live ? { chart: live.chart_points, yt: live.yt_points, rel: live.release_points, base: live.base_points } : null,
