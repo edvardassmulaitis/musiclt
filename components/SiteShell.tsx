@@ -21,12 +21,15 @@ export function SiteShell({ children }: { children: React.ReactNode }) {
   // Atlikėjų pristatomieji (landing) puslapiai — pilnai immersyvūs, be jokio
   // site chrome (header/footer/bottom-nav). Eksperimentinė funkcija.
   const isLanding = pathname?.startsWith('/landing') || pathname === '/@jessicashy'
+  // Žaidimų dashboard'as (tik /zaidimai) — „app" ekranas: be footer'io ir be
+  // apatinės navigacijos, kad 2×2 tilptų į vieną ekraną be scroll'o.
+  const isZaidimaiHub = pathname === '/zaidimai'
 
   // Apatinis mobile baras rodomas VISUR (įskaitant aktyvų pokalbį), išskyrus
   // admin'ą — kad niekur „nedingtų". Chat'as pats rezervuoja barui vietą per
   // --bottom-nav-h (height calc), todėl jam NEpridedam has-bottom-nav padding'o
   // (kitaip dubliuotųsi tarpas). Normalūs puslapiai gauna padding'ą.
-  const showBottomNav = !isAdmin && !isLanding
+  const showBottomNav = !isAdmin && !isLanding && !isZaidimaiHub
   const mainHasPadding = showBottomNav && !isChat
 
   useEffect(() => {
@@ -45,7 +48,7 @@ export function SiteShell({ children }: { children: React.ReactNode }) {
       </Suspense>
       {!isAdmin && !isLanding && <SiteHeader />}
       <main className={mainHasPadding ? 'has-bottom-nav' : undefined}>{children}</main>
-      {!isAdmin && !isChat && !isFeed && !isLanding && <SiteFooter />}
+      {!isAdmin && !isChat && !isFeed && !isLanding && !isZaidimaiHub && <SiteFooter />}
       {showBottomNav && <MobileBottomNav />}
       {!isAdmin && !isLanding && <QuickCreate />}
     </SiteProvider>

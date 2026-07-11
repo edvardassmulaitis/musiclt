@@ -33,6 +33,18 @@ const Chevron = () => (
   <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><path d="m9 18 6-6-6-6" /></svg>
 )
 
+// Vinilo plokštelė — Atradimų ikona (plokštelių dėžė / kasimasis gilyn)
+const Vinyl = () => (
+  <svg width="27" height="27" viewBox="0 0 24 24" fill="none" aria-hidden>
+    <circle cx="12" cy="12" r="9.4" fill="#0b0f18" />
+    <circle cx="12" cy="12" r="9.4" stroke="rgba(255,255,255,0.9)" strokeWidth="1.1" />
+    <circle cx="12" cy="12" r="6.6" stroke="rgba(255,255,255,0.32)" strokeWidth="0.9" />
+    <circle cx="12" cy="12" r="4.6" stroke="rgba(255,255,255,0.22)" strokeWidth="0.9" />
+    <circle cx="12" cy="12" r="2.9" fill="#fff" />
+    <circle cx="12" cy="12" r="0.9" fill="#0b0f18" />
+  </svg>
+)
+
 export default function ZaidimaiHubClient({ isAuthenticated, streak, totalXp, daily, todayTop, fantasy, gilyn }: Props) {
   const [wiz, setWiz] = useState<Wiz>(null)
 
@@ -44,8 +56,8 @@ export default function ZaidimaiHubClient({ isAuthenticated, streak, totalXp, da
 
       <div className="dg-head">
         <h1>Žaidimai</h1>
-        <button className="dg-stats" onClick={() => setWiz('stats')} aria-label="Statistika">
-          <span>📊</span><span className="dg-stats-txt">Statistika</span>
+        <button className="dg-stats" onClick={() => setWiz('stats')} aria-label="Statistika" title="Tavo statistika">
+          <svg width="18" height="18" viewBox="0 0 24 24" fill="currentColor" aria-hidden><rect x="3" y="11" width="4.5" height="9" rx="1.3" /><rect x="9.75" y="5" width="4.5" height="15" rx="1.3" /><rect x="16.5" y="14" width="4.5" height="6" rx="1.3" /></svg>
         </button>
       </div>
 
@@ -56,23 +68,27 @@ export default function ZaidimaiHubClient({ isAuthenticated, streak, totalXp, da
           <div className="dg-ttl">Žinios{daily.allDone && <span className="dg-badge ok">✓ ĮVEIKTA</span>}</div>
           <div className="dg-desc">Kiek gerai pažįsti muziką? Dienos iššūkis ir kvizai.</div>
           <div className="dg-foot">
-            <div className="dg-dots">
-              {daily.steps.map((s, i) => <i key={i} className={s.done ? 'on' : ''} />)}
-            </div>
-            <span className="dg-stat">{daily.doneCount}/{daily.total}</span>
+            {daily.doneCount > 0 ? (
+              <>
+                <div className="dg-dots">{daily.steps.map((s, i) => <i key={i} className={s.done ? 'on' : ''} />)}</div>
+                <span className="dg-stat">{daily.doneCount}/{daily.total}</span>
+              </>
+            ) : (
+              <span className="dg-chip">Pradėk iššūkį →</span>
+            )}
           </div>
           <span className="dg-go"><Chevron /></span>
         </button>
 
         {/* Atradimai — Gilyn */}
         <button className="dg-box b-atradimai" onClick={() => setWiz('atradimai')}>
-          <div className="dg-ico">🗺️</div>
+          <div className="dg-ico"><Vinyl /></div>
           <div className="dg-ttl">Atradimai</div>
           <div className="dg-desc">Gilyn — kasdienė plokštelių dėžė. Atrask naujų atlikėjų.</div>
           <div className="dg-foot">
             {gilyn?.status === 'done' ? <span className="dg-chip">✓ Kelias nueitas</span>
               : gilyn ? <span className="dg-chip">Tęsk kasimąsi</span>
-                : <span className="dg-chip">💿 Atidaryk dėžę</span>}
+                : <span className="dg-chip">Atverk dėžę →</span>}
           </div>
           <span className="dg-go"><Chevron /></span>
         </button>
@@ -212,10 +228,10 @@ const css = `
 .dg-shell { display: flex; flex-direction: column; }
 .dg-head { display: flex; align-items: center; justify-content: space-between; gap: 12px; margin: 4px 0 14px; }
 .dg-head h1 { font-size: 26px; font-weight: 900; letter-spacing: -0.02em; margin: 0; color: var(--text-primary); }
-.dg-stats { display: inline-flex; align-items: center; gap: 7px; background: var(--bg-surface); border: 1px solid rgba(140,160,190,0.2); border-radius: 999px; padding: 6px 13px; color: var(--text-secondary); font-size: 12.5px; font-weight: 800; cursor: pointer; }
-.dg-stats-txt { color: var(--text-secondary); }
+.dg-stats { display: inline-flex; align-items: center; justify-content: center; width: 36px; height: 36px; background: var(--bg-surface); border: 1px solid rgba(140,160,190,0.2); border-radius: 50%; color: var(--text-secondary); cursor: pointer; flex-shrink: 0; }
+.dg-stats:hover { color: var(--accent-orange); border-color: var(--accent-orange); }
 
-.dg-grid { display: grid; grid-template-columns: 1fr 1fr; grid-template-rows: 1fr 1fr; gap: 12px; min-height: calc(100dvh - 200px); }
+.dg-grid { display: grid; grid-template-columns: 1fr 1fr; grid-template-rows: 1fr 1fr; gap: 12px; min-height: calc(100svh - 172px); }
 .dg-box { position: relative; text-align: left; border: 1px solid rgba(140,160,190,0.16); border-radius: 18px; padding: 16px; display: flex; flex-direction: column; gap: 8px; cursor: pointer; color: var(--text-primary); overflow: hidden; }
 .dg-box:active { transform: scale(0.985); }
 .dg-ico { width: 42px; height: 42px; border-radius: 13px; display: flex; align-items: center; justify-content: center; font-size: 21px; }
