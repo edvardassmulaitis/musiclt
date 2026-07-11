@@ -269,7 +269,32 @@ export type PoolTrack = {
 }
 
 // 8 pagrindinių stilių grupių genres.id (mirror lib/artist-import.ts)
-const GENRE_GROUP_IDS = [1000556, 1000557, 1000558, 1000559, 1000560, 1000561, 1000562, 1000563]
+export const GENRE_GROUP_IDS = [1000556, 1000557, 1000558, 1000559, 1000560, 1000561, 1000562, 1000563]
+
+/** Deterministinis „dienos stilius" — per 8 dienas pasisuka visi stiliai. */
+export function styleOfDay(dateStr: string): number {
+  let h = 0
+  for (const ch of dateStr) h = (h * 31 + ch.charCodeAt(0)) >>> 0
+  return GENRE_GROUP_IDS[h % GENRE_GROUP_IDS.length]
+}
+
+/** artist_id → stiliaus grupės genres.id (albumų/nuotraukų žaidimų stiliaus rotacijai). */
+export async function fetchArtistGenreGroups(artistIds: number[]): Promise<Map<number, number>> {
+  const out = new Map<number, number>()
+  if (!artistIds.length) return out
+  const sb = createAdminClient()
+  const uniq = Array.from(new Set(artistIds))
+  for (let i = 0; i < uniq.length; i += 400) {
+    const chunk = uniq.slice(i, i + 400)
+    const { data } = await sb
+      .from('artist_genres')
+      .select('artist_id, genre_id')
+      .in('artist_id', chunk)
+      .in('genre_id', GENRE_GROUP_IDS)
+    for (const r of (data as any[]) || []) if (!out.has(r.artist_id)) out.set(r.artist_id, r.genre_id)
+  }
+  return out
+}
 
 const poolCache = new Map<string, { at: number; tracks: PoolTrack[] }>()
 const POOL_TTL_MS = 10 * 60 * 1000

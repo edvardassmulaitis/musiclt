@@ -16,6 +16,8 @@ import {
   shuffleArr,
   sealPayload,
   countRunsToday,
+  styleOfDay,
+  fetchArtistGenreGroups,
 } from '@/lib/zaidimai'
 
 export const dynamic = 'force-dynamic'
@@ -131,12 +133,18 @@ export async function GET(req: NextRequest) {
     return jsonErr('Per mažai vaizdų', 503)
   }
 
+  // Stiliaus rotacija — dienos režime kasdien kitas „dienos stilius" (daugiau įvairovės)
+  const preferStyle = dienos ? styleOfDay(todayLT()) : null
+  const genreMap = preferStyle ? await fetchArtistGenreGroups(pool.map(p => p.artistId)) : new Map<number, number>()
+  const inStyle = (p: PoolItem) => preferStyle != null && genreMap.get(p.artistId) === preferStyle
+  const bias = (arr: PoolItem[]) => preferStyle ? [...arr.filter(inStyle), ...arr.filter(p => !inStyle(p))] : shuffleArr(arr)
+
   // ── Raundų turinio generavimas (be žetonų) ──
   function buildContent(): RoundContent[] {
     const albWant = Math.round(roundCount / 2)
     const picked = [
-      ...shuffleArr(albumsAll).slice(0, albWant),
-      ...shuffleArr(artistsAll).slice(0, roundCount - albWant),
+      ...bias(albumsAll).slice(0, albWant),
+      ...bias(artistsAll).slice(0, roundCount - albWant),
     ]
     if (picked.length < roundCount) {
       const have = new Set(picked.map(p => `${p.kind}:${p.id}`))

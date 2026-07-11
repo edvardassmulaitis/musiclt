@@ -18,6 +18,7 @@ import {
   shuffleArr,
   sealPayload,
   countRunsToday,
+  styleOfDay,
   type PoolTrack,
 } from '@/lib/zaidimai'
 
@@ -52,9 +53,15 @@ export async function GET(req: NextRequest) {
     const pool = [...ltPool, ...worldPool]
     if (pool.length < roundCount * 6) return null
 
+    // Stiliaus rotacija dienos režime — kasdien kitas „dienos stilius"
+    const daily = dienos ? styleOfDay(todayLT()) : null
+    // Atsakymo kandidatai: dienos režime pirmiausia dienos stiliaus dainos
+    const ordered = daily
+      ? [...shuffleArr(pool.filter(t => t.genre === daily)), ...shuffleArr(pool)]
+      : shuffleArr(pool)
     const candidates: PoolTrack[] = []
     const usedArtists = new Set<number>()
-    for (const t of shuffleArr(pool)) {
+    for (const t of ordered) {
       if (candidates.length >= roundCount * 3) break
       if (usedArtists.has(t.artist_id)) continue
       usedArtists.add(t.artist_id)
@@ -66,13 +73,20 @@ export async function GET(req: NextRequest) {
 
     return withAudio.slice(0, roundCount).map((correct, idx) => {
       const sameScene = (ltPool.includes(correct) ? ltPool : worldPool)
+      const solo = correct.gender === 'male' || correct.gender === 'female'
+      // Klaidinantys — kuo panašesni: ta pati scena + stilius + lytis, tada laisviau
+      const tier1 = correct.genre != null ? sameScene.filter(t => t.genre === correct.genre && (!solo || t.gender === correct.gender)) : []
+      const tier2 = correct.genre != null ? sameScene.filter(t => t.genre === correct.genre) : []
       const decoys: PoolTrack[] = []
       const decoyArtists = new Set<number>([correct.artist_id])
-      for (const t of shuffleArr(sameScene)) {
+      for (const src of [shuffleArr(tier1), shuffleArr(tier2), shuffleArr(sameScene)]) {
+        for (const t of src) {
+          if (decoys.length >= 3) break
+          if (t.id === correct.id || decoyArtists.has(t.artist_id)) continue
+          decoyArtists.add(t.artist_id)
+          decoys.push(t)
+        }
         if (decoys.length >= 3) break
-        if (t.id === correct.id || decoyArtists.has(t.artist_id)) continue
-        decoyArtists.add(t.artist_id)
-        decoys.push(t)
       }
       const options = shuffleArr([
         { id: correct.id, title: correct.title, artist: correct.artist },

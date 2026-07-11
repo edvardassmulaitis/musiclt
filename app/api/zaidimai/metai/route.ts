@@ -14,6 +14,8 @@ import {
   shuffleArr,
   sealPayload,
   countRunsToday,
+  styleOfDay,
+  fetchArtistGenreGroups,
 } from '@/lib/zaidimai'
 
 export const dynamic = 'force-dynamic'
@@ -114,11 +116,21 @@ export async function GET(req: NextRequest) {
     return jsonErr('Per mažai albumų su metais', 503)
   }
 
+  // Stiliaus rotacija — dienos režime kasdien kitas „dienos stilius"
+  const preferStyle = dienos ? styleOfDay(todayLT()) : null
+  const genreMap = preferStyle
+    ? await fetchArtistGenreGroups([...uzsienioPool, ...ltPool].map(a => a.artists!.id))
+    : new Map<number, number>()
+  const inStyle = (a: AlbumRow) => preferStyle != null && genreMap.get(a.artists!.id) === preferStyle
+  // dienos stiliaus albumus dedam į priekį (bet paliekam ir kitus atsargai)
+  const bias = (arr: AlbumRow[]) => preferStyle ? [...arr.filter(inStyle), ...arr.filter(a => !inStyle(a))] : arr
+
   function buildContent(): RoundContent[] {
-    const ltCount = Math.min(Math.round(roundCount / 3), ltPool.length)
+    const lt = bias(ltPool), uz = bias(uzsienioPool)
+    const ltCount = Math.min(Math.round(roundCount / 3), lt.length)
     const corrects = shuffleArr([
-      ...ltPool.slice(0, ltCount),
-      ...uzsienioPool.slice(0, roundCount - ltCount),
+      ...lt.slice(0, ltCount),
+      ...uz.slice(0, roundCount - ltCount),
     ]).slice(0, roundCount)
     return corrects.map((al, idx) => {
       const years = shuffleArr([al.year!, ...yearDecoys(al.year!)])

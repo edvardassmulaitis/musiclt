@@ -26,6 +26,7 @@ import {
   countRunsToday,
   dailySeed,
   mulberry32,
+  styleOfDay,
   QUIZ_CATEGORIES,
   type PoolTrack,
 } from '@/lib/zaidimai'
@@ -155,8 +156,14 @@ async function dailyRounds(roundCount: number): Promise<BuiltRound[] | null> {
     loadQuizPool(quizCategory('lt-mix')!),
     loadQuizPool(quizCategory('pasaulis')!),
   ])
-  // Atsakymai — iš žinomiausių abiejų scenų; klaidinantys — iš viso mišinio
-  const famous = [...ltPool.slice(0, 90), ...worldPool.slice(0, 130)]
+  // Stiliaus rotacija — kasdien kitas „dienos stilius", kad per 8 dienas
+  // pasisuktų visi stiliai ir dainos būtų įvairesnės (ne vien pop/rokas).
+  const sod = styleOfDay(today)
+  const styleLt = ltPool.filter(t => t.genre === sod).slice(0, 60)
+  const styleWorld = worldPool.filter(t => t.genre === sod).slice(0, 80)
+  // Atsakymai — pirmiausia dienos stiliaus žinomiausi, papildyti bendrais top hitais;
+  // klaidinantys — iš viso mišinio (o buildAudioRounds dar pasirenka pagal stilių/lytį)
+  const famous = [...styleLt, ...styleWorld, ...ltPool.slice(0, 40), ...worldPool.slice(0, 60)]
   const decoyPool = [...ltPool, ...worldPool]
   if (famous.length < roundCount * 4) return null
 
