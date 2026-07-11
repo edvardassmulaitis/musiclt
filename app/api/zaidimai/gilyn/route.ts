@@ -17,7 +17,7 @@ import { resolveViewer, insertGameScore } from '@/lib/zaidimai'
 import {
   BOX_SIZE, DIG_STEPS, GILYN_XP_FINISH, GILYN_XP_NEW_NODE,
   ensureDayBox, personalOrder, fetchViewerLikes, computeBoxStatuses,
-  generateDoors, upsertMapNode, communityStats,
+  generateDoors, upsertMapNode, communityStats, enrichBoxTracks, fetchAlbumTracklists,
   type BoxAlbum, type Door, type PathNode,
 } from '@/lib/gilyn'
 
@@ -60,11 +60,20 @@ export async function GET() {
     const sb = createAdminClient()
     const day = todayLT()
 
-    const box = await ensureDayBox(day)
+    let box = await ensureDayBox(day)
+    if (box.length && !box[0].tracks) box = await enrichBoxTracks(day, box)   // senų dienų backfill
     const ordered = personalOrder(box, day, viewerKey(viewer))
     const likes = await fetchViewerLikes(viewer)
     const statuses = await computeBoxStatuses(ordered, likes)
-    const run = await loadRun(sb, day, viewer)
+    let run = await loadRun(sb, day, viewer)
+
+    // Durų playlist backfill (durys sugeneruotos iki v2)
+    if (run?.doors?.length && !run.doors[0].tracks) {
+      const lists = await fetchAlbumTracklists(run.doors.map((d: any) => d.albumId).filter(Boolean))
+      const doors = run.doors.map((d: any) => ({ ...d, tracks: lists.get(d.albumId) || (d.ytId ? [{ t: d.title, y: d.ytId }] : []) }))
+      await sb.from('gilyn_runs').update({ doors }).eq('id', run.id)
+      run = { ...run, doors }
+    }
 
     let community = null
     if (run?.status === 'done') community = await communityStats(day, run)
@@ -143,6 +152,7 @@ export async function POST(req: NextRequest) {
           held = {
             albumId: alb.albumId, artistId: alb.artistId, title: alb.title, artist: alb.artist,
             artistSlug: alb.artistSlug, year: alb.year, cover: alb.cover, ytId: alb.ytId,
+            tracks: alb.tracks || [],
           }
         }
         history.push({ pos, action, albumId: albumId || null, prevHeld: run.held?.albumId || null })
@@ -165,7 +175,7 @@ export async function POST(req: NextRequest) {
         if (!alb) return NextResponse.json({ error: 'Nežinomas albumas' }, { status: 400 })
         const shelf: any[] = Array.isArray(run.shelf) ? run.shelf : []
         if (!shelf.some(s => s.albumId === alb.albumId)) {
-          shelf.push({ albumId: alb.albumId, artistId: alb.artistId, title: alb.title, artist: alb.artist, cover: alb.cover, year: alb.year, ytId: alb.ytId })
+          shelf.push({ albumId: alb.albumId, artistId: alb.artistId, title: alb.title, artist: alb.artist, cover: alb.cover, year: alb.year, ytId: alb.ytId, tracks: alb.tracks || [] })
         }
         await save({ shelf })
         return NextResponse.json({ run: publicRun(run) })
@@ -210,6 +220,7 @@ export async function POST(req: NextRequest) {
           held: {
             albumId: pick.albumId, artistId: pick.artistId, title: pick.title, artist: pick.artist,
             artistSlug: pick.artistSlug, year: pick.year, cover: pick.cover, ytId: pick.ytId,
+            tracks: pick.tracks || [],
           },
           box_pos: BOX_SIZE,
         })
@@ -252,7 +263,8 @@ export async function POST(req: NextRequest) {
           step, doorType: door.doorType, artistId: door.artistId, artist: door.artist,
           artistSlug: door.artistSlug, albumId: door.albumId, title: door.title,
           cover: door.cover, year: door.year, ytId: door.ytId, reason: door.reason,
-        })
+          tracks: (door as any).tracks || [],
+        } as any)
         await upsertMapNode(viewer, door.artistId, { visited: true }, door.doorType)
 
         if (step >= DIG_STEPS) {
@@ -329,7 +341,8 @@ async function transitionToDig(sb: any, run: any, viewer: any, day: string, box:
     step: 0, doorType: 'portal', artistId: held.artistId, artist: held.artist,
     artistSlug: held.artistSlug || null, albumId: held.albumId, title: held.title,
     cover: held.cover, year: held.year, ytId: held.ytId || null, reason: null,
-  }]
+    tracks: held.tracks || [],
+  } as any]
   await upsertMapNode(viewer, held.artistId, { visited: true }, 'portal')
 
   const exclude = new Set<number>(box.map(b => b.artistId))

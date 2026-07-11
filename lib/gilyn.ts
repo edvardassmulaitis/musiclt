@@ -31,6 +31,8 @@ const TIER_ANCHOR = 58   // plačiai žinomi
 const TIER_MID = 44      // vidutinio žinomumo
 const TIER_LESS = 28     // mažiau žinomi, bet prieinami
 
+export type TrackRef = { t: string; y: string }   // title + ytId (kompaktiškai jsonb'e)
+
 export type BoxAlbum = {
   albumId: number
   artistId: number
@@ -42,6 +44,7 @@ export type BoxAlbum = {
   cover: string
   ytId: string | null
   previewTitle: string | null
+  tracks?: TrackRef[]
   genreIds: number[]
   substyleIds: number[]
   country: string | null
@@ -59,6 +62,7 @@ export type Door = {
   year: number | null
   cover: string | null
   ytId: string | null
+  tracks?: TrackRef[]
   reason: string
 }
 
@@ -155,6 +159,43 @@ async function fetchArtistMeta(artistIds: number[]): Promise<Map<number, ArtistM
     for (const r of (ss as any[]) || []) out.get(r.artist_id)?.substyleIds.push(r.substyle_id)
   }
   return out
+}
+
+/** Kiekvienam albumui — iki `per` YT track'ų (grotuvo playlist'ui), albumo tvarka. */
+export async function fetchAlbumTracklists(albumIds: number[], per = 6): Promise<Map<number, TrackRef[]>> {
+  const sb = createAdminClient()
+  const out = new Map<number, TrackRef[]>()
+  for (const ids of chunk(albumIds, 100)) {
+    const { data } = await sb
+      .from('album_tracks')
+      .select('album_id, position, tracks:track_id!inner ( id, title, video_url, video_views, video_embeddable )')
+      .in('album_id', ids)
+      .not('tracks.video_url', 'is', null)
+      .order('position', { ascending: true, nullsFirst: false })
+      .limit(1000)
+    for (const r of (data as any[]) || []) {
+      const t = Array.isArray(r.tracks) ? r.tracks[0] : r.tracks
+      if (!t?.video_url || t.video_embeddable === false) continue
+      const y = ytIdFromUrl(t.video_url)
+      if (!y) continue
+      const list = out.get(r.album_id) || []
+      if (list.length < per && !list.some(x => x.y === y)) {
+        list.push({ t: t.title, y })
+        out.set(r.album_id, list)
+      }
+    }
+  }
+  return out
+}
+
+/** Lazy backfill: senos gilyn_days eilutės be tracks[] gauna playlist'us. */
+export async function enrichBoxTracks(day: string, box: BoxAlbum[]): Promise<BoxAlbum[]> {
+  if (box.length && box[0].tracks) return box
+  const lists = await fetchAlbumTracklists(box.map(b => b.albumId))
+  const enriched = box.map(b => ({ ...b, tracks: lists.get(b.albumId) || (b.ytId ? [{ t: b.previewTitle || b.title, y: b.ytId }] : []) }))
+  const sb = createAdminClient()
+  await sb.from('gilyn_days').update({ albums: enriched }).eq('day', day)
+  return enriched
 }
 
 /** Kiekvienam albumui — geriausias YT track'as (preview). */
@@ -316,11 +357,13 @@ export async function ensureDayBox(day: string): Promise<BoxAlbum[]> {
   const final = picked.slice(0, BOX_SIZE)
   const metaAll = await fetchArtistMeta(final.map(c => c.artistId))
   const prevAll = await fetchAlbumPreviews(final.map(c => c.albumId))
+  const listsAll = await fetchAlbumTracklists(final.map(c => c.albumId))
   const box: BoxAlbum[] = seededShuffle(final, rng).map(c => ({
     albumId: c.albumId, artistId: c.artistId, title: c.title, artist: c.artist,
     artistSlug: c.artistSlug, albumSlug: c.albumSlug, year: c.year, cover: c.cover,
     ytId: prevAll.get(c.albumId)?.ytId || null,
     previewTitle: prevAll.get(c.albumId)?.title || null,
+    tracks: listsAll.get(c.albumId) || [],
     genreIds: metaAll.get(c.artistId)?.genreIds || [],
     substyleIds: metaAll.get(c.artistId)?.substyleIds || [],
     country: c.country, tier: c.tier,
@@ -620,12 +663,11 @@ export async function generateDoors(opts: {
       const pick = ranked[0]
       if (pick) {
         const a = artById.get(pick.id)
-        const era = cur.eraLo ? `${Math.floor(cur.eraLo / 10) * 10}-ųjų` : ''
         doors.push({
           doorType: 'scene', label: 'TA PATI SCENA',
           artistId: pick.id, artist: a.name, artistSlug: a.slug || null,
           albumId: null, title: null, year: null, cover: null, ytId: null,
-          reason: `${cur.country}${era ? `, ${era} scena` : ' — ta pati scena'}.`,
+          reason: `Ta pati scena — ${cur.country}.`,
         })
         usedDoorArtists.add(pick.id)
       }
@@ -674,11 +716,15 @@ export async function generateDoors(opts: {
     }
   }
 
-  // Reprezentaciniai albumai (viršelis + YT)
+  // Reprezentaciniai albumai (viršelis + YT + playlist grotuvui)
   const albums = await pickDoorAlbums(doors.map(d => d.artistId))
+  const lists = await fetchAlbumTracklists([...albums.values()].map(a => a.albumId))
   const withAlbums = doors.filter(d => albums.has(d.artistId)).map(d => {
     const al = albums.get(d.artistId)!
-    return { ...d, albumId: al.albumId, title: al.title, year: al.year, cover: al.cover, ytId: al.ytId }
+    return {
+      ...d, albumId: al.albumId, title: al.title, year: al.year, cover: al.cover, ytId: al.ytId,
+      tracks: lists.get(al.albumId) || (al.ytId ? [{ t: al.title, y: al.ytId }] : []),
+    }
   })
   return withAlbums.slice(0, 3)
 }
@@ -688,7 +734,10 @@ export async function generateDoors(opts: {
 export type MapRegion = {
   genreId: number
   name: string
-  substyles: { id: number; name: string; beacons: number; visited: number; heard: number; saved: number }[]
+  substyles: {
+    id: number; name: string; beacons: number; visited: number; heard: number; saved: number
+    artists: { n: string; k: 'saved' | 'visited' | 'beacon' }[]
+  }[]
   beacons: number
   visited: number
 }
@@ -711,14 +760,21 @@ export async function buildMap(viewer: GameViewer): Promise<{
     }
   }
   const beaconSubCount = new Map<number, number>()
+  const beaconSubArtists = new Map<number, number[]>()
   for (const ids of chunk([...beaconArtists].slice(0, 600), 200)) {
-    const { data } = await sb.from('artist_substyles').select('substyle_id').in('artist_id', ids).limit(1000)
-    for (const r of (data as any[]) || []) beaconSubCount.set(r.substyle_id, (beaconSubCount.get(r.substyle_id) || 0) + 1)
+    const { data } = await sb.from('artist_substyles').select('artist_id, substyle_id').in('artist_id', ids).limit(1000)
+    for (const r of (data as any[]) || []) {
+      beaconSubCount.set(r.substyle_id, (beaconSubCount.get(r.substyle_id) || 0) + 1)
+      const list = beaconSubArtists.get(r.substyle_id) || []
+      if (list.length < 10) { list.push(r.artist_id); beaconSubArtists.set(r.substyle_id, list) }
+    }
   }
 
   // Aplankyti/išgirsti/išsaugoti — iš gilyn_map_nodes
   const nodeSub = { visited: new Map<number, number>(), heard: new Map<number, number>(), saved: new Map<number, number>() }
+  const nodeSubArtists = { visited: new Map<number, number[]>(), saved: new Map<number, number[]>() }
   const totals = { visited: 0, heard: 0, saved: 0 }
+  const nodeArtistIds = new Set<number>()
   if (viewer.userId || viewer.anonId) {
     let q = sb.from('gilyn_map_nodes').select('artist_id, visited, heard, saved, substyle_ids')
     q = viewer.userId ? q.eq('user_id', viewer.userId) : q.eq('anon_id', viewer.anonId!)
@@ -727,24 +783,57 @@ export async function buildMap(viewer: GameViewer): Promise<{
       if (r.visited) totals.visited++
       if (r.heard) totals.heard++
       if (r.saved) totals.saved++
+      if (r.visited || r.saved) nodeArtistIds.add(r.artist_id)
       for (const s of r.substyle_ids || []) {
-        if (r.visited) nodeSub.visited.set(s, (nodeSub.visited.get(s) || 0) + 1)
+        if (r.visited) {
+          nodeSub.visited.set(s, (nodeSub.visited.get(s) || 0) + 1)
+          const l = nodeSubArtists.visited.get(s) || []
+          if (l.length < 10) { l.push(r.artist_id); nodeSubArtists.visited.set(s, l) }
+        }
         if (r.heard) nodeSub.heard.set(s, (nodeSub.heard.get(s) || 0) + 1)
-        if (r.saved) nodeSub.saved.set(s, (nodeSub.saved.get(s) || 0) + 1)
+        if (r.saved) {
+          nodeSub.saved.set(s, (nodeSub.saved.get(s) || 0) + 1)
+          const l = nodeSubArtists.saved.get(s) || []
+          if (l.length < 10) { l.push(r.artist_id); nodeSubArtists.saved.set(s, l) }
+        }
       }
     }
   }
 
+  // Vardai — „kas atidengė šią teritoriją"
+  const nameIds = new Set<number>(nodeArtistIds)
+  for (const [, ids] of beaconSubArtists) for (const id of ids) nameIds.add(id)
+  const nameById = new Map<number, string>()
+  for (const ids of chunk([...nameIds].slice(0, 800), 200)) {
+    const { data } = await sb.from('artists').select('id, name').in('id', ids).limit(400)
+    for (const r of (data as any[]) || []) nameById.set(r.id, r.name)
+  }
+
   const regions: MapRegion[] = taxo.genres.map(g => {
     const subs = [...taxo.subById.values()].filter(s => s.genreId === g.id)
-    const substyles = subs.map(s => ({
-      id: s.id, name: s.name,
-      beacons: beaconSubCount.get(s.id) || 0,
-      visited: nodeSub.visited.get(s.id) || 0,
-      heard: nodeSub.heard.get(s.id) || 0,
-      saved: nodeSub.saved.get(s.id) || 0,
-    }))
-    // rodom tik substilius, kur yra bent kokia veikla ARBA top pagal švyturius; likusieji = rūkas (count)
+    const substyles = subs.map(s => {
+      // atlikėjai, atidengę šį substilių: ★ radiniai → aplankyti → švyturiai
+      const seen = new Set<number>()
+      const artists: { n: string; k: 'saved' | 'visited' | 'beacon' }[] = []
+      const push = (ids: number[] | undefined, k: 'saved' | 'visited' | 'beacon') => {
+        for (const id of ids || []) {
+          if (artists.length >= 8 || seen.has(id)) continue
+          const n = nameById.get(id)
+          if (n) { artists.push({ n, k }); seen.add(id) }
+        }
+      }
+      push(nodeSubArtists.saved.get(s.id), 'saved')
+      push(nodeSubArtists.visited.get(s.id), 'visited')
+      push(beaconSubArtists.get(s.id), 'beacon')
+      return {
+        id: s.id, name: s.name,
+        beacons: beaconSubCount.get(s.id) || 0,
+        visited: nodeSub.visited.get(s.id) || 0,
+        heard: nodeSub.heard.get(s.id) || 0,
+        saved: nodeSub.saved.get(s.id) || 0,
+        artists,
+      }
+    })
     substyles.sort((a, b) => (b.beacons + b.visited * 3 + b.saved * 5) - (a.beacons + a.visited * 3 + a.saved * 5))
     return {
       genreId: g.id, name: shortGenreName(g.name), substyles,
