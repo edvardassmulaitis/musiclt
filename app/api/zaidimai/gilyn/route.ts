@@ -67,12 +67,27 @@ export async function GET() {
     const statuses = await computeBoxStatuses(ordered, likes)
     let run = await loadRun(sb, day, viewer)
 
-    // Durų playlist backfill (durys sugeneruotos iki v2)
-    if (run?.doors?.length && !run.doors[0].tracks) {
-      const lists = await fetchAlbumTracklists(run.doors.map((d: any) => d.albumId).filter(Boolean))
-      const doors = run.doors.map((d: any) => ({ ...d, tracks: lists.get(d.albumId) || (d.ytId ? [{ t: d.title, y: d.ytId }] : []) }))
-      await sb.from('gilyn_runs').update({ doors }).eq('id', run.id)
-      run = { ...run, doors }
+    // Playlist backfill run'ams, sukurtiems iki v2 (durys + kelias + held + lentyna)
+    if (run) {
+      const patch: Record<string, any> = {}
+      const needIds: number[] = []
+      const collect = (arr: any[] | null | undefined) => {
+        for (const x of arr || []) if (x?.albumId && !x.tracks) needIds.push(x.albumId)
+      }
+      collect(run.doors); collect(run.path); collect(run.shelf)
+      if (run.held?.albumId && !run.held.tracks) needIds.push(run.held.albumId)
+      if (needIds.length) {
+        const lists = await fetchAlbumTracklists([...new Set(needIds)])
+        const fill = (x: any) => x?.albumId
+          ? { ...x, tracks: x.tracks || lists.get(x.albumId) || (x.ytId ? [{ t: x.title, y: x.ytId }] : []) }
+          : x
+        if (run.doors?.length) patch.doors = run.doors.map(fill)
+        if (run.path?.length) patch.path = run.path.map(fill)
+        if (run.shelf?.length) patch.shelf = run.shelf.map(fill)
+        if (run.held) patch.held = fill(run.held)
+        await sb.from('gilyn_runs').update(patch).eq('id', run.id)
+        run = { ...run, ...patch }
+      }
     }
 
     let community = null
