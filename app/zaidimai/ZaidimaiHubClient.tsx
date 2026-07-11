@@ -9,7 +9,6 @@
 
 import Link from 'next/link'
 import { useState } from 'react'
-import ZaidimoLangas from '@/components/zaidimai/ZaidimoLangas'
 import type { DailyStep, DailyTopRow, FantasyInfo, GilynInfo } from './page'
 
 type Props = {
@@ -40,10 +39,11 @@ export default function ZaidimaiHubClient({ isAuthenticated, streak, totalXp, da
   const gilynLabel = gilyn?.status === 'done' ? 'Peržiūrėti kelią' : gilyn ? 'Tęsti kasimąsi' : 'Atidaryti dėžę'
 
   return (
-    <ZaidimoLangas title="Žaidimai" backHref="/" maxWidth={880}>
+    <div className="page-shell dg-shell">
       <style>{css}</style>
 
-      <div className="dg-top">
+      <div className="dg-head">
+        <h1>Žaidimai</h1>
         <button className="dg-stats" onClick={() => setWiz('stats')} aria-label="Statistika">
           <span>📊</span><span className="dg-stats-txt">Statistika</span>
         </button>
@@ -66,8 +66,8 @@ export default function ZaidimaiHubClient({ isAuthenticated, streak, totalXp, da
 
         {/* Atradimai — Gilyn */}
         <button className="dg-box b-atradimai" onClick={() => setWiz('atradimai')}>
-          <div className="dg-ico">🧭</div>
-          <div className="dg-ttl">Atradimai <span className="dg-badge new">NAUJA</span></div>
+          <div className="dg-ico">🗺️</div>
+          <div className="dg-ttl">Atradimai</div>
           <div className="dg-desc">Gilyn — kasdienė plokštelių dėžė. Atrask naujų atlikėjų.</div>
           <div className="dg-foot">
             {gilyn?.status === 'done' ? <span className="dg-chip">✓ Kelias nueitas</span>
@@ -80,7 +80,7 @@ export default function ZaidimaiHubClient({ isAuthenticated, streak, totalXp, da
         {/* Reakcija */}
         <button className="dg-box b-reakcija" onClick={() => setWiz('reakcija')}>
           <div className="dg-ico">⚡</div>
-          <div className="dg-ttl">Reakcija <span className="dg-badge new">NAUJA</span></div>
+          <div className="dg-ttl">Reakcija</div>
           <div className="dg-desc">Greiti žaidimai su tikra muzika — spėk pagauti.</div>
           <div className="dg-foot"><span className="dg-chip">🎤 Koncertas</span><span className="dg-chip">🎯 Gaudyklė</span></div>
           <span className="dg-go"><Chevron /></span>
@@ -140,7 +140,7 @@ export default function ZaidimaiHubClient({ isAuthenticated, streak, totalXp, da
               <>
                 <WizHead ico="⚡" title="Reakcija" sub="Greiti žaidimai su tikra muzika" />
                 <div className="dg-rows">
-                  <WizRow href="/zaidimai/koncertas" ico="🎤" label="Dienos koncertas" note="dienos atlikėjo setas · gaudyk hype" big badge="NAUJA" />
+                  <WizRow href="/zaidimai/koncertas" ico="🎤" label="Dienos koncertas" note="dienos atlikėjo setas · gaudyk hype" big />
                   <WizRow href="/zaidimai/gaudykle" ico="🎯" label="Atlikėjų gaudyklė" note="gaudyk pasirinkto stiliaus atlikėjus" big />
                 </div>
               </>
@@ -185,7 +185,7 @@ export default function ZaidimaiHubClient({ isAuthenticated, streak, totalXp, da
           </div>
         </div>
       )}
-    </ZaidimoLangas>
+    </div>
   )
 }
 
@@ -209,12 +209,14 @@ function WizRow({ href, ico, label, note, big, badge }: { href: string; ico: str
 }
 
 const css = `
-.dg-top { display: flex; justify-content: flex-end; margin: -4px 0 10px; }
+.dg-shell { display: flex; flex-direction: column; }
+.dg-head { display: flex; align-items: center; justify-content: space-between; gap: 12px; margin: 4px 0 14px; }
+.dg-head h1 { font-size: 26px; font-weight: 900; letter-spacing: -0.02em; margin: 0; color: var(--text-primary); }
 .dg-stats { display: inline-flex; align-items: center; gap: 7px; background: var(--bg-surface); border: 1px solid rgba(140,160,190,0.2); border-radius: 999px; padding: 6px 13px; color: var(--text-secondary); font-size: 12.5px; font-weight: 800; cursor: pointer; }
 .dg-stats-txt { color: var(--text-secondary); }
 
-.dg-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; }
-.dg-box { position: relative; text-align: left; border: 1px solid rgba(140,160,190,0.16); border-radius: 18px; padding: 15px; display: flex; flex-direction: column; gap: 7px; cursor: pointer; color: var(--text-primary); overflow: hidden; min-height: 148px; }
+.dg-grid { display: grid; grid-template-columns: 1fr 1fr; grid-template-rows: 1fr 1fr; gap: 12px; min-height: calc(100dvh - 200px); }
+.dg-box { position: relative; text-align: left; border: 1px solid rgba(140,160,190,0.16); border-radius: 18px; padding: 16px; display: flex; flex-direction: column; gap: 8px; cursor: pointer; color: var(--text-primary); overflow: hidden; }
 .dg-box:active { transform: scale(0.985); }
 .dg-ico { width: 42px; height: 42px; border-radius: 13px; display: flex; align-items: center; justify-content: center; font-size: 21px; }
 .dg-ttl { font-size: 17px; font-weight: 900; letter-spacing: -0.01em; display: flex; align-items: center; gap: 7px; flex-wrap: wrap; }
@@ -245,8 +247,9 @@ const css = `
 
 /* Desktop — didesni boxai, per visą plotį */
 @media (min-width: 720px) {
-  .dg-grid { gap: 16px; }
-  .dg-box { min-height: 190px; padding: 20px; gap: 9px; }
+  .dg-head h1 { font-size: 30px; }
+  .dg-grid { gap: 16px; min-height: 0; grid-template-rows: auto auto; }
+  .dg-box { min-height: 240px; padding: 22px; gap: 10px; }
   .dg-ico { width: 50px; height: 50px; font-size: 25px; border-radius: 15px; }
   .dg-ttl { font-size: 21px; }
   .dg-desc { font-size: 13px; }

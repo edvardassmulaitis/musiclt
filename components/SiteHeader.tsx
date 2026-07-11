@@ -3252,6 +3252,10 @@ export function SiteHeader() {
                 </div>
               )
             })}
+            {/* Žaidimai — paprasta nuoroda be dropdown'o */}
+            <div className="sh-group">
+              <Link href="/zaidimai" className={`sh-navlink${pathname.startsWith('/zaidimai') ? ' active' : ''}`}>Žaidimai</Link>
+            </div>
           </nav>
 
           {/* Paieškos trigger'is — pagrindinis page elementas. Padidinom
@@ -3423,6 +3427,14 @@ export function SiteHeader() {
                 </div>
               )
             })}
+            {/* Žaidimai — paprasta nuoroda */}
+            <div className={`sh-mblock${pathname.startsWith('/zaidimai') ? ' active' : ''}`}>
+              {pathname.startsWith('/zaidimai') && <span className="sh-mblock-acc" />}
+              <Link href="/zaidimai" onClick={() => setMenuOpen(false)} className="sh-mblock-head">
+                <span className="sh-mrow-title">Žaidimai</span>
+                <span className="sh-mblock-go" aria-hidden><ArrowRight size={15} /></span>
+              </Link>
+            </div>
           </nav>
         </div>
 
