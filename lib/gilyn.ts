@@ -588,7 +588,7 @@ export async function generateDoors(opts: {
   ])]
   const metaAll = await fetchArtistMeta(allIds)
   const { data: artRows } = allIds.length
-    ? await sb.from('artists').select('id, name, slug, country, score, active_from').in('id', allIds.slice(0, 200)).limit(200)
+    ? await sb.from('artists').select('id, name, slug, country, score, active_from, cover_image_url').in('id', allIds.slice(0, 200)).limit(200)
     : { data: [] as any[] }
   const artById = new Map<number, any>(((artRows as any[]) || []).map(r => [r.id, r]))
 
@@ -700,33 +700,72 @@ export async function generateDoors(opts: {
     }
   }
 
-  // Užpildom trūkstamas duris (jei kuri kategorija liko tuščia) iš sound kandidatų
-  if (doors.length < 3) {
-    const backup = [...soundCands.keys()].filter(id => artById.has(id) && !usedDoorArtists.has(id)).slice(0, 5)
-    for (const id of backup) {
-      if (doors.length >= 3) break
-      const a = artById.get(id)
-      doors.push({
-        doorType: 'sound', label: 'ARTIMA KRYPTIS',
-        artistId: id, artist: a.name, artistSlug: a.slug || null,
-        albumId: null, title: null, year: null, cover: null, ytId: null,
-        reason: 'Artima muzikinė kryptis.',
-      })
-      usedDoorArtists.add(id)
-    }
+  // Atsarginiai kandidatai — kad po medijos filtro VISADA liktų 3 durys
+  const backups: Door[] = []
+  const backupIds = [
+    ...[...soundCands.keys()].filter(id => artById.has(id) && !usedDoorArtists.has(id)).slice(0, 4),
+    ...sceneCands.filter(id => artById.has(id) && !usedDoorArtists.has(id)).slice(0, 2),
+    ...bridgeCands.map(b => b.artistId).filter(id => artById.has(id) && !usedDoorArtists.has(id)).slice(0, 2),
+  ]
+  for (const id of [...new Set(backupIds)].slice(0, 5)) {
+    const a = artById.get(id)
+    backups.push({
+      doorType: 'sound', label: 'ARTIMA KRYPTIS',
+      artistId: id, artist: a.name, artistSlug: a.slug || null,
+      albumId: null, title: null, year: null, cover: null, ytId: null,
+      reason: 'Artima muzikinė kryptis.',
+    })
   }
 
-  // Reprezentaciniai albumai (viršelis + YT + playlist grotuvui)
-  const albums = await pickDoorAlbums(doors.map(d => d.artistId))
+  // Medija: reprezentacinis albumas (viršelis + playlist); jei nėra albumo su
+  // viršeliu — fallback į atlikėjo foto + populiariausią jo YT dainą.
+  const ordered = [...doors, ...backups]
+  const albums = await pickDoorAlbums(ordered.map(d => d.artistId))
   const lists = await fetchAlbumTracklists([...albums.values()].map(a => a.albumId))
-  const withAlbums = doors.filter(d => albums.has(d.artistId)).map(d => {
-    const al = albums.get(d.artistId)!
-    return {
-      ...d, albumId: al.albumId, title: al.title, year: al.year, cover: al.cover, ytId: al.ytId,
-      tracks: lists.get(al.albumId) || (al.ytId ? [{ t: al.title, y: al.ytId }] : []),
+  const noAlbum = ordered.filter(d => !albums.has(d.artistId)).map(d => d.artistId)
+  const topTrack = new Map<number, TrackRef>()
+  if (noAlbum.length) {
+    const { data } = await sb
+      .from('tracks').select('artist_id, title, video_url, video_views')
+      .in('artist_id', noAlbum.slice(0, 20))
+      .not('video_url', 'is', null)
+      .order('video_views', { ascending: false, nullsFirst: false })
+      .limit(60)
+    for (const r of (data as any[]) || []) {
+      const y = ytIdFromUrl(r.video_url)
+      if (y && !topTrack.has(r.artist_id)) topTrack.set(r.artist_id, { t: r.title, y })
     }
-  })
-  return withAlbums.slice(0, 3)
+  }
+  const final: Door[] = []
+  for (const d of ordered) {
+    if (final.length >= 3) break
+    const al = albums.get(d.artistId)
+    if (al) {
+      final.push({
+        ...d, albumId: al.albumId, title: al.title, year: al.year, cover: al.cover, ytId: al.ytId,
+        tracks: lists.get(al.albumId) || (al.ytId ? [{ t: al.title, y: al.ytId }] : []),
+      })
+    } else {
+      const a = artById.get(d.artistId)
+      const tt = topTrack.get(d.artistId)
+      if (a?.cover_image_url) {
+        final.push({ ...d, albumId: null, title: null, year: null, cover: a.cover_image_url, ytId: tt?.y || null, tracks: tt ? [tt] : [] })
+      }
+    }
+  }
+  return final
+}
+
+/** Trumpas atlikėjo pristatymas kasimosi hero blokui („susipažink pirmiau"). */
+export async function artistNodeInfo(artistId: number): Promise<{ bio: string | null; country: string | null; years: string | null }> {
+  const sb = createAdminClient()
+  const { data: a } = await sb.from('artists').select('description, country, active_from, active_until').eq('id', artistId).maybeSingle()
+  if (!a) return { bio: null, country: null, years: null }
+  let bio: string | null = String(a.description || '').replace(/<[^>]+>/g, ' ').replace(/\s+/g, ' ').trim()
+  if (bio && bio.length > 300) bio = bio.slice(0, 300).replace(/\s+\S*$/, '') + '…'
+  if (!bio) bio = null
+  const years = a.active_from ? `${a.active_from}–${a.active_until || 'dabar'}` : null
+  return { bio, country: a.country || null, years }
 }
 
 // ── ŽEMĖLAPIS ─────────────────────────────────────────────────────────────

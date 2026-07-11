@@ -17,7 +17,7 @@ import { resolveViewer, insertGameScore } from '@/lib/zaidimai'
 import {
   BOX_SIZE, DIG_STEPS, GILYN_XP_FINISH, GILYN_XP_NEW_NODE,
   ensureDayBox, personalOrder, fetchViewerLikes, computeBoxStatuses,
-  generateDoors, upsertMapNode, communityStats, enrichBoxTracks, fetchAlbumTracklists,
+  generateDoors, upsertMapNode, communityStats, enrichBoxTracks, fetchAlbumTracklists, artistNodeInfo,
   type BoxAlbum, type Door, type PathNode,
 } from '@/lib/gilyn'
 
@@ -93,6 +93,12 @@ export async function GET() {
     let community = null
     if (run?.status === 'done') community = await communityStats(day, run)
 
+    // Dabartinio kelio taško pristatymas (kasimosi hero blokas)
+    let nodeInfo = null
+    if (run?.status === 'dig' && Array.isArray(run.path) && run.path.length) {
+      nodeInfo = await artistNodeInfo(run.path[run.path.length - 1].artistId).catch(() => null)
+    }
+
     return NextResponse.json({
       day,
       isAuthenticated: viewer.isAuthenticated,
@@ -101,6 +107,7 @@ export async function GET() {
       digSteps: DIG_STEPS,
       box: ordered.map(a => ({ ...a, personal: statuses.get(a.albumId) || 'new' })),
       run: publicRun(run),
+      nodeInfo,
       likeCounts: likes.counts,
       community,
     })
@@ -156,32 +163,33 @@ export async function POST(req: NextRequest) {
     if (run.status === 'box') {
       const pos = run.box_pos || 0
 
-      if (action === 'advance' || action === 'hold' || action === 'swap') {
-        if (pos >= BOX_SIZE) return NextResponse.json({ error: 'Dėžė jau baigta' }, { status: 400 })
-        const albumId = Number(body.albumId || 0)
-        let held = run.held
+      // v3: box_pos = kiek plokštelių REALIAI peržiūrėta (max seen), vartymas laisvas
+      if (action === 'seen') {
+        const seen = Math.max(0, Math.min(BOX_SIZE, Number(body.seen || 0)))
+        if (seen > pos) await save({ box_pos: seen })
+        return NextResponse.json({ run: publicRun(run) })
+      }
 
-        if (action === 'hold' || action === 'swap') {
-          const alb = byAlbum.get(albumId)
-          if (!alb) return NextResponse.json({ error: 'Nežinomas albumas' }, { status: 400 })
-          held = {
-            albumId: alb.albumId, artistId: alb.artistId, title: alb.title, artist: alb.artist,
-            artistSlug: alb.artistSlug, year: alb.year, cover: alb.cover, ytId: alb.ytId,
-            tracks: alb.tracks || [],
-          }
+      if (action === 'advance') {   // legacy klientams
+        if (pos < BOX_SIZE) await save({ box_pos: pos + 1 })
+        return NextResponse.json({ run: publicRun(run) })
+      }
+
+      if (action === 'hold' || action === 'swap') {
+        const albumId = Number(body.albumId || 0)
+        const alb = byAlbum.get(albumId)
+        if (!alb) return NextResponse.json({ error: 'Nežinomas albumas' }, { status: 400 })
+        const held = {
+          albumId: alb.albumId, artistId: alb.artistId, title: alb.title, artist: alb.artist,
+          artistSlug: alb.artistSlug, year: alb.year, cover: alb.cover, ytId: alb.ytId,
+          tracks: alb.tracks || [],
         }
-        history.push({ pos, action, albumId: albumId || null, prevHeld: run.held?.albumId || null })
+        history.push({ pos, action, albumId, prevHeld: run.held?.albumId || null })
         await save({
-          box_pos: pos + 1,
           held,
-          swaps: action === 'swap' ? (run.swaps || 0) + 1 : run.swaps,
+          swaps: action === 'swap' && run.held ? (run.swaps || 0) + 1 : run.swaps,
           history: history.slice(-40),
         })
-
-        // Automatinis perėjimas į kasimąsi, kai dėžė baigta ir yra laikomas vinilas
-        if ((run.box_pos || 0) >= BOX_SIZE && run.held) {
-          return transitionToDig(sb, run, viewer, day, box)
-        }
         return NextResponse.json({ run: publicRun(run) })
       }
 
@@ -243,11 +251,8 @@ export async function POST(req: NextRequest) {
       }
 
       if (action === 'finishBox') {
-        if (run.held) {
-          await save({ box_pos: BOX_SIZE })
-          return transitionToDig(sb, run, viewer, day, box)
-        }
-        await save({ box_pos: BOX_SIZE })
+        // v3: box_pos (realiai peržiūrėta) nebekeičiame — statistikai lieka tikras skaičius
+        if (run.held) return transitionToDig(sb, run, viewer, day, box)
         return NextResponse.json({ run: publicRun(run) })
       }
 
@@ -311,12 +316,28 @@ export async function POST(req: NextRequest) {
           seed: `${day}|${viewerKey(viewer)}|${step}`,
         })
         await save({ path, dig_step: step, doors: next })
-        return NextResponse.json({ run: publicRun(run) })
+        const nodeInfo = await artistNodeInfo(door.artistId).catch(() => null)
+        return NextResponse.json({ run: publicRun(run), nodeInfo })
       }
     }
 
     // ── Po run'o ──
     if (run.status === 'done') {
+      // Išsaugoti kelio tašką kaip radinį: žemėlapio ★ + albumas į lentyną
+      if (action === 'saveFind') {
+        const idx = Number(body.index)
+        const path: PathNode[] = Array.isArray(run.path) ? run.path : []
+        if (idx < 0 || idx >= path.length) return NextResponse.json({ error: 'Blogas indeksas' }, { status: 400 })
+        const node: any = path[idx]
+        await upsertMapNode(viewer, node.artistId, { saved: true })
+        const shelf: any[] = Array.isArray(run.shelf) ? run.shelf : []
+        if (node.albumId && !shelf.some(s => s.albumId === node.albumId)) {
+          shelf.push({ albumId: node.albumId, artistId: node.artistId, title: node.title, artist: node.artist, cover: node.cover, year: node.year, ytId: node.ytId, tracks: node.tracks || [] })
+        }
+        await save({ shelf, final_pick: node })
+        return NextResponse.json({ run: publicRun(run) })
+      }
+
       if (action === 'finalPick') {
         const idx = Number(body.index)
         const path: PathNode[] = Array.isArray(run.path) ? run.path : []
@@ -371,11 +392,13 @@ async function transitionToDig(sb: any, run: any, viewer: any, day: string, box:
   const { data } = await sb.from('gilyn_runs').update({
     status: 'dig', path, doors, dig_step: 0, updated_at: new Date().toISOString(),
   }).eq('id', run.id).select('*').single()
+  const nodeInfo = await artistNodeInfo(held.artistId).catch(() => null)
   return NextResponse.json({
     run: {
-      status: 'dig', boxPos: BOX_SIZE, held, swaps: data?.swaps || run.swaps || 0,
+      status: 'dig', boxPos: data?.box_pos ?? run.box_pos ?? 0, held, swaps: data?.swaps || run.swaps || 0,
       shelf: data?.shelf || [], heard: data?.heard || [], doors, path,
       digStep: 0, finalPick: null, finishedAt: null,
     },
+    nodeInfo,
   })
 }
