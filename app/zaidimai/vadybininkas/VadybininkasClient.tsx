@@ -69,17 +69,19 @@ function topSource(bd: { chart: number; yt: number; rel: number; base: number } 
 /** Inicialai vietoj trūkstamos nuotraukos — spalva iš vardo hash'o. */
 const AVA_COLORS = ['#f97316', '#10b981', '#6366f1', '#ec4899', '#0ea5e9', '#eab308', '#8b5cf6', '#14b8a6']
 function Ava({ name, image, size }: { name: string; image: string | null; size: number }) {
-  if (image) {
-    // eslint-disable-next-line @next/next/no-img-element
-    return <img src={proxyImg(image, size * 2)} alt="" loading="lazy" />
-  }
   let h = 0
   for (let i = 0; i < name.length; i++) h = (h * 31 + name.charCodeAt(i)) >>> 0
   const parts = name.trim().split(/\s+/)
   const ini = (parts[0]?.[0] || '?') + (parts[1]?.[0] || '')
   return (
-    <span className="fl-ava-ini" style={{ background: AVA_COLORS[h % AVA_COLORS.length], fontSize: Math.round(size * 0.36) }}>
-      {ini.toUpperCase()}
+    <span className="fl-ava">
+      <span className="fl-ava-ini" style={{ background: AVA_COLORS[h % AVA_COLORS.length], fontSize: Math.round(size * 0.36) }}>
+        {ini.toUpperCase()}
+      </span>
+      {image && (
+        // eslint-disable-next-line @next/next/no-img-element
+        <img src={proxyImg(image, size * 2)} alt="" loading="lazy" />
+      )}
     </span>
   )
 }
@@ -1132,6 +1134,8 @@ const css = `
 .fl-p-pts.pending b { color: var(--text-muted); }
 
 /* ── v3: avataro inicialai ── */
+.fl-ava { position: relative; display: block; width: 100%; height: 100%; }
+.fl-ava img { position: absolute; inset: 0; width: 100%; height: 100%; object-fit: cover; display: block; }
 .fl-ava-ini { width: 100%; height: 100%; display: flex; align-items: center; justify-content: center; color: #fff; font-weight: 900; letter-spacing: 0.02em; }
 .fl-ta-wrap { width: 62px; height: 62px; border-radius: 50%; overflow: hidden; border: 2px solid #10b981; display: block; background: var(--bg-surface); }
 .fl-ta-wrap img { width: 100%; height: 100%; object-fit: cover; display: block; }
@@ -1194,8 +1198,9 @@ const css = `
 .fl-chip.act { background: var(--accent-orange); border-color: transparent; color: #fff; }
 .fl-cap-ring { width: 11px; height: 11px; border-radius: 50%; border: 2.5px solid #f59e0b; display: inline-block; }
 .fl-lineup {
-  position: relative; z-index: 2; flex: 1; display: flex; flex-wrap: wrap; justify-content: center; align-content: center; align-items: flex-start;
-  gap: 12px 14px; padding: 16px 0 10px;
+  position: relative; z-index: 2; flex: 1; display: grid; grid-template-columns: repeat(4, 92px);
+  justify-content: center; align-content: center; justify-items: center;
+  gap: 20px 26px; padding: 16px 0 10px;
 }
 .fl-art {
   position: relative; display: flex; flex-direction: column; align-items: center; gap: 4px;
@@ -1238,7 +1243,7 @@ const css = `
   .fl-stage-num { font-size: 38px; }
   .fl-art { width: 74px; }
   .fl-art .fl-art-img { width: 54px; height: 54px; }
-  .fl-lineup { gap: 8px 8px; padding: 14px 0 8px; }
+  .fl-lineup { grid-template-columns: repeat(4, 74px); gap: 12px 10px; padding: 14px 0 10px; }
 }
 .fl-feed-row.c-chart { border-left: 3px solid var(--accent-orange); }
 .fl-feed-row.c-rel { border-left: 3px solid var(--accent-link); }
@@ -1252,7 +1257,7 @@ const css = `
 .fl-rail-events .fl-feed-body { font-size: 12px; }
 .fl-rail-events .fl-feed-img { width: 30px; height: 30px; }
 @media (min-width: 1020px) {
-  .fl-desk.console { height: calc(100vh - 120px); min-height: 560px; }
+  .fl-desk.console { height: calc(100vh - 104px); min-height: 540px; max-height: 860px; }
   .fl-desk.console .fl-desk-main { height: 100%; }
   .fl-desk.console .fl-stage { height: 100%; }
   .fl-desk.console .fl-desk-rail { height: 100%; display: flex; flex-direction: column; position: static; }
