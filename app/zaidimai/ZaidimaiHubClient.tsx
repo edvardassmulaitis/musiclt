@@ -8,7 +8,7 @@
 // Mobile — 2×2 be scroll; desktop — platesnis, per visą plotį.
 
 import Link from 'next/link'
-import { useState } from 'react'
+import { useEffect, useState } from 'react'
 import type { DailyStep, DailyTopRow, FantasyInfo, GilynInfo } from './page'
 
 type Props = {
@@ -27,7 +27,7 @@ type Props = {
   gilyn: GilynInfo
 }
 
-type Wiz = null | 'zinios' | 'reakcija' | 'strategija' | 'atradimai' | 'stats'
+type Wiz = null | 'zinios' | 'reakcija' | 'stats'
 
 const Chevron = () => (
   <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><path d="m9 18 6-6-6-6" /></svg>
@@ -48,7 +48,13 @@ const Vinyl = () => (
 export default function ZaidimaiHubClient({ isAuthenticated, streak, totalXp, daily, todayTop, fantasy, gilyn }: Props) {
   const [wiz, setWiz] = useState<Wiz>(null)
 
-  const gilynLabel = gilyn?.status === 'done' ? 'Peržiūrėti kelią' : gilyn ? 'Tęsti kasimąsi' : 'Atidaryti dėžę'
+  // Fono slinkties užraktas, kol atidarytas modalas
+  useEffect(() => {
+    if (!wiz) return
+    const prev = document.body.style.overflow
+    document.body.style.overflow = 'hidden'
+    return () => { document.body.style.overflow = prev }
+  }, [wiz])
 
   return (
     <div className="page-shell dg-shell">
@@ -80,8 +86,8 @@ export default function ZaidimaiHubClient({ isAuthenticated, streak, totalXp, da
           <span className="dg-go"><Chevron /></span>
         </button>
 
-        {/* Atradimai — Gilyn */}
-        <button className="dg-box b-atradimai" onClick={() => setWiz('atradimai')}>
+        {/* Atradimai — Gilyn (vienas žaidimas → tiesiai) */}
+        <Link href="/zaidimai/gilyn" className="dg-box b-atradimai">
           <div className="dg-ico"><Vinyl /></div>
           <div className="dg-ttl">Atradimai</div>
           <div className="dg-desc">Gilyn — kasdienė plokštelių dėžė. Atrask naujų atlikėjų.</div>
@@ -91,7 +97,7 @@ export default function ZaidimaiHubClient({ isAuthenticated, streak, totalXp, da
                 : <span className="dg-chip">Atverk dėžę →</span>}
           </div>
           <span className="dg-go"><Chevron /></span>
-        </button>
+        </Link>
 
         {/* Reakcija */}
         <button className="dg-box b-reakcija" onClick={() => setWiz('reakcija')}>
@@ -102,17 +108,17 @@ export default function ZaidimaiHubClient({ isAuthenticated, streak, totalXp, da
           <span className="dg-go"><Chevron /></span>
         </button>
 
-        {/* Strategija */}
-        <button className="dg-box b-strategija" onClick={() => setWiz('strategija')}>
+        {/* Strategija — Muzikos lyga (vienas → tiesiai) */}
+        <Link href="/zaidimai/vadybininkas" className="dg-box b-strategija">
           <div className="dg-ico">♟️</div>
           <div className="dg-ttl">Strategija</div>
           <div className="dg-desc">Ilgas žaidimas — valdyk komandą, kilk lygoje.</div>
           <div className="dg-foot">
             {fantasy?.rank ? <span className="dg-chip blue">Tavo komanda · #{fantasy.rank} iš {fantasy.totalTeams}</span>
-              : <span className="dg-chip">Muzikos lyga · sudaryk komandą</span>}
+              : <span className="dg-chip">Muzikos lyga · sudaryk komandą →</span>}
           </div>
           <span className="dg-go"><Chevron /></span>
-        </button>
+        </Link>
       </div>
 
       {!isAuthenticated && (
@@ -142,16 +148,6 @@ export default function ZaidimaiHubClient({ isAuthenticated, streak, totalXp, da
               </>
             )}
 
-            {wiz === 'atradimai' && (
-              <>
-                <WizHead ico="🧭" title="Atradimai" sub="Gilyn — kasdienė plokštelių dėžė" />
-                <p className="dg-p">Kasdien — <b>20 plokštelių dėžė</b>, ta pati visiems. Laikyk vieną vinilą — dėžės gale jis taps durimis <b>gilyn</b> į muzikos pasaulį.</p>
-                <Link href="/zaidimai/gilyn" className="dg-primary teal">
-                  <div><b>{gilynLabel}</b><span>Atrask naujų atlikėjų ir dainų</span></div><Chevron />
-                </Link>
-              </>
-            )}
-
             {wiz === 'reakcija' && (
               <>
                 <WizHead ico="⚡" title="Reakcija" sub="Greiti žaidimai su tikra muzika" />
@@ -159,23 +155,6 @@ export default function ZaidimaiHubClient({ isAuthenticated, streak, totalXp, da
                   <WizRow href="/zaidimai/koncertas" ico="🎤" label="Dienos koncertas" note="dienos atlikėjo setas · gaudyk hype" big />
                   <WizRow href="/zaidimai/gaudykle" ico="🎯" label="Atlikėjų gaudyklė" note="gaudyk pasirinkto stiliaus atlikėjus" big />
                 </div>
-              </>
-            )}
-
-            {wiz === 'strategija' && (
-              <>
-                <WizHead ico="♟️" title="Strategija" sub="Muzikos lyga — fantasy komanda" />
-                {fantasy ? (
-                  <>
-                    <div className="dg-team">Tavo komanda <b>{fantasy.name}</b> · {fantasy.seasonPoints} tšk.{fantasy.rank ? ` · #${fantasy.rank} iš ${fantasy.totalTeams}` : ''}</div>
-                    <Link href="/zaidimai/vadybininkas" className="dg-primary blue"><div><b>Valdyti komandą</b><span>Perrink atlikėjus, stebėk taškus</span></div><Chevron /></Link>
-                  </>
-                ) : (
-                  <>
-                    <p className="dg-p">Sudaryk komandą iš realių atlikėjų — jie renka taškus pagal <b>tikrus rezultatus</b>: topus, YouTube augimą, naujas dainas. Kas savaitę — nauja kova dėl lygos viršūnės.</p>
-                    <Link href="/zaidimai/vadybininkas" className="dg-primary blue"><div><b>Sukurti komandą</b><span>Užtruks porą minučių</span></div><Chevron /></Link>
-                  </>
-                )}
               </>
             )}
 
@@ -272,10 +251,9 @@ const css = `
 }
 
 /* Wizard */
-.dg-wrap { position: fixed; inset: 0; z-index: 60; background: rgba(5,7,12,0.66); display: flex; align-items: flex-end; justify-content: center; padding: 0; }
-.dg-card { position: relative; width: 100%; max-width: 460px; background: var(--panel, #161b26); border: 1px solid rgba(140,160,190,0.2); border-radius: 22px 22px 0 0; padding: 22px 18px 26px; max-height: 86vh; overflow-y: auto; animation: dgup .22s ease; }
-@keyframes dgup { from { transform: translateY(30px); opacity: 0.4; } to { transform: translateY(0); opacity: 1; } }
-@media (min-width: 720px) { .dg-wrap { align-items: center; } .dg-card { border-radius: 22px; } }
+.dg-wrap { position: fixed; inset: 0; z-index: 60; background: rgba(5,7,12,0.72); display: flex; align-items: center; justify-content: center; padding: 18px; }
+.dg-card { position: relative; width: 100%; max-width: 500px; background: var(--panel, #161b26); border: 1px solid rgba(140,160,190,0.22); border-radius: 22px; padding: 24px 22px 26px; max-height: 84vh; overflow-y: auto; animation: dgpop .18s ease; box-shadow: 0 24px 60px rgba(0,0,0,0.55); }
+@keyframes dgpop { from { transform: scale(0.94); opacity: 0; } to { transform: scale(1); opacity: 1; } }
 .dg-close { position: absolute; top: 14px; right: 14px; width: 30px; height: 30px; border-radius: 50%; border: 0; background: rgba(255,255,255,0.08); color: var(--text-secondary); font-size: 14px; cursor: pointer; }
 .dg-wh { display: flex; align-items: center; gap: 12px; margin-bottom: 16px; }
 .dg-wh-ico { width: 44px; height: 44px; border-radius: 13px; background: rgba(255,255,255,0.06); display: flex; align-items: center; justify-content: center; font-size: 22px; }
