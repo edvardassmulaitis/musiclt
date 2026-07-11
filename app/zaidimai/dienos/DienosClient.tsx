@@ -47,11 +47,10 @@ const REVEAL_MS = 4000
 const COMBO_MIN = 3
 const COMBO_BONUS = 15
 
+// Dienos verdiktas — binarinė prognozė: ar ši daina taps hitu?
 const REACTIONS: Array<{ emoji: string; label: string }> = [
-  { emoji: '🔥', label: 'Dega' },
-  { emoji: '🐐', label: 'Legenda' },
-  { emoji: '😭', label: 'Emocija' },
-  { emoji: '😬', label: 'Ne man' },
+  { emoji: '🔥', label: 'Taps hitu' },
+  { emoji: '💤', label: 'Nebus hitas' },
 ]
 
 function ytIdFrom(url: string | null | undefined): string | null {
@@ -71,7 +70,7 @@ export default function DienosClient(props: Props) {
     { key: 'kvizas', label: 'Atspėk 5 dainas', emoji: '🎧', present: true, initiallyDone: props.quizPlayed },
     ...extraSteps,
     { key: 'duel', label: 'Dienos dvikova', emoji: '⚔️', present: !!duel, initiallyDone: !!completions.duel },
-    { key: 'verdict', label: 'Dienos verdiktas', emoji: '🔥', present: !!verdict, initiallyDone: !!completions.verdict },
+    { key: 'verdict', label: 'Hitas ar ne', emoji: '🔮', present: !!verdict, initiallyDone: !!completions.verdict },
     { key: 'image', label: 'AI vaizdas', emoji: '🖼️', present: !!image, initiallyDone: !!completions.image },
   ].filter(s => s.present) as any
 
@@ -550,8 +549,8 @@ export default function DienosClient(props: Props) {
       {stage === 'verdict' && verdict && (
         <div className="di-stage">
           <span className="di-stage-no">{steps.findIndex((s: any) => s.key === 'verdict') + 1} iš {steps.length} · Verdiktas</span>
-          <h2 className="di-h2">🔥 Kokią reakciją rinksis dauguma?</h2>
-          <p className="di-note">Paklausyk ir spėk populiariausią reakciją. Pataikysi — <b>dvigubi taškai</b>.</p>
+          <h2 className="di-h2">🔮 Ar ši daina taps hitu?</h2>
+          <p className="di-note">Paklausyk ir nuspėk. Sutapsi su dauguma — <b>dvigubi taškai</b>.</p>
           <div className="di-verdict-card">
             <div className="di-player small">
               {ytIdFrom(verdict.track.video_url) ? (
@@ -589,7 +588,7 @@ export default function DienosClient(props: Props) {
           </div>
           {verdictPick && verdictWin !== null && (
             <div className={`di-crowd ${verdictWin ? 'win' : 'miss'}`}>
-              {verdictWin ? '🎯 Atspėjai populiariausią — dvigubi taškai!' : '🦄 Reta nuomonė — bazės taškai'}
+              {verdictWin ? '🎯 Sutapai su dauguma — dvigubi taškai!' : '🦄 Reta nuomonė — bazės taškai'}
             </div>
           )}
           {verdictPick && <button className="di-next" onClick={() => setStage(nextAfterDone('verdict'))}>Toliau →</button>}
@@ -650,7 +649,7 @@ export default function DienosClient(props: Props) {
           rows.push({ icon: EXTRA_META[g].emoji, label: EXTRA_META[g].label, value })
         }
         if (duel && done.duel) rows.push({ icon: '⚔️', label: 'Dvikova', value: duelWin ? 'Atspėjai daugumą ✓' : 'Balsavai', ok: !!duelWin })
-        if (verdict && done.verdict) rows.push({ icon: '🔥', label: 'Verdiktas', value: verdictWin ? 'Populiariausia reakcija ✓' : 'Balsavai', ok: !!verdictWin })
+        if (verdict && done.verdict) rows.push({ icon: '🔮', label: 'Hitas ar ne', value: verdictWin ? 'Sutapai su dauguma ✓' : 'Nuspėjai', ok: !!verdictWin })
         if (image && done.image) rows.push({ icon: '🖼️', label: 'Atspėk iš vaizdo', value: imgCorrect ? 'Teisingai ✓' : 'Neatspėta', ok: !!imgCorrect })
 
         // Bendras taškų krepšys — POINTS skalė (ta pati, kaip žaidžiant), tad
