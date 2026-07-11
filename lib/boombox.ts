@@ -104,6 +104,7 @@ export type ImageDrop = {
 export type DuelDrop = {
   id: number
   matchup_type: 'old_vs_old' | 'new_vs_new' | 'old_vs_new'
+  blurb: string
   track_a: { id: number; slug: string; title: string; artist: string; year?: number; cover_url?: string; video_url?: string }
   track_b: { id: number; slug: string; title: string; artist: string; year?: number; cover_url?: string; video_url?: string }
 }
@@ -248,7 +249,7 @@ export async function fetchTodayDuelDrop(): Promise<DuelDrop | null> {
 
   const { data: tracks } = await sb
     .from('tracks')
-    .select(TRACK_SELECT)
+    .select('id, slug, title, cover_url, video_url, release_year, artist_id, artists:artist_id ( id, slug, name, country )')
     .in('id', [drop.track_a_id, drop.track_b_id])
 
   const byId = new Map<number, any>()
@@ -261,24 +262,44 @@ export async function fetchTodayDuelDrop(): Promise<DuelDrop | null> {
   const tb = byId.get(drop.track_b_id)
   if (!ta || !tb) return null
 
+  // Bendras stilius (jei abu atlikėjai jį turi) — aprašymui
+  let sharedGenre: string | null = null
+  try {
+    const { data: ag } = await sb
+      .from('artist_genres')
+      .select('artist_id, genres:genre_id ( name )')
+      .in('artist_id', [ta.artist_id, tb.artist_id])
+    const byArtist = new Map<number, Set<string>>()
+    for (const r of (ag as any[]) || []) {
+      const nm = normalizeJoined<any>(r.genres)?.name
+      if (!nm) continue
+      if (!byArtist.has(r.artist_id)) byArtist.set(r.artist_id, new Set())
+      byArtist.get(r.artist_id)!.add(nm)
+    }
+    const sa = byArtist.get(ta.artist_id), sb2 = byArtist.get(tb.artist_id)
+    if (sa && sb2) { for (const g of sa) if (sb2.has(g)) { sharedGenre = g.replace(/ muzika$/i, '').replace(/'o$/, ''); break } }
+  } catch { /* nebūtina */ }
+
+  const isLt = (c?: string | null) => ['LT', 'LIETUVA', 'LITHUANIA', ''].includes((c || '').trim().toUpperCase())
+  const bothLt = isLt(ta.artists?.country) && isLt(tb.artists?.country)
+  const bothForeign = !isLt(ta.artists?.country) && !isLt(tb.artists?.country)
+  const scope = bothLt ? '🇱🇹 Lietuviška' : bothForeign ? '🌍 Pasaulio' : 'LT prieš pasaulį'
+  const eraLabel = drop.matchup_type === 'new_vs_new' ? 'naujausi hitai'
+    : drop.matchup_type === 'old_vs_old' ? 'klasika' : 'klasika prieš naujieną'
+  const yearPart = ta.release_year && tb.release_year ? ` · ${ta.release_year} vs ${tb.release_year}` : ''
+  const blurb = `${scope} · ${eraLabel}${sharedGenre ? ` · ${sharedGenre}` : ''}${yearPart}`
+
   return {
     id: drop.id,
     matchup_type: drop.matchup_type,
+    blurb,
     track_a: {
-      id: ta.id,
-      slug: ta.slug,
-      title: ta.title,
-      artist: ta.artists?.name || '—',
-      cover_url: ta.cover_url,
-      video_url: ta.video_url,
+      id: ta.id, slug: ta.slug, title: ta.title, artist: ta.artists?.name || '—',
+      year: ta.release_year || undefined, cover_url: ta.cover_url, video_url: ta.video_url,
     },
     track_b: {
-      id: tb.id,
-      slug: tb.slug,
-      title: tb.title,
-      artist: tb.artists?.name || '—',
-      cover_url: tb.cover_url,
-      video_url: tb.video_url,
+      id: tb.id, slug: tb.slug, title: tb.title, artist: tb.artists?.name || '—',
+      year: tb.release_year || undefined, cover_url: tb.cover_url, video_url: tb.video_url,
     },
   }
 }

@@ -108,12 +108,12 @@ export async function GET(req: NextRequest) {
       .gte('score', 45).neq('artists.country', 'Lietuva')
       .order('score', { ascending: false }).limit(400),
     sb.from('albums').select(albumSelect).not('cover_image_url', 'is', null)
-      .eq('artists.country', 'Lietuva').gt('artists.score', 45).limit(300),
+      .eq('artists.country', 'Lietuva').gt('artists.score', 46).limit(300),
     sb.from('artists').select(artistSelect).not('cover_image_url', 'is', null)
       .gt('score', 60).neq('country', 'Lietuva')
       .order('score', { ascending: false }).limit(400),
     sb.from('artists').select(artistSelect).not('cover_image_url', 'is', null)
-      .eq('country', 'Lietuva').gt('score', 35)
+      .eq('country', 'Lietuva').gt('score', 42)
       .order('score', { ascending: false }).limit(200),
   ])
 
@@ -166,7 +166,7 @@ export async function GET(req: NextRequest) {
         image: correct.image,
         kind: correct.kind,
         prompt: correct.kind === 'album' ? 'Koks šis albumas?' : 'Kas šis atlikėjas?',
-        reveal: (idx % 2 === 0 ? 'puzzle' : 'blur') as 'puzzle' | 'blur',
+        reveal: 'puzzle' as 'puzzle' | 'blur',
         correctId: correct.id,
         options,
       }

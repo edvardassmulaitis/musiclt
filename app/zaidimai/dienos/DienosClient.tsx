@@ -502,6 +502,7 @@ export default function DienosClient(props: Props) {
         <div className="di-stage">
           <span className="di-stage-no">{steps.findIndex((s: any) => s.key === 'duel') + 1} iš {steps.length} · Dvikova</span>
           <h2 className="di-h2">⚔️ Kurią rinksis dauguma?</h2>
+          {duel.blurb && <div className="di-duel-blurb">{duel.blurb}</div>}
           <p className="di-note">Paspausk ▶ paklausyti. Atspėsi bendruomenės favoritą — <b>dvigubi taškai</b>.</p>
           <div className="di-duel">
             {(['A', 'B'] as const).map(tag => {
@@ -709,14 +710,24 @@ export default function DienosClient(props: Props) {
 
 type AlbumRound = { r: number; image: string; label?: string; kind?: string; reveal?: 'puzzle' | 'blur'; options: { id: number; name: string }[]; token: string }
 
+// Puzzle atvertimas — plytelės po vieną atsidengia (ne blur)
+const PZ_COLS = 6
+const PZ_N = PZ_COLS * PZ_COLS
+function makePzRanks(): number[] {
+  const a = Array.from({ length: PZ_N }, (_, i) => i)
+  for (let i = a.length - 1; i > 0; i--) { const j = Math.floor(Math.random() * (i + 1));[a[i], a[j]] = [a[j], a[i]] }
+  return a
+}
+
 function AlbumGameStep({ game, stepNo, stepTotal, onDone }: {
   game: 'metai' | 'vaizdas'
   stepNo: number
   stepTotal: number
   onDone: (result: any) => void
 }) {
-  const ROUND_MS = 12000
+  const ROUND_MS = game === 'vaizdas' ? 16000 : 12000   // vaizdas — lėčiau
   const REVEAL_MS = 2200
+  const pzRanksRef = useRef<number[]>(makePzRanks())
   const [phase, setPhase] = useState<'load' | 'round' | 'reveal' | 'submit' | 'error'>('load')
   const [rounds, setRounds] = useState<AlbumRound[]>([])
   const [quizId, setQuizId] = useState('')
@@ -749,6 +760,7 @@ function AlbumGameStep({ game, stepNo, stepTotal, onDone }: {
 
   function startRound() {
     startRef.current = Date.now(); setTimeLeft(ROUND_MS); setPicked(null); setRr(null); setRevealed(false)
+    pzRanksRef.current = makePzRanks()
     requestAnimationFrame(() => requestAnimationFrame(() => setRevealed(true)))
     if (timerRef.current) clearInterval(timerRef.current)
     timerRef.current = setInterval(() => {
@@ -793,7 +805,8 @@ function AlbumGameStep({ game, stepNo, stepTotal, onDone }: {
   }
 
   const pct = Math.max(0, timeLeft / ROUND_MS)
-  const blur = game === 'vaizdas' ? (phase === 'reveal' ? 0 : revealed ? 0 : 30) : 0
+  // puzzle progresas: 0 = viskas uždengta, 1 = pilnai atverta (arba atsakius)
+  const pzProgress = phase === 'reveal' ? 1 : Math.min(1, (1 - pct) * 1.12)
   const title = game === 'metai' ? '📅 Kuriais metais išleistas?' : '💿 Kas tai?'
 
   if (phase === 'load') return <div className="di-center"><div className="di-spinner" /></div>
@@ -810,8 +823,14 @@ function AlbumGameStep({ game, stepNo, stepTotal, onDone }: {
 
       <div className="di-ag-imgwrap">
         {/* eslint-disable-next-line @next/next/no-img-element */}
-        <img key={round.r} src={proxyImg(round.image, 480)} alt=""
-          style={game === 'vaizdas' ? { filter: `blur(${blur}px)`, transition: phase === 'reveal' ? 'filter .3s' : `filter ${ROUND_MS}ms linear` } : undefined} />
+        <img key={round.r} src={proxyImg(round.image, 480)} alt="" />
+        {game === 'vaizdas' && (
+          <div className="di-ag-puzzle" aria-hidden>
+            {pzRanksRef.current.map((rank, i) => (
+              <span key={i} style={{ opacity: (rank + 1) / PZ_N > pzProgress ? 1 : 0 }} />
+            ))}
+          </div>
+        )}
         {phase === 'round' && <span className="di-ag-clock">{Math.ceil(timeLeft / 1000)}</span>}
         {phase === 'reveal' && rr && (
           <span className={`di-ag-tag ${rr.correct ? 'ok' : 'bad'}`}>
@@ -983,6 +1002,7 @@ const css = `
 .di-h1 { font-size: 30px; font-weight: 900; letter-spacing: -0.02em; color: var(--text-primary); line-height: 1.15; margin: 0 0 18px; }
 .di-h2 { font-size: 20px; font-weight: 900; color: var(--text-primary); margin: 0 0 4px; }
 .di-note { font-size: 14px; color: var(--text-secondary); margin: 0 0 14px; }
+.di-duel-blurb { display: inline-block; font-size: 12px; font-weight: 800; color: #cbd5e1; background: rgba(255,255,255,0.05); border: 1px solid rgba(140,160,190,0.2); border-radius: 999px; padding: 4px 12px; margin: 0 0 10px; }
 .di-note.dim { font-size: 12px; color: var(--text-muted); margin-top: 14px; }
 .di-note b { color: var(--text-primary); }
 
@@ -1099,6 +1119,8 @@ const css = `
 .di-ag-prog { font-size: 13px; font-weight: 800; color: var(--text-secondary); flex-shrink: 0; }
 .di-ag-imgwrap { position: relative; border-radius: 14px; overflow: hidden; aspect-ratio: 1/1; max-height: 42vh; background: #10131b; margin: 4px auto 0; }
 .di-ag-imgwrap img { width: 100%; height: 100%; object-fit: cover; display: block; }
+.di-ag-puzzle { position: absolute; inset: 0; display: grid; grid-template-columns: repeat(6, 1fr); grid-template-rows: repeat(6, 1fr); z-index: 2; }
+.di-ag-puzzle span { background: #0b0f18; transition: opacity .55s ease; }
 .di-ag-clock { position: absolute; top: 10px; right: 10px; width: 40px; height: 40px; border-radius: 50%; background: rgba(12,15,21,0.8); color: #fff; display: flex; align-items: center; justify-content: center; font-size: 17px; font-weight: 900; }
 .di-ag-tag { position: absolute; top: 10px; left: 10px; font-size: 14px; font-weight: 900; padding: 6px 13px; border-radius: 10px; color: #fff; }
 .di-ag-tag.ok { background: rgba(16,185,129,0.92); }

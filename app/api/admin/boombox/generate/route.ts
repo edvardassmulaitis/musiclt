@@ -123,11 +123,23 @@ function pickPair(
   poolA: CandidateTrack[],
   poolB: CandidateTrack[],
   used: Set<number>,
+  usedArtists: Set<number>,
 ): [CandidateTrack, CandidateTrack] | null {
   for (const a of poolA) {
-    if (used.has(a.id)) continue
+    if (used.has(a.id) || usedArtists.has(a.artist_id)) continue
     for (const b of poolB) {
-      if (b.id === a.id || used.has(b.id) || b.artist_id === a.artist_id) continue
+      if (b.id === a.id || used.has(b.id) || usedArtists.has(b.artist_id) || b.artist_id === a.artist_id) continue
+      // panašus populiarumas — lygiaverčiai varžovai
+      const sa = a.score ?? 0, sb = b.score ?? 0
+      if (Math.abs(sa - sb) > 12) continue
+      return [a, b]
+    }
+  }
+  // jei dėl populiarumo filtro nieko nerasta — atlaisvinam sąlygą
+  for (const a of poolA) {
+    if (used.has(a.id) || usedArtists.has(a.artist_id)) continue
+    for (const b of poolB) {
+      if (b.id === a.id || used.has(b.id) || usedArtists.has(b.artist_id) || b.artist_id === a.artist_id) continue
       return [a, b]
     }
   }
@@ -155,6 +167,7 @@ async function generateDuels(count: number, scope: 'lt' | 'foreign' | 'mixed', a
   const middleOnes = shuffle(withYear.filter(t => t.release_year! > OLD_THRESHOLD && t.release_year! < NEW_THRESHOLD))
 
   const used = new Set<number>()
+  const usedArtists = new Set<number>()   // kiekvienas atlikėjas — tik vienoje dvikovoje
   // Last sort_order'is — naują rikiuojame į uodegą
   const { data: lastDrop } = await sb
     .from('boombox_duel_drops')
@@ -178,15 +191,16 @@ async function generateDuels(count: number, scope: 'lt' | 'foreign' | 'mixed', a
   for (const matchup of sequence) {
     let pair: [CandidateTrack, CandidateTrack] | null = null
     if (matchup === 'new_vs_new') {
-      pair = pickPair(newOnes, newOnes, used) || pickPair(allWithYear, allWithYear, used)
+      pair = pickPair(newOnes, newOnes, used, usedArtists) || pickPair(allWithYear, allWithYear, used, usedArtists)
     } else if (matchup === 'old_vs_old') {
-      pair = pickPair(oldOnes, oldOnes, used) || pickPair(middleOnes, middleOnes, used) || pickPair(allWithYear, allWithYear, used)
+      pair = pickPair(oldOnes, oldOnes, used, usedArtists) || pickPair(middleOnes, middleOnes, used, usedArtists) || pickPair(allWithYear, allWithYear, used, usedArtists)
     } else {
-      pair = pickPair(oldOnes, newOnes, used) || pickPair(middleOnes, newOnes, used) || pickPair(oldOnes, middleOnes, used) || pickPair(allWithYear, allWithYear, used)
+      pair = pickPair(oldOnes, newOnes, used, usedArtists) || pickPair(middleOnes, newOnes, used, usedArtists) || pickPair(oldOnes, middleOnes, used, usedArtists) || pickPair(allWithYear, allWithYear, used, usedArtists)
     }
 
     if (!pair) continue
     used.add(pair[0].id); used.add(pair[1].id)
+    usedArtists.add(pair[0].artist_id); usedArtists.add(pair[1].artist_id)
     inserts.push({
       matchup_type: matchup,
       track_a_id: pair[0].id,
