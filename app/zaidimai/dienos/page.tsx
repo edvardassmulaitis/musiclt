@@ -67,6 +67,7 @@ async function loadInitial() {
   let quizPlayed = false
   let quizScore: number | null = null
   const extrasDone: Record<string, boolean> = { metai: false, vaizdas: false, sekundes: false }
+  const extrasScore: Record<string, number> = {}
   if (viewer.userId || viewer.anonId) {
     const f = viewer.userId ? { user_id: viewer.userId } : { anon_id: viewer.anonId! }
     let q = sb
@@ -80,10 +81,14 @@ async function loadInitial() {
     if (viewer.userId) q = q.eq('user_id', viewer.userId)
     else q = q.eq('anon_id', viewer.anonId!)
     const extraChecks = activeExtras.map(g =>
-      sb.from('game_scores').select('id').eq('game', g).eq('quiz_id', extraQuizId[g]).match(f).maybeSingle())
+      sb.from('game_scores').select('score').eq('game', g).eq('quiz_id', extraQuizId[g]).match(f).maybeSingle())
     const [{ data }, ...extraRes] = await Promise.all([q.maybeSingle(), ...extraChecks])
     if (data) { quizPlayed = true; quizScore = data.score }
-    activeExtras.forEach((g, i) => { extrasDone[g] = !!(extraRes[i] as any).data })
+    activeExtras.forEach((g, i) => {
+      const d = (extraRes[i] as any).data
+      extrasDone[g] = !!d
+      if (d) extrasScore[g] = d.score || 0
+    })
   }
 
   // Streak
@@ -104,6 +109,7 @@ async function loadInitial() {
     quizScore,
     activeExtras,
     extrasDone,
+    extrasScore,
     streak,
   }
 }

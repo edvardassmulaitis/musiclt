@@ -27,7 +27,7 @@ type Props = {
   gilyn: GilynInfo
 }
 
-type Wiz = null | 'zinios' | 'reakcija' | 'stats'
+type Wiz = null | 'reakcija' | 'stats'
 
 const Chevron = () => (
   <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><path d="m9 18 6-6-6-6" /></svg>
@@ -68,11 +68,11 @@ export default function ZaidimaiHubClient({ isAuthenticated, streak, totalXp, da
       </div>
 
       <div className="dg-grid">
-        {/* Žinios */}
-        <button className="dg-box b-zinios" onClick={() => setWiz('zinios')}>
+        {/* Žinios — Dienos iššūkis (vienas flow → tiesiai) */}
+        <Link href="/zaidimai/dienos" className="dg-box b-zinios">
           <div className="dg-ico">🧠</div>
           <div className="dg-ttl">Žinios{daily.allDone && <span className="dg-badge ok">✓ ĮVEIKTA</span>}</div>
-          <div className="dg-desc">Kiek gerai pažįsti muziką? Dienos iššūkis ir kvizai.</div>
+          <div className="dg-desc">Kasdienis iššūkis — atspėk dainas, vaizdus, metus. Tas pats visiems.</div>
           <div className="dg-foot">
             {daily.doneCount > 0 ? (
               <>
@@ -84,7 +84,7 @@ export default function ZaidimaiHubClient({ isAuthenticated, streak, totalXp, da
             )}
           </div>
           <span className="dg-go"><Chevron /></span>
-        </button>
+        </Link>
 
         {/* Atradimai — Gilyn (vienas žaidimas → tiesiai) */}
         <Link href="/zaidimai/gilyn" className="dg-box b-atradimai">
@@ -130,23 +130,6 @@ export default function ZaidimaiHubClient({ isAuthenticated, streak, totalXp, da
         <div className="dg-wrap" onClick={() => setWiz(null)}>
           <div className="dg-card" onClick={e => e.stopPropagation()}>
             <button className="dg-close" onClick={() => setWiz(null)} aria-label="Uždaryti">✕</button>
-
-            {wiz === 'zinios' && (
-              <>
-                <WizHead ico="🧠" title="Žinios" sub="Atpažink muziką — kasdien arba pavieniui" />
-                <Link href="/zaidimai/dienos" className="dg-primary">
-                  <div><b>Dienos iššūkis</b><span>Visas rinkinys · {daily.doneCount}/{daily.total} atlikta</span></div><Chevron />
-                </Link>
-                <div className="dg-or">arba pavieniui</div>
-                <div className="dg-rows">
-                  <WizRow href="/zaidimai/dainu-kvizas" ico="🎵" label="Atspėk dainą" note="audio kvizas" />
-                  <WizRow href="/zaidimai/atspek-is-vaizdo" ico="🖼️" label="Atspėk iš vaizdo" note="viršelis ryškėja" />
-                  <WizRow href="/zaidimai/atspek-is-sekundes" ico="⏱️" label="Atspėk iš sekundės" note="kuo trumpiau" />
-                  <WizRow href="/zaidimai/kurie-metai" ico="📅" label="Kurie metai?" note="spėk metus" />
-                  <WizRow href="/zaidimai/dvikovos" ico="⚔️" label="Dainų dvikovos" note="spėk daugumą" />
-                </div>
-              </>
-            )}
 
             {wiz === 'reakcija' && (
               <>

@@ -22,6 +22,7 @@ type Props = {
   quizScore: number | null
   activeExtras: string[]
   extrasDone: Record<string, boolean>
+  extrasScore: Record<string, number>
   streak: { current: number; total_xp: number }
 }
 
@@ -360,8 +361,6 @@ export default function DienosClient(props: Props) {
     } catch { /* ok */ }
   }
 
-  // Kiek iš viso ĮMANOMA surinkti šiandien šiame iššūkyje (anon skalė)
-  const galimaXp = Math.round((5 * 100 + 3 * 15) / 10) * 2 + 30 + 30 + (duel ? 40 : 0) + (verdict ? 40 : 0) + (image ? 80 : 0)
   const qPct = Math.max(0, qTimeLeft / ROUND_MS)
   const stepIdx = stage === 'intro' ? 0 : steps.findIndex((s: any) => s.key === stage) + 1
 
@@ -638,27 +637,43 @@ export default function DienosClient(props: Props) {
           ? Math.round(((qResult.dailyRank.total - 1 - qResult.dailyRank.better) / (qResult.dailyRank.total - 1)) * 100)
           : null
         const rows: Array<{ icon: string; label: string; value: string; ok?: boolean }> = []
+        // Kvizas — gyvai (qResult) arba iš išsaugoto rezultato (grįžus vėliau)
         if (qResult) rows.push({ icon: '🎧', label: 'Atspėk 5 dainas', value: `${qResult.correctCount}/${qResult.roundCount} · ${qResult.score} tšk.` })
+        else if (props.quizPlayed) rows.push({ icon: '🎧', label: 'Atspėk 5 dainas', value: `${props.quizScore ?? 0} tšk.` })
         for (const g of props.activeExtras) {
           const er = extrasResult[g]
-          if (er && done[g as StepKey]) {
-            rows.push({
-              icon: EXTRA_META[g].emoji,
-              label: EXTRA_META[g].label,
-              value: er.alreadyDone ? 'Atlikta ✓' : `${er.correctCount}/${er.roundCount} · ${er.score} tšk.`,
-            })
-          }
+          if (!(er || props.extrasDone[g])) continue
+          const liveScore = er && !er.alreadyDone && typeof er.score === 'number' ? er.score : null
+          const storedScore = props.extrasScore?.[g]
+          const value = liveScore != null ? `${er.correctCount}/${er.roundCount} · ${er.score} tšk.`
+            : storedScore != null ? `${storedScore} tšk.` : 'Atlikta ✓'
+          rows.push({ icon: EXTRA_META[g].emoji, label: EXTRA_META[g].label, value })
         }
         if (duel && done.duel) rows.push({ icon: '⚔️', label: 'Dvikova', value: duelWin ? 'Atspėjai daugumą ✓' : 'Balsavai', ok: !!duelWin })
         if (verdict && done.verdict) rows.push({ icon: '🔥', label: 'Verdiktas', value: verdictWin ? 'Populiariausia reakcija ✓' : 'Balsavai', ok: !!verdictWin })
         if (image && done.image) rows.push({ icon: '🖼️', label: 'Atspėk iš vaizdo', value: imgCorrect ? 'Teisingai ✓' : 'Neatspėta', ok: !!imgCorrect })
+
+        // Bendras taškų krepšys — POINTS skalė (ta pati, kaip žaidžiant), tad
+        // grįžus rodo tikrą surinktą rezultatą, ne 0.
+        const quizPts = qResult?.score ?? (props.quizPlayed ? (props.quizScore ?? 0) : 0)
+        const extrasPts = props.activeExtras.reduce((s, g) => {
+          const er = extrasResult[g]
+          const live = er && !er.alreadyDone && typeof er.score === 'number' ? er.score : null
+          return s + (live ?? props.extrasScore?.[g] ?? 0)
+        }, 0)
+        const duelPts = (duel && done.duel) ? (duelWin ? 40 : 20) : 0
+        const verdictPts = (verdict && done.verdict) ? (verdictWin ? 40 : 20) : 0
+        const imagePts = (image && done.image && imgCorrect) ? 80 : 0
+        const dailyTotal = quizPts + extrasPts + duelPts + verdictPts + imagePts
+        const galimaPts = 575 + props.activeExtras.length * 100 + (duel ? 40 : 0) + (verdict ? 40 : 0) + (image ? 80 : 0)
+
         return (
           <div className="di-summary">
             <div className="di-badge">DIENOS IŠŠŪKIS ĮVEIKTAS</div>
 
             <div className="di-sum-score">
-              <span className="di-sum-score-num">{sessionXp}</span>
-              <span className="di-sum-score-max">iš {galimaXp} galimų taškų</span>
+              <span className="di-sum-score-num">{dailyTotal}</span>
+              <span className="di-sum-score-max">iš {galimaPts} galimų taškų</span>
             </div>
 
             {better !== null && (
