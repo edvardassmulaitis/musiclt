@@ -81,17 +81,18 @@ export async function GET(req: NextRequest) {
       .select(albumSelect)
       .not('cover_image_url', 'is', null)
       .not('year', 'is', null)
-      .gte('score', 30)
+      .gte('score', 45)
       .neq('artists.country', 'Lietuva')
-      .limit(400),
+      .order('score', { ascending: false })
+      .limit(300),
     sb
       .from('albums')
       .select(albumSelect)
       .not('cover_image_url', 'is', null)
       .not('year', 'is', null)
       .eq('artists.country', 'Lietuva')
-      .gt('artists.score', 40)
-      .limit(300),
+      .gt('artists.score', 48)
+      .limit(200),
   ])
 
   const dedupe = (rows: AlbumRow[]) => {

@@ -397,12 +397,16 @@ export default function DienosClient(props: Props) {
           {/* Orientacija: aiškiai kas laukia, prieš pradedant (vienas ▶) */}
           {qPhase === 'ready' && qRound && (
             <div className="di-orient">
-              <span className="di-orient-step">1 iš {steps.length} · Atspėk dainą</span>
-              <h2 className="di-orient-title">Klausyk 5 dainų ištraukų</h2>
-              <p className="di-orient-sub">Kiekvienai — 4 variantai ir 15 sek. Kuo greičiau, tuo daugiau taškų.</p>
+              <span className="di-orient-step">Dienos iššūkis</span>
+              <h2 className="di-orient-title">{steps.length} užduotys — tas pats visiems</h2>
+              <p className="di-orient-sub">Rink taškus ir augink seriją. Kuo greičiau atsakai, tuo daugiau taškų.</p>
               <ol className="di-orient-list">
                 {steps.map((s: any, i: number) => (
-                  <li key={s.key} className={done[s.key as StepKey] ? 'done' : ''}>{i + 1}. {s.label}{done[s.key as StepKey] ? ' ✓' : ''}</li>
+                  <li key={s.key} className={`${done[s.key as StepKey] ? 'done' : ''}${i === 0 ? ' first' : ''}`}>
+                    <span className="di-orient-li-emoji">{s.emoji}</span>
+                    <span className="di-orient-li-label">{s.label}</span>
+                    {done[s.key as StepKey] && <span className="di-orient-li-check">✓</span>}
+                  </li>
                 ))}
               </ol>
               <button className="di-play-big" onClick={qStartPlaying} aria-label="Pradėti">
@@ -537,9 +541,9 @@ export default function DienosClient(props: Props) {
               )
             })}
           </div>
-          {duelPick && duelWin !== null && (
-            <div className={`di-crowd ${duelWin ? 'win' : 'miss'}`}>
-              {duelWin ? '🎯 Atspėjai daugumą — dvigubi taškai!' : '🦄 Buvai mažumoje — bazės taškai'}
+          {duelPick && (
+            <div className="di-crowd neutral">
+              ✅ Balsas užskaitytas. Kas surinks daugumą — paaiškės dienos gale.
             </div>
           )}
           {duelPick && <button className="di-next" onClick={() => setStage(nextAfterDone('duel'))}>Toliau →</button>}
@@ -587,9 +591,9 @@ export default function DienosClient(props: Props) {
               })}
             </div>
           </div>
-          {verdictPick && verdictWin !== null && (
-            <div className={`di-crowd ${verdictWin ? 'win' : 'miss'}`}>
-              {verdictWin ? '🎯 Sutapai su dauguma — dvigubi taškai!' : '🦄 Reta nuomonė — bazės taškai'}
+          {verdictPick && (
+            <div className="di-crowd neutral">
+              ✅ Balsas užskaitytas. Ar sutapsi su dauguma — paaiškės dienos gale.
             </div>
           )}
           {verdictPick && <button className="di-next" onClick={() => setStage(nextAfterDone('verdict'))}>Toliau →</button>}
@@ -649,23 +653,29 @@ export default function DienosClient(props: Props) {
             : storedScore != null ? `${storedScore} tšk.` : 'Atlikta ✓'
           rows.push({ icon: EXTRA_META[g].emoji, label: EXTRA_META[g].label, value })
         }
-        if (duel && done.duel) rows.push({ icon: '⚔️', label: 'Dvikova', value: duelWin ? 'Atspėjai daugumą ✓' : 'Balsavai', ok: !!duelWin })
-        if (verdict && done.verdict) rows.push({ icon: '🔮', label: 'Hitas ar ne', value: verdictWin ? 'Sutapai su dauguma ✓' : 'Nuspėjai', ok: !!verdictWin })
+        if (duel && done.duel) rows.push({ icon: '⚔️', label: 'Dvikova', value: 'Balsuota ✓', ok: true })
+        if (verdict && done.verdict) rows.push({ icon: '🔮', label: 'Hitas ar ne', value: 'Balsuota ✓', ok: true })
         if (image && done.image) rows.push({ icon: '🖼️', label: 'Atspėk iš vaizdo', value: imgCorrect ? 'Teisingai ✓' : 'Neatspėta', ok: !!imgCorrect })
 
-        // Bendras taškų krepšys — POINTS skalė (ta pati, kaip žaidžiant), tad
-        // grįžus rodo tikrą surinktą rezultatą, ne 0.
+        // Bendras rezultatas — skalė 0–100, proporcingai iš VISŲ užduočių:
+        // kiekviena užduotis duoda vienodą dalį (100 / užduočių skaičius), o
+        // jos viduje surenki tiek, kiek atspėjai. Balsavimai (dvikova/verdiktas)
+        // — dalyvavimo dalis (rezultatas finalizuojasi dienos gale).
+        const KVIZ_MAX = 575, EXTRA_MAX = 300
+        const clamp01 = (n: number) => Math.max(0, Math.min(1, n))
         const quizPts = qResult?.score ?? (props.quizPlayed ? (props.quizScore ?? 0) : 0)
-        const extrasPts = props.activeExtras.reduce((s, g) => {
+        const stepFracs: number[] = [clamp01(quizPts / KVIZ_MAX)]
+        for (const g of props.activeExtras) {
           const er = extrasResult[g]
           const live = er && !er.alreadyDone && typeof er.score === 'number' ? er.score : null
-          return s + (live ?? props.extrasScore?.[g] ?? 0)
-        }, 0)
-        const duelPts = (duel && done.duel) ? (duelWin ? 40 : 20) : 0
-        const verdictPts = (verdict && done.verdict) ? (verdictWin ? 40 : 20) : 0
-        const imagePts = (image && done.image && imgCorrect) ? 80 : 0
-        const dailyTotal = quizPts + extrasPts + duelPts + verdictPts + imagePts
-        const galimaPts = 575 + props.activeExtras.length * 100 + (duel ? 40 : 0) + (verdict ? 40 : 0) + (image ? 80 : 0)
+          const pts = live ?? props.extrasScore?.[g] ?? 0
+          stepFracs.push(clamp01(pts / EXTRA_MAX))
+        }
+        if (duel) stepFracs.push(done.duel ? 1 : 0)
+        if (verdict) stepFracs.push(done.verdict ? 1 : 0)
+        if (image) stepFracs.push(done.image && imgCorrect ? 1 : 0)
+        const stepShare = 100 / Math.max(1, stepFracs.length)
+        const dailyTotal = Math.round(stepFracs.reduce((s, f) => s + f * stepShare, 0))
 
         return (
           <div className="di-summary">
@@ -673,7 +683,7 @@ export default function DienosClient(props: Props) {
 
             <div className="di-sum-score">
               <span className="di-sum-score-num">{dailyTotal}</span>
-              <span className="di-sum-score-max">iš {galimaPts} galimų taškų</span>
+              <span className="di-sum-score-max">iš 100 galimų</span>
             </div>
 
             {better !== null && (
@@ -938,10 +948,16 @@ function SekundesGameStep({ stepNo, stepTotal, onDone }: { stepNo: number; stepT
         {phase !== 'ready' && <span className="di-ag-prog">{idx + 1}/{rounds.length} · ⚡ {score}</span>}
       </div>
 
-      <div className="di-sek-audio">
-        {phase === 'ready' ? (
+      {phase === 'ready' && (
+        <div className="di-sek-intro">
+          <p className="di-sek-intro-lead">Pradžioje skamba tik <b>1 sekundė</b>.</p>
+          <p className="di-sek-intro-sub">Atspėk kuo greičiau iš 4 variantų — kuo trumpiau klausai, tuo daugiau taškų. Neatpažįsti? Spausk <b>„Klausyti ilgiau"</b> (iki 9 sek.), bet taškų bus mažiau.</p>
           <button className="di-play-big" onClick={startPlaying}><svg width="24" height="24" viewBox="0 0 24 24" fill="currentColor"><path d="M8 5v14l11-7z" /></svg><span>Pradėti</span></button>
-        ) : phase === 'round' ? (
+        </div>
+      )}
+
+      {phase !== 'ready' && <div className="di-sek-audio">
+        {phase === 'round' ? (
           <>
             <div className={`di-eq${garsas.grojama ? '' : ' off'}`}>{Array.from({ length: 7 }).map((_, i) => <span key={i} style={{ animationDelay: `${i * 0.12}s` }} />)}</div>
             <span className="di-sek-pot">verta {potential}</span>
@@ -950,7 +966,7 @@ function SekundesGameStep({ stepNo, stepTotal, onDone }: { stepNo: number; stepT
         ) : rr ? (
           <div className={`di-ag-tag ${rr.correct ? 'ok' : 'bad'}`} style={{ position: 'static' }}>{rr.correct ? `+${rr.points}` : 'Ne ta daina'}</div>
         ) : null}
-      </div>
+      </div>}
 
       {phase !== 'ready' && round && (
         <div className="di-ag-opts" style={{ marginTop: 10 }}>
@@ -966,6 +982,10 @@ function SekundesGameStep({ stepNo, stepTotal, onDone }: { stepNo: number; stepT
 }
 
 const css = `
+.di-sek-intro { display: flex; flex-direction: column; align-items: center; text-align: center; gap: 8px; padding: 2vh 0 1vh; }
+.di-sek-intro-lead { font-size: 18px; font-weight: 900; color: var(--text-primary); margin: 0; }
+.di-sek-intro-sub { font-size: 13px; color: var(--text-secondary); margin: 0 0 8px; max-width: 340px; line-height: 1.5; }
+.di-sek-intro-sub b, .di-sek-intro-lead b { color: var(--accent-orange); }
 .di-sek-audio { position: relative; display: flex; align-items: center; justify-content: center; gap: 14px; border-radius: 14px; min-height: 96px; padding: 14px; background: #10131b; }
 .di-sek-pot { font-size: 13px; color: rgba(255,255,255,0.8); }
 .di-sek-more { font-size: 13px; font-weight: 800; color: rgba(255,255,255,0.85); background: rgba(255,255,255,0.08); border: 1px solid rgba(255,255,255,0.2); border-radius: 999px; padding: 8px 15px; cursor: pointer; }
@@ -981,9 +1001,13 @@ const css = `
 .di-orient-step { font-size: 11px; font-weight: 900; letter-spacing: 0.08em; text-transform: uppercase; color: var(--accent-orange); }
 .di-orient-title { font-size: 22px; font-weight: 900; color: var(--text-primary); margin: 2px 0 0; }
 .di-orient-sub { font-size: 13px; color: var(--text-secondary); margin: 0; max-width: 340px; }
-.di-orient-list { list-style: none; margin: 12px 0 18px; padding: 0; display: flex; flex-direction: column; gap: 5px; }
-.di-orient-list li { font-size: 13px; font-weight: 700; color: var(--text-secondary); }
-.di-orient-list li.done { color: var(--accent-green); }
+.di-orient-list { list-style: none; margin: 14px 0 20px; padding: 0; display: flex; flex-direction: column; gap: 7px; width: 100%; max-width: 320px; }
+.di-orient-list li { display: flex; align-items: center; gap: 10px; font-size: 14px; font-weight: 700; color: var(--text-secondary); background: var(--bg-surface); border: 1px solid rgba(140,160,190,0.2); border-radius: 12px; padding: 10px 13px; }
+.di-orient-list li.first { border-color: var(--accent-orange); color: var(--text-primary); }
+.di-orient-list li.done { opacity: 0.6; }
+.di-orient-li-emoji { font-size: 17px; }
+.di-orient-li-label { flex: 1; text-align: left; }
+.di-orient-li-check { color: var(--accent-green); font-weight: 900; }
 .di-stage-no { display: block; font-size: 11px; font-weight: 900; letter-spacing: 0.07em; text-transform: uppercase; color: var(--accent-orange); margin-bottom: 4px; }
 .di-yt { position: absolute; inset: 0; }
 .di-yt iframe { width: 100%; height: 100%; }
@@ -1113,6 +1137,7 @@ const css = `
 .di-crowd { align-self: stretch; text-align: center; font-size: 14px; font-weight: 800; border-radius: 12px; padding: 11px; margin-top: 4px; }
 .di-crowd.win { color: var(--accent-green); background: rgba(16,185,129,0.12); border: 1px solid rgba(16,185,129,0.4); }
 .di-crowd.miss { color: var(--text-secondary); background: var(--bg-surface); border: 1px solid rgba(140,160,190,0.25); }
+.di-crowd.neutral { color: var(--text-secondary); background: var(--bg-surface); border: 1px solid rgba(140,160,190,0.25); }
 
 /* Albumų žaidimo žingsnis */
 .di-ag-head { display: flex; align-items: center; justify-content: space-between; gap: 8px; }

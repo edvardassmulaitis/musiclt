@@ -264,7 +264,12 @@ export type PoolTrack = {
   ytId: string
   year: number | null
   lt: boolean          // ar lietuviškas — kad klaidinantys variantai būtų tos pačios scenos
+  genre: number | null // stiliaus grupės genres.id (klaidinantiems pagal stilių)
+  gender: string | null // male|female|mixed — klaidinantiems pagal lytį
 }
+
+// 8 pagrindinių stilių grupių genres.id (mirror lib/artist-import.ts)
+const GENRE_GROUP_IDS = [1000556, 1000557, 1000558, 1000559, 1000560, 1000561, 1000562, 1000563]
 
 const poolCache = new Map<string, { at: number; tracks: PoolTrack[] }>()
 const POOL_TTL_MS = 10 * 60 * 1000
@@ -276,7 +281,7 @@ export async function loadQuizPool(cat: QuizCategory): Promise<PoolTrack[]> {
   const sb = createAdminClient()
   let q = sb
     .from('tracks')
-    .select('id, title, video_url, video_views, video_embeddable, release_year, artist_id, artists:artist_id!inner ( id, name, country )')
+    .select('id, title, video_url, video_views, video_embeddable, release_year, artist_id, artists:artist_id!inner ( id, name, country, gender )')
     .not('video_url', 'is', null)
     .or('video_embeddable.is.null,video_embeddable.eq.true')
     .order('video_views', { ascending: false, nullsFirst: false })
@@ -304,8 +309,29 @@ export async function loadQuizPool(cat: QuizCategory): Promise<PoolTrack[]> {
       ytId,
       year: row.release_year || null,
       lt: a.country === 'Lietuva',
+      genre: null,
+      gender: a.gender || null,
     })
   }
+
+  // Stiliaus grupė kiekvienam atlikėjui (klaidinantiems pagal stilių)
+  try {
+    const artistIds = Array.from(new Set(tracks.map(t => t.artist_id)))
+    const genreByArtist = new Map<number, number>()
+    for (let i = 0; i < artistIds.length; i += 500) {
+      const chunk = artistIds.slice(i, i + 500)
+      const { data: ag } = await sb
+        .from('artist_genres')
+        .select('artist_id, genre_id')
+        .in('artist_id', chunk)
+        .in('genre_id', GENRE_GROUP_IDS)
+      for (const r of (ag as any[]) || []) {
+        if (!genreByArtist.has(r.artist_id)) genreByArtist.set(r.artist_id, r.genre_id)
+      }
+    }
+    for (const t of tracks) t.genre = genreByArtist.get(t.artist_id) ?? null
+  } catch { /* stilius nebūtinas — klaidinantys kris į scenos/bendrą pool'ą */ }
+
   poolCache.set(cat.key, { at: Date.now(), tracks })
   return tracks
 }

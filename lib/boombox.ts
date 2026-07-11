@@ -286,7 +286,11 @@ export async function fetchTodayDuelDrop(): Promise<DuelDrop | null> {
   const scope = bothLt ? '🇱🇹 Lietuviška' : bothForeign ? '🌍 Pasaulio' : 'LT prieš pasaulį'
   const eraLabel = drop.matchup_type === 'new_vs_new' ? 'naujausi hitai'
     : drop.matchup_type === 'old_vs_old' ? 'klasika' : 'klasika prieš naujieną'
-  const yearPart = ta.release_year && tb.release_year ? ` · ${ta.release_year} vs ${tb.release_year}` : ''
+  // Metus rodom tik kai jie artimi (ta pati era) — plati praraja (pvz. 1993 vs
+  // 2005) atrodo nelogiškai, tad tada paliekam tik eros etiketę.
+  const yearPart = ta.release_year && tb.release_year && Math.abs(ta.release_year - tb.release_year) <= 4
+    ? ` · ${Math.min(ta.release_year, tb.release_year)}–${Math.max(ta.release_year, tb.release_year)}`
+    : ''
   const blurb = `${scope} · ${eraLabel}${sharedGenre ? ` · ${sharedGenre}` : ''}${yearPart}`
 
   return {

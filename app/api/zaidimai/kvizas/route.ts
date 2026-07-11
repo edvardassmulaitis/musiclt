@@ -92,13 +92,22 @@ async function buildAudioRounds(
   if (corrects.length < roundCount) return null
 
   return corrects.map((correct, idx) => {
-    // Klaidinantys — pirmiausia iš TOS PAČIOS scenos (LT/užsienio), kad prie
-    // lietuviškos dainos nebūtų angliškų variantų. Jei tos scenos per mažai —
-    // papildom iš viso pool'o.
+    // Klaidinantys — kuo panašesni, kad nebūtų per lengva. Pirmenybės tvarka:
+    //   1) ta pati scena + tas pats stilius + ta pati lytis (jei žinoma)
+    //   2) ta pati scena + tas pats stilius
+    //   3) ta pati scena (LT/užsienio) — kad kalba/etiketės nesimaišytų
+    //   4) visas pool'as (atsarga)
+    const solo = correct.gender === 'male' || correct.gender === 'female'
     const sameScene = decoyPool.filter(t => t.lt === correct.lt)
+    const tier1 = correct.genre != null
+      ? sameScene.filter(t => t.genre === correct.genre && (!solo || t.gender === correct.gender))
+      : []
+    const tier2 = correct.genre != null
+      ? sameScene.filter(t => t.genre === correct.genre)
+      : []
     const decoys: PoolTrack[] = []
     const decoyArtists = new Set<number>([correct.artist_id])
-    for (const src of [shuffleArr(sameScene), shuffleArr(decoyPool)]) {
+    for (const src of [shuffleArr(tier1), shuffleArr(tier2), shuffleArr(sameScene), shuffleArr(decoyPool)]) {
       for (const t of src) {
         if (decoys.length >= 3) break
         if (t.id === correct.id || decoyArtists.has(t.artist_id)) continue
