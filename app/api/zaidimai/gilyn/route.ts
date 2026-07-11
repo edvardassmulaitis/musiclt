@@ -257,6 +257,8 @@ export async function POST(req: NextRequest) {
 
         if (step >= DIG_STEPS) {
           await save({ path, dig_step: step, doors: null, status: 'done', finished_at: new Date().toISOString(), final_pick: path[path.length - 1] })
+          // default dienos radinys = paskutinis kelio taškas → žemėlapio žvaigždė
+          upsertMapNode(viewer, door.artistId, { saved: true }).catch(() => {})
           // XP + rezultatas
           const newNodes = path.length
           const xp = GILYN_XP_FINISH + Math.min(3, newNodes) * GILYN_XP_NEW_NODE

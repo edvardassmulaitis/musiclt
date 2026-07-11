@@ -94,6 +94,15 @@ export default function GilynClient() {
   }, [])
   useEffect(() => { refresh() }, [refresh])
 
+  // Self-heal: jei dėžė baigta su laikomu vinilu, bet serveris dar 'box'
+  // (race tarp optimistinių advance POST'ų) — priverstinai pereinam į kasimąsi.
+  useEffect(() => {
+    if (run && run.status === 'box' && run.boxPos >= 20 && run.held) {
+      post('finishBox').then(j => { if (j?.run) routeView(j.run) })
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [run?.status, run?.boxPos])
+
   function routeView(r: Run) {
     if (r.status === 'box') setView(r.boxPos >= 20 && !r.held ? 'boxEnd' : 'box')
     else if (r.status === 'dig') setView('dig')
