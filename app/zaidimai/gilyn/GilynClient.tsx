@@ -65,7 +65,7 @@ type MapData = {
   edges?: { a: number; b: number; t: string }[]
 }
 type FreeNode = {
-  artistId: number; artist: string; artistSlug: string | null
+  artistId: number; albumId?: number | null; artist: string; artistSlug: string | null
   cover: string | null; title: string | null; year: number | null
   tracks?: TrackRef[]; reason: string | null
 }
@@ -282,7 +282,7 @@ export default function GilynClient() {
   // ── Free Dig ──
   async function startFreeDig(artistId: number, seed?: Partial<FreeNode>) {
     setSubSheet(null); setStaging(true); setView('free')
-    const j = await post('freeDoors', { artistId, exclude: [] })
+    const j = await post('freeDoors', { artistId, albumId: seed?.albumId || null, exclude: [] })
     setStaging(false)
     if (!j) { setView('map'); return }
     setFreeDoors(j.doors || [])
@@ -620,7 +620,7 @@ export default function GilynClient() {
             <button className="g-cta alt" type="button"
               onClick={() => {
                 const last: any = run.path[run.path.length - 1]
-                startFreeDig(last.artistId, { artist: last.artist, artistSlug: last.artistSlug, cover: last.cover, title: last.title, year: last.year, tracks: last.tracks })
+                startFreeDig(last.artistId, { albumId: last.albumId, artist: last.artist, artistSlug: last.artistSlug, cover: last.cover, title: last.title, year: last.year, tracks: last.tracks })
               }}>
               Tęsti kasimąsi laisvai <ArrowIcon size={15} />
             </button>
