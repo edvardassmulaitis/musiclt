@@ -57,15 +57,25 @@ export function scopeOfDay(date: Date = new Date()): Scope {
 //   * grupės tikrinamos IŠ EILĖS — atlikėjas priskiriamas PIRMAI grupei, kurios
 //     substilių sąrašas kertasi su jo substiliais (deterministiškas priskyrimas,
 //     tas pats atlikėjas nepatenka į du to paties stiliaus turnyrus)
-//   * substyles: null = catch-all („Kita") — surenka visus likusius; catch-all
-//     turi eiti PASKUTINIS
+//   * grupė be substyles ir be eraTo = catch-all („Kita"/„Pop") — surenka
+//     visus likusius; catch-all turi eiti PASKUTINIS
 //   * jei stilius neskaidomas, seed'as jam sukuria vieną catch-all grupę
 export type SubstyleGroup = {
   key: string            // stabilus raktas DB (group_key)
   label: string          // rodomas pavadinimas (title dalis po „›")
-  substyles: string[] | null  // substilių pavadinimai; null = catch-all likusiems
   target: number         // siekiamas bracket'o dydis (apkarpomas pagal fitBracket)
+  substyles?: string[]   // substilių grupė: atlikėjo substiliai kertasi su sąrašu
+  eraTo?: number         // EROS grupė: populiariausios dainos metai <= eraTo
+                         //   (metai = release_year, o jei jo nėra — YT upload metai)
+  // nei substyles, nei eraTo → catch-all („visi likę"); turi eiti paskutinė
 }
+
+// Minimalus populiariausios dainos peržiūrų slenkstis, kad atlikėjas iš viso
+// patektų į turnyrą. LT slenkstis saugo nuo visiškai nežinomų vardų dvikovose
+// (savininko feedback 2026-07-12: LT Sunkiojoje dugnas buvo 45k peržiūrų).
+// 50k, ne 100k — kitaip LT Sunkioji lieka su 7 dainomis ir išnyksta visai;
+// niša mieliau gauna mažesnį (8) bracket'ą nei jokio.
+export const MIN_VIEWS: Record<Scope, number> = { lt: 50_000, world: 10_000 }
 
 export const SPLIT_CONFIG: Record<Scope, Record<number, SubstyleGroup[]>> = {
   world: {
@@ -73,24 +83,24 @@ export const SPLIT_CONFIG: Record<Scope, Record<number, SubstyleGroup[]>> = {
     1000560: [
       { key: 'rnb', label: 'R&B / Soul', target: 32, substyles: ['R&B', 'Soul', 'Blue-eyed soul', 'Hip hop soul', 'Quiet storm', 'New jack swing', 'Southern soul', 'Alternative R&B', 'Pop-soul', 'Doo wop'] },
       { key: 'latin', label: 'Latin', target: 16, substyles: ['Latin pop', 'Bolero', 'Tropical', 'Guajira', 'Reggaeton', 'Latin dance', 'Latin rap', 'Latin trap'] },
-      { key: 'pop', label: 'Pop', target: 32, substyles: null },
+      { key: 'pop', label: 'Pop', target: 32 },
     ],
     // Rokas — alternatyvos/indie banga vs klasika
     1000562: [
       { key: 'alt', label: 'Alternative / Indie', target: 32, substyles: ['Alternative rock', 'Indie rock', 'Indie pop', 'Post punk revival', 'Britpop', 'Dream pop', 'Garage rock revival', 'Noise rock', 'Math rock', 'College rock', 'Jangle pop', 'Noise pop', 'Post britpop'] },
-      { key: 'rock', label: 'Klasikinis rokas', target: 32, substyles: null },
+      { key: 'rock', label: 'Klasikinis rokas', target: 32 },
     ],
     // Sunkioji — ekstremalus vs klasikinis/modernus metalas
     1000563: [
       { key: 'extreme', label: 'Ekstremalus metalas', target: 32, substyles: ['Black metal', 'Death metal', 'Thrash metal', 'Melodic death metal', 'Doom metal', 'Sludge metal', 'Deathcore', 'Grindcore', 'Technical death metal', 'Death/doom', 'Extreme metal', 'Speed metal', 'Viking metal', 'Pagan metal', 'Funeral doom', 'Deathgrind', 'Atmospheric black metal', 'Crossover thrash'] },
-      { key: 'metal', label: 'Metalas', target: 32, substyles: null },
+      { key: 'metal', label: 'Metalas', target: 32 },
     ],
     // Rimtoji — semantinis sąvartynas: Jazz vs Chopin vs bliuzas
     1000561: [
       { key: 'jazz', label: 'Jazz', target: 16, substyles: ['Jazz'] },
       { key: 'classical', label: 'Classical', target: 16, substyles: ['Classical'] },
       { key: 'blues', label: 'Blues', target: 16, substyles: ['Blues'] },
-      { key: 'kita', label: 'Kita', target: 16, substyles: null },
+      { key: 'kita', label: 'Kita', target: 16 },
     ],
     // Kitų stilių — Country/Filmų/Reggae + „Kita" catch-all, kad neišmestų
     // Israel Kamakawiwo'ole (1,58B), Ylvis ir kitų nepriskirtų
@@ -98,15 +108,17 @@ export const SPLIT_CONFIG: Record<Scope, Record<number, SubstyleGroup[]>> = {
       { key: 'country', label: 'Country', target: 16, substyles: ['Country'] },
       { key: 'film', label: 'Filmų muzika', target: 16, substyles: ['Filmų muzika'] },
       { key: 'reggae', label: 'Reggae', target: 16, substyles: ['Reggae'] },
-      { key: 'kita', label: 'Kita', target: 16, substyles: null },
+      { key: 'kita', label: 'Kita', target: 16 },
     ],
   },
   lt: {
-    // LT Pop — 242 tinkami atlikėjai į 32 vietas; estrada (Povilaitis,
-    // Kučinskas, Cicinas…) — atskira, kultūriškai sava eilė
+    // LT Pop — ~300 tinkamų atlikėjų į 32 vietas, skaidom pagal ERĄ, ne
+    // substilius (substiliai Baumilą ir Jessica Shy išmėtė į skirtingas
+    // grupes — beprasmiška). Riba 2011/2012: „Aukso fondas" — Povilaitis,
+    // Kučinskas, ŽAS, SEL, Mango era; „Pop" — dabartinė banga.
     1000560: [
-      { key: 'estrada', label: 'Estrada', target: 32, substyles: ['LT estrada', 'šlageriai', 'Schlager', 'Vocal pop', 'Traditional pop'] },
-      { key: 'pop', label: 'Pop', target: 32, substyles: null },
+      { key: 'fondas', label: 'Aukso fondas', target: 32, eraTo: 2011 },
+      { key: 'pop', label: 'Pop', target: 32 },
     ],
     // Kiti LT stiliai neskaidomi — per maži (LT Rimtoji ~30 atlikėjų)
   },
@@ -116,7 +128,7 @@ export const SPLIT_CONFIG: Record<Scope, Record<number, SubstyleGroup[]>> = {
 export function groupsForStyle(genreId: number, scope: Scope): SubstyleGroup[] {
   const cfg = SPLIT_CONFIG[scope]?.[genreId]
   if (cfg) return cfg
-  return [{ key: '', label: GENRE_NAMES[genreId] ?? String(genreId), target: defaultTarget(genreId), substyles: null }]
+  return [{ key: '', label: GENRE_NAMES[genreId] ?? String(genreId), target: defaultTarget(genreId) }]
 }
 
 /** Numatytasis bracket'o dydis pagal stiliaus populiarumą (top-4 → 32). */

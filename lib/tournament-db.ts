@@ -14,11 +14,14 @@
 
 import type { SupabaseClient } from '@supabase/supabase-js'
 import {
-  groupsForStyle, fitBracket, buildBracket, voteFromRound, MIN_BRACKET,
+  groupsForStyle, fitBracket, buildBracket, voteFromRound, MIN_BRACKET, MIN_VIEWS,
   type Scope, type SubstyleGroup,
 } from './tournament'
 
-export type Candidate = { trackId: number; views: number; title: string; artist: string; artistId: number }
+export type Candidate = {
+  trackId: number; views: number; title: string; artist: string; artistId: number
+  year: number | null   // release_year, o jei jo nėra — YT įkėlimo metai (erų grupėms)
+}
 
 function chunks<T>(arr: T[], n: number): T[][] {
   const out: T[][] = []
@@ -86,24 +89,27 @@ export async function artistSubstyleSets(
   return out
 }
 
-/** Atlikėjų priskyrimas grupėms: pirma sutampanti grupė laimi, likę → catch-all. */
+/**
+ * Kandidatų priskyrimas grupėms: pirma sutampanti grupė laimi, likę → catch-all.
+ * Substilių grupė žiūri į atlikėjo substilius; erų grupė (eraTo) — į
+ * populiariausios dainos metus (nežinomi metai eros grupei NEatitinka).
+ */
 export function assignToGroups(
-  groups: SubstyleGroup[], artistIds: Set<number>, artistSubs: Map<number, Set<string>>,
-): Map<string, Set<number>> {
-  const out = new Map<string, Set<number>>(groups.map(g => [g.key, new Set<number>()]))
-  const catchAll = groups.find(g => g.substyles === null)
-  for (const id of artistIds) {
-    const subs = artistSubs.get(id)
+  groups: SubstyleGroup[], cands: Candidate[], artistSubs: Map<number, Set<string>>,
+): Map<string, Candidate[]> {
+  const out = new Map<string, Candidate[]>(groups.map(g => [g.key, []]))
+  const catchAll = groups.find(g => !g.substyles && g.eraTo == null)
+  for (const c of cands) {
     let placed = false
     for (const g of groups) {
-      if (!g.substyles) continue
-      if (subs && g.substyles.some(s => subs.has(s))) {
-        out.get(g.key)!.add(id)
-        placed = true
-        break
+      if (g.substyles) {
+        const subs = artistSubs.get(c.artistId)
+        if (subs && g.substyles.some(sn => subs.has(sn))) { out.get(g.key)!.push(c); placed = true; break }
+      } else if (g.eraTo != null) {
+        if (c.year != null && c.year <= g.eraTo) { out.get(g.key)!.push(c); placed = true; break }
       }
     }
-    if (!placed && catchAll) out.get(catchAll.key)!.add(id)
+    if (!placed && catchAll) out.get(catchAll.key)!.push(c)
   }
   return out
 }
@@ -130,7 +136,7 @@ export async function bestTrackPerArtist(
     // planner'į skenuoti pkey kol pririnks puslapį ir baigdavosi timeout'u
     const rows = await pageAll(
       () => sb.from('tracks')
-        .select('id,title,artist_id,video_views,artists:artist_id!inner(name)')
+        .select('id,title,artist_id,video_views,release_year,video_uploaded_at,artists:artist_id!inner(name)')
         .in('artist_id', chunk)
         .not('video_url', 'is', null)
         .gte('video_views', 10000),
@@ -141,7 +147,9 @@ export async function bestTrackPerArtist(
       const v = t.video_views || 0
       const cur = best.get(t.artist_id)
       if (!cur || v > cur.views) {
-        best.set(t.artist_id, { trackId: t.id, views: v, title: t.title, artist: t.artists?.name, artistId: t.artist_id })
+        const year = t.release_year
+          ?? (t.video_uploaded_at ? new Date(t.video_uploaded_at).getUTCFullYear() : null)
+        best.set(t.artist_id, { trackId: t.id, views: v, title: t.title, artist: t.artists?.name, artistId: t.artist_id, year })
       }
     }
   }
@@ -156,11 +164,13 @@ export async function candidatesForSpec(sb: SupabaseClient, spec: TournamentSpec
   const artistIds = await genreArtistIds(sb, spec.genreId, spec.scope)
   const allNames = groups.flatMap(g => g.substyles ?? [])
   const subs = await artistSubstyleSets(sb, artistIds, allNames)
-  const byGroup = assignToGroups(groups, artistIds, subs)
-  const members = byGroup.get(spec.group.key) ?? new Set<number>()
   const excluded = await loadExclusions(sb)
-  const best = await bestTrackPerArtist(sb, members, excluded)
-  return [...best.values()].sort((a, b) => b.views - a.views)
+  const best = await bestTrackPerArtist(sb, artistIds, excluded)
+  // Peržiūrų slenkstis — saugo nuo visiškai nežinomų vardų dvikovose
+  const floor = MIN_VIEWS[spec.scope]
+  const eligible = [...best.values()].filter(c => c.views >= floor)
+  const byGroup = assignToGroups(groups, eligible, subs)
+  return (byGroup.get(spec.group.key) ?? []).sort((a, b) => b.views - a.views)
 }
 
 /**
