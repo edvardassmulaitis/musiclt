@@ -606,7 +606,7 @@ export async function generateDoors(opts: {
     })
   }
 
-  // A durys
+  // A durys — substilių persidengimas + eros artumas + fame proximity
   {
     const scored = [...soundCands.entries()]
       .filter(([id]) => artById.has(id))
@@ -614,7 +614,11 @@ export async function generateDoors(opts: {
         const a = artById.get(id)
         const meta = metaAll.get(id) || { genreIds: [], substyleIds: [] }
         const sameCountry = a.country && a.country === cur.country ? 10 : 0
-        const base = overlap * 100 + sameCountry
+        // eros artumas pagal active_from (grubu, bet pigu): ±15 m. dar artima
+        const eraProx = (a.active_from && cur.eraLo)
+          ? Math.exp(-Math.abs(a.active_from - cur.eraLo) / 15) * 30
+          : 0
+        const base = overlap * 100 + sameCountry + eraProx
         return { id, score: base * (0.5 + 0.5 * fameProx(a.score || 1, cur.score || 1)), overlap, meta }
       })
       .sort((x, y) => y.score - x.score)
@@ -652,37 +656,51 @@ export async function generateDoors(opts: {
       placed = true
     }
     if (!placed) {
-      const scored = sceneCands
+      // Scena = šalis + BENDRAS ŽANRAS (ne bet koks tautietis) + eros artumas
+      const scoredAll = sceneCands
         .filter(id => artById.has(id) && !usedDoorArtists.has(id))
         .map(id => {
           const a = artById.get(id)
-          return { id, score: eraOverlapScore({ ...a, eraLo: a.active_from || null, eraHi: null, genreIds: [], substyleIds: [] } as any, cur.eraLo, cur.eraHi) + (a.score || 0) / 10 }
+          const meta = metaAll.get(id) || { genreIds: [], substyleIds: [] }
+          const sharedGenre = meta.genreIds.some(g => curGenres.has(g))
+          const eraProx = (a.active_from && cur.eraLo)
+            ? Math.exp(-Math.abs(a.active_from - cur.eraLo) / 12) * 40
+            : 0
+          return { id, sharedGenre, score: eraProx + (a.score || 0) / 10 + (sharedGenre ? 50 : 0) }
         })
         .sort((x, y) => y.score - x.score)
-        .slice(0, 8)
-      const ranked = rankPersonalized(scored, c => c.id)
+      const withGenre = scoredAll.filter(c => c.sharedGenre)
+      const pool2 = (withGenre.length ? withGenre : scoredAll).slice(0, 8)
+      const ranked = rankPersonalized(pool2, c => c.id)
       const pick = ranked[0]
       if (pick) {
         const a = artById.get(pick.id)
+        const gId = (metaAll.get(pick.id)?.genreIds || []).find(g => curGenres.has(g))
+        const gName = gId ? shortGenreName(taxo.genres.find(x => x.id === gId)?.name || '') : null
         doors.push({
           doorType: 'scene', label: 'TA PATI SCENA',
           artistId: pick.id, artist: a.name, artistSlug: a.slug || null,
           albumId: null, title: null, year: null, cover: null, ytId: null,
-          reason: `Ta pati scena — ${cur.country}.`,
+          reason: gName ? `${cur.country} scena — irgi ${gName.toLowerCase()}.` : `Ta pati scena — ${cur.country}.`,
         })
         usedDoorArtists.add(pick.id)
       }
     }
   }
 
-  // C durys — kitas žanras nei dabartinis
+  // C durys — TIKRAS tiltas: kitas žanras IR be substilių persidengimo (jei įmanoma)
   {
-    const other = bridgeCands.filter(b => {
-      if (usedDoorArtists.has(b.artistId) || !artById.has(b.artistId)) return false
+    const curSubs = new Set(cur.substyleIds)
+    const valid = bridgeCands.filter(b => !usedDoorArtists.has(b.artistId) && artById.has(b.artistId))
+    const otherGenre = valid.filter(b => {
       const g = metaAll.get(b.artistId)?.genreIds || []
       return g.length > 0 && !g.some(x => curGenres.has(x))
     })
-    const pool = other.length ? other : bridgeCands.filter(b => !usedDoorArtists.has(b.artistId) && artById.has(b.artistId))
+    const farBridge = otherGenre.filter(b => {
+      const s = metaAll.get(b.artistId)?.substyleIds || []
+      return !s.some(x => curSubs.has(x))
+    })
+    const pool = farBridge.length ? farBridge : otherGenre.length ? otherGenre : valid
     const ranked = rankPersonalized(pool, c => c.artistId)
     const pick = ranked[0]
     if (pick) {
@@ -757,16 +775,44 @@ export async function generateDoors(opts: {
   return final
 }
 
-/** Trumpas atlikėjo pristatymas kasimosi hero blokui („susipažink pirmiau"). */
-export async function artistNodeInfo(artistId: number): Promise<{ bio: string | null; country: string | null; years: string | null }> {
+function stripText(html: string | null | undefined, max = 340): string | null {
+  let t = String(html || '').replace(/<[^>]+>/g, ' ').replace(/\s+/g, ' ').trim()
+  if (!t) return null
+  if (t.length > max) t = t.slice(0, max).replace(/\s+\S*$/, '') + '…'
+  return t
+}
+
+/** Kasimosi hero kontekstas: ALBUMO aprašymas (fallback — atlikėjo bio) + atlikėjo top dainos. */
+export async function artistNodeInfo(artistId: number, albumId?: number | null): Promise<{
+  albumDesc: string | null; bio: string | null; country: string | null; years: string | null
+  artistTop: TrackRef[]
+}> {
   const sb = createAdminClient()
-  const { data: a } = await sb.from('artists').select('description, country, active_from, active_until').eq('id', artistId).maybeSingle()
-  if (!a) return { bio: null, country: null, years: null }
-  let bio: string | null = String(a.description || '').replace(/<[^>]+>/g, ' ').replace(/\s+/g, ' ').trim()
-  if (bio && bio.length > 300) bio = bio.slice(0, 300).replace(/\s+\S*$/, '') + '…'
-  if (!bio) bio = null
-  const years = a.active_from ? `${a.active_from}–${a.active_until || 'dabar'}` : null
-  return { bio, country: a.country || null, years }
+  const [{ data: a }, albRes, topRes] = await Promise.all([
+    sb.from('artists').select('description, country, active_from, active_until').eq('id', artistId).maybeSingle(),
+    albumId
+      ? sb.from('albums').select('description').eq('id', albumId).maybeSingle()
+      : Promise.resolve({ data: null } as any),
+    sb.from('tracks').select('title, video_url, video_views, video_embeddable')
+      .eq('artist_id', artistId)
+      .not('video_url', 'is', null)
+      .order('video_views', { ascending: false, nullsFirst: false })
+      .limit(14),
+  ])
+  const artistTop: TrackRef[] = []
+  for (const r of ((topRes as any).data as any[]) || []) {
+    if (r.video_embeddable === false) continue
+    const y = ytIdFromUrl(r.video_url)
+    if (y && !artistTop.some(t => t.y === y) && artistTop.length < 6) artistTop.push({ t: r.title, y })
+  }
+  const years = a?.active_from ? `${a.active_from}–${a.active_until || 'dabar'}` : null
+  return {
+    albumDesc: stripText((albRes as any).data?.description),
+    bio: stripText(a?.description, 300),
+    country: a?.country || null,
+    years,
+    artistTop,
+  }
 }
 
 // ── ŽEMĖLAPIS ─────────────────────────────────────────────────────────────

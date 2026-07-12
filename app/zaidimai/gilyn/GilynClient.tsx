@@ -48,7 +48,7 @@ type Run = {
   shelf: any[]; heard: number[]; doors: Door[] | null; path: PathNode[]
   digStep: number; finalPick: any; finishedAt: string | null
 }
-type NodeInfo = { bio: string | null; country: string | null; years: string | null } | null
+type NodeInfo = { albumDesc: string | null; bio: string | null; country: string | null; years: string | null; artistTop: TrackRef[] } | null
 type Community = {
   finished: number; heldSameFinal: number; avgSwaps: number
   doorSplit: { sound: number; scene: number; bridge: number }[]
@@ -78,10 +78,10 @@ const PERSONAL_LABEL: Record<string, string | null> = {
 }
 const SWIPE_T = 70
 const LOAD_STAGES = [
-  'Analizuojamas tavo pasirinkimas…',
-  'Skenuojamas skambesys ir era…',
-  'Ieškoma bendrų klausytojų…',
-  'Tiesiami tiltai į kitas teritorijas…',
+  'Kasamės gilyn…',
+  'Ieškome panašiai skambančių…',
+  'Dairomės po tą pačią sceną…',
+  'Klausiame, ką dar mėgsta gerbėjai…',
 ]
 
 export default function GilynClient() {
@@ -97,7 +97,6 @@ export default function GilynClient() {
   const [player, setPlayer] = useState<PlayerItem | null>(null)
   const [playerIdx, setPlayerIdx] = useState(0)
   const [swapSheet, setSwapSheet] = useState<BoxAlbum | null>(null)
-  const [digNowSheet, setDigNowSheet] = useState(false)
   const [shelfOpen, setShelfOpen] = useState(false)
   const [mapData, setMapData] = useState<MapData | null>(null)
   const [subSheet, setSubSheet] = useState<SubStyle | null>(null)
@@ -173,9 +172,9 @@ export default function GilynClient() {
   }
 
   // ── Grotuvas ──
-  function openPlayer(item: PlayerItem, heardPayload?: { albumId?: number; artistId?: number }) {
+  function openPlayer(item: PlayerItem, heardPayload?: { albumId?: number; artistId?: number }, startIdx = 0) {
     if (!item.tracks?.length) return
-    setPlayer(item); setPlayerIdx(0)
+    setPlayer(item); setPlayerIdx(Math.min(startIdx, item.tracks.length - 1))
     if (heardPayload?.albumId || heardPayload?.artistId) post('heard', heardPayload)
   }
 
@@ -236,9 +235,10 @@ export default function GilynClient() {
     }
   }
   async function digNow() {
-    setDigNowSheet(false); setStaging(true)
+    if (busy) return
+    setBusy(true); setStaging(true)
     const j = await post('finishBox')
-    setStaging(false)
+    setBusy(false); setStaging(false)
     if (j?.run) routeView(j.run)
   }
   async function chooseDoor(d: Door) {
@@ -304,8 +304,8 @@ export default function GilynClient() {
       {!loading && !err && view === 'box' && run && (
         <div className="g-boxwrap">
           <div className="g-progress">
-            <span className="g-pos">{viewedCount} <i>/ 20</i></span>
-            <div className="g-bar"><i style={{ width: `${(viewedCount / 20) * 100}%` }} /></div>
+            <span className="g-pos">{Math.min(idx + 1, 20)} <i>/ 20</i></span>
+            <div className="g-bar"><i style={{ width: `${(Math.min(idx + 1, 20) / 20) * 100}%` }} /></div>
           </div>
 
           {idx < 20 && current ? (
@@ -365,7 +365,7 @@ export default function GilynClient() {
                   {run.held ? (
                     <>
                       <p className="g-dim center">Laikai: <b>{run.held.artist} — {run.held.title}</b></p>
-                      <button className="g-cta dig" onClick={() => setDigNowSheet(true)} type="button"><DigIcon size={18} /> Kasti gilyn</button>
+                      <button className="g-cta" onClick={digNow} disabled={busy} type="button">Kasti gilyn <ArrowIcon size={17} /></button>
                     </>
                   ) : (
                     <>
@@ -402,8 +402,8 @@ export default function GilynClient() {
                   <span className="g-heldlbl">Tavo vinilas</span>
                   <span className="g-heldname">{run.held.artist} — {run.held.title}</span>
                 </div>
-                <button className="g-digbtn" onClick={() => setDigNowSheet(true)} type="button" aria-label="Kasti gilyn">
-                  <DigIcon size={18} />
+                <button className="g-digbtn" onClick={digNow} disabled={busy} type="button" aria-label="Kasti gilyn">
+                  <ArrowIcon size={18} />
                 </button>
               </>
             ) : (
@@ -444,11 +444,24 @@ export default function GilynClient() {
               </div>
               {curNode.artistSlug && <Link className="g-linkbtn hero" href={`/atlikejai/${curNode.artistSlug}`} aria-label="Atlikėjo puslapis"><LinkIcon size={15} /></Link>}
             </div>
-            {nodeInfo?.bio && <p className="g-herobio">{nodeInfo.bio}</p>}
-            <button className="g-herolisten" type="button"
-              onClick={() => openPlayer({ artist: curNode.artist, title: curNode.title, year: curNode.year, cover: curNode.cover, tracks: curNode.tracks || [], artistSlug: curNode.artistSlug }, { artistId: curNode.artistId })}>
-              <PlayIcon size={14} /> Susipažink — perklausyk
-            </button>
+            {(nodeInfo?.albumDesc || nodeInfo?.bio) && <p className="g-herobio">{nodeInfo?.albumDesc || nodeInfo?.bio}</p>}
+            {(curNode.tracks?.length || 0) > 0 && (
+              <div className="g-herohits">
+                {(curNode.tracks || []).slice(0, 3).map((t, i) => (
+                  <button key={t.y} className="g-herohit" type="button"
+                    onClick={() => openPlayer({ artist: curNode.artist, title: curNode.title, year: curNode.year, cover: curNode.cover, tracks: curNode.tracks || [], artistSlug: curNode.artistSlug }, { artistId: curNode.artistId }, i)}>
+                    <span className="g-hitplay"><PlayIcon size={10} /></span>
+                    <span className="g-hitname">{t.t}</span>
+                  </button>
+                ))}
+              </div>
+            )}
+            {(nodeInfo?.artistTop?.length || 0) > 0 && (
+              <button className="g-herolisten alt" type="button"
+                onClick={() => openPlayer({ artist: curNode.artist, title: 'Populiariausios dainos', year: null, cover: curNode.cover, tracks: nodeInfo?.artistTop || [], artistSlug: curNode.artistSlug }, { artistId: curNode.artistId })}>
+                <PlayIcon size={13} /> Atlikėjo populiariausios
+              </button>
+            )}
           </div>
 
           <h2 className="g-digq">Kur toliau?</h2>
@@ -470,13 +483,12 @@ export default function GilynClient() {
                   </div>
                   <button className="g-doorgo" onClick={e => { e.stopPropagation(); chooseDoor(d) }} disabled={busy} type="button"
                     aria-label={`Eiti gilyn: ${d.artist}`} style={{ background: DOOR_COLORS[d.doorType] }}>
-                    <DigIcon size={20} />
+                    <ArrowIcon size={20} />
                   </button>
                 </div>
               </div>
             ))}
           </div>
-          <p className="g-hint">Pasirinkęs vieną kelią, kitų dviejų šiandien nebepamatysi. <DigIcon size={11} /> — eiti gilyn.</p>
         </div>
       )}
 
@@ -553,7 +565,6 @@ export default function GilynClient() {
               </div>
               <p className="g-mapexpl">Kiekvienas šešiakampis — muzikos stilius. <span className="cl-b">Oranžiniai</span> — tavo pamėgta muzika, <span className="cl-v">žali</span> — kur nukeliavai per Gilyn, <span className="cl-s">★</span> — radiniai, pilki — dar rūke.</p>
               {mapData.regions.map(r => <RegionHex key={r.genreId} region={r} onPick={s => setSubSheet(s)} />)}
-              <p className="g-hint">Paspausk šešiakampį arba stiliaus vardą — pamatysi, kas jį atidengė.</p>
             </>
           )}
         </div>
@@ -593,17 +604,6 @@ export default function GilynClient() {
             </div>
             <button className="g-cta" onClick={() => confirmSwap(swapSheet)} type="button">Pakeisti į {swapSheet.artist}</button>
             <button className="g-cta ghost" onClick={() => setSwapSheet(null)} type="button">Palikti {run.held.artist}</button>
-          </div>
-        </div>
-      )}
-
-      {digNowSheet && run?.held && (
-        <div className="g-sheetback" onClick={() => setDigNowSheet(false)}>
-          <div className="g-sheet" onClick={e => e.stopPropagation()}>
-            <h3 className="g-h3 center">Kasti gilyn su „{run.held.artist}"?</h3>
-            {viewedCount < 20 && <p className="g-dim center">Dar nematei {20 - viewedCount} plokštelių — jose gali slėptis geresnis radinys. Nusprendus kasti, šiandien atgal nebegrįši.</p>}
-            <button className="g-cta dig" onClick={digNow} disabled={busy} type="button"><DigIcon size={18} /> Kasti gilyn dabar</button>
-            <button className="g-cta ghost" onClick={() => setDigNowSheet(false)} type="button">Dar pavartysiu</button>
           </div>
         </div>
       )}
@@ -762,14 +762,19 @@ function RegionHex({ region, onPick }: {
 function CrateLoader() {
   return (
     <div className="g-crateload" aria-label="Kraunama dienos dėžė">
-      {[0, 1, 2, 3, 4].map(i => (
-        <div key={i} className="g-cl-rec" style={{ animationDelay: `${i * 0.22}s`, left: `${i * 36 + 16}px`, zIndex: 6 - i }}>
-          <Vinyl size={92} />
+      {[0, 1, 2, 3, 4, 5].map(i => (
+        <div key={i} className="g-cl-rec" style={{ animationDelay: `${i * 0.14}s`, left: `${i * 30 + 14}px`, zIndex: 7 - i }}>
+          <Vinyl size={96} />
         </div>
       ))}
       <div className="g-cl-box" aria-hidden="true" />
+      <div className="g-cl-shine" aria-hidden="true" />
     </div>
   )
+}
+
+function ArrowIcon({ size = 16 }: { size?: number }) {
+  return <svg width={size} height={size} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.6" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true"><path d="M5 12h14" /><path d="m13 6 6 6-6 6" /></svg>
 }
 
 function Vinyl({ size = 60, spin = false }: { size?: number; spin?: boolean }) {
@@ -862,11 +867,16 @@ const css = `
 .g-styles i { font-style: normal; font-size: 11px; font-weight: 800; color: var(--text-secondary); background: rgba(140,160,190,0.14); border-radius: 999px; padding: 3px 10px; }
 .g-blurbtxt { font-size: 12.5px; color: var(--text-muted); line-height: 1.5; margin: 6px auto 0; max-width: 340px; }
 .g-loadfill { justify-content: center; min-height: 60vh; }
-.g-crateload { position: relative; width: 240px; height: 160px; overflow: hidden; }
-.g-cl-rec { position: absolute; bottom: 8px; animation: gclflip 1.5s ease-in-out infinite; }
-@keyframes gclflip { 0%, 100% { transform: translateY(26px) rotate(0deg); } 50% { transform: translateY(-8px) rotate(-7deg); } }
-@media (prefers-reduced-motion: reduce) { .g-cl-rec { animation: none; transform: translateY(12px); } }
-.g-cl-box { position: absolute; left: 0; right: 0; bottom: 0; height: 54px; z-index: 9; border-radius: 10px 10px 12px 12px; background: linear-gradient(180deg, color-mix(in srgb, var(--text-primary) 14%, var(--bg-elevated)), var(--bg-elevated)); border: 1px solid rgba(140,160,190,0.3); border-top-width: 3px; }
+.g-crateload { position: relative; width: 250px; height: 170px; overflow: hidden; filter: drop-shadow(0 14px 22px rgba(0,0,0,0.22)); }
+.g-cl-rec { position: absolute; bottom: 14px; animation: gclflip 2.1s cubic-bezier(0.37, 0, 0.63, 1) infinite; will-change: transform; }
+@keyframes gclflip {
+  0%, 100% { transform: translateY(34px) rotate(0deg) scale(0.96); }
+  35% { transform: translateY(-10px) rotate(-6deg) scale(1); }
+  55% { transform: translateY(-4px) rotate(-3deg) scale(1); }
+}
+@media (prefers-reduced-motion: reduce) { .g-cl-rec { animation: none; transform: translateY(16px); } }
+.g-cl-box { position: absolute; left: 0; right: 0; bottom: 0; height: 58px; z-index: 10; border-radius: 8px 8px 14px 14px; background: linear-gradient(180deg, color-mix(in srgb, var(--text-primary) 16%, var(--bg-elevated)) 0%, var(--bg-elevated) 55%, color-mix(in srgb, #000 12%, var(--bg-elevated)) 100%); border: 1px solid rgba(140,160,190,0.35); border-top: 4px solid color-mix(in srgb, var(--text-primary) 22%, var(--bg-elevated)); box-shadow: inset 0 6px 14px rgba(0,0,0,0.18); }
+.g-cl-shine { position: absolute; left: 8%; right: 8%; bottom: 46px; height: 10px; z-index: 11; border-radius: 50%; background: radial-gradient(ellipse at center, rgba(0,0,0,0.28), transparent 70%); }
 .g-spine { position: absolute; top: 10px; bottom: 10px; width: 26px; border: 0; padding: 0; cursor: pointer; background-size: cover; background-position: center; z-index: 2; }
 .g-spine.left { left: -4px; border-radius: 6px 3px 3px 6px; box-shadow: inset -8px 0 12px rgba(0,0,0,0.55); }
 .g-spine.right { right: -4px; border-radius: 3px 6px 6px 3px; box-shadow: inset 8px 0 12px rgba(0,0,0,0.55); }
@@ -908,7 +918,8 @@ const css = `
 .g-heldlbl.dim { color: var(--text-muted); }
 .g-heldname { font-size: 13px; font-weight: 700; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .g-heldname.dim { color: var(--text-muted); font-weight: 600; }
-.g-digbtn { flex-shrink: 0; width: 42px; height: 42px; border: 0; cursor: pointer; border-radius: 12px; color: #fff; background: #1d4ed8; display: flex; align-items: center; justify-content: center; }
+.g-digbtn { flex-shrink: 0; width: 42px; height: 42px; border: 0; cursor: pointer; border-radius: 12px; color: #fff; background: var(--accent-orange); display: flex; align-items: center; justify-content: center; box-shadow: 0 4px 12px rgba(0,0,0,0.2); }
+.g-digbtn:disabled { opacity: 0.6; }
 .g-shelfbtn { display: flex; align-items: center; gap: 5px; border: 1px solid rgba(140,160,190,0.25); background: var(--bg-surface); color: var(--text-secondary); border-radius: 10px; padding: 6px 10px; font-size: 12.5px; font-weight: 800; cursor: pointer; }
 
 /* ── Kasimasis ── */
@@ -928,7 +939,13 @@ const css = `
 .g-heroalbum { font-size: 12.5px; color: var(--text-secondary); font-weight: 600; }
 .g-herofacts { font-size: 11.5px; color: var(--text-muted); }
 .g-herobio { position: relative; font-size: 13px; color: var(--text-secondary); line-height: 1.55; margin: 0; }
+.g-herohits { position: relative; display: flex; flex-direction: column; gap: 5px; }
+.g-herohit { display: flex; align-items: center; gap: 9px; border: 0; cursor: pointer; text-align: left; background: color-mix(in srgb, var(--bg-body) 45%, transparent); border-radius: 10px; padding: 8px 10px; color: var(--text-primary); font-size: 13px; font-weight: 700; }
+.g-hitplay { width: 24px; height: 24px; border-radius: 50%; background: var(--accent-orange); display: flex; align-items: center; justify-content: center; padding-left: 1px; flex-shrink: 0; }
+.g-hitname { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .g-herolisten { position: relative; display: flex; align-items: center; justify-content: center; gap: 8px; border: 0; cursor: pointer; border-radius: 11px; font-weight: 800; font-size: 13.5px; color: #fff; background: var(--accent-orange); padding: 11px; }
+.g-herolisten.alt { background: transparent; color: var(--text-secondary); border: 1px solid rgba(140,160,190,0.3); }
+.g-herolisten.alt svg { opacity: 0.7; }
 .g-linkbtn { width: 34px; height: 34px; border-radius: 10px; border: 1px solid rgba(140,160,190,0.3); color: var(--text-secondary); display: flex; align-items: center; justify-content: center; text-decoration: none; flex-shrink: 0; }
 .g-linkbtn.hero { position: relative; }
 .g-digq { font-size: 18px; font-weight: 900; letter-spacing: -0.02em; margin: 4px 0 0; }

@@ -97,7 +97,8 @@ export async function GET() {
     // Dabartinio kelio taško pristatymas (kasimosi hero blokas)
     let nodeInfo = null
     if (run?.status === 'dig' && Array.isArray(run.path) && run.path.length) {
-      nodeInfo = await artistNodeInfo(run.path[run.path.length - 1].artistId).catch(() => null)
+      const last = run.path[run.path.length - 1]
+      nodeInfo = await artistNodeInfo(last.artistId, last.albumId).catch(() => null)
     }
 
     return NextResponse.json({
@@ -325,7 +326,7 @@ export async function POST(req: NextRequest) {
           seed: `${day}|${viewerKey(viewer)}|${step}`,
         })
         await save({ path, dig_step: step, doors: next })
-        const nodeInfo = await artistNodeInfo(door.artistId).catch(() => null)
+        const nodeInfo = await artistNodeInfo(door.artistId, door.albumId).catch(() => null)
         return NextResponse.json({ run: publicRun(run), nodeInfo })
       }
     }
@@ -401,7 +402,7 @@ async function transitionToDig(sb: any, run: any, viewer: any, day: string, box:
   const { data } = await sb.from('gilyn_runs').update({
     status: 'dig', path, doors, dig_step: 0, updated_at: new Date().toISOString(),
   }).eq('id', run.id).select('*').single()
-  const nodeInfo = await artistNodeInfo(held.artistId).catch(() => null)
+  const nodeInfo = await artistNodeInfo(held.artistId, held.albumId).catch(() => null)
   return NextResponse.json({
     run: {
       status: 'dig', boxPos: data?.box_pos ?? run.box_pos ?? 0, held, swaps: data?.swaps || run.swaps || 0,
