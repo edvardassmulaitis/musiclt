@@ -66,7 +66,8 @@ export type SubstyleGroup = {
   target: number         // siekiamas bracket'o dydis (apkarpomas pagal fitBracket)
   substyles?: string[]   // substilių grupė: atlikėjo substiliai kertasi su sąrašu
   eraTo?: number         // EROS grupė: populiariausios dainos metai <= eraTo
-                         //   (metai = release_year, o jei jo nėra — YT upload metai)
+  eraFrom?: number       //   ir/arba >= eraFrom (metai = release_year, o jei
+                         //   jo nėra — YT įkėlimo metai; nežinomi metai → catch-all)
   // nei substyles, nei eraTo → catch-all („visi likę"); turi eiti paskutinė
 }
 
@@ -83,12 +84,17 @@ export const SPLIT_CONFIG: Record<Scope, Record<number, SubstyleGroup[]>> = {
     1000560: [
       { key: 'rnb', label: 'R&B / Soul', target: 32, substyles: ['R&B', 'Soul', 'Blue-eyed soul', 'Hip hop soul', 'Quiet storm', 'New jack swing', 'Southern soul', 'Alternative R&B', 'Pop-soul', 'Doo wop'] },
       { key: 'latin', label: 'Latin', target: 16, substyles: ['Latin pop', 'Bolero', 'Tropical', 'Guajira', 'Reggaeton', 'Latin dance', 'Latin rap', 'Latin trap'] },
+      // Erų pjūvis (2026-07-12): MJ/ABBA/Wham era atskirai nuo Gagos/Billie
+      { key: 'klasika', label: 'Pop klasika (iki 1999)', target: 32, eraTo: 1999 },
       { key: 'pop', label: 'Pop', target: 32 },
     ],
-    // Rokas — alternatyvos/indie banga vs klasika
+    // Rokas — grynos EROS vietoj substilių (savininko sprendimas 2026-07-12:
+    // substilių pjūvis eras atspindėjo nešvariai — „Klasikiniame" sėdėjo ir
+    // 2015+ dainos). Top-64 pasiskirstymas: ≤1989 ~35, 1990–2009 ~66, 2010+ ~27.
     1000562: [
-      { key: 'alt', label: 'Alternative / Indie', target: 32, substyles: ['Alternative rock', 'Indie rock', 'Indie pop', 'Post punk revival', 'Britpop', 'Dream pop', 'Garage rock revival', 'Noise rock', 'Math rock', 'College rock', 'Jangle pop', 'Noise pop', 'Post britpop'] },
-      { key: 'rock', label: 'Klasikinis rokas', target: 32 },
+      { key: 'klasika', label: 'Klasika (iki 1989)', target: 32, eraTo: 1989 },
+      { key: 'devyni', label: '90-ųjų ir 2000-ųjų', target: 32, eraFrom: 1990, eraTo: 2009 },
+      { key: 'modernus', label: 'Modernus', target: 32 },
     ],
     // Sunkioji — ekstremalus vs klasikinis/modernus metalas
     1000563: [
@@ -101,6 +107,16 @@ export const SPLIT_CONFIG: Record<Scope, Record<number, SubstyleGroup[]>> = {
       { key: 'classical', label: 'Classical', target: 16, substyles: ['Classical'] },
       { key: 'blues', label: 'Blues', target: 16, substyles: ['Blues'] },
       { key: 'kita', label: 'Kita', target: 16 },
+    ],
+    // Hip-hop — klasika (2Pac, Eminem era) vs nauja karta
+    1000558: [
+      { key: 'klasika', label: 'Klasika (iki 2009)', target: 32, eraTo: 2009 },
+      { key: 'nauja', label: 'Naujoji karta', target: 32 },
+    ],
+    // Elektroninė — eurodance/Daft Punk era vs šiuolaikinis EDM
+    1000557: [
+      { key: 'klasika', label: 'Klasika (iki 2009)', target: 32, eraTo: 2009 },
+      { key: 'nauja', label: 'Naujoji era', target: 32 },
     ],
     // Kitų stilių — Country/Filmų/Reggae + „Kita" catch-all, kad neišmestų
     // Israel Kamakawiwo'ole (1,58B), Ylvis ir kitų nepriskirtų
@@ -119,6 +135,12 @@ export const SPLIT_CONFIG: Record<Scope, Record<number, SubstyleGroup[]>> = {
     1000560: [
       { key: 'fondas', label: 'Aukso fondas', target: 32, eraTo: 2011 },
       { key: 'pop', label: 'Pop', target: 32 },
+    ],
+    // LT Rokas — ta pati erų riba kaip LT Pop: Foje/Antis/Bix era vs
+    // ba./The Roop/Sisters on Wire banga (top-64: ~30 vs ~28)
+    1000562: [
+      { key: 'fondas', label: 'Aukso fondas', target: 32, eraTo: 2011 },
+      { key: 'nauja', label: 'Nauja banga', target: 32 },
     ],
     // Kiti LT stiliai neskaidomi — per maži (LT Rimtoji ~30 atlikėjų)
   },

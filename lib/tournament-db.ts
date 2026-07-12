@@ -98,15 +98,17 @@ export function assignToGroups(
   groups: SubstyleGroup[], cands: Candidate[], artistSubs: Map<number, Set<string>>,
 ): Map<string, Candidate[]> {
   const out = new Map<string, Candidate[]>(groups.map(g => [g.key, []]))
-  const catchAll = groups.find(g => !g.substyles && g.eraTo == null)
+  const catchAll = groups.find(g => !g.substyles && g.eraTo == null && g.eraFrom == null)
   for (const c of cands) {
     let placed = false
     for (const g of groups) {
       if (g.substyles) {
         const subs = artistSubs.get(c.artistId)
         if (subs && g.substyles.some(sn => subs.has(sn))) { out.get(g.key)!.push(c); placed = true; break }
-      } else if (g.eraTo != null) {
-        if (c.year != null && c.year <= g.eraTo) { out.get(g.key)!.push(c); placed = true; break }
+      } else if (g.eraTo != null || g.eraFrom != null) {
+        if (c.year != null && (g.eraFrom == null || c.year >= g.eraFrom) && (g.eraTo == null || c.year <= g.eraTo)) {
+          out.get(g.key)!.push(c); placed = true; break
+        }
       }
     }
     if (!placed && catchAll) out.get(catchAll.key)!.push(c)
