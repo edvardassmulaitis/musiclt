@@ -23,11 +23,70 @@ export const STYLE_POPULARITY: number[] = [
   1000561, // Rimtoji
 ]
 
-/** Bracket'o dydis pagal stiliaus populiarumą: didesni stiliai → 32, maži → 16. */
-export function bracketSizeForStyle(genreId: number): number {
+// ── Scope: dvi lygiagrečios turnyrų eilės ──────────────────────────────────
+//
+// Grynas rikiavimas pagal YT peržiūras lietuvius išstumia visiškai — geriausias
+// LT rokas (ba. — SAVO, 30M) prieš OneRepublic (4,4 mlrd.) yra ~100x skirtumas.
+// Todėl LT ir pasaulio turnyrai sukasi ATSKIRAI ir lygiagrečiai, o dienos dvikova
+// kasdien ateina pakaitomis iš vienos ir kitos eilės.
+export type Scope = 'lt' | 'world'
+export const SCOPES: Scope[] = ['lt', 'world']
+
+/**
+ * Kurio scope dienos dvikova rodoma nurodytą dieną.
+ * Deterministiška (be DB): lyginė para nuo epochos → LT, nelyginė → pasaulis.
+ * Taip abu turnyrai juda vienodu tempu, o vartotojas mato kaitą kas dieną.
+ */
+export function scopeOfDay(date: Date = new Date()): Scope {
+  const dayNo = Math.floor(Date.UTC(date.getUTCFullYear(), date.getUTCMonth(), date.getUTCDate()) / 86_400_000)
+  return dayNo % 2 === 0 ? 'lt' : 'world'
+}
+
+// ── Substiliai: stiliai, kurie per platūs, kad turnyras turėtų prasmę ───────
+//
+// Du stiliai yra semantiniai sąvartynai — juose klausimas „geriausia X daina?"
+// atsakymo neturi (Chopin prieš Sinatrą prieš Sade). Jiems turnyrai vyksta
+// substiliaus lygmeniu. Likę 6 lieka stiliaus lygmeniu: „geriausia roko daina?"
+// yra visiškai prasmingas klausimas, nors viduje ir alternatyva, ir indie.
+//
+// LT pusėje NESKAIDOMA — LT „Rimtoji" teturi 30 atlikėjų, suskaidžius liktų po 5.
+export const SPLIT_INTO_SUBSTYLES: Record<number, string[]> = {
+  1000561: ['Jazz', 'Classical', 'Blues'],              // Rimtoji
+  1000559: ['Country', 'Filmų muzika', 'Reggae'],       // Kitų stilių
+}
+
+/** Ar šis stilius (šiame scope) skaidomas į substilius? */
+export function splitsIntoSubstyles(genreId: number, scope: Scope): boolean {
+  return scope === 'world' && genreId in SPLIT_INTO_SUBSTYLES
+}
+
+/** Mažiausias prasmingas bracket'as. Mažiau nei 8 dainos — turnyras neverta. */
+export const MIN_BRACKET = 8
+
+/**
+ * Didžiausias 2 laipsnis, telpantis į turimą dainų kiekį (32 → 16 → 8).
+ * Grąžina 0, jei nepakanka net minimaliam bracket'ui.
+ */
+export function fitBracket(available: number): number {
+  if (available >= 32) return 32
+  if (available >= 16) return 16
+  if (available >= MIN_BRACKET) return MIN_BRACKET
+  return 0
+}
+
+/**
+ * SIEKIAMAS bracket'o dydis (lubos). Tikrasis dydis nustatomas seed'inant —
+ * apkarpomas pagal realiai turimų dainų kiekį (žr. fitBracket).
+ *
+ * Sąmoningai NEKODUOJU čia atlikėjų skaičių: jie keičiasi su kiekvienu scrape'u,
+ * o užfiksuota konstanta tyliai iškrenta iš sinchronizacijos su duomenimis
+ * (pvz. LT „Kitų stilių" realiai turi 26 dainas, ne 48 — bracket'as neužsipildytų).
+ */
+export function bracketSizeForStyle(genreId: number, scope: Scope = 'world', isSubstyle = false): number {
+  if (isSubstyle) return 16
   const rank = STYLE_POPULARITY.indexOf(genreId)
   if (rank < 0) return 16
-  return rank < 4 ? 32 : 16   // top-4 stiliai 32, likę 16
+  return rank < 4 ? 32 : 16       // top-4 stiliai 32, likę 16 — abiejuose scope
 }
 
 /** Ratų skaičius (log2). size turi būti 2 laipsnis. */
