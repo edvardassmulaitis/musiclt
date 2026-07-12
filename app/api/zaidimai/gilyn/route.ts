@@ -162,6 +162,7 @@ export async function POST(req: NextRequest) {
     // ── FREE DIG: laisvas kasimasis (nekeičia oficialaus run'o) ──
     if (action === 'freeDoors') {
       const artistId = Number(body.artistId || 0)
+      const albumId = Number(body.albumId || 0) || null
       if (!artistId) return NextResponse.json({ error: 'Trūksta atlikėjo' }, { status: 400 })
       const exclude = new Set<number>(
         (Array.isArray(body.exclude) ? body.exclude : []).map((x: any) => Number(x)).filter(Boolean),
@@ -177,7 +178,7 @@ export async function POST(req: NextRequest) {
         exclude, likedArtists: likes.artistIds, visitedArtists: visited,
         seed: `${day}|free|${viewerKey(viewer)}|${exclude.size}`,
       })
-      const nodeInfo = await artistNodeInfo(artistId, null).catch(() => null)
+      const nodeInfo = await artistNodeInfo(artistId, albumId).catch(() => null)
       return NextResponse.json({
         doors, nodeInfo,
         current: art ? { artistId: art.id, artist: art.name, artistSlug: art.slug || null, cover: art.cover_image_url || null } : null,

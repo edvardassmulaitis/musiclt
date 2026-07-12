@@ -298,7 +298,7 @@ export default function GilynClient() {
     if (busy) return
     setBusy(true); setStaging(true)
     const exclude = [...freePath.map(p => p.artistId), ...freeDoors.map(x => x.artistId)]
-    const j = await post('freeDoors', { artistId: d.artistId, exclude })
+    const j = await post('freeDoors', { artistId: d.artistId, albumId: d.albumId, exclude })
     setBusy(false); setStaging(false)
     if (!j) return
     setFreePath(p => [...p, {
