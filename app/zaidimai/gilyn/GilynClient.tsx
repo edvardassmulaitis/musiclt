@@ -328,11 +328,20 @@ export default function GilynClient() {
 
   return (
     <ZaidimoLangas title="Gilyn" backHref="/zaidimai" maxWidth={view === 'dig' || view === 'free' || view === 'map' ? 980 : 520}
-      right={run && run.status !== 'done' && run.shelf?.length > 0 ? (
-        <button className="g-shelfbtn" onClick={() => setShelfOpen(true)} type="button" aria-label="Lentyna">
-          <BookmarkIcon filled={false} size={15} /> {run.shelf.length}
-        </button>
-      ) : undefined}
+      right={
+        <>
+          {run && run.status !== 'done' && run.shelf?.length > 0 && (
+            <button className="g-shelfbtn" onClick={() => setShelfOpen(true)} type="button" aria-label="Lentyna">
+              <BookmarkIcon filled={false} size={15} /> {run.shelf.length}
+            </button>
+          )}
+          {view !== 'map' && !loading && (
+            <button className="g-shelfbtn" onClick={openMap} type="button" aria-label="Žemėlapis">
+              <HexMini />
+            </button>
+          )}
+        </>
+      }
     >
       <style>{css}</style>
 
