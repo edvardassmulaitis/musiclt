@@ -163,7 +163,7 @@ async function fetchArtistMeta(artistIds: number[]): Promise<Map<number, ArtistM
 }
 
 /** Kiekvienam albumui — iki `per` YT track'ų (grotuvo playlist'ui), albumo tvarka. */
-export async function fetchAlbumTracklists(albumIds: number[], per = 6): Promise<Map<number, TrackRef[]>> {
+export async function fetchAlbumTracklists(albumIds: number[], per = 10): Promise<Map<number, TrackRef[]>> {
   const sb = createAdminClient()
   const out = new Map<number, TrackRef[]>()
   for (const ids of chunk(albumIds, 100)) {
@@ -633,7 +633,7 @@ export async function generateDoors(opts: {
         doorType: 'sound', label: 'ARTIMAS SKAMBESYS',
         artistId: pick.id, artist: a.name, artistSlug: a.slug || null,
         albumId: null, title: null, year: null, cover: null, ytId: null,
-        reason: subName ? `Tas pats skambesys — ${subName}.` : 'Stilistiškai artimiausia kryptis.',
+        reason: subName ? `Panašus skambesys — ${subName}.` : 'Stilistiškai artimiausia kryptis.',
       })
       usedDoorArtists.add(pick.id)
     }
@@ -681,7 +681,7 @@ export async function generateDoors(opts: {
           doorType: 'scene', label: 'TA PATI SCENA',
           artistId: pick.id, artist: a.name, artistSlug: a.slug || null,
           albumId: null, title: null, year: null, cover: null, ytId: null,
-          reason: gName ? `${cur.country} scena — irgi ${gName.toLowerCase()}.` : `Ta pati scena — ${cur.country}.`,
+          reason: gName ? `${cur.country} — ta pati scena, irgi ${gName.toLowerCase()}.` : `${cur.country} — ta pati scena.`,
         })
         usedDoorArtists.add(pick.id)
       }
@@ -705,14 +705,18 @@ export async function generateDoors(opts: {
     const pick = ranked[0]
     if (pick) {
       const a = artById.get(pick.artistId)
+      // posūkio kryptis: kandidato SUBSTILIUS (konkretiau nei makro žanras)
+      const subId = (metaAll.get(pick.artistId)?.substyleIds || []).find(s => taxo.subById.get(s)?.name)
+      const subName = subId ? taxo.subById.get(subId)?.name : null
       const g = (metaAll.get(pick.artistId)?.genreIds || [])[0]
       const gName = g ? shortGenreName(taxo.genres.find(x => x.id === g)?.name || '') : null
+      const target = subName || gName
       doors.push({
-        doorType: 'bridge', label: 'NETIKĖTAS TILTAS',
+        doorType: 'bridge', label: 'NETIKĖTAS POSŪKIS',
         artistId: pick.artistId, artist: a.name, artistSlug: a.slug || null,
         albumId: null, title: null, year: null, cover: null, ytId: null,
-        reason: gName
-          ? `${cur.name} gerbėjai dažnai mėgsta ir šį — kelias į ${gName}.`
+        reason: target
+          ? `${cur.name} gerbėjai mėgsta ir šį — posūkis į ${target}.`
           : `Tą patį mėgsta ir ${cur.name} klausytojai.`,
       })
       usedDoorArtists.add(pick.artistId)
@@ -797,13 +801,13 @@ export async function artistNodeInfo(artistId: number, albumId?: number | null):
       .eq('artist_id', artistId)
       .not('video_url', 'is', null)
       .order('video_views', { ascending: false, nullsFirst: false })
-      .limit(14),
+      .limit(24),
   ])
   const artistTop: TrackRef[] = []
   for (const r of ((topRes as any).data as any[]) || []) {
     if (r.video_embeddable === false) continue
     const y = ytIdFromUrl(r.video_url)
-    if (y && !artistTop.some(t => t.y === y) && artistTop.length < 6) artistTop.push({ t: r.title, y })
+    if (y && !artistTop.some(t => t.y === y) && artistTop.length < 10) artistTop.push({ t: r.title, y })
   }
   const years = a?.active_from ? `${a.active_from}–${a.active_until || 'dabar'}` : null
   return {

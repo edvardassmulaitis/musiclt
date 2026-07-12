@@ -78,10 +78,10 @@ const PERSONAL_LABEL: Record<string, string | null> = {
 }
 const SWIPE_T = 70
 const LOAD_STAGES = [
-  'Kasamės gilyn…',
-  'Ieškome panašiai skambančių…',
-  'Dairomės po tą pačią sceną…',
-  'Klausiame, ką dar mėgsta gerbėjai…',
+  'Ruošiame kitą žingsnį…',
+  'Ieškome panašaus skambesio…',
+  'Žvalgomės po tą pačią sceną…',
+  'Tikriname, ką mėgsta gerbėjai…',
 ]
 
 export default function GilynClient() {
@@ -101,6 +101,14 @@ export default function GilynClient() {
   const [mapData, setMapData] = useState<MapData | null>(null)
   const [subSheet, setSubSheet] = useState<SubStyle | null>(null)
   const [busy, setBusy] = useState(false)
+  const [beaconBanner, setBeaconBanner] = useState(false)
+  useEffect(() => {
+    try { if (!window.localStorage.getItem('gilyn_bcn')) setBeaconBanner(true) } catch {}
+  }, [])
+  function dismissBeacons() {
+    setBeaconBanner(false)
+    try { window.localStorage.setItem('gilyn_bcn', '1') } catch {}
+  }
   const [staging, setStaging] = useState(false)     // loading overlay su etapais
   const [stageIdx, setStageIdx] = useState(0)
   const [xpGain, setXpGain] = useState<number | null>(null)
@@ -118,15 +126,32 @@ export default function GilynClient() {
       const r = await fetch('/api/zaidimai/gilyn', { cache: 'no-store' })
       const j = await r.json()
       if (j.error) { setErr(j.error); setLoading(false); return }
-      setDay(j.day); setBox(j.box); setRun(j.run); setCommunity(j.community); setLikeCounts(j.likeCounts)
+      setDay(j.day); setBox(j.box); setCommunity(j.community); setLikeCounts(j.likeCounts)
       if (j.nodeInfo !== undefined) setNodeInfo(j.nodeInfo)
-      if (j.run?.status === 'box') {
-        const seen = Math.max(1, Math.min(20, j.run.boxPos || 1))
-        maxSeen.current = seen
+      let theRun = j.run
+      if (!theRun) {
+        // be tarpinio ekrano — run'as startuoja iškart
+        const s = await fetch('/api/zaidimai/gilyn', {
+          method: 'POST', headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ action: 'start' }),
+        }).then(x => x.json()).catch(() => null)
+        theRun = s?.run || null
+        if (theRun) {
+          maxSeen.current = 1
+          fetch('/api/zaidimai/gilyn', {
+            method: 'POST', headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ action: 'seen', seen: 1 }),
+          }).catch(() => {})
+        }
+      }
+      setRun(theRun)
+      if (theRun?.status === 'box') {
+        const seen = Math.max(1, Math.min(20, theRun.boxPos || 1))
+        maxSeen.current = Math.max(maxSeen.current, seen)
         setIdx(Math.min(seen - 1, 19))
       }
-      if (!j.run) setView('welcome')
-      else routeView(j.run)
+      if (theRun) routeView(theRun)
+      else setErr('Nepavyko pradėti. Pabandyk dar kartą.')
       setLoading(false)
     } catch {
       setErr('Nepavyko užkrauti. Patikrink ryšį.'); setLoading(false)
@@ -162,13 +187,6 @@ export default function GilynClient() {
       if (typeof j.xp === 'number') setXpGain(j.xp)
       return j
     } catch { await refresh(); return null }
-  }
-
-  async function begin() {
-    setBusy(true)
-    const j = await post('start')
-    setBusy(false)
-    if (j?.run) { setRun(j.run); maxSeen.current = 1; setIdx(0); setView('box'); post('seen', { seen: 1 }) }
   }
 
   // ── Grotuvas ──
@@ -270,7 +288,7 @@ export default function GilynClient() {
   const isHeldCurrent = current && run?.held?.albumId === current.albumId
 
   return (
-    <ZaidimoLangas title="Gilyn" backHref="/zaidimai" maxWidth={520}
+    <ZaidimoLangas title="Gilyn" backHref="/zaidimai" maxWidth={view === 'dig' ? 980 : 520}
       right={run && run.status !== 'done' && run.shelf?.length > 0 ? (
         <button className="g-shelfbtn" onClick={() => setShelfOpen(true)} type="button" aria-label="Lentyna">
           <BookmarkIcon filled={false} size={15} /> {run.shelf.length}
@@ -282,27 +300,16 @@ export default function GilynClient() {
       {loading && <div className="g-center g-loadfill"><CrateLoader /></div>}
       {err && !loading && <div className="g-center"><p className="g-dim">{err}</p><button className="g-cta" onClick={() => { setErr(null); setLoading(true); refresh() }} type="button">Bandyti dar kartą</button></div>}
 
-      {/* ── WELCOME ── */}
-      {!loading && !err && view === 'welcome' && (
-        <div className="g-center g-welcome">
-          <Vinyl size={86} />
-          <h1 className="g-h1">Dienos dėžė</h1>
-          <p className="g-date">{day}</p>
-          <p className="g-lead">20 plokštelių — ta pati dėžė visiems.<br />Pasilik vieną. Ji taps durimis gilyn.</p>
-          {likeCounts.artists + likeCounts.albums + likeCounts.tracks > 0 && (
-            <div className="g-beaconbox">
-              <BeaconMini />
-              <span>Tavo žemėlapis jau gyvas: <b>{likeCounts.artists}</b> atlikėjų, <b>{likeCounts.albums}</b> albumų ir <b>{likeCounts.tracks}</b> dainų pamėgimai jame šviečia.</span>
-            </div>
-          )}
-          <button className="g-cta" onClick={begin} disabled={busy} type="button">{busy ? 'Ruošiama…' : 'Atidaryti dėžę'}</button>
-          <p className="g-hint">~3 min · perklausa neprivaloma · nėra teisingų atsakymų</p>
-        </div>
-      )}
-
       {/* ── DĖŽĖ (crate vartymas) ── */}
       {!loading && !err && view === 'box' && run && (
         <div className="g-boxwrap">
+          {beaconBanner && likeCounts.artists + likeCounts.albums + likeCounts.tracks > 0 && (
+            <div className="g-beaconbox slim">
+              <BeaconMini />
+              <span><b>{likeCounts.artists + likeCounts.tracks}</b> tavo pamėgimų jau šviečia žemėlapyje — kelionės sujungs teritorijas tarp jų.</span>
+              <button className="g-bclose" onClick={dismissBeacons} type="button" aria-label="Uždaryti">✕</button>
+            </div>
+          )}
           <div className="g-progress">
             <span className="g-pos">{Math.min(idx + 1, 20)} <i>/ 20</i></span>
             <div className="g-bar"><i style={{ width: `${(Math.min(idx + 1, 20) / 20) * 100}%` }} /></div>
@@ -327,6 +334,20 @@ export default function GilynClient() {
               <button className="g-navarr right" onClick={() => goTo(idx + 1)} type="button" aria-label="Kita">
                 <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.6" strokeLinecap="round" strokeLinejoin="round"><path d="m9 18 6-6-6-6" /></svg>
               </button>
+              {dragging && dragX < -8 && nextAlb && (
+                <div className="g-card g-adj" style={{ transform: `translateX(calc(100% + 14px + ${dragX * 0.55}px))` }} aria-hidden="true">
+                  <div className="g-blur" style={{ backgroundImage: `url(${nextAlb.cover})` }} />
+                  <div className="g-coverbox"><div className="g-vinylpeek" /><img className="g-cover" src={nextAlb.cover} alt="" referrerPolicy="no-referrer" draggable={false} /></div>
+                  <div className="g-meta"><span className="g-artist">{nextAlb.artist}</span><span className="g-title">{nextAlb.title}{nextAlb.year ? ` · ${nextAlb.year}` : ''}</span></div>
+                </div>
+              )}
+              {dragging && dragX > 8 && prevAlb && (
+                <div className="g-card g-adj" style={{ transform: `translateX(calc(-100% - 14px + ${dragX * 0.55}px))` }} aria-hidden="true">
+                  <div className="g-blur" style={{ backgroundImage: `url(${prevAlb.cover})` }} />
+                  <div className="g-coverbox"><div className="g-vinylpeek" /><img className="g-cover" src={prevAlb.cover} alt="" referrerPolicy="no-referrer" draggable={false} /></div>
+                  <div className="g-meta"><span className="g-artist">{prevAlb.artist}</span><span className="g-title">{prevAlb.title}{prevAlb.year ? ` · ${prevAlb.year}` : ''}</span></div>
+                </div>
+              )}
               <div
                 className={`g-card${dragging ? ' drag' : ''}`}
                 key={current.albumId}
@@ -442,9 +463,13 @@ export default function GilynClient() {
                   <span className="g-herofacts">{[nodeInfo?.country, nodeInfo?.years].filter(Boolean).join(' · ')}</span>
                 )}
               </div>
-              {curNode.artistSlug && <Link className="g-linkbtn hero" href={`/atlikejai/${curNode.artistSlug}`} aria-label="Atlikėjo puslapis"><LinkIcon size={15} /></Link>}
+              {curNode.artistSlug && <Link className="g-linkbtn hero" href={`/atlikejai/${curNode.artistSlug}`} aria-label="Atlikėjo puslapis" target="_blank" rel="noopener"><LinkIcon size={15} /></Link>}
             </div>
-            {(nodeInfo?.albumDesc || nodeInfo?.bio) && <p className="g-herobio">{nodeInfo?.albumDesc || nodeInfo?.bio}</p>}
+            {(() => {
+              const boxBlurb = box.find(b => b.albumId === curNode.albumId)?.blurb
+              const txt = boxBlurb || nodeInfo?.albumDesc || nodeInfo?.bio
+              return txt ? <p className="g-herobio">{txt}</p> : null
+            })()}
             {(curNode.tracks?.length || 0) > 0 && (
               <div className="g-herohits">
                 {(curNode.tracks || []).slice(0, 3).map((t, i) => (
@@ -458,8 +483,8 @@ export default function GilynClient() {
             )}
             {(nodeInfo?.artistTop?.length || 0) > 0 && (
               <button className="g-herolisten alt" type="button"
-                onClick={() => openPlayer({ artist: curNode.artist, title: 'Populiariausios dainos', year: null, cover: curNode.cover, tracks: nodeInfo?.artistTop || [], artistSlug: curNode.artistSlug }, { artistId: curNode.artistId })}>
-                <PlayIcon size={13} /> Atlikėjo populiariausios
+                onClick={() => openPlayer({ artist: curNode.artist, title: 'Top dainos', year: null, cover: curNode.cover, tracks: nodeInfo?.artistTop || [], artistSlug: curNode.artistSlug }, { artistId: curNode.artistId })}>
+                <PlayIcon size={13} /> Daugiau jų muzikos
               </button>
             )}
           </div>
@@ -516,7 +541,7 @@ export default function GilynClient() {
                         aria-label="Išsaugoti radinį" onClick={() => saveFind(i)}>
                         <BookmarkIcon filled={saved} size={16} />
                       </button>
-                      {p.artistSlug && <Link className="g-linkbtn" href={`/atlikejai/${p.artistSlug}`} aria-label="Atlikėjo puslapis"><LinkIcon size={14} /></Link>}
+                      {p.artistSlug && <Link className="g-linkbtn" href={`/atlikejai/${p.artistSlug}`} aria-label="Atlikėjo puslapis" target="_blank" rel="noopener"><LinkIcon size={14} /></Link>}
                     </div>
                     {i < all.length - 1 && <span className="g-resline" aria-hidden="true" />}
                   </div>
@@ -551,7 +576,7 @@ export default function GilynClient() {
       {/* ── ŽEMĖLAPIS v3 ── */}
       {!loading && view === 'map' && (
         <div className="g-mapwrap">
-          <button className="g-mapback" onClick={() => run ? routeView(run) : setView('welcome')} type="button">← Grįžti</button>
+          <button className="g-mapback" onClick={() => run ? routeView(run) : setView('box')} type="button">← Grįžti</button>
           <h2 className="g-h1 center">Tavo muzikos žemėlapis</h2>
           {!mapData ? (
             <div className="g-center"><Vinyl spin size={54} /><p className="g-dim">Braižome žemėlapį…</p></div>
@@ -564,7 +589,11 @@ export default function GilynClient() {
                 <div><HexMini /><b>{mapData.totals.substylesTouched}<i>/{mapData.totals.substylesTotal}</i></b><span>stiliai</span></div>
               </div>
               <p className="g-mapexpl">Kiekvienas šešiakampis — muzikos stilius. <span className="cl-b">Oranžiniai</span> — tavo pamėgta muzika, <span className="cl-v">žali</span> — kur nukeliavai per Gilyn, <span className="cl-s">★</span> — radiniai, pilki — dar rūke.</p>
-              {mapData.regions.map(r => <RegionHex key={r.genreId} region={r} onPick={s => setSubSheet(s)} />)}
+              {[...mapData.regions]
+                .sort((a, b) =>
+                  b.substyles.filter(s => s.beacons || s.visited || s.saved).length -
+                  a.substyles.filter(s => s.beacons || s.visited || s.saved).length)
+                .map(r => <RegionHex key={r.genreId} region={r} hue={REGION_HUES[r.name] || 'rgba(140,160,190,0.6)'} onPick={s => setSubSheet(s)} />)}
             </>
           )}
         </div>
@@ -675,13 +704,13 @@ function PlayerSheet({ item, idx, setIdx, onClose }: {
             <span className="g-psartist">{item.artist}</span>
             <span className="g-pstitle">{item.title}{item.year ? ` · ${item.year}` : ''}</span>
           </div>
-          {item.artistSlug && <Link className="g-linkbtn" href={`/atlikejai/${item.artistSlug}`} aria-label="Atlikėjo puslapis"><LinkIcon size={15} /></Link>}
+          {item.artistSlug && <Link className="g-linkbtn" href={`/atlikejai/${item.artistSlug}`} aria-label="Atlikėjo puslapis" target="_blank" rel="noopener"><LinkIcon size={15} /></Link>}
           <button className="g-psclose" onClick={onClose} type="button" aria-label="Uždaryti">✕</button>
         </div>
         {tr && (
           <div className="g-psvideo">
             <iframe key={tr.y}
-              src={`https://www.youtube.com/embed/${tr.y}?autoplay=1&rel=0&modestbranding=1&playsinline=1&iv_load_policy=3`}
+              src={`https://www.youtube.com/embed/${tr.y}?autoplay=1&rel=0&modestbranding=1&playsinline=1&iv_load_policy=3${typeof window !== 'undefined' ? `&origin=${encodeURIComponent(window.location.origin)}` : ''}`}
               title={tr.t} allow="autoplay; encrypted-media; picture-in-picture; fullscreen" allowFullScreen />
           </div>
         )}
@@ -700,8 +729,14 @@ function PlayerSheet({ item, idx, setIdx, onClose }: {
 
 // ── Korio žemėlapio regionas (v3 — visi substiliai, proporcingas dydis) ──
 
-function RegionHex({ region, onPick }: {
+const REGION_HUES: Record<string, string> = {
+  'Rokas': '#ef4444', 'Elektronika': '#06b6d4', 'Hip-hopas': '#f59e0b', 'Pop / R&B': '#ec4899',
+  'Sunkioji': '#64748b', 'Alternatyva': '#a855f7', 'Rimtoji': '#10b981', 'Kiti stiliai': '#94a3b8',
+}
+
+function RegionHex({ region, hue, onPick }: {
   region: { genreId: number; name: string; substyles: SubStyle[] }
+  hue: string
   onPick: (s: SubStyle) => void
 }) {
   const active = region.substyles.filter(s => s.beacons || s.visited || s.saved || s.heard)
@@ -727,9 +762,9 @@ function RegionHex({ region, onPick }: {
   }
 
   return (
-    <div className="g-region">
+    <div className="g-region" style={{ borderTop: `3px solid ${hue}` }}>
       <div className="g-regionhead">
-        <span className="g-regionname">{region.name}</span>
+        <span className="g-regionname"><i className="g-regiondot" style={{ background: hue }} />{region.name}</span>
         <span className="g-regionstat">{active.length} iš {region.substyles.length} stilių</span>
       </div>
       {cells.length > 0 && (
@@ -848,6 +883,8 @@ const css = `
 @media (prefers-reduced-motion: reduce) { .g-spin { animation: none; } }
 .g-beaconbox { display: flex; align-items: center; gap: 12px; text-align: left; max-width: 360px; font-size: 13px; color: var(--text-secondary); line-height: 1.5; background: color-mix(in srgb, var(--accent-orange) 8%, var(--bg-surface)); border: 1px solid color-mix(in srgb, var(--accent-orange) 30%, transparent); border-radius: 14px; padding: 12px 14px; }
 .g-beaconbox b { color: var(--text-primary); }
+.g-beaconbox.slim { max-width: none; position: relative; padding: 9px 30px 9px 12px; font-size: 12px; }
+.g-bclose { position: absolute; top: 6px; right: 9px; border: 0; background: transparent; color: var(--text-muted); cursor: pointer; font-size: 12px; padding: 2px; }
 
 /* ── Dėžė (crate) ── */
 .g-boxwrap { display: flex; flex-direction: column; gap: 12px; min-height: 100%; }
@@ -857,10 +894,11 @@ const css = `
 .g-bar { flex: 1; height: 5px; border-radius: 99px; background: rgba(140,160,190,0.18); overflow: hidden; }
 .g-bar i { display: block; height: 100%; background: var(--accent-orange); border-radius: 99px; transition: width 0.3s ease; }
 
-.g-crate { position: relative; padding: 0 20px; }
+.g-crate { position: relative; padding: 0 20px; overflow: hidden; }
+.g-adj { position: absolute; top: 0; left: 20px; right: 20px; bottom: 0; z-index: 1; pointer-events: none; transition: none; }
 .g-navarr { position: absolute; top: 45%; transform: translateY(-50%); width: 40px; height: 40px; border-radius: 50%; background: var(--bg-elevated); border: 1px solid rgba(140,160,190,0.3); color: var(--text-secondary); cursor: pointer; z-index: 4; display: none; align-items: center; justify-content: center; box-shadow: 0 4px 14px rgba(0,0,0,0.25); }
-.g-navarr.left { left: -12px; }
-.g-navarr.right { right: -12px; }
+.g-navarr.left { left: 30px; }
+.g-navarr.right { right: 30px; }
 .g-navarr:disabled { opacity: 0.3; cursor: default; }
 @media (min-width: 640px) and (hover: hover) { .g-navarr { display: flex; } }
 .g-styles { display: flex; gap: 6px; justify-content: center; flex-wrap: wrap; margin-top: 5px; }
@@ -924,6 +962,13 @@ const css = `
 
 /* ── Kasimasis ── */
 .g-digwrap { display: flex; flex-direction: column; gap: 12px; }
+@media (min-width: 880px) {
+  .g-digwrap { display: grid; grid-template-columns: 1fr 1fr; gap: 4px 20px; grid-template-areas: "path path" "hero head" "hero doors"; align-items: start; }
+  .g-digwrap .g-pathline { grid-area: path; margin-bottom: 8px; }
+  .g-digwrap .g-hero { grid-area: hero; position: sticky; top: 0; }
+  .g-digwrap .g-digq { grid-area: head; margin: 0 0 8px; }
+  .g-digwrap .g-doors { grid-area: doors; }
+}
 .g-pathline { display: flex; align-items: center; gap: 5px; }
 .g-pathnode { display: flex; align-items: center; gap: 5px; }
 .g-pathnode img { width: 30px; height: 30px; border-radius: 7px; object-fit: cover; border: 1px solid rgba(140,160,190,0.3); }
@@ -995,7 +1040,8 @@ const css = `
 .g-mapexpl .cl-s { color: var(--accent-orange); font-weight: 800; }
 .g-region { background: var(--bg-surface); border: 1px solid rgba(140,160,190,0.18); border-radius: 14px; padding: 12px 13px; }
 .g-regionhead { display: flex; align-items: baseline; justify-content: space-between; margin-bottom: 8px; }
-.g-regionname { font-size: 14.5px; font-weight: 900; }
+.g-regionname { font-size: 14.5px; font-weight: 900; display: flex; align-items: center; gap: 7px; }
+.g-regiondot { width: 9px; height: 9px; border-radius: 50%; display: inline-block; }
 .g-regionstat { font-size: 11px; font-weight: 700; color: var(--text-muted); }
 .g-hexsvg { display: block; }
 .g-hexc { cursor: pointer; }
@@ -1020,7 +1066,8 @@ const css = `
 
 /* ── Sheets ── */
 .g-sheetback { position: fixed; inset: 0; z-index: 500; background: rgba(8,10,16,0.66); display: flex; align-items: flex-end; justify-content: center; }
-.g-sheet { width: 100%; max-width: 520px; max-height: 86vh; overflow-y: auto; background: var(--bg-elevated); border-radius: 22px 22px 0 0; padding: 18px 18px calc(20px + env(safe-area-inset-bottom)); display: flex; flex-direction: column; gap: 12px; }
+.g-sheet { width: 100%; max-width: 520px; max-height: 86vh; overflow-y: auto; overscroll-behavior: contain; background: var(--bg-elevated); border-radius: 22px 22px 0 0; padding: 18px 18px calc(20px + env(safe-area-inset-bottom)); display: flex; flex-direction: column; gap: 12px; }
+.g-sheetback { overscroll-behavior: contain; }
 .g-playersheet { padding-top: 14px; }
 .g-pshead { display: flex; align-items: center; gap: 11px; }
 .g-pshead img { width: 46px; height: 46px; border-radius: 9px; object-fit: cover; }
