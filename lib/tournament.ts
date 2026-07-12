@@ -78,53 +78,64 @@ export type SubstyleGroup = {
 // niša mieliau gauna mažesnį (8) bracket'ą nei jokio.
 export const MIN_VIEWS: Record<Scope, number> = { lt: 50_000, world: 10_000 }
 
+// Placeholder/kompiliacijų „atlikėjai" — svetainėje turi paskirtį, bet
+// dvikovose atrodo sulūžę („Garso takeliai" prieš Hans Zimmer). Audito
+// radiniai 2026-07-12: Garso takeliai (731 tr.), Užsienio muzika (1159),
+// Lietuviška muzika (109).
+export const EXCLUDED_ARTIST_IDS = new Set<number>([2548, 2563, 2565])
+
 export const SPLIT_CONFIG: Record<Scope, Record<number, SubstyleGroup[]>> = {
   world: {
     // Pop, R&B — per didelis vienam 32 bracket'ui (552+ atlikėjų vien „Pop")
     1000560: [
-      { key: 'rnb', label: 'R&B / Soul', target: 32, substyles: ['R&B', 'Soul', 'Blue-eyed soul', 'Hip hop soul', 'Quiet storm', 'New jack swing', 'Southern soul', 'Alternative R&B', 'Pop-soul', 'Doo wop'] },
-      { key: 'latin', label: 'Latin', target: 16, substyles: ['Latin pop', 'Bolero', 'Tropical', 'Guajira', 'Reggaeton', 'Latin dance', 'Latin rap', 'Latin trap'] },
+      { key: 'rnb', label: 'R&B / Soul', target: 64, substyles: ['R&B', 'Soul', 'Blue-eyed soul', 'Hip hop soul', 'Quiet storm', 'New jack swing', 'Southern soul', 'Alternative R&B', 'Pop-soul', 'Doo wop'] },
+      { key: 'latin', label: 'Latin', target: 32, substyles: ['Latin pop', 'Bolero', 'Tropical', 'Guajira', 'Reggaeton', 'Latin dance', 'Latin rap', 'Latin trap'] },
       // Erų pjūvis (2026-07-12): MJ/ABBA/Wham era atskirai nuo Gagos/Billie
-      { key: 'klasika', label: 'Pop klasika (iki 1999)', target: 32, eraTo: 1999 },
-      { key: 'pop', label: 'Pop', target: 32 },
+      { key: 'klasika', label: 'Pop klasika (iki 1999)', target: 64, eraTo: 1999 },
+      { key: 'pop', label: 'Pop', target: 64 },
     ],
     // Rokas — grynos EROS vietoj substilių (savininko sprendimas 2026-07-12:
     // substilių pjūvis eras atspindėjo nešvariai — „Klasikiniame" sėdėjo ir
     // 2015+ dainos). Top-64 pasiskirstymas: ≤1989 ~35, 1990–2009 ~66, 2010+ ~27.
     1000562: [
-      { key: 'klasika', label: 'Klasika (iki 1989)', target: 32, eraTo: 1989 },
-      { key: 'devyni', label: '90-ųjų ir 2000-ųjų', target: 32, eraFrom: 1990, eraTo: 2009 },
-      { key: 'modernus', label: 'Modernus', target: 32 },
+      { key: 'klasika', label: 'Klasika (iki 1989)', target: 64, eraTo: 1989 },
+      { key: 'devyni', label: '90-ųjų ir 2000-ųjų', target: 64, eraFrom: 1990, eraTo: 2009 },
+      { key: 'modernus', label: 'Modernus', target: 64 },
     ],
     // Sunkioji — ekstremalus vs klasikinis/modernus metalas
     1000563: [
-      { key: 'extreme', label: 'Ekstremalus metalas', target: 32, substyles: ['Black metal', 'Death metal', 'Thrash metal', 'Melodic death metal', 'Doom metal', 'Sludge metal', 'Deathcore', 'Grindcore', 'Technical death metal', 'Death/doom', 'Extreme metal', 'Speed metal', 'Viking metal', 'Pagan metal', 'Funeral doom', 'Deathgrind', 'Atmospheric black metal', 'Crossover thrash'] },
-      { key: 'metal', label: 'Metalas', target: 32 },
+      { key: 'extreme', label: 'Ekstremalus metalas', target: 64, substyles: ['Black metal', 'Death metal', 'Thrash metal', 'Melodic death metal', 'Doom metal', 'Sludge metal', 'Deathcore', 'Grindcore', 'Technical death metal', 'Death/doom', 'Extreme metal', 'Speed metal', 'Viking metal', 'Pagan metal', 'Funeral doom', 'Deathgrind', 'Atmospheric black metal', 'Crossover thrash'] },
+      { key: 'metal', label: 'Metalas', target: 64 },
     ],
     // Rimtoji — semantinis sąvartynas: Jazz vs Chopin vs bliuzas
     1000561: [
-      { key: 'jazz', label: 'Jazz', target: 16, substyles: ['Jazz'] },
-      { key: 'classical', label: 'Classical', target: 16, substyles: ['Classical'] },
+      { key: 'jazz', label: 'Jazz', target: 32, substyles: ['Jazz'] },
+      { key: 'classical', label: 'Classical', target: 32, substyles: ['Classical'] },
       { key: 'blues', label: 'Blues', target: 16, substyles: ['Blues'] },
-      { key: 'kita', label: 'Kita', target: 16 },
+      { key: 'kita', label: 'Kita', target: 32 },
     ],
     // Hip-hop — klasika (2Pac, Eminem era) vs nauja karta
     1000558: [
-      { key: 'klasika', label: 'Klasika (iki 2009)', target: 32, eraTo: 2009 },
-      { key: 'nauja', label: 'Naujoji karta', target: 32 },
+      { key: 'klasika', label: 'Klasika (iki 2009)', target: 64, eraTo: 2009 },
+      { key: 'nauja', label: 'Naujoji karta', target: 64 },
     ],
     // Elektroninė — eurodance/Daft Punk era vs šiuolaikinis EDM
     1000557: [
-      { key: 'klasika', label: 'Klasika (iki 2009)', target: 32, eraTo: 2009 },
-      { key: 'nauja', label: 'Naujoji era', target: 32 },
+      { key: 'klasika', label: 'Klasika (iki 2009)', target: 64, eraTo: 2009 },
+      { key: 'nauja', label: 'Naujoji era', target: 64 },
+    ],
+    // Alternatyva — neskaidoma, bet 32 (auditas: su 16 netilpo My Chemical
+    // Romance 274M, Daughter, Chet Faker)
+    1000556: [
+      { key: '', label: 'Alternatyva', target: 32 },
     ],
     // Kitų stilių — Country/Filmų/Reggae + „Kita" catch-all, kad neišmestų
     // Israel Kamakawiwo'ole (1,58B), Ylvis ir kitų nepriskirtų
     1000559: [
-      { key: 'country', label: 'Country', target: 16, substyles: ['Country'] },
+      { key: 'country', label: 'Country', target: 32, substyles: ['Country'] },
       { key: 'film', label: 'Filmų muzika', target: 16, substyles: ['Filmų muzika'] },
       { key: 'reggae', label: 'Reggae', target: 16, substyles: ['Reggae'] },
-      { key: 'kita', label: 'Kita', target: 16 },
+      { key: 'kita', label: 'Kita', target: 32 },
     ],
   },
   lt: {
@@ -163,8 +174,9 @@ function defaultTarget(genreId: number): number {
 /** Mažiausias prasmingas bracket'as. Mažiau nei 8 dainos — turnyras neverta. */
 export const MIN_BRACKET = 8
 
-/** Didžiausias 2 laipsnis, telpantis į turimą dainų kiekį (32 → 16 → 8). */
+/** Didžiausias 2 laipsnis, telpantis į turimą dainų kiekį (64 → 32 → 16 → 8). */
 export function fitBracket(available: number): number {
+  if (available >= 64) return 64
   if (available >= 32) return 32
   if (available >= 16) return 16
   if (available >= MIN_BRACKET) return MIN_BRACKET

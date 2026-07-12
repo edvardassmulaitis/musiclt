@@ -15,7 +15,7 @@
 import type { SupabaseClient } from '@supabase/supabase-js'
 import {
   groupsForStyle, fitBracket, buildBracket, voteFromRound, MIN_BRACKET, MIN_VIEWS,
-  type Scope, type SubstyleGroup,
+  EXCLUDED_ARTIST_IDS, type Scope, type SubstyleGroup,
 } from './tournament'
 
 export type Candidate = {
@@ -58,6 +58,7 @@ export async function genreArtistIds(sb: SupabaseClient, genreId: number, scope:
     const { data, error } = await sb.from('artists').select('id,country').in('id', chunk)
     if (error) throw error
     for (const a of data as any[]) {
+      if (EXCLUDED_ARTIST_IDS.has(a.id)) continue  // placeholder „atlikėjai"
       const isLt = a.country === 'Lietuva'
       if ((scope === 'lt') === isLt) out.add(a.id)
     }
