@@ -16,7 +16,7 @@
 //   * rezultatas: radinio išsaugojimas (bookmark → lentyna + žemėlapio ★), paprasta bendruomenė
 //   * žemėlapis: ikonų statistika, proporcingi regionai (visi substiliai), aiškūs paaiškinimai
 
-import { useEffect, useRef, useState, useCallback } from 'react'
+import { useEffect, useRef, useState, useCallback, useMemo } from 'react'
 import Link from 'next/link'
 import ZaidimoLangas from '@/components/zaidimai/ZaidimoLangas'
 
@@ -56,12 +56,18 @@ type Community = {
 } | null
 type SubStyle = {
   id: number; name: string; beacons: number; visited: number; heard: number; saved: number
-  artists: { n: string; k: 'saved' | 'visited' | 'beacon' }[]
+  artists: { id: number; n: string; k: 'saved' | 'visited' | 'beacon' }[]
 }
 type MapData = {
   regions: { genreId: number; name: string; substyles: SubStyle[]; beacons: number; visited: number }[]
   totals: { beacons: number; visited: number; heard: number; saved: number; substylesTouched: number; substylesTotal: number }
   likeCounts: { artists: number; albums: number; tracks: number }
+  edges?: { a: number; b: number; t: string }[]
+}
+type FreeNode = {
+  artistId: number; artist: string; artistSlug: string | null
+  cover: string | null; title: string | null; year: number | null
+  tracks?: TrackRef[]; reason: string | null
 }
 type PlayerItem = {
   artist: string; title: string | null; year: number | null; cover: string | null
@@ -93,7 +99,10 @@ export default function GilynClient() {
   const [nodeInfo, setNodeInfo] = useState<NodeInfo>(null)
   const [community, setCommunity] = useState<Community>(null)
   const [likeCounts, setLikeCounts] = useState({ artists: 0, albums: 0, tracks: 0 })
-  const [view, setView] = useState<'load' | 'welcome' | 'box' | 'boxEnd' | 'dig' | 'result' | 'map'>('load')
+  const [view, setView] = useState<'load' | 'welcome' | 'box' | 'boxEnd' | 'dig' | 'result' | 'map' | 'free'>('load')
+  const [freePath, setFreePath] = useState<FreeNode[]>([])
+  const [freeDoors, setFreeDoors] = useState<Door[]>([])
+  const [freeInfo, setFreeInfo] = useState<NodeInfo>(null)
   const [player, setPlayer] = useState<PlayerItem | null>(null)
   const [playerIdx, setPlayerIdx] = useState(0)
   const [swapSheet, setSwapSheet] = useState<BoxAlbum | null>(null)
@@ -270,6 +279,36 @@ export default function GilynClient() {
     setSavedIdx(prev => new Set(prev).add(i))
     await post('saveFind', { index: i })
   }
+  // ── Free Dig ──
+  async function startFreeDig(artistId: number, seed?: Partial<FreeNode>) {
+    setSubSheet(null); setStaging(true); setView('free')
+    const j = await post('freeDoors', { artistId, exclude: [] })
+    setStaging(false)
+    if (!j) { setView('map'); return }
+    setFreeDoors(j.doors || [])
+    setFreeInfo(j.nodeInfo || null)
+    const cur = j.current || {}
+    setFreePath([{
+      artistId, artist: cur.artist || seed?.artist || '…', artistSlug: cur.artistSlug || seed?.artistSlug || null,
+      cover: seed?.cover || cur.cover || null, title: seed?.title || null, year: seed?.year || null,
+      tracks: seed?.tracks || [], reason: null,
+    }])
+  }
+  async function freeChoose(d: Door) {
+    if (busy) return
+    setBusy(true); setStaging(true)
+    const exclude = [...freePath.map(p => p.artistId), ...freeDoors.map(x => x.artistId)]
+    const j = await post('freeDoors', { artistId: d.artistId, exclude })
+    setBusy(false); setStaging(false)
+    if (!j) return
+    setFreePath(p => [...p, {
+      artistId: d.artistId, artist: d.artist, artistSlug: d.artistSlug,
+      cover: d.cover, title: d.title, year: d.year, tracks: d.tracks || [], reason: d.reason,
+    }])
+    setFreeDoors(j.doors || [])
+    setFreeInfo(j.nodeInfo || null)
+  }
+
   async function openMap() {
     setView('map')
     if (!mapData) {
@@ -288,7 +327,7 @@ export default function GilynClient() {
   const isHeldCurrent = current && run?.held?.albumId === current.albumId
 
   return (
-    <ZaidimoLangas title="Gilyn" backHref="/zaidimai" maxWidth={view === 'dig' ? 980 : 520}
+    <ZaidimoLangas title="Gilyn" backHref="/zaidimai" maxWidth={view === 'dig' || view === 'free' || view === 'map' ? 980 : 520}
       right={run && run.status !== 'done' && run.shelf?.length > 0 ? (
         <button className="g-shelfbtn" onClick={() => setShelfOpen(true)} type="button" aria-label="Lentyna">
           <BookmarkIcon filled={false} size={15} /> {run.shelf.length}
@@ -568,10 +607,91 @@ export default function GilynClient() {
           )}
 
           <button className="g-cta" onClick={openMap} type="button">Atidaryti žemėlapį</button>
+          {run.path.length > 0 && (
+            <button className="g-cta alt" type="button"
+              onClick={() => {
+                const last: any = run.path[run.path.length - 1]
+                startFreeDig(last.artistId, { artist: last.artist, artistSlug: last.artistSlug, cover: last.cover, title: last.title, year: last.year, tracks: last.tracks })
+              }}>
+              Tęsti kasimąsi laisvai <ArrowIcon size={15} />
+            </button>
+          )}
           {run.shelf?.length > 0 && <button className="g-cta alt" onClick={() => setShelfOpen(true)} type="button">Lentyna ({run.shelf.length})</button>}
           <p className="g-hint">Nauja dėžė — rytoj.</p>
         </div>
       )}
+
+      {/* ── FREE DIG ── */}
+      {!loading && view === 'free' && freePath.length > 0 && (() => {
+        const cur = freePath[freePath.length - 1]
+        return (
+          <div className="g-digwrap">
+            <div className="g-pathline">
+              <span className="g-freebadge">LAISVAS KASIMASIS</span>
+              {freePath.slice(-6).map((p, i) => (
+                <span key={i} className="g-pathnode">
+                  {i > 0 && <span className="g-patharrow">→</span>}
+                  {p.cover ? <img src={p.cover} alt="" referrerPolicy="no-referrer" /> : <span className="g-pathdot" />}
+                </span>
+              ))}
+            </div>
+
+            <div className="g-hero">
+              {cur.cover && <div className="g-heroblur" style={{ backgroundImage: `url(${cur.cover})` }} />}
+              <div className="g-herotop">
+                {cur.cover && (
+                  <div className="g-herocover" onClick={() => openPlayer({ artist: cur.artist, title: cur.title, year: cur.year, cover: cur.cover, tracks: cur.tracks || [], artistSlug: cur.artistSlug }, { artistId: cur.artistId })}>
+                    <img src={cur.cover} alt="" referrerPolicy="no-referrer" />
+                    {(cur.tracks?.length || 0) > 0 && <span className="g-play sm" aria-hidden="true"><PlayIcon size={13} /></span>}
+                  </div>
+                )}
+                <div className="g-heromu">
+                  <span className="g-heroartist">{cur.artist}</span>
+                  {cur.title && <span className="g-heroalbum">{cur.title}{cur.year ? ` · ${cur.year}` : ''}</span>}
+                  {(freeInfo?.country || freeInfo?.years) && (
+                    <span className="g-herofacts">{[freeInfo?.country, freeInfo?.years].filter(Boolean).join(' · ')}</span>
+                  )}
+                </div>
+                {cur.artistSlug && <Link className="g-linkbtn hero" href={`/atlikejai/${cur.artistSlug}`} aria-label="Atlikėjo puslapis" target="_blank" rel="noopener"><LinkIcon size={15} /></Link>}
+              </div>
+              {(freeInfo?.albumDesc || freeInfo?.bio) && <p className="g-herobio">{freeInfo?.albumDesc || freeInfo?.bio}</p>}
+              {(freeInfo?.artistTop?.length || 0) > 0 && (
+                <button className="g-herolisten alt" type="button"
+                  onClick={() => openPlayer({ artist: cur.artist, title: 'Top dainos', year: null, cover: cur.cover, tracks: freeInfo?.artistTop || [], artistSlug: cur.artistSlug }, { artistId: cur.artistId })}>
+                  <PlayIcon size={13} /> Daugiau jų muzikos
+                </button>
+              )}
+            </div>
+
+            <h2 className="g-digq">Kur toliau?</h2>
+            <div className="g-doors">
+              {freeDoors.map(d => (
+                <div className="g-door" key={d.artistId} style={{ borderColor: `color-mix(in srgb, ${DOOR_COLORS[d.doorType]} 45%, transparent)` }}>
+                  <div className="g-doorbody"
+                    onClick={() => openPlayer({ artist: d.artist, title: d.title, year: d.year, cover: d.cover, tracks: d.tracks || [], artistSlug: d.artistSlug }, { artistId: d.artistId })}
+                    role="button" tabIndex={0}>
+                    <div className="g-doorcover">
+                      <img src={d.cover || ''} alt="" referrerPolicy="no-referrer" />
+                      {(d.tracks?.length || 0) > 0 && <span className="g-play sm" aria-hidden="true"><PlayIcon size={12} /></span>}
+                    </div>
+                    <div className="g-doormeta">
+                      <span className="g-doortype" style={{ color: DOOR_COLORS[d.doorType] }}>{d.label}</span>
+                      <span className="g-doorartist">{d.artist}</span>
+                      {d.title && <span className="g-dooralbum">{d.title}{d.year ? ` · ${d.year}` : ''}</span>}
+                      <span className="g-doorwhy">{d.reason}</span>
+                    </div>
+                    <button className="g-doorgo" onClick={e => { e.stopPropagation(); freeChoose(d) }} disabled={busy} type="button"
+                      aria-label={`Kasti: ${d.artist}`} style={{ background: DOOR_COLORS[d.doorType] }}>
+                      <ArrowIcon size={20} />
+                    </button>
+                  </div>
+                </div>
+              ))}
+            </div>
+            <button className="g-cta ghost" onClick={() => { setFreePath([]); setFreeDoors([]); openMap() }} type="button">Baigti kasimąsi</button>
+          </div>
+        )
+      })()}
 
       {/* ── ŽEMĖLAPIS v3 ── */}
       {!loading && view === 'map' && (
@@ -588,12 +708,8 @@ export default function GilynClient() {
                 <div><StarIcon size={15} /><b>{mapData.totals.saved}</b><span>radiniai</span></div>
                 <div><HexMini /><b>{mapData.totals.substylesTouched}<i>/{mapData.totals.substylesTotal}</i></b><span>stiliai</span></div>
               </div>
-              <p className="g-mapexpl">Kiekvienas šešiakampis — muzikos stilius. <span className="cl-b">Oranžiniai</span> — tavo pamėgta muzika, <span className="cl-v">žali</span> — kur nukeliavai per Gilyn, <span className="cl-s">★</span> — radiniai, pilki — dar rūke.</p>
-              {[...mapData.regions]
-                .sort((a, b) =>
-                  b.substyles.filter(s => s.beacons || s.visited || s.saved).length -
-                  a.substyles.filter(s => s.beacons || s.visited || s.saved).length)
-                .map(r => <RegionHex key={r.genreId} region={r} hue={REGION_HUES[r.name] || 'rgba(140,160,190,0.6)'} onPick={s => setSubSheet(s)} />)}
+              <p className="g-mapexpl">Kiekvienas šešiakampis — muzikos stilius. <span className="cl-b">Oranžiniai</span> — tavo pamėgta muzika, <span className="cl-v">žali</span> — kur nukeliavai per Gilyn, <span className="cl-s">★</span> — radiniai, pilki — dar rūke. Linijos — tavo kelionės.</p>
+              <MapWorld regions={mapData.regions} edges={mapData.edges || []} onPick={s => setSubSheet(s)} />
             </>
           )}
         </div>
@@ -671,13 +787,17 @@ export default function GilynClient() {
               {subSheet.beacons > 0 && <><HeartIcon size={12} /> {subSheet.beacons} pamėgta</>}
             </p>
             {subSheet.artists.length > 0 ? (
-              <div className="g-subartists">
-                {subSheet.artists.map((a, i) => (
-                  <span key={i} className={`g-suba ${a.k}`}>
-                    {a.k === 'saved' ? <StarIcon size={11} /> : a.k === 'visited' ? <CheckIcon size={11} /> : <HeartIcon size={11} />} {a.n}
-                  </span>
-                ))}
-              </div>
+              <>
+                <div className="g-subartists">
+                  {subSheet.artists.map((a, i) => (
+                    <button key={i} className={`g-suba ${a.k}`} type="button" onClick={() => startFreeDig(a.id, { artist: a.n })}>
+                      {a.k === 'saved' ? <StarIcon size={11} /> : a.k === 'visited' ? <CheckIcon size={11} /> : <HeartIcon size={11} />} {a.n}
+                      <ArrowIcon size={11} />
+                    </button>
+                  ))}
+                </div>
+                <p className="g-hint">Paspausk atlikėją — pradėsi laisvą kasimąsi nuo jo.</p>
+              </>
             ) : (
               <p className="g-dim center">Šį stilių dar dengia rūkas — jokių tavo pėdsakų.</p>
             )}
@@ -727,67 +847,171 @@ function PlayerSheet({ item, idx, setIdx, onClose }: {
   )
 }
 
-// ── Korio žemėlapio regionas (v3 — visi substiliai, proporcingas dydis) ──
+// ── ŽEMĖLAPIS 2.0: vientisas pasaulis su pan/zoom ir kelionių linijomis ──
 
 const REGION_HUES: Record<string, string> = {
   'Rokas': '#ef4444', 'Elektronika': '#06b6d4', 'Hip-hopas': '#f59e0b', 'Pop / R&B': '#ec4899',
   'Sunkioji': '#64748b', 'Alternatyva': '#a855f7', 'Rimtoji': '#10b981', 'Kiti stiliai': '#94a3b8',
 }
+// Stabilios salų pozicijos — vartotojas išmoksta, kur kas yra
+const REGION_POS: Record<string, [number, number]> = {
+  'Rokas': [235, 215], 'Alternatyva': [600, 165], 'Sunkioji': [965, 215],
+  'Rimtoji': [415, 415], 'Kiti stiliai': [785, 415],
+  'Pop / R&B': [235, 625], 'Elektronika': [600, 665], 'Hip-hopas': [965, 625],
+}
+const WORLD_W = 1200, WORLD_H = 830
 
-function RegionHex({ region, hue, onPick }: {
-  region: { genreId: number; name: string; substyles: SubStyle[] }
-  hue: string
+/** Hex spiralės axial koordinatės: centras + žiedai. */
+function spiralCoords(n: number): [number, number][] {
+  const out: [number, number][] = [[0, 0]]
+  const dirs: [number, number][] = [[1, 0], [1, -1], [0, -1], [-1, 0], [-1, 1], [0, 1]]
+  let k = 1
+  while (out.length < n) {
+    let q = -k, r = k
+    for (let i = 0; i < 6 && out.length < n; i++) {
+      for (let j = 0; j < k && out.length < n; j++) {
+        out.push([q, r])
+        q += dirs[i][0]; r += dirs[i][1]
+      }
+    }
+    k++
+  }
+  return out
+}
+
+function MapWorld({ regions, edges, onPick }: {
+  regions: { genreId: number; name: string; substyles: SubStyle[] }[]
+  edges: { a: number; b: number; t: string }[]
   onPick: (s: SubStyle) => void
 }) {
-  const active = region.substyles.filter(s => s.beacons || s.visited || s.saved || s.heard)
-  const fog = region.substyles.filter(s => !(s.beacons || s.visited || s.saved || s.heard))
-  const cells: { s: SubStyle; k: string }[] = [
-    ...active.map(s => ({ s, k: s.saved ? 'saved' : s.visited ? 'visited' : s.beacons ? 'beacon' : 'heard' })),
-    ...fog.map(s => ({ s, k: 'fog' })),
-  ]
+  const R = 13, HW = R * 1.732
 
-  const R = 12.5, W = R * 1.732, H = R * 2
-  const cols = 16
-  const rows = Math.ceil(cells.length / cols)
-  const svgW = cols * W + W / 2 + 4
-  const svgH = Math.max(1, rows) * H * 0.75 + H * 0.25 + 4
+  const layout = useMemo(() => {
+    const cells: { s: SubStyle; k: string; x: number; y: number; hue: string }[] = []
+    const pos = new Map<number, [number, number]>()
+    const labels: { name: string; x: number; y: number; hue: string; act: number; tot: number }[] = []
+    for (const rg of regions) {
+      const [cx, cy] = REGION_POS[rg.name] || [WORLD_W / 2, WORLD_H / 2]
+      const hue = REGION_HUES[rg.name] || '#94a3b8'
+      const sorted = [...rg.substyles].sort((a, b) =>
+        (b.beacons + b.visited * 3 + b.saved * 5 + (b.heard ? 1 : 0)) -
+        (a.beacons + a.visited * 3 + a.saved * 5 + (a.heard ? 1 : 0)))
+      const coords = spiralCoords(sorted.length)
+      let minY = cy
+      sorted.forEach((s, i) => {
+        const [q, rr] = coords[i]
+        const x = cx + HW * (q + rr / 2)
+        const y = cy + R * 1.5 * rr
+        if (y < minY) minY = y
+        const k = s.saved ? 'saved' : s.visited ? 'visited' : s.beacons ? 'beacon' : s.heard ? 'heard' : 'fog'
+        cells.push({ s, k, x, y, hue })
+        pos.set(s.id, [x, y])
+      })
+      labels.push({
+        name: rg.name, x: cx, y: minY - 22, hue,
+        act: rg.substyles.filter(s => s.beacons || s.visited || s.saved).length,
+        tot: rg.substyles.length,
+      })
+    }
+    return { cells, pos, labels }
+  }, [regions, HW])
 
-  function hexPoints(cx: number, cy: number): string {
+  const [vb, setVb] = useState({ x: 0, y: 0, w: WORLD_W })
+  const svgRef = useRef<SVGSVGElement | null>(null)
+  const drag = useRef<{ px: number; py: number; vx: number; vy: number; moved: number } | null>(null)
+  const suppressClick = useRef(false)
+
+  function zoomAt(f: number, cx?: number, cy?: number) {
+    setVb(v => {
+      const w = Math.min(WORLD_W * 1.2, Math.max(240, v.w * f))
+      const ax = cx ?? v.x + v.w / 2
+      const ay = cy ?? v.y + (v.w * WORLD_H / WORLD_W) / 2
+      const kx = (ax - v.x) / v.w
+      const ky = (ay - v.y) / (v.w * WORLD_H / WORLD_W)
+      return { x: ax - w * kx, y: ay - (w * WORLD_H / WORLD_W) * ky, w }
+    })
+  }
+  function svgPoint(e: { clientX: number; clientY: number }): [number, number] {
+    const el = svgRef.current
+    if (!el) return [vb.x + vb.w / 2, vb.y + vb.w / 2]
+    const r = el.getBoundingClientRect()
+    return [vb.x + ((e.clientX - r.left) / r.width) * vb.w, vb.y + ((e.clientY - r.top) / r.height) * (vb.w * WORLD_H / WORLD_W)]
+  }
+
+  function hexPts(cx: number, cy: number): string {
     const pts: string[] = []
     for (let a = 0; a < 6; a++) {
       const ang = (Math.PI / 180) * (60 * a - 30)
-      pts.push(`${(cx + R * 0.92 * Math.cos(ang)).toFixed(1)},${(cy + R * 0.92 * Math.sin(ang)).toFixed(1)}`)
+      pts.push(`${(cx + R * 0.9 * Math.cos(ang)).toFixed(1)},${(cy + R * 0.9 * Math.sin(ang)).toFixed(1)}`)
     }
     return pts.join(' ')
   }
 
+  const fillFor = (k: string, hue: string) =>
+    k === 'saved' ? 'var(--accent-orange)'
+      : k === 'visited' ? 'color-mix(in srgb, var(--accent-green) 60%, var(--bg-surface))'
+        : k === 'beacon' ? 'color-mix(in srgb, var(--accent-orange) 46%, var(--bg-surface))'
+          : k === 'heard' ? 'rgba(140,160,190,0.3)'
+            : `color-mix(in srgb, ${hue} 11%, var(--bg-surface))`
+  const strokeFor = (k: string, hue: string) =>
+    k === 'saved' || k === 'beacon' ? 'var(--accent-orange)'
+      : k === 'visited' ? 'var(--accent-green)'
+        : k === 'heard' ? 'rgba(140,160,190,0.55)'
+          : `color-mix(in srgb, ${hue} 26%, transparent)`
+
   return (
-    <div className="g-region" style={{ borderTop: `3px solid ${hue}` }}>
-      <div className="g-regionhead">
-        <span className="g-regionname"><i className="g-regiondot" style={{ background: hue }} />{region.name}</span>
-        <span className="g-regionstat">{active.length} iš {region.substyles.length} stilių</span>
+    <div className="g-world">
+      <div className="g-worldbtns">
+        <button onClick={() => zoomAt(0.72)} type="button" aria-label="Priartinti">+</button>
+        <button onClick={() => zoomAt(1.38)} type="button" aria-label="Atitolinti">−</button>
+        <button onClick={() => setVb({ x: 0, y: 0, w: WORLD_W })} type="button" aria-label="Visas žemėlapis">⌂</button>
       </div>
-      {cells.length > 0 && (
-        <svg className="g-hexsvg" viewBox={`0 0 ${svgW} ${svgH}`} style={{ width: '100%', height: 'auto' }}>
-          {cells.map((c, i) => {
-            const row = Math.floor(i / cols), col = i % cols
-            const cx = col * W + (row % 2 ? W : W / 2) + 2
-            const cy = row * H * 0.75 + R + 2
-            return (
-              <g key={c.s.id} className={`g-hexc ${c.k}`} onClick={() => onPick(c.s)} role="button">
-                <polygon points={hexPoints(cx, cy)} />
-                {c.k === 'saved' && <text x={cx} y={cy + 3.5} textAnchor="middle" className="g-hexstar">★</text>}
-              </g>
-            )
-          })}
-        </svg>
-      )}
-      {active.length > 0 && (
-        <div className="g-regionnames">
-          {active.slice(0, 4).map(s => <span key={s.id} onClick={() => onPick(s)} role="button">{s.name}</span>)}
-          {active.length > 4 && <span className="more">+{active.length - 4}</span>}
-        </div>
-      )}
+      <svg
+        ref={svgRef}
+        viewBox={`${vb.x} ${vb.y} ${vb.w} ${(vb.w * WORLD_H / WORLD_W)}`}
+        className="g-worldsvg"
+        onWheel={e => zoomAt(e.deltaY > 0 ? 1.12 : 0.89, ...svgPoint(e))}
+        onPointerDown={e => {
+          drag.current = { px: e.clientX, py: e.clientY, vx: vb.x, vy: vb.y, moved: 0 }
+          ;(e.target as Element).setPointerCapture?.(e.pointerId)
+        }}
+        onPointerMove={e => {
+          const d = drag.current
+          if (!d) return
+          const el = svgRef.current
+          const rw = el ? el.getBoundingClientRect().width : 1
+          const dx = e.clientX - d.px, dy = e.clientY - d.py
+          d.moved = Math.max(d.moved, Math.abs(dx) + Math.abs(dy))
+          setVb(v => ({ ...v, x: d.vx - dx * (v.w / rw), y: d.vy - dy * (v.w / rw) }))
+        }}
+        onPointerUp={() => {
+          suppressClick.current = (drag.current?.moved || 0) > 8
+          drag.current = null
+          window.setTimeout(() => { suppressClick.current = false }, 80)
+        }}
+        onPointerCancel={() => { drag.current = null }}
+      >
+        {edges.map((e2, i) => {
+          const A = layout.pos.get(e2.a), B = layout.pos.get(e2.b)
+          if (!A || !B) return null
+          const mx = (A[0] + B[0]) / 2 + (B[1] - A[1]) * 0.16
+          const my = (A[1] + B[1]) / 2 + (A[0] - B[0]) * 0.16
+          return <path key={i} d={`M ${A[0]} ${A[1]} Q ${mx} ${my} ${B[0]} ${B[1]}`}
+            fill="none" stroke={DOOR_COLORS[e2.t] || 'var(--accent-orange)'} strokeWidth={2.6}
+            strokeLinecap="round" opacity={0.55} />
+        })}
+        {layout.cells.map(c => (
+          <g key={c.s.id} className="g-wx" onClick={() => { if (!suppressClick.current) onPick(c.s) }} role="button">
+            <polygon points={hexPts(c.x, c.y)} style={{ fill: fillFor(c.k, c.hue), stroke: strokeFor(c.k, c.hue), strokeWidth: 0.9 }} />
+            {c.k === 'saved' && <text x={c.x} y={c.y + 3.5} textAnchor="middle" className="g-hexstar">★</text>}
+          </g>
+        ))}
+        {layout.labels.map(l => (
+          <text key={l.name} x={l.x} y={l.y} textAnchor="middle" className="g-wlabel" style={{ fill: l.hue }}>
+            {l.name} <tspan className="g-wlabelct">{l.act}/{l.tot}</tspan>
+          </text>
+        ))}
+      </svg>
     </div>
   )
 }
@@ -1038,6 +1262,16 @@ const css = `
 .g-mapexpl .cl-b { color: var(--accent-orange); font-weight: 800; }
 .g-mapexpl .cl-v { color: var(--accent-green); font-weight: 800; }
 .g-mapexpl .cl-s { color: var(--accent-orange); font-weight: 800; }
+.g-world { position: relative; background: var(--bg-surface); border: 1px solid rgba(140,160,190,0.2); border-radius: 16px; overflow: hidden; }
+.g-worldsvg { display: block; width: 100%; height: auto; touch-action: none; cursor: grab; }
+.g-worldsvg:active { cursor: grabbing; }
+.g-worldbtns { position: absolute; top: 10px; right: 10px; z-index: 5; display: flex; flex-direction: column; gap: 6px; }
+.g-worldbtns button { width: 36px; height: 36px; border-radius: 10px; border: 1px solid rgba(140,160,190,0.3); background: var(--bg-elevated); color: var(--text-primary); font-size: 17px; font-weight: 800; cursor: pointer; box-shadow: 0 3px 10px rgba(0,0,0,0.2); }
+.g-wx { cursor: pointer; }
+.g-wlabel { font-size: 17px; font-weight: 900; letter-spacing: -0.01em; paint-order: stroke; stroke: var(--bg-surface); stroke-width: 4px; }
+.g-wlabelct { font-size: 11px; font-weight: 700; opacity: 0.75; }
+.g-freebadge { font-size: 9.5px; font-weight: 900; letter-spacing: 0.08em; color: var(--accent-orange); background: color-mix(in srgb, var(--accent-orange) 14%, transparent); border-radius: 999px; padding: 4px 10px; margin-right: 4px; }
+.g-pathdot { width: 30px; height: 30px; border-radius: 7px; background: rgba(140,160,190,0.2); display: inline-block; }
 .g-region { background: var(--bg-surface); border: 1px solid rgba(140,160,190,0.18); border-radius: 14px; padding: 12px 13px; }
 .g-regionhead { display: flex; align-items: baseline; justify-content: space-between; margin-bottom: 8px; }
 .g-regionname { font-size: 14.5px; font-weight: 900; display: flex; align-items: center; gap: 7px; }
@@ -1056,7 +1290,7 @@ const css = `
 .g-regionnames span { font-size: 11px; font-weight: 700; color: var(--text-secondary); background: rgba(140,160,190,0.12); border-radius: 999px; padding: 3px 9px; cursor: pointer; }
 .g-regionnames span.more { color: var(--text-muted); background: transparent; border: 1px dashed rgba(140,160,190,0.3); }
 .g-subartists { display: flex; flex-wrap: wrap; gap: 7px; justify-content: center; }
-.g-suba { display: inline-flex; align-items: center; gap: 5px; font-size: 12.5px; font-weight: 700; border-radius: 999px; padding: 5px 12px; background: rgba(140,160,190,0.12); color: var(--text-secondary); }
+.g-suba { display: inline-flex; align-items: center; gap: 5px; font-size: 12.5px; font-weight: 700; border-radius: 999px; padding: 6px 12px; background: rgba(140,160,190,0.12); color: var(--text-secondary); border: 0; cursor: pointer; }
 .g-suba.saved { background: color-mix(in srgb, var(--accent-orange) 20%, transparent); color: var(--accent-orange); }
 .g-suba.visited { background: color-mix(in srgb, var(--accent-green) 16%, transparent); color: var(--accent-green); }
 

@@ -826,7 +826,7 @@ export type MapRegion = {
   name: string
   substyles: {
     id: number; name: string; beacons: number; visited: number; heard: number; saved: number
-    artists: { n: string; k: 'saved' | 'visited' | 'beacon' }[]
+    artists: { id: number; n: string; k: 'saved' | 'visited' | 'beacon' }[]
   }[]
   beacons: number
   visited: number
@@ -904,12 +904,12 @@ export async function buildMap(viewer: GameViewer): Promise<{
     const substyles = subs.map(s => {
       // atlikėjai, atidengę šį substilių: ★ radiniai → aplankyti → švyturiai
       const seen = new Set<number>()
-      const artists: { n: string; k: 'saved' | 'visited' | 'beacon' }[] = []
+      const artists: { id: number; n: string; k: 'saved' | 'visited' | 'beacon' }[] = []
       const push = (ids: number[] | undefined, k: 'saved' | 'visited' | 'beacon') => {
         for (const id of ids || []) {
           if (artists.length >= 8 || seen.has(id)) continue
           const n = nameById.get(id)
-          if (n) { artists.push({ n, k }); seen.add(id) }
+          if (n) { artists.push({ id, n, k }); seen.add(id) }
         }
       }
       push(nodeSubArtists.saved.get(s.id), 'saved')
@@ -944,6 +944,30 @@ export async function buildMap(viewer: GameViewer): Promise<{
     },
     likeCounts: likes.counts,
   }
+}
+
+/** Vartotojo kelionių briaunos žemėlapiui: substilius→substilius su durų tipu. */
+export async function buildTravelEdges(viewer: GameViewer): Promise<{ a: number; b: number; t: string }[]> {
+  if (!viewer.userId && !viewer.anonId) return []
+  const sb = createAdminClient()
+  let q = sb.from('gilyn_runs').select('path').in('status', ['dig', 'done'])
+  q = viewer.userId ? q.eq('user_id', viewer.userId) : q.eq('anon_id', viewer.anonId!)
+  const { data } = await q.order('day', { ascending: false }).limit(60)
+  const runs = ((data as any[]) || []).map(r => (Array.isArray(r.path) ? r.path : [])).filter(p => p.length > 1)
+  const artistIds = [...new Set(runs.flat().map((n: any) => n.artistId).filter(Boolean))] as number[]
+  if (!artistIds.length) return []
+  const meta = await fetchArtistMeta(artistIds)
+  const subOf = (id: number) => (meta.get(id)?.substyleIds || [])[0] || null
+  const edges = new Map<string, { a: number; b: number; t: string }>()
+  for (const path of runs) {
+    for (let i = 1; i < path.length; i++) {
+      const a = subOf(path[i - 1].artistId), b = subOf(path[i].artistId)
+      if (!a || !b || a === b) continue
+      const key = a < b ? `${a}|${b}` : `${b}|${a}`
+      if (!edges.has(key)) edges.set(key, { a, b, t: path[i].doorType || 'sound' })
+    }
+  }
+  return [...edges.values()].slice(0, 120)
 }
 
 /** Žemėlapio mazgo upsert (visited/heard/saved flag'ai). */

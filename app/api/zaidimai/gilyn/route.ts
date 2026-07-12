@@ -159,6 +159,31 @@ export async function POST(req: NextRequest) {
       return NextResponse.json({ run: publicRun(run) })
     }
 
+    // ── FREE DIG: laisvas kasimasis (nekeičia oficialaus run'o) ──
+    if (action === 'freeDoors') {
+      const artistId = Number(body.artistId || 0)
+      if (!artistId) return NextResponse.json({ error: 'Trūksta atlikėjo' }, { status: 400 })
+      const exclude = new Set<number>(
+        (Array.isArray(body.exclude) ? body.exclude : []).map((x: any) => Number(x)).filter(Boolean),
+      )
+      upsertMapNode(viewer, artistId, { visited: true }, 'free').catch(() => {})
+      const [likes, visited, { data: art }] = await Promise.all([
+        fetchViewerLikes(viewer),
+        visitedArtistIds(sb, viewer),
+        sb.from('artists').select('id, name, slug, cover_image_url').eq('id', artistId).maybeSingle(),
+      ])
+      const doors = await generateDoors({
+        currentArtistId: artistId,
+        exclude, likedArtists: likes.artistIds, visitedArtists: visited,
+        seed: `${day}|free|${viewerKey(viewer)}|${exclude.size}`,
+      })
+      const nodeInfo = await artistNodeInfo(artistId, null).catch(() => null)
+      return NextResponse.json({
+        doors, nodeInfo,
+        current: art ? { artistId: art.id, artist: art.name, artistSlug: art.slug || null, cover: art.cover_image_url || null } : null,
+      })
+    }
+
     if (!run) return NextResponse.json({ error: 'Run\'as nepradėtas' }, { status: 400 })
 
     const save = async (patch: Record<string, any>) => {
