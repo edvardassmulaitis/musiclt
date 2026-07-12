@@ -291,7 +291,27 @@ export async function fetchTodayDuelDrop(): Promise<DuelDrop | null> {
   const yearPart = ta.release_year && tb.release_year && Math.abs(ta.release_year - tb.release_year) <= 4
     ? ` · ${Math.min(ta.release_year, tb.release_year)}–${Math.max(ta.release_year, tb.release_year)}`
     : ''
-  const blurb = `${scope} · ${eraLabel}${sharedGenre ? ` · ${sharedGenre}` : ''}${yearPart}`
+  let blurb = `${scope} · ${eraLabel}${sharedGenre ? ` · ${sharedGenre}` : ''}${yearPart}`
+
+  // Turnyro dvikova — blurb'e rodom turnyrą ir ratą vietoj erų etikečių
+  if (drop.matchup_type === 'tournament') {
+    try {
+      const { data: m } = await sb
+        .from('boombox_tournament_matches')
+        .select('round, tournament:tournament_id ( title, size, scope )')
+        .eq('duel_drop_id', drop.id)
+        .maybeSingle()
+      const tour = normalizeJoined<any>((m as any)?.tournament)
+      if (m && tour) {
+        const left = tour.size / Math.pow(2, (m as any).round - 1)
+        const roundName = left === 2 ? 'Finalas'
+          : left === 4 ? 'Pusfinalis'
+          : left === 8 ? 'Ketvirtfinalis'
+          : `1/${left / 2} ratas`
+        blurb = `🏆 ${tour.scope === 'lt' ? '🇱🇹' : '🌍'} ${tour.title} · ${roundName}`
+      }
+    } catch { /* nebūtina */ }
+  }
 
   return {
     id: drop.id,

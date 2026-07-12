@@ -53,6 +53,18 @@
     {
       "path": "/api/cron/fantasy-savaite?live=1",
       "schedule": "0 15 * * *"
+    },
+    {
+      "path": "/api/cron/turnyrai",
+      "schedule": "10 21 * * *"
+    },
+    {
+      "path": "/api/cron/turnyrai",
+      "schedule": "10 22 * * *"
+    },
+    {
+      "path": "/api/cron/turnyrai",
+      "schedule": "10 3 * * *"
     }
   ]
 }
