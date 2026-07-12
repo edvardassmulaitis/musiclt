@@ -1,9 +1,15 @@
 'use client'
 
-// app/zaidimai/dienos/DienosClient.tsx
+// app/zaidimai/dienos-issukis/DienosClient.tsx
 //
 // Dienos iššūkio wizard'as: kvizas (5) → dvikova → verdiktas → AI vaizdas
-// (jei yra) → suvestinė. Visi step'ai viename flow, bendras taškų krepšys.
+// (jei yra) → suvestinė. Visi step'ai viename flow.
+//
+// TAŠKŲ RODYMO PRINCIPAS (2026-07-12): žaidimų metu skaičių nerodome —
+// tik teisingai/neteisingai ir progresą. Vienintelis skaičius žaidėjui —
+// galutinis rezultatas 0–100 suvestinėje. (Anksčiau žaidimo metu kaupėsi
+// "žali" taškai iki ~575+, kurie gale būdavo normalizuojami į 100 — tai
+// klaidino.) Serveryje taškai skaičiuojami kaip anksčiau — keitėsi tik UI.
 
 import { useEffect, useRef, useState } from 'react'
 import Link from 'next/link'
@@ -341,16 +347,39 @@ export default function DienosClient(props: Props) {
     setStage(nextAfterDone(key as StepKey))
   }
 
+  // ── Bendras rezultatas — skalė 0–100, proporcingai iš VISŲ užduočių:
+  // kiekviena užduotis duoda vienodą dalį (100 / užduočių skaičius), o jos
+  // viduje surenki tiek, kiek atspėjai. Balsavimai (dvikova/verdiktas) —
+  // dalyvavimo dalis (rezultatas finalizuojasi dienos gale).
+  function computeDailyTotal(): number {
+    const KVIZ_MAX = 575, EXTRA_MAX = 300
+    const clamp01 = (n: number) => Math.max(0, Math.min(1, n))
+    const quizPts = qResult?.score ?? (props.quizPlayed ? (props.quizScore ?? 0) : 0)
+    const stepFracs: number[] = [clamp01(quizPts / KVIZ_MAX)]
+    for (const g of props.activeExtras) {
+      const er = extrasResult[g]
+      const live = er && !er.alreadyDone && typeof er.score === 'number' ? er.score : null
+      const pts = live ?? props.extrasScore?.[g] ?? 0
+      stepFracs.push(clamp01(pts / EXTRA_MAX))
+    }
+    if (duel) stepFracs.push(done.duel ? 1 : 0)
+    if (verdict) stepFracs.push(done.verdict ? 1 : 0)
+    if (image) stepFracs.push(done.image && imgCorrect ? 1 : 0)
+    const stepShare = 100 / Math.max(1, stepFracs.length)
+    return Math.round(stepFracs.reduce((sum, f) => sum + f * stepShare, 0))
+  }
+
   // ── Share ──
   const [shared, setShared] = useState(false)
   async function share() {
     const date = new Date().toLocaleDateString('lt-LT', { timeZone: 'Europe/Vilnius', month: '2-digit', day: '2-digit' })
     const grid = qOutcomes.length ? qOutcomes.map(o => OUTCOME_EMOJI[o]).join('') : ''
+    const total = computeDailyTotal()
     const lines = [
       `⚡ music.lt Dienos iššūkis ${date}`,
       ...(grid ? [grid] : []),
-      `${sessionXp > 0 ? `+${sessionXp} tšk.` : ''}${streak.current > 1 ? ` · 🔥 ${streak.current} d. serija` : ''}`.trim(),
-      'https://music.lt/zaidimai/dienos',
+      `${total} iš 100${streak.current > 1 ? ` · 🔥 ${streak.current} d. serija` : ''}`.trim(),
+      'https://music.lt/zaidimai/dienos-issukis',
     ].filter(Boolean)
     try {
       if (navigator.share) await navigator.share({ text: lines.join('\n') })
@@ -367,7 +396,6 @@ export default function DienosClient(props: Props) {
     <ZaidimoLangas
       title="Dienos iššūkis"
       right={<>
-        {sessionXp > 0 && <span className="di-xp">⚡ +{sessionXp}</span>}
         {streak.current > 1 && <span className="di-streak">🔥 {streak.current} d.</span>}
       </>}
     >
@@ -399,7 +427,7 @@ export default function DienosClient(props: Props) {
             <div className="di-orient">
               <span className="di-orient-step">Dienos iššūkis</span>
               <h2 className="di-orient-title">{steps.length} užduotys — tas pats visiems</h2>
-              <p className="di-orient-sub">Rink taškus ir augink seriją. Kuo greičiau atsakai, tuo daugiau taškų.</p>
+              <p className="di-orient-sub">Atsakinėk greitai ir taikliai — pabaigoje gausi bendrą rezultatą iš 100. Grįžk kasdien ir augink seriją!</p>
               <ol className="di-orient-list">
                 {steps.map((s: any, i: number) => (
                   <li key={s.key} className={`${done[s.key as StepKey] ? 'done' : ''}${i === 0 ? ' first' : ''}`}>
@@ -421,7 +449,6 @@ export default function DienosClient(props: Props) {
               <div className="di-q-head">
                 <span className="di-q-n">{qIdx + 1} / {qRounds.length}</span>
                 {qCombo >= COMBO_MIN && <span className="di-combo">🔥 ×{qCombo}</span>}
-                <span className="di-q-score">⚡ {qScore}</span>
               </div>
               <div className="di-audio">
                 {qRound && !qRound.audioUrl && qPhase === 'round' && !ios && (
@@ -446,7 +473,7 @@ export default function DienosClient(props: Props) {
                   </>
                 ) : qRoundResult && (
                   <div className={`di-verdict-tag ${qRoundResult.correct ? 'ok' : 'bad'}`}>
-                    {qRoundResult.correct ? `+${qLastPoints} tšk.${qCombo >= COMBO_MIN ? ` 🔥×${qCombo}` : ''}` : qPicked === null ? 'Laikas baigėsi!' : 'Ne ta daina'}
+                    {qRoundResult.correct ? `Teisingai!${qCombo >= COMBO_MIN ? ` 🔥×${qCombo}` : ''}` : qPicked === null ? 'Laikas baigėsi!' : 'Ne ta daina'}
                   </div>
                 )}
               </div>
@@ -507,7 +534,7 @@ export default function DienosClient(props: Props) {
           <span className="di-stage-no">{steps.findIndex((s: any) => s.key === 'duel') + 1} iš {steps.length} · Dvikova</span>
           <h2 className="di-h2">⚔️ Kurią rinksis dauguma?</h2>
           {duel.blurb && <div className="di-duel-blurb">{duel.blurb}</div>}
-          <p className="di-note">Paspausk ▶ paklausyti. Atspėsi bendruomenės favoritą — <b>dvigubi taškai</b>.</p>
+          <p className="di-note">Paspausk ▶ paklausyti ir atspėk, kurią rinksis dauguma. Rezultatas paaiškės dienos gale.</p>
           <div className="di-duel">
             {(['A', 'B'] as const).map(tag => {
               const side: any = tag === 'A' ? duel.track_a : duel.track_b
@@ -555,7 +582,7 @@ export default function DienosClient(props: Props) {
         <div className="di-stage">
           <span className="di-stage-no">{steps.findIndex((s: any) => s.key === 'verdict') + 1} iš {steps.length} · Verdiktas</span>
           <h2 className="di-h2">🔮 Ar ši daina taps hitu?</h2>
-          <p className="di-note">Paklausyk ir nuspėk. Sutapsi su dauguma — <b>dvigubi taškai</b>.</p>
+          <p className="di-note">Paklausyk ir nuspėk daugumos nuomonę — ar sutapai, paaiškės dienos gale.</p>
           <div className="di-verdict-card">
             <div className="di-player small">
               {ytIdFrom(verdict.track.video_url) ? (
@@ -605,13 +632,13 @@ export default function DienosClient(props: Props) {
         <div className="di-stage">
           <span className="di-stage-no">{steps.findIndex((s: any) => s.key === 'image') + 1} iš {steps.length} · Vaizdas</span>
           <h2 className="di-h2">🖼️ Atspėk dainą iš vaizdo</h2>
-          <p className="di-note">Dirbtinis intelektas nupiešė dainą — atspėk kurią. Teisingas atsakymas — 80 taškų.</p>
+          <p className="di-note">Dirbtinis intelektas nupiešė dainą — atspėk kurią.</p>
           <div className="di-image-wrap">
             {/* eslint-disable-next-line @next/next/no-img-element */}
             <img src={image.image_url} alt="AI vaizdas pagal dainą" />
             {imgPick !== null && (
               <div className={`di-verdict-tag ${imgCorrect ? 'ok' : 'bad'}`}>
-                {imgCorrect ? 'Teisingai! +80 tšk.' : `Ne — tai ${image.correct.artist} „${image.correct.title}"`}
+                {imgCorrect ? 'Teisingai!' : `Ne — tai ${image.correct.artist} „${image.correct.title}"`}
               </div>
             )}
           </div>
@@ -642,40 +669,20 @@ export default function DienosClient(props: Props) {
           : null
         const rows: Array<{ icon: string; label: string; value: string; ok?: boolean }> = []
         // Kvizas — gyvai (qResult) arba iš išsaugoto rezultato (grįžus vėliau)
-        if (qResult) rows.push({ icon: '🎧', label: 'Atspėk 5 dainas', value: `${qResult.correctCount}/${qResult.roundCount} · ${qResult.score} tšk.` })
-        else if (props.quizPlayed) rows.push({ icon: '🎧', label: 'Atspėk 5 dainas', value: `${props.quizScore ?? 0} tšk.` })
+        if (qResult) rows.push({ icon: '🎧', label: 'Atspėk 5 dainas', value: `Atspėta ${qResult.correctCount}/${qResult.roundCount}`, ok: qResult.correctCount > 0 })
+        else if (props.quizPlayed) rows.push({ icon: '🎧', label: 'Atspėk 5 dainas', value: 'Atlikta ✓', ok: true })
         for (const g of props.activeExtras) {
           const er = extrasResult[g]
           if (!(er || props.extrasDone[g])) continue
-          const liveScore = er && !er.alreadyDone && typeof er.score === 'number' ? er.score : null
-          const storedScore = props.extrasScore?.[g]
-          const value = liveScore != null ? `${er.correctCount}/${er.roundCount} · ${er.score} tšk.`
-            : storedScore != null ? `${storedScore} tšk.` : 'Atlikta ✓'
-          rows.push({ icon: EXTRA_META[g].emoji, label: EXTRA_META[g].label, value })
+          const live = er && !er.alreadyDone && typeof er.correctCount === 'number' && typeof er.roundCount === 'number'
+          const value = live ? `Atspėta ${er.correctCount}/${er.roundCount}` : 'Atlikta ✓'
+          rows.push({ icon: EXTRA_META[g].emoji, label: EXTRA_META[g].label, value, ok: live ? er.correctCount > 0 : true })
         }
         if (duel && done.duel) rows.push({ icon: '⚔️', label: 'Dvikova', value: 'Balsuota ✓', ok: true })
         if (verdict && done.verdict) rows.push({ icon: '🔮', label: 'Hitas ar ne', value: 'Balsuota ✓', ok: true })
         if (image && done.image) rows.push({ icon: '🖼️', label: 'Atspėk iš vaizdo', value: imgCorrect ? 'Teisingai ✓' : 'Neatspėta', ok: !!imgCorrect })
 
-        // Bendras rezultatas — skalė 0–100, proporcingai iš VISŲ užduočių:
-        // kiekviena užduotis duoda vienodą dalį (100 / užduočių skaičius), o
-        // jos viduje surenki tiek, kiek atspėjai. Balsavimai (dvikova/verdiktas)
-        // — dalyvavimo dalis (rezultatas finalizuojasi dienos gale).
-        const KVIZ_MAX = 575, EXTRA_MAX = 300
-        const clamp01 = (n: number) => Math.max(0, Math.min(1, n))
-        const quizPts = qResult?.score ?? (props.quizPlayed ? (props.quizScore ?? 0) : 0)
-        const stepFracs: number[] = [clamp01(quizPts / KVIZ_MAX)]
-        for (const g of props.activeExtras) {
-          const er = extrasResult[g]
-          const live = er && !er.alreadyDone && typeof er.score === 'number' ? er.score : null
-          const pts = live ?? props.extrasScore?.[g] ?? 0
-          stepFracs.push(clamp01(pts / EXTRA_MAX))
-        }
-        if (duel) stepFracs.push(done.duel ? 1 : 0)
-        if (verdict) stepFracs.push(done.verdict ? 1 : 0)
-        if (image) stepFracs.push(done.image && imgCorrect ? 1 : 0)
-        const stepShare = 100 / Math.max(1, stepFracs.length)
-        const dailyTotal = Math.round(stepFracs.reduce((s, f) => s + f * stepShare, 0))
+        const dailyTotal = computeDailyTotal()
 
         return (
           <div className="di-summary">
@@ -828,7 +835,7 @@ function AlbumGameStep({ game, stepNo, stepTotal, onDone }: {
       <span className="di-stage-no">{stepNo} iš {stepTotal} · {game === 'metai' ? 'Kurie metai' : 'Vaizdas'}</span>
       <div className="di-ag-head">
         <h2 className="di-h2">{title}</h2>
-        <span className="di-ag-prog">{idx + 1}/{rounds.length} · ⚡ {score}</span>
+        <span className="di-ag-prog">{idx + 1}/{rounds.length}</span>
       </div>
 
       <div className="di-ag-imgwrap">
@@ -844,7 +851,7 @@ function AlbumGameStep({ game, stepNo, stepTotal, onDone }: {
         {phase === 'round' && <span className="di-ag-clock">{Math.ceil(timeLeft / 1000)}</span>}
         {phase === 'reveal' && rr && (
           <span className={`di-ag-tag ${rr.correct ? 'ok' : 'bad'}`}>
-            {rr.correct ? `+${rr.points}` : game === 'metai' ? `${rr.correctId} m.` : 'Ne!'}
+            {rr.correct ? 'Taip!' : game === 'metai' ? `${rr.correctId} m.` : 'Ne!'}
           </span>
         )}
       </div>
@@ -935,8 +942,6 @@ function SekundesGameStep({ stepNo, stepTotal, onDone }: { stepNo: number; stepT
     } catch { onDone({ score, correctCount: 0, roundCount: rounds.length }) }
   }
 
-  const potential = (Date.now() - startRef.current) <= 6000 ? 100 : (Date.now() - startRef.current) <= 13000 ? 60 : 30
-
   if (phase === 'load') return <div className="di-center"><div className="di-spinner" /></div>
   if (phase === 'error') return <div className="di-stage"><div className="di-error">{err} <button onClick={() => void load()}>Bandyti dar</button></div></div>
 
@@ -945,13 +950,13 @@ function SekundesGameStep({ stepNo, stepTotal, onDone }: { stepNo: number; stepT
       <span className="di-stage-no">{stepNo} iš {stepTotal} · Iš sekundės</span>
       <div className="di-ag-head">
         <h2 className="di-h2">⏱️ Kokia tai daina?</h2>
-        {phase !== 'ready' && <span className="di-ag-prog">{idx + 1}/{rounds.length} · ⚡ {score}</span>}
+        {phase !== 'ready' && <span className="di-ag-prog">{idx + 1}/{rounds.length}</span>}
       </div>
 
       {phase === 'ready' && (
         <div className="di-sek-intro">
           <p className="di-sek-intro-lead">Pradžioje skamba tik <b>1 sekundė</b>.</p>
-          <p className="di-sek-intro-sub">Atspėk kuo greičiau iš 4 variantų — kuo trumpiau klausai, tuo daugiau taškų. Neatpažįsti? Spausk <b>„Klausyti ilgiau"</b> (iki 9 sek.), bet taškų bus mažiau.</p>
+          <p className="di-sek-intro-sub">Atspėk kuo greičiau iš 4 variantų — kuo trumpiau klausai, tuo geresnis rezultatas. Neatpažįsti? Spausk <b>„Klausyti ilgiau"</b> (iki 9 sek.).</p>
           <button className="di-play-big" onClick={startPlaying}><svg width="24" height="24" viewBox="0 0 24 24" fill="currentColor"><path d="M8 5v14l11-7z" /></svg><span>Pradėti</span></button>
         </div>
       )}
@@ -960,11 +965,10 @@ function SekundesGameStep({ stepNo, stepTotal, onDone }: { stepNo: number; stepT
         {phase === 'round' ? (
           <>
             <div className={`di-eq${garsas.grojama ? '' : ' off'}`}>{Array.from({ length: 7 }).map((_, i) => <span key={i} style={{ animationDelay: `${i * 0.12}s` }} />)}</div>
-            <span className="di-sek-pot">verta {potential}</span>
             {stg < SEK_STAGES.length - 1 && <button className="di-sek-more" onClick={listenMore}>▶ Klausyti ilgiau ({SEK_STAGES[stg + 1] / 1000} s)</button>}
           </>
         ) : rr ? (
-          <div className={`di-ag-tag ${rr.correct ? 'ok' : 'bad'}`} style={{ position: 'static' }}>{rr.correct ? `+${rr.points}` : 'Ne ta daina'}</div>
+          <div className={`di-ag-tag ${rr.correct ? 'ok' : 'bad'}`} style={{ position: 'static' }}>{rr.correct ? 'Teisingai!' : 'Ne ta daina'}</div>
         ) : null}
       </div>}
 

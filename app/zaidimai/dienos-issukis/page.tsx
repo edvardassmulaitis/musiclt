@@ -1,11 +1,11 @@
-// app/zaidimai/dienos/page.tsx
+// app/zaidimai/dienos-issukis/page.tsx
 //
 // DIENOS IŠŠŪKIS — vienas jungiantis wizard'as (buvusio Boombox įpėdinis):
-//   1. Atspėk dainą (5 raundai, visiems tas pats, ×2 taškai)
+//   1. Atspėk dainą (5 raundai, visiems tas pats)
 //   2. Dienos dvikova
 //   3. Dienos verdiktas
 //   4. Atspėk iš AI vaizdo (kai admin'as įkėlęs — premium misija)
-//   → suvestinė su bendru taškų krepšiu ir serija.
+//   → suvestinė su bendru rezultatu (0–100) ir serija.
 //
 // Server'is atveža dienos turinį iš boombox eilės + viewer'io būseną.
 

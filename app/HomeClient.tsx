@@ -411,7 +411,7 @@ function BoomboxHomeWidget() {
 
   return (
     <Link
-      href="/zaidimai/dienos"
+      href="/zaidimai/dienos-issukis"
       className="block rounded-2xl border border-[var(--accent-orange)]/25 bg-gradient-to-br from-[var(--accent-orange)]/10 to-[var(--accent-blue)]/[0.06] p-4 text-[var(--text-primary)] no-underline transition-all hover:-translate-y-px"
     >
       <div className="mb-2.5 flex h-8 items-end gap-1">

@@ -255,7 +255,7 @@ export default function KvizasClient() {
         <div className="kv-pick">
           {error && <div className="kv-error">{error}</div>}
 
-          <Link href="/zaidimai/dienos" className={`kv-daily${dailyPlayed ? ' played' : ''}`}>
+          <Link href="/zaidimai/dienos-issukis" className={`kv-daily${dailyPlayed ? ' played' : ''}`}>
             <span className="kv-daily-badge">⚡ DIENOS IŠŠŪKIS</span>
             <span className="kv-daily-title">Dvigubi taškai — kartą per dieną</span>
             <span className="kv-daily-sub">{dailyPlayed ? 'Šiandien jau įveikta ✓' : 'Tas pats kvizas visiems →'}</span>

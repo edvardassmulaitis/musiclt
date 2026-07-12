@@ -58,7 +58,9 @@ const nextConfig = {
       { source: '/zanrai/:slug', destination: '/muzikos-stilius/:slug', permanent: true },
       // Boombox išskaidytas į „Dienos iššūkį" (2026-07-06, testuotojo feedback:
       // pavadinimas neaiškus). Ne permanent — jei kada grįžtų atskiras puslapis.
-      { source: '/boombox', destination: '/zaidimai/dienos', permanent: false },
+      { source: '/boombox', destination: '/zaidimai/dienos-issukis', permanent: false },
+      // Dienos iššūkio URL patikslintas (2026-07-12): /dienos → /dienos-issukis
+      { source: '/zaidimai/dienos', destination: '/zaidimai/dienos-issukis', permanent: true },
     ]
   },
 }

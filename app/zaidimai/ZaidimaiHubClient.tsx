@@ -69,7 +69,7 @@ export default function ZaidimaiHubClient({ isAuthenticated, streak, totalXp, da
 
       <div className="dg-grid">
         {/* Žinios — Dienos iššūkis (vienas flow → tiesiai) */}
-        <Link href="/zaidimai/dienos" className="dg-box b-zinios">
+        <Link href="/zaidimai/dienos-issukis" className="dg-box b-zinios">
           <div className="dg-ico">🧠</div>
           <div className="dg-ttl">Žinios{daily.allDone && <span className="dg-badge ok">✓ ĮVEIKTA</span>}</div>
           <div className="dg-desc">Kasdienis iššūkis — atspėk dainas, vaizdus, metus. Tas pats visiems.</div>
