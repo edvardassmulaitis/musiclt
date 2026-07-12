@@ -898,17 +898,59 @@ function spiralCoords(n: number): [number, number][] {
   return out
 }
 
+/** Iškili gaubtinė (monotone chain) — kontinento kontūrui. */
+function hullOf(points: [number, number][]): [number, number][] {
+  const pts = [...points].sort((a, b) => a[0] - b[0] || a[1] - b[1])
+  if (pts.length < 3) return pts
+  const cross = (o: number[], a: number[], b: number[]) => (a[0] - o[0]) * (b[1] - o[1]) - (a[1] - o[1]) * (b[0] - o[0])
+  const lower: [number, number][] = []
+  for (const p of pts) { while (lower.length >= 2 && cross(lower[lower.length - 2], lower[lower.length - 1], p) <= 0) lower.pop(); lower.push(p) }
+  const upper: [number, number][] = []
+  for (const p of [...pts].reverse()) { while (upper.length >= 2 && cross(upper[upper.length - 2], upper[upper.length - 1], p) <= 0) upper.pop(); upper.push(p) }
+  return [...lower.slice(0, -1), ...upper.slice(0, -1)]
+}
+
+/** Organiška pakrantė: hull + netolygus išplėtimas + suapvalinti kampai. */
+function coastPath(points: [number, number][], pad: number, seed: number): string {
+  if (points.length < 3) return ''
+  const cx = points.reduce((s, p) => s + p[0], 0) / points.length
+  const cy = points.reduce((s, p) => s + p[1], 0) / points.length
+  const h = hullOf(points)
+  if (h.length < 3) return ''
+  const exp = h.map(([x, y], i) => {
+    const dx = x - cx, dy = y - cy
+    const d = Math.hypot(dx, dy) || 1
+    const p = pad * (1 + 0.28 * Math.sin(i * 2.9 + seed) + 0.14 * Math.cos(i * 5.3 + seed * 1.7))
+    return [x + (dx / d) * p, y + (dy / d) * p] as [number, number]
+  })
+  const n = exp.length
+  const mid = (a: [number, number], b: [number, number]) => [(a[0] + b[0]) / 2, (a[1] + b[1]) / 2]
+  let m = mid(exp[n - 1], exp[0])
+  let d = `M ${m[0].toFixed(1)} ${m[1].toFixed(1)} `
+  for (let i = 0; i < n; i++) {
+    const mm = mid(exp[i], exp[(i + 1) % n])
+    d += `Q ${exp[i][0].toFixed(1)} ${exp[i][1].toFixed(1)} ${mm[0].toFixed(1)} ${mm[1].toFixed(1)} `
+  }
+  return d + 'Z'
+}
+
 function MapWorld({ regions, edges, onPick }: {
   regions: { genreId: number; name: string; substyles: SubStyle[] }[]
   edges: { a: number; b: number; t: string }[]
   onPick: (s: SubStyle) => void
 }) {
   const R = 13, HW = R * 1.732
+  const AR = WORLD_H / WORLD_W
 
   const layout = useMemo(() => {
     const cells: { s: SubStyle; k: string; x: number; y: number; hue: string; lvl: number }[] = []
     const pos = new Map<number, [number, number]>()
-    const labels: { name: string; x: number; y: number; cy: number; rad: number; hue: string; act: number; tot: number }[] = []
+    const isles: {
+      name: string; hue: string; act: number; tot: number
+      lx: number; ly: number; coast: string
+      bbox: { x: number; y: number; w: number; h: number }
+    }[] = []
+    let seedN = 1
     for (const rg of regions) {
       const [cx, cy] = REGION_POS[rg.name] || [WORLD_W / 2, WORLD_H / 2]
       const hue = REGION_HUES[rg.name] || '#94a3b8'
@@ -916,48 +958,84 @@ function MapWorld({ regions, edges, onPick }: {
         (b.beacons + b.visited * 3 + b.saved * 5 + (b.heard ? 1 : 0)) -
         (a.beacons + a.visited * 3 + a.saved * 5 + (a.heard ? 1 : 0)))
       const coords = spiralCoords(sorted.length)
-      let minY = cy
+      const rpts: [number, number][] = []
+      let minY = cy, minX = cx, maxX = cx, maxY = cy
       sorted.forEach((s, i) => {
         const [q, rr] = coords[i]
         const x = cx + HW * (q + rr / 2)
         const y = cy + R * 1.5 * rr
-        if (y < minY) minY = y
+        minY = Math.min(minY, y); minX = Math.min(minX, x); maxX = Math.max(maxX, x); maxY = Math.max(maxY, y)
         const k = s.saved ? 'saved' : s.visited ? 'visited' : s.beacons ? 'beacon' : s.heard ? 'heard' : 'fog'
-        // gylis: vienas atlikėjas NEuždengia stiliaus — intensyvumas auga su pažinimu
         const lvl = Math.min(1, (s.beacons + s.visited * 2 + s.saved * 3) / 6)
         cells.push({ s, k, x, y, hue, lvl })
         pos.set(s.id, [x, y])
+        rpts.push([x, y])
       })
-      const rings = Math.max(1, Math.ceil((-3 + Math.sqrt(9 + 12 * Math.max(0, sorted.length - 1))) / 6) + 1)
-      labels.push({
-        name: rg.name, x: cx, y: minY - 22, cy, rad: R * 1.6 * (rings + 0.6), hue,
+      isles.push({
+        name: rg.name, hue,
         act: rg.substyles.filter(s => s.beacons || s.visited || s.saved).length,
         tot: rg.substyles.length,
+        lx: cx, ly: minY - 30,
+        coast: coastPath(rpts, 30, seedN * 3.7),
+        bbox: { x: minX - 60, y: minY - 74, w: (maxX - minX) + 120, h: (maxY - minY) + 140 },
       })
+      seedN++
     }
-    return { cells, pos, labels }
+    return { cells, pos, isles }
   }, [regions, HW])
 
   const [vb, setVb] = useState({ x: 0, y: 0, w: WORLD_W })
+  const vbRef = useRef(vb)
+  useEffect(() => { vbRef.current = vb }, [vb])
+  const animRef = useRef(0)
   const svgRef = useRef<SVGSVGElement | null>(null)
   const drag = useRef<{ px: number; py: number; vx: number; vy: number; moved: number } | null>(null)
   const suppressClick = useRef(false)
 
-  function zoomAt(f: number, cx?: number, cy?: number) {
-    setVb(v => {
-      const w = Math.min(WORLD_W * 1.2, Math.max(240, v.w * f))
-      const ax = cx ?? v.x + v.w / 2
-      const ay = cy ?? v.y + (v.w * WORLD_H / WORLD_W) / 2
-      const kx = (ax - v.x) / v.w
-      const ky = (ay - v.y) / (v.w * WORLD_H / WORLD_W)
-      return { x: ax - w * kx, y: ay - (w * WORLD_H / WORLD_W) * ky, w }
-    })
+  const flyTo = useCallback((t: { x: number; y: number; w: number }, dur = 700) => {
+    cancelAnimationFrame(animRef.current)
+    const reduced = typeof window !== 'undefined' && window.matchMedia?.('(prefers-reduced-motion: reduce)').matches
+    if (reduced || dur <= 0) { setVb(t); return }
+    const s = { ...vbRef.current }
+    const t0 = performance.now()
+    const step = (now: number) => {
+      const k = Math.min(1, (now - t0) / dur)
+      const e = 1 - Math.pow(1 - k, 3)
+      setVb({ x: s.x + (t.x - s.x) * e, y: s.y + (t.y - s.y) * e, w: s.w + (t.w - s.w) * e })
+      if (k < 1) animRef.current = requestAnimationFrame(step)
+    }
+    animRef.current = requestAnimationFrame(step)
+  }, [])
+
+  // Įplaukimas: iš toli → visas pasaulis
+  useEffect(() => {
+    setVb({ x: -300, y: -220, w: 1800 })
+    const id = window.setTimeout(() => flyTo({ x: 0, y: 0, w: WORLD_W }, 1000), 80)
+    return () => { clearTimeout(id); cancelAnimationFrame(animRef.current) }
+  }, [flyTo])
+
+  function zoomAt(f: number, cx?: number, cy?: number, animate = true) {
+    const v = vbRef.current
+    const w = Math.min(WORLD_W * 1.3, Math.max(200, v.w * f))
+    const ax = cx ?? v.x + v.w / 2
+    const ay = cy ?? v.y + (v.w * AR) / 2
+    const kx = (ax - v.x) / v.w
+    const ky = (ay - v.y) / (v.w * AR)
+    const t = { x: ax - w * kx, y: ay - (w * AR) * ky, w }
+    if (animate) flyTo(t, 300)
+    else { cancelAnimationFrame(animRef.current); setVb(t) }
   }
   function svgPoint(e: { clientX: number; clientY: number }): [number, number] {
     const el = svgRef.current
-    if (!el) return [vb.x + vb.w / 2, vb.y + vb.w / 2]
+    const v = vbRef.current
+    if (!el) return [v.x + v.w / 2, v.y + v.w / 2]
     const r = el.getBoundingClientRect()
-    return [vb.x + ((e.clientX - r.left) / r.width) * vb.w, vb.y + ((e.clientY - r.top) / r.height) * (vb.w * WORLD_H / WORLD_W)]
+    return [v.x + ((e.clientX - r.left) / r.width) * v.w, v.y + ((e.clientY - r.top) / r.height) * (v.w * AR)]
+  }
+  function flyToIsle(isle: { bbox: { x: number; y: number; w: number; h: number } }) {
+    const b = isle.bbox
+    const w = Math.max(b.w, b.h / AR, 260)
+    flyTo({ x: b.x + b.w / 2 - w / 2, y: b.y + b.h / 2 - (w * AR) / 2, w }, 750)
   }
 
   function hexPts(cx: number, cy: number): string {
@@ -971,33 +1049,40 @@ function MapWorld({ regions, edges, onPick }: {
 
   const SEA = '#141a26'
   const fillFor = (k: string, hue: string, lvl: number) => {
-    const pct = Math.round(20 + 58 * lvl)   // gylis: blyškus → sodrus
+    const pct = Math.round(20 + 58 * lvl)
     return k === 'saved' ? 'var(--accent-orange)'
       : k === 'visited' ? `color-mix(in srgb, var(--accent-green) ${pct}%, ${SEA})`
         : k === 'beacon' ? `color-mix(in srgb, var(--accent-orange) ${pct}%, ${SEA})`
           : k === 'heard' ? 'rgba(140,160,190,0.28)'
-            : `color-mix(in srgb, ${hue} 13%, ${SEA})`
+            : `color-mix(in srgb, ${hue} 15%, #1b2333)`
   }
   const strokeFor = (k: string, hue: string) =>
     k === 'saved' || k === 'beacon' ? 'color-mix(in srgb, var(--accent-orange) 70%, transparent)'
       : k === 'visited' ? 'color-mix(in srgb, var(--accent-green) 70%, transparent)'
         : k === 'heard' ? 'rgba(140,160,190,0.5)'
-          : `color-mix(in srgb, ${hue} 30%, transparent)`
+          : `color-mix(in srgb, ${hue} 26%, transparent)`
+
+  // Semantinis zoom: priartinus atsiranda stilių pavadinimai
+  const vh = vb.w * AR
+  const inView = (x: number, y: number) => x > vb.x - 30 && x < vb.x + vb.w + 30 && y > vb.y - 30 && y < vb.y + vh + 30
+  const showActiveNames = vb.w < 620
+  const showAllNames = vb.w < 330
 
   return (
     <div className="g-world">
       <div className="g-worldbtns">
-        <button onClick={() => zoomAt(0.72)} type="button" aria-label="Priartinti">+</button>
-        <button onClick={() => zoomAt(1.38)} type="button" aria-label="Atitolinti">−</button>
-        <button onClick={() => setVb({ x: 0, y: 0, w: WORLD_W })} type="button" aria-label="Visas žemėlapis">⌂</button>
+        <button onClick={() => zoomAt(0.7)} type="button" aria-label="Priartinti">+</button>
+        <button onClick={() => zoomAt(1.42)} type="button" aria-label="Atitolinti">−</button>
+        <button onClick={() => flyTo({ x: 0, y: 0, w: WORLD_W }, 600)} type="button" aria-label="Visas žemėlapis">⌂</button>
       </div>
       <svg
         ref={svgRef}
-        viewBox={`${vb.x} ${vb.y} ${vb.w} ${(vb.w * WORLD_H / WORLD_W)}`}
+        viewBox={`${vb.x} ${vb.y} ${vb.w} ${vh}`}
         className="g-worldsvg"
-        onWheel={e => zoomAt(e.deltaY > 0 ? 1.12 : 0.89, ...svgPoint(e))}
+        onWheel={e => zoomAt(e.deltaY > 0 ? 1.1 : 0.9, ...svgPoint(e), false)}
         onPointerDown={e => {
-          drag.current = { px: e.clientX, py: e.clientY, vx: vb.x, vy: vb.y, moved: 0 }
+          cancelAnimationFrame(animRef.current)
+          drag.current = { px: e.clientX, py: e.clientY, vx: vbRef.current.x, vy: vbRef.current.y, moved: 0 }
           ;(e.target as Element).setPointerCapture?.(e.pointerId)
         }}
         onPointerMove={e => {
@@ -1020,37 +1105,75 @@ function MapWorld({ regions, edges, onPick }: {
           <filter id="gsavglow" x="-80%" y="-80%" width="260%" height="260%">
             <feDropShadow dx="0" dy="0" stdDeviation="5" floodColor="#f97316" floodOpacity="0.8" />
           </filter>
-          {layout.labels.map(l => (
+          <radialGradient id="gsea1">
+            <stop offset="0%" stopColor="#27334d" stopOpacity="0.5" />
+            <stop offset="100%" stopColor="#27334d" stopOpacity="0" />
+          </radialGradient>
+          <radialGradient id="gsea2">
+            <stop offset="0%" stopColor="#1f3a3f" stopOpacity="0.4" />
+            <stop offset="100%" stopColor="#1f3a3f" stopOpacity="0" />
+          </radialGradient>
+          {layout.isles.map(l => (
             <radialGradient key={l.name} id={`grg-${l.name.replace(/[^a-z]/gi, '')}`}>
-              <stop offset="0%" stopColor={l.hue} stopOpacity="0.16" />
-              <stop offset="70%" stopColor={l.hue} stopOpacity="0.07" />
-              <stop offset="100%" stopColor={l.hue} stopOpacity="0" />
+              <stop offset="0%" stopColor={l.hue} stopOpacity="0.20" />
+              <stop offset="72%" stopColor={l.hue} stopOpacity="0.08" />
+              <stop offset="100%" stopColor={l.hue} stopOpacity="0.03" />
             </radialGradient>
           ))}
         </defs>
-        {layout.labels.map(l => (
-          <circle key={`isl-${l.name}`} cx={l.x} cy={l.cy} r={l.rad * 1.5} fill={`url(#grg-${l.name.replace(/[^a-z]/gi, '')})`} />
+
+        {/* gyvas vanduo */}
+        <g className="g-seadrift1"><circle cx={340} cy={240} r={420} fill="url(#gsea1)" /></g>
+        <g className="g-seadrift2"><circle cx={880} cy={620} r={480} fill="url(#gsea2)" /></g>
+
+        {/* kontinentai su pakrantėm */}
+        {layout.isles.map(l => (
+          <g key={`isl-${l.name}`} className="g-isle" onClick={() => { if (!suppressClick.current) flyToIsle(l) }}>
+            <path d={l.coast} fill={`url(#grg-${l.name.replace(/[^a-z]/gi, '')})`}
+              stroke={`color-mix(in srgb, ${l.hue} 45%, transparent)`} strokeWidth={2} />
+            <path d={l.coast} fill="none" stroke={`color-mix(in srgb, ${l.hue} 18%, transparent)`} strokeWidth={7} className="g-shore" />
+          </g>
         ))}
+
+        {/* kelionių linijos (piešiasi animuotai) */}
         {edges.map((e2, i) => {
           const A = layout.pos.get(e2.a), B = layout.pos.get(e2.b)
           if (!A || !B) return null
           const mx = (A[0] + B[0]) / 2 + (B[1] - A[1]) * 0.16
           const my = (A[1] + B[1]) / 2 + (A[0] - B[0]) * 0.16
           return <path key={i} d={`M ${A[0]} ${A[1]} Q ${mx} ${my} ${B[0]} ${B[1]}`}
+            className="g-edge" pathLength={1}
+            style={{ animationDelay: `${0.9 + i * 0.12}s` }}
             fill="none" stroke={DOOR_COLORS[e2.t] || 'var(--accent-orange)'} strokeWidth={2.6}
-            strokeLinecap="round" opacity={0.55} />
+            strokeLinecap="round" opacity={0.6} />
         })}
-        {layout.cells.map(c => (
-          <g key={c.s.id} className="g-wx" onClick={() => { if (!suppressClick.current) onPick(c.s) }} role="button">
+
+        {/* stilių koriai */}
+        {layout.cells.map((c, ci) => (
+          <g key={c.s.id} className={`g-wx ${c.k}`} onClick={() => { if (!suppressClick.current) onPick(c.s) }} role="button">
             <title>{c.s.name}</title>
             <polygon points={hexPts(c.x, c.y)}
               filter={c.k === 'saved' ? 'url(#gsavglow)' : undefined}
-              style={{ fill: fillFor(c.k, c.hue, c.lvl), stroke: strokeFor(c.k, c.hue), strokeWidth: 0.9 }} />
+              style={{ fill: fillFor(c.k, c.hue, c.lvl), stroke: strokeFor(c.k, c.hue), strokeWidth: 0.9, animationDelay: `${(ci % 9) * 0.42}s` }} />
             {c.k === 'saved' && <text x={c.x} y={c.y + 3.5} textAnchor="middle" className="g-hexstar">★</text>}
           </g>
         ))}
-        {layout.labels.map(l => (
-          <text key={l.name} x={l.x} y={l.y} textAnchor="middle" className="g-wlabel" style={{ fill: l.hue }}>
+
+        {/* semantinis zoom: pavadinimai */}
+        {showActiveNames && layout.cells
+          .filter(c => (showAllNames || c.k !== 'fog') && inView(c.x, c.y))
+          .slice(0, 110)
+          .map(c => (
+            <text key={`nm-${c.s.id}`} x={c.x} y={c.y + R + 8.5} textAnchor="middle" className="g-wname"
+              onClick={() => { if (!suppressClick.current) onPick(c.s) }}>
+              {c.s.name.length > 18 ? c.s.name.slice(0, 17) + '…' : c.s.name}
+            </text>
+          ))}
+
+        {/* kontinentų vardai */}
+        {layout.isles.map(l => (
+          <text key={l.name} x={l.lx} y={l.ly} textAnchor="middle" className="g-wlabel"
+            style={{ fill: l.hue }} onClick={() => { if (!suppressClick.current) flyToIsle(l) }}>
             {l.name} <tspan className="g-wlabelct">paliesta {l.act}/{l.tot}</tspan>
           </text>
         ))}
@@ -1310,6 +1433,19 @@ const css = `
 .g-worldsvg:active { cursor: grabbing; }
 .g-wx polygon { transition: stroke-width 0.12s ease; }
 .g-wx:hover polygon { stroke-width: 2.2 !important; }
+.g-wx.beacon polygon { animation: gtwk 3.6s ease-in-out infinite; }
+@keyframes gtwk { 0%, 100% { opacity: 1; } 50% { opacity: 0.62; } }
+.g-isle { cursor: pointer; }
+.g-shore { opacity: 0.5; }
+.g-isle:hover .g-shore { opacity: 1; }
+.g-edge { stroke-dasharray: 1; stroke-dashoffset: 1; animation: gedge 1.2s ease forwards; }
+@keyframes gedge { to { stroke-dashoffset: 0; } }
+.g-wname { font-size: 8.5px; font-weight: 700; fill: #c6d2e4; paint-order: stroke; stroke: #141a26; stroke-width: 2.4px; cursor: pointer; }
+.g-seadrift1 { animation: gsead1 34s ease-in-out infinite alternate; }
+.g-seadrift2 { animation: gsead2 41s ease-in-out infinite alternate; }
+@keyframes gsead1 { from { transform: translate(0, 0); } to { transform: translate(160px, 70px); } }
+@keyframes gsead2 { from { transform: translate(0, 0); } to { transform: translate(-140px, -60px); } }
+@media (prefers-reduced-motion: reduce) { .g-wx.beacon polygon, .g-seadrift1, .g-seadrift2 { animation: none; } .g-edge { stroke-dasharray: none; animation: none; } }
 .g-worldbtns { position: absolute; top: 10px; right: 10px; z-index: 5; display: flex; flex-direction: column; gap: 6px; }
 .g-worldbtns button { width: 36px; height: 36px; border-radius: 10px; border: 1px solid rgba(140,160,190,0.3); background: var(--bg-elevated); color: var(--text-primary); font-size: 17px; font-weight: 800; cursor: pointer; box-shadow: 0 3px 10px rgba(0,0,0,0.2); }
 .g-wx { cursor: pointer; }
