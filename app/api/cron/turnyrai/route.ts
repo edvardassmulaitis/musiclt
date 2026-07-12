@@ -16,6 +16,7 @@ import { NextResponse } from 'next/server'
 import { createAdminClient } from '@/lib/supabase'
 import { authorizeCron } from '@/lib/cron-auth'
 import { resolveFinishedDuels, publishTodayDuel } from '@/lib/tournament-resolver'
+import { refreshStalePending } from '@/lib/tournament-db'
 
 export const dynamic = 'force-dynamic'
 export const maxDuration = 60
@@ -28,11 +29,20 @@ export async function GET(req: Request) {
   try {
     const resolveResult = await resolveFinishedDuels(sb)
     const publishResult = await publishTodayDuel(sb)
+
+    // Pending turnyrų atšviežinimas: stilių/erų duomenys keičiasi, tad dar
+    // nestartavę turnyrai po truputį pergeneruojami iš naujausių duomenų
+    // (po 3 per paleidimą, seniausiai atnaujinti pirmi → visa eilė ~3-4 d.).
+    // Best-effort: nesėkmė nestabdo resolve/publish rezultato.
+    let refreshed: any[] = []
+    try { refreshed = await refreshStalePending(sb, 3) } catch { /* kitą kartą */ }
+
     return NextResponse.json({
       ok: true,
       resolved: resolveResult.resolved.length,
       champions: resolveResult.champions,
       publish: publishResult,
+      refreshed: refreshed.map(r => ({ title: r.title, changed: r.changed })),
     })
   } catch (e: any) {
     console.error('[cron/turnyrai]', e)

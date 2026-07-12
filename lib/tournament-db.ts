@@ -186,12 +186,9 @@ export async function rebuildTournament(sb: SupabaseClient, tournamentId: number
     .eq('id', tournamentId).single()
   if (te || !t) throw new Error('Turnyras nerastas')
 
-  const { count, error: ce } = await sb.from('boombox_tournament_matches')
-    .select('id', { count: 'exact', head: true })
-    .eq('tournament_id', tournamentId)
-    .not('winner_track_id', 'is', null)
-  if (ce) throw ce
-  if ((count ?? 0) > 0) throw new Error('Turnyre jau yra išspręstų matų — pergeneruoti negalima')
+  if (await tournamentTouched(sb, tournamentId)) {
+    throw new Error('Turnyras jau startavęs (yra išspręstų ar paskelbtų matų) — pergeneruoti negalima')
+  }
 
   const groups = groupsForStyle(t.genre_id, t.scope as Scope)
   const group = groups.find(g => g.key === (t.group_key ?? ''))
@@ -218,4 +215,101 @@ export async function rebuildTournament(sb: SupabaseClient, tournamentId: number
   if (me) throw me
 
   return { size, entrants }
+}
+
+/** Ar turnyras „paliestas" — turi išspręstų ARBA jau paskelbtų (gyvų) matų? */
+export async function tournamentTouched(sb: SupabaseClient, tournamentId: number): Promise<boolean> {
+  const { count, error } = await sb.from('boombox_tournament_matches')
+    .select('id', { count: 'exact', head: true })
+    .eq('tournament_id', tournamentId)
+    .or('winner_track_id.not.is.null,duel_drop_id.not.is.null')
+  if (error) throw error
+  return (count ?? 0) > 0
+}
+
+/**
+ * TAŠKINIS keitimas startavusiam turnyrui: pašalinta daina pakeičiama kita
+ * (geriausia dar nedalyvaujančia) TOJE PAČIOJE bracket'o vietoje — jau
+ * nubalsuoti matai nepaliečiami. Šiandienos gyvo mato (paskelbto, bet dar
+ * neišspręsto) keisti negalima — balsai jau renkami.
+ */
+export async function replaceTrackInPlace(
+  sb: SupabaseClient, tournamentId: number, trackId: number,
+): Promise<{ newTrack: Candidate; slots: number }> {
+  const { data: t, error: te } = await sb.from('boombox_tournaments')
+    .select('id,genre_id,scope,group_key').eq('id', tournamentId).single()
+  if (te || !t) throw new Error('Turnyras nerastas')
+
+  const { data: ms, error: me } = await sb.from('boombox_tournament_matches')
+    .select('id,round,slot,track_a_id,track_b_id,winner_track_id,duel_drop_id')
+    .eq('tournament_id', tournamentId)
+  if (me) throw me
+
+  const targets = (ms ?? []).filter(m =>
+    m.winner_track_id == null && (m.track_a_id === trackId || m.track_b_id === trackId))
+  if (!targets.length) throw new Error('Daina neturi neišspręstų matų šiame turnyre (jau iškritusi arba matai baigti)')
+  if (targets.some(m => m.duel_drop_id != null)) {
+    throw new Error('Ši daina yra šiandienos GYVOJE dvikovoje — balsai jau renkami, keisti galima nuo rytojaus')
+  }
+
+  const groups = groupsForStyle(t.genre_id, t.scope as Scope)
+  const group = groups.find(g => g.key === (t.group_key ?? ''))
+  if (!group) throw new Error(`Nerasta grupės konfigūracija: ${t.scope}/${t.genre_id}/${t.group_key}`)
+
+  const participants = new Set<number>()
+  for (const m of ms ?? []) {
+    if (m.track_a_id) participants.add(m.track_a_id)
+    if (m.track_b_id) participants.add(m.track_b_id)
+  }
+  const cands = await candidatesForSpec(sb, { genreId: t.genre_id, scope: t.scope as Scope, group })
+  const next = cands.find(c => !participants.has(c.trackId))
+  if (!next) throw new Error('Nėra tinkamo pakaitalo (visi kandidatai jau dalyvauja)')
+
+  for (const m of targets) {
+    const side = m.track_a_id === trackId ? 'track_a_id' : 'track_b_id'
+    const { error } = await sb.from('boombox_tournament_matches')
+      .update({ [side]: next.trackId }).eq('id', m.id)
+    if (error) throw error
+  }
+  await sb.from('boombox_tournaments')
+    .update({ updated_at: new Date().toISOString() }).eq('id', tournamentId)
+  return { newTrack: next, slots: targets.length }
+}
+
+/**
+ * PENDING turnyrų atšviežinimas: stilių/substilių/erų duomenys keičiasi, tad
+ * dar nestartavę turnyrai periodiškai pergeneruojami iš naujausių duomenų.
+ * Po `limit` seniausiai atnaujintų per iškvietimą (cron'as sukasi 3×/parą —
+ * visa eilė atsišviežina per ~2-3 paras, netelpant į maxDuration limitą).
+ */
+export async function refreshStalePending(
+  sb: SupabaseClient, limit = 4,
+): Promise<Array<{ id: number; title: string; size: number; changed: boolean }>> {
+  const { data: ts, error } = await sb.from('boombox_tournaments')
+    .select('id,title,size')
+    .eq('status', 'pending')
+    .order('updated_at', { ascending: true })
+    .limit(limit)
+  if (error) throw error
+  const out: Array<{ id: number; title: string; size: number; changed: boolean }> = []
+  for (const t of ts ?? []) {
+    try {
+      if (await tournamentTouched(sb, t.id)) continue  // apsauga nuo lenktynių
+      const before = await participantsSignature(sb, t.id)
+      const r = await rebuildTournament(sb, t.id)
+      const after = await participantsSignature(sb, t.id)
+      out.push({ id: t.id, title: t.title, size: r.size, changed: before !== after })
+    } catch (e: any) {
+      out.push({ id: t.id, title: t.title, size: t.size, changed: false })
+    }
+  }
+  return out
+}
+
+/** Dalyvių „parašas" — pigiam „ar kas nors pasikeitė?" palyginimui. */
+async function participantsSignature(sb: SupabaseClient, tournamentId: number): Promise<string> {
+  const { data } = await sb.from('boombox_tournament_matches')
+    .select('track_a_id,track_b_id').eq('tournament_id', tournamentId).eq('round', 1)
+    .order('slot')
+  return (data ?? []).map(m => `${m.track_a_id}/${m.track_b_id}`).join(',')
 }

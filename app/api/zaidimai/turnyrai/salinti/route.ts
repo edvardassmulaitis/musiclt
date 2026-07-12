@@ -4,15 +4,16 @@
 //   POST { raktas, trackId }
 //   * raktas turi sutapti su TOURNAMENT_PEEK_KEY (kaip peek puslapyje)
 //   * daina įrašoma į boombox_tournament_exclusions (nebegrįš niekada)
-//   * turnyras(-ai), kuriuose ji dalyvavo, pergeneruojami — į vietą ateina
-//     kita to paties atlikėjo populiariausia daina arba kitas atlikėjas
-//   * saugiklis: jei turnyre jau yra balsavimu išspręstų matų — 409
+//   * NESTARTAVĘS turnyras pergeneruojamas visas; STARTAVĘS (yra balsų ar
+//     paskelbtų matų) — TAŠKINIS keitimas: pakaitalas įstatomas į tą pačią
+//     vietą, nubalsuoti matai nepaliečiami. Gyvos (šiandien balsuojamos)
+//     dvikovos keisti negalima — nuo rytojaus.
 //
-// Atsakas: { ok, rebuilt: [{ tournamentId, title, size }] }
+// Atsakas: { ok, rebuilt: [{ tournamentId, title, mode, size?, newTrack? }] }
 
 import { NextRequest, NextResponse } from 'next/server'
 import { createAdminClient } from '@/lib/supabase'
-import { rebuildTournament } from '@/lib/tournament-db'
+import { rebuildTournament, replaceTrackInPlace, tournamentTouched } from '@/lib/tournament-db'
 
 export const dynamic = 'force-dynamic'
 export const maxDuration = 60
@@ -44,14 +45,21 @@ export async function POST(req: NextRequest) {
     .upsert({ track_id: trackId, reason: body?.reason ?? 'peek-ui' }, { onConflict: 'track_id' })
   if (ee) return NextResponse.json({ error: ee.message }, { status: 500 })
 
-  const rebuilt: Array<{ tournamentId: number; title: string; size: number }> = []
+  const rebuilt: Array<{ tournamentId: number; title: string; mode: string; size?: number; newTrack?: string }> = []
   for (const tid of tournamentIds) {
     try {
-      const r = await rebuildTournament(sb, tid)
-      const { data: t } = await sb.from('boombox_tournaments').select('title').eq('id', tid).single()
-      rebuilt.push({ tournamentId: tid, title: t?.title ?? '', size: r.size })
+      const { data: t } = await sb.from('boombox_tournaments').select('title,status').eq('id', tid).single()
+      if (t?.status === 'done') { rebuilt.push({ tournamentId: tid, title: t.title, mode: 'baigtas — neliestas' }); continue }
+      if (await tournamentTouched(sb, tid)) {
+        // Startavęs → taškinis keitimas toje pačioje vietoje
+        const r = await replaceTrackInPlace(sb, tid, trackId)
+        rebuilt.push({ tournamentId: tid, title: t?.title ?? '', mode: 'taškinis keitimas', newTrack: `${r.newTrack.artist} — ${r.newTrack.title}` })
+      } else {
+        const r = await rebuildTournament(sb, tid)
+        rebuilt.push({ tournamentId: tid, title: t?.title ?? '', mode: 'pergeneruotas', size: r.size })
+      }
     } catch (e: any) {
-      return NextResponse.json({ error: `Turnyro #${tid} pergeneruoti nepavyko: ${e.message}` }, { status: 409 })
+      return NextResponse.json({ error: `Turnyro #${tid} sutvarkyti nepavyko: ${e.message}` }, { status: 409 })
     }
   }
 
