@@ -45,6 +45,7 @@ export type BoxAlbum = {
   ytId: string | null
   previewTitle: string | null
   tracks?: TrackRef[]
+  blurb?: string | null      // trumpas AI/redakcinis albumo pristatymas (pildoma po generavimo)
   genreIds: number[]
   substyleIds: number[]
   country: string | null

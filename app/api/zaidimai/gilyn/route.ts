@@ -18,6 +18,7 @@ import {
   BOX_SIZE, DIG_STEPS, GILYN_XP_FINISH, GILYN_XP_NEW_NODE,
   ensureDayBox, personalOrder, fetchViewerLikes, computeBoxStatuses,
   generateDoors, upsertMapNode, communityStats, enrichBoxTracks, fetchAlbumTracklists, artistNodeInfo,
+  loadTaxonomy, shortGenreName,
   type BoxAlbum, type Door, type PathNode,
 } from '@/lib/gilyn'
 
@@ -105,7 +106,15 @@ export async function GET() {
       username: viewer.username,
       boxSize: BOX_SIZE,
       digSteps: DIG_STEPS,
-      box: ordered.map(a => ({ ...a, personal: statuses.get(a.albumId) || 'new' })),
+      box: await (async () => {
+        const taxo = await loadTaxonomy()
+        return ordered.map(a => {
+          const sub = (a.substyleIds || []).map(id => taxo.subById.get(id)?.name).find(Boolean)
+          const gen = (a.genreIds || []).map(id => taxo.genres.find(g => g.id === id)?.name).find(Boolean)
+          const styles = [gen ? shortGenreName(gen) : null, sub || null].filter(Boolean) as string[]
+          return { ...a, styles, personal: statuses.get(a.albumId) || 'new' }
+        })
+      })(),
       run: publicRun(run),
       nodeInfo,
       likeCounts: likes.counts,

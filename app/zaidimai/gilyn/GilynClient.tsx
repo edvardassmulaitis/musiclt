@@ -28,6 +28,7 @@ type BoxAlbum = {
   artistSlug: string | null; albumSlug: string | null; year: number | null
   cover: string; ytId: string | null; previewTitle: string | null
   tracks?: TrackRef[]; country: string | null
+  styles?: string[]; blurb?: string | null
   personal: 'liked_album' | 'liked_artist' | 'near' | 'new'
 }
 type Door = {
@@ -278,7 +279,7 @@ export default function GilynClient() {
     >
       <style>{css}</style>
 
-      {loading && <div className="g-center"><Vinyl spin size={74} /><p className="g-dim">Traukiame dienos dėžę…</p></div>}
+      {loading && <div className="g-center g-loadfill"><CrateLoader /></div>}
       {err && !loading && <div className="g-center"><p className="g-dim">{err}</p><button className="g-cta" onClick={() => { setErr(null); setLoading(true); refresh() }} type="button">Bandyti dar kartą</button></div>}
 
       {/* ── WELCOME ── */}
@@ -303,7 +304,7 @@ export default function GilynClient() {
       {!loading && !err && view === 'box' && run && (
         <div className="g-boxwrap">
           <div className="g-progress">
-            <span className="g-pos">{viewedCount} <i>/ 20 peržiūrėta</i></span>
+            <span className="g-pos">{viewedCount} <i>/ 20</i></span>
             <div className="g-bar"><i style={{ width: `${(viewedCount / 20) * 100}%` }} /></div>
           </div>
 
@@ -320,6 +321,12 @@ export default function GilynClient() {
                 <button className="g-spine right end" onClick={() => goTo(20)} type="button" aria-label="Dėžės galas"><span className="g-spineend">⌇</span></button>
               )}
 
+              <button className="g-navarr left" onClick={() => goTo(idx - 1)} type="button" aria-label="Ankstesnė" disabled={idx === 0}>
+                <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.6" strokeLinecap="round" strokeLinejoin="round"><path d="m15 18-6-6 6-6" /></svg>
+              </button>
+              <button className="g-navarr right" onClick={() => goTo(idx + 1)} type="button" aria-label="Kita">
+                <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.6" strokeLinecap="round" strokeLinejoin="round"><path d="m9 18 6-6-6-6" /></svg>
+              </button>
               <div
                 className={`g-card${dragging ? ' drag' : ''}`}
                 key={current.albumId}
@@ -342,6 +349,10 @@ export default function GilynClient() {
                 <div className="g-meta">
                   <span className="g-artist">{current.artist}</span>
                   <span className="g-title">{current.title}{current.year ? ` · ${current.year}` : ''}</span>
+                  {(current.styles?.length || 0) > 0 && (
+                    <span className="g-styles">{(current.styles || []).map(s => <i key={s}>{s}</i>)}</span>
+                  )}
+                  {current.blurb && <span className="g-blurbtxt">{current.blurb}</span>}
                 </div>
               </div>
             </div>
@@ -372,16 +383,17 @@ export default function GilynClient() {
           {idx < 20 && current && (
             <div className="g-actions">
               <button className={`g-act shelfic${run.shelf.some((s: any) => s.albumId === current.albumId) ? ' on' : ''}`}
-                onClick={() => actShelf(current)} type="button" aria-label="Į lentyną — paklausyti vėliau">
-                <BookmarkIcon filled={run.shelf.some((s: any) => s.albumId === current.albumId)} size={19} />
+                onClick={() => actShelf(current)} type="button" aria-label="Pasidėti vėliau">
+                <BookmarkIcon filled={run.shelf.some((s: any) => s.albumId === current.albumId)} size={16} />
+                <span>Vėliau</span>
               </button>
               <button className={`g-act main${isHeldCurrent ? ' held' : ''}`} onClick={() => actHold(current)} type="button" disabled={!!isHeldCurrent}>
-                {isHeldCurrent ? '✓ Tavo vinilas' : run.held ? 'Pakeisti į šitą' : 'Pasilikti'}
+                {isHeldCurrent ? '✓ Pasirinkta' : run.held ? 'Pakeisti į šitą' : 'Pasirinkti'}
               </button>
             </div>
           )}
 
-          <div className={`g-held${run.held ? ' has' : ''}`}>
+          <div className={`g-held${run.held ? ' has' : ' empty'}`}>
             {run.held ? (
               <>
                 <img src={run.held.cover} alt="" referrerPolicy="no-referrer"
@@ -395,13 +407,9 @@ export default function GilynClient() {
                 </button>
               </>
             ) : (
-              <>
-                <div className="g-heldempty" aria-hidden="true"><Vinyl size={28} /></div>
-                <div className="g-heldtxt">
-                  <span className="g-heldlbl dim">Tavo vieta tuščia</span>
-                  <span className="g-heldname dim">Vartyk (brauk į šonus) ir pasilik vieną</span>
-                </div>
-              </>
+              <div className="g-heldslot" aria-label="Čia atsidurs tavo pasirinkimas">
+                <span className="g-heldq">?</span>
+              </div>
             )}
           </div>
         </div>
@@ -751,6 +759,19 @@ function RegionHex({ region, onPick }: {
 
 // ── Ikonos ───────────────────────────────────────────────────────────────
 
+function CrateLoader() {
+  return (
+    <div className="g-crateload" aria-label="Kraunama dienos dėžė">
+      {[0, 1, 2, 3, 4].map(i => (
+        <div key={i} className="g-cl-rec" style={{ animationDelay: `${i * 0.22}s`, left: `${i * 36 + 16}px`, zIndex: 6 - i }}>
+          <Vinyl size={92} />
+        </div>
+      ))}
+      <div className="g-cl-box" aria-hidden="true" />
+    </div>
+  )
+}
+
 function Vinyl({ size = 60, spin = false }: { size?: number; spin?: boolean }) {
   return (
     <svg className={spin ? 'g-spin' : ''} width={size} height={size} viewBox="0 0 100 100" aria-hidden="true">
@@ -832,6 +853,20 @@ const css = `
 .g-bar i { display: block; height: 100%; background: var(--accent-orange); border-radius: 99px; transition: width 0.3s ease; }
 
 .g-crate { position: relative; padding: 0 20px; }
+.g-navarr { position: absolute; top: 45%; transform: translateY(-50%); width: 40px; height: 40px; border-radius: 50%; background: var(--bg-elevated); border: 1px solid rgba(140,160,190,0.3); color: var(--text-secondary); cursor: pointer; z-index: 4; display: none; align-items: center; justify-content: center; box-shadow: 0 4px 14px rgba(0,0,0,0.25); }
+.g-navarr.left { left: -12px; }
+.g-navarr.right { right: -12px; }
+.g-navarr:disabled { opacity: 0.3; cursor: default; }
+@media (min-width: 640px) and (hover: hover) { .g-navarr { display: flex; } }
+.g-styles { display: flex; gap: 6px; justify-content: center; flex-wrap: wrap; margin-top: 5px; }
+.g-styles i { font-style: normal; font-size: 11px; font-weight: 800; color: var(--text-secondary); background: rgba(140,160,190,0.14); border-radius: 999px; padding: 3px 10px; }
+.g-blurbtxt { font-size: 12.5px; color: var(--text-muted); line-height: 1.5; margin: 6px auto 0; max-width: 340px; }
+.g-loadfill { justify-content: center; min-height: 60vh; }
+.g-crateload { position: relative; width: 240px; height: 160px; overflow: hidden; }
+.g-cl-rec { position: absolute; bottom: 8px; animation: gclflip 1.5s ease-in-out infinite; }
+@keyframes gclflip { 0%, 100% { transform: translateY(26px) rotate(0deg); } 50% { transform: translateY(-8px) rotate(-7deg); } }
+@media (prefers-reduced-motion: reduce) { .g-cl-rec { animation: none; transform: translateY(12px); } }
+.g-cl-box { position: absolute; left: 0; right: 0; bottom: 0; height: 54px; z-index: 9; border-radius: 10px 10px 12px 12px; background: linear-gradient(180deg, color-mix(in srgb, var(--text-primary) 14%, var(--bg-elevated)), var(--bg-elevated)); border: 1px solid rgba(140,160,190,0.3); border-top-width: 3px; }
 .g-spine { position: absolute; top: 10px; bottom: 10px; width: 26px; border: 0; padding: 0; cursor: pointer; background-size: cover; background-position: center; z-index: 2; }
 .g-spine.left { left: -4px; border-radius: 6px 3px 3px 6px; box-shadow: inset -8px 0 12px rgba(0,0,0,0.55); }
 .g-spine.right { right: -4px; border-radius: 3px 6px 6px 3px; box-shadow: inset 8px 0 12px rgba(0,0,0,0.55); }
@@ -843,7 +878,7 @@ const css = `
 .g-blur { position: absolute; inset: -30px; background-size: cover; background-position: center; filter: blur(34px) saturate(1.15); opacity: 0.35; pointer-events: none; }
 .g-chip { position: relative; z-index: 2; align-self: flex-start; font-size: 11.5px; font-weight: 800; border-radius: 999px; padding: 4px 11px; margin-top: -28px; background: color-mix(in srgb, var(--accent-orange) 18%, var(--bg-surface)); color: var(--accent-orange); }
 .g-chip.near { background: color-mix(in srgb, var(--accent-blue) 18%, var(--bg-surface)); color: var(--accent-link, #7aa7ff); }
-.g-coverbox { position: relative; z-index: 1; width: min(72%, 290px); aspect-ratio: 1; margin: 4px auto 0; }
+.g-coverbox { position: relative; z-index: 1; width: min(68%, 238px); aspect-ratio: 1; margin: 4px auto 0; }
 .g-vinylpeek { position: absolute; top: 4%; right: -13%; width: 96%; height: 92%; border-radius: 50%; background: radial-gradient(circle at center, #0a0a0a 28%, #161616 29%, #0d0d0d 46%, #191919 47%, #0e0e0e 70%, #1a1a1a 71%, #101010 100%); box-shadow: -6px 0 18px rgba(0,0,0,0.5); }
 .g-cover { position: absolute; inset: 0; width: 100%; height: 100%; object-fit: cover; border-radius: 6px; box-shadow: 0 10px 34px rgba(0,0,0,0.45); }
 .g-play { position: absolute; right: -8px; bottom: -8px; width: 52px; height: 52px; border-radius: 50%; border: 3px solid var(--bg-surface); cursor: pointer; background: var(--accent-orange); display: flex; align-items: center; justify-content: center; padding-left: 3px; box-shadow: 0 8px 24px rgba(0,0,0,0.4); }
@@ -857,15 +892,17 @@ const css = `
 
 .g-actions { display: flex; gap: 9px; }
 .g-act { border: 0; cursor: pointer; border-radius: 13px; font-weight: 900; font-size: 15px; padding: 13px 0; }
-.g-act.main { flex: 1; background: var(--accent-orange); color: #fff; }
+.g-act.main { flex: 1.35; background: var(--accent-orange); color: #fff; }
 .g-act.main.held { background: color-mix(in srgb, var(--accent-green) 22%, var(--bg-elevated)); color: var(--accent-green); }
-.g-act.shelfic { width: 52px; display: flex; align-items: center; justify-content: center; background: var(--bg-elevated); color: var(--text-muted); border: 1px solid rgba(140,160,190,0.22); }
+.g-act.shelfic { flex: 1; display: flex; align-items: center; justify-content: center; gap: 7px; background: var(--bg-elevated); color: var(--text-secondary); border: 1px solid rgba(140,160,190,0.22); font-size: 13.5px; font-weight: 800; }
 .g-act.shelfic.on { color: var(--accent-orange); border-color: var(--accent-orange); }
 
 .g-held { display: flex; align-items: center; gap: 11px; background: var(--bg-elevated); border: 1px solid rgba(140,160,190,0.2); border-radius: 14px; padding: 9px 12px; margin-top: auto; }
 .g-held.has { border-color: color-mix(in srgb, var(--accent-orange) 45%, transparent); background: color-mix(in srgb, var(--accent-orange) 7%, var(--bg-elevated)); }
 .g-held img { width: 44px; height: 44px; border-radius: 8px; object-fit: cover; cursor: pointer; }
-.g-heldempty { width: 44px; height: 44px; border-radius: 8px; border: 1.5px dashed rgba(140,160,190,0.4); display: flex; align-items: center; justify-content: center; opacity: 0.55; }
+.g-held.empty { justify-content: center; background: transparent; border-style: dashed; }
+.g-heldslot { width: 46px; height: 46px; border-radius: 11px; border: 2px dashed color-mix(in srgb, var(--accent-orange) 55%, transparent); display: flex; align-items: center; justify-content: center; }
+.g-heldq { font-size: 19px; font-weight: 900; color: var(--accent-orange); opacity: 0.85; }
 .g-heldtxt { display: flex; flex-direction: column; min-width: 0; flex: 1; }
 .g-heldlbl { font-size: 10px; font-weight: 900; text-transform: uppercase; letter-spacing: 0.08em; color: var(--accent-orange); }
 .g-heldlbl.dim { color: var(--text-muted); }
