@@ -1,11 +1,16 @@
 // app/zaidimai/turnyrai/peek/[raktas]/page.tsx
 //
-// TURNYRŲ BRACKET'AI — laikinas nevieša peržiūra.
+// TURNYRŲ BRACKET'AI — laikina nevieša peržiūra.
 //
 // Kol dainų „playoffs" dar neišleisti, medį galima pamatyti tik per nespėjamą
 // URL: /zaidimai/turnyrai/peek/<TOURNAMENT_PEEK_KEY>
 // Be teisingo rakto — 404 (ne 403, kad puslapio egzistavimas neišsiduotų).
 // Puslapis noindex, be nuorodų iš niekur, ne sitemap'e.
+//
+// v3 (2026-07-12): visi ratai balsuojami (auto nebėra); prie kiekvieno
+// neišspręsto mato rodoma PROGNOZUOJAMA data (eilės tvarka: turnyras →
+// ratas → slot'as, kas antrą dieną pagal scope); prie kandidatų — ✕
+// šalinimo mygtukas (exclusions + turnyro pergeneravimas).
 //
 // Kai turnyrai bus paruošti viešinimui — šitą katalogą galima ištrinti, o
 // atvaizdavimą perkelti į /zaidimai/turnyrai.
@@ -13,7 +18,8 @@
 import { Metadata } from 'next'
 import { notFound } from 'next/navigation'
 import { createAdminClient } from '@/lib/supabase'
-import { scopeOfDay, roundsCount } from '@/lib/tournament'
+import { scopeOfDay, roundsCount, nextScopeDates, type Scope } from '@/lib/tournament'
+import RemoveBtn from './RemoveBtn'
 
 export const dynamic = 'force-dynamic'
 
@@ -56,27 +62,59 @@ async function loadTournaments() {
   return { tournaments, matches: (matches ?? []) as unknown as Match[] }
 }
 
-function Side({ track, isWinner, decided }: { track: Track | null; isWinner: boolean; decided: boolean }) {
+/**
+ * Prognozuojamos datos kiekvienam neišspręstam matui.
+ * Eilė per scope: turnyras (sort_order, aktyvus pirmas) → ratas → slot'as.
+ * i-tasis matas vyks i-tąją to scope dieną (kas antra diena — scopeOfDay).
+ */
+function projectDates(tournaments: any[], matches: Match[]): Map<number, string> {
+  const out = new Map<number, string>()
+  for (const scope of ['lt', 'world'] as Scope[]) {
+    const ts = tournaments
+      .filter(t => t.scope === scope && t.status !== 'done')
+      .sort((a, b) => (a.status === 'active' ? -1 : 1) - (b.status === 'active' ? -1 : 1) || a.sort_order - b.sort_order)
+    const queue: number[] = []
+    for (const t of ts) {
+      const pending = matches
+        .filter(m => m.tournament_id === t.id && m.winner_track_id == null)
+        .sort((a, b) => a.round - b.round || a.slot - b.slot)
+      for (const m of pending) queue.push(m.id)
+    }
+    const dates = nextScopeDates(scope, queue.length)
+    queue.forEach((id, i) => out.set(id, dates[i].toISOString().slice(0, 10)))
+  }
+  return out
+}
+
+function Side({ track, isWinner, decided, raktas, removable }: {
+  track: Track | null; isWinner: boolean; decided: boolean
+  raktas: string; removable: boolean
+}) {
   if (!track) {
     return <div className="px-2 py-1 text-xs text-neutral-500 italic">— laukia —</div>
   }
   return (
     <div
       className={[
-        'px-2 py-1 text-xs leading-tight',
+        'flex items-center gap-1 px-2 py-1 text-xs leading-tight',
         decided && isWinner ? 'font-semibold text-white' : '',
         decided && !isWinner ? 'text-neutral-500 line-through decoration-neutral-700' : '',
         !decided ? 'text-neutral-300' : '',
       ].join(' ')}
     >
-      <span className="text-neutral-400">{track.artists?.name ?? '?'}</span>
-      {' — '}
-      {track.title}
+      <span className="min-w-0">
+        <span className="text-neutral-400">{track.artists?.name ?? '?'}</span>
+        {' — '}
+        {track.title}
+      </span>
+      {removable && !decided && (
+        <RemoveBtn raktas={raktas} trackId={track.id} label={`${track.artists?.name ?? '?'} — ${track.title}`} />
+      )}
     </div>
   )
 }
 
-function Bracket({ t, matches }: { t: any; matches: Match[] }) {
+function Bracket({ t, matches, dates, raktas }: { t: any; matches: Match[]; dates: Map<number, string>; raktas: string }) {
   const total = roundsCount(t.size)
   const rounds = Array.from({ length: total }, (_, i) => i + 1)
   const roundName = (r: number) => {
@@ -94,7 +132,7 @@ function Bracket({ t, matches }: { t: any; matches: Match[] }) {
           {t.scope === 'lt' ? '🇱🇹' : '🌍'} {t.title}
         </h2>
         <span className="text-xs text-neutral-500">
-          {t.size} dainų · balsavimas nuo rato {t.vote_from_round} ·{' '}
+          {t.size} dainų · visi ratai balsuojami ·{' '}
           <span
             className={
               t.status === 'active' ? 'text-emerald-400'
@@ -109,27 +147,18 @@ function Bracket({ t, matches }: { t: any; matches: Match[] }) {
       <div className="flex gap-4 overflow-x-auto pb-2">
         {rounds.map(r => {
           const rm = matches.filter(m => m.round === r)
-          const isVoteRound = r >= t.vote_from_round
           return (
-            <div key={r} className="min-w-[220px] flex-1">
+            <div key={r} className="min-w-[236px] flex-1">
               <div className="mb-2 flex items-center gap-2">
                 <h3 className="text-xs font-medium uppercase tracking-wide text-neutral-400">
                   {roundName(r)}
                 </h3>
-                <span
-                  className={[
-                    'rounded px-1.5 py-0.5 text-[10px]',
-                    isVoteRound ? 'bg-violet-500/15 text-violet-300' : 'bg-neutral-800 text-neutral-500',
-                  ].join(' ')}
-                  title={isVoteRound ? 'Sprendžia bendruomenės balsavimas' : 'Išsprendžiama automatiškai pagal peržiūras'}
-                >
-                  {isVoteRound ? 'balsavimas' : 'auto'}
-                </span>
               </div>
 
               <div className="flex flex-col gap-2">
                 {rm.map(m => {
                   const decided = m.winner_track_id != null
+                  const date = dates.get(m.id)
                   return (
                     <div
                       key={m.id}
@@ -140,12 +169,14 @@ function Bracket({ t, matches }: { t: any; matches: Match[] }) {
                           : 'border-neutral-800',
                       ].join(' ')}
                     >
-                      <Side track={m.track_a} isWinner={m.winner_track_id === m.track_a?.id} decided={decided} />
+                      <Side track={m.track_a} isWinner={m.winner_track_id === m.track_a?.id} decided={decided} raktas={raktas} removable={!decided} />
                       <div className="border-t border-neutral-800/70" />
-                      <Side track={m.track_b} isWinner={m.winner_track_id === m.track_b?.id} decided={decided} />
-                      {m.decided_by === 'vote' && (
-                        <div className="border-t border-neutral-800/70 px-2 py-0.5 text-[10px] text-violet-400">
-                          nulėmė balsavimas
+                      <Side track={m.track_b} isWinner={m.winner_track_id === m.track_b?.id} decided={decided} raktas={raktas} removable={!decided} />
+                      {(date || m.decided_by === 'vote') && (
+                        <div className="flex items-center justify-between border-t border-neutral-800/70 px-2 py-0.5 text-[10px]">
+                          {m.decided_by === 'vote'
+                            ? <span className="text-violet-400">nulėmė balsavimas</span>
+                            : <span className="text-neutral-500">📅 ~{date}</span>}
                         </div>
                       )}
                     </div>
@@ -173,6 +204,7 @@ export default async function TurnyraiPeekPage({
 
   const { tournaments, matches } = await loadTournaments()
   const todayScope = scopeOfDay()
+  const dates = projectDates(tournaments, matches)
 
   const lt = tournaments.filter(t => t.scope === 'lt')
   const world = tournaments.filter(t => t.scope === 'world')
@@ -186,7 +218,9 @@ export default async function TurnyraiPeekPage({
           <strong className="text-white">
             {todayScope === 'lt' ? '🇱🇹 lietuviškos' : '🌍 pasaulio'}
           </strong>{' '}
-          eilės — rytoj iš kitos.
+          eilės — rytoj iš kitos. Visi ratai sprendžiami balsavimu; 📅 datos —
+          prognozė (pasislinks, jei diena praleista). ✕ — pašalinti kandidatą
+          (turnyras pergeneruojamas, į vietą ateina kita daina).
         </p>
         {tournaments.length === 0 && (
           <p className="mt-4 rounded border border-amber-500/30 bg-amber-500/10 px-3 py-2 text-sm text-amber-200">
@@ -201,7 +235,7 @@ export default async function TurnyraiPeekPage({
             Lietuviška eilė ({lt.length})
           </h2>
           {lt.map(t => (
-            <Bracket key={t.id} t={t} matches={matches.filter(m => m.tournament_id === t.id)} />
+            <Bracket key={t.id} t={t} matches={matches.filter(m => m.tournament_id === t.id)} dates={dates} raktas={raktas} />
           ))}
         </>
       )}
@@ -212,7 +246,7 @@ export default async function TurnyraiPeekPage({
             Pasaulio eilė ({world.length})
           </h2>
           {world.map(t => (
-            <Bracket key={t.id} t={t} matches={matches.filter(m => m.tournament_id === t.id)} />
+            <Bracket key={t.id} t={t} matches={matches.filter(m => m.tournament_id === t.id)} dates={dates} raktas={raktas} />
           ))}
         </>
       )}

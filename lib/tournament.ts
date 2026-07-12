@@ -1,16 +1,22 @@
 // lib/tournament.ts
 //
-// Dainų „playoffs" — vieno stiliaus knockout turnyras. Dainos atrenkamos pagal
-// YT peržiūras (populiariausios), ankstyvi ratai išsprendžiami automatiškai
-// pagal populiarumą, o aštrusis galas (nuo ketvirtfinalių) sprendžiamas dienos
-// bendruomenės balsavimu (dienos dvikova). Kai išaiškėja čempionas — pradedamas
-// kito stiliaus turnyras. Visą medį galima parodyti vartotojui.
+// Dainų „playoffs" — knockout turnyrai iš populiariausių (pagal YT peržiūras)
+// dainų. VISI ratai sprendžiami bendruomenės balsavimu (dienos dvikova) —
+// savininko sprendimas 2026-07-12: tikslas kuo daugiau dvikovų, kad turnyrai
+// suktųsi metų metus; auto-ratų nebėra. Kai išaiškėja čempionas — startuoja
+// kitas turnyras eilėje, o pasibaigus visiems galima seed'inti naują sezoną
+// iš dar nedalyvavusių dainų (exclusions + participated filtrai).
 //
-// Šis failas — GRYNA bracket'o logika (be DB), kad būtų lengva testuoti.
+// Šis failas — GRYNA bracket'o logika ir konfigūracija (be DB).
 
 export const GENRE_GROUP_IDS = [1000556, 1000557, 1000558, 1000559, 1000560, 1000561, 1000562, 1000563]
 
-// Stiliaus populiarumo eiliškumas (pagal ≥100k YT peržiūrų dainų kiekį — spike'as).
+export const GENRE_NAMES: Record<number, string> = {
+  1000556: 'Alternatyva', 1000557: 'Elektroninė, šokių', 1000558: 'Hip-hop', 1000559: 'Kitų stilių',
+  1000560: 'Pop, R&B', 1000561: 'Rimtoji', 1000562: 'Rokas', 1000563: 'Sunkioji',
+}
+
+// Stiliaus populiarumo eiliškumas (pagal ≥100k YT peržiūrų dainų kiekį).
 // Populiaresnis stilius → didesnis bracket'as. Rikiuota nuo populiariausio.
 export const STYLE_POPULARITY: number[] = [
   1000562, // Rokas
@@ -35,58 +41,100 @@ export const SCOPES: Scope[] = ['lt', 'world']
 /**
  * Kurio scope dienos dvikova rodoma nurodytą dieną.
  * Deterministiška (be DB): lyginė para nuo epochos → LT, nelyginė → pasaulis.
- * Taip abu turnyrai juda vienodu tempu, o vartotojas mato kaitą kas dieną.
  */
 export function scopeOfDay(date: Date = new Date()): Scope {
   const dayNo = Math.floor(Date.UTC(date.getUTCFullYear(), date.getUTCMonth(), date.getUTCDate()) / 86_400_000)
   return dayNo % 2 === 0 ? 'lt' : 'world'
 }
 
-// ── Substiliai: stiliai, kurie per platūs, kad turnyras turėtų prasmę ───────
+// ── Kuruoti pogrupiai ───────────────────────────────────────────────────────
 //
-// Du stiliai yra semantiniai sąvartynai — juose klausimas „geriausia X daina?"
-// atsakymo neturi (Chopin prieš Sinatrą prieš Sade). Jiems turnyrai vyksta
-// substiliaus lygmeniu. Likę 6 lieka stiliaus lygmeniu: „geriausia roko daina?"
-// yra visiškai prasmingas klausimas, nors viduje ir alternatyva, ir indie.
+// Dideli stiliai skaidomi į kuruotus pogrupius, kad topiniai atlikėjai tilptų
+// (World Pop 32 vietos netalpino Billie Eilish/Beyoncé/Selena Gomez), o platūs
+// „sąvartynai" turėtų prasmingą klausimą („geriausia X daina?").
 //
-// LT pusėje NESKAIDOMA — LT „Rimtoji" teturi 30 atlikėjų, suskaidžius liktų po 5.
-export const SPLIT_INTO_SUBSTYLES: Record<number, string[]> = {
-  1000561: ['Jazz', 'Classical', 'Blues'],              // Rimtoji
-  1000559: ['Country', 'Filmų muzika', 'Reggae'],       // Kitų stilių
+// Taisyklės:
+//   * grupės tikrinamos IŠ EILĖS — atlikėjas priskiriamas PIRMAI grupei, kurios
+//     substilių sąrašas kertasi su jo substiliais (deterministiškas priskyrimas,
+//     tas pats atlikėjas nepatenka į du to paties stiliaus turnyrus)
+//   * substyles: null = catch-all („Kita") — surenka visus likusius; catch-all
+//     turi eiti PASKUTINIS
+//   * jei stilius neskaidomas, seed'as jam sukuria vieną catch-all grupę
+export type SubstyleGroup = {
+  key: string            // stabilus raktas DB (group_key)
+  label: string          // rodomas pavadinimas (title dalis po „›")
+  substyles: string[] | null  // substilių pavadinimai; null = catch-all likusiems
+  target: number         // siekiamas bracket'o dydis (apkarpomas pagal fitBracket)
 }
 
-/** Ar šis stilius (šiame scope) skaidomas į substilius? */
-export function splitsIntoSubstyles(genreId: number, scope: Scope): boolean {
-  return scope === 'world' && genreId in SPLIT_INTO_SUBSTYLES
+export const SPLIT_CONFIG: Record<Scope, Record<number, SubstyleGroup[]>> = {
+  world: {
+    // Pop, R&B — per didelis vienam 32 bracket'ui (552+ atlikėjų vien „Pop")
+    1000560: [
+      { key: 'rnb', label: 'R&B / Soul', target: 32, substyles: ['R&B', 'Soul', 'Blue-eyed soul', 'Hip hop soul', 'Quiet storm', 'New jack swing', 'Southern soul', 'Alternative R&B', 'Pop-soul', 'Doo wop'] },
+      { key: 'latin', label: 'Latin', target: 16, substyles: ['Latin pop', 'Bolero', 'Tropical', 'Guajira', 'Reggaeton', 'Latin dance', 'Latin rap', 'Latin trap'] },
+      { key: 'pop', label: 'Pop', target: 32, substyles: null },
+    ],
+    // Rokas — alternatyvos/indie banga vs klasika
+    1000562: [
+      { key: 'alt', label: 'Alternative / Indie', target: 32, substyles: ['Alternative rock', 'Indie rock', 'Indie pop', 'Post punk revival', 'Britpop', 'Dream pop', 'Garage rock revival', 'Noise rock', 'Math rock', 'College rock', 'Jangle pop', 'Noise pop', 'Post britpop'] },
+      { key: 'rock', label: 'Klasikinis rokas', target: 32, substyles: null },
+    ],
+    // Sunkioji — ekstremalus vs klasikinis/modernus metalas
+    1000563: [
+      { key: 'extreme', label: 'Ekstremalus metalas', target: 32, substyles: ['Black metal', 'Death metal', 'Thrash metal', 'Melodic death metal', 'Doom metal', 'Sludge metal', 'Deathcore', 'Grindcore', 'Technical death metal', 'Death/doom', 'Extreme metal', 'Speed metal', 'Viking metal', 'Pagan metal', 'Funeral doom', 'Deathgrind', 'Atmospheric black metal', 'Crossover thrash'] },
+      { key: 'metal', label: 'Metalas', target: 32, substyles: null },
+    ],
+    // Rimtoji — semantinis sąvartynas: Jazz vs Chopin vs bliuzas
+    1000561: [
+      { key: 'jazz', label: 'Jazz', target: 16, substyles: ['Jazz'] },
+      { key: 'classical', label: 'Classical', target: 16, substyles: ['Classical'] },
+      { key: 'blues', label: 'Blues', target: 16, substyles: ['Blues'] },
+      { key: 'kita', label: 'Kita', target: 16, substyles: null },
+    ],
+    // Kitų stilių — Country/Filmų/Reggae + „Kita" catch-all, kad neišmestų
+    // Israel Kamakawiwo'ole (1,58B), Ylvis ir kitų nepriskirtų
+    1000559: [
+      { key: 'country', label: 'Country', target: 16, substyles: ['Country'] },
+      { key: 'film', label: 'Filmų muzika', target: 16, substyles: ['Filmų muzika'] },
+      { key: 'reggae', label: 'Reggae', target: 16, substyles: ['Reggae'] },
+      { key: 'kita', label: 'Kita', target: 16, substyles: null },
+    ],
+  },
+  lt: {
+    // LT Pop — 242 tinkami atlikėjai į 32 vietas; estrada (Povilaitis,
+    // Kučinskas, Cicinas…) — atskira, kultūriškai sava eilė
+    1000560: [
+      { key: 'estrada', label: 'Estrada', target: 32, substyles: ['LT estrada', 'šlageriai', 'Schlager', 'Vocal pop', 'Traditional pop'] },
+      { key: 'pop', label: 'Pop', target: 32, substyles: null },
+    ],
+    // Kiti LT stiliai neskaidomi — per maži (LT Rimtoji ~30 atlikėjų)
+  },
+}
+
+/** Stiliaus grupės nurodytame scope (neskaidomas stilius → viena catch-all). */
+export function groupsForStyle(genreId: number, scope: Scope): SubstyleGroup[] {
+  const cfg = SPLIT_CONFIG[scope]?.[genreId]
+  if (cfg) return cfg
+  return [{ key: '', label: GENRE_NAMES[genreId] ?? String(genreId), target: defaultTarget(genreId), substyles: null }]
+}
+
+/** Numatytasis bracket'o dydis pagal stiliaus populiarumą (top-4 → 32). */
+function defaultTarget(genreId: number): number {
+  const rank = STYLE_POPULARITY.indexOf(genreId)
+  if (rank < 0) return 16
+  return rank < 4 ? 32 : 16
 }
 
 /** Mažiausias prasmingas bracket'as. Mažiau nei 8 dainos — turnyras neverta. */
 export const MIN_BRACKET = 8
 
-/**
- * Didžiausias 2 laipsnis, telpantis į turimą dainų kiekį (32 → 16 → 8).
- * Grąžina 0, jei nepakanka net minimaliam bracket'ui.
- */
+/** Didžiausias 2 laipsnis, telpantis į turimą dainų kiekį (32 → 16 → 8). */
 export function fitBracket(available: number): number {
   if (available >= 32) return 32
   if (available >= 16) return 16
   if (available >= MIN_BRACKET) return MIN_BRACKET
   return 0
-}
-
-/**
- * SIEKIAMAS bracket'o dydis (lubos). Tikrasis dydis nustatomas seed'inant —
- * apkarpomas pagal realiai turimų dainų kiekį (žr. fitBracket).
- *
- * Sąmoningai NEKODUOJU čia atlikėjų skaičių: jie keičiasi su kiekvienu scrape'u,
- * o užfiksuota konstanta tyliai iškrenta iš sinchronizacijos su duomenimis
- * (pvz. LT „Kitų stilių" realiai turi 26 dainas, ne 48 — bracket'as neužsipildytų).
- */
-export function bracketSizeForStyle(genreId: number, scope: Scope = 'world', isSubstyle = false): number {
-  if (isSubstyle) return 16
-  const rank = STYLE_POPULARITY.indexOf(genreId)
-  if (rank < 0) return 16
-  return rank < 4 ? 32 : 16       // top-4 stiliai 32, likę 16 — abiejuose scope
 }
 
 /** Ratų skaičius (log2). size turi būti 2 laipsnis. */
@@ -95,12 +143,11 @@ export function roundsCount(size: number): number {
 }
 
 /**
- * Ratas (1-based), nuo kurio jungiasi bendruomenės balsavimas — ketvirtfinaliai.
- * Ankstesni ratai išsprendžiami automatiškai pagal YT peržiūras.
- * Ketvirtfinalis = ratas, kuriame lieka 8 dalyviai.
+ * Ratas, nuo kurio jungiasi bendruomenės balsavimas — dabar VISADA 1 (visi
+ * ratai balsuojami). Funkcija palikta dėl suderinamumo su DB stulpeliu.
  */
-export function voteFromRound(size: number): number {
-  return Math.max(1, roundsCount(size) - 2)
+export function voteFromRound(_size: number): number {
+  return 1
 }
 
 /**
@@ -135,60 +182,50 @@ export type Match = {
  * Pastato pilną bracket'ą iš surūšiuotų (pagal populiarumą) seed'ų.
  *   * seeds[0] — populiariausias (#1 seed)
  *   * pirmas ratas išdėliojamas pagal seedOrder
- *   * ankstyvi ratai (< voteFromRound) auto-išsprendžiami pagal views
- *   * likę matai lieka su winnerId=null (lauks balsavimo)
- * Grąžina visus matus (visų ratų).
+ *   * VISI matai lieka su winnerId=null — kiekvieną spręs balsavimas;
+ *     vėlesnių ratų dalyviai užsipildys resolver'iui perkeliant nugalėtojus
  */
 export function buildBracket(seeds: Seed[], size: number): Match[] {
   if (seeds.length < size) throw new Error(`Reikia bent ${size} dainų, gauta ${seeds.length}`)
   const picked = seeds.slice(0, size)
   const order = seedOrder(size)            // 1-based seed pozicijos
-  const viewsBySeed = new Map<number, Seed>()
-  order.forEach((_, i) => {})
-  // seed #k (1-based) → picked[k-1]
   const seedTrack = (seedNo: number) => picked[seedNo - 1]
 
   const totalRounds = roundsCount(size)
-  const voteFrom = voteFromRound(size)
   const matches: Match[] = []
 
   // 1-as ratas: poros iš seedOrder (order[0] vs order[1], order[2] vs order[3], ...)
-  const firstRoundWinners: number[] = []   // trackId per slot
   const firstSlots = size / 2
   for (let slot = 0; slot < firstSlots; slot++) {
-    const aSeed = order[slot * 2]
-    const bSeed = order[slot * 2 + 1]
-    const a = seedTrack(aSeed), b = seedTrack(bSeed)
-    const auto = 1 < voteFrom       // ar 1-as ratas auto?
-    const winnerId = auto ? (a.views >= b.views ? a.trackId : b.trackId) : null
-    matches.push({ round: 1, slot, aId: a.trackId, bId: b.trackId, winnerId, decidedBy: auto ? 'seed' : null })
-    firstRoundWinners.push(winnerId ?? a.trackId) // placeholder tolimesniam auto-skaičiavimui
+    const a = seedTrack(order[slot * 2])
+    const b = seedTrack(order[slot * 2 + 1])
+    matches.push({ round: 1, slot, aId: a.trackId, bId: b.trackId, winnerId: null, decidedBy: null })
   }
 
-  // Tolimesni ratai
-  let prevWinners = firstRoundWinners
-  let prevMatches = matches.filter(m => m.round === 1)
-  const viewsOf = new Map(picked.map(p => [p.trackId, p.views]))
+  // Tolimesni ratai — tušti (dalyviai atsiras, kai resolver'is perkels nugalėtojus)
   for (let round = 2; round <= totalRounds; round++) {
     const slots = size / Math.pow(2, round)
-    const auto = round < voteFrom
-    const roundWinners: number[] = []
     for (let slot = 0; slot < slots; slot++) {
-      // dalyviai — ankstesnio rato dviejų matų nugalėtojai (tik jei auto ir žinomi)
-      const wa = prevMatches[slot * 2]?.winnerId ?? null
-      const wb = prevMatches[slot * 2 + 1]?.winnerId ?? null
-      let winnerId: number | null = null
-      let decidedBy: 'seed' | 'vote' | null = null
-      if (auto && wa != null && wb != null) {
-        winnerId = (viewsOf.get(wa)! >= viewsOf.get(wb)!) ? wa : wb
-        decidedBy = 'seed'
-      }
-      matches.push({ round, slot, aId: wa, bId: wb, winnerId, decidedBy })
-      roundWinners.push(winnerId ?? wa ?? -1)
+      matches.push({ round, slot, aId: null, bId: null, winnerId: null, decidedBy: null })
     }
-    prevMatches = matches.filter(m => m.round === round)
-    prevWinners = roundWinners
   }
 
   return matches
+}
+
+// ── Dvikovų kalendorius ─────────────────────────────────────────────────────
+//
+// Kiekvienas scope gauna dieną pakaitomis (scopeOfDay). Matai eina eilės
+// tvarka: turnyras (sort_order) → ratas → slot'as. i-tasis laukiantis mato
+// balsavimas vyks i-tąją TO SCOPE dieną nuo šiandien.
+
+/** Artimiausios N datų, kuriomis dienos dvikova priklauso šiam scope. */
+export function nextScopeDates(scope: Scope, count: number, from: Date = new Date()): Date[] {
+  const out: Date[] = []
+  const d = new Date(Date.UTC(from.getUTCFullYear(), from.getUTCMonth(), from.getUTCDate()))
+  while (out.length < count) {
+    if (scopeOfDay(d) === scope) out.push(new Date(d))
+    d.setUTCDate(d.getUTCDate() + 1)
+  }
+  return out
 }
