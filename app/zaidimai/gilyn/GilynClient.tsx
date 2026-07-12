@@ -795,6 +795,16 @@ export default function GilynClient() {
               {subSheet.visited > 0 && <><CheckIcon size={12} /> {subSheet.visited} aplankyta · </>}
               {subSheet.beacons > 0 && <><HeartIcon size={12} /> {subSheet.beacons} pamėgta</>}
             </p>
+            {(() => {
+              const n = subSheet.beacons + subSheet.visited + subSheet.saved
+              return n > 0 ? (
+                <p className="g-dim center">
+                  {n <= 1 ? 'Vos pravertos durys — vienas atlikėjas iš daugybės šiame stiliuje.'
+                    : n <= 3 ? 'Pradėta tyrinėti — dar daug kas slepiasi.'
+                      : n <= 7 ? 'Jau pažįstama teritorija.' : 'Tavo namai — giliai ištyrinėta.'}
+                </p>
+              ) : null
+            })()}
             {subSheet.artists.length > 0 ? (
               <>
                 <div className="g-subartists">
@@ -896,9 +906,9 @@ function MapWorld({ regions, edges, onPick }: {
   const R = 13, HW = R * 1.732
 
   const layout = useMemo(() => {
-    const cells: { s: SubStyle; k: string; x: number; y: number; hue: string }[] = []
+    const cells: { s: SubStyle; k: string; x: number; y: number; hue: string; lvl: number }[] = []
     const pos = new Map<number, [number, number]>()
-    const labels: { name: string; x: number; y: number; hue: string; act: number; tot: number }[] = []
+    const labels: { name: string; x: number; y: number; cy: number; rad: number; hue: string; act: number; tot: number }[] = []
     for (const rg of regions) {
       const [cx, cy] = REGION_POS[rg.name] || [WORLD_W / 2, WORLD_H / 2]
       const hue = REGION_HUES[rg.name] || '#94a3b8'
@@ -913,11 +923,14 @@ function MapWorld({ regions, edges, onPick }: {
         const y = cy + R * 1.5 * rr
         if (y < minY) minY = y
         const k = s.saved ? 'saved' : s.visited ? 'visited' : s.beacons ? 'beacon' : s.heard ? 'heard' : 'fog'
-        cells.push({ s, k, x, y, hue })
+        // gylis: vienas atlikėjas NEuždengia stiliaus — intensyvumas auga su pažinimu
+        const lvl = Math.min(1, (s.beacons + s.visited * 2 + s.saved * 3) / 6)
+        cells.push({ s, k, x, y, hue, lvl })
         pos.set(s.id, [x, y])
       })
+      const rings = Math.max(1, Math.ceil((-3 + Math.sqrt(9 + 12 * Math.max(0, sorted.length - 1))) / 6) + 1)
       labels.push({
-        name: rg.name, x: cx, y: minY - 22, hue,
+        name: rg.name, x: cx, y: minY - 22, cy, rad: R * 1.6 * (rings + 0.6), hue,
         act: rg.substyles.filter(s => s.beacons || s.visited || s.saved).length,
         tot: rg.substyles.length,
       })
@@ -956,17 +969,20 @@ function MapWorld({ regions, edges, onPick }: {
     return pts.join(' ')
   }
 
-  const fillFor = (k: string, hue: string) =>
-    k === 'saved' ? 'var(--accent-orange)'
-      : k === 'visited' ? 'color-mix(in srgb, var(--accent-green) 60%, var(--bg-surface))'
-        : k === 'beacon' ? 'color-mix(in srgb, var(--accent-orange) 46%, var(--bg-surface))'
-          : k === 'heard' ? 'rgba(140,160,190,0.3)'
-            : `color-mix(in srgb, ${hue} 11%, var(--bg-surface))`
+  const SEA = '#141a26'
+  const fillFor = (k: string, hue: string, lvl: number) => {
+    const pct = Math.round(20 + 58 * lvl)   // gylis: blyškus → sodrus
+    return k === 'saved' ? 'var(--accent-orange)'
+      : k === 'visited' ? `color-mix(in srgb, var(--accent-green) ${pct}%, ${SEA})`
+        : k === 'beacon' ? `color-mix(in srgb, var(--accent-orange) ${pct}%, ${SEA})`
+          : k === 'heard' ? 'rgba(140,160,190,0.28)'
+            : `color-mix(in srgb, ${hue} 13%, ${SEA})`
+  }
   const strokeFor = (k: string, hue: string) =>
-    k === 'saved' || k === 'beacon' ? 'var(--accent-orange)'
-      : k === 'visited' ? 'var(--accent-green)'
-        : k === 'heard' ? 'rgba(140,160,190,0.55)'
-          : `color-mix(in srgb, ${hue} 26%, transparent)`
+    k === 'saved' || k === 'beacon' ? 'color-mix(in srgb, var(--accent-orange) 70%, transparent)'
+      : k === 'visited' ? 'color-mix(in srgb, var(--accent-green) 70%, transparent)'
+        : k === 'heard' ? 'rgba(140,160,190,0.5)'
+          : `color-mix(in srgb, ${hue} 30%, transparent)`
 
   return (
     <div className="g-world">
@@ -1000,6 +1016,21 @@ function MapWorld({ regions, edges, onPick }: {
         }}
         onPointerCancel={() => { drag.current = null }}
       >
+        <defs>
+          <filter id="gsavglow" x="-80%" y="-80%" width="260%" height="260%">
+            <feDropShadow dx="0" dy="0" stdDeviation="5" floodColor="#f97316" floodOpacity="0.8" />
+          </filter>
+          {layout.labels.map(l => (
+            <radialGradient key={l.name} id={`grg-${l.name.replace(/[^a-z]/gi, '')}`}>
+              <stop offset="0%" stopColor={l.hue} stopOpacity="0.16" />
+              <stop offset="70%" stopColor={l.hue} stopOpacity="0.07" />
+              <stop offset="100%" stopColor={l.hue} stopOpacity="0" />
+            </radialGradient>
+          ))}
+        </defs>
+        {layout.labels.map(l => (
+          <circle key={`isl-${l.name}`} cx={l.x} cy={l.cy} r={l.rad * 1.5} fill={`url(#grg-${l.name.replace(/[^a-z]/gi, '')})`} />
+        ))}
         {edges.map((e2, i) => {
           const A = layout.pos.get(e2.a), B = layout.pos.get(e2.b)
           if (!A || !B) return null
@@ -1011,13 +1042,16 @@ function MapWorld({ regions, edges, onPick }: {
         })}
         {layout.cells.map(c => (
           <g key={c.s.id} className="g-wx" onClick={() => { if (!suppressClick.current) onPick(c.s) }} role="button">
-            <polygon points={hexPts(c.x, c.y)} style={{ fill: fillFor(c.k, c.hue), stroke: strokeFor(c.k, c.hue), strokeWidth: 0.9 }} />
+            <title>{c.s.name}</title>
+            <polygon points={hexPts(c.x, c.y)}
+              filter={c.k === 'saved' ? 'url(#gsavglow)' : undefined}
+              style={{ fill: fillFor(c.k, c.hue, c.lvl), stroke: strokeFor(c.k, c.hue), strokeWidth: 0.9 }} />
             {c.k === 'saved' && <text x={c.x} y={c.y + 3.5} textAnchor="middle" className="g-hexstar">★</text>}
           </g>
         ))}
         {layout.labels.map(l => (
           <text key={l.name} x={l.x} y={l.y} textAnchor="middle" className="g-wlabel" style={{ fill: l.hue }}>
-            {l.name} <tspan className="g-wlabelct">{l.act}/{l.tot}</tspan>
+            {l.name} <tspan className="g-wlabelct">paliesta {l.act}/{l.tot}</tspan>
           </text>
         ))}
       </svg>
@@ -1271,13 +1305,15 @@ const css = `
 .g-mapexpl .cl-b { color: var(--accent-orange); font-weight: 800; }
 .g-mapexpl .cl-v { color: var(--accent-green); font-weight: 800; }
 .g-mapexpl .cl-s { color: var(--accent-orange); font-weight: 800; }
-.g-world { position: relative; background: var(--bg-surface); border: 1px solid rgba(140,160,190,0.2); border-radius: 16px; overflow: hidden; }
+.g-world { position: relative; background: radial-gradient(circle at 50% 28%, #1c2432 0%, #141a26 60%, #10141d 100%); border: 1px solid rgba(140,160,190,0.25); border-radius: 16px; overflow: hidden; box-shadow: inset 0 0 60px rgba(0,0,0,0.35); }
 .g-worldsvg { display: block; width: 100%; height: auto; touch-action: none; cursor: grab; }
 .g-worldsvg:active { cursor: grabbing; }
+.g-wx polygon { transition: stroke-width 0.12s ease; }
+.g-wx:hover polygon { stroke-width: 2.2 !important; }
 .g-worldbtns { position: absolute; top: 10px; right: 10px; z-index: 5; display: flex; flex-direction: column; gap: 6px; }
 .g-worldbtns button { width: 36px; height: 36px; border-radius: 10px; border: 1px solid rgba(140,160,190,0.3); background: var(--bg-elevated); color: var(--text-primary); font-size: 17px; font-weight: 800; cursor: pointer; box-shadow: 0 3px 10px rgba(0,0,0,0.2); }
 .g-wx { cursor: pointer; }
-.g-wlabel { font-size: 17px; font-weight: 900; letter-spacing: -0.01em; paint-order: stroke; stroke: var(--bg-surface); stroke-width: 4px; }
+.g-wlabel { font-size: 17px; font-weight: 900; letter-spacing: -0.01em; paint-order: stroke; stroke: #12161f; stroke-width: 4px; }
 .g-wlabelct { font-size: 11px; font-weight: 700; opacity: 0.75; }
 .g-freebadge { font-size: 9.5px; font-weight: 900; letter-spacing: 0.08em; color: var(--accent-orange); background: color-mix(in srgb, var(--accent-orange) 14%, transparent); border-radius: 999px; padding: 4px 10px; margin-right: 4px; }
 .g-pathdot { width: 30px; height: 30px; border-radius: 7px; background: rgba(140,160,190,0.2); display: inline-block; }

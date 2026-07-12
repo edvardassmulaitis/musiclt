@@ -786,17 +786,51 @@ function stripText(html: string | null | undefined, max = 340): string | null {
   return t
 }
 
+/** On-demand AI albumo pristatymas (Haiku) su DB cache — apie skambesį/vietą žanre, ne biografija. */
+export async function getAlbumBlurb(albumId: number): Promise<string | null> {
+  const sb = createAdminClient()
+  const { data: cached } = await sb.from('gilyn_album_blurbs').select('blurb').eq('album_id', albumId).maybeSingle()
+  if (cached?.blurb) return cached.blurb
+  const apiKey = process.env.ANTHROPIC_API_KEY
+  if (!apiKey) return null
+  const { data: alb } = await sb
+    .from('albums')
+    .select('title, year, artists:artist_id ( name, country )')
+    .eq('id', albumId).maybeSingle()
+  if (!alb) return null
+  const a: any = Array.isArray((alb as any).artists) ? (alb as any).artists[0] : (alb as any).artists
+  try {
+    const res = await fetch('https://api.anthropic.com/v1/messages', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json', 'x-api-key': apiKey, 'anthropic-version': '2023-06-01' },
+      body: JSON.stringify({
+        model: 'claude-haiku-4-5-20251001',
+        max_tokens: 200,
+        messages: [{
+          role: 'user',
+          content: `Parašyk VIENĄ lietuvišką sakinį (100–180 simbolių) apie muzikos albumą: ${a?.name || '?'} — „${(alb as any).title}“ (${(alb as any).year || '?'}${a?.country ? `, ${a.country}` : ''}). Apie PATĮ ALBUMĄ: skambesį, nuotaiką, vietą atlikėjo kelyje ar žanro istorijoje. NE atlikėjo biografija. Jokių išgalvotų faktų — jei albumo nežinai, apibūdink atsargiai per stilių ir erą. Tonas smalsus, be „geras/blogas“ vertinimų. Atsakyk TIK sakiniu.`,
+        }],
+      }),
+      signal: AbortSignal.timeout(9000),
+    })
+    if (!res.ok) return null
+    const data = await res.json()
+    const blurb = String(data.content?.[0]?.text || '').trim()
+    if (!blurb || blurb.length < 30) return null
+    await sb.from('gilyn_album_blurbs').insert({ album_id: albumId, blurb }).select('album_id')
+    return blurb
+  } catch { return null }
+}
+
 /** Kasimosi hero kontekstas: ALBUMO aprašymas (fallback — atlikėjo bio) + atlikėjo top dainos. */
 export async function artistNodeInfo(artistId: number, albumId?: number | null): Promise<{
   albumDesc: string | null; bio: string | null; country: string | null; years: string | null
   artistTop: TrackRef[]
 }> {
   const sb = createAdminClient()
-  const [{ data: a }, albRes, topRes] = await Promise.all([
+  const [{ data: a }, aiBlurb, topRes] = await Promise.all([
     sb.from('artists').select('description, country, active_from, active_until').eq('id', artistId).maybeSingle(),
-    albumId
-      ? sb.from('albums').select('description').eq('id', albumId).maybeSingle()
-      : Promise.resolve({ data: null } as any),
+    albumId ? getAlbumBlurb(albumId) : Promise.resolve(null),
     sb.from('tracks').select('title, video_url, video_views, video_embeddable')
       .eq('artist_id', artistId)
       .not('video_url', 'is', null)
@@ -811,7 +845,7 @@ export async function artistNodeInfo(artistId: number, albumId?: number | null):
   }
   const years = a?.active_from ? `${a.active_from}–${a.active_until || 'dabar'}` : null
   return {
-    albumDesc: stripText((albRes as any).data?.description),
+    albumDesc: aiBlurb,                      // TIK AI albumo pristatymas (legacy description dažnai — apie atlikėją)
     bio: stripText(a?.description, 300),
     country: a?.country || null,
     years,
