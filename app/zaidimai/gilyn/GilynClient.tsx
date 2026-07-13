@@ -288,9 +288,9 @@ export default function GilynClient() {
     setBusy(false); setStaging(false)
     if (j?.run) routeView(j.run)
   }
-  async function saveFind(i: number) {
+  async function likeArtist(i: number, artistId: number) {
     setSavedIdx(prev => new Set(prev).add(i))
-    await post('saveFind', { index: i })
+    await post('like', { artistId })
   }
   // ── Free Dig ──
   async function startFreeDig(artistId: number, seed?: Partial<FreeNode>) {
@@ -586,9 +586,9 @@ export default function GilynClient() {
           {run.path.length > 0 ? (
             <div className="g-respath">
               {run.path.map((p: any, i: number, all: any[]) => {
-                const saved = savedIdx.has(i) || run.finalPick?.artistId === p.artistId
+                const liked = savedIdx.has(i)
                 return (
-                  <div key={i} className={`g-resnode${saved ? ' picked' : ''}`}>
+                  <div key={i} className={`g-resnode${liked ? ' picked' : ''}`}>
                     <img src={p.cover || ''} alt="" referrerPolicy="no-referrer"
                       onClick={() => openPlayer({ artist: p.artist, title: p.title, year: p.year, cover: p.cover, tracks: p.tracks || [], artistSlug: p.artistSlug }, { artistId: p.artistId })} />
                     <div className="g-resmeta"
@@ -598,9 +598,9 @@ export default function GilynClient() {
                       <span className="g-resreason">{p.doorType === 'portal' ? 'Tavo dienos portalas' : p.reason}</span>
                     </div>
                     <div className="g-resacts">
-                      <button className={`g-savebtn${saved ? ' on' : ''}`} type="button"
-                        aria-label="Išsaugoti radinį" onClick={() => saveFind(i)}>
-                        <BookmarkIcon filled={saved} size={16} />
+                      <button className={`g-savebtn${liked ? ' on' : ''}`} type="button"
+                        aria-label="Pamėgti atlikėją" onClick={() => likeArtist(i, p.artistId)}>
+                        <HeartIcon size={16} />
                       </button>
                       {p.artistSlug && <Link className="g-linkbtn" href={`/atlikejai/${p.artistSlug}`} aria-label="Atlikėjo puslapis" target="_blank" rel="noopener"><LinkIcon size={14} /></Link>}
                     </div>
@@ -608,7 +608,7 @@ export default function GilynClient() {
                   </div>
                 )
               })}
-              <p className="g-hint"><BookmarkIcon filled size={11} /> — išsaugok radinį: jis atsidurs lentynoje ir tavo žemėlapyje. Paspaudęs kortelę — perklausysi.</p>
+              <p className="g-hint"><HeartIcon size={11} /> — pamėgai, vadinasi atradai: atsidurs tavo žemėlapyje. Paspaudęs kortelę — perklausysi.</p>
             </div>
           ) : (
             <p className="g-lead center">Šiandien kelio nebuvo — dėžė liko uždaryta. Rytoj — nauja.</p>
@@ -727,8 +727,8 @@ export default function GilynClient() {
               <div className="g-maptotals">
                 <div><HeartIcon size={15} /><b>{mapData.totals.beacons}</b><span>pamėgta</span></div>
                 <div><CheckIcon size={15} /><b>{mapData.totals.visited}</b><span>aplankyta</span></div>
-                <div><StarIcon size={15} /><b>{mapData.totals.saved}</b><span>radiniai</span></div>
-                <div><HexMini /><b>{mapData.totals.substylesTouched}<i>/{mapData.totals.substylesTotal}</i></b><span>stiliai</span></div>
+                <div><PlayMini /><b>{mapData.totals.heard}</b><span>perklausyta</span></div>
+                <div><HexMini /><b>{mapData.totals.substylesTouched}<i>/{mapData.totals.substylesTotal}</i></b><span>teritorijos</span></div>
               </div>
               <p className="g-mapexpl">Kiekvienas žanras skyla į muzikos teritorijas — judėjimus, eras, scenas. <span className="cl-b">Plotas</span> — teritorijos dydis kataloge, <span className="cl-v">užpildymas</span> — kiek jos jau pažinai.</p>
               <TerritoryMap regions={mapData.regions} onPick={s => setSubSheet(s)} />
@@ -822,9 +822,9 @@ export default function GilynClient() {
           <div className="g-sheet" onClick={e => e.stopPropagation()}>
             <h3 className="g-h3 center">{subSheet.name}</h3>
             <p className="g-dim center">
-              {subSheet.saved > 0 && <><StarIcon size={12} /> {subSheet.saved} radiniai · </>}
+              {subSheet.beacons > 0 && <><HeartIcon size={12} /> {subSheet.beacons} pamėgta · </>}
               {subSheet.visited > 0 && <><CheckIcon size={12} /> {subSheet.visited} aplankyta · </>}
-              {subSheet.beacons > 0 && <><HeartIcon size={12} /> {subSheet.beacons} pamėgta</>}
+              {subSheet.heard > 0 && <>{subSheet.heard} perklausyta</>}
             </p>
             {(() => {
               const n = subSheet.beacons + subSheet.visited + subSheet.saved
@@ -1127,13 +1127,11 @@ function TerritoryMap({ regions, onPick }: {
             <g key={t.id} className="g-wc" onClick={() => { if (!suppress.current) onPick(t) }} role="button">
               <title>{t.name} — {mine}/{t.size}</title>
               <circle cx={x} cy={y} r={r}
-                filter={t.saved > 0 ? 'url(#gstar6)' : undefined}
                 style={{
                   fill: mine > 0 ? `color-mix(in srgb, ${hue} ${pct}%, #161d2b)` : `color-mix(in srgb, ${hue} 9%, #141a26)`,
                   stroke: mine > 0 ? hue : `color-mix(in srgb, ${hue} 30%, transparent)`,
                   strokeWidth: mine > 0 ? 1.6 : 0.8,
                 }} />
-              {t.saved > 0 && <text x={x + r * 0.62} y={y - r * 0.62} textAnchor="middle" className="g-hexstar" style={{ fontSize: 12 }}>★</text>}
               {showName && (
                 <>
                   <text x={x} y={y + (r >= 26 ? -2 : 3)} textAnchor="middle" className="g-wcname" style={{ fontSize: nameFs(r) }}>
@@ -1604,6 +1602,9 @@ function CheckIcon({ size = 14 }: { size?: number }) {
 }
 function StarIcon({ size = 14 }: { size?: number }) {
   return <svg width={size} height={size} viewBox="0 0 24 24" fill="var(--accent-orange)" aria-hidden="true"><polygon points="12 2 15.09 8.26 22 9.27 17 14.14 18.18 21.02 12 17.77 5.82 21.02 7 14.14 2 9.27 8.91 8.26 12 2" /></svg>
+}
+function PlayMini() {
+  return <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="var(--text-muted)" strokeWidth="2.4" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true"><polygon points="6 4 20 12 6 20 6 4" /></svg>
 }
 function HexMini() {
   return <svg width="15" height="15" viewBox="0 0 24 24" fill="rgba(140,160,190,0.35)" aria-hidden="true"><polygon points="12 2 21 7 21 17 12 22 3 17 3 7" /></svg>

@@ -357,6 +357,20 @@ export async function POST(req: NextRequest) {
       }
     }
 
+    // ── LIKE = ATRADIMAS (rašo į bendrą svetainės likes sistemą) ──
+    if (action === 'like') {
+      const artistId = Number(body.artistId || 0)
+      if (!artistId) return NextResponse.json({ error: 'Trūksta atlikėjo' }, { status: 400 })
+      await sb.from('likes').insert({
+        entity_type: 'artist', entity_id: artistId,
+        user_id: viewer.userId, user_username: viewer.username,
+        anon_id: viewer.userId ? null : viewer.anonId,
+        source: 'gilyn',
+      }).select('id')   // on conflict unikalumas — insert klaida tyliai ignoruojama
+      upsertMapNode(viewer, artistId, { saved: true }).catch(() => {})
+      return NextResponse.json({ ok: true })
+    }
+
     // ── Po run'o ──
     if (run.status === 'done') {
       // Išsaugoti kelio tašką kaip radinį: žemėlapio ★ + albumas į lentyną
