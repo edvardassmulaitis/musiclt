@@ -939,7 +939,11 @@ function MapWorld({ regions, edges, onPick }: {
   edges: { a: number; b: number; t: string }[]
   onPick: (s: SubStyle) => void
 }) {
-  const R = 13, HW = R * 1.732
+  // Du lygiai: null = žanrų burbulai (dydis ∝ tavo aktyvumui); genreId = pilno
+  // ekrano to žanro sala su scenomis/substiliais.
+  const [selG, setSelG] = useState<number | null>(null)
+  const R = selG == null ? 13 : 30
+  const HW = R * 1.732
   const AR = WORLD_H / WORLD_W
 
   const layout = useMemo(() => {
@@ -951,8 +955,10 @@ function MapWorld({ regions, edges, onPick }: {
       bbox: { x: number; y: number; w: number; h: number }
     }[] = []
     let seedN = 1
-    for (const rg of regions) {
-      const [cx, cy] = REGION_POS[rg.name] || [WORLD_W / 2, WORLD_H / 2]
+    for (const rg of (selG == null ? regions : regions.filter(r => r.genreId === selG))) {
+      const [cx, cy] = selG == null
+        ? (REGION_POS[rg.name] || [WORLD_W / 2, WORLD_H / 2])
+        : [WORLD_W / 2, WORLD_H / 2 + 14]
       const hue = REGION_HUES[rg.name] || '#94a3b8'
       const sorted = [...rg.substyles].sort((a, b) =>
         (b.beacons + b.visited * 3 + b.saved * 5 + (b.heard ? 1 : 0)) -
@@ -975,14 +981,14 @@ function MapWorld({ regions, edges, onPick }: {
         name: rg.name, hue,
         act: rg.substyles.filter(s => s.beacons || s.visited || s.saved).length,
         tot: rg.substyles.length,
-        lx: cx, ly: minY - 30,
-        coast: coastPath(rpts, 30, seedN * 3.7),
+        lx: cx, ly: minY - (selG == null ? 30 : 52),
+        coast: coastPath(rpts, selG == null ? 30 : 64, seedN * 3.7),
         bbox: { x: minX - 60, y: minY - 74, w: (maxX - minX) + 120, h: (maxY - minY) + 140 },
       })
       seedN++
     }
     return { cells, pos, isles }
-  }, [regions, HW])
+  }, [regions, HW, selG])
 
   const [vb, setVb] = useState({ x: 0, y: 0, w: WORLD_W })
   const vbRef = useRef(vb)
@@ -1007,12 +1013,12 @@ function MapWorld({ regions, edges, onPick }: {
     animRef.current = requestAnimationFrame(step)
   }, [])
 
-  // Įplaukimas: iš toli → visas pasaulis
+  // Įplaukimas: iš toli → visas pasaulis (ir perjungus žanrą)
   useEffect(() => {
     setVb({ x: -300, y: -220, w: 1800 })
-    const id = window.setTimeout(() => flyTo({ x: 0, y: 0, w: WORLD_W }, 1000), 80)
+    const id = window.setTimeout(() => flyTo({ x: 0, y: 0, w: WORLD_W }, selG == null ? 1000 : 750), 80)
     return () => { clearTimeout(id); cancelAnimationFrame(animRef.current) }
-  }, [flyTo])
+  }, [flyTo, selG])
 
   function zoomAt(f: number, cx?: number, cy?: number, animate = true) {
     const v = vbRef.current
@@ -1066,12 +1072,72 @@ function MapWorld({ regions, edges, onPick }: {
   // Šriftas skaluojamas su viewBox — ekrane visada ~vienodo dydžio.
   const vh = vb.w * AR
   const inView = (x: number, y: number) => x > vb.x - 30 && x < vb.x + vb.w + 30 && y > vb.y - 30 && y < vb.y + vh + 30
-  const showActiveNames = vb.w < 640
-  const nameFs = Math.max(4.5, vb.w * 0.011)
+  const showActiveNames = selG != null || vb.w < 640
+  const nameFs = Math.max(4.5, vb.w * (selG != null ? 0.0135 : 0.011))
   const labelFs = Math.max(9, Math.min(26, vb.w * 0.0155))
+
+  // ── 1 LYGIS: žanrų burbulai ──
+  if (selG === null) {
+    const acts = regions.map(r => r.substyles.filter(s => s.beacons || s.visited || s.saved).length)
+    const maxAct = Math.max(1, ...acts)
+    const subToG = new Map<number, number>()
+    for (const r of regions) for (const s of r.substyles) if (s.id < 1000000) subToG.set(s.id, r.genreId)
+    const agg = new Map<string, number>()
+    for (const e2 of edges) {
+      const a = subToG.get(e2.a), b = subToG.get(e2.b)
+      if (!a || !b || a === b) continue
+      const k = a < b ? `${a}|${b}` : `${b}|${a}`
+      agg.set(k, (agg.get(k) || 0) + 1)
+    }
+    const posOf = (gid: number): [number, number] => {
+      const r = regions.find(x => x.genreId === gid)
+      return (r && REGION_POS[r.name]) || [WORLD_W / 2, WORLD_H / 2]
+    }
+    return (
+      <div className="g-world">
+        <svg viewBox={`0 0 ${WORLD_W} ${WORLD_H}`} className="g-worldsvg">
+          <defs>
+            {regions.map(r => (
+              <radialGradient key={r.genreId} id={`gbub-${r.genreId}`}>
+                <stop offset="0%" stopColor={REGION_HUES[r.name] || '#94a3b8'} stopOpacity="0.30" />
+                <stop offset="75%" stopColor={REGION_HUES[r.name] || '#94a3b8'} stopOpacity="0.10" />
+                <stop offset="100%" stopColor={REGION_HUES[r.name] || '#94a3b8'} stopOpacity="0.04" />
+              </radialGradient>
+            ))}
+          </defs>
+          <g className="g-seadrift1"><circle cx={340} cy={240} r={420} fill="url(#gsea1b)" /></g>
+          <radialGradient id="gsea1b"><stop offset="0%" stopColor="#27334d" stopOpacity="0.5" /><stop offset="100%" stopColor="#27334d" stopOpacity="0" /></radialGradient>
+          {[...agg.entries()].map(([k, cnt]) => {
+            const [ga, gb] = k.split('|').map(Number)
+            const A = posOf(ga), B = posOf(gb)
+            const mx = (A[0] + B[0]) / 2 + (B[1] - A[1]) * 0.13
+            const my = (A[1] + B[1]) / 2 + (A[0] - B[0]) * 0.13
+            return <path key={k} d={`M ${A[0]} ${A[1]} Q ${mx} ${my} ${B[0]} ${B[1]}`} fill="none"
+              stroke="var(--accent-orange)" strokeWidth={Math.min(8, 2 + cnt * 1.3)} strokeLinecap="round" opacity={0.4} />
+          })}
+          {regions.map((r, i) => {
+            const act = acts[i]
+            const hue = REGION_HUES[r.name] || '#94a3b8'
+            const [cx, cy] = posOf(r.genreId)
+            const rad = 58 + 86 * Math.sqrt(act / maxAct)
+            const stars = r.substyles.reduce((s, x) => s + (x.saved ? 1 : 0), 0)
+            return (
+              <g key={r.genreId} className="g-bub" onClick={() => setSelG(r.genreId)} role="button">
+                <circle cx={cx} cy={cy} r={rad} fill={`url(#gbub-${r.genreId})`} stroke={hue} strokeWidth={2} />
+                <circle cx={cx} cy={cy} r={rad * 0.72} fill="none" stroke={`color-mix(in srgb, ${hue} 25%, transparent)`} strokeWidth={1} strokeDasharray="3 5" />
+                <text x={cx} y={cy - 4} textAnchor="middle" className="g-bubname" style={{ fill: hue, fontSize: Math.max(15, rad * 0.22) }}>{r.name}</text>
+                <text x={cx} y={cy + 20} textAnchor="middle" className="g-bubct">{act}/{r.substyles.length} teritorijų{stars ? ` · ★${stars}` : ''}</text>
+              </g>
+            )
+          })}
+        </svg>
+      </div>
+    )
+  }
 
   return (
     <div className="g-world">
+      <button className="g-worldback" onClick={() => setSelG(null)} type="button">← Visi žanrai</button>
       <div className="g-worldbtns">
         <button onClick={() => zoomAt(0.7)} type="button" aria-label="Priartinti">+</button>
         <button onClick={() => zoomAt(1.42)} type="button" aria-label="Atitolinti">−</button>
@@ -1451,6 +1517,12 @@ const css = `
 @keyframes gsead2 { from { transform: translate(0, 0); } to { transform: translate(-140px, -60px); } }
 @media (prefers-reduced-motion: reduce) { .g-wx.beacon polygon, .g-seadrift1, .g-seadrift2 { animation: none; } .g-edge { stroke-dasharray: none; animation: none; } }
 .g-worldbtns { position: absolute; top: 10px; right: 10px; z-index: 5; display: flex; flex-direction: column; gap: 6px; }
+.g-worldback { position: absolute; top: 10px; left: 10px; z-index: 5; border: 1px solid rgba(140,160,190,0.3); background: var(--bg-elevated); color: var(--text-primary); border-radius: 10px; padding: 8px 13px; font-size: 13px; font-weight: 800; cursor: pointer; box-shadow: 0 3px 10px rgba(0,0,0,0.2); }
+.g-bub { cursor: pointer; }
+.g-bub circle { transition: stroke-width 0.15s ease; }
+.g-bub:hover circle:first-of-type { stroke-width: 3.5; }
+.g-bubname { font-weight: 900; letter-spacing: -0.01em; paint-order: stroke; stroke: #12161f; stroke-width: 4px; }
+.g-bubct { font-size: 12.5px; font-weight: 700; fill: #aebfd4; paint-order: stroke; stroke: #12161f; stroke-width: 2.6px; }
 .g-worldbtns button { width: 36px; height: 36px; border-radius: 10px; border: 1px solid rgba(140,160,190,0.3); background: var(--bg-elevated); color: var(--text-primary); font-size: 17px; font-weight: 800; cursor: pointer; box-shadow: 0 3px 10px rgba(0,0,0,0.2); }
 .g-wx { cursor: pointer; }
 .g-wlabel { font-size: 17px; font-weight: 900; letter-spacing: -0.01em; paint-order: stroke; stroke: #12161f; stroke-width: 4px; }
