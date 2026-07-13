@@ -55,7 +55,8 @@ type Community = {
   sameFinalRegion: number
 } | null
 type SubStyle = {
-  id: number; name: string; beacons: number; visited: number; heard: number; saved: number
+  id: number; name: string; size?: number
+  beacons: number; visited: number; heard: number; saved: number
   artists: { id: number; n: string; k: 'saved' | 'visited' | 'beacon' }[]
 }
 type MapData = {
@@ -717,8 +718,8 @@ export default function GilynClient() {
                 <div><StarIcon size={15} /><b>{mapData.totals.saved}</b><span>radiniai</span></div>
                 <div><HexMini /><b>{mapData.totals.substylesTouched}<i>/{mapData.totals.substylesTotal}</i></b><span>stiliai</span></div>
               </div>
-              <p className="g-mapexpl">Kiekvienas šešiakampis — muzikos stilius. <span className="cl-b">Oranžiniai</span> — tavo pamėgta muzika, <span className="cl-v">žali</span> — kur nukeliavai per Gilyn, <span className="cl-s">★</span> — radiniai, pilki — dar rūke. Linijos — tavo kelionės.</p>
-              <MapWorld regions={mapData.regions} edges={mapData.edges || []} onPick={s => setSubSheet(s)} />
+              <p className="g-mapexpl">Kiekvienas žanras skyla į muzikos teritorijas — judėjimus, eras, scenas. <span className="cl-b">Plotas</span> — teritorijos dydis kataloge, <span className="cl-v">užpildymas</span> — kiek jos jau pažinai.</p>
+              <TerritoryMap regions={mapData.regions} onPick={s => setSubSheet(s)} />
             </>
           )}
         </div>
@@ -896,6 +897,122 @@ function spiralCoords(n: number): [number, number][] {
     k++
   }
   return out
+}
+
+// ── TERITORIJŲ ŽEMĖLAPIS: žanrų kortelės → teritorijų treemap ─────────────
+
+/** Squarified treemap layout: [{item, x, y, w, h}] procentais (0-100). */
+function squarify<T>(items: { item: T; size: number }[], W: number, H: number): { item: T; x: number; y: number; w: number; h: number }[] {
+  const total = items.reduce((s, i) => s + i.size, 0) || 1
+  const scaled = items.map(i => ({ item: i.item, area: (i.size / total) * W * H }))
+  const out: { item: T; x: number; y: number; w: number; h: number }[] = []
+  let x = 0, y = 0, w = W, h = H, row: typeof scaled = []
+  const worst = (r: typeof scaled, len: number) => {
+    const s = r.reduce((a, b) => a + b.area, 0)
+    const mx = Math.max(...r.map(i => i.area)), mn = Math.min(...r.map(i => i.area))
+    return Math.max((len * len * mx) / (s * s), (s * s) / (len * len * mn))
+  }
+  const layoutRow = (r: typeof scaled) => {
+    const s = r.reduce((a, b) => a + b.area, 0)
+    if (w >= h) {
+      const rw = s / h
+      let yy = y
+      for (const i of r) { const ih = i.area / rw; out.push({ item: i.item, x, y: yy, w: rw, h: ih }); yy += ih }
+      x += rw; w -= rw
+    } else {
+      const rh = s / w
+      let xx = x
+      for (const i of r) { const iw = i.area / rh; out.push({ item: i.item, x: xx, y, w: iw, h: rh }); xx += iw }
+      y += rh; h -= rh
+    }
+  }
+  for (const it of scaled) {
+    const len = Math.min(w, h)
+    if (!row.length || worst([...row, it], len) <= worst(row, len)) row.push(it)
+    else { layoutRow(row); row = [it] }
+  }
+  if (row.length) layoutRow(row)
+  return out
+}
+
+function TerritoryMap({ regions, onPick }: {
+  regions: { genreId: number; name: string; substyles: SubStyle[] }[]
+  onPick: (s: SubStyle) => void
+}) {
+  const [selG, setSelG] = useState<number | null>(null)
+  const sel = regions.find(r => r.genreId === selG) || null
+
+  if (!sel) {
+    return (
+      <div className="g-tgrid">
+        {[...regions]
+          .sort((a, b) =>
+            b.substyles.filter(s => s.beacons || s.visited || s.saved).length -
+            a.substyles.filter(s => s.beacons || s.visited || s.saved).length)
+          .map(r => {
+            const hue = REGION_HUES[r.name] || '#94a3b8'
+            const act = r.substyles.filter(s => s.beacons || s.visited || s.saved).length
+            const tot = r.substyles.length
+            const pct = Math.round((act / Math.max(1, tot)) * 100)
+            const stars = r.substyles.reduce((s, x) => s + (x.saved ? 1 : 0), 0)
+            const CIRC = 2 * Math.PI * 24
+            return (
+              <button key={r.genreId} className="g-tcard" type="button" onClick={() => setSelG(r.genreId)}
+                style={{ borderColor: `color-mix(in srgb, ${hue} 45%, transparent)` }}>
+                <svg width="60" height="60" viewBox="0 0 60 60" className="g-tring">
+                  <circle cx="30" cy="30" r="24" fill="none" stroke="rgba(140,160,190,0.18)" strokeWidth="6" />
+                  <circle cx="30" cy="30" r="24" fill="none" stroke={hue} strokeWidth="6" strokeLinecap="round"
+                    strokeDasharray={`${(pct / 100) * CIRC} ${CIRC}`} transform="rotate(-90 30 30)" />
+                  <text x="30" y="34" textAnchor="middle" className="g-tringtxt">{pct}%</text>
+                </svg>
+                <span className="g-tname" style={{ color: hue }}>{r.name}</span>
+                <span className="g-tstat">{act}/{tot} teritorijų{stars ? ` · ★${stars}` : ''}</span>
+              </button>
+            )
+          })}
+      </div>
+    )
+  }
+
+  const hue = REGION_HUES[sel.name] || '#94a3b8'
+  const items = [...sel.substyles]
+    .filter(t => (t.size || 0) > 0)
+    .sort((a, b) => (b.size || 0) - (a.size || 0))
+    .map(t => ({ item: t, size: Math.sqrt(Math.max(3, t.size || 3)) }))
+  const rects = squarify(items, 100, 100)
+  const act = sel.substyles.filter(s => s.beacons || s.visited || s.saved).length
+
+  return (
+    <div>
+      <div className="g-thead">
+        <button className="g-worldback static" onClick={() => setSelG(null)} type="button">← Visi žanrai</button>
+        <span className="g-tselname" style={{ color: hue }}>{sel.name}</span>
+        <span className="g-tstat">{act}/{sel.substyles.length}</span>
+      </div>
+      <div className="g-tmap">
+        {rects.map(({ item: t, x, y, w, h }) => {
+          const mine = t.beacons + t.visited + t.saved
+          const ratio = Math.min(1, mine / Math.max(4, Math.sqrt(t.size || 4) * 1.6))
+          const fillPct = mine > 0 ? Math.round(16 + 54 * ratio) : 0
+          const big = w * h > 320
+          return (
+            <button key={t.id} type="button" className={`g-trect${mine ? ' on' : ''}`}
+              onClick={() => onPick(t)}
+              style={{
+                left: `${x}%`, top: `${y}%`, width: `${w}%`, height: `${h}%`,
+                background: mine > 0
+                  ? `color-mix(in srgb, ${hue} ${fillPct}%, #1b2333)`
+                  : 'color-mix(in srgb, #94a3b8 6%, #1b2333)',
+                borderColor: mine > 0 ? `color-mix(in srgb, ${hue} 60%, transparent)` : 'rgba(140,160,190,0.16)',
+              }}>
+              <span className="g-trname" style={{ fontSize: big ? 13 : 10.5 }}>{t.name}</span>
+              <span className="g-trct">{mine > 0 ? `${mine}/${t.size}` : t.size}{t.saved ? ' ★' : ''}</span>
+            </button>
+          )
+        })}
+      </div>
+    </div>
+  )
 }
 
 /** Iškili gaubtinė (monotone chain) — kontinento kontūrui. */
@@ -1518,6 +1635,23 @@ const css = `
 @media (prefers-reduced-motion: reduce) { .g-wx.beacon polygon, .g-seadrift1, .g-seadrift2 { animation: none; } .g-edge { stroke-dasharray: none; animation: none; } }
 .g-worldbtns { position: absolute; top: 10px; right: 10px; z-index: 5; display: flex; flex-direction: column; gap: 6px; }
 .g-worldback { position: absolute; top: 10px; left: 10px; z-index: 5; border: 1px solid rgba(140,160,190,0.3); background: var(--bg-elevated); color: var(--text-primary); border-radius: 10px; padding: 8px 13px; font-size: 13px; font-weight: 800; cursor: pointer; box-shadow: 0 3px 10px rgba(0,0,0,0.2); }
+.g-worldback.static { position: static; box-shadow: none; }
+.g-tgrid { display: grid; grid-template-columns: repeat(2, 1fr); gap: 10px; }
+@media (min-width: 700px) { .g-tgrid { grid-template-columns: repeat(4, 1fr); } }
+.g-tcard { display: flex; flex-direction: column; align-items: center; gap: 6px; padding: 16px 8px 13px; border-radius: 16px; border: 1.5px solid; background: radial-gradient(circle at 50% 0%, #1c2432, #141a26); cursor: pointer; transition: transform 0.15s ease; }
+.g-tcard:hover { transform: translateY(-2px); }
+.g-tringtxt { fill: #e7ebf2; font-size: 13px; font-weight: 900; }
+.g-tname { font-size: 15px; font-weight: 900; letter-spacing: -0.01em; }
+.g-tstat { font-size: 11px; font-weight: 700; color: #8ba1bd; }
+.g-thead { display: flex; align-items: center; gap: 12px; margin-bottom: 10px; }
+.g-tselname { font-size: 17px; font-weight: 900; }
+.g-tmap { position: relative; width: 100%; aspect-ratio: 4 / 4.6; border-radius: 14px; overflow: hidden; background: #10141d; }
+@media (min-width: 700px) { .g-tmap { aspect-ratio: 16 / 10; } }
+.g-trect { position: absolute; display: flex; flex-direction: column; align-items: flex-start; justify-content: flex-end; gap: 1px; padding: 6px 7px; border: 1px solid; border-radius: 0; cursor: pointer; overflow: hidden; text-align: left; transition: filter 0.12s ease; }
+.g-trect:hover { filter: brightness(1.25); z-index: 2; }
+.g-trname { font-weight: 800; color: #e7ebf2; line-height: 1.15; overflow: hidden; display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; }
+.g-trct { font-size: 10px; font-weight: 800; color: rgba(231,235,242,0.75); }
+.g-trect.on .g-trct { color: #fff; }
 .g-bub { cursor: pointer; }
 .g-bub circle { transition: stroke-width 0.15s ease; }
 .g-bub:hover circle:first-of-type { stroke-width: 3.5; }

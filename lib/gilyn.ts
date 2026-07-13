@@ -859,7 +859,8 @@ export type MapRegion = {
   genreId: number
   name: string
   substyles: {
-    id: number; name: string; beacons: number; visited: number; heard: number; saved: number
+    id: number; name: string; size?: number
+    beacons: number; visited: number; heard: number; saved: number
     artists: { id: number; n: string; k: 'saved' | 'visited' | 'beacon' }[]
   }[]
   beacons: number
@@ -885,6 +886,18 @@ export function sceneName(subName: string, country: string | null, decade: numbe
 
 /** Scenos ID žemėlapio vienetui (kad nesikirstų su substilių ID). */
 export const SCENE_ID_BASE = 1000000
+
+// ── Kuruotos teritorijos (gilyn_territories) ──
+type TerritoryRow = { id: number; genre_id: number; name: string; is_catchall: boolean; artist_ids: number[]; n: number }
+let terrCache: { at: number; rows: TerritoryRow[] } | null = null
+
+async function loadTerritories(): Promise<TerritoryRow[]> {
+  if (terrCache && Date.now() - terrCache.at < 10 * 60 * 1000) return terrCache.rows
+  const sb = createAdminClient()
+  const { data } = await sb.from('gilyn_territories').select('id, genre_id, name, is_catchall, artist_ids, n').limit(300)
+  terrCache = { at: Date.now(), rows: ((data as any[]) || []) as TerritoryRow[] }
+  return terrCache.rows
+}
 
 export async function buildMap(viewer: GameViewer): Promise<{
   regions: MapRegion[]
@@ -940,76 +953,29 @@ export async function buildMap(viewer: GameViewer): Promise<{
     for (const r of (data as any[]) || []) nameById.set(r.id, r.name)
   }
 
-  // ── Vienetai: scenos (tik su viewer'io veikla) + substilių branduoliai ──
-  type Unit = {
-    id: number; substyleId: number; name: string
-    beacons: number; visited: number; heard: number; saved: number
-    artists: { id: number; n: string; k: 'saved' | 'visited' | 'beacon' }[]
-  }
-  const units = new Map<number, Unit>()
-  const mkUnit = (id: number, substyleId: number, name: string): Unit => {
-    let u = units.get(id)
-    if (!u) { u = { id, substyleId, name, beacons: 0, visited: 0, heard: 0, saved: 0, artists: [] }; units.set(id, u) }
-    return u
-  }
-  const addArtist = (u: Unit, aid: number, v: VA) => {
-    if (v.beacon) u.beacons++
-    if (v.visited) u.visited++
-    if (v.heard) u.heard++
-    if (v.saved) u.saved++
-    if (u.artists.length < 8) {
-      const n = nameById.get(aid)
-      if (n) u.artists.push({ id: aid, n, k: v.saved ? 'saved' : v.visited ? 'visited' : 'beacon' })
-    }
-  }
-
-  // Scenos: atlikėjas priskiriamas scenai; jo (atlikėjas, substilius) pora — „padengta"
-  const covered = new Map<number, Set<number>>()   // artistId → substyleIds padengti scenų
-  const scenes = await loadScenes()
-  for (const sc of scenes) {
-    const sub = taxo.subById.get(sc.substyle_id)
-    if (!sub) continue
-    let unit: Unit | null = null
-    for (const aid of sc.artist_ids) {
-      const v = va.get(aid)
-      if (!v) continue
-      if (!unit) unit = mkUnit(SCENE_ID_BASE + sc.id, sc.substyle_id, sceneName(sub.name, sc.country, sc.decade))
-      addArtist(unit, aid, v)
-      let cs = covered.get(aid)
-      if (!cs) { cs = new Set(); covered.set(aid, cs) }
-      cs.add(sc.substyle_id)
-    }
-  }
-  // Branduoliai: likusi (nepadengta scenomis) veikla + visi substiliai kaip rūkas
-  for (const [aid, v] of va) {
-    for (const s of v.subs) {
-      if (covered.get(aid)?.has(s)) continue
-      const sub = taxo.subById.get(s)
-      if (!sub) continue
-      addArtist(mkUnit(s, s, sub.name), aid, v)
-    }
-  }
-
-  // Rikiavimas: „radiniai" pirmi (rikiuoja klientas), regionai iš vienetų
-  const unitsBySub = new Map<number, Unit[]>()
-  for (const u of units.values()) {
-    const l = unitsBySub.get(u.substyleId) || []
-    l.push(u)
-    unitsBySub.set(u.substyleId, l)
-  }
-
+  // ── Vienetai: KURUOTOS TERITORIJOS (gilyn_territories) ──
+  const terrs = await loadTerritories()
   const regions: MapRegion[] = taxo.genres.map(g => {
-    const subs = [...taxo.subById.values()].filter(s => s.genreId === g.id)
     const cells: MapRegion['substyles'] = []
-    for (const s of subs) {
-      const list = unitsBySub.get(s.id) || []
-      const hasCore = list.some(u => u.id === s.id)
-      for (const u of list) {
-        cells.push({ id: u.id, name: u.name, beacons: u.beacons, visited: u.visited, heard: u.heard, saved: u.saved, artists: u.artists })
+    for (const t of terrs.filter(x => x.genre_id === g.id)) {
+      let beacons = 0, visited = 0, heard = 0, saved = 0
+      const artists: { id: number; n: string; k: 'saved' | 'visited' | 'beacon' }[] = []
+      for (const aid of t.artist_ids) {
+        const v = va.get(aid)
+        if (!v) continue
+        if (v.beacon) beacons++
+        if (v.visited) visited++
+        if (v.heard) heard++
+        if (v.saved) saved++
+        if (artists.length < 10) {
+          const n = nameById.get(aid)
+          if (n) artists.push({ id: aid, n, k: v.saved ? 'saved' : v.visited ? 'visited' : 'beacon' })
+        }
       }
-      if (!hasCore) cells.push({ id: s.id, name: s.name, beacons: 0, visited: 0, heard: 0, saved: 0, artists: [] })
+      artists.sort((a, b) => (a.k === 'saved' ? 0 : a.k === 'visited' ? 1 : 2) - (b.k === 'saved' ? 0 : b.k === 'visited' ? 1 : 2))
+      cells.push({ id: t.id, name: t.name, size: t.n, beacons, visited, heard, saved, artists: artists.slice(0, 8) })
     }
-    cells.sort((a, b) => (b.beacons + b.visited * 3 + b.saved * 5) - (a.beacons + a.visited * 3 + a.saved * 5))
+    cells.sort((a, b) => (b.size || 0) - (a.size || 0))
     return {
       genreId: g.id, name: shortGenreName(g.name), substyles: cells,
       beacons: cells.reduce((s, x) => s + (x.beacons ? 1 : 0), 0),
@@ -1017,17 +983,14 @@ export async function buildMap(viewer: GameViewer): Promise<{
     }
   })
 
-  const substylesTotal = [...taxo.subById.values()].filter(s => s.genreId).length
-  const touched = new Set<number>()
-  for (const [, v] of va) {
-    if (v.beacon || v.visited || v.saved) for (const s of v.subs) touched.add(s)
-  }
+  const territoriesTotal = terrs.length
+  const territoriesTouched = regions.reduce((s, r) => s + r.substyles.filter(c => c.beacons || c.visited || c.saved).length, 0)
 
   return {
     regions,
     totals: {
       beacons: beaconArtists.size, visited: totals.visited, heard: totals.heard, saved: totals.saved,
-      substylesTouched: touched.size, substylesTotal,
+      substylesTouched: territoriesTouched, substylesTotal: territoriesTotal,
     },
     likeCounts: likes.counts,
   }
