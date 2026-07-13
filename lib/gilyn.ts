@@ -868,19 +868,19 @@ export type MapRegion = {
 
 // ── Scenos (substilius × šalis × dešimtmetis klasteriai iš gilyn_scenes) ──
 
-type SceneRow = { id: number; substyle_id: number; country: string; decade: number; n: number; artist_ids: number[] }
+type SceneRow = { id: number; substyle_id: number; country: string | null; decade: number; n: number; artist_ids: number[] }
 let sceneCache: { at: number; rows: SceneRow[] } | null = null
 
 async function loadScenes(): Promise<SceneRow[]> {
   if (sceneCache && Date.now() - sceneCache.at < 10 * 60 * 1000) return sceneCache.rows
   const sb = createAdminClient()
-  const { data } = await sb.from('gilyn_scenes').select('id, substyle_id, country, decade, n, artist_ids').limit(600)
+  const { data } = await sb.from('gilyn_scenes').select('id, substyle_id, country, decade, n, artist_ids').limit(1000)
   sceneCache = { at: Date.now(), rows: ((data as any[]) || []) as SceneRow[] }
   return sceneCache.rows
 }
 
-export function sceneName(subName: string, country: string, decade: number): string {
-  return `${subName} · ${country} · ${String(decade).slice(2, 3)}0-ieji`
+export function sceneName(subName: string, country: string | null, decade: number): string {
+  return `${subName} · ${country || 'pasaulis'} · ${String(decade).slice(2, 3)}0-ieji`
 }
 
 /** Scenos ID žemėlapio vienetui (kad nesikirstų su substilių ID). */
