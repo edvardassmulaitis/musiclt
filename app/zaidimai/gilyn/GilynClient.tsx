@@ -57,7 +57,8 @@ type Community = {
 type SubStyle = {
   id: number; name: string; size?: number
   beacons: number; visited: number; heard: number; saved: number
-  artists: { id: number; n: string; k: 'saved' | 'visited' | 'beacon' }[]
+  artists: { id: number; n: string; k: 'saved' | 'visited' | 'beacon'; img?: string | null }[]
+  top?: { id: number; n: string; img?: string | null }[]
 }
 type MapData = {
   regions: { genreId: number; name: string; substyles: SubStyle[]; beacons: number; visited: number }[]
@@ -806,21 +807,38 @@ export default function GilynClient() {
                 </p>
               ) : null
             })()}
-            {subSheet.artists.length > 0 ? (
-              <>
-                <div className="g-subartists">
-                  {subSheet.artists.map((a, i) => (
-                    <button key={i} className={`g-suba ${a.k}`} type="button" onClick={() => startFreeDig(a.id, { artist: a.n })}>
-                      {a.k === 'saved' ? <StarIcon size={11} /> : a.k === 'visited' ? <CheckIcon size={11} /> : <HeartIcon size={11} />} {a.n}
-                      <ArrowIcon size={11} />
-                    </button>
-                  ))}
-                </div>
-                <p className="g-hint">Paspausk atlikėją — pradėsi laisvą kasimąsi nuo jo.</p>
-              </>
-            ) : (
-              <p className="g-dim center">Šį stilių dar dengia rūkas — jokių tavo pėdsakų.</p>
+            {subSheet.artists.length > 0 && (
+              <div className="g-subartists">
+                {subSheet.artists.map((a, i) => (
+                  <button key={i} className={`g-suba ${a.k}`} type="button" onClick={() => startFreeDig(a.id, { artist: a.n })}>
+                    {a.img && <img className="g-subaimg" src={a.img} alt="" referrerPolicy="no-referrer" />}
+                    {a.k === 'saved' ? <StarIcon size={11} /> : a.k === 'visited' ? <CheckIcon size={11} /> : <HeartIcon size={11} />} {a.n}
+                    <ArrowIcon size={11} />
+                  </button>
+                ))}
+              </div>
             )}
+            {(() => {
+              const known = new Set(subSheet.artists.map(a => a.id))
+              const rest = (subSheet.top || []).filter(t => !known.has(t.id))
+              return rest.length > 0 ? (
+                <>
+                  <p className="g-dim center" style={{ marginTop: 4 }}>{subSheet.artists.length ? 'Čia taip pat gyvena:' : 'Žymiausi šios teritorijos gyventojai:'}</p>
+                  <div className="g-subartists">
+                    {rest.map(t => (
+                      <button key={t.id} className="g-suba" type="button" onClick={() => startFreeDig(t.id, { artist: t.n })}>
+                        {t.img && <img className="g-subaimg" src={t.img} alt="" referrerPolicy="no-referrer" />}
+                        {t.n} <ArrowIcon size={11} />
+                      </button>
+                    ))}
+                  </div>
+                </>
+              ) : null
+            })()}
+            {subSheet.artists.length === 0 && !(subSheet.top || []).length && (
+              <p className="g-dim center">Šią teritoriją dar dengia rūkas.</p>
+            )}
+            <p className="g-hint">Paspausk atlikėją — pradėsi laisvą kasimąsi nuo jo.</p>
             <button className="g-cta ghost" onClick={() => setSubSheet(null)} type="button">Uždaryti</button>
           </div>
         </div>
@@ -995,18 +1013,26 @@ function TerritoryMap({ regions, onPick }: {
           const ratio = Math.min(1, mine / Math.max(4, Math.sqrt(t.size || 4) * 1.6))
           const fillPct = mine > 0 ? Math.round(16 + 54 * ratio) : 0
           const big = w * h > 320
+          const faces = (t.artists || []).filter(a => a.img).slice(0, big ? 4 : 3)
           return (
             <button key={t.id} type="button" className={`g-trect${mine ? ' on' : ''}`}
               onClick={() => onPick(t)}
               style={{
                 left: `${x}%`, top: `${y}%`, width: `${w}%`, height: `${h}%`,
                 background: mine > 0
-                  ? `color-mix(in srgb, ${hue} ${fillPct}%, #1b2333)`
-                  : 'color-mix(in srgb, #94a3b8 6%, #1b2333)',
+                  ? `linear-gradient(160deg, color-mix(in srgb, ${hue} ${fillPct + 10}%, #1b2333), color-mix(in srgb, ${hue} ${Math.max(8, fillPct - 14)}%, #151b28))`
+                  : 'linear-gradient(160deg, color-mix(in srgb, #94a3b8 8%, #1b2333), #151b28)',
                 borderColor: mine > 0 ? `color-mix(in srgb, ${hue} 60%, transparent)` : 'rgba(140,160,190,0.16)',
+                boxShadow: mine > 0 ? `inset 0 0 24px color-mix(in srgb, ${hue} 18%, transparent)` : undefined,
               }}>
+              {t.saved > 0 && <span className="g-trstar"><StarIcon size={11} /></span>}
+              {faces.length > 0 && (
+                <span className="g-trfaces">
+                  {faces.map(a => <img key={a.id} src={a.img || ''} alt="" referrerPolicy="no-referrer" title={a.n} />)}
+                </span>
+              )}
               <span className="g-trname" style={{ fontSize: big ? 13 : 10.5 }}>{t.name}</span>
-              <span className="g-trct">{mine > 0 ? `${mine}/${t.size}` : t.size}{t.saved ? ' ★' : ''}</span>
+              <span className="g-trct">{mine > 0 ? `${mine}/${t.size}` : t.size}</span>
             </button>
           )
         })}
@@ -1652,6 +1678,10 @@ const css = `
 .g-trname { font-weight: 800; color: #e7ebf2; line-height: 1.15; overflow: hidden; display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; }
 .g-trct { font-size: 10px; font-weight: 800; color: rgba(231,235,242,0.75); }
 .g-trect.on .g-trct { color: #fff; }
+.g-trstar { position: absolute; top: 5px; right: 6px; filter: drop-shadow(0 0 6px rgba(249,115,22,0.9)); }
+.g-trfaces { position: absolute; top: 5px; left: 6px; display: flex; }
+.g-trfaces img { width: 22px; height: 22px; border-radius: 50%; object-fit: cover; border: 1.5px solid rgba(255,255,255,0.75); margin-right: -7px; box-shadow: 0 2px 6px rgba(0,0,0,0.45); }
+.g-subaimg { width: 20px; height: 20px; border-radius: 50%; object-fit: cover; margin-right: 2px; }
 .g-bub { cursor: pointer; }
 .g-bub circle { transition: stroke-width 0.15s ease; }
 .g-bub:hover circle:first-of-type { stroke-width: 3.5; }

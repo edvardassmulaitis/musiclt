@@ -861,7 +861,8 @@ export type MapRegion = {
   substyles: {
     id: number; name: string; size?: number
     beacons: number; visited: number; heard: number; saved: number
-    artists: { id: number; n: string; k: 'saved' | 'visited' | 'beacon' }[]
+    artists: { id: number; n: string; k: 'saved' | 'visited' | 'beacon'; img?: string | null }[]
+    top?: { id: number; n: string; img?: string | null }[]
   }[]
   beacons: number
   visited: number
@@ -888,13 +889,13 @@ export function sceneName(subName: string, country: string | null, decade: numbe
 export const SCENE_ID_BASE = 1000000
 
 // ── Kuruotos teritorijos (gilyn_territories) ──
-type TerritoryRow = { id: number; genre_id: number; name: string; is_catchall: boolean; artist_ids: number[]; n: number }
+type TerritoryRow = { id: number; genre_id: number; name: string; is_catchall: boolean; artist_ids: number[]; n: number; top_ids: number[] }
 let terrCache: { at: number; rows: TerritoryRow[] } | null = null
 
 async function loadTerritories(): Promise<TerritoryRow[]> {
   if (terrCache && Date.now() - terrCache.at < 10 * 60 * 1000) return terrCache.rows
   const sb = createAdminClient()
-  const { data } = await sb.from('gilyn_territories').select('id, genre_id, name, is_catchall, artist_ids, n').limit(300)
+  const { data } = await sb.from('gilyn_territories').select('id, genre_id, name, is_catchall, artist_ids, n, top_ids').limit(300)
   terrCache = { at: Date.now(), rows: ((data as any[]) || []) as TerritoryRow[] }
   return terrCache.rows
 }
@@ -946,20 +947,23 @@ export async function buildMap(viewer: GameViewer): Promise<{
     }
   }
 
-  // Vardai
-  const nameById = new Map<number, string>()
-  for (const ids of chunk([...va.keys()].slice(0, 900), 200)) {
-    const { data } = await sb.from('artists').select('id, name').in('id', ids).limit(400)
-    for (const r of (data as any[]) || []) nameById.set(r.id, r.name)
-  }
-
   // ── Vienetai: KURUOTOS TERITORIJOS (gilyn_territories) ──
   const terrs = await loadTerritories()
+
+  // Vardai + foto (viewer'io atlikėjai + teritorijų top gyventojai)
+  const nameById = new Map<number, string>()
+  const imgById = new Map<number, string | null>()
+  const nameIds = new Set<number>([...va.keys()].slice(0, 900))
+  for (const t of terrs) for (const id of t.top_ids || []) nameIds.add(id)
+  for (const ids of chunk([...nameIds], 200)) {
+    const { data } = await sb.from('artists').select('id, name, cover_image_url').in('id', ids).limit(400)
+    for (const r of (data as any[]) || []) { nameById.set(r.id, r.name); imgById.set(r.id, r.cover_image_url || null) }
+  }
   const regions: MapRegion[] = taxo.genres.map(g => {
     const cells: MapRegion['substyles'] = []
     for (const t of terrs.filter(x => x.genre_id === g.id)) {
       let beacons = 0, visited = 0, heard = 0, saved = 0
-      const artists: { id: number; n: string; k: 'saved' | 'visited' | 'beacon' }[] = []
+      const artists: { id: number; n: string; k: 'saved' | 'visited' | 'beacon'; img?: string | null }[] = []
       for (const aid of t.artist_ids) {
         const v = va.get(aid)
         if (!v) continue
@@ -969,11 +973,13 @@ export async function buildMap(viewer: GameViewer): Promise<{
         if (v.saved) saved++
         if (artists.length < 10) {
           const n = nameById.get(aid)
-          if (n) artists.push({ id: aid, n, k: v.saved ? 'saved' : v.visited ? 'visited' : 'beacon' })
+          if (n) artists.push({ id: aid, n, k: v.saved ? 'saved' : v.visited ? 'visited' : 'beacon', img: imgById.get(aid) || null })
         }
       }
       artists.sort((a, b) => (a.k === 'saved' ? 0 : a.k === 'visited' ? 1 : 2) - (b.k === 'saved' ? 0 : b.k === 'visited' ? 1 : 2))
-      cells.push({ id: t.id, name: t.name, size: t.n, beacons, visited, heard, saved, artists: artists.slice(0, 8) })
+      // „Žymiausi gyventojai" — teritorijos veidai (motyvacija kasti, net kai rūkas)
+      const top = (t.top_ids || []).map(id => ({ id, n: nameById.get(id) || '', img: imgById.get(id) || null })).filter(x => x.n).slice(0, 5)
+      cells.push({ id: t.id, name: t.name, size: t.n, beacons, visited, heard, saved, artists: artists.slice(0, 8), top })
     }
     cells.sort((a, b) => (b.size || 0) - (a.size || 0))
     return {
