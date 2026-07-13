@@ -866,6 +866,26 @@ export type MapRegion = {
   visited: number
 }
 
+// ── Scenos (substilius × šalis × dešimtmetis klasteriai iš gilyn_scenes) ──
+
+type SceneRow = { id: number; substyle_id: number; country: string; decade: number; n: number; artist_ids: number[] }
+let sceneCache: { at: number; rows: SceneRow[] } | null = null
+
+async function loadScenes(): Promise<SceneRow[]> {
+  if (sceneCache && Date.now() - sceneCache.at < 10 * 60 * 1000) return sceneCache.rows
+  const sb = createAdminClient()
+  const { data } = await sb.from('gilyn_scenes').select('id, substyle_id, country, decade, n, artist_ids').limit(600)
+  sceneCache = { at: Date.now(), rows: ((data as any[]) || []) as SceneRow[] }
+  return sceneCache.rows
+}
+
+export function sceneName(subName: string, country: string, decade: number): string {
+  return `${subName} · ${country} · ${String(decade).slice(2, 3)}0-ieji`
+}
+
+/** Scenos ID žemėlapio vienetui (kad nesikirstų su substilių ID). */
+export const SCENE_ID_BASE = 1000000
+
 export async function buildMap(viewer: GameViewer): Promise<{
   regions: MapRegion[]
   totals: { beacons: number; visited: number; heard: number; saved: number; substylesTouched: number; substylesTotal: number }
@@ -875,7 +895,16 @@ export async function buildMap(viewer: GameViewer): Promise<{
   const taxo = await loadTaxonomy()
   const likes = await fetchViewerLikes(viewer)
 
-  // Švyturiai: pamėgti atlikėjai (+ album/track like'ų atlikėjai) → substiliai
+  // ── Viewer'io atlikėjai su būsenom ir substiliais ──
+  type VA = { subs: Set<number>; beacon: boolean; visited: boolean; heard: boolean; saved: boolean }
+  const va = new Map<number, VA>()
+  const ensure = (id: number): VA => {
+    let v = va.get(id)
+    if (!v) { v = { subs: new Set(), beacon: false, visited: false, heard: false, saved: false }; va.set(id, v) }
+    return v
+  }
+
+  // Švyturiai: artist/track like'ai + album like'ų atlikėjai
   const beaconArtists = new Set<number>([...likes.artistIds, ...likes.trackArtistIds])
   if (likes.albumIds.size) {
     for (const ids of chunk([...likes.albumIds].slice(0, 400), 200)) {
@@ -883,92 +912,116 @@ export async function buildMap(viewer: GameViewer): Promise<{
       for (const r of (data as any[]) || []) if (r.artist_id) beaconArtists.add(r.artist_id)
     }
   }
-  const beaconSubCount = new Map<number, number>()
-  const beaconSubArtists = new Map<number, number[]>()
+  for (const id of beaconArtists) ensure(id).beacon = true
   for (const ids of chunk([...beaconArtists].slice(0, 600), 200)) {
     const { data } = await sb.from('artist_substyles').select('artist_id, substyle_id').in('artist_id', ids).limit(1000)
-    for (const r of (data as any[]) || []) {
-      beaconSubCount.set(r.substyle_id, (beaconSubCount.get(r.substyle_id) || 0) + 1)
-      const list = beaconSubArtists.get(r.substyle_id) || []
-      if (list.length < 10) { list.push(r.artist_id); beaconSubArtists.set(r.substyle_id, list) }
-    }
+    for (const r of (data as any[]) || []) ensure(r.artist_id).subs.add(r.substyle_id)
   }
 
-  // Aplankyti/išgirsti/išsaugoti — iš gilyn_map_nodes
-  const nodeSub = { visited: new Map<number, number>(), heard: new Map<number, number>(), saved: new Map<number, number>() }
-  const nodeSubArtists = { visited: new Map<number, number[]>(), saved: new Map<number, number[]>() }
+  // Gilyn kelionės (visited/heard/saved)
   const totals = { visited: 0, heard: 0, saved: 0 }
-  const nodeArtistIds = new Set<number>()
   if (viewer.userId || viewer.anonId) {
     let q = sb.from('gilyn_map_nodes').select('artist_id, visited, heard, saved, substyle_ids')
     q = viewer.userId ? q.eq('user_id', viewer.userId) : q.eq('anon_id', viewer.anonId!)
     const { data } = await q.limit(1000)
     for (const r of (data as any[]) || []) {
-      if (r.visited) totals.visited++
-      if (r.heard) totals.heard++
-      if (r.saved) totals.saved++
-      if (r.visited || r.saved) nodeArtistIds.add(r.artist_id)
-      for (const s of r.substyle_ids || []) {
-        if (r.visited) {
-          nodeSub.visited.set(s, (nodeSub.visited.get(s) || 0) + 1)
-          const l = nodeSubArtists.visited.get(s) || []
-          if (l.length < 10) { l.push(r.artist_id); nodeSubArtists.visited.set(s, l) }
-        }
-        if (r.heard) nodeSub.heard.set(s, (nodeSub.heard.get(s) || 0) + 1)
-        if (r.saved) {
-          nodeSub.saved.set(s, (nodeSub.saved.get(s) || 0) + 1)
-          const l = nodeSubArtists.saved.get(s) || []
-          if (l.length < 10) { l.push(r.artist_id); nodeSubArtists.saved.set(s, l) }
-        }
-      }
+      const v = ensure(r.artist_id)
+      if (r.visited) { v.visited = true; totals.visited++ }
+      if (r.heard) { v.heard = true; totals.heard++ }
+      if (r.saved) { v.saved = true; totals.saved++ }
+      for (const s of r.substyle_ids || []) v.subs.add(s)
     }
   }
 
-  // Vardai — „kas atidengė šią teritoriją"
-  const nameIds = new Set<number>(nodeArtistIds)
-  for (const [, ids] of beaconSubArtists) for (const id of ids) nameIds.add(id)
+  // Vardai
   const nameById = new Map<number, string>()
-  for (const ids of chunk([...nameIds].slice(0, 800), 200)) {
+  for (const ids of chunk([...va.keys()].slice(0, 900), 200)) {
     const { data } = await sb.from('artists').select('id, name').in('id', ids).limit(400)
     for (const r of (data as any[]) || []) nameById.set(r.id, r.name)
   }
 
+  // ── Vienetai: scenos (tik su viewer'io veikla) + substilių branduoliai ──
+  type Unit = {
+    id: number; substyleId: number; name: string
+    beacons: number; visited: number; heard: number; saved: number
+    artists: { id: number; n: string; k: 'saved' | 'visited' | 'beacon' }[]
+  }
+  const units = new Map<number, Unit>()
+  const mkUnit = (id: number, substyleId: number, name: string): Unit => {
+    let u = units.get(id)
+    if (!u) { u = { id, substyleId, name, beacons: 0, visited: 0, heard: 0, saved: 0, artists: [] }; units.set(id, u) }
+    return u
+  }
+  const addArtist = (u: Unit, aid: number, v: VA) => {
+    if (v.beacon) u.beacons++
+    if (v.visited) u.visited++
+    if (v.heard) u.heard++
+    if (v.saved) u.saved++
+    if (u.artists.length < 8) {
+      const n = nameById.get(aid)
+      if (n) u.artists.push({ id: aid, n, k: v.saved ? 'saved' : v.visited ? 'visited' : 'beacon' })
+    }
+  }
+
+  // Scenos: atlikėjas priskiriamas scenai; jo (atlikėjas, substilius) pora — „padengta"
+  const covered = new Map<number, Set<number>>()   // artistId → substyleIds padengti scenų
+  const scenes = await loadScenes()
+  for (const sc of scenes) {
+    const sub = taxo.subById.get(sc.substyle_id)
+    if (!sub) continue
+    let unit: Unit | null = null
+    for (const aid of sc.artist_ids) {
+      const v = va.get(aid)
+      if (!v) continue
+      if (!unit) unit = mkUnit(SCENE_ID_BASE + sc.id, sc.substyle_id, sceneName(sub.name, sc.country, sc.decade))
+      addArtist(unit, aid, v)
+      let cs = covered.get(aid)
+      if (!cs) { cs = new Set(); covered.set(aid, cs) }
+      cs.add(sc.substyle_id)
+    }
+  }
+  // Branduoliai: likusi (nepadengta scenomis) veikla + visi substiliai kaip rūkas
+  for (const [aid, v] of va) {
+    for (const s of v.subs) {
+      if (covered.get(aid)?.has(s)) continue
+      const sub = taxo.subById.get(s)
+      if (!sub) continue
+      addArtist(mkUnit(s, s, sub.name), aid, v)
+    }
+  }
+
+  // Rikiavimas: „radiniai" pirmi (rikiuoja klientas), regionai iš vienetų
+  const unitsBySub = new Map<number, Unit[]>()
+  for (const u of units.values()) {
+    const l = unitsBySub.get(u.substyleId) || []
+    l.push(u)
+    unitsBySub.set(u.substyleId, l)
+  }
+
   const regions: MapRegion[] = taxo.genres.map(g => {
     const subs = [...taxo.subById.values()].filter(s => s.genreId === g.id)
-    const substyles = subs.map(s => {
-      // atlikėjai, atidengę šį substilių: ★ radiniai → aplankyti → švyturiai
-      const seen = new Set<number>()
-      const artists: { id: number; n: string; k: 'saved' | 'visited' | 'beacon' }[] = []
-      const push = (ids: number[] | undefined, k: 'saved' | 'visited' | 'beacon') => {
-        for (const id of ids || []) {
-          if (artists.length >= 8 || seen.has(id)) continue
-          const n = nameById.get(id)
-          if (n) { artists.push({ id, n, k }); seen.add(id) }
-        }
+    const cells: MapRegion['substyles'] = []
+    for (const s of subs) {
+      const list = unitsBySub.get(s.id) || []
+      const hasCore = list.some(u => u.id === s.id)
+      for (const u of list) {
+        cells.push({ id: u.id, name: u.name, beacons: u.beacons, visited: u.visited, heard: u.heard, saved: u.saved, artists: u.artists })
       }
-      push(nodeSubArtists.saved.get(s.id), 'saved')
-      push(nodeSubArtists.visited.get(s.id), 'visited')
-      push(beaconSubArtists.get(s.id), 'beacon')
-      return {
-        id: s.id, name: s.name,
-        beacons: beaconSubCount.get(s.id) || 0,
-        visited: nodeSub.visited.get(s.id) || 0,
-        heard: nodeSub.heard.get(s.id) || 0,
-        saved: nodeSub.saved.get(s.id) || 0,
-        artists,
-      }
-    })
-    substyles.sort((a, b) => (b.beacons + b.visited * 3 + b.saved * 5) - (a.beacons + a.visited * 3 + a.saved * 5))
+      if (!hasCore) cells.push({ id: s.id, name: s.name, beacons: 0, visited: 0, heard: 0, saved: 0, artists: [] })
+    }
+    cells.sort((a, b) => (b.beacons + b.visited * 3 + b.saved * 5) - (a.beacons + a.visited * 3 + a.saved * 5))
     return {
-      genreId: g.id, name: shortGenreName(g.name), substyles,
-      beacons: substyles.reduce((s, x) => s + (x.beacons ? 1 : 0), 0),
-      visited: substyles.reduce((s, x) => s + (x.visited ? 1 : 0), 0),
+      genreId: g.id, name: shortGenreName(g.name), substyles: cells,
+      beacons: cells.reduce((s, x) => s + (x.beacons ? 1 : 0), 0),
+      visited: cells.reduce((s, x) => s + (x.visited ? 1 : 0), 0),
     }
   })
 
   const substylesTotal = [...taxo.subById.values()].filter(s => s.genreId).length
   const touched = new Set<number>()
-  for (const m of [beaconSubCount, nodeSub.visited, nodeSub.saved]) for (const [k, v] of m) if (v > 0) touched.add(k)
+  for (const [, v] of va) {
+    if (v.beacon || v.visited || v.saved) for (const s of v.subs) touched.add(s)
+  }
 
   return {
     regions,

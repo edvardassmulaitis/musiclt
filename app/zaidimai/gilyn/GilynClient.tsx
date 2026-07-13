@@ -1042,7 +1042,7 @@ function MapWorld({ regions, edges, onPick }: {
     const pts: string[] = []
     for (let a = 0; a < 6; a++) {
       const ang = (Math.PI / 180) * (60 * a - 30)
-      pts.push(`${(cx + R * 0.9 * Math.cos(ang)).toFixed(1)},${(cy + R * 0.9 * Math.sin(ang)).toFixed(1)}`)
+      pts.push(`${(cx + R * 0.86 * Math.cos(ang)).toFixed(1)},${(cy + R * 0.86 * Math.sin(ang)).toFixed(1)}`)
     }
     return pts.join(' ')
   }
@@ -1060,13 +1060,15 @@ function MapWorld({ regions, edges, onPick }: {
     k === 'saved' || k === 'beacon' ? 'color-mix(in srgb, var(--accent-orange) 70%, transparent)'
       : k === 'visited' ? 'color-mix(in srgb, var(--accent-green) 70%, transparent)'
         : k === 'heard' ? 'rgba(140,160,190,0.5)'
-          : `color-mix(in srgb, ${hue} 26%, transparent)`
+          : `color-mix(in srgb, ${hue} 16%, transparent)`
 
-  // Semantinis zoom: priartinus atsiranda stilių pavadinimai
+  // Semantinis zoom: priartinus atsiranda AKTYVIŲ vienetų pavadinimai.
+  // Šriftas skaluojamas su viewBox — ekrane visada ~vienodo dydžio.
   const vh = vb.w * AR
   const inView = (x: number, y: number) => x > vb.x - 30 && x < vb.x + vb.w + 30 && y > vb.y - 30 && y < vb.y + vh + 30
-  const showActiveNames = vb.w < 620
-  const showAllNames = vb.w < 330
+  const showActiveNames = vb.w < 640
+  const nameFs = Math.max(4.5, vb.w * 0.011)
+  const labelFs = Math.max(9, Math.min(26, vb.w * 0.0155))
 
   return (
     <div className="g-world">
@@ -1159,22 +1161,24 @@ function MapWorld({ regions, edges, onPick }: {
           </g>
         ))}
 
-        {/* semantinis zoom: pavadinimai */}
+        {/* semantinis zoom: TIK aktyvių vienetų pavadinimai, pakopomis (mažiau persidengimo) */}
         {showActiveNames && layout.cells
-          .filter(c => (showAllNames || c.k !== 'fog') && inView(c.x, c.y))
-          .slice(0, 110)
-          .map(c => (
-            <text key={`nm-${c.s.id}`} x={c.x} y={c.y + R + 8.5} textAnchor="middle" className="g-wname"
+          .filter(c => c.k !== 'fog' && inView(c.x, c.y))
+          .slice(0, 90)
+          .map((c, i) => (
+            <text key={`nm-${c.s.id}`} x={c.x} y={c.y + R + (i % 2 ? 6 : 12) * (nameFs / 8)} textAnchor="middle" className="g-wname"
+              style={{ fontSize: nameFs, strokeWidth: nameFs * 0.3 }}
               onClick={() => { if (!suppressClick.current) onPick(c.s) }}>
-              {c.s.name.length > 18 ? c.s.name.slice(0, 17) + '…' : c.s.name}
+              {c.s.name.length > 20 ? c.s.name.slice(0, 19) + '…' : c.s.name}
             </text>
           ))}
 
         {/* kontinentų vardai */}
         {layout.isles.map(l => (
           <text key={l.name} x={l.lx} y={l.ly} textAnchor="middle" className="g-wlabel"
-            style={{ fill: l.hue }} onClick={() => { if (!suppressClick.current) flyToIsle(l) }}>
-            {l.name} <tspan className="g-wlabelct">paliesta {l.act}/{l.tot}</tspan>
+            style={{ fill: l.hue, fontSize: labelFs, strokeWidth: labelFs * 0.24 }}
+            onClick={() => { if (!suppressClick.current) flyToIsle(l) }}>
+            {l.name} <tspan className="g-wlabelct" style={{ fontSize: labelFs * 0.62 }}>paliesta {l.act}/{l.tot}</tspan>
           </text>
         ))}
       </svg>
