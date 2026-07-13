@@ -111,6 +111,17 @@ export default function GilynClient() {
   const [shelfOpen, setShelfOpen] = useState(false)
   const [mapData, setMapData] = useState<MapData | null>(null)
   const [subSheet, setSubSheet] = useState<SubStyle | null>(null)
+  const [allList, setAllList] = useState<{ name: string; total: number; artists: { id: number; n: string; img: string | null; k: string | null }[] } | null>(null)
+  const [allLoading, setAllLoading] = useState(false)
+  async function openAllArtists(t: SubStyle) {
+    setAllLoading(true)
+    try {
+      const r = await fetch(`/api/zaidimai/gilyn/teritorija?id=${t.id}`, { cache: 'no-store' })
+      const j = await r.json()
+      if (!j.error) { setSubSheet(null); setAllList(j) }
+    } catch {}
+    setAllLoading(false)
+  }
   const [busy, setBusy] = useState(false)
   const [beaconBanner, setBeaconBanner] = useState(false)
   useEffect(() => {
@@ -788,6 +799,24 @@ export default function GilynClient() {
         </div>
       )}
 
+      {allList && (
+        <div className="g-sheetback" onClick={() => setAllList(null)}>
+          <div className="g-sheet" onClick={e => e.stopPropagation()}>
+            <h3 className="g-h3 center">{allList.name} — visi ({allList.total})</h3>
+            <div className="g-allgrid">
+              {allList.artists.map(a => (
+                <button key={a.id} className={`g-alla${a.k ? ' ' + a.k : ''}`} type="button"
+                  onClick={() => { setAllList(null); startFreeDig(a.id, { artist: a.n }) }}>
+                  {a.img ? <img src={a.img} alt="" referrerPolicy="no-referrer" /> : <span className="g-allaph">♪</span>}
+                  <span className="g-allan">{a.k === 'saved' ? '★ ' : a.k === 'visited' ? '✓ ' : a.k === 'beacon' ? '❤️ ' : ''}{a.n}</span>
+                </button>
+              ))}
+            </div>
+            <button className="g-cta ghost" onClick={() => setAllList(null)} type="button">Uždaryti</button>
+          </div>
+        </div>
+      )}
+
       {subSheet && (
         <div className="g-sheetback" onClick={() => setSubSheet(null)}>
           <div className="g-sheet" onClick={e => e.stopPropagation()}>
@@ -839,6 +868,11 @@ export default function GilynClient() {
               <p className="g-dim center">Šią teritoriją dar dengia rūkas.</p>
             )}
             <p className="g-hint">Paspausk atlikėją — pradėsi laisvą kasimąsi nuo jo.</p>
+            {(subSheet.size || 0) > 0 && (
+              <button className="g-cta alt" onClick={() => openAllArtists(subSheet)} disabled={allLoading} type="button">
+                {allLoading ? 'Kraunama…' : `Visi atlikėjai (${subSheet.size})`}
+              </button>
+            )}
             <button className="g-cta ghost" onClick={() => setSubSheet(null)} type="button">Uždaryti</button>
           </div>
         </div>
@@ -957,56 +991,180 @@ function TerritoryMap({ regions, onPick }: {
   regions: { genreId: number; name: string; substyles: SubStyle[] }[]
   onPick: (s: SubStyle) => void
 }) {
-  const [selG, setSelG] = useState<number | null>(null)
-  const sel = regions.find(r => r.genreId === selG) || null
+  // VIENTISAS PASAULIS: žanrų žvaigždynai su teritorijų apskritimais (packed circles)
+  const layout = useMemo(() => {
+    const circles: { t: SubStyle; hue: string; x: number; y: number; r: number }[] = []
+    const labels: { name: string; hue: string; x: number; y: number; act: number; tot: number }[] = []
+    for (const rg of regions) {
+      const [cx, cy] = REGION_POS[rg.name] || [WORLD_W / 2, WORLD_H / 2]
+      const hue = REGION_HUES[rg.name] || '#94a3b8'
+      const sorted = [...rg.substyles].filter(t => (t.size || 0) > 0)
+        .sort((a, b) => ((b.beacons + b.visited * 2 + b.saved * 3) - (a.beacons + a.visited * 2 + a.saved * 3)) || ((b.size || 0) - (a.size || 0)))
+      let minY = cy
+      sorted.forEach((t, i) => {
+        const r = 11 + 3.6 * Math.sqrt(Math.sqrt(t.size || 1) * 4)
+        let x = cx, y = cy
+        if (i > 0) {
+          // spirale kol nekertam jau padėtų
+          for (let k = 1; k < 900; k++) {
+            const ang = k * 0.55
+            const d = 6 + k * 1.35
+            x = cx + d * Math.cos(ang)
+            y = cy + d * Math.sin(ang) * 0.86
+            let ok = true
+            for (const c of circles) {
+              const dx = c.x - x, dy = c.y - y
+              if (dx * dx + dy * dy < (c.r + r + 3) * (c.r + r + 3)) { ok = false; break }
+            }
+            if (ok) break
+          }
+        }
+        circles.push({ t, hue, x, y, r })
+        if (y - r < minY) minY = y - r
+      })
+      labels.push({
+        name: rg.name, hue, x: cx, y: minY - 14,
+        act: rg.substyles.filter(s => s.beacons || s.visited || s.saved).length,
+        tot: rg.substyles.length,
+      })
+    }
+    return { circles, labels }
+  }, [regions])
 
-  if (!sel) {
-    return (
-      <div className="g-tgrid">
-        {[...regions]
-          .sort((a, b) =>
-            b.substyles.filter(s => s.beacons || s.visited || s.saved).length -
-            a.substyles.filter(s => s.beacons || s.visited || s.saved).length)
-          .map(r => {
-            const hue = REGION_HUES[r.name] || '#94a3b8'
-            const act = r.substyles.filter(s => s.beacons || s.visited || s.saved).length
-            const tot = r.substyles.length
-            const pct = Math.round((act / Math.max(1, tot)) * 100)
-            const stars = r.substyles.reduce((s, x) => s + (x.saved ? 1 : 0), 0)
-            const CIRC = 2 * Math.PI * 24
-            return (
-              <button key={r.genreId} className="g-tcard" type="button" onClick={() => setSelG(r.genreId)}
-                style={{ borderColor: `color-mix(in srgb, ${hue} 45%, transparent)` }}>
-                <svg width="60" height="60" viewBox="0 0 60 60" className="g-tring">
-                  <circle cx="30" cy="30" r="24" fill="none" stroke="rgba(140,160,190,0.18)" strokeWidth="6" />
-                  <circle cx="30" cy="30" r="24" fill="none" stroke={hue} strokeWidth="6" strokeLinecap="round"
-                    strokeDasharray={`${(pct / 100) * CIRC} ${CIRC}`} transform="rotate(-90 30 30)" />
-                  <text x="30" y="34" textAnchor="middle" className="g-tringtxt">{pct}%</text>
-                </svg>
-                <span className="g-tname" style={{ color: hue }}>{r.name}</span>
-                <span className="g-tstat">{act}/{tot} teritorijų{stars ? ` · ★${stars}` : ''}</span>
-              </button>
-            )
-          })}
-      </div>
-    )
+  const [vb, setVb] = useState({ x: 0, y: 0, w: WORLD_W })
+  const vbRef = useRef(vb)
+  useEffect(() => { vbRef.current = vb }, [vb])
+  const animRef = useRef(0)
+  const svgRef = useRef<SVGSVGElement | null>(null)
+  const drag = useRef<{ px: number; py: number; vx: number; vy: number; moved: number } | null>(null)
+  const suppress = useRef(false)
+  const AR = WORLD_H / WORLD_W
+
+  const flyTo = useCallback((tg: { x: number; y: number; w: number }, dur = 650) => {
+    cancelAnimationFrame(animRef.current)
+    const s = { ...vbRef.current }
+    const t0 = performance.now()
+    const step = (now: number) => {
+      const k = Math.min(1, (now - t0) / dur)
+      const e = 1 - Math.pow(1 - k, 3)
+      setVb({ x: s.x + (tg.x - s.x) * e, y: s.y + (tg.y - s.y) * e, w: s.w + (tg.w - s.w) * e })
+      if (k < 1) animRef.current = requestAnimationFrame(step)
+    }
+    animRef.current = requestAnimationFrame(step)
+  }, [])
+  useEffect(() => {
+    setVb({ x: -250, y: -180, w: 1700 })
+    const id = window.setTimeout(() => flyTo({ x: 0, y: 0, w: WORLD_W }, 900), 60)
+    return () => { clearTimeout(id); cancelAnimationFrame(animRef.current) }
+  }, [flyTo])
+
+  function zoomAt(f: number, ax?: number, ay?: number) {
+    const v = vbRef.current
+    const w = Math.min(WORLD_W * 1.25, Math.max(240, v.w * f))
+    const cx = ax ?? v.x + v.w / 2, cy = ay ?? v.y + v.w * AR / 2
+    const kx = (cx - v.x) / v.w, ky = (cy - v.y) / (v.w * AR)
+    cancelAnimationFrame(animRef.current)
+    setVb({ x: cx - w * kx, y: cy - w * AR * ky, w })
+  }
+  function svgPt(e: { clientX: number; clientY: number }): [number, number] {
+    const el = svgRef.current; const v = vbRef.current
+    if (!el) return [v.x + v.w / 2, v.y + v.w / 2]
+    const rc = el.getBoundingClientRect()
+    return [v.x + ((e.clientX - rc.left) / rc.width) * v.w, v.y + ((e.clientY - rc.top) / rc.height) * (v.w * AR)]
   }
 
-  const hue = REGION_HUES[sel.name] || '#94a3b8'
+  const nameFs = (r: number) => Math.max(7, Math.min(17, r * 0.34))
+  const labelFs = Math.max(10, Math.min(24, vb.w * 0.016))
+
+  return (
+    <div className="g-world">
+      <div className="g-worldbtns">
+        <button onClick={() => zoomAt(0.72)} type="button" aria-label="Priartinti">+</button>
+        <button onClick={() => zoomAt(1.4)} type="button" aria-label="Atitolinti">−</button>
+        <button onClick={() => flyTo({ x: 0, y: 0, w: WORLD_W }, 550)} type="button" aria-label="Visas žemėlapis">⌂</button>
+      </div>
+      <svg ref={svgRef} viewBox={`${vb.x} ${vb.y} ${vb.w} ${vb.w * AR}`} className="g-worldsvg"
+        onWheel={e => zoomAt(e.deltaY > 0 ? 1.1 : 0.9, ...svgPt(e))}
+        onPointerDown={e => {
+          cancelAnimationFrame(animRef.current)
+          drag.current = { px: e.clientX, py: e.clientY, vx: vbRef.current.x, vy: vbRef.current.y, moved: 0 }
+          ;(e.target as Element).setPointerCapture?.(e.pointerId)
+        }}
+        onPointerMove={e => {
+          const d = drag.current; if (!d) return
+          const el = svgRef.current; const rw = el ? el.getBoundingClientRect().width : 1
+          const dx = e.clientX - d.px, dy = e.clientY - d.py
+          d.moved = Math.max(d.moved, Math.abs(dx) + Math.abs(dy))
+          setVb(v => ({ ...v, x: d.vx - dx * (v.w / rw), y: d.vy - dy * (v.w / rw) }))
+        }}
+        onPointerUp={() => {
+          suppress.current = (drag.current?.moved || 0) > 8
+          drag.current = null
+          window.setTimeout(() => { suppress.current = false }, 80)
+        }}
+        onPointerCancel={() => { drag.current = null }}
+      >
+        <defs>
+          {layout.labels.map(l => (
+            <radialGradient key={l.name} id={`ghalo-${l.name.replace(/[^a-z]/gi, '')}`}>
+              <stop offset="0%" stopColor={l.hue} stopOpacity="0.14" />
+              <stop offset="100%" stopColor={l.hue} stopOpacity="0" />
+            </radialGradient>
+          ))}
+          <filter id="gstar6" x="-80%" y="-80%" width="260%" height="260%">
+            <feDropShadow dx="0" dy="0" stdDeviation="6" floodColor="#f97316" floodOpacity="0.85" />
+          </filter>
+        </defs>
+        {layout.labels.map(l => (
+          <circle key={`h-${l.name}`} cx={l.x} cy={l.y + 130} r={190} fill={`url(#ghalo-${l.name.replace(/[^a-z]/gi, '')})`} />
+        ))}
+        {layout.circles.map(({ t, hue, x, y, r }) => {
+          const mine = t.beacons + t.visited + t.saved
+          const ratio = Math.min(1, mine / Math.max(4, Math.sqrt(t.size || 4) * 1.6))
+          const pct = mine > 0 ? Math.round(22 + 52 * ratio) : 0
+          const showName = r >= 20 || vb.w < 600
+          return (
+            <g key={t.id} className="g-wc" onClick={() => { if (!suppress.current) onPick(t) }} role="button">
+              <title>{t.name} — {mine}/{t.size}</title>
+              <circle cx={x} cy={y} r={r}
+                filter={t.saved > 0 ? 'url(#gstar6)' : undefined}
+                style={{
+                  fill: mine > 0 ? `color-mix(in srgb, ${hue} ${pct}%, #161d2b)` : `color-mix(in srgb, ${hue} 9%, #141a26)`,
+                  stroke: mine > 0 ? hue : `color-mix(in srgb, ${hue} 30%, transparent)`,
+                  strokeWidth: mine > 0 ? 1.6 : 0.8,
+                }} />
+              {t.saved > 0 && <text x={x + r * 0.62} y={y - r * 0.62} textAnchor="middle" className="g-hexstar" style={{ fontSize: 12 }}>★</text>}
+              {showName && (
+                <>
+                  <text x={x} y={y + (r >= 26 ? -2 : 3)} textAnchor="middle" className="g-wcname" style={{ fontSize: nameFs(r) }}>
+                    {t.name.length > Math.max(8, r / 3) ? t.name.slice(0, Math.max(7, r / 3 - 1)) + '…' : t.name}
+                  </text>
+                  {r >= 26 && <text x={x} y={y + nameFs(r)} textAnchor="middle" className="g-wcct">{mine > 0 ? `${mine}/${t.size}` : t.size}</text>}
+                </>
+              )}
+            </g>
+          )
+        })}
+        {layout.labels.map(l => (
+          <text key={l.name} x={l.x} y={l.y} textAnchor="middle" className="g-wlabel"
+            style={{ fill: l.hue, fontSize: labelFs, strokeWidth: labelFs * 0.24 }}
+            onClick={() => { if (!suppress.current) flyTo({ x: l.x - 300, y: l.y - 60, w: 600 }, 650) }}>
+            {l.name} <tspan className="g-wlabelct" style={{ fontSize: labelFs * 0.6 }}>{l.act}/{l.tot}</tspan>
+          </text>
+        ))}
+      </svg>
+    </div>
+  )
+}
+
+function TerritoryTreemapUnused({ sel, hue, onPick }: { sel: { substyles: SubStyle[] }; hue: string; onPick: (s: SubStyle) => void }) {
   const items = [...sel.substyles]
     .filter(t => (t.size || 0) > 0)
     .sort((a, b) => (b.size || 0) - (a.size || 0))
     .map(t => ({ item: t, size: Math.sqrt(Math.max(3, t.size || 3)) }))
   const rects = squarify(items, 100, 100)
-  const act = sel.substyles.filter(s => s.beacons || s.visited || s.saved).length
-
   return (
     <div>
-      <div className="g-thead">
-        <button className="g-worldback static" onClick={() => setSelG(null)} type="button">← Visi žanrai</button>
-        <span className="g-tselname" style={{ color: hue }}>{sel.name}</span>
-        <span className="g-tstat">{act}/{sel.substyles.length}</span>
-      </div>
       <div className="g-tmap">
         {rects.map(({ item: t, x, y, w, h }) => {
           const mine = t.beacons + t.visited + t.saved
@@ -1682,6 +1840,20 @@ const css = `
 .g-trfaces { position: absolute; top: 5px; left: 6px; display: flex; }
 .g-trfaces img { width: 22px; height: 22px; border-radius: 50%; object-fit: cover; border: 1.5px solid rgba(255,255,255,0.75); margin-right: -7px; box-shadow: 0 2px 6px rgba(0,0,0,0.45); }
 .g-subaimg { width: 20px; height: 20px; border-radius: 50%; object-fit: cover; margin-right: 2px; }
+.g-wc { cursor: pointer; }
+.g-wc circle { transition: stroke-width 0.12s ease; }
+.g-wc:hover circle { stroke-width: 2.6 !important; }
+.g-wcname { fill: #e7ebf2; font-weight: 800; paint-order: stroke; stroke: #12161f; stroke-width: 2.6px; pointer-events: none; }
+.g-wcct { fill: #aebfd4; font-size: 9.5px; font-weight: 800; paint-order: stroke; stroke: #12161f; stroke-width: 2px; pointer-events: none; }
+.g-allgrid { display: grid; grid-template-columns: repeat(auto-fill, minmax(96px, 1fr)); gap: 10px; }
+.g-alla { display: flex; flex-direction: column; align-items: center; gap: 5px; border: 0; background: transparent; cursor: pointer; padding: 4px; border-radius: 12px; }
+.g-alla:hover { background: rgba(140,160,190,0.1); }
+.g-alla img, .g-allaph { width: 52px; height: 52px; border-radius: 50%; object-fit: cover; }
+.g-allaph { background: rgba(140,160,190,0.18); display: flex; align-items: center; justify-content: center; font-weight: 900; color: var(--text-muted); }
+.g-allan { font-size: 11.5px; font-weight: 700; color: var(--text-primary); text-align: center; line-height: 1.2; display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden; }
+.g-alla.beacon .g-allan { color: var(--accent-orange); }
+.g-alla.visited .g-allan { color: var(--accent-green); }
+.g-alla.saved .g-allan { color: var(--accent-orange); }
 .g-bub { cursor: pointer; }
 .g-bub circle { transition: stroke-width 0.15s ease; }
 .g-bub:hover circle:first-of-type { stroke-width: 3.5; }
