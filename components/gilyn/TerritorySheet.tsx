@@ -24,7 +24,14 @@ export type SheetCell = {
   essence?: string | null
   near?: { id: string; n: string }[]
 }
-type Artist = { id: number; n: string; img: string | null; fame: number; k: string | null }
+type Artist = { id: number; n: string; img: string | null; fame: number; k: string | null; plays: number }
+
+// Susipažinimas — LAIPSNIS, ne jungiklis. Slenkstis: 3 perklausytos dainos.
+//   0 perklausų  → rūkas (pilkas veidas)
+//   1–2          → klausei (dalinė spalva) — matai, kad pradėjai, bet dar nepažįsti
+//   3+           → susipažinęs (pilna spalva, mėlynas rėmelis)
+//   pamėgtas     → atradai (oranžinis) — nesvarbu, kiek perklausei
+const KNOWN_AT = 3
 
 export default function TerritorySheet({ cell, onArtist, onNeighbour, onClose }: {
   cell: SheetCell
@@ -72,7 +79,7 @@ export default function TerritorySheet({ cell, onArtist, onNeighbour, onClose }:
           <>
             <p className="ts-prog">
               {known.length > 0
-                ? <>Pažįsti <b>{known.length}</b> iš {total}. <span className="ts-key"><i className="l" />pamėgtas <i className="h" />susipažinęs · pilkas = dar rūke</span></>
+                ? <>Pažįsti <b>{known.length}</b> iš {total}. <span className="ts-key"><i className="l" />pamėgtas <i className="h" />susipažinęs (3+ dainos) · pilkas = dar rūke</span></>
                 : <>Visi {total} dar rūke — spalvotas veidas atsiras, kai kurį nors pamėgsi.</>}
             </p>
             <div className="ts-grid">
@@ -80,13 +87,16 @@ export default function TerritorySheet({ cell, onArtist, onNeighbour, onClose }:
                 <button key={a.id} type="button"
                   className={`ts-a${a.k ? ' on ' + a.k : ''}`}
                   onClick={() => onArtist(a.id, a.n)}
-                  title={a.n}>
+                  title={a.plays ? `${a.n} — perklausei ${a.plays} d.` : a.n}>
                   {a.img
-                    ? <img src={a.img} alt="" referrerPolicy="no-referrer" loading="lazy" />
+                    ? <img src={a.img} alt="" referrerPolicy="no-referrer" loading="lazy"
+                        style={a.k === 'played' ? { filter: `grayscale(${1 - Math.min(1, (a.plays || 0) / KNOWN_AT) * 0.75}) brightness(0.8)` } : undefined} />
                     : <span className="ts-ph">♪</span>}
-                  {a.k && (
-                    <span className={`ts-badge ${a.k === 'beacon' ? 'liked' : 'heard'}`}>
-                      {a.k === 'beacon' ? '♥' : '✓'}
+                  {a.k === 'beacon' && <span className="ts-badge liked">♥</span>}
+                  {a.k === 'known' && <span className="ts-badge heard">✓</span>}
+                  {a.k === 'played' && (
+                    <span className="ts-prog2" title={`${a.plays}/${KNOWN_AT} dainos iki susipažinimo`}>
+                      <i style={{ width: `${Math.min(100, (a.plays || 0) / KNOWN_AT * 100)}%` }} />
                     </span>
                   )}
                   <span className="ts-n">{a.n}</span>
@@ -133,11 +143,14 @@ export default function TerritorySheet({ cell, onArtist, onNeighbour, onClose }:
 @media (max-width: 420px) { .ts-grid { grid-template-columns: repeat(3, 1fr); } }
 .ts-a { position: relative; padding: 0; border: 0; background: #0e1219; border-radius: 12px; overflow: hidden; cursor: pointer; aspect-ratio: 1; display: flex; align-items: flex-end; }
 .ts-a img { position: absolute; inset: 0; width: 100%; height: 100%; object-fit: cover; filter: grayscale(1) brightness(0.62); transition: filter 0.2s ease, transform 0.25s ease; }
-.ts-a.on img { filter: none; }
+.ts-a.on.beacon img, .ts-a.on.known img, .ts-a.on.visited img, .ts-a.on.saved img { filter: none; }
 .ts-a:hover img { transform: scale(1.06); filter: grayscale(0.25) brightness(0.9); }
 .ts-a.on:hover img { filter: none; }
 .ts-a.beacon { box-shadow: inset 0 0 0 2px #e0632c; }
-.ts-a.visited, .ts-a.saved { box-shadow: inset 0 0 0 2px #3b86d8; }
+.ts-a.known, .ts-a.visited, .ts-a.saved { box-shadow: inset 0 0 0 2px #3b86d8; }
+.ts-a.played { box-shadow: inset 0 0 0 1px rgba(59,134,216,0.45); }
+.ts-prog2 { position: absolute; left: 5px; right: 5px; top: 6px; height: 3px; border-radius: 2px; background: rgba(10,14,20,0.7); overflow: hidden; }
+.ts-prog2 i { display: block; height: 100%; background: #3b86d8; border-radius: 2px; }
 .ts-ph { position: absolute; inset: 0; display: flex; align-items: center; justify-content: center; color: #3c4653; font-size: 22px; }
 .ts-badge { position: absolute; top: 5px; right: 5px; width: 19px; height: 19px; border-radius: 50%; font-size: 10px; font-weight: 700; display: flex; align-items: center; justify-content: center; }
 .ts-badge.liked { background: #e0632c; color: #fff; }

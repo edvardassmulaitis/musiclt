@@ -39,6 +39,19 @@ export async function GET(req: NextRequest) {
     const likes = await fetchViewerLikes(viewer)
     const liked = likes.artistIds.has(id) || likes.trackArtistIds.has(id)
 
+    // Kiek jo dainų perklausei ir kiek jų iš viso yra
+    let plays = 0, totalTracks = 0
+    {
+      const { count } = await sb.from('tracks').select('id', { count: 'exact', head: true }).eq('artist_id', id)
+      totalTracks = count || 0
+      if (viewer.userId || viewer.anonId) {
+        const { data } = await sb.rpc('gilyn_artist_plays', {
+          p_user: viewer.userId ?? null, p_anon: viewer.anonId ?? null, p_artists: [id],
+        })
+        plays = ((data as any[]) || [])[0]?.plays || 0
+      }
+    }
+
     let heard = false, visited = false
     if (viewer.userId || viewer.anonId) {
       let q = sb.from('gilyn_map_nodes').select('heard, visited').eq('artist_id', id)
@@ -56,7 +69,7 @@ export async function GET(req: NextRequest) {
         fame: (fame as any)?.fame ?? 1,
         bio: (a.description || '').replace(/\[[^\]]*\]/g, '').trim().slice(0, 260),
       },
-      state: { liked, heard, visited },
+      state: { liked, heard, visited, plays, totalTracks },
       eraAlbums: era.map(al => ({ id: al.id, t: al.title, slug: al.slug, y: al.year, img: al.cover_image_url || null })),
       otherAlbums: other.map(al => ({ id: al.id, t: al.title, slug: al.slug, y: al.year, img: al.cover_image_url || null })),
     })

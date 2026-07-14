@@ -16,7 +16,7 @@ import Link from 'next/link'
 type Album = { id: number; t: string; slug: string; y: number; img: string | null }
 type Data = {
   artist: { id: number; name: string; slug: string; country: string; img: string | null; from: number | null; to: number | null; fame: number; bio: string }
-  state: { liked: boolean; heard: boolean; visited: boolean }
+  state: { liked: boolean; heard: boolean; visited: boolean; plays: number; totalTracks: number }
   eraAlbums: Album[]
   otherAlbums: Album[]
 }
@@ -65,10 +65,19 @@ export default function ArtistCard({ artistId, terrName, eraFrom, eraTo, onBack,
                   {d.artist.from ? ` · ${d.artist.from}${d.artist.to ? `–${d.artist.to}` : '–'}` : ''}
                 </p>
                 <div className="ac-state">
-                  {d.state.liked && <span className="on liked">❤ pamėgtas</span>}
-                  {!d.state.liked && (d.state.heard || d.state.visited) && <span className="on heard">✓ susipažinęs</span>}
-                  {!d.state.liked && !d.state.heard && !d.state.visited && <span>dar nepažįstamas</span>}
+                  {d.state.liked && <span className="on liked">♥ pamėgtas</span>}
+                  {!d.state.liked && d.state.plays >= 3 && <span className="on heard">✓ susipažinęs</span>}
+                  {!d.state.liked && d.state.plays > 0 && d.state.plays < 3 && (
+                    <span className="on part">{d.state.plays}/3 iki susipažinimo</span>
+                  )}
+                  {!d.state.liked && d.state.plays === 0 && <span>dar nepažįstamas</span>}
                 </div>
+                {d.state.totalTracks > 0 && (
+                  <div className="ac-plays" title={`Perklausei ${d.state.plays} iš ${d.state.totalTracks} dainų`}>
+                    <span style={{ width: `${Math.min(100, d.state.plays / Math.max(1, d.state.totalTracks) * 100)}%` }} />
+                    <b>{d.state.plays}/{d.state.totalTracks} dainų</b>
+                  </div>
+                )}
               </div>
             </div>
 
@@ -123,6 +132,10 @@ export default function ArtistCard({ artistId, terrName, eraFrom, eraTo, onBack,
 .ac-state span { display: inline-block; font-size: 11.5px; font-weight: 700; color: #7f8b9c; padding: 3px 9px; border-radius: 999px; background: rgba(255,255,255,0.05); }
 .ac-state .on.liked { color: #ffb694; background: rgba(224,99,44,0.18); }
 .ac-state .on.heard { color: #a9cdf5; background: rgba(59,134,216,0.18); }
+.ac-state .on.part { color: #93b6dd; background: rgba(59,134,216,0.1); }
+.ac-plays { position: relative; height: 4px; border-radius: 3px; background: rgba(255,255,255,0.07); margin-top: 8px; }
+.ac-plays span { display: block; height: 100%; border-radius: 3px; background: #3b86d8; }
+.ac-plays b { position: absolute; right: 0; top: 7px; font-size: 10px; font-weight: 700; color: #6d7889; font-family: ui-monospace, monospace; }
 .ac-bio { margin: 12px 0 0; font-size: 13px; line-height: 1.55; color: #a8b3c2; }
 .ac-sec { margin-top: 16px; }
 .ac-lbl { display: flex; align-items: baseline; gap: 6px; font-size: 11px; font-weight: 700; color: #7f8b9c; margin-bottom: 8px; }

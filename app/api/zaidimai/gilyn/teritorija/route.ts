@@ -40,6 +40,16 @@ export async function GET(req: NextRequest) {
       for (const r of (data as any[]) || []) nodeState.set(r.artist_id, { visited: !!r.visited, saved: !!r.saved })
     }
 
+    // Perklausos: kiek DISTINCT dainų vartotojas girdėjo iš kiekvieno atlikėjo.
+    // Tai ir yra „susipažinimo" matas — ne boolean, o laipsnis.
+    const plays = new Map<number, number>()
+    if ((viewer.userId || viewer.anonId) && ids.length) {
+      const { data } = await sb.rpc('gilyn_artist_plays', {
+        p_user: viewer.userId ?? null, p_anon: viewer.anonId ?? null, p_artists: ids.slice(0, 1500),
+      })
+      for (const r of (data as any[]) || []) plays.set(r.artist_id, r.plays)
+    }
+
     const fame = new Map<number, number>()
     for (let i = 0; i < ids.length; i += 300) {
       const { data } = await sb.from('artist_fame').select('artist_id, fame')
@@ -47,16 +57,21 @@ export async function GET(req: NextRequest) {
       for (const r of (data as any[]) || []) fame.set(r.artist_id, r.fame)
     }
 
-    const artists: { id: number; n: string; img: string | null; score: number; fame: number; k: string | null }[] = []
+    const artists: { id: number; n: string; img: string | null; score: number; fame: number; k: string | null; plays: number }[] = []
     for (let i = 0; i < ids.length; i += 200) {
       const { data } = await sb.from('artists').select('id, name, cover_image_url, score')
         .in('id', ids.slice(i, i + 200)).limit(200)
       for (const r of (data as any[]) || []) {
         const st = nodeState.get(r.id)
+        const pl = plays.get(r.id) || 0
         artists.push({
           id: r.id, n: r.name, img: r.cover_image_url || null,
-          score: r.score || 0, fame: fame.get(r.id) || 1,
-          k: st?.saved ? 'saved' : st?.visited ? 'visited' : likedSet.has(r.id) ? 'beacon' : null,
+          score: r.score || 0, fame: fame.get(r.id) || 1, plays: pl,
+          // pamėgtas > susipažinęs (3+ perklausos) > klausei (1-2) > rūkas
+          k: likedSet.has(r.id) ? 'beacon'
+            : pl >= 3 ? 'known'
+            : pl > 0 ? 'played'
+            : st?.saved || st?.visited ? 'visited' : null,
         })
       }
     }
