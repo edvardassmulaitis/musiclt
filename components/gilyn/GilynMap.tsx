@@ -3,18 +3,18 @@
 //
 // Gilyn v3 muzikos žemėlapis — du režimai, viena semantika.
 //
-//   ŽEMĖLAPIS  — teritorijos guli pagal kaimynystę (bendra auditorija + bendri
-//                atlikėjai). Koordinatės UŽŠALDYTOS DB (gilyn_terr.map_x/map_y),
-//                tad žaidėjo pasaulis kaskart atrodo vienodai ir jis įsimena,
-//                kur kas yra. Skaičiuoti naršyklėje būtų klaida.
+// PAGRINDINIS PRINCIPAS: 526 teritorijos NIEKADA nerodomos vienu metu.
+// Ankstesnė versija bandė ir virto makalyne. Dabar — hierarchinis zoom:
 //
-//   LAIKAS     — X ašis metai, Y ašis pasauliai. Apžvalgoje rodomas tik
-//                dešimtmečio pulsas (526 teritorijos vardais į telefoną netilptų),
-//                priartinus atsiranda vardai.
+//   ŽEMĖLAPIS   pasauliai (15 kontinentų)
+//                 → bakstelėjus: to pasaulio teritorijos užima visą lauką
+//                 → priartinus: iš rūko iškyla vis smulkesnės (LOD pagal dydį)
 //
-// TRYS BŪSENOS, ne daugiau. Spalva neša būseną, o vieta — žanrą:
-//   pamėgta (oranžinė) · perklausyta (mėlyna) · rūkas (pilka)
-// Spragos (tuščios teritorijos) žaidėjui NErodomos — jos yra admino reikalas.
+//   LAIKAS      tikra laiko ašis: metai viršuje, pasauliai — juostos
+//                 → bakstelėjus dešimtmetį: ašis išsiskleidžia, atsiranda vardai
+//
+// TRYS BŪSENOS: pamėgta (oranžinė) · perklausyta (mėlyna) · rūkas (pilka).
+// Spalva neša būseną, vieta — žanrą. Spragos žaidėjui nerodomos.
 
 import { useMemo, useRef, useState, useCallback, useEffect } from 'react'
 
@@ -45,12 +45,11 @@ export type MapRegionC = {
   color?: string
   substyles: MapCell[]
 }
+type Cell = MapCell & { world: string; wid: string; wcolor: string }
 
-const C = { liked: '#e0632c', heard: '#3b86d8', fog: '#5b6472' }
+const C = { liked: '#e0632c', heard: '#3b86d8', fog: '#59636f' }
 const state = (c: MapCell): 'liked' | 'heard' | 'fog' =>
   c.beacons || c.saved ? 'liked' : (c.heard || c.visited) ? 'heard' : 'fog'
-
-const radius = (n: number) => 3 + Math.sqrt(Math.max(1, n)) * 1.25
 
 export default function GilynMap({ regions, onPick }: {
   regions: MapRegionC[]
@@ -58,31 +57,28 @@ export default function GilynMap({ regions, onPick }: {
 }) {
   const [mode, setMode] = useState<'map' | 'time'>('map')
 
-  const cells = useMemo(() => {
-    const out: (MapCell & { world: string; wcolor: string })[] = []
-    for (const r of regions) for (const c of r.substyles) {
-      out.push({ ...c, world: r.name, wcolor: r.color || '#888' })
-    }
-    return out
-  }, [regions])
+  const cells = useMemo<Cell[]>(() => regions.flatMap(r =>
+    r.substyles.map(c => ({ ...c, world: r.name, wid: r.worldId || String(r.genreId), wcolor: r.color || '#8895a6' }))
+  ), [regions])
 
-  const stats = useMemo(() => {
-    const liked = cells.filter(c => state(c) === 'liked').length
-    const heard = cells.filter(c => state(c) === 'heard').length
-    return { liked, heard, total: cells.length, pct: Math.round((liked + heard) / Math.max(1, cells.length) * 100) }
+  const pct = useMemo(() => {
+    const touched = cells.filter(c => state(c) !== 'fog').length
+    return Math.round(touched / Math.max(1, cells.length) * 100)
   }, [cells])
 
   return (
     <div className="gm">
       <div className="gm-bar">
-        <div className="gm-tabs" role="tablist">
-          <button role="tab" aria-selected={mode === 'map'} className={mode === 'map' ? 'on' : ''} onClick={() => setMode('map')}>Žemėlapis</button>
-          <button role="tab" aria-selected={mode === 'time'} className={mode === 'time' ? 'on' : ''} onClick={() => setMode('time')}>Laikas</button>
+        <div className="gm-tabs">
+          <button className={mode === 'map' ? 'on' : ''} onClick={() => setMode('map')}>Žemėlapis</button>
+          <button className={mode === 'time' ? 'on' : ''} onClick={() => setMode('time')}>Laikas</button>
         </div>
-        <span className="gm-pct">{stats.pct}% pažinta</span>
+        <span className="gm-pct">{pct}% pažinta</span>
       </div>
 
-      {mode === 'map' ? <MapView cells={cells} onPick={onPick} /> : <TimeView regions={regions} onPick={onPick} />}
+      {mode === 'map'
+        ? <MapView cells={cells} regions={regions} onPick={onPick} />
+        : <TimeView cells={cells} regions={regions} onPick={onPick} />}
 
       <div className="gm-legend">
         <span><i style={{ background: C.liked }} />pamėgta</span>
@@ -94,116 +90,173 @@ export default function GilynMap({ regions, onPick }: {
       <style>{`
 .gm { width: 100%; }
 .gm-bar { display: flex; align-items: center; gap: 10px; margin-bottom: 8px; }
-.gm-tabs { display: flex; gap: 4px; background: rgba(255,255,255,0.05); border-radius: 999px; padding: 3px; }
-.gm-tabs button { border: 0; background: transparent; color: #9aa7b8; font-size: 13px; font-weight: 700; padding: 6px 14px; border-radius: 999px; cursor: pointer; min-height: 32px; }
+.gm-tabs { display: flex; gap: 3px; background: rgba(255,255,255,0.05); border-radius: 999px; padding: 3px; }
+.gm-tabs button { border: 0; background: transparent; color: #9aa7b8; font-size: 13px; font-weight: 700; padding: 7px 15px; border-radius: 999px; cursor: pointer; min-height: 34px; }
 .gm-tabs button.on { background: #e9eef5; color: #12161f; }
 .gm-pct { margin-left: auto; font-size: 12px; color: #8794a6; font-weight: 700; }
-.gm-stage { position: relative; width: 100%; height: min(64vh, 560px); background: #0e1219; border-radius: 16px; overflow: hidden; touch-action: none; }
+.gm-stage { position: relative; width: 100%; height: min(66vh, 580px); background: #0d1117; border-radius: 16px; overflow: hidden; touch-action: none; }
 .gm-stage svg { width: 100%; height: 100%; display: block; }
+.gm-crumb { position: absolute; left: 10px; top: 10px; z-index: 2; display: flex; align-items: center; gap: 6px; background: rgba(13,17,23,0.86); border: 1px solid rgba(255,255,255,0.1); border-radius: 999px; padding: 6px 13px; color: #dbe4ef; font-size: 12.5px; font-weight: 700; cursor: pointer; min-height: 34px; }
+.gm-crumb:hover { border-color: rgba(255,255,255,0.24); }
+.gm-zoom { position: absolute; right: 10px; bottom: 10px; z-index: 2; display: flex; flex-direction: column; gap: 6px; }
+.gm-zoom button { width: 36px; height: 36px; border-radius: 10px; border: 1px solid rgba(255,255,255,0.12); background: rgba(13,17,23,0.86); color: #dbe4ef; font-size: 17px; font-weight: 700; cursor: pointer; }
 .gm-node { cursor: pointer; }
-.gm-node:hover circle, .gm-node:focus circle { stroke: #fff; stroke-width: 1.6; }
-.gm-lbl { font-size: 9px; font-weight: 800; fill: #c8d3e2; pointer-events: none; paint-order: stroke; stroke: #0e1219; stroke-width: 2.4px; }
-.gm-wlbl { font-size: 13px; font-weight: 900; pointer-events: none; paint-order: stroke; stroke: #0e1219; stroke-width: 4px; letter-spacing: -0.01em; }
-.gm-zoom { position: absolute; right: 10px; bottom: 10px; display: flex; flex-direction: column; gap: 6px; }
-.gm-zoom button { width: 34px; height: 34px; border-radius: 10px; border: 1px solid rgba(255,255,255,0.14); background: rgba(14,18,25,0.82); color: #dbe4ef; font-size: 17px; font-weight: 700; cursor: pointer; }
+.gm-node:hover circle { stroke: #fff; stroke-width: 1.4; }
+.gm-lbl { font-weight: 700; fill: #cbd6e4; pointer-events: none; paint-order: stroke; stroke: #0d1117; stroke-width: 2.6px; }
+.gm-wname { font-weight: 800; fill: #eef3f9; pointer-events: none; paint-order: stroke; stroke: #0d1117; stroke-width: 3.4px; letter-spacing: -0.01em; }
+.gm-wsub { font-weight: 700; fill: #7f8b9c; pointer-events: none; paint-order: stroke; stroke: #0d1117; stroke-width: 2.6px; }
 .gm-legend { display: flex; align-items: center; gap: 12px; margin-top: 8px; font-size: 12px; color: #8794a6; flex-wrap: wrap; }
 .gm-legend span { display: inline-flex; align-items: center; gap: 5px; }
 .gm-legend i { width: 9px; height: 9px; border-radius: 50%; display: inline-block; }
 .gm-hint { margin-left: auto; opacity: 0.7; }
-.gm-back { display: inline-flex; align-items: center; gap: 6px; background: transparent; border: 0; color: #9aa7b8; font-size: 13px; font-weight: 700; cursor: pointer; padding: 6px 0; min-height: 32px; }
-.gm-decgrid { display: grid; grid-template-columns: repeat(4, 1fr); gap: 6px; padding: 10px; }
-.gm-dec { background: rgba(255,255,255,0.04); border: 1px solid rgba(255,255,255,0.07); border-radius: 12px; padding: 8px 6px; cursor: pointer; text-align: left; }
-.gm-dec:hover { border-color: rgba(255,255,255,0.2); }
-.gm-dec b { display: block; font-size: 13px; color: #e9eef5; font-weight: 800; margin-bottom: 5px; }
-.gm-dots { display: flex; flex-wrap: wrap; gap: 3px; }
-.gm-dots i { width: 6px; height: 6px; border-radius: 50%; display: block; }
-.gm-dec small { display: block; margin-top: 5px; font-size: 10.5px; color: #7f8b9c; }
-@media (max-width: 520px) { .gm-decgrid { grid-template-columns: repeat(2, 1fr); } }
+.gm-tl { position: relative; width: 100%; background: #0d1117; border-radius: 16px; overflow: hidden; }
+.gm-tlscroll { overflow-x: auto; overflow-y: hidden; -webkit-overflow-scrolling: touch; }
+.gm-tip { margin-top: 8px; min-height: 34px; font-size: 12.5px; color: #8794a6; }
+.gm-tip b { color: #e6ecf3; }
 `}</style>
     </div>
   )
 }
 
-// ── ŽEMĖLAPIS: užšaldytas force-directed išdėstymas ───────────────────────
-function MapView({ cells, onPick }: { cells: (MapCell & { world: string; wcolor: string })[]; onPick: (c: MapCell) => void }) {
-  const placed = useMemo(() => cells.filter(c => c.x != null && c.y != null), [cells])
-  const worldCenters = useMemo(() => {
-    const m = new Map<string, { x: number; y: number; n: number; color: string }>()
-    for (const c of placed) {
-      const w = m.get(c.world) || { x: 0, y: 0, n: 0, color: c.wcolor }
-      w.x += c.x!; w.y += c.y!; w.n++
-      m.set(c.world, w)
-    }
-    return [...m.entries()].map(([name, w]) => ({ name, x: w.x / w.n, y: w.y / w.n, color: w.color }))
-  }, [placed])
+// ══ ŽEMĖLAPIS ═════════════════════════════════════════════════════════════
+// Du lygiai. Lygyje 0 — 15 pasaulių (dydis = katalogas, žiedas = kiek pažinai).
+// Lygyje 1 — pasirinkto pasaulio teritorijos, perskaičiuotos į visą lauką.
+// Priartinus vardai atsiranda pakopomis: pirma didžiosios, tada smulkesnės.
 
-  const [vb, setVb] = useState({ x: -40, y: -40, w: 1080, h: 1080 })
+function MapView({ cells, regions, onPick }: { cells: Cell[]; regions: MapRegionC[]; onPick: (c: MapCell) => void }) {
+  const [world, setWorld] = useState<string | null>(null)
+  const [vb, setVb] = useState({ x: 0, y: 0, w: 1000, h: 1000 })
+  const svgRef = useRef<SVGSVGElement>(null)
   const drag = useRef<{ x: number; y: number; vx: number; vy: number } | null>(null)
   const moved = useRef(false)
-  const svgRef = useRef<SVGSVGElement>(null)
+
+  // Pasaulių kortelės (lygis 0)
+  const worlds = useMemo(() => regions.map(r => {
+    const cs = cells.filter(c => c.wid === (r.worldId || String(r.genreId)))
+    const placed = cs.filter(c => c.x != null)
+    const n = Math.max(1, placed.length)
+    const cx = placed.reduce((s, c) => s + (c.x || 0), 0) / n
+    const cy = placed.reduce((s, c) => s + (c.y || 0), 0) / n
+    const touched = cs.filter(c => state(c) !== 'fog').length
+    const artists = cs.reduce((s, c) => s + (c.size || 0), 0)
+    return {
+      id: r.worldId || String(r.genreId), name: r.name, color: r.color || '#8895a6',
+      cx, cy, terr: cs.length, touched, artists,
+      liked: cs.filter(c => state(c) === 'liked').length,
+    }
+  }).filter(w => w.terr > 0), [regions, cells])
+
+  // Pasirinkto pasaulio teritorijos, ištemptos į visą lauką
+  const inWorld = useMemo(() => {
+    if (!world) return []
+    const cs = cells.filter(c => c.wid === world && c.x != null && c.y != null)
+    if (!cs.length) return []
+    const xs = cs.map(c => c.x!), ys = cs.map(c => c.y!)
+    const minX = Math.min(...xs), maxX = Math.max(...xs)
+    const minY = Math.min(...ys), maxY = Math.max(...ys)
+    const sc = 860 / Math.max(60, Math.max(maxX - minX, maxY - minY))
+    const ox = (1000 - (maxX - minX) * sc) / 2
+    const oy = (1000 - (maxY - minY) * sc) / 2
+    return cs.map(c => ({ ...c, px: ox + (c.x! - minX) * sc, py: oy + (c.y! - minY) * sc }))
+  }, [world, cells])
 
   const zoom = useCallback((f: number, ox = 0.5, oy = 0.5) => {
     setVb(v => {
-      const w = Math.max(180, Math.min(1400, v.w * f))
-      const h = w
-      return { x: v.x + (v.w - w) * ox, y: v.y + (v.h - h) * oy, w, h }
+      const w = Math.max(150, Math.min(1000, v.w * f))
+      return { x: v.x + (v.w - w) * ox, y: v.y + (v.h - w) * oy, w, h: w }
     })
   }, [])
 
+  useEffect(() => { setVb({ x: 0, y: 0, w: 1000, h: 1000 }) }, [world])
+
   useEffect(() => {
     const el = svgRef.current
-    if (!el) return
+    if (!el || !world) return
     const onWheel = (e: WheelEvent) => {
       e.preventDefault()
       const r = el.getBoundingClientRect()
-      zoom(e.deltaY > 0 ? 1.12 : 0.89, (e.clientX - r.left) / r.width, (e.clientY - r.top) / r.height)
+      zoom(e.deltaY > 0 ? 1.14 : 0.88, (e.clientX - r.left) / r.width, (e.clientY - r.top) / r.height)
     }
     el.addEventListener('wheel', onWheel, { passive: false })
     return () => el.removeEventListener('wheel', onWheel)
-  }, [zoom])
+  }, [zoom, world])
 
   const down = (x: number, y: number) => { drag.current = { x, y, vx: vb.x, vy: vb.y }; moved.current = false }
   const move = (x: number, y: number) => {
     const d = drag.current
-    if (!d || !svgRef.current) return
+    if (!d || !svgRef.current || !world) return
     const r = svgRef.current.getBoundingClientRect()
-    const dx = (x - d.x) / r.width * vb.w
-    const dy = (y - d.y) / r.height * vb.h
+    const dx = (x - d.x) / r.width * vb.w, dy = (y - d.y) / r.height * vb.h
     if (Math.abs(dx) > 3 || Math.abs(dy) > 3) moved.current = true
     setVb(v => ({ ...v, x: d.vx - dx, y: d.vy - dy }))
   }
-  const up = () => { drag.current = null }
 
-  // Vardai atsiranda tik priartinus — kitaip 526 etiketės virsta triukšmu
-  const showNames = vb.w < 620
-  const showWorlds = vb.w > 420
+  // ── Lygis 0: pasauliai ──
+  if (!world) {
+    const maxA = Math.max(...worlds.map(w => w.artists), 1)
+    return (
+      <div className="gm-stage">
+        <svg viewBox="0 0 1000 1000" role="img" aria-label="Muzikos pasauliai">
+          {worlds.map(w => {
+            const r = 34 + Math.sqrt(w.artists / maxA) * 56
+            const frac = w.touched / Math.max(1, w.terr)
+            const circ = 2 * Math.PI * (r + 7)
+            return (
+              <g key={w.id} className="gm-node" onClick={() => setWorld(w.id)} role="button" tabIndex={0}>
+                <circle cx={w.cx} cy={w.cy} r={r} fill={w.color} fillOpacity={0.13} stroke={w.color} strokeOpacity={0.5} strokeWidth={1.2} />
+                {/* žiedas = kiek šio pasaulio jau palietei */}
+                <circle cx={w.cx} cy={w.cy} r={r + 7} fill="none" stroke={C.liked} strokeOpacity={0.9} strokeWidth={3.5}
+                  strokeDasharray={`${circ * frac} ${circ}`} strokeLinecap="round"
+                  transform={`rotate(-90 ${w.cx} ${w.cy})`} />
+                <text x={w.cx} y={w.cy - 2} textAnchor="middle" className="gm-wname" style={{ fontSize: Math.max(17, r * 0.34) }}>{w.name}</text>
+                <text x={w.cx} y={w.cy + 17} textAnchor="middle" className="gm-wsub" style={{ fontSize: 12.5 }}>
+                  {w.touched}/{w.terr}
+                </text>
+              </g>
+            )
+          })}
+        </svg>
+      </div>
+    )
+  }
+
+  // ── Lygis 1: vieno pasaulio teritorijos ──
+  const w = worlds.find(x => x.id === world)!
+  const maxSize = Math.max(...inWorld.map(c => c.size || 1), 1)
+  // LOD: kuo giliau priartinai, tuo smulkesnės teritorijos parodo vardus
+  const zoomF = 1000 / vb.w
+  const nameCut = maxSize / (zoomF * zoomF * 2.6)
 
   return (
     <div className="gm-stage">
+      <button className="gm-crumb" onClick={() => setWorld(null)}>
+        ← <span style={{ color: w.color }}>{w.name}</span>
+        <span style={{ color: '#7f8b9c', fontWeight: 400 }}>· {w.terr} teritorijų</span>
+      </button>
+
       <svg ref={svgRef} viewBox={`${vb.x} ${vb.y} ${vb.w} ${vb.h}`}
         onMouseDown={e => down(e.clientX, e.clientY)}
         onMouseMove={e => move(e.clientX, e.clientY)}
-        onMouseUp={up} onMouseLeave={up}
+        onMouseUp={() => { drag.current = null }}
+        onMouseLeave={() => { drag.current = null }}
         onTouchStart={e => down(e.touches[0].clientX, e.touches[0].clientY)}
         onTouchMove={e => move(e.touches[0].clientX, e.touches[0].clientY)}
-        onTouchEnd={up}
-        role="img" aria-label="Muzikos žemėlapis">
+        onTouchEnd={() => { drag.current = null }}
+        role="img" aria-label={w.name}>
 
-        {showWorlds && worldCenters.map(w => (
-          <text key={w.name} x={w.x} y={w.y} textAnchor="middle" className="gm-wlbl"
-            style={{ fill: w.color, opacity: 0.55, fontSize: Math.max(11, vb.w * 0.022) }}>{w.name}</text>
-        ))}
-
-        {placed.map(c => {
+        {inWorld.map(c => {
           const st = state(c)
-          const r = radius(c.size || 1)
+          const r = 5 + Math.sqrt((c.size || 1) / maxSize) * 34
+          const showName = (c.size || 0) >= nameCut || st !== 'fog'
+          const fs = Math.max(7, vb.w * 0.017)
           return (
             <g key={String(c.id)} className="gm-node" role="button" tabIndex={0}
               onClick={() => { if (!moved.current) onPick(c) }}>
-              <circle cx={c.x!} cy={c.y!} r={r} fill={C[st]} fillOpacity={st === 'fog' ? 0.42 : 0.92} />
-              {showNames && (
-                <text x={c.x!} y={c.y! + r + 8} textAnchor="middle" className="gm-lbl"
-                  style={{ fontSize: Math.max(6, vb.w * 0.014) }}>{c.name}</text>
+              <circle cx={c.px} cy={c.py} r={r}
+                fill={C[st]} fillOpacity={st === 'fog' ? 0.5 : 0.95} />
+              {showName && (
+                <text x={c.px} y={c.py + r + fs + 1} textAnchor="middle" className="gm-lbl"
+                  style={{ fontSize: fs, fill: st === 'fog' ? '#9aa7b8' : '#eef3f9' }}>{c.name}</text>
               )}
             </g>
           )
@@ -211,78 +264,103 @@ function MapView({ cells, onPick }: { cells: (MapCell & { world: string; wcolor:
       </svg>
 
       <div className="gm-zoom">
-        <button onClick={() => zoom(0.75)} aria-label="Priartinti">+</button>
-        <button onClick={() => zoom(1.33)} aria-label="Atitolinti">−</button>
+        <button onClick={() => zoom(0.72)} aria-label="Priartinti">+</button>
+        <button onClick={() => zoom(1.4)} aria-label="Atitolinti">−</button>
       </div>
     </div>
   )
 }
 
-// ── LAIKAS: apžvalga → dešimtmetis ────────────────────────────────────────
-const DECADES = [1950, 1960, 1970, 1980, 1990, 2000, 2010, 2020]
+// ══ LAIKAS ════════════════════════════════════════════════════════════════
+// Tikra laiko ašis: metai viršuje, pasauliai — horizontalios juostos.
+// Bakstelėjus dešimtmetį ašis išsiskleidžia (10 metų per visą plotį) ir
+// teritorijos gauna vardus.
 
-function inDecade(c: MapCell, d: number) {
-  const f = c.eraFrom ?? null, t = c.eraTo ?? null
-  if (f == null && t == null) return false
-  return (f ?? -9999) <= d + 9 && (t ?? 9999) >= d
-}
+const Y0 = 1950, Y1 = 2026
 
-function TimeView({ regions, onPick }: { regions: MapRegionC[]; onPick: (c: MapCell) => void }) {
+function TimeView({ cells, regions, onPick }: { cells: Cell[]; regions: MapRegionC[]; onPick: (c: MapCell) => void }) {
   const [dec, setDec] = useState<number | null>(null)
+  const [tip, setTip] = useState<Cell | null>(null)
 
-  const all = useMemo(() => regions.flatMap(r => r.substyles.map(c => ({ ...c, world: r.name }))), [regions])
+  const lanes = useMemo(() => regions
+    .map(r => ({
+      id: r.worldId || String(r.genreId), name: r.name, color: r.color || '#8895a6',
+      cells: cells.filter(c => c.wid === (r.worldId || String(r.genreId)) && (c.eraFrom || c.eraTo)),
+    }))
+    .filter(l => l.cells.length > 0), [regions, cells])
 
-  if (dec == null) {
-    return (
-      <div className="gm-stage" style={{ height: 'auto', minHeight: 260 }}>
-        <div className="gm-decgrid">
-          {DECADES.map(d => {
-            const inD = all.filter(c => inDecade(c, d))
-            const liked = inD.filter(c => state(c) === 'liked').length
-            const heard = inD.filter(c => state(c) === 'heard').length
-            const fog = inD.length - liked - heard
-            const dots = [
-              ...Array(Math.min(14, liked)).fill(C.liked),
-              ...Array(Math.min(14, heard)).fill(C.heard),
-              ...Array(Math.min(20, fog)).fill(C.fog),
-            ]
-            return (
-              <button key={d} className="gm-dec" onClick={() => setDec(d)}>
-                <b>{d}-ieji</b>
-                <span className="gm-dots">{dots.map((c, i) => <i key={i} style={{ background: c, opacity: c === C.fog ? 0.45 : 1 }} />)}</span>
-                <small>{inD.length} teritorijų · {liked + heard} pažinta</small>
-              </button>
-            )
-          })}
-        </div>
-      </div>
-    )
+  const from = dec ?? Y0, to = dec ? dec + 10 : Y1
+  const PADL = 96, W = dec ? 900 : 820, LANE = dec ? 40 : 30
+  const sx = (y: number) => PADL + (Math.min(to, Math.max(from, y)) - from) / (to - from) * (W - PADL - 16)
+  const ticks = dec
+    ? Array.from({ length: 6 }, (_, i) => dec + i * 2)
+    : [1950, 1960, 1970, 1980, 1990, 2000, 2010, 2020]
+
+  const visible = (c: Cell) => {
+    const f = c.eraFrom ?? Y0, t = c.eraTo ?? Y1
+    return t >= from && f <= to
   }
+  const H = lanes.length * LANE + 34
 
-  const inD = all.filter(c => inDecade(c, dec)).sort((a, b) => (b.size || 0) - (a.size || 0)).slice(0, 60)
-  const H = 26
   return (
     <div>
-      <button className="gm-back" onClick={() => setDec(null)}>← visi dešimtmečiai</button>
-      <div className="gm-stage" style={{ height: Math.min(560, inD.length * H + 30), overflowY: 'auto' }}>
-        <svg viewBox={`0 0 320 ${inD.length * H + 16}`} role="img" aria-label={`${dec}-ieji`}>
-          {inD.map((c, i) => {
-            const st = state(c)
-            const y = 16 + i * H
-            const f = Math.max(dec, c.eraFrom ?? dec)
-            const t = Math.min(dec + 9, c.eraTo ?? dec + 9)
-            const x1 = 8 + (f - dec) / 10 * 120
-            const x2 = 8 + (t - dec + 1) / 10 * 120
-            return (
-              <g key={String(c.id)} className="gm-node" role="button" tabIndex={0} onClick={() => onPick(c)}>
-                <rect x={x1} y={y - 5} width={Math.max(4, x2 - x1)} height={10} rx={5}
-                  fill={C[st]} fillOpacity={st === 'fog' ? 0.4 : 0.9} />
-                <text x={136} y={y + 3} className="gm-lbl" style={{ fontSize: 9.5, textAnchor: 'start' }}>{c.name}</text>
-                <text x={314} y={y + 3} className="gm-lbl" style={{ fontSize: 8.5, textAnchor: 'end', opacity: 0.6 }}>{c.size}</text>
+      <div className="gm-tl">
+        {dec && (
+          <button className="gm-crumb" style={{ position: 'relative', margin: '10px 0 0 10px' }} onClick={() => { setDec(null); setTip(null) }}>
+            ← {dec}-ieji
+          </button>
+        )}
+        <div className="gm-tlscroll">
+          <svg viewBox={`0 0 ${W} ${H}`} style={{ width: '100%', minWidth: dec ? 720 : 620, height: H * (dec ? 1.05 : 1) }}
+            role="img" aria-label="Laiko juosta">
+            {ticks.map(t => (
+              <g key={t}>
+                <line x1={sx(t)} y1={20} x2={sx(t)} y2={H - 8} stroke="rgba(255,255,255,0.06)" strokeWidth={1} />
+                <text x={sx(t)} y={13} textAnchor="middle" className="gm-wsub" style={{ fontSize: 10.5 }}>{t}</text>
               </g>
-            )
-          })}
-        </svg>
+            ))}
+
+            {lanes.map((l, i) => {
+              const y = 34 + i * LANE
+              return (
+                <g key={l.id}>
+                  <text x={0} y={y + 3.5} className="gm-lbl" style={{ fontSize: 10.5, fill: l.color, textAnchor: 'start' }}>{l.name}</text>
+                  <line x1={PADL} y1={y} x2={W - 16} y2={y} stroke={l.color} strokeOpacity={0.16} strokeWidth={1} />
+                  {l.cells.filter(visible).map(c => {
+                    const st = state(c)
+                    const f = Math.max(from, c.eraFrom ?? from)
+                    const t = Math.min(to, c.eraTo ?? to)
+                    const x1 = sx(f), x2 = Math.max(x1 + 5, sx(t))
+                    const h = dec ? 9 : 6
+                    return (
+                      <g key={String(c.id)} className="gm-node"
+                        onClick={() => onPick(c)}
+                        onMouseEnter={() => setTip(c)}>
+                        <rect x={x1} y={y - h / 2} width={x2 - x1} height={h} rx={h / 2}
+                          fill={C[st]} fillOpacity={st === 'fog' ? 0.42 : 0.95} />
+                        {dec && (x2 - x1) > 34 && (
+                          <text x={x1 + 5} y={y + 3} className="gm-lbl" style={{ fontSize: 8.5, textAnchor: 'start' }}>{c.name}</text>
+                        )}
+                      </g>
+                    )
+                  })}
+                </g>
+              )
+            })}
+
+            {/* Dešimtmečių paspaudimo zonos — tik apžvalgoje */}
+            {!dec && [1950, 1960, 1970, 1980, 1990, 2000, 2010, 2020].map(d => (
+              <rect key={d} x={sx(d)} y={20} width={sx(d + 10) - sx(d)} height={H - 28}
+                fill="transparent" style={{ cursor: 'zoom-in' }} onClick={() => setDec(d)} />
+            ))}
+          </svg>
+        </div>
+      </div>
+
+      <div className="gm-tip">
+        {tip
+          ? <><b>{tip.name}</b> · {tip.era} · {tip.size} atlikėjų — {state(tip) === 'liked' ? 'pamėgta' : state(tip) === 'heard' ? 'perklausyta' : 'dar rūke'}</>
+          : dec ? 'Bakstelėk juostą — atversi teritoriją.' : 'Bakstelėk dešimtmetį — ašis išsiskleis ir atsiras vardai.'}
       </div>
     </div>
   )

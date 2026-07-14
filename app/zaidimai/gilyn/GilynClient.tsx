@@ -19,6 +19,7 @@
 import { useEffect, useRef, useState, useCallback, useMemo } from 'react'
 import Link from 'next/link'
 import GilynMap from '@/components/gilyn/GilynMap'
+import TerritorySheet from '@/components/gilyn/TerritorySheet'
 import ZaidimoLangas from '@/components/zaidimai/ZaidimoLangas'
 
 // ── Tipai ────────────────────────────────────────────────────────────────
@@ -118,17 +119,6 @@ export default function GilynClient() {
   const [shelfOpen, setShelfOpen] = useState(false)
   const [mapData, setMapData] = useState<MapData | null>(null)
   const [subSheet, setSubSheet] = useState<SubStyle | null>(null)
-  const [allList, setAllList] = useState<{ name: string; total: number; artists: { id: number; n: string; img: string | null; k: string | null }[] } | null>(null)
-  const [allLoading, setAllLoading] = useState(false)
-  async function openAllArtists(t: SubStyle) {
-    setAllLoading(true)
-    try {
-      const r = await fetch(`/api/zaidimai/gilyn/teritorija?id=${t.id}`, { cache: 'no-store' })
-      const j = await r.json()
-      if (!j.error) { setSubSheet(null); setAllList(j) }
-    } catch {}
-    setAllLoading(false)
-  }
   const [busy, setBusy] = useState(false)
   const [beaconBanner, setBeaconBanner] = useState(false)
   useEffect(() => {
@@ -737,7 +727,7 @@ export default function GilynClient() {
                 <div><PlayMini /><b>{mapData.totals.heard}</b><span>perklausyta</span></div>
                 <div><HexMini /><b>{mapData.totals.substylesTouched}<i>/{mapData.totals.substylesTotal}</i></b><span>teritorijos</span></div>
               </div>
-              <p className="g-mapexpl">Muzikos pasaulis — 15 kontinentų ir šimtai teritorijų. <span className="cl-b">Žemėlapyje</span> jos guli pagal giminystę, <span className="cl-v">Laike</span> — pagal eras.</p>
+              <p className="g-mapexpl">Pradėk nuo kontinento — bakstelėjęs pateksi į jo teritorijas, o priartinęs iš rūko iškils vis smulkesnės.</p>
               <GilynMap regions={mapData.regions as any} onPick={s => setSubSheet(s as any)} />
             </>
           )}
@@ -806,107 +796,18 @@ export default function GilynClient() {
         </div>
       )}
 
-      {allList && (
-        <div className="g-sheetback" onClick={() => setAllList(null)}>
-          <div className="g-sheet" onClick={e => e.stopPropagation()}>
-            <h3 className="g-h3 center">{allList.name} — visi ({allList.total})</h3>
-            <div className="g-allgrid">
-              {allList.artists.map(a => (
-                <button key={a.id} className={`g-alla${a.k ? ' ' + a.k : ''}`} type="button"
-                  onClick={() => { setAllList(null); startFreeDig(a.id, { artist: a.n }) }}>
-                  {a.img ? <img src={a.img} alt="" referrerPolicy="no-referrer" /> : <span className="g-allaph">♪</span>}
-                  <span className="g-allan">{a.k === 'saved' ? '★ ' : a.k === 'visited' ? '✓ ' : a.k === 'beacon' ? '❤️ ' : ''}{a.n}</span>
-                </button>
-              ))}
-            </div>
-            <button className="g-cta ghost" onClick={() => setAllList(null)} type="button">Uždaryti</button>
-          </div>
-        </div>
-      )}
-
+      {/* Teritorijos lapas — vizualus: atlikėjų veidų kolažas, pilki = dar rūke.
+          Tai svarbiausia vieta žemėlapyje, todėl čia rodom muziką, ne pastraipas. */}
       {subSheet && (
-        <div className="g-sheetback" onClick={() => setSubSheet(null)}>
-          <div className="g-sheet" onClick={e => e.stopPropagation()}>
-            <h3 className="g-h3 center">{subSheet.name}</h3>
-            {(subSheet.era || subSheet.region) && (
-              <p className="g-terrmeta center">
-                {subSheet.era}{subSheet.era && subSheet.region ? ' · ' : ''}{subSheet.region}
-              </p>
-            )}
-            {subSheet.essence && <p className="g-terress">{subSheet.essence}</p>}
-            <p className="g-dim center">
-              {subSheet.beacons > 0 && <><HeartIcon size={12} /> {subSheet.beacons} pamėgta · </>}
-              {subSheet.visited > 0 && <><CheckIcon size={12} /> {subSheet.visited} aplankyta · </>}
-              {subSheet.heard > 0 && <>{subSheet.heard} perklausyta</>}
-            </p>
-            {(() => {
-              const n = subSheet.beacons + subSheet.visited + subSheet.saved
-              return n > 0 ? (
-                <p className="g-dim center">
-                  {n <= 1 ? 'Vos pravertos durys — vienas atlikėjas iš daugybės šiame stiliuje.'
-                    : n <= 3 ? 'Pradėta tyrinėti — dar daug kas slepiasi.'
-                      : n <= 7 ? 'Jau pažįstama teritorija.' : 'Tavo namai — giliai ištyrinėta.'}
-                </p>
-              ) : null
-            })()}
-            {subSheet.artists.length > 0 && (
-              <div className="g-subartists">
-                {subSheet.artists.map((a, i) => (
-                  <button key={i} className={`g-suba ${a.k}`} type="button" onClick={() => startFreeDig(a.id, { artist: a.n })}>
-                    {a.img && <img className="g-subaimg" src={a.img} alt="" referrerPolicy="no-referrer" />}
-                    {a.k === 'saved' ? <StarIcon size={11} /> : a.k === 'visited' ? <CheckIcon size={11} /> : <HeartIcon size={11} />} {a.n}
-                    <ArrowIcon size={11} />
-                  </button>
-                ))}
-              </div>
-            )}
-            {(() => {
-              const known = new Set(subSheet.artists.map(a => a.id))
-              const rest = (subSheet.top || []).filter(t => !known.has(t.id))
-              return rest.length > 0 ? (
-                <>
-                  <p className="g-dim center" style={{ marginTop: 4 }}>{subSheet.artists.length ? 'Čia taip pat gyvena:' : 'Žymiausi šios teritorijos gyventojai:'}</p>
-                  <div className="g-subartists">
-                    {rest.map(t => (
-                      <button key={t.id} className="g-suba" type="button" onClick={() => startFreeDig(t.id, { artist: t.n })}>
-                        {t.img && <img className="g-subaimg" src={t.img} alt="" referrerPolicy="no-referrer" />}
-                        {t.n} <ArrowIcon size={11} />
-                      </button>
-                    ))}
-                  </div>
-                </>
-              ) : null
-            })()}
-            {subSheet.artists.length === 0 && !(subSheet.top || []).length && (
-              <p className="g-dim center">Šią teritoriją dar dengia rūkas.</p>
-            )}
-            <p className="g-hint">Paspausk atlikėją — pradėsi laisvą kasimąsi nuo jo.</p>
-            {/* Kaimynės — „kur eiti toliau". Ne žanrų medis, o realus grafas:
-                bendri atlikėjai + bendra auditorija (co-like). */}
-            {(subSheet.near || []).length > 0 && (
-              <>
-                <p className="g-dim center" style={{ marginTop: 10 }}>Kur eiti toliau</p>
-                <div className="g-near">
-                  {(subSheet.near || []).map(n => (
-                    <button key={n.id} className="g-nearb" type="button"
-                      onClick={() => {
-                        const next = mapData?.regions.flatMap(r => r.substyles).find(s => String(s.id) === n.id)
-                        if (next) setSubSheet(next as any)
-                      }}>
-                      {n.n} <ArrowIcon size={10} />
-                    </button>
-                  ))}
-                </div>
-              </>
-            )}
-            {(subSheet.size || 0) > 0 && (
-              <button className="g-cta alt" onClick={() => openAllArtists(subSheet)} disabled={allLoading} type="button">
-                {allLoading ? 'Kraunama…' : `Visi atlikėjai (${subSheet.size})`}
-              </button>
-            )}
-            <button className="g-cta ghost" onClick={() => setSubSheet(null)} type="button">Uždaryti</button>
-          </div>
-        </div>
+        <TerritorySheet
+          cell={subSheet as any}
+          onDig={(id, name) => { setSubSheet(null); startFreeDig(id, { artist: name }) }}
+          onNeighbour={id => {
+            const next = mapData?.regions.flatMap(r => r.substyles).find(x => String(x.id) === id)
+            if (next) setSubSheet(next as any)
+          }}
+          onClose={() => setSubSheet(null)}
+        />
       )}
     </ZaidimoLangas>
   )
