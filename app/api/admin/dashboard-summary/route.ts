@@ -111,7 +111,7 @@ const getEditorCounts = unstable_cache(
       missing_music, substyles_pending, claims_pending,
       internal_tops, member_posts,
       charts_unmatched, top_short, radar_pending, atradimai_pending,
-      lyrics_suggestions_pending, feed_pending, seen_live_pending,
+      lyrics_suggestions_pending, feed_pending, seen_live_pending, terr_empty,
     ] = await Promise.all([
       // Totalai
       headCount(() => sb.from('artists').select('id', { count: 'exact', head: true })),
@@ -141,6 +141,8 @@ const getEditorCounts = unstable_cache(
       headCount(() => sb.from('home_feed').select('id', { count: 'exact', head: true }).eq('kind', 'candidate').eq('status', 'pending')),
       // „Matyti gyvai" narių draft'ai — laukia patvirtinimo (/admin/matyti-gyvai)
       headCount(() => sb.from('profile_seen_live').select('id', { count: 'exact', head: true }).eq('status', 'pending')),
+      // Muzikos žemėlapis: teritorijos be nė vieno žinomo atlikėjo (spragos bazėje)
+      headCount(() => sb.from('gilyn_terr').select('id', { count: 'exact', head: true }).eq('n_known', 0).eq('status', 'active')),
     ])
 
     return {
@@ -149,7 +151,7 @@ const getEditorCounts = unstable_cache(
       missing_music, substyles_pending, claims_pending,
       internal_tops, member_posts,
       charts_unmatched, top_short, radar_pending, atradimai_pending,
-      lyrics_suggestions_pending, feed_pending, seen_live_pending,
+      lyrics_suggestions_pending, feed_pending, seen_live_pending, terr_empty,
     }
   },
   ['admin-dashboard-editor-v3'],

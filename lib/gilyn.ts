@@ -857,12 +857,24 @@ export async function artistNodeInfo(artistId: number, albumId?: number | null):
 
 export type MapRegion = {
   genreId: number
+  /** Pasaulio raktas (gilyn_worlds.id) — v3 žemėlapyje regionas = pasaulis. */
+  worldId?: string
   name: string
+  color?: string
   substyles: {
-    id: number; name: string; size?: number
+    /** v3: teritorijos tekstinis ID (gilyn_terr.id). */
+    id: number | string
+    name: string; size?: number
+    era?: string | null; region?: string | null; essence?: string | null
+    /** Kiek žinomų (AI fame ≥3) atlikėjų — ar teritoriją apskritai galima tyrinėti. */
+    known?: number
+    /** Kiek žinomų atlikėjų dar trūksta bazėje (spraga, ne klaida). */
+    missing?: number
     beacons: number; visited: number; heard: number; saved: number
     artists: { id: number; n: string; k: 'saved' | 'visited' | 'beacon'; img?: string | null }[]
     top?: { id: number; n: string; img?: string | null }[]
+    /** Kaimyninės teritorijos — „kur eiti toliau". */
+    near?: { id: string; n: string }[]
   }[]
   beacons: number
   visited: number
@@ -888,16 +900,84 @@ export function sceneName(subName: string, country: string | null, decade: numbe
 /** Scenos ID žemėlapio vienetui (kad nesikirstų su substilių ID). */
 export const SCENE_ID_BASE = 1000000
 
-// ── Kuruotos teritorijos (gilyn_territories) ──
-type TerritoryRow = { id: number; genre_id: number; name: string; is_catchall: boolean; artist_ids: number[]; n: number; top_ids: number[] }
-let terrCache: { at: number; rows: TerritoryRow[] } | null = null
+// ── Teritorijos v3 (gilyn_worlds + gilyn_terr + gilyn_artist_terr) ────────
+//
+// Taksonomija autorinta iš muzikos žinojimo, ne iš substilių tagų. Atlikėjas
+// priklauso kelioms teritorijoms skirtingais laikotarpiais (Radiohead: Britpop
+// 93–95 → Alternatyva 95–99 → Elektroninis rokas 00–11).
+//
+// „Žinomumas" = artist_fame (AI, 1–5), NE music.lt like'ai — kitaip klasika ir
+// džiazas atrodytų tušti vien todėl, kad portalo auditorija klauso roko.
 
-async function loadTerritories(): Promise<TerritoryRow[]> {
-  if (terrCache && Date.now() - terrCache.at < 10 * 60 * 1000) return terrCache.rows
+export type WorldRow = { id: string; name: string; color: string | null; sort: number }
+export type TerrV3 = {
+  id: string; world_id: string; name: string
+  era_from: number | null; era_to: number | null
+  region: string | null; essence: string | null
+  n_artists: number; n_known: number; n_missing: number; status: string
+}
+
+type TerrCache = {
+  at: number
+  worlds: WorldRow[]
+  terrs: TerrV3[]
+  members: Map<string, { artistId: number; from: number | null; to: number | null }[]>
+  near: Map<string, { id: string; n: string }[]>
+  fame: Map<number, number>
+}
+let v3Cache: TerrCache | null = null
+
+async function loadV3(): Promise<TerrCache> {
+  if (v3Cache && Date.now() - v3Cache.at < 10 * 60 * 1000) return v3Cache
   const sb = createAdminClient()
-  const { data } = await sb.from('gilyn_territories').select('id, genre_id, name, is_catchall, artist_ids, n, top_ids').limit(300)
-  terrCache = { at: Date.now(), rows: ((data as any[]) || []) as TerritoryRow[] }
-  return terrCache.rows
+
+  const [{ data: worlds }, { data: terrs }, { data: edges }] = await Promise.all([
+    sb.from('gilyn_worlds').select('id, name, color, sort').order('sort'),
+    sb.from('gilyn_terr').select('id, world_id, name, era_from, era_to, region, essence, n_artists, n_known, n_missing, status')
+      .neq('status', 'drop').limit(700),
+    sb.from('gilyn_terr_edges').select('a_id, b_id, weight').order('weight', { ascending: false }).limit(4000),
+  ])
+
+  // Nariai — puslapiuojam, nes priskyrimų ~13k
+  const members = new Map<string, { artistId: number; from: number | null; to: number | null }[]>()
+  for (let off = 0; ; off += 1000) {
+    const { data } = await sb.from('gilyn_artist_terr')
+      .select('artist_id, terr_id, year_from, year_to')
+      .range(off, off + 999)
+    if (!data?.length) break
+    for (const r of data as any[]) {
+      const arr = members.get(r.terr_id) || []
+      arr.push({ artistId: r.artist_id, from: r.year_from, to: r.year_to })
+      members.set(r.terr_id, arr)
+    }
+    if (data.length < 1000) break
+  }
+
+  const fame = new Map<number, number>()
+  for (let off = 0; ; off += 1000) {
+    const { data } = await sb.from('artist_fame').select('artist_id, fame').range(off, off + 999)
+    if (!data?.length) break
+    for (const r of data as any[]) fame.set(r.artist_id, r.fame)
+    if (data.length < 1000) break
+  }
+
+  const nameById = new Map((terrs || []).map((t: any) => [t.id, t.name]))
+  const near = new Map<string, { id: string; n: string }[]>()
+  for (const e of (edges as any[]) || []) {
+    const arr = near.get(e.a_id) || []
+    if (arr.length < 5 && nameById.has(e.b_id)) {
+      arr.push({ id: e.b_id, n: nameById.get(e.b_id)! })
+      near.set(e.a_id, arr)
+    }
+  }
+
+  v3Cache = {
+    at: Date.now(),
+    worlds: ((worlds as any[]) || []) as WorldRow[],
+    terrs: ((terrs as any[]) || []) as TerrV3[],
+    members, near, fame,
+  }
+  return v3Cache
 }
 
 export async function buildMap(viewer: GameViewer): Promise<{
@@ -947,49 +1027,74 @@ export async function buildMap(viewer: GameViewer): Promise<{
     }
   }
 
-  // ── Vienetai: KURUOTOS TERITORIJOS (gilyn_territories) ──
-  const terrs = await loadTerritories()
+  // ── Vienetai: TERITORIJOS v3 (pasaulis → teritorija) ──
+  const v3 = await loadV3()
 
-  // Vardai + foto (viewer'io atlikėjai + teritorijų top gyventojai)
+  // Kiekvienos teritorijos „veidai" — žymiausi pagal AI žinomumą (ne pagal
+  // like'us: kitaip klasikos teritorijos rodytų tuštumą).
+  const faceIds = new Set<number>([...va.keys()].slice(0, 900))
+  const facesByTerr = new Map<string, number[]>()
+  for (const t of v3.terrs) {
+    const mem = v3.members.get(t.id) || []
+    const top = mem
+      .map(m => ({ id: m.artistId, f: v3.fame.get(m.artistId) || 1 }))
+      .sort((a, b) => b.f - a.f)
+      .slice(0, 5)
+      .map(x => x.id)
+    facesByTerr.set(t.id, top)
+    for (const id of top) faceIds.add(id)
+  }
+
   const nameById = new Map<number, string>()
   const imgById = new Map<number, string | null>()
-  const nameIds = new Set<number>([...va.keys()].slice(0, 900))
-  for (const t of terrs) for (const id of t.top_ids || []) nameIds.add(id)
-  for (const ids of chunk([...nameIds], 200)) {
+  for (const ids of chunk([...faceIds], 200)) {
     const { data } = await sb.from('artists').select('id, name, cover_image_url').in('id', ids).limit(400)
     for (const r of (data as any[]) || []) { nameById.set(r.id, r.name); imgById.set(r.id, r.cover_image_url || null) }
   }
-  const regions: MapRegion[] = taxo.genres.map(g => {
+
+  const eraLabel = (t: TerrV3) =>
+    t.era_from && t.era_to ? `${t.era_from}–${t.era_to}` : t.era_from ? `${t.era_from}–` : t.era_to ? `iki ${t.era_to}` : null
+
+  const regions: MapRegion[] = v3.worlds.map((w, wi) => {
     const cells: MapRegion['substyles'] = []
-    for (const t of terrs.filter(x => x.genre_id === g.id)) {
+    for (const t of v3.terrs.filter(x => x.world_id === w.id)) {
       let beacons = 0, visited = 0, heard = 0, saved = 0
       const artists: { id: number; n: string; k: 'saved' | 'visited' | 'beacon'; img?: string | null }[] = []
-      for (const aid of t.artist_ids) {
-        const v = va.get(aid)
+      for (const m of v3.members.get(t.id) || []) {
+        const v = va.get(m.artistId)
         if (!v) continue
         if (v.beacon) beacons++
         if (v.visited) visited++
         if (v.heard) heard++
         if (v.saved) saved++
         if (artists.length < 10) {
-          const n = nameById.get(aid)
-          if (n) artists.push({ id: aid, n, k: v.saved ? 'saved' : v.visited ? 'visited' : 'beacon', img: imgById.get(aid) || null })
+          const n = nameById.get(m.artistId)
+          if (n) artists.push({ id: m.artistId, n, k: v.saved ? 'saved' : v.visited ? 'visited' : 'beacon', img: imgById.get(m.artistId) || null })
         }
       }
       artists.sort((a, b) => (a.k === 'saved' ? 0 : a.k === 'visited' ? 1 : 2) - (b.k === 'saved' ? 0 : b.k === 'visited' ? 1 : 2))
-      // „Žymiausi gyventojai" — teritorijos veidai (motyvacija kasti, net kai rūkas)
-      const top = (t.top_ids || []).map(id => ({ id, n: nameById.get(id) || '', img: imgById.get(id) || null })).filter(x => x.n).slice(0, 5)
-      cells.push({ id: t.id, name: t.name, size: t.n, beacons, visited, heard, saved, artists: artists.slice(0, 8), top })
+      const top = (facesByTerr.get(t.id) || [])
+        .map(id => ({ id, n: nameById.get(id) || '', img: imgById.get(id) || null }))
+        .filter(x => x.n)
+      cells.push({
+        id: t.id, name: t.name, size: t.n_artists,
+        era: eraLabel(t), region: t.region, essence: t.essence,
+        known: t.n_known, missing: t.n_missing,
+        beacons, visited, heard, saved,
+        artists: artists.slice(0, 8), top,
+        near: v3.near.get(t.id) || [],
+      })
     }
     cells.sort((a, b) => (b.size || 0) - (a.size || 0))
     return {
-      genreId: g.id, name: shortGenreName(g.name), substyles: cells,
+      genreId: wi, worldId: w.id, name: w.name, color: w.color || undefined,
+      substyles: cells,
       beacons: cells.reduce((s, x) => s + (x.beacons ? 1 : 0), 0),
       visited: cells.reduce((s, x) => s + (x.visited ? 1 : 0), 0),
     }
   })
 
-  const territoriesTotal = terrs.length
+  const territoriesTotal = v3.terrs.length
   const territoriesTouched = regions.reduce((s, r) => s + r.substyles.filter(c => c.beacons || c.visited || c.saved).length, 0)
 
   return {

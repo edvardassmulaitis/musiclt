@@ -7,6 +7,7 @@ import { getDiscoveriesByArtist } from '@/lib/discoveries'
 import { getArtistRecordings } from '@/lib/concert-recordings'
 import ArtistProfileClient from './artist-profile-client'
 import ArtistSocialSection from '@/components/ArtistSocialSection'
+import ArtistTerritories from '@/components/ArtistTerritories'
 import ArtistSightingsStrip from '@/components/artist/ArtistSightingsStrip'
 import { PageLoader } from '@/components/PageLoader'
 import type { Metadata } from 'next'
@@ -1490,6 +1491,10 @@ async function ArtistContent({ artist }: { artist: any }) {
     />
     <ArtistSightingsStrip artistId={artist.id} />
     <ArtistSocialSection artistId={artist.id} slug={artist.slug} name={artist.name} isClaimed={(artist as any).is_claimed} />
+    {/* Muzikos žemėlapis — atlikėjo kelias per teritorijas laike (Gilyn v3). */}
+    <div className="mx-auto mt-6 max-w-6xl px-4">
+      <ArtistTerritories artistId={artist.id} />
+    </div>
     </>
   )
   if (!_accent && !_theme) return inner

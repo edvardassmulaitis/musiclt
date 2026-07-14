@@ -1379,8 +1379,12 @@ function MapWorld({ regions, edges, onPick }: {
   if (selG === null) {
     const acts = regions.map(r => r.substyles.filter(s => s.beacons || s.visited || s.saved).length)
     const maxAct = Math.max(1, ...acts)
+    // v3: teritorijų ID yra tekstiniai (gilyn_terr.id), tad senasis substilių
+    // edges grafas čia nebetaikomas — kaimynystės ateina per cell.near.
     const subToG = new Map<number, number>()
-    for (const r of regions) for (const s of r.substyles) if (s.id < 1000000) subToG.set(s.id, r.genreId)
+    for (const r of regions) for (const s of r.substyles) {
+      if (typeof s.id === 'number' && s.id < 1000000) subToG.set(s.id, r.genreId)
+    }
     const agg = new Map<string, number>()
     for (const e2 of edges) {
       const a = subToG.get(e2.a), b = subToG.get(e2.b)
