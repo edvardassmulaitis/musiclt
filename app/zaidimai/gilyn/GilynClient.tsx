@@ -20,6 +20,7 @@ import { useEffect, useRef, useState, useCallback, useMemo } from 'react'
 import Link from 'next/link'
 import GilynMap from '@/components/gilyn/GilynMap'
 import TerritorySheet from '@/components/gilyn/TerritorySheet'
+import ArtistCard from '@/components/gilyn/ArtistCard'
 import ZaidimoLangas from '@/components/zaidimai/ZaidimoLangas'
 
 // ── Tipai ────────────────────────────────────────────────────────────────
@@ -119,6 +120,7 @@ export default function GilynClient() {
   const [shelfOpen, setShelfOpen] = useState(false)
   const [mapData, setMapData] = useState<MapData | null>(null)
   const [subSheet, setSubSheet] = useState<SubStyle | null>(null)
+  const [artistCard, setArtistCard] = useState<{ id: number; name: string } | null>(null)
   const [busy, setBusy] = useState(false)
   const [beaconBanner, setBeaconBanner] = useState(false)
   useEffect(() => {
@@ -801,12 +803,25 @@ export default function GilynClient() {
       {subSheet && (
         <TerritorySheet
           cell={subSheet as any}
-          onDig={(id, name) => { setSubSheet(null); startFreeDig(id, { artist: name }) }}
+          onArtist={(id, name) => setArtistCard({ id, name })}
           onNeighbour={id => {
             const next = mapData?.regions.flatMap(r => r.substyles).find(x => String(x.id) === id)
             if (next) setSubSheet(next as any)
           }}
           onClose={() => setSubSheet(null)}
+        />
+      )}
+
+      {/* Atlikėjo kortelė — sluoksnis VIRŠ teritorijos lapo. Uždarai ir grįžti
+          tiksliai ten, kur buvai: žemėlapis niekur nedingo. */}
+      {artistCard && subSheet && (
+        <ArtistCard
+          artistId={artistCard.id}
+          terrName={subSheet.name}
+          eraFrom={subSheet.eraFrom}
+          eraTo={subSheet.eraTo}
+          onBack={() => setArtistCard(null)}
+          onDig={(id, name) => { setArtistCard(null); setSubSheet(null); startFreeDig(id, { artist: name }) }}
         />
       )}
     </ZaidimoLangas>

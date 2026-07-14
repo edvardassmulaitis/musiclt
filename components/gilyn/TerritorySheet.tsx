@@ -17,6 +17,8 @@ export type SheetCell = {
   id: number | string
   name: string
   size?: number
+  eraFrom?: number | null
+  eraTo?: number | null
   era?: string | null
   region?: string | null
   essence?: string | null
@@ -24,9 +26,10 @@ export type SheetCell = {
 }
 type Artist = { id: number; n: string; img: string | null; fame: number; k: string | null }
 
-export default function TerritorySheet({ cell, onDig, onNeighbour, onClose }: {
+export default function TerritorySheet({ cell, onArtist, onNeighbour, onClose }: {
   cell: SheetCell
-  onDig: (artistId: number, name: string) => void
+  /** Atveria atlikėjo kortelę VIRŠ šio lapo — žemėlapis lieka po ja. */
+  onArtist: (artistId: number, name: string) => void
   onNeighbour: (id: string) => void
   onClose: () => void
 }) {
@@ -67,21 +70,25 @@ export default function TerritorySheet({ cell, onDig, onNeighbour, onClose }: {
           </div>
         ) : (
           <>
-            {known.length > 0 && (
-              <p className="ts-prog">
-                Pažįsti <b>{known.length}</b> iš {total} — likusius dar dengia rūkas.
-              </p>
-            )}
+            <p className="ts-prog">
+              {known.length > 0
+                ? <>Pažįsti <b>{known.length}</b> iš {total}. <span className="ts-key"><i className="l" />pamėgtas <i className="h" />susipažinęs · pilkas = dar rūke</span></>
+                : <>Visi {total} dar rūke — spalvotas veidas atsiras, kai kurį nors pamėgsi.</>}
+            </p>
             <div className="ts-grid">
               {list.map(a => (
                 <button key={a.id} type="button"
                   className={`ts-a${a.k ? ' on ' + a.k : ''}`}
-                  onClick={() => onDig(a.id, a.n)}
+                  onClick={() => onArtist(a.id, a.n)}
                   title={a.n}>
                   {a.img
                     ? <img src={a.img} alt="" referrerPolicy="no-referrer" loading="lazy" />
                     : <span className="ts-ph">♪</span>}
-                  {a.k && <span className="ts-badge">{a.k === 'saved' ? '★' : a.k === 'visited' ? '✓' : '❤'}</span>}
+                  {a.k && (
+                    <span className={`ts-badge ${a.k === 'beacon' ? 'liked' : 'heard'}`}>
+                      {a.k === 'beacon' ? '♥' : '✓'}
+                    </span>
+                  )}
                   <span className="ts-n">{a.n}</span>
                 </button>
               ))}
@@ -119,6 +126,9 @@ export default function TerritorySheet({ cell, onDig, onNeighbour, onClose }: {
 .ts-ess { margin: 8px 0 0; font-size: 13.5px; line-height: 1.5; color: #b6c1d0; }
 .ts-prog { margin: 12px 0 6px; font-size: 12px; color: #8794a6; }
 .ts-prog b { color: #e0632c; }
+.ts-key { display: inline-flex; align-items: center; gap: 4px; margin-left: 4px; color: #6d7889; }
+.ts-key i { width: 8px; height: 8px; border-radius: 50%; display: inline-block; margin-left: 5px; }
+.ts-key i.l { background: #e0632c; } .ts-key i.h { background: #3b86d8; }
 .ts-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(84px, 1fr)); gap: 8px; margin-top: 12px; }
 @media (max-width: 420px) { .ts-grid { grid-template-columns: repeat(3, 1fr); } }
 .ts-a { position: relative; padding: 0; border: 0; background: #0e1219; border-radius: 12px; overflow: hidden; cursor: pointer; aspect-ratio: 1; display: flex; align-items: flex-end; }
@@ -129,7 +139,9 @@ export default function TerritorySheet({ cell, onDig, onNeighbour, onClose }: {
 .ts-a.beacon { box-shadow: inset 0 0 0 2px #e0632c; }
 .ts-a.visited, .ts-a.saved { box-shadow: inset 0 0 0 2px #3b86d8; }
 .ts-ph { position: absolute; inset: 0; display: flex; align-items: center; justify-content: center; color: #3c4653; font-size: 22px; }
-.ts-badge { position: absolute; top: 5px; right: 5px; width: 18px; height: 18px; border-radius: 50%; background: rgba(10,14,20,0.82); color: #fff; font-size: 10px; display: flex; align-items: center; justify-content: center; }
+.ts-badge { position: absolute; top: 5px; right: 5px; width: 19px; height: 19px; border-radius: 50%; font-size: 10px; font-weight: 700; display: flex; align-items: center; justify-content: center; }
+.ts-badge.liked { background: #e0632c; color: #fff; }
+.ts-badge.heard { background: #3b86d8; color: #fff; }
 .ts-n { position: relative; z-index: 1; width: 100%; padding: 14px 5px 4px; font-size: 10.5px; font-weight: 700; line-height: 1.2; color: #e6ecf3; text-align: left; background: linear-gradient(to top, rgba(8,11,16,0.92), rgba(8,11,16,0)); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .ts-skel { background: #0e1219; animation: tspulse 1.3s ease-in-out infinite; }
 @keyframes tspulse { 0%,100% { opacity: 0.45 } 50% { opacity: 0.8 } }
