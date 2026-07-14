@@ -865,6 +865,11 @@ export type MapRegion = {
     /** v3: teritorijos tekstinis ID (gilyn_terr.id). */
     id: number | string
     name: string; size?: number
+    /** Užšaldytos žemėlapio koordinatės (0–1000). Skaičiuotos force-directed
+     *  iš kaimynysčių grafo ir įrašytos į DB — žaidėjo pasaulis privalo atrodyti
+     *  vienodai kiekvieną kartą, kitaip jis neįsimena, kur kas guli. */
+    x?: number | null; y?: number | null
+    eraFrom?: number | null; eraTo?: number | null
     era?: string | null; region?: string | null; essence?: string | null
     /** Kiek žinomų (AI fame ≥3) atlikėjų — ar teritoriją apskritai galima tyrinėti. */
     known?: number
@@ -915,6 +920,7 @@ export type TerrV3 = {
   era_from: number | null; era_to: number | null
   region: string | null; essence: string | null
   n_artists: number; n_known: number; n_missing: number; status: string
+  map_x: number | null; map_y: number | null
 }
 
 type TerrCache = {
@@ -933,8 +939,8 @@ async function loadV3(): Promise<TerrCache> {
 
   const [{ data: worlds }, { data: terrs }, { data: edges }] = await Promise.all([
     sb.from('gilyn_worlds').select('id, name, color, sort').order('sort'),
-    sb.from('gilyn_terr').select('id, world_id, name, era_from, era_to, region, essence, n_artists, n_known, n_missing, status')
-      .neq('status', 'drop').limit(700),
+    sb.from('gilyn_terr').select('id, world_id, name, era_from, era_to, region, essence, n_artists, n_known, n_missing, status, map_x, map_y')
+      .neq('status', 'drop').gt('n_artists', 0).limit(700),
     sb.from('gilyn_terr_edges').select('a_id, b_id, weight').order('weight', { ascending: false }).limit(4000),
   ])
 
@@ -1078,6 +1084,7 @@ export async function buildMap(viewer: GameViewer): Promise<{
         .filter(x => x.n)
       cells.push({
         id: t.id, name: t.name, size: t.n_artists,
+        x: t.map_x, y: t.map_y, eraFrom: t.era_from, eraTo: t.era_to,
         era: eraLabel(t), region: t.region, essence: t.essence,
         known: t.n_known, missing: t.n_missing,
         beacons, visited, heard, saved,

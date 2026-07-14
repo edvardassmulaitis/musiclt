@@ -18,6 +18,7 @@
 
 import { useEffect, useRef, useState, useCallback, useMemo } from 'react'
 import Link from 'next/link'
+import GilynMap from '@/components/gilyn/GilynMap'
 import ZaidimoLangas from '@/components/zaidimai/ZaidimoLangas'
 
 // ── Tipai ────────────────────────────────────────────────────────────────
@@ -55,13 +56,19 @@ type Community = {
   sameFinalRegion: number
 } | null
 type SubStyle = {
-  id: number; name: string; size?: number
+  // v3: teritorijos ID tekstinis (gilyn_terr.id)
+  id: number | string; name: string; size?: number
+  x?: number | null; y?: number | null
+  eraFrom?: number | null; eraTo?: number | null
+  era?: string | null; region?: string | null; essence?: string | null
+  known?: number
   beacons: number; visited: number; heard: number; saved: number
   artists: { id: number; n: string; k: 'saved' | 'visited' | 'beacon'; img?: string | null }[]
   top?: { id: number; n: string; img?: string | null }[]
+  near?: { id: string; n: string }[]
 }
 type MapData = {
-  regions: { genreId: number; name: string; substyles: SubStyle[]; beacons: number; visited: number }[]
+  regions: { genreId: number; worldId?: string; name: string; color?: string; substyles: SubStyle[]; beacons: number; visited: number }[]
   totals: { beacons: number; visited: number; heard: number; saved: number; substylesTouched: number; substylesTotal: number }
   likeCounts: { artists: number; albums: number; tracks: number }
   edges?: { a: number; b: number; t: string }[]
@@ -730,8 +737,8 @@ export default function GilynClient() {
                 <div><PlayMini /><b>{mapData.totals.heard}</b><span>perklausyta</span></div>
                 <div><HexMini /><b>{mapData.totals.substylesTouched}<i>/{mapData.totals.substylesTotal}</i></b><span>teritorijos</span></div>
               </div>
-              <p className="g-mapexpl">Kiekvienas žanras skyla į muzikos teritorijas — judėjimus, eras, scenas. <span className="cl-b">Plotas</span> — teritorijos dydis kataloge, <span className="cl-v">užpildymas</span> — kiek jos jau pažinai.</p>
-              <TerritoryMap regions={mapData.regions} onPick={s => setSubSheet(s)} />
+              <p className="g-mapexpl">Muzikos pasaulis — 15 kontinentų ir šimtai teritorijų. <span className="cl-b">Žemėlapyje</span> jos guli pagal giminystę, <span className="cl-v">Laike</span> — pagal eras.</p>
+              <GilynMap regions={mapData.regions as any} onPick={s => setSubSheet(s as any)} />
             </>
           )}
         </div>
@@ -821,6 +828,12 @@ export default function GilynClient() {
         <div className="g-sheetback" onClick={() => setSubSheet(null)}>
           <div className="g-sheet" onClick={e => e.stopPropagation()}>
             <h3 className="g-h3 center">{subSheet.name}</h3>
+            {(subSheet.era || subSheet.region) && (
+              <p className="g-terrmeta center">
+                {subSheet.era}{subSheet.era && subSheet.region ? ' · ' : ''}{subSheet.region}
+              </p>
+            )}
+            {subSheet.essence && <p className="g-terress">{subSheet.essence}</p>}
             <p className="g-dim center">
               {subSheet.beacons > 0 && <><HeartIcon size={12} /> {subSheet.beacons} pamėgta · </>}
               {subSheet.visited > 0 && <><CheckIcon size={12} /> {subSheet.visited} aplankyta · </>}
@@ -868,6 +881,24 @@ export default function GilynClient() {
               <p className="g-dim center">Šią teritoriją dar dengia rūkas.</p>
             )}
             <p className="g-hint">Paspausk atlikėją — pradėsi laisvą kasimąsi nuo jo.</p>
+            {/* Kaimynės — „kur eiti toliau". Ne žanrų medis, o realus grafas:
+                bendri atlikėjai + bendra auditorija (co-like). */}
+            {(subSheet.near || []).length > 0 && (
+              <>
+                <p className="g-dim center" style={{ marginTop: 10 }}>Kur eiti toliau</p>
+                <div className="g-near">
+                  {(subSheet.near || []).map(n => (
+                    <button key={n.id} className="g-nearb" type="button"
+                      onClick={() => {
+                        const next = mapData?.regions.flatMap(r => r.substyles).find(s => String(s.id) === n.id)
+                        if (next) setSubSheet(next as any)
+                      }}>
+                      {n.n} <ArrowIcon size={10} />
+                    </button>
+                  ))}
+                </div>
+              </>
+            )}
             {(subSheet.size || 0) > 0 && (
               <button className="g-cta alt" onClick={() => openAllArtists(subSheet)} disabled={allLoading} type="button">
                 {allLoading ? 'Kraunama…' : `Visi atlikėjai (${subSheet.size})`}
@@ -1859,6 +1890,11 @@ const css = `
 .g-alla.beacon .g-allan { color: var(--accent-orange); }
 .g-alla.visited .g-allan { color: var(--accent-green); }
 .g-alla.saved .g-allan { color: var(--accent-orange); }
+.g-terrmeta { font-size: 12px; color: #8794a6; font-weight: 700; margin: -2px 0 6px; letter-spacing: 0.01em; }
+.g-terress { font-size: 13.5px; line-height: 1.55; color: #b9c4d3; text-align: center; margin: 0 0 10px; }
+.g-near { display: flex; flex-wrap: wrap; gap: 6px; justify-content: center; }
+.g-nearb { display: inline-flex; align-items: center; gap: 4px; background: rgba(255,255,255,0.05); border: 1px solid rgba(255,255,255,0.1); color: #d7e0ec; font-size: 12.5px; font-weight: 700; padding: 7px 11px; border-radius: 999px; cursor: pointer; min-height: 34px; }
+.g-nearb:hover { background: rgba(255,255,255,0.1); border-color: rgba(255,255,255,0.22); }
 .g-bub { cursor: pointer; }
 .g-bub circle { transition: stroke-width 0.15s ease; }
 .g-bub:hover circle:first-of-type { stroke-width: 3.5; }
