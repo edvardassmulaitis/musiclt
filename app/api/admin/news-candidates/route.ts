@@ -53,9 +53,18 @@ export async function GET(req: NextRequest) {
   } catch { /* non-fatal */ }
 
   // Fetch'inam platų pool'ą (created_at desc, ribota recency lange), o galutinį
-  // rikiavimą pagal score + filtravimą darom in-app žemiau. fetchLimit > limit,
-  // nes dalis kandidatų nukris po SCORE_FLOOR filtro.
-  const fetchLimit = Math.min(Math.max(limit * 4, 80), 200)
+  // rikiavimą pagal score + filtravimą darom in-app žemiau.
+  // 2026-07-16: fetchLimit anksčiau priklausė nuo `limit` parametro
+  // (Math.min(Math.max(limit*4,80),200)) — dėl to skirtingi kvietimai su
+  // skirtingu `limit` (pvz. InboxTabs count-only kvietimas su limit=1 →
+  // fetchLimit=80, vs pagrindinis puslapis su limit=50 → fetchLimit=200)
+  // gaudavo SKIRTINGO PLOČIO DB langą, ir `total` (po SCORE_FLOOR filtro,
+  // žr. žemiau) rodydavo skirtingus skaičius tam pačiam duomenų rinkiniui
+  // (pastebėta gyvai: 69 vs 150 vienu metu). Fiksuotas, nuo `limit`
+  // nepriklausomas langas — kol realus pending pool (žr. `pool` žemiau)
+  // neviršija šito skaičiaus, `total` visada tikslus ir sutampa
+  // nepriklausomai nuo to, koks `limit` buvo paprašytas.
+  const fetchLimit = 400
   let q = supabase
     .from('news_candidates')
     .select(`
