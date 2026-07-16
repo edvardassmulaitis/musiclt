@@ -5,7 +5,7 @@ import type { Metadata } from 'next'
 import Link from 'next/link'
 import { notFound } from 'next/navigation'
 import { SITE_URL } from '@/lib/artist-browse'
-import { proxyImg } from '@/lib/img-proxy'
+import { proxyImgResized } from '@/lib/img-proxy'
 import { getDiscovery, relativeLt } from '@/lib/discoveries'
 import { DetailMedia, DetailLike } from './detail-client'
 
@@ -18,7 +18,7 @@ function Avatar({ src, name, size = 38 }: { src?: string | null; name?: string |
   const nm = name || 'Narys'
   if (src) {
     // eslint-disable-next-line @next/next/no-img-element
-    return <img src={proxyImg(src)} alt="" width={size} height={size} style={{ width: size, height: size, borderRadius: '50%', objectFit: 'cover', flexShrink: 0 }} />
+    return <img src={proxyImgResized(src, 96)} alt="" width={size} height={size} loading="lazy" decoding="async" style={{ width: size, height: size, borderRadius: '50%', objectFit: 'cover', flexShrink: 0 }} />
   }
   return <div style={{ width: size, height: size, borderRadius: '50%', display: 'flex', alignItems: 'center', justifyContent: 'center', fontWeight: 800, fontSize: size * 0.42, flexShrink: 0, background: `hsl(${hue(nm)},32%,20%)`, color: `hsl(${hue(nm)},52%,64%)` }}>{nm.charAt(0).toUpperCase()}</div>
 }

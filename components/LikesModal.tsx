@@ -16,7 +16,7 @@ import { useEffect, useMemo, useRef, useState, useCallback } from 'react'
 import { createPortal } from 'react-dom'
 import Link from 'next/link'
 import { LikePill } from './LikePill'
-import { proxyImg } from '@/lib/img-proxy'
+import { proxyImgResized } from '@/lib/img-proxy'
 
 export type LikeUser = {
   user_username: string
@@ -170,9 +170,10 @@ export default function LikesModal({
               <>
                 {subjectPhoto ? (
                   <img
-                    src={proxyImg(subjectPhoto)}
+                    src={proxyImgResized(subjectPhoto, 96)}
                     alt={subjectName}
                     referrerPolicy="no-referrer"
+                    decoding="async"
                     style={{
                       width: 40, height: 40, borderRadius: 10,
                       objectFit: 'cover', flexShrink: 0,
@@ -345,9 +346,11 @@ function UserAvatar({ user, size = 34 }: { user: LikeUser; size?: number }) {
   if (user.user_avatar_url) {
     return (
       <img
-        src={proxyImg(user.user_avatar_url)}
+        src={proxyImgResized(user.user_avatar_url, 96)}
         alt={user.user_username}
         referrerPolicy="no-referrer"
+        loading="lazy"
+        decoding="async"
         style={{
           width: size, height: size, borderRadius: '50%',
           border: '1px solid var(--border-subtle)', objectFit: 'cover',

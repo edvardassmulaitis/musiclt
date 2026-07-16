@@ -9,7 +9,7 @@
 import { useEffect, useState, useCallback } from 'react'
 import { createPortal } from 'react-dom'
 import Link from 'next/link'
-import { proxyImg } from '@/lib/img-proxy'
+import { proxyImgResized } from '@/lib/img-proxy'
 
 type Ev = {
   id: string; event_type: string; actor_name: string | null; actor_username?: string | null; actor_avatar: string | null
@@ -75,7 +75,7 @@ function Row({ e, inModal = false }: { e: Ev; inModal?: boolean }) {
     <div className={`flex items-start gap-2.5 px-3.5 ${inModal ? 'py-2.5' : 'py-2'}`}>
       {e.actor_avatar ? (
         // eslint-disable-next-line @next/next/no-img-element
-        <img src={proxyImg(e.actor_avatar)} alt="" className={`mt-0.5 ${av} shrink-0 rounded-full object-cover`} />
+        <img src={proxyImgResized(e.actor_avatar, 96)} alt="" loading="lazy" decoding="async" className={`mt-0.5 ${av} shrink-0 rounded-full object-cover`} />
       ) : (
         <div className={`mt-0.5 flex ${av} shrink-0 items-center justify-center rounded-full text-[16px] font-extrabold`} style={{ background: `hsl(${strHue(name)},32%,20%)`, color: `hsl(${strHue(name)},48%,58%)` }}>{name.charAt(0).toUpperCase()}</div>
       )}
@@ -94,7 +94,7 @@ function Row({ e, inModal = false }: { e: Ev; inModal?: boolean }) {
       </div>
       {e.entity_image && !isTopVote && (
         // eslint-disable-next-line @next/next/no-img-element
-        <img src={proxyImg(e.entity_image)} alt="" className={`${thumb} shrink-0 object-cover`} />
+        <img src={proxyImgResized(e.entity_image, 96)} alt="" loading="lazy" decoding="async" className={`${thumb} shrink-0 object-cover`} />
       )}
     </div>
   )
@@ -171,7 +171,7 @@ export function ActivityCard({ e }: { e: Ev }) {
       <div className="flex items-start gap-2">
         {e.actor_avatar ? (
           // eslint-disable-next-line @next/next/no-img-element
-          <img src={proxyImg(e.actor_avatar)} alt="" className="h-6 w-6 shrink-0 rounded-full object-cover" />
+          <img src={proxyImgResized(e.actor_avatar, 96)} alt="" loading="lazy" decoding="async" className="h-6 w-6 shrink-0 rounded-full object-cover" />
         ) : (
           <span className="flex h-6 w-6 shrink-0 items-center justify-center rounded-full text-[16px] font-extrabold" style={{ background: `hsl(${strHue(name)},32%,20%)`, color: `hsl(${strHue(name)},48%,58%)` }}>{name.charAt(0).toUpperCase()}</span>
         )}
@@ -181,7 +181,7 @@ export function ActivityCard({ e }: { e: Ev }) {
         </div>
         {img && (
           // eslint-disable-next-line @next/next/no-img-element
-          <img src={proxyImg(img)} alt="" loading="lazy" className="h-7 w-7 shrink-0 rounded-md object-cover" />
+          <img src={proxyImgResized(img, 96)} alt="" loading="lazy" decoding="async" className="h-7 w-7 shrink-0 rounded-md object-cover" />
         )}
       </div>
       <p className="m-0 mt-2 line-clamp-3 text-[14px] leading-snug text-[var(--text-muted)]">

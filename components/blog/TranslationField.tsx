@@ -7,7 +7,7 @@
 // teksto laukų, tik pasirinkti track'ą iš dropdown'o.
 
 import MusicSearchPicker, { type AttachmentHit } from '@/components/MusicSearchPicker'
-import { proxyImg } from '@/lib/img-proxy'
+import { proxyImgResized } from '@/lib/img-proxy'
 
 export type TranslationTarget = {
   track_id: number | null
@@ -39,7 +39,7 @@ export function TranslationField({
         <div className="flex items-center gap-3 px-3 py-2 rounded-lg" style={{ background: 'var(--bg-surface)', border: '1px solid var(--border-subtle)' }}>
           {target.display.image_url && (
             /* eslint-disable-next-line @next/next/no-img-element */
-            <img src={proxyImg(target.display.image_url)} alt="" className="w-10 h-10 rounded object-cover" />
+            <img src={proxyImgResized(target.display.image_url, 96)} alt="" loading="lazy" decoding="async" className="w-10 h-10 rounded object-cover" />
           )}
           <div className="flex-1 min-w-0">
             <p className="text-sm font-semibold truncate" style={{ color: 'var(--text-primary)' }}>

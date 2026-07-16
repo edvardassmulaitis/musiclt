@@ -25,7 +25,7 @@
 
 import { useEffect, useMemo, useRef, useState } from 'react'
 import Link from 'next/link'
-import { proxyImg } from '@/lib/img-proxy'
+import { proxyImgResized } from '@/lib/img-proxy'
 import { LikePill } from '@/components/LikePill'
 import { SharePill } from '@/components/SharePill'
 import LikesModal from '@/components/LikesModal'
@@ -360,7 +360,7 @@ export default function AlbumPageClient({
           >
             {album.cover_image_url ? (
               // eslint-disable-next-line @next/next/no-img-element
-              <img src={proxyImg(album.cover_image_url)} alt={album.title} referrerPolicy="no-referrer" className="h-full w-full object-cover" />
+              <img src={proxyImgResized(album.cover_image_url, 96)} alt={album.title} referrerPolicy="no-referrer" decoding="async" className="h-full w-full object-cover" />
             ) : (
               <div className="flex h-full w-full items-center justify-center bg-[var(--cover-placeholder)] text-[22px]">💿</div>
             )}
@@ -436,6 +436,7 @@ export default function AlbumPageClient({
                         <img
                           src={`https://i.ytimg.com/vi/${playerVid}/hqdefault.jpg`}
                           alt=""
+                          decoding="async"
                           className="absolute inset-0 h-full w-full object-cover"
                           referrerPolicy="no-referrer"
                         />
@@ -629,9 +630,11 @@ function AlbumThumbCard({ href, cover, title, subtitle }: { href: string; cover:
         {cover ? (
           // eslint-disable-next-line @next/next/no-img-element
           <img
-            src={proxyImg(cover)}
+            src={proxyImgResized(cover, 256)}
             alt={title}
             referrerPolicy="no-referrer"
+            loading="lazy"
+            decoding="async"
             className="h-full w-full object-cover"
           />
         ) : (

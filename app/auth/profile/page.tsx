@@ -13,7 +13,7 @@ import { useSession, signOut } from 'next-auth/react'
 import { useRouter } from 'next/navigation'
 import { useEffect, useRef, useState, type ReactNode } from 'react'
 import Link from 'next/link'
-import { proxyImg } from '@/lib/img-proxy'
+import { proxyImgResized } from '@/lib/img-proxy'
 import { useSite } from '@/components/SiteContext'
 import { getPushStatus, enablePush, disablePush, type PushStatus } from '@/lib/push-client'
 
@@ -293,7 +293,8 @@ export default function SettingsPage() {
             style={{ background: 'var(--bg-surface)', border: '1px solid var(--border-default)' }}>
             {avatar ? (
               // eslint-disable-next-line @next/next/no-img-element
-              <img src={avatar.startsWith('/') ? avatar : proxyImg(avatar)} alt={name} referrerPolicy="no-referrer"
+              <img src={avatar.startsWith('/') ? avatar : proxyImgResized(avatar, 96)} alt={name} referrerPolicy="no-referrer"
+                loading="lazy" decoding="async"
                 className="h-11 w-11 rounded-xl object-cover shrink-0" style={{ border: '1px solid var(--border-default)' }} />
             ) : (
               <div className="h-11 w-11 rounded-xl flex items-center justify-center text-base font-black text-white shrink-0"
@@ -344,7 +345,7 @@ export default function SettingsPage() {
               <div className="flex items-center gap-3 mb-1 flex-wrap">
                 {avatarUrl ? (
                   // eslint-disable-next-line @next/next/no-img-element
-                  <img src={avatarUrl.startsWith('/') ? avatarUrl : proxyImg(avatarUrl)} alt="" className="w-16 h-16 rounded-2xl object-cover shrink-0" style={{ border: '1px solid var(--border-default)' }} />
+                  <img src={avatarUrl.startsWith('/') ? avatarUrl : proxyImgResized(avatarUrl, 96)} alt="" loading="lazy" decoding="async" className="w-16 h-16 rounded-2xl object-cover shrink-0" style={{ border: '1px solid var(--border-default)' }} />
                 ) : (
                   <div className="w-16 h-16 rounded-2xl flex items-center justify-center text-xl font-black shrink-0" style={{ background: 'var(--card-bg)', border: '1px solid var(--border-default)', color: 'var(--text-muted)' }}>{name[0]?.toUpperCase()}</div>
                 )}
@@ -371,7 +372,7 @@ export default function SettingsPage() {
                         className="relative aspect-square rounded-lg overflow-hidden transition hover:scale-[1.06]"
                         style={{ outline: on ? '2px solid var(--accent-orange)' : '1px solid var(--border-subtle)', outlineOffset: on ? '1px' : '0' }}>
                         {/* eslint-disable-next-line @next/next/no-img-element */}
-                        <img src={u} alt="" className="w-full h-full object-cover" loading="lazy" />
+                        <img src={u} alt="" className="w-full h-full object-cover" loading="lazy" decoding="async" />
                       </button>
                     )
                   })}
@@ -436,7 +437,7 @@ export default function SettingsPage() {
                   {photos.map((p, i) => (
                     <div key={i} className="relative aspect-square rounded-lg overflow-hidden" style={{ border: '1px solid var(--border-subtle)' }}>
                       {/* eslint-disable-next-line @next/next/no-img-element */}
-                      <img src={p.thumb_url || p.url} alt="" className="w-full h-full object-cover" />
+                      <img src={p.thumb_url || p.url} alt="" loading="lazy" decoding="async" className="w-full h-full object-cover" />
                       <button type="button" onClick={() => setPhotos(arr => arr.filter((_, j) => j !== i))}
                         className="absolute top-1 right-1 w-6 h-6 rounded-full flex items-center justify-center text-[14px] text-white" style={{ background: 'rgba(0,0,0,0.6)' }} aria-label="Pašalinti">✕</button>
                     </div>

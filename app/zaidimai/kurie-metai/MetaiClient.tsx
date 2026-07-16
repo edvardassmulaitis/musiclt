@@ -167,7 +167,7 @@ export default function MetaiClient() {
           )}
           <div className="mt-card">
             {/* eslint-disable-next-line @next/next/no-img-element */}
-            <img key={round.r} src={proxyImg(round.image, 480)} alt={round.label} />
+            <img key={round.r} src={proxyImg(round.image, 480)} alt={round.label} decoding="async" />
             <div className="mt-card-meta">
               <span className="mt-card-label">{round.label}</span>
               {phase === 'round' && <span className="mt-clock">{Math.ceil(timeLeft / 1000)}</span>}

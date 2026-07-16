@@ -62,13 +62,14 @@ function Player({ entry }: { entry: Entry | null }) {
           <div className="tc-player-thumb" onClick={() => vid && setPlaying(true)} style={{ cursor: vid ? 'pointer' : 'default' }}>
             {vid && !imgErr ? (
               <img
-                src={`https://img.youtube.com/vi/${vid}/maxresdefault.jpg`}
+                src={`https://img.youtube.com/vi/${vid}/hqdefault.jpg`}
                 alt=""
+                decoding="async"
                 className="tc-thumb-img"
                 onError={() => setImgErr(true)}
               />
             ) : cover ? (
-              <img src={cover} alt="" className="tc-thumb-img" style={{ filter: 'brightness(0.4)' }} />
+              <img src={cover} alt="" decoding="async" className="tc-thumb-img" style={{ filter: 'brightness(0.4)' }} />
             ) : (
               <div className="tc-thumb-empty" />
             )}
@@ -174,7 +175,7 @@ function SuggestModal({ onClose, weekId, topType }: { onClose: () => void; weekI
                     {results.map((t: any) => (
                       <button key={t.id} onClick={() => submit(t.id)} disabled={sending} className="tc-result-row">
                         <div className="tc-result-cover">
-                          {t.cover_url ? <img src={t.cover_url} alt="" style={{ width: '100%', height: '100%', objectFit: 'cover', borderRadius: 6 }} /> : '♪'}
+                          {t.cover_url ? <img src={t.cover_url} alt="" loading="lazy" decoding="async" style={{ width: '100%', height: '100%', objectFit: 'cover', borderRadius: 6 }} /> : '♪'}
                         </div>
                         <div style={{ flex: 1, minWidth: 0, textAlign: 'left' }}>
                           <p className="tc-result-title">{t.title}</p>
@@ -471,7 +472,7 @@ export default function TopChartsClient({ top40, ltTop30 }: { top40: TopData; lt
                       <TrendIndicator curr={entry.position} prev={entry.prev_position} isNew={entry.is_new} />
                     </div>
                     <div className="tc-cover">
-                      {entry.tracks?.cover_url ? <img src={entry.tracks.cover_url} alt="" /> : '♪'}
+                      {entry.tracks?.cover_url ? <img src={entry.tracks.cover_url} alt="" loading="lazy" decoding="async" /> : '♪'}
                     </div>
                     <div className="tc-info">
                       <p className="tc-title">{entry.tracks?.title}</p>

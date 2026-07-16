@@ -14,7 +14,7 @@ import { MessageItem } from './MessageItem'
 import { MessageComposer } from './MessageComposer'
 import { ChatAvatar } from './ChatAvatar'
 import { formatDateSeparator, shouldGroup, shouldShowDateSep } from './ChatTime'
-import { proxyImg } from '@/lib/img-proxy'
+import { proxyImgResized } from '@/lib/img-proxy'
 
 const MOBILE_BREAKPOINT = 768
 
@@ -306,8 +306,9 @@ function EntityHeader({
       {entity.image_url ? (
         // eslint-disable-next-line @next/next/no-img-element
         <img
-          src={proxyImg(entity.image_url)}
+          src={proxyImgResized(entity.image_url, 96)}
           alt=""
+          decoding="async"
           style={{ width: 36, height: 36, borderRadius: 8, objectFit: 'cover', flexShrink: 0, border: '1px solid var(--border-default)' }}
         />
       ) : (
@@ -352,8 +353,9 @@ function EntityRoot({ entityType, entity, entityFullUrl }: { entityType: EntityT
         // eslint-disable-next-line @next/next/no-img-element
         <Link href={entityFullUrl}>
           <img
-            src={proxyImg(entity.image_url)}
+            src={proxyImgResized(entity.image_url, 96)}
             alt=""
+            decoding="async"
             style={{ width: 64, height: 64, borderRadius: 8, objectFit: 'cover', flexShrink: 0, border: '1px solid var(--border-default)' }}
           />
         </Link>

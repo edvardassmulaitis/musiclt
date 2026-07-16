@@ -10,7 +10,7 @@
 // SelectedEntityCard (žemiau eksportuotas).
 
 import { useEffect, useRef, useState } from 'react'
-import { proxyImg } from '@/lib/img-proxy'
+import { proxyImgResized } from '@/lib/img-proxy'
 import type { AttachmentHit } from '@/components/MusicSearchPicker'
 
 type Kind = 'artist' | 'album' | 'track' | 'all'
@@ -201,7 +201,7 @@ function Row({ hit, onPick }: { hit: AttachmentHit; onPick: (h: AttachmentHit) =
       <span className="epr-cover">
         {hit.image_url ? (
           // eslint-disable-next-line @next/next/no-img-element
-          <img src={proxyImg(hit.image_url)} alt="" referrerPolicy="no-referrer" />
+          <img src={proxyImgResized(hit.image_url, 96)} alt="" referrerPolicy="no-referrer" loading="lazy" decoding="async" />
         ) : (
           <span className="epr-glyph">{TYPE_GLYPH[hit.type]}</span>
         )}
@@ -250,7 +250,7 @@ export function SelectedEntityCard({
       <span className="sec-cover">
         {hit.image_url ? (
           // eslint-disable-next-line @next/next/no-img-element
-          <img src={proxyImg(hit.image_url)} alt="" referrerPolicy="no-referrer" />
+          <img src={proxyImgResized(hit.image_url, 96)} alt="" referrerPolicy="no-referrer" loading="lazy" decoding="async" />
         ) : (
           <span className="sec-glyph">{TYPE_GLYPH[hit.type]}</span>
         )}

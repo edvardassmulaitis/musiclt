@@ -8,7 +8,7 @@
 
 import { useState, useCallback, useRef, useMemo, type ReactNode } from 'react'
 import Link from 'next/link'
-import { proxyImg } from '@/lib/img-proxy'
+import { proxyImgResized } from '@/lib/img-proxy'
 import MusicSearchPicker, { type AttachmentHit } from '@/components/MusicSearchPicker'
 import SeenLivePanel from './SeenLivePanel'
 import { SideEqualizer } from '@/components/profile/SideEqualizer'
@@ -363,7 +363,7 @@ function OneList({ kind, items, onMove, onUnlike }: { kind: EntityTab; items: Mu
 function Cover({ kind, cover }: { kind: EntityTab; cover: string | null }) {
   return (
     <div className="h-10 w-10 shrink-0 overflow-hidden rounded-lg flex items-center justify-center" style={{ background: 'var(--bg-elevated)', color: 'var(--text-faint)' }}>
-      {cover ? (/* eslint-disable-next-line @next/next/no-img-element */<img src={proxyImg(cover)} alt="" referrerPolicy="no-referrer" className="h-full w-full object-cover" />) : <Ico name={kind === 'artist' ? 'person' : kind === 'album' ? 'disc' : 'note'} size={16} />}
+      {cover ? (/* eslint-disable-next-line @next/next/no-img-element */<img src={proxyImgResized(cover, 96)} alt="" referrerPolicy="no-referrer" loading="lazy" decoding="async" className="h-full w-full object-cover" />) : <Ico name={kind === 'artist' ? 'person' : kind === 'album' ? 'disc' : 'note'} size={16} />}
     </div>
   )
 }
@@ -423,7 +423,7 @@ function MoodSection({ moodSongs, setMoodSongs }: { moodSongs: MoodSong[]; setMo
                   <button onClick={() => move(idx, -1)} disabled={idx === 0} aria-label="Aukštyn" className="h-5 w-6 inline-flex items-center justify-center rounded disabled:opacity-20" style={{ background: 'var(--bg-elevated)', color: 'var(--text-muted)' }}><Ico name="up" size={11} /></button>
                   <button onClick={() => move(idx, 1)} disabled={idx === items.length - 1} aria-label="Žemyn" className="h-5 w-6 inline-flex items-center justify-center rounded disabled:opacity-20" style={{ background: 'var(--bg-elevated)', color: 'var(--text-muted)' }}><Ico name="down" size={11} /></button>
                 </div>
-                <div className="h-10 w-10 shrink-0 overflow-hidden rounded-lg flex items-center justify-center" style={{ background: 'var(--bg-elevated)', color: 'var(--text-faint)' }}>{m.track?.cover_url ? (/* eslint-disable-next-line @next/next/no-img-element */<img src={proxyImg(m.track.cover_url)} alt="" referrerPolicy="no-referrer" className="h-full w-full object-cover" />) : <Ico name="note" size={16} />}</div>
+                <div className="h-10 w-10 shrink-0 overflow-hidden rounded-lg flex items-center justify-center" style={{ background: 'var(--bg-elevated)', color: 'var(--text-faint)' }}>{m.track?.cover_url ? (/* eslint-disable-next-line @next/next/no-img-element */<img src={proxyImgResized(m.track.cover_url, 96)} alt="" referrerPolicy="no-referrer" loading="lazy" decoding="async" className="h-full w-full object-cover" />) : <Ico name="note" size={16} />}</div>
                 <div className="min-w-0 flex-1"><div className="truncate text-[14px] font-bold">{m.track?.title || '—'}</div><div className="truncate text-[14px]" style={{ color: 'var(--text-muted)' }}>{m.track?.artist?.name || 'Daina'}</div></div>
                 {isFirst && <span className="shrink-0 inline-flex items-center gap-1 rounded-full px-2.5 py-1 text-[12px] font-black" style={{ background: 'rgba(167,139,250,0.18)', color: '#a78bfa' }}><Ico name="play" size={10} /> Profilyje</span>}
                 <button onClick={() => remove(m.track_id)} title="Pašalinti" className="shrink-0 h-7 w-7 inline-flex items-center justify-center rounded-lg opacity-0 group-hover:opacity-100 transition-opacity" style={{ color: 'var(--text-faint)' }} onMouseEnter={e => (e.currentTarget.style.color = '#f43f5e')} onMouseLeave={e => (e.currentTarget.style.color = 'var(--text-faint)')}><Ico name="x" size={14} /></button>

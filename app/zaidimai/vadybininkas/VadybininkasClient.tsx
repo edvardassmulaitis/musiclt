@@ -81,7 +81,7 @@ function Ava({ name, image, size }: { name: string; image: string | null; size: 
       </span>
       {image && (
         // eslint-disable-next-line @next/next/no-img-element
-        <img src={proxyImg(image, size * 2)} alt="" loading="lazy" />
+        <img src={proxyImg(image, size * 2)} alt="" loading="lazy" decoding="async" />
       )}
     </span>
   )

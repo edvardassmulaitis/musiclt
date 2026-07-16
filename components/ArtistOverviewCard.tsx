@@ -19,7 +19,7 @@
 // kortelė fokusuojasi tik į atlikėją.
 
 import Link from 'next/link'
-import { proxyImg } from '@/lib/img-proxy'
+import { proxyImgResized } from '@/lib/img-proxy'
 
 export function ArtistOverviewCard({
   slug, name, photoUrl, genres = [], description, size = 'md', className = '',
@@ -46,9 +46,11 @@ export function ArtistOverviewCard({
           {photoUrl ? (
             // eslint-disable-next-line @next/next/no-img-element
             <img
-              src={proxyImg(photoUrl)}
+              src={proxyImgResized(photoUrl, 256)}
               alt={name}
               referrerPolicy="no-referrer"
+              loading="lazy"
+              decoding="async"
               style={{ objectPosition: 'center top', width: photo, height: photo }}
               className="rounded-xl object-cover ring-1 ring-[var(--border-subtle)] transition-transform duration-300 group-hover:scale-[1.03]"
             />

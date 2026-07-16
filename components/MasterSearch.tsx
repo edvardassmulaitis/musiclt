@@ -28,7 +28,7 @@
 
 import { useEffect, useMemo, useRef, useState, useCallback } from 'react'
 import { useRouter } from 'next/navigation'
-import { proxyImg } from '@/lib/img-proxy'
+import { proxyImgResized } from '@/lib/img-proxy'
 
 type Category =
   | 'artists' | 'albums' | 'tracks'
@@ -666,7 +666,7 @@ function ResultRow({
 }) {
   const meta = CAT_LABELS[hit.type]
   const Ico = meta.Icon
-  const img = proxyImg(hit.image_url || '')
+  const img = proxyImgResized(hit.image_url || '', 96)
   const isCircle = hit.type === 'artists' || hit.type === 'profiles'
 
   // V11.6: <button> → <a> kad middle/cmd-click atidarytų artist page'ą naujam
@@ -690,7 +690,7 @@ function ResultRow({
         <div className="ms-grid-img-wrap">
           {img ? (
             // eslint-disable-next-line @next/next/no-img-element
-            <img src={img} alt="" className="ms-grid-img" loading="lazy" />
+            <img src={img} alt="" className="ms-grid-img" loading="lazy" decoding="async" />
           ) : (
             <div className="ms-grid-fallback" style={{ background: meta.color + '22', color: meta.color }}>
               <Ico size={26} />
@@ -716,7 +716,7 @@ function ResultRow({
       <div className={`ms-row-img ${isCircle ? 'circle' : ''}`}>
         {img ? (
           // eslint-disable-next-line @next/next/no-img-element
-          <img src={img} alt="" loading="lazy" />
+          <img src={img} alt="" loading="lazy" decoding="async" />
         ) : (
           <div className="ms-row-fallback" style={{ background: meta.color + '22', color: meta.color }}>
             <Ico size={18} />
@@ -788,7 +788,7 @@ function EmptyState({
                   <div className={`ms-trend-img ${circle ? 'circle' : ''}`}>
                     {item.image_url ? (
                       // eslint-disable-next-line @next/next/no-img-element
-                      <img src={proxyImg(item.image_url)} alt="" loading="lazy" />
+                      <img src={proxyImgResized(item.image_url, 96)} alt="" loading="lazy" decoding="async" />
                     ) : (
                       <div className="ms-trend-fallback" style={{ background: fallbackColor + '22', color: fallbackColor }}>
                         <Ico size={20} />

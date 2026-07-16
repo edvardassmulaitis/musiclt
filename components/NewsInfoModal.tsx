@@ -13,7 +13,7 @@
 import { useEffect, useState, useRef } from 'react'
 import { createPortal } from 'react-dom'
 import Link from 'next/link'
-import { proxyImg } from '@/lib/img-proxy'
+import { proxyImgResized } from '@/lib/img-proxy'
 import EntityCommentsBlock from '@/components/EntityCommentsBlock'
 
 type NewsDetails = {
@@ -192,7 +192,7 @@ export default function NewsInfoModal({
         {coverNow && (
           <div className="aspect-[16/9] max-h-[260px] w-full shrink-0 overflow-hidden bg-black">
             {/* eslint-disable-next-line @next/next/no-img-element */}
-            <img src={proxyImg(coverNow)} alt={titleNow} referrerPolicy="no-referrer" className="h-full w-full object-cover" />
+            <img src={proxyImgResized(coverNow, 1280)} alt={titleNow} referrerPolicy="no-referrer" decoding="async" className="h-full w-full object-cover" />
           </div>
         )}
 

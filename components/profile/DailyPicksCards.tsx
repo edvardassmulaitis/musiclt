@@ -15,7 +15,7 @@
 //     importavimo".
 
 import Link from 'next/link'
-import { proxyImg } from '@/lib/img-proxy'
+import { proxyImgResized } from '@/lib/img-proxy'
 
 const MONTH_LT = ['sausio', 'vasario', 'kovo', 'balandžio', 'gegužės', 'birželio',
                   'liepos', 'rugpjūčio', 'rugsėjo', 'spalio', 'lapkričio', 'gruodžio']
@@ -67,7 +67,7 @@ export function DailyPickCard({ pick }: { pick: Pick }) {
   const track = pick.tracks
   const artist = track && (Array.isArray((track as any).artists) ? (track as any).artists[0] : track.artists)
   const rawThumb = ytThumb(track?.video_url) || track?.cover_url || artist?.cover_image_url || null
-  const thumb = rawThumb ? proxyImg(rawThumb) : null
+  const thumb = rawThumb ? proxyImgResized(rawThumb, 480) : null
   const known = !!track
 
   const date = new Date(pick.picked_on)
@@ -94,6 +94,7 @@ export function DailyPickCard({ pick }: { pick: Pick }) {
             src={thumb}
             alt={sanitizeTitle(track?.title)}
             loading="lazy"
+            decoding="async"
             className="h-full w-full object-cover transition-transform duration-500 group-hover:scale-[1.06]"
             style={{ filter: 'saturate(1.05) contrast(1.02)' }}
           />

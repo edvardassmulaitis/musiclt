@@ -6,7 +6,7 @@ import Link from 'next/link'
 import ScoreCard from '@/components/ScoreCard'
 import { LikePill } from '@/components/LikePill'
 import { SharePill } from '@/components/SharePill'
-import { proxyImg } from '@/lib/img-proxy'
+import { proxyImgResized } from '@/lib/img-proxy'
 import EntityCommentsBlock from '@/components/EntityCommentsBlock'
 import LyricsWithReactions from '@/components/LyricsWithReactions'
 import { formatArtistList } from '@/lib/format-artists'
@@ -145,6 +145,7 @@ function CustomPlayOverlay({ vid, title, trackId }: { vid: string; title: string
             src={`https://i.ytimg.com/vi/${vid}/hqdefault.jpg`}
             alt=""
             referrerPolicy="no-referrer"
+            decoding="async"
             className="absolute inset-0 h-full w-full object-cover"
           />
           <div className="pointer-events-none absolute inset-0 bg-gradient-to-t from-black/40 via-black/10 to-black/30" />
@@ -526,9 +527,10 @@ export default function TrackPageClient({
               {thumbSrc ? (
                 // eslint-disable-next-line @next/next/no-img-element
                 <img
-                  src={proxyImg(thumbSrc)}
+                  src={proxyImgResized(thumbSrc, 256)}
                   alt={artist.name}
                   referrerPolicy="no-referrer"
+                  decoding="async"
                   style={{ objectPosition: 'center top' }}
                   className="h-full w-full object-cover"
                 />
@@ -646,7 +648,7 @@ export default function TrackPageClient({
                     <span className="aspect-video w-full overflow-hidden rounded bg-black">
                       {th && (
                         // eslint-disable-next-line @next/next/no-img-element
-                        <img src={th} alt="" referrerPolicy="no-referrer" className="h-full w-full object-cover transition-transform duration-300 group-hover:scale-[1.04]" />
+                        <img src={th} alt="" referrerPolicy="no-referrer" loading="lazy" decoding="async" className="h-full w-full object-cover transition-transform duration-300 group-hover:scale-[1.04]" />
                       )}
                     </span>
                     <span className="mt-0.5 truncate px-0.5 font-['Outfit',sans-serif] text-[12px] font-bold leading-tight text-[var(--text-secondary)] group-hover:text-[var(--text-primary)]">{t.title}</span>
@@ -677,7 +679,7 @@ export default function TrackPageClient({
                         <span className="h-[60px] w-[60px] shrink-0 overflow-hidden rounded-lg bg-[var(--cover-placeholder)]">
                           {primaryAlbum.cover_image_url && (
                             // eslint-disable-next-line @next/next/no-img-element
-                            <img src={proxyImg(primaryAlbum.cover_image_url)} alt="" referrerPolicy="no-referrer" className="h-full w-full object-cover" />
+                            <img src={proxyImgResized(primaryAlbum.cover_image_url, 96)} alt="" referrerPolicy="no-referrer" loading="lazy" decoding="async" className="h-full w-full object-cover" />
                           )}
                         </span>
                         <div className="min-w-0 flex-1">
@@ -714,7 +716,7 @@ export default function TrackPageClient({
                         <span className="h-[60px] w-[60px] shrink-0 overflow-hidden rounded-lg bg-[var(--cover-placeholder)]">
                           {(artist.cover_image_url) ? (
                             // eslint-disable-next-line @next/next/no-img-element
-                            <img src={proxyImg(artist.cover_image_url)} alt="" referrerPolicy="no-referrer" style={{ objectPosition: 'center top' }} className="h-full w-full object-cover" />
+                            <img src={proxyImgResized(artist.cover_image_url, 96)} alt="" referrerPolicy="no-referrer" loading="lazy" decoding="async" style={{ objectPosition: 'center top' }} className="h-full w-full object-cover" />
                           ) : (
                             <span className="flex h-full w-full items-center justify-center text-[24px]">🎤</span>
                           )}
@@ -976,7 +978,7 @@ export default function TrackPageClient({
                     <div className="aspect-video w-full overflow-hidden rounded-lg bg-black">
                       {thumb && (
                         // eslint-disable-next-line @next/next/no-img-element
-                        <img src={thumb} alt="" referrerPolicy="no-referrer" className="h-full w-full object-cover transition-transform duration-300 group-hover:scale-[1.04]" />
+                        <img src={thumb} alt="" referrerPolicy="no-referrer" loading="lazy" decoding="async" className="h-full w-full object-cover transition-transform duration-300 group-hover:scale-[1.04]" />
                       )}
                     </div>
                     <div className="px-1 pb-0.5">
@@ -1018,7 +1020,7 @@ export default function TrackPageClient({
                   {likersModalUsers.map(u => (
                     <div key={u.user_username} style={{ display: 'flex', alignItems: 'center', gap: 8, padding: 6, borderRadius: 8, background: 'var(--card-hover-bg)' }}>
                       {u.user_avatar_url ? (
-                        <img src={proxyImg(u.user_avatar_url)} alt="" style={{ width: 26, height: 26, borderRadius: '50%', objectFit: 'cover', flexShrink: 0 }} />
+                        <img src={proxyImgResized(u.user_avatar_url, 96)} alt="" loading="lazy" decoding="async" style={{ width: 26, height: 26, borderRadius: '50%', objectFit: 'cover', flexShrink: 0 }} />
                       ) : (
                         <div style={{ width: 26, height: 26, borderRadius: '50%', flexShrink: 0, background: 'rgba(99,102,241,.18)', color: '#818cf8', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 12, fontWeight: 700, fontFamily: 'Outfit,sans-serif' }}>{u.user_username.charAt(0).toUpperCase()}</div>
                       )}

@@ -249,7 +249,7 @@ export function ListEditorField({
                   {/* Cover */}
                   {item.image_url ? (
                     /* eslint-disable-next-line @next/next/no-img-element */
-                    <img src={item.image_url} alt="" className="w-11 h-11 rounded-lg object-cover flex-shrink-0" />
+                    <img src={item.image_url} alt="" loading="lazy" decoding="async" className="w-11 h-11 rounded-lg object-cover flex-shrink-0" />
                   ) : (
                     <div className="w-11 h-11 rounded-lg flex-shrink-0 flex items-center justify-center text-base" style={{ background: 'var(--bg-elevated)', color: 'var(--text-faint)' }}>♬</div>
                   )}

@@ -13,7 +13,7 @@ import { useEffect, useMemo, useRef, useState } from 'react'
 import Link from 'next/link'
 import { createPortal } from 'react-dom'
 import { useSession } from 'next-auth/react'
-import { proxyImg } from '@/lib/img-proxy'
+import { proxyImgResized } from '@/lib/img-proxy'
 import { LikePill } from '@/components/LikePill'
 import LikesModal, { type LikeUser } from '@/components/LikesModal'
 import { relativeLt, type Discovery, type DiscoveryFacets } from '@/lib/discoveries'
@@ -26,7 +26,7 @@ function Avatar({ src, name, size = 32 }: { src?: string | null; name?: string |
   const nm = name || 'Narys'
   if (src) {
     // eslint-disable-next-line @next/next/no-img-element
-    return <img src={proxyImg(src)} alt="" width={size} height={size} loading="lazy" className="ma-av" style={{ width: size, height: size }} />
+    return <img src={proxyImgResized(src, 96)} alt="" width={size} height={size} loading="lazy" decoding="async" className="ma-av" style={{ width: size, height: size }} />
   }
   return <div className="ma-av ma-av-ph" style={{ width: size, height: size, fontSize: size * 0.42, background: `hsl(${hue(nm)},32%,20%)`, color: `hsl(${hue(nm)},52%,64%)` }}>{nm.charAt(0).toUpperCase()}</div>
 }
@@ -42,7 +42,7 @@ function Embed({ d }: { d: Discovery }) {
     return (
       <button className="ma-yt" onClick={() => setPlay(true)} aria-label="Paleisti">
         {/* eslint-disable-next-line @next/next/no-img-element */}
-        <img src={`https://i.ytimg.com/vi/${d.embed_id}/hqdefault.jpg`} loading="lazy" alt="" />
+        <img src={`https://i.ytimg.com/vi/${d.embed_id}/hqdefault.jpg`} loading="lazy" decoding="async" alt="" />
         <span className="ma-play"><svg viewBox="0 0 68 48" width="46" height="33" aria-hidden><path fill="#f00" d="M66.5 7.7a8.6 8.6 0 0 0-6-6C55.2 0 34 0 34 0S12.8 0 7.5 1.7a8.6 8.6 0 0 0-6 6A90 90 0 0 0 0 24a90 90 0 0 0 1.5 16.3 8.6 8.6 0 0 0 6 6C12.8 48 34 48 34 48s21.2 0 26.5-1.7a8.6 8.6 0 0 0 6-6A90 90 0 0 0 68 24a90 90 0 0 0-1.5-16.3z"/><path fill="#fff" d="M27 34l18-10-18-10z"/></svg></span>
       </button>
     )
@@ -169,7 +169,7 @@ function ArtistAside({ d, moreCount, onMore }: { d: Discovery; moreCount: number
       <Link href={`/atlikejai/${d.artist_slug}`} className="ma-aside-link">
         {d.artist_cover ? (
           // eslint-disable-next-line @next/next/no-img-element
-          <img src={proxyImg(d.artist_cover)} alt="" width={56} height={56} loading="lazy" className="ma-aside-img" />
+          <img src={proxyImgResized(d.artist_cover, 96)} alt="" width={56} height={56} loading="lazy" decoding="async" className="ma-aside-img" />
         ) : (
           <span className="ma-aside-img ma-aside-ph" style={{ background: `hsl(${hue(nm)},32%,20%)`, color: `hsl(${hue(nm)},52%,64%)` }}>{nm.charAt(0).toUpperCase()}</span>
         )}
@@ -212,7 +212,7 @@ function ArtistDiscoveriesModal({ src, items, likedSet, onClose }: {
         <div className="flex items-center gap-3 border-b border-[var(--border-subtle)] px-5 py-4">
           {src.artist_cover ? (
             // eslint-disable-next-line @next/next/no-img-element
-            <img src={proxyImg(src.artist_cover)} alt="" width={44} height={44} className="h-11 w-11 flex-shrink-0 rounded-xl object-cover" />
+            <img src={proxyImgResized(src.artist_cover, 96)} alt="" width={44} height={44} loading="lazy" decoding="async" className="h-11 w-11 flex-shrink-0 rounded-xl object-cover" />
           ) : (
             <span className="flex h-11 w-11 flex-shrink-0 items-center justify-center rounded-xl font-extrabold" style={{ background: `hsl(${hue(nm)},32%,20%)`, color: `hsl(${hue(nm)},52%,64%)` }}>{nm.charAt(0).toUpperCase()}</span>
           )}

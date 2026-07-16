@@ -11,7 +11,7 @@
 import Link from 'next/link'
 import { createAdminClient } from '@/lib/supabase'
 import { resolveDisplayWeek } from '@/lib/top-week'
-import { proxyImg } from '@/lib/img-proxy'
+import { proxyImgResized } from '@/lib/img-proxy'
 import { TopaiBrowser, type TopaiView } from '@/components/topai/TopaiFilterBar'
 
 /* ───────────────────────────── Types ───────────────────────────── */
@@ -311,7 +311,7 @@ function Flag({ country, image }: { country: string | null; image: string | null
   cc = FLAG_ALIAS[cc] || cc
   if (/^[a-z]{2}$/.test(cc))
     return <span className="tc-flag" style={{ backgroundImage: `url(https://flagcdn.com/w80/${cc}.png)` }} aria-hidden />
-  if (image) return <span className="tc-flag" style={{ backgroundImage: `url(${proxyImg(image, 120)})` }} aria-hidden />
+  if (image) return <span className="tc-flag" style={{ backgroundImage: `url(${proxyImgResized(image, 120)})` }} aria-hidden />
   return (
     <span className="tc-flag tc-flag-globe" aria-hidden>
       <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.9" strokeLinecap="round" strokeLinejoin="round"><circle cx="12" cy="12" r="9" /><path d="M3.5 9.5h17M3.5 14.5h17" /><path d="M12 3c2.6 2.7 2.6 15.3 0 18M12 3c-2.6 2.7-2.6 15.3 0 18" /></svg>
@@ -341,7 +341,7 @@ function ChartCard({ card, hidden }: { card: Card; hidden?: boolean }) {
           {card.author ? (
             <span className="tc-av">
               {card.author.avatar
-                ? <img src={proxyImg(card.author.avatar, 64)} alt="" />
+                ? <img src={proxyImgResized(card.author.avatar, 64)} alt="" loading="lazy" decoding="async" />
                 : <span className="tc-av-ph">{(card.author.name || '?').slice(0, 1).toUpperCase()}</span>}
             </span>
           ) : (!card.noFlag && <Flag country={card.country} image={card.coverImageUrl} />)}
@@ -360,7 +360,7 @@ function ChartCard({ card, hidden }: { card: Card; hidden?: boolean }) {
           <>
             <div className="tc-feat">
               <span className="tc-feat-cv">
-                {top.coverUrl ? <img src={proxyImg(top.coverUrl, 200)} alt="" /> : <span className="tc-ph">♪</span>}
+                {top.coverUrl ? <img src={proxyImgResized(top.coverUrl, 200)} alt="" loading="lazy" decoding="async" /> : <span className="tc-ph">♪</span>}
                 <span className="tc-feat-badge">1</span>
               </span>
               <span className="tc-feat-meta">
@@ -373,7 +373,7 @@ function ChartCard({ card, hidden }: { card: Card; hidden?: boolean }) {
                 {rest.map(e => (
                   <li key={e.position} className="tc-r">
                     <span className="tc-r-pos">{e.position}</span>
-                    <span className="tc-r-cv">{e.coverUrl ? <img src={proxyImg(e.coverUrl, 80)} alt="" /> : <span className="tc-ph">♪</span>}</span>
+                    <span className="tc-r-cv">{e.coverUrl ? <img src={proxyImgResized(e.coverUrl, 80)} alt="" loading="lazy" decoding="async" /> : <span className="tc-ph">♪</span>}</span>
                     <span className="tc-r-meta">
                       <span className="tc-r-song">{e.title}</span>
                       <span className="tc-r-artist">{e.artistName}</span>

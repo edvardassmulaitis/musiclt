@@ -2,7 +2,7 @@
 
 import Link from 'next/link'
 import type { ReactNode } from 'react'
-import { proxyImg } from '@/lib/img-proxy'
+import { proxyImgResized } from '@/lib/img-proxy'
 import { relativeTime } from '@/lib/relative-time'
 import {
   formatPrice, subtypeLabel, labelFor, INSTRUMENTS, LISTING_TYPES,
@@ -67,7 +67,7 @@ export function ListingCard({ listing }: { listing: Listing }) {
       <div className="relative aspect-video overflow-hidden">
         {cover ? (
           // eslint-disable-next-line @next/next/no-img-element
-          <img src={proxyImg(cover, 600)} alt={listing.title} loading="lazy" className="h-full w-full object-cover transition-transform duration-500 group-hover:scale-[1.05]" />
+          <img src={proxyImgResized(cover, 600)} alt={listing.title} loading="lazy" decoding="async" className="h-full w-full object-cover transition-transform duration-500 group-hover:scale-[1.05]" />
         ) : (
           // Neutralesnis placeholder'is (2026-06-11): tamsus gradientas + prislopinta
           // accent ikona — ryškios spalvotos plytelės rėkė garsiau už realias foto.
@@ -94,7 +94,7 @@ export function ListingCard({ listing }: { listing: Listing }) {
           {artist?.cover_image_url ? (
             <>
               {/* eslint-disable-next-line @next/next/no-img-element */}
-              <img src={proxyImg(artist.cover_image_url, 48)} alt="" className="h-[20px] w-[20px] flex-shrink-0 rounded-full object-cover" />
+              <img src={proxyImgResized(artist.cover_image_url, 48)} alt="" loading="lazy" decoding="async" className="h-[20px] w-[20px] flex-shrink-0 rounded-full object-cover" />
               <span className="min-w-0 flex-1 truncate text-[14px] font-semibold text-[var(--text-secondary)]">{artist.name}</span>
             </>
           ) : (

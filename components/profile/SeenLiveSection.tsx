@@ -8,7 +8,7 @@
 // ────────────────────────────────────────────────────────────────────────────
 
 import { useState } from 'react'
-import { proxyImg } from '@/lib/img-proxy'
+import { proxyImgResized } from '@/lib/img-proxy'
 import SeenLiveMediaViewer from '@/components/seen-live/SeenLiveMediaViewer'
 import type { SeenLiveRow } from '@/lib/seen-live'
 
@@ -48,7 +48,7 @@ export function SeenLiveSection({ items }: { items: SeenLiveRow[] }) {
               <div className="h-12 w-12 shrink-0 overflow-hidden rounded-lg" style={{ background: 'var(--cover-placeholder)' }}>
                 {cover ? (
                   // eslint-disable-next-line @next/next/no-img-element
-                  <img src={proxyImg(cover)} alt="" referrerPolicy="no-referrer" className="h-full w-full object-cover" />
+                  <img src={proxyImgResized(cover, 96)} alt="" referrerPolicy="no-referrer" loading="lazy" decoding="async" className="h-full w-full object-cover" />
                 ) : <div className="flex h-full w-full items-center justify-center text-[18px]" style={{ color: 'var(--text-faint)' }}>🎤</div>}
               </div>
               <div className="min-w-0 flex-1">

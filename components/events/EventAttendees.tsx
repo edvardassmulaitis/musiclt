@@ -8,7 +8,7 @@
 
 import { useState } from 'react'
 import Link from 'next/link'
-import { proxyImg } from '@/lib/img-proxy'
+import { proxyImgResized } from '@/lib/img-proxy'
 import SeenLiveMediaViewer from '@/components/seen-live/SeenLiveMediaViewer'
 import type { SeenLiveRecent } from '@/lib/seen-live'
 
@@ -44,7 +44,7 @@ export default function EventAttendees({ sightings, attendees: rawAttendees = []
           <Link key={u.username} href={`/vartotojas/${u.username}`} className="inline-flex items-center gap-1.5 rounded-full py-1 pl-1 pr-2.5 ring-1 transition-colors hover:bg-[var(--bg-hover)]"
             style={{ background: 'var(--bg-elevated)', ['--tw-ring-color' as any]: 'var(--border-subtle)' } as any}>
             {u.avatar_url
-              ? /* eslint-disable-next-line @next/next/no-img-element */ <img src={proxyImg(u.avatar_url)} alt="" referrerPolicy="no-referrer" className="h-6 w-6 rounded-full object-cover" />
+              ? /* eslint-disable-next-line @next/next/no-img-element */ <img src={proxyImgResized(u.avatar_url, 96)} alt="" referrerPolicy="no-referrer" loading="lazy" decoding="async" className="h-6 w-6 rounded-full object-cover" />
               : <span className="flex h-6 w-6 items-center justify-center rounded-full text-[12px] font-extrabold" style={{ background: 'var(--bg-surface)', color: 'var(--text-muted)' }}>{(u.username || '?').charAt(0).toUpperCase()}</span>
             }
             <span className="text-[13px] font-semibold text-[var(--text-secondary)]">@{u.username}</span>
@@ -66,7 +66,7 @@ export default function EventAttendees({ sightings, attendees: rawAttendees = []
                   <div className="relative overflow-hidden rounded-xl bg-[var(--bg-elevated)]" style={{ aspectRatio: '1/1' }}>
                     {thumb ? (
                       // eslint-disable-next-line @next/next/no-img-element
-                      <img src={proxyImg(thumb)} alt="" loading="lazy" referrerPolicy="no-referrer" className="h-full w-full object-cover transition-transform duration-500 group-hover:scale-[1.05]" />
+                      <img src={proxyImgResized(thumb, 480)} alt="" loading="lazy" decoding="async" referrerPolicy="no-referrer" className="h-full w-full object-cover transition-transform duration-500 group-hover:scale-[1.05]" />
                     ) : (
                       <div className="flex h-full w-full items-center justify-center" style={{ background: 'linear-gradient(160deg,#2a2f3a,#171a22)' }}><svg viewBox="0 0 24 24" width={20} height={20} fill="#fff"><polygon points="6 4 20 12 6 20 6 4" /></svg></div>
                     )}

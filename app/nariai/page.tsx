@@ -9,7 +9,7 @@
 
 import { useEffect, useState } from 'react'
 import Link from 'next/link'
-import { proxyImg } from '@/lib/img-proxy'
+import { proxyImgResized } from '@/lib/img-proxy'
 
 type FavArtist = { name: string; image: string | null; slug: string | null }
 type Member = { user_id?: string; username: string; name: string | null; avatar: string | null; favArtists?: FavArtist[]; headline?: string | null; isNew?: boolean }
@@ -20,7 +20,7 @@ function Avatar({ src, name, size = 42 }: { src?: string | null; name?: string |
   const nm = name || 'Narys'
   if (src) {
     // eslint-disable-next-line @next/next/no-img-element
-    return <img src={proxyImg(src)} alt="" width={size} height={size} loading="lazy" className="shrink-0 rounded-full object-cover" style={{ width: size, height: size }} />
+    return <img src={proxyImgResized(src, 96)} alt="" width={size} height={size} loading="lazy" decoding="async" className="shrink-0 rounded-full object-cover" style={{ width: size, height: size }} />
   }
   return (
     <div className="flex shrink-0 items-center justify-center rounded-full font-extrabold"
@@ -53,7 +53,7 @@ function MemberCard({ m }: { m: Member }) {
             <span key={`${a.name}-${i}`} title={a.name} className="relative block aspect-square overflow-hidden rounded-[8px] border border-[var(--border-subtle)] bg-[var(--cover-placeholder)]">
               {a.image ? (
                 // eslint-disable-next-line @next/next/no-img-element
-                <img src={proxyImg(a.image)} alt={a.name} loading="lazy" className="absolute inset-0 h-full w-full object-cover" />
+                <img src={proxyImgResized(a.image, 256)} alt={a.name} loading="lazy" decoding="async" className="absolute inset-0 h-full w-full object-cover" />
               ) : (
                 <span className="flex h-full w-full items-center justify-center text-[20px] font-extrabold" style={{ background: `hsl(${hue(a.name)},32%,22%)`, color: `hsl(${hue(a.name)},52%,64%)` }}>{a.name.charAt(0).toUpperCase()}</span>
               )}

@@ -2,7 +2,7 @@
 
 import { useState } from 'react'
 import Link from 'next/link'
-import { proxyImg } from '@/lib/img-proxy'
+import { proxyImgResized } from '@/lib/img-proxy'
 import { formatPrice, LISTING_TYPES, type Listing, type ListingStatus } from '@/lib/skelbimai'
 
 /* Mano skelbimai — statusų valdymas (active/reserved/closed), pratęsimas, trynimas. */
@@ -66,7 +66,7 @@ export function MyListings({ initial }: { initial: Listing[] }) {
             <Link href={`/skelbimai/skelbimas/${l.id}`} style={{ flexShrink: 0 }}>
               {l.photos?.[0] ? (
                 // eslint-disable-next-line @next/next/no-img-element
-                <img src={proxyImg(l.photos[0], 160)} alt="" style={{ width: 64, height: 64, objectFit: 'cover', borderRadius: 9 }} />
+                <img src={proxyImgResized(l.photos[0], 160)} alt="" loading="lazy" decoding="async" style={{ width: 64, height: 64, objectFit: 'cover', borderRadius: 9 }} />
               ) : (
                 <div style={{ width: 64, height: 64, borderRadius: 9, background: 'var(--bg-surface)', display: 'flex', alignItems: 'center', justifyContent: 'center', color: 'var(--text-faint)', fontSize: 14 }}>—</div>
               )}

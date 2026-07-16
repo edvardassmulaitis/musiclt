@@ -2,7 +2,7 @@
 
 import { useState, useRef } from 'react'
 import WikimediaSearch from './WikimediaSearch'
-import { proxyImg } from '@/lib/img-proxy'
+import { proxyImgResized } from '@/lib/img-proxy'
 
 export type Photo = {
   id?: number
@@ -178,7 +178,7 @@ export default function PhotoGallery({ photos, onChange, artistName, artistId }:
             const year = photo.takenAt ? new Date(photo.takenAt).getFullYear() : null
             return (
               <div key={`${photo.url}-${i}`} className="relative group aspect-square rounded-xl overflow-hidden bg-gray-100 border border-gray-200">
-                <img src={proxyImg(photo.url)} alt="" className="w-full h-full object-cover" referrerPolicy="no-referrer" />
+                <img src={proxyImgResized(photo.url, 480)} alt="" className="w-full h-full object-cover" referrerPolicy="no-referrer" loading="lazy" decoding="async" />
                 {/* Year badge — top-left, kad iškart matytum ar metai užfiksuoti */}
                 {year && (
                   <div className="absolute left-1.5 top-1.5 rounded-md bg-black/70 px-1.5 py-0.5 text-[12px] font-bold text-white backdrop-blur-sm pointer-events-none">
@@ -318,7 +318,7 @@ export default function PhotoGallery({ photos, onChange, artistName, artistId }:
             <div className="px-5 py-4 space-y-3">
               {/* Preview thumbnail */}
               <div className="aspect-video w-full overflow-hidden rounded-lg bg-gray-100">
-                <img src={proxyImg(editDraft.url)} alt="" className="h-full w-full object-cover" referrerPolicy="no-referrer" />
+                <img src={proxyImgResized(editDraft.url, 640)} alt="" className="h-full w-full object-cover" referrerPolicy="no-referrer" decoding="async" />
               </div>
               {/* takenAt — fleksibilus text input (YYYY / YYYY-MM / YYYY-MM-DD).
                   Anksciau buvo input[type=date] kuris reikalavo pilnos datos —

@@ -7,7 +7,7 @@
 
 import { useState, useMemo, useRef, useEffect, useCallback } from 'react'
 import Link from 'next/link'
-import { proxyImg } from '@/lib/img-proxy'
+import { proxyImgResized } from '@/lib/img-proxy'
 import { parseSpotifyExport } from '@/lib/spotify-export'
 
 type Job = { id: string; status: string; phase: string; total: number; processed: number; matched: number; reported: number; error: string | null; finished_at: string | null; batch_id?: string | null; batch_status?: string | null }
@@ -521,7 +521,7 @@ function ReviewGroup({ title, kind, hits, deselected, toggle, toggleGroup }: {
               <div className="relative aspect-square w-full" style={{ background: 'var(--bg-elevated)' }}>
                 {h.cover
                   // eslint-disable-next-line @next/next/no-img-element
-                  ? <img src={proxyImg(h.cover)} alt="" referrerPolicy="no-referrer" className="h-full w-full object-cover" />
+                  ? <img src={proxyImgResized(h.cover, 480)} alt="" referrerPolicy="no-referrer" loading="lazy" decoding="async" className="h-full w-full object-cover" />
                   : <div className="flex h-full w-full items-center justify-center text-2xl opacity-40">{emoji}</div>}
                 <span className="absolute top-1.5 left-1.5 h-5 w-5 rounded-md flex items-center justify-center text-[14px] font-black" style={{ background: on ? 'var(--accent-orange)' : 'rgba(0,0,0,0.45)', color: '#fff', border: on ? 'none' : '1px solid rgba(255,255,255,0.5)' }}>{on ? '✓' : ''}</span>
                 {href && <OpenExt href={href} overlay />}
@@ -535,7 +535,7 @@ function ReviewGroup({ title, kind, hits, deselected, toggle, toggleGroup }: {
               <div className="h-9 w-9 shrink-0 overflow-hidden rounded-md" style={{ background: 'var(--bg-elevated)' }}>
                 {h.cover
                   // eslint-disable-next-line @next/next/no-img-element
-                  ? <img src={proxyImg(h.cover)} alt="" referrerPolicy="no-referrer" className="h-full w-full object-cover" />
+                  ? <img src={proxyImgResized(h.cover, 96)} alt="" referrerPolicy="no-referrer" loading="lazy" decoding="async" className="h-full w-full object-cover" />
                   : <div className="flex h-full w-full items-center justify-center text-[14px] opacity-50">{emoji}</div>}
               </div>
               <div className="min-w-0 flex-1"><div className="truncate text-[14px] font-bold">{h.name}</div>{h.artist && <div className="truncate text-[14px]" style={{ color: 'var(--text-muted)' }}>{h.artist}</div>}</div>
@@ -582,7 +582,7 @@ function Group({ title, kind, hits, selected, toggle, toggleGroup }: {
                 <div className="relative aspect-square w-full" style={{ background: 'var(--bg-elevated)' }}>
                   {h.cover
                     // eslint-disable-next-line @next/next/no-img-element
-                    ? <img src={proxyImg(h.cover)} alt="" referrerPolicy="no-referrer" className="h-full w-full object-cover" />
+                    ? <img src={proxyImgResized(h.cover, 480)} alt="" referrerPolicy="no-referrer" loading="lazy" decoding="async" className="h-full w-full object-cover" />
                     : <div className="flex h-full w-full items-center justify-center text-2xl opacity-40">{emoji}</div>}
                   <span className="absolute top-1.5 left-1.5 h-5 w-5 rounded-md flex items-center justify-center text-[14px] font-black"
                     style={{ background: on ? 'var(--accent-orange)' : 'rgba(0,0,0,0.45)', color: '#fff', border: on ? 'none' : '1px solid rgba(255,255,255,0.5)' }}>{on ? '✓' : ''}</span>
@@ -609,7 +609,7 @@ function Group({ title, kind, hits, selected, toggle, toggleGroup }: {
                 <div className="h-9 w-9 shrink-0 overflow-hidden rounded-md" style={{ background: 'var(--bg-elevated)' }}>
                   {h.cover
                     // eslint-disable-next-line @next/next/no-img-element
-                    ? <img src={proxyImg(h.cover)} alt="" referrerPolicy="no-referrer" className="h-full w-full object-cover" />
+                    ? <img src={proxyImgResized(h.cover, 96)} alt="" referrerPolicy="no-referrer" loading="lazy" decoding="async" className="h-full w-full object-cover" />
                     : <div className="flex h-full w-full items-center justify-center text-[14px] opacity-50">{emoji}</div>}
                 </div>
                 <div className="min-w-0 flex-1">

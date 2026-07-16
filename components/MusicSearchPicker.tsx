@@ -18,7 +18,7 @@
 // the input + dropdown of hits.
 
 import { useEffect, useRef, useState } from 'react'
-import { proxyImg } from '@/lib/img-proxy'
+import { proxyImgResized } from '@/lib/img-proxy'
 
 export type AttachmentHit = {
   type: 'daina' | 'albumas' | 'grupe'
@@ -166,9 +166,11 @@ export default function MusicSearchPicker({
                       {hit.image_url ? (
                         // eslint-disable-next-line @next/next/no-img-element
                         <img
-                          src={proxyImg(hit.image_url)}
+                          src={proxyImgResized(hit.image_url, 96)}
                           alt=""
                           referrerPolicy="no-referrer"
+                          loading="lazy"
+                          decoding="async"
                           className="h-full w-full object-cover"
                         />
                       ) : (
@@ -245,7 +247,7 @@ export function AttachmentChips({
           <span className="h-5 w-5 shrink-0 overflow-hidden rounded-sm bg-[var(--cover-placeholder)]">
             {hit.image_url ? (
               // eslint-disable-next-line @next/next/no-img-element
-              <img src={proxyImg(hit.image_url)} alt="" referrerPolicy="no-referrer" className="h-full w-full object-cover" />
+              <img src={proxyImgResized(hit.image_url, 96)} alt="" referrerPolicy="no-referrer" loading="lazy" decoding="async" className="h-full w-full object-cover" />
             ) : null}
           </span>
           <span className="font-['Outfit',sans-serif] font-bold text-[var(--text-primary)]" style={{ fontSize }}>

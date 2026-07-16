@@ -7,7 +7,7 @@
 //   • Spotify track/album/playlist: Spotify embed iframe
 // Vienai žinutei rodom max 3 embed'us (kad nepertvinkdytų UI).
 
-import { proxyImg } from '@/lib/img-proxy'
+import { proxyImgResized } from '@/lib/img-proxy'
 
 const URL_REGEX_GLOBAL = /\bhttps?:\/\/[^\s]+/gi
 
@@ -112,9 +112,10 @@ function ImageEmbed({ url }: { url: string }) {
     <a href={url} target="_blank" rel="noopener noreferrer" style={{ display: 'block', maxWidth: 360 }}>
       {/* eslint-disable-next-line @next/next/no-img-element */}
       <img
-        src={proxyImg(url)}
+        src={proxyImgResized(url, 640)}
         alt=""
         loading="lazy"
+        decoding="async"
         style={{
           maxWidth: '100%', maxHeight: 360,
           borderRadius: 10,

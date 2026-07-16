@@ -11,7 +11,7 @@ import { useEffect, useRef, useState, useCallback } from 'react'
 import { createPortal } from 'react-dom'
 import { useSession } from 'next-auth/react'
 import Link from 'next/link'
-import { proxyImg } from '@/lib/img-proxy'
+import { proxyImgResized } from '@/lib/img-proxy'
 
 type Msg = { id: string; user_id: string | null; author_name: string | null; author_avatar: string | null; body: string; created_at: string }
 
@@ -31,7 +31,7 @@ function MsgRow({ m, isAdmin, onDelete }: { m: Msg; isAdmin: boolean; onDelete: 
     <div className="group flex gap-2 px-3 py-1.5">
       {m.author_avatar ? (
         // eslint-disable-next-line @next/next/no-img-element
-        <img src={proxyImg(m.author_avatar)} alt="" className="mt-0.5 h-6 w-6 shrink-0 rounded-full object-cover" />
+        <img src={proxyImgResized(m.author_avatar, 96)} alt="" className="mt-0.5 h-6 w-6 shrink-0 rounded-full object-cover" loading="lazy" decoding="async" />
       ) : (
         <div className="mt-0.5 flex h-6 w-6 shrink-0 items-center justify-center rounded-full text-[12px] font-extrabold" style={{ background: `hsl(${strHue(name)},32%,20%)`, color: `hsl(${strHue(name)},48%,58%)` }}>{name.charAt(0).toUpperCase()}</div>
       )}

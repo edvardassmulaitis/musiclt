@@ -905,6 +905,7 @@ function PlayerCard({
                     src={`https://i.ytimg.com/vi/${displayVid}/hqdefault.jpg`}
                     alt=""
                     referrerPolicy="no-referrer"
+                    decoding="async"
                     className="absolute inset-0 h-full w-full object-cover opacity-70"
                   />
                 )}
@@ -951,6 +952,7 @@ function PlayerCard({
                     src={`https://i.ytimg.com/vi/${displayVid}/hqdefault.jpg`}
                     alt=""
                     referrerPolicy="no-referrer"
+                    decoding="async"
                     className="absolute inset-0 h-full w-full object-cover"
                     style={{ filter: 'saturate(1.1) contrast(1.05)' }}
                   />
@@ -2136,6 +2138,8 @@ function TopArtistsModal({
                             src={proxyImgResized(a.cover_image_url, 100)}
                             alt={a.name}
                             referrerPolicy="no-referrer"
+                            loading="lazy"
+                            decoding="async"
                             className="h-full w-full object-cover"
                             style={{ objectPosition: `${pos.x}% ${pos.y}%` }}
                           />
@@ -2873,8 +2877,10 @@ function MemberCard({ m, variant }: { m: Member; variant: 'prominent' | 'compact
       {m.cover_image_url ? (
         // eslint-disable-next-line @next/next/no-img-element
         <img
-          src={proxyImg(m.cover_image_url)}
+          src={proxyImgResized(m.cover_image_url, 96)}
           alt={m.name}
+          loading="lazy"
+          decoding="async"
           className={`shrink-0 rounded-full object-cover transition-transform group-hover:scale-105 ${
             isProm ? 'h-11 w-11' : 'h-9 w-9'
           }`}
@@ -3001,8 +3007,10 @@ function MemberModalCard({ m }: { m: Member }) {
       {m.cover_image_url ? (
         // eslint-disable-next-line @next/next/no-img-element
         <img
-          src={proxyImg(m.cover_image_url)}
+          src={proxyImgResized(m.cover_image_url, 96)}
           alt={m.name}
+          loading="lazy"
+          decoding="async"
           className="h-12 w-12 shrink-0 rounded-full object-cover"
         />
       ) : (
@@ -3220,9 +3228,10 @@ function GalleryCollage({
               className="group relative block aspect-[4/3] overflow-hidden rounded-xl border-0 bg-transparent p-0"
             >
               <img
-                src={proxyImg(p.url)}
+                src={proxyImgResized(p.url, 480)}
                 alt={p.caption || ''}
                 loading="lazy"
+                decoding="async"
                 className="h-full w-full object-cover transition-transform duration-500 group-hover:scale-[1.04]"
               />
               {showOverlay && (
@@ -3375,7 +3384,7 @@ function Lightbox({
         </button>
       )}
       <div className="flex max-h-[90vh] max-w-[92vw] flex-col items-center" onClick={e => e.stopPropagation()}>
-        <img src={proxyImg(photos[index].url)} alt="" className="max-h-[82vh] max-w-full rounded-lg object-contain" />
+        <img src={proxyImg(photos[index].url)} alt="" decoding="async" className="max-h-[82vh] max-w-full rounded-lg object-contain" />
         <PhotoCredit photo={photos[index]} />
       </div>
       {index < photos.length - 1 && (
@@ -3437,9 +3446,10 @@ function MasonryGallery({ photos, onOpen }: { photos: Photo[]; onOpen: (i: numbe
         style={isSparse ? undefined : { breakInside: 'avoid' }}
       >
         <img
-          src={proxyImg(p.url)}
+          src={proxyImgResized(p.url, 480)}
           alt={parsePhotoCaption(p.caption).author || ''}
           loading="lazy"
+          decoding="async"
           referrerPolicy="no-referrer"
           className="block w-full cursor-zoom-in object-cover transition-transform duration-500 group-hover:scale-[1.02]"
         />
@@ -3473,7 +3483,7 @@ function MasonryGallery({ photos, onOpen }: { photos: Photo[]; onOpen: (i: numbe
     >
       {peekUrl ? (
         // eslint-disable-next-line @next/next/no-img-element
-        <img src={proxyImg(peekUrl)} alt="" loading="lazy" referrerPolicy="no-referrer" className="h-full w-full object-cover transition-transform duration-500 group-hover:scale-[1.03]" />
+        <img src={proxyImgResized(peekUrl, 480)} alt="" loading="lazy" decoding="async" referrerPolicy="no-referrer" className="h-full w-full object-cover transition-transform duration-500 group-hover:scale-[1.03]" />
       ) : (
         <div className="h-full w-full bg-[var(--bg-elevated)]" />
       )}
@@ -3534,9 +3544,11 @@ function EventVerticalCard({ e, href, hasCover, setCoverFailed, d, venue }: {
         {hasCover && (
           // eslint-disable-next-line @next/next/no-img-element
           <img
-            src={proxyImg(e.cover_image_url)}
+            src={proxyImgResized(e.cover_image_url, 480)}
             alt={e.title}
             referrerPolicy="no-referrer"
+            loading="lazy"
+            decoding="async"
             onError={() => setCoverFailed(true)}
             onLoad={(ev) => {
               // Music.lt placeholder PNG (~100x100) detection — jei
@@ -3674,9 +3686,11 @@ function EventCard({ e, variant = 'upcoming', onOpen }: { e: any; variant?: 'upc
         </div>
         {hasCover && (
           <img
-            src={proxyImg(e.cover_image_url)}
+            src={proxyImgResized(e.cover_image_url, 480)}
             alt={e.title}
             referrerPolicy="no-referrer"
+            loading="lazy"
+            decoding="async"
             onError={(ev) => {
               setCoverFailed(true)
               ;(ev.currentTarget as HTMLImageElement).style.display = 'none'
@@ -3817,9 +3831,11 @@ function EventBigCard({ e, onOpen }: { e: any; onOpen?: (e: any) => void }) {
       {hasCover ? (
         <div className="relative aspect-[16/9] overflow-hidden">
           <img
-            src={proxyImg(e.cover_image_url)}
+            src={proxyImgResized(e.cover_image_url, 640)}
             alt={e.title}
             referrerPolicy="no-referrer"
+            loading="lazy"
+            decoding="async"
             onError={() => setCoverFailed(true)}
             className="h-full w-full object-cover transition-transform duration-500 group-hover:scale-105"
           />
@@ -3962,6 +3978,7 @@ function YTFacade({ track }: { track: Track }) {
             src={`https://img.youtube.com/vi/${vid}/mqdefault.jpg`}
             alt={track.title}
             loading="lazy"
+            decoding="async"
             referrerPolicy="no-referrer"
             className="h-full w-full object-cover transition-transform duration-300 group-hover:scale-105"
           />
@@ -4019,9 +4036,11 @@ function SpotlightAlbumRow({ album, artistSlug, topTracks, topVideoTracks = [], 
             {showCover ? (
               // eslint-disable-next-line @next/next/no-img-element
               <img
-                src={proxyImg(coverUrl)}
+                src={proxyImgResized(coverUrl, 480)}
                 alt={album.title}
                 referrerPolicy="no-referrer"
+                loading="lazy"
+                decoding="async"
                 onError={() => setCoverFailed(true)}
                 className="h-full w-full object-cover"
                 style={{ filter: 'saturate(1.05) contrast(1.02)' }}
@@ -4211,10 +4230,11 @@ function AlbumCard({ a, popularity, artistSlug, maxPop, onOpen, topTracks, weigh
           {showCover ? (
             // eslint-disable-next-line @next/next/no-img-element
             <img
-              src={proxyImg(coverUrl)}
+              src={proxyImgResized(coverUrl, 480)}
               alt={a.title}
               referrerPolicy="no-referrer"
               loading="lazy"
+              decoding="async"
               onError={() => setCoverFailed(true)}
               className="h-full w-full object-cover transition-all duration-500 group-hover:scale-[1.06]"
               style={{ filter: 'saturate(1.05) contrast(1.02)' }}
@@ -4327,6 +4347,8 @@ function TrackRow({ t, popularity, artistSlug, onOpen }: { t: Track; popularity?
           <img
             src={proxyImg(cover)}
             alt={t.title}
+            loading="lazy"
+            decoding="async"
             className="h-full w-full object-cover"
             onLoad={(ev) => {
               if (!v || t.cover_url) return  // turime savo cover — nereikia probe
@@ -4383,9 +4405,11 @@ function UserAvatar({ name, avatarUrl, size = 22 }: { name: string; avatarUrl?: 
     return (
       // eslint-disable-next-line @next/next/no-img-element
       <img
-        src={proxyImg(avatarUrl)}
+        src={proxyImgResized(avatarUrl, 96)}
         alt={name}
         referrerPolicy="no-referrer"
+        loading="lazy"
+        decoding="async"
         onError={() => setFailed(true)}
         style={{ width: size, height: size }}
         className="shrink-0 rounded-full object-cover"
@@ -4871,7 +4895,7 @@ function DiscoveryEmbed({ d }: { d: DiscoveryItem }) {
         className="relative block aspect-video w-full cursor-pointer overflow-hidden rounded-[10px] border-0 bg-black p-0"
       >
         {/* eslint-disable-next-line @next/next/no-img-element */}
-        <img src={`https://i.ytimg.com/vi/${d.embed_id}/hqdefault.jpg`} loading="lazy" alt="" className="block h-full w-full object-cover opacity-90 transition-opacity hover:opacity-100" />
+        <img src={`https://i.ytimg.com/vi/${d.embed_id}/hqdefault.jpg`} loading="lazy" decoding="async" alt="" className="block h-full w-full object-cover opacity-90 transition-opacity hover:opacity-100" />
         <span className="absolute inset-0 flex items-center justify-center" style={{ filter: 'drop-shadow(0 2px 8px rgba(0,0,0,.6))' }}>
           <svg viewBox="0 0 68 48" width="46" height="33" aria-hidden><path fill="#f00" d="M66.5 7.7a8.6 8.6 0 0 0-6-6C55.2 0 34 0 34 0S12.8 0 7.5 1.7a8.6 8.6 0 0 0-6 6A90 90 0 0 0 0 24a90 90 0 0 0 1.5 16.3 8.6 8.6 0 0 0 6 6C12.8 48 34 48 34 48s21.2 0 26.5-1.7a8.6 8.6 0 0 0 6-6A90 90 0 0 0 68 24a90 90 0 0 0-1.5-16.3z"/><path fill="#fff" d="M27 34l18-10-18-10z"/></svg>
         </span>
@@ -6513,7 +6537,7 @@ export default function ArtistProfileClient({
                         <div className="mb-1.5 flex items-center gap-2.5">
                           {c.author_avatar ? (
                             // eslint-disable-next-line @next/next/no-img-element
-                            <img src={proxyImg(c.author_avatar)} alt="" referrerPolicy="no-referrer" className="h-7 w-7 shrink-0 rounded-full object-cover" />
+                            <img src={proxyImgResized(c.author_avatar, 96)} alt="" referrerPolicy="no-referrer" loading="lazy" decoding="async" className="h-7 w-7 shrink-0 rounded-full object-cover" />
                           ) : (
                             <div className="flex h-7 w-7 shrink-0 items-center justify-center rounded-full bg-[var(--bg-elevated)] font-['Outfit',sans-serif] text-[14px] font-black text-[var(--text-muted)]">
                               {(c.author_username || '?')[0]?.toUpperCase()}
@@ -6603,7 +6627,7 @@ export default function ArtistProfileClient({
                 <Link key={a.id} href={`/atlikejai/${a.slug}`} className="w-[110px] shrink-0 snap-start text-center no-underline sm:w-[130px]">
                   <div className="relative mx-auto mb-2.5 h-[90px] w-[90px] overflow-hidden rounded-full border-2 border-[var(--border-default)] transition-all hover:scale-105 hover:border-[var(--border-strong)] sm:h-[108px] sm:w-[108px]">
                     {a.cover_image_url ? (
-                      <img src={proxyImg(a.cover_image_url)} alt={a.name} referrerPolicy="no-referrer" className="h-full w-full object-cover" />
+                      <img src={proxyImgResized(a.cover_image_url, 256)} alt={a.name} referrerPolicy="no-referrer" loading="lazy" decoding="async" className="h-full w-full object-cover" />
                     ) : (
                       <div className="flex h-full w-full items-center justify-center bg-[var(--cover-placeholder)] font-['Outfit',sans-serif] text-[24px] font-black text-[var(--text-faint)]">
                         {a.name[0]}

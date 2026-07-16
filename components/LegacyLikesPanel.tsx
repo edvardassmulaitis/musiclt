@@ -9,7 +9,7 @@
 // nuo produkto pagrindinio orange (var(--accent-orange)) be konfliktų.
 
 import Link from 'next/link'
-import { proxyImg } from '@/lib/img-proxy'
+import { proxyImgResized } from '@/lib/img-proxy'
 
 export type LegacyLikeUser = {
   user_username: string
@@ -180,9 +180,11 @@ function LegacyUserTile({ user }: { user: LegacyLikeUser }) {
     >
       {user.user_avatar_url ? (
         <img
-          src={proxyImg(user.user_avatar_url)}
+          src={proxyImgResized(user.user_avatar_url, 96)}
           alt={user.user_username}
           referrerPolicy="no-referrer"
+          loading="lazy"
+          decoding="async"
           style={{
             width: 26,
             height: 26,

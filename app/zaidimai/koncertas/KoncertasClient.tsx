@@ -593,7 +593,7 @@ export default function KoncertasClient() {
       {phase === 'ready' && artist && (
         <div className="kc-ready">
           <div className="kc-badge">DIENOS KONCERTAS</div>
-          <div className="kc-artwrap"><img className="kc-art" src={proxyImg(artist.image, 240)} alt={artist.name} /></div>
+          <div className="kc-artwrap"><img className="kc-art" src={proxyImg(artist.image, 240)} alt={artist.name} decoding="async" /></div>
           <h1 className="kc-h1">{artist.name}</h1>
           <ul className="kc-bullets">
             <li>🎶 <b>{setlistLen} dainų</b> setas — finale didžiausias hitas</li>

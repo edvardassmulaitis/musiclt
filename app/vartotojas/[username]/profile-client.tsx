@@ -46,7 +46,7 @@ import { MoreItemsModal } from '@/components/profile/MoreItemsModal'
 import { FavoriteArtistsCollage } from '@/components/profile/FavoriteArtistsCollage'
 import { SeenLiveSection } from '@/components/profile/SeenLiveSection'
 import SeenLiveMediaViewer from '@/components/seen-live/SeenLiveMediaViewer'
-import { proxyImg } from '@/lib/img-proxy'
+import { proxyImgResized } from '@/lib/img-proxy'
 import { FollowButton } from '@/components/profile/FollowButton'
 import { MoodPlaylistModal } from '@/components/profile/MoodPlaylistModal'
 
@@ -287,6 +287,7 @@ export function ProfileClient(props: any) {
                   <img
                     src={realPhotoUrl}
                     alt=""
+                    decoding="async"
                     className="w-[76px] h-[76px] rounded-2xl object-cover shadow-[0_6px_24px_rgba(0,0,0,0.5)] flex-shrink-0"
                     style={{ borderWidth: '2px', borderStyle: 'solid', borderColor: 'rgba(255,255,255,0.12)' }}
                   />
@@ -572,7 +573,7 @@ function MobileProfileView(props: any) {
             {/* Avataras */}
             {avatar ? (
               // eslint-disable-next-line @next/next/no-img-element
-              <img src={avatar} alt="" className="w-[52px] h-[52px] rounded-full object-cover flex-shrink-0 shadow-[0_4px_14px_rgba(0,0,0,0.5)]"
+              <img src={avatar} alt="" decoding="async" className="w-[52px] h-[52px] rounded-full object-cover flex-shrink-0 shadow-[0_4px_14px_rgba(0,0,0,0.5)]"
                    style={{ borderWidth: '2px', borderStyle: 'solid', borderColor: 'rgba(255,255,255,0.18)' }} />
             ) : (
               <div className="w-[52px] h-[52px] rounded-full flex-shrink-0 flex items-center justify-center text-lg font-black text-white/80"
@@ -789,7 +790,7 @@ function PostFeedRow({ post, blogSlug }: { post: any; blogSlug: string }) {
             style={{ background: 'var(--card-bg)', border: '1px solid var(--border-subtle)' }}>
         {thumb ? (
           // eslint-disable-next-line @next/next/no-img-element
-          <img src={thumb} alt="" loading="lazy" className="w-16 h-16 rounded-lg object-cover flex-shrink-0" />
+          <img src={thumb} alt="" loading="lazy" decoding="async" className="w-16 h-16 rounded-lg object-cover flex-shrink-0" />
         ) : (
           <div className="w-16 h-16 rounded-lg flex-shrink-0 flex items-center justify-center text-xl font-black"
                style={{ background: 'linear-gradient(135deg, rgba(249,115,22,0.18), rgba(249,115,22,0.06))', color: 'var(--text-faint)', fontFamily: "'Outfit', sans-serif" }}>
@@ -850,7 +851,7 @@ function LikedMiniCard({ item }: { item: any }) {
            style={{ background: 'linear-gradient(135deg, var(--border-subtle), var(--card-bg))' }}>
         {thumb ? (
           // eslint-disable-next-line @next/next/no-img-element
-          <img src={thumb} alt="" loading="lazy" className="w-full h-full object-cover transition group-hover:scale-105" />
+          <img src={thumb} alt="" loading="lazy" decoding="async" className="w-full h-full object-cover transition group-hover:scale-105" />
         ) : (
           <div className="w-full h-full flex items-center justify-center text-xl" style={{ color: 'var(--text-faint)' }}>{isTrack ? '♬' : '⬚'}</div>
         )}
@@ -883,7 +884,7 @@ function RecentItemRow({ item }: { item: any }) {
             style={{ background: 'var(--card-bg)', border: '1px solid var(--border-subtle)' }}>
         {item.thumb ? (
           // eslint-disable-next-line @next/next/no-img-element
-          <img src={item.thumb} alt="" loading="lazy" className="w-14 h-14 rounded-lg object-cover flex-shrink-0" />
+          <img src={item.thumb} alt="" loading="lazy" decoding="async" className="w-14 h-14 rounded-lg object-cover flex-shrink-0" />
         ) : (
           <div className="w-14 h-14 rounded-lg flex-shrink-0 flex items-center justify-center text-base"
                style={{ background: `linear-gradient(135deg, ${item.accent}22, ${item.accent}0c)`, color: item.accent }}>
@@ -1014,7 +1015,7 @@ function MobileMoodCircle({ track, onOpen }: { track: any; onOpen?: () => void }
             style={{ background: 'conic-gradient(from 0deg, var(--accent-orange), #dc2626, #a78bfa, #60a5fa, #34d399, #fbbf24, var(--accent-orange))', animation: 'moodSpinV11 16s linear infinite', filter: 'blur(3px)' }} />
       {cover ? (
         // eslint-disable-next-line @next/next/no-img-element
-        <img src={cover} alt="" className="relative w-[52px] h-[52px] rounded-full object-cover border-2 border-white/15" style={{ animation: 'moodSpinV11 40s linear infinite' }} />
+        <img src={cover} alt="" loading="lazy" decoding="async" className="relative w-[52px] h-[52px] rounded-full object-cover border-2 border-white/15" style={{ animation: 'moodSpinV11 40s linear infinite' }} />
       ) : (
         <div className="relative w-[52px] h-[52px] rounded-full flex items-center justify-center text-lg bg-gradient-to-br from-orange-500/40 to-rose-600/30" style={{ color: 'rgba(255,255,255,0.8)' }}>♬</div>
       )}
@@ -1050,7 +1051,7 @@ function MoodCard({ track }: { track: any }) {
       <div className="relative w-full flex-shrink-0" style={{ height: '60px' }}>
         {cover ? (
           // eslint-disable-next-line @next/next/no-img-element
-          <img src={cover} alt="" className="absolute inset-0 w-full h-full object-cover" />
+          <img src={cover} alt="" loading="lazy" decoding="async" className="absolute inset-0 w-full h-full object-cover" />
         ) : (
           <div className="absolute inset-0 flex items-center justify-center text-2xl"
                style={{ background: 'linear-gradient(135deg, rgba(249,115,22,0.25),rgba(220,38,38,0.2))' }}>♬</div>
@@ -1253,7 +1254,7 @@ function MobileMoodPill({ track, fill = false }: { track: any; fill?: boolean })
              }} />
         {cover ? (
           // eslint-disable-next-line @next/next/no-img-element
-          <img src={cover} alt="" className="relative w-7 h-7 rounded-full object-cover border border-white/15"
+          <img src={cover} alt="" loading="lazy" decoding="async" className="relative w-7 h-7 rounded-full object-cover border border-white/15"
                style={{ animation: 'moodSpinV11 36s linear infinite' }} />
         ) : (
           <div className="relative w-7 h-7 rounded-full bg-gradient-to-br from-orange-500/30 to-rose-600/30 flex items-center justify-center text-[12px]">♬</div>
@@ -1342,7 +1343,7 @@ function MoodSongHeroCard({ track, count = 1, onOpen }: { track: any; count?: nu
                }} />
           {cover ? (
             // eslint-disable-next-line @next/next/no-img-element
-            <img src={cover} alt="" className="relative w-[64px] h-[64px] rounded-full object-cover border-2 border-white/15"
+            <img src={cover} alt="" loading="lazy" decoding="async" className="relative w-[64px] h-[64px] rounded-full object-cover border-2 border-white/15"
                  style={{ animation: 'moodSpinV11 40s linear infinite' }} />
           ) : (
             <div className="relative w-[64px] h-[64px] rounded-full bg-gradient-to-br from-orange-500/30 to-rose-600/30 flex items-center justify-center text-2xl"
@@ -1695,7 +1696,7 @@ function AlbumsFullWidth({
                    style={{ background: 'linear-gradient(135deg, var(--border-subtle), var(--card-bg))' }}>
                 {al.cover_url ? (
                   /* eslint-disable-next-line @next/next/no-img-element */
-                  <img src={al.cover_url} alt={al.title} className="w-full h-full object-cover transition group-hover:scale-105" loading="lazy" />
+                  <img src={al.cover_url} alt={al.title} className="w-full h-full object-cover transition group-hover:scale-105" loading="lazy" decoding="async" />
                 ) : null}
                 {lc > 0 && (
                   <div className="absolute top-2 right-2 px-2 py-0.5 rounded-full backdrop-blur-md text-[12px] font-extrabold"
@@ -1765,7 +1766,7 @@ function TracksFullWidth({
                    style={{ background: 'linear-gradient(135deg, var(--border-subtle), var(--card-bg))' }}>
                 {thumb ? (
                   /* eslint-disable-next-line @next/next/no-img-element */
-                  <img src={thumb} alt={t.title} className="w-full h-full object-cover transition group-hover:scale-105" loading="lazy" />
+                  <img src={thumb} alt={t.title} className="w-full h-full object-cover transition group-hover:scale-105" loading="lazy" decoding="async" />
                 ) : (
                   <div className="w-full h-full flex items-center justify-center text-2xl" style={{ color: 'var(--text-faint)' }}>♬</div>
                 )}
@@ -1976,13 +1977,13 @@ function PostLaneCard({ post, blogSlug, laneType }: { post: any; blogSlug: strin
       <div className="relative aspect-video w-full overflow-hidden rounded-xl border border-[var(--border-default)] bg-[var(--cover-placeholder)] shadow-[0_4px_12px_rgba(0,0,0,0.25)] transition-all duration-300 group-hover:-translate-y-0.5 group-hover:border-[rgba(249,115,22,0.5)] group-hover:shadow-[0_14px_32px_rgba(249,115,22,0.18)]">
         {thumb ? (
           // eslint-disable-next-line @next/next/no-img-element
-          <img src={thumb} alt="" loading="lazy" className="h-full w-full object-cover transition-transform duration-500 group-hover:scale-[1.06]" style={{ filter: 'saturate(1.05) contrast(1.02)' }} />
+          <img src={thumb} alt="" loading="lazy" decoding="async" className="h-full w-full object-cover transition-transform duration-500 group-hover:scale-[1.06]" style={{ filter: 'saturate(1.05) contrast(1.02)' }} />
         ) : items && items.length >= 4 ? (
           <div className="grid grid-cols-2 grid-rows-2 h-full w-full">
             {items.slice(0, 4).map((it: any, i: number) => (
               <div key={i} className="overflow-hidden" style={{ background: 'var(--bg-body)' }}>
                 {it.image_url
-                  ? /* eslint-disable-next-line @next/next/no-img-element */ <img src={it.image_url} alt="" className="w-full h-full object-cover" />
+                  ? /* eslint-disable-next-line @next/next/no-img-element */ <img src={it.image_url} alt="" loading="lazy" decoding="async" className="w-full h-full object-cover" />
                   : <div className="w-full h-full" />}
               </div>
             ))}
@@ -2035,7 +2036,7 @@ function FeaturedPostCard({ post, blogSlug }: { post: any; blogSlug: string }) {
            style={{ background: 'var(--bg-elevated)' }}>
         {heroImg ? (
           /* eslint-disable-next-line @next/next/no-img-element */
-          <img src={heroImg} alt="" className="w-full h-full object-cover transition-transform duration-700 group-hover:scale-105" />
+          <img src={heroImg} alt="" loading="lazy" decoding="async" className="w-full h-full object-cover transition-transform duration-700 group-hover:scale-105" />
         ) : items && items.length >= 2 ? (
           <div className="grid grid-cols-2 grid-rows-2 h-full">
             {[0, 1, 2, 3].map((i) => {
@@ -2043,7 +2044,7 @@ function FeaturedPostCard({ post, blogSlug }: { post: any; blogSlug: string }) {
               return (
                 <div key={i} className="overflow-hidden" style={{ background: 'var(--bg-body)' }}>
                   {it?.image_url
-                    ? /* eslint-disable-next-line @next/next/no-img-element */ <img src={it.image_url} alt="" className="w-full h-full object-cover" />
+                    ? /* eslint-disable-next-line @next/next/no-img-element */ <img src={it.image_url} alt="" loading="lazy" decoding="async" className="w-full h-full object-cover" />
                     : <div className="w-full h-full flex items-center justify-center text-lg" style={{ color: 'var(--text-faint)' }}>{i + 1}</div>}
                 </div>
               )
@@ -2106,7 +2107,7 @@ function SidePostCard({ post, blogSlug }: { post: any; blogSlug: string }) {
           }}>
       {thumb ? (
         /* eslint-disable-next-line @next/next/no-img-element */
-        <img src={thumb} alt="" loading="lazy" className="w-16 h-16 sm:w-20 sm:h-20 rounded-lg object-cover flex-shrink-0" />
+        <img src={thumb} alt="" loading="lazy" decoding="async" className="w-16 h-16 sm:w-20 sm:h-20 rounded-lg object-cover flex-shrink-0" />
       ) : (
         <div className="w-16 h-16 sm:w-20 sm:h-20 rounded-lg flex-shrink-0 flex items-center justify-center text-xl"
              style={{ background: `linear-gradient(135deg, ${typeColor}25, ${typeColor}10)`, color: typeColor }}>
@@ -2164,7 +2165,7 @@ function RecentCommentsList({ comments }: { comments: any[] }) {
             >
               {cover ? (
                 // eslint-disable-next-line @next/next/no-img-element
-                <img src={cover} alt="" loading="lazy" className="w-12 h-12 sm:w-14 sm:h-14 rounded-lg object-cover flex-shrink-0" />
+                <img src={cover} alt="" loading="lazy" decoding="async" className="w-12 h-12 sm:w-14 sm:h-14 rounded-lg object-cover flex-shrink-0" />
               ) : (
                 <div className="w-12 h-12 sm:w-14 sm:h-14 rounded-lg flex-shrink-0 flex items-center justify-center text-lg"
                      style={{ background: 'var(--card-bg)', border: '1px solid var(--border-subtle)', color: 'var(--text-muted)' }}>
@@ -2317,7 +2318,7 @@ function SeenLiveFeedCard({ sighting: s }: { sighting: any }) {
           <div className="relative h-14 w-14 shrink-0 overflow-hidden rounded-xl" style={{ background: 'var(--cover-placeholder)' }}>
             {cover ? (
               // eslint-disable-next-line @next/next/no-img-element
-              <img src={proxyImg(cover)} alt="" referrerPolicy="no-referrer" className="h-full w-full object-cover" />
+              <img src={proxyImgResized(cover, 96)} alt="" referrerPolicy="no-referrer" loading="lazy" decoding="async" className="h-full w-full object-cover" />
             ) : <div className="flex h-full w-full items-center justify-center text-[22px]">🎤</div>}
           </div>
           <div className="min-w-0 flex-1">
@@ -2331,7 +2332,7 @@ function SeenLiveFeedCard({ sighting: s }: { sighting: any }) {
                 <div key={i} className="relative h-11 w-11 overflow-hidden rounded-md" style={{ background: 'var(--cover-placeholder)' }}>
                   {(m.type === 'image' || m.poster) ? (
                     // eslint-disable-next-line @next/next/no-img-element
-                    <img src={proxyImg(m.type === 'image' ? m.url : m.poster)} alt="" referrerPolicy="no-referrer" className="h-full w-full object-cover" />
+                    <img src={proxyImgResized(m.type === 'image' ? m.url : m.poster, 96)} alt="" referrerPolicy="no-referrer" loading="lazy" decoding="async" className="h-full w-full object-cover" />
                   ) : (
                     <div className="flex h-full w-full items-center justify-center" style={{ background: 'linear-gradient(160deg,#2a2f3a,#171a22)' }}><svg viewBox="0 0 24 24" width={12} height={12} fill="#fff"><polygon points="6 4 20 12 6 20 6 4" /></svg></div>
                   )}
@@ -2777,7 +2778,7 @@ function FeedPostCard({ post, laneType, blogSlug, compact = false }: {
                 <div className="relative aspect-square w-full overflow-hidden rounded-lg" style={{ background: 'var(--cover-placeholder)' }}>
                   {it.image_url ? (
                     // eslint-disable-next-line @next/next/no-img-element
-                    <img src={it.image_url} alt="" loading="lazy" className="absolute inset-0 h-full w-full object-cover transition-transform duration-500 group-hover:scale-[1.04]" />
+                    <img src={it.image_url} alt="" loading="lazy" decoding="async" className="absolute inset-0 h-full w-full object-cover transition-transform duration-500 group-hover:scale-[1.04]" />
                   ) : (
                     <div className="absolute inset-0 flex items-center justify-center text-lg" style={{ background: `${typeColor}14`, color: typeColor }}>♬</div>
                   )}
@@ -2833,7 +2834,7 @@ function FeedPostCard({ post, laneType, blogSlug, compact = false }: {
         <span aria-hidden className="w-[3px] shrink-0 self-stretch" style={{ background: typeColor }} />
         <div className="relative w-[116px] sm:w-[264px] shrink-0 self-stretch overflow-hidden" style={{ background: 'var(--cover-placeholder)' }}>
           {/* eslint-disable-next-line @next/next/no-img-element */}
-          <img src={thumb} alt="" loading="lazy" className="absolute inset-0 h-full w-full object-cover transition-transform duration-500 group-hover:scale-[1.04]" />
+          <img src={thumb} alt="" loading="lazy" decoding="async" className="absolute inset-0 h-full w-full object-cover transition-transform duration-500 group-hover:scale-[1.04]" />
         </div>
         <div className="flex min-w-0 flex-1 flex-col px-4 py-4 sm:px-5">
           {typeLabel && (
@@ -2938,7 +2939,7 @@ function DdModalRow({ p, onPlay, playing }: { p: any; onPlay: (vid: string) => v
               style={{ aspectRatio: '16 / 9', background: 'rgba(249,115,22,0.12)' }} aria-label="Groti">
         {thumb ? (
           // eslint-disable-next-line @next/next/no-img-element
-          <img src={thumb} alt="" loading="lazy" className="absolute inset-0 h-full w-full object-cover" />
+          <img src={thumb} alt="" loading="lazy" decoding="async" className="absolute inset-0 h-full w-full object-cover" />
         ) : <div className="absolute inset-0 flex items-center justify-center text-lg" style={{ color: 'var(--accent-orange)' }}>♬</div>}
         {vid && (
           <span className={`absolute inset-0 flex items-center justify-center transition ${playing ? 'opacity-100' : 'opacity-0 group-hover:opacity-100'}`} style={{ background: 'rgba(0,0,0,0.45)' }}>
@@ -3004,7 +3005,7 @@ function DdPickTile({ p }: { p: any }) {
       <div className="relative w-full overflow-hidden rounded-lg" style={{ aspectRatio: '16 / 9', background: 'rgba(249,115,22,0.10)' }}>
         {thumb ? (
           // eslint-disable-next-line @next/next/no-img-element
-          <img src={thumb} alt="" loading="lazy" className="absolute inset-0 h-full w-full object-cover transition-transform duration-500 group-hover:scale-[1.05]" />
+          <img src={thumb} alt="" loading="lazy" decoding="async" className="absolute inset-0 h-full w-full object-cover transition-transform duration-500 group-hover:scale-[1.05]" />
         ) : (
           <div className="absolute inset-0 flex items-center justify-center text-xl" style={{ color: 'var(--accent-orange)' }}>♬</div>
         )}
@@ -3088,7 +3089,7 @@ function LikesClusterCard({ likes, label, onOpenMore }: {
               <div className="relative aspect-square w-full overflow-hidden">
                 {thumb ? (
                   // eslint-disable-next-line @next/next/no-img-element
-                  <img src={thumb} alt="" loading="lazy" className="w-full h-full object-cover transition group-hover:scale-105" />
+                  <img src={thumb} alt="" loading="lazy" decoding="async" className="w-full h-full object-cover transition group-hover:scale-105" />
                 ) : (
                   <div className="w-full h-full flex items-center justify-center text-xl" style={{ color: 'var(--text-faint)' }}>♬</div>
                 )}
@@ -3179,7 +3180,7 @@ function RecentLikesCard({
               <Link key={`${it._kind}-${it.id}`} href={href} className="group flex w-[88px] flex-shrink-0 flex-col gap-1.5 transition hover:-translate-y-0.5">
                 {thumb ? (
                   // eslint-disable-next-line @next/next/no-img-element
-                  <img src={thumb} alt="" loading="lazy" className={`w-[88px] h-[88px] object-cover ${isArtist ? 'rounded-full' : 'rounded-lg'}`} />
+                  <img src={thumb} alt="" loading="lazy" decoding="async" className={`w-[88px] h-[88px] object-cover ${isArtist ? 'rounded-full' : 'rounded-lg'}`} />
                 ) : (
                   <div className={`w-[88px] h-[88px] flex items-center justify-center text-xl ${isArtist ? 'rounded-full' : 'rounded-lg'}`} style={{ background: 'var(--bg-elevated)', color: 'var(--text-muted)' }}>♬</div>
                 )}
@@ -3224,7 +3225,7 @@ function RecentLikesCard({
                     className="group flex items-center gap-3 rounded-xl px-1.5 py-1.5 transition hover:bg-[var(--bg-hover)]">
                 {thumb ? (
                   // eslint-disable-next-line @next/next/no-img-element
-                  <img src={thumb} alt="" loading="lazy"
+                  <img src={thumb} alt="" loading="lazy" decoding="async"
                        className={`w-[44px] h-[44px] object-cover flex-shrink-0 ${isArtist ? 'rounded-full' : 'rounded-lg'}`} />
                 ) : (
                   <div className={`w-[44px] h-[44px] flex-shrink-0 flex items-center justify-center ${isArtist ? 'rounded-full' : 'rounded-lg'}`}

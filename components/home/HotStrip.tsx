@@ -3,7 +3,7 @@
 import { useState, useEffect } from 'react'
 import Link from 'next/link'
 import Scroller from '@/components/ui/Scroller'
-import { proxyImg } from '@/lib/img-proxy'
+import { proxyImgResized } from '@/lib/img-proxy'
 import type { HotItem, HotKind } from '@/lib/home/getHotItems'
 
 const TAG: Record<HotKind, { label: string; color: string }> = {
@@ -19,9 +19,10 @@ function CoverBox({ coverUrl, emoji }: { coverUrl?: string | null; emoji?: strin
     return (
       // eslint-disable-next-line @next/next/no-img-element
       <img
-        src={proxyImg(coverUrl)}
+        src={proxyImgResized(coverUrl, 96)}
         alt=""
         loading="lazy"
+        decoding="async"
         className="pc-cover"
         style={{ backgroundImage: 'none', objectFit: 'cover' }}
       />

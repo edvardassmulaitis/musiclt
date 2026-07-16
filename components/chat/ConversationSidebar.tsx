@@ -6,7 +6,7 @@ import type { ConversationListItem } from '@/lib/chat-types'
 import { conversationDisplayName, conversationDisplayAvatar } from '@/lib/chat-types'
 import { ChatAvatar, ChatGroupAvatar } from './ChatAvatar'
 import { formatSidebarTime } from './ChatTime'
-import { proxyImg } from '@/lib/img-proxy'
+import { proxyImgResized } from '@/lib/img-proxy'
 import { ShoutboxPanel } from './ShoutboxPanel'
 import { SegTabs } from '@/components/ui/SegTabs'
 
@@ -386,9 +386,10 @@ function EntityAvatar({ kind, imageUrl }: { kind?: DiscussionItem['kind']; image
     return (
       // eslint-disable-next-line @next/next/no-img-element
       <img
-        src={proxyImg(imageUrl)}
+        src={proxyImgResized(imageUrl, 96)}
         alt=""
         loading="lazy"
+        decoding="async"
         style={{
           width: 40, height: 40, flexShrink: 0,
           borderRadius: 8, objectFit: 'cover',

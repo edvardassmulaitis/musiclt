@@ -23,7 +23,7 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import Link from 'next/link'
 import { useSession } from 'next-auth/react'
-import { proxyImg } from '@/lib/img-proxy'
+import { proxyImg, proxyImgResized } from '@/lib/img-proxy'
 import { useActivity, ActivityModal } from '@/components/ActivityWidget'
 import { HomeListModal } from '@/components/HomeListModal'
 import { DienosDainaHero } from '@/components/DienosDainaHero'
@@ -90,7 +90,7 @@ function Avatar({ src, name, size = 24 }: { src?: string | null; name?: string |
   const nm = name || 'Narys'
   if (src) {
     // eslint-disable-next-line @next/next/no-img-element
-    return <img src={proxyImg(src)} alt="" width={size} height={size} loading="lazy" className="shrink-0 rounded-full object-cover" style={{ width: size, height: size }} />
+    return <img src={proxyImgResized(src, 96)} alt="" width={size} height={size} loading="lazy" decoding="async" className="shrink-0 rounded-full object-cover" style={{ width: size, height: size }} />
   }
   return (
     <div className="flex shrink-0 items-center justify-center rounded-full font-extrabold"
@@ -272,7 +272,7 @@ function DiscoveryModal({ a, onClose }: { a: Atradimas; onClose: () => void }) {
               <iframe src={`https://open.spotify.com/embed/track/${spotifyId}`} title="Spotify" className="w-full rounded-xl border-0" style={{ height: 352 }} allow="autoplay; clipboard-write; encrypted-media; fullscreen; picture-in-picture" loading="lazy" />
             ) : discThumb(a) ? (
               // eslint-disable-next-line @next/next/no-img-element
-              <img src={discThumb(a)!} alt="" className="w-full rounded-xl object-cover" style={{ maxHeight: 280 }} />
+              <img src={discThumb(a)!} alt="" decoding="async" className="w-full rounded-xl object-cover" style={{ maxHeight: 280 }} />
             ) : null}
           </div>
           {body && <p className="m-0 max-h-[52vh] min-w-0 overflow-y-auto whitespace-pre-line text-[14px] leading-relaxed text-[var(--text-secondary)] sm:max-h-[420px]">{body}</p>}
@@ -326,10 +326,10 @@ function FeaturedSlide({ it, onOpenDiscovery }: { it: FeatItem; onOpenDiscovery:
           <KindBadge kind={postKind(p)} label={isTopas ? topLabel(p) : undefined} />
           {p.cover ? (
             // eslint-disable-next-line @next/next/no-img-element
-            <img src={proxyImg(p.cover)} alt="" loading="lazy" className="absolute inset-0 h-full w-full object-cover" />
+            <img src={proxyImgResized(p.cover, 480)} alt="" loading="lazy" decoding="async" className="absolute inset-0 h-full w-full object-cover" />
           ) : isTopas && entries[0]?.image ? (
             // eslint-disable-next-line @next/next/no-img-element
-            <img src={proxyImg(entries[0].image)} alt="" loading="lazy" className="absolute inset-0 h-full w-full object-cover" />
+            <img src={proxyImgResized(entries[0].image, 480)} alt="" loading="lazy" decoding="async" className="absolute inset-0 h-full w-full object-cover" />
           ) : (
             <div className="absolute inset-0" style={{ background: `linear-gradient(135deg, hsl(${hue(p.title)},34%,22%), hsl(${(hue(p.title) + 40) % 360},30%,12%))` }} />
           )}
@@ -344,7 +344,7 @@ function FeaturedSlide({ it, onOpenDiscovery }: { it: FeatItem; onOpenDiscovery:
                   <span className="w-4 shrink-0 text-center font-['Outfit',sans-serif] text-[14px] font-black text-[#f59e0b]">{e.rank}</span>
                   {e.image ? (
                     // eslint-disable-next-line @next/next/no-img-element
-                    <img src={proxyImg(e.image)} alt="" loading="lazy" className="h-7 w-7 shrink-0 rounded-md object-cover" />
+                    <img src={proxyImgResized(e.image, 96)} alt="" loading="lazy" decoding="async" className="h-7 w-7 shrink-0 rounded-md object-cover" />
                   ) : <div className="h-7 w-7 shrink-0 rounded-md" style={{ background: `hsl(${hue(e.title)},30%,22%)` }} />}
                   <span className="min-w-0 truncate text-[14px] font-bold text-[#f0f4fc]">{sani(e.title)}</span>
                   {e.artist && <span className="min-w-0 truncate text-[14px] text-[#8ea8c4]">{e.artist}</span>}
@@ -372,7 +372,7 @@ function FeaturedSlide({ it, onOpenDiscovery }: { it: FeatItem; onOpenDiscovery:
           <KindBadge kind="diskusija" />
           {d.artist_image ? (
             // eslint-disable-next-line @next/next/no-img-element
-            <img src={proxyImg(d.artist_image)} alt="" loading="lazy" className="absolute inset-0 h-full w-full object-cover" />
+            <img src={proxyImgResized(d.artist_image, 480)} alt="" loading="lazy" decoding="async" className="absolute inset-0 h-full w-full object-cover" />
           ) : (
             <div className="absolute inset-0" style={{ background: `linear-gradient(135deg, hsl(${hue(d.title)},34%,22%), hsl(${(hue(d.title) + 40) % 360},30%,12%))` }} />
           )}
@@ -406,7 +406,7 @@ function FeaturedSlide({ it, onOpenDiscovery }: { it: FeatItem; onOpenDiscovery:
         <KindBadge kind="atradimas" />
         {thumb ? (
           // eslint-disable-next-line @next/next/no-img-element
-          <img src={thumb} alt="" loading="lazy" className="absolute inset-0 h-full w-full object-cover" />
+          <img src={thumb} alt="" loading="lazy" decoding="async" className="absolute inset-0 h-full w-full object-cover" />
         ) : <div className="absolute inset-0" style={{ background: `linear-gradient(135deg, hsl(${hue(a.artist_name || 'x')},34%,22%), hsl(${(hue(a.artist_name || 'x') + 40) % 360},30%,12%))` }} />}
         <div className="absolute inset-0 flex items-center justify-center bg-black/25">
           <span className="flex h-12 w-12 items-center justify-center rounded-full bg-[rgba(249,115,22,0.95)] text-white shadow-[0_8px_24px_rgba(0,0,0,0.4)]"><Ic d={I.play} size={17} filled /></span>
@@ -590,7 +590,7 @@ function FeaturedSlider() {
                 <div className="absolute inset-0 overflow-hidden">
                   {c.img ? (
                     // eslint-disable-next-line @next/next/no-img-element
-                    <img src={proxyImg(c.img)} alt="" loading="lazy" onError={ytFallback} className="absolute inset-0 h-full w-full object-cover"
+                    <img src={proxyImg(c.img)} alt="" loading="lazy" decoding="async" onError={ytFallback} className="absolute inset-0 h-full w-full object-cover"
                       style={{ objectPosition: 'center 30%' }} />
                   ) : <div className="absolute inset-0" style={{ background: `linear-gradient(135deg, hsl(${hue(c.title)},34%,22%), hsl(${(hue(c.title) + 40) % 360},30%,12%))` }} />}
                 </div>
@@ -749,7 +749,7 @@ function ActRow({ e }: { e: any }) {
       </div>
       {e.entity_image && (
         // eslint-disable-next-line @next/next/no-img-element
-        <img src={proxyImg(e.entity_image)} alt="" loading="lazy" className="mt-0.5 h-9 w-9 shrink-0 rounded-lg object-cover" />
+        <img src={proxyImgResized(e.entity_image, 96)} alt="" loading="lazy" decoding="async" className="mt-0.5 h-9 w-9 shrink-0 rounded-lg object-cover" />
       )}
     </div>
   )
@@ -829,7 +829,7 @@ function HappeningArea() {
               {ev0.entity_image && (
                 // susieto atlikėjo/grupės mini foto
                 // eslint-disable-next-line @next/next/no-img-element
-                <img src={proxyImg(ev0.entity_image)} alt="" loading="lazy" className="h-9 w-9 shrink-0 rounded-md object-cover" />
+                <img src={proxyImgResized(ev0.entity_image, 96)} alt="" loading="lazy" decoding="async" className="h-9 w-9 shrink-0 rounded-md object-cover" />
               )}
             </span>
           ) : <span className="text-[14px] text-[var(--text-muted)]">narių veiksmų srautas</span>}
@@ -956,7 +956,7 @@ function PostRowCard({ p, onGroupPlay }: { p: FeedPost; onGroupPlay: (a: { id: n
       {p.cover && (
         <div className={ROW_THUMB}>
           {/* eslint-disable-next-line @next/next/no-img-element */}
-          <img src={proxyImg(p.cover)} alt="" loading="lazy" className="absolute inset-0 h-full w-full object-cover transition-transform duration-500 group-hover:scale-[1.04]" />
+          <img src={proxyImgResized(p.cover, 640)} alt="" loading="lazy" decoding="async" className="absolute inset-0 h-full w-full object-cover transition-transform duration-500 group-hover:scale-[1.04]" />
           {p.rating != null && <span className="absolute right-2 top-2 rounded-md bg-black/75 px-2 py-0.5 text-[14px] font-black text-amber-300">★ {p.rating}</span>}
           {p.artist?.id && <GroupPlayBtn onPlay={() => onGroupPlay({ id: p.artist!.id, name: p.artist!.name })} />}
         </div>
@@ -977,7 +977,7 @@ function TopEntryTile({ e, big = false }: { e: ListEntry; big?: boolean }) {
     <>
       {e.image ? (
         // eslint-disable-next-line @next/next/no-img-element
-        <img src={proxyImg(e.image)} alt="" loading="lazy" className="absolute inset-0 h-full w-full object-cover transition-transform duration-500 group-hover:scale-[1.04]" />
+        <img src={proxyImgResized(e.image, 480)} alt="" loading="lazy" decoding="async" className="absolute inset-0 h-full w-full object-cover transition-transform duration-500 group-hover:scale-[1.04]" />
       ) : <div className="absolute inset-0" style={{ background: `hsl(${hue(e.title)},30%,20%)` }} />}
       <span className={`absolute left-1.5 top-1.5 flex items-center justify-center rounded-md px-1 font-['Outfit',sans-serif] font-black ${big ? 'h-[26px] min-w-[26px] text-[16px]' : 'h-[20px] min-w-[20px] text-[14px]'} ${e.rank === 1 ? 'bg-[var(--accent-orange)] text-white' : 'bg-black/65 text-white'}`}>{e.rank}</span>
       {big && (
@@ -1063,7 +1063,7 @@ function DiskusijaRowCard({ d, onGroupPlay }: { d: Diskusija; onGroupPlay: (a: {
       {d.artist_image && (
         <div className={ROW_THUMB}>
           {/* eslint-disable-next-line @next/next/no-img-element */}
-          <img src={proxyImg(d.artist_image)} alt="" loading="lazy" className="absolute inset-0 h-full w-full object-cover transition-transform duration-500 group-hover:scale-[1.04]" />
+          <img src={proxyImgResized(d.artist_image, 640)} alt="" loading="lazy" decoding="async" className="absolute inset-0 h-full w-full object-cover transition-transform duration-500 group-hover:scale-[1.04]" />
           <div className="pointer-events-none absolute inset-0" style={{ background: 'linear-gradient(180deg, transparent 45%, rgba(13,19,32,0.85))' }} />
           {d.artist_name && <span className="absolute bottom-2 left-3 font-['Outfit',sans-serif] text-[12px] font-extrabold uppercase tracking-[0.06em] text-white/90">{d.artist_name}</span>}
           {d.artist_id && <GroupPlayBtn onPlay={() => onGroupPlay({ id: d.artist_id!, name: d.artist_name || 'Grupė' })} />}
@@ -1102,7 +1102,7 @@ function AtradimasRowCard({ a, onOpen }: { a: Atradimas; onOpen: (a: Atradimas) 
           <>
             {thumb ? (
               // eslint-disable-next-line @next/next/no-img-element
-              <img src={thumb} alt="" loading="lazy" className="absolute inset-0 h-full w-full object-cover transition-transform duration-500 group-hover:scale-[1.04]" />
+              <img src={thumb} alt="" loading="lazy" decoding="async" className="absolute inset-0 h-full w-full object-cover transition-transform duration-500 group-hover:scale-[1.04]" />
             ) : <div className="absolute inset-0" style={{ background: `linear-gradient(135deg, hsl(${hue(a.artist_name || 'x')},34%,22%), hsl(${(hue(a.artist_name || 'x') + 40) % 360},30%,12%))` }} />}
             <button type="button" aria-label="Groti" onClick={() => { if (canPlayInline) setPlaying(true); else onOpen(a) }}
               className="absolute bottom-2.5 right-2.5 z-[1] flex h-11 w-11 cursor-pointer items-center justify-center rounded-full border-0 bg-[rgba(249,115,22,0.95)] text-white shadow-[0_6px_18px_rgba(0,0,0,0.45)] transition-transform hover:scale-105"><Ic d={I.play} size={16} filled /></button>
@@ -1568,7 +1568,7 @@ function NariaiSection() {
                   <span key={`${a.name}-${i}`} title={a.name} className="relative block aspect-square overflow-hidden rounded-[8px] border border-[var(--border-subtle)] bg-[var(--cover-placeholder)] transition-transform group-hover:scale-[1.02]">
                     {a.image ? (
                       // eslint-disable-next-line @next/next/no-img-element
-                      <img src={proxyImg(a.image)} alt={a.name} loading="lazy" className="absolute inset-0 h-full w-full object-cover" />
+                      <img src={proxyImgResized(a.image, 256)} alt={a.name} loading="lazy" decoding="async" className="absolute inset-0 h-full w-full object-cover" />
                     ) : (
                       <span className="flex h-full w-full items-center justify-center text-[20px] font-extrabold" style={{ background: `hsl(${hue(a.name)},32%,22%)`, color: `hsl(${hue(a.name)},52%,64%)` }}>{a.name.charAt(0).toUpperCase()}</span>
                     )}

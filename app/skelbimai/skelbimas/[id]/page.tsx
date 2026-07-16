@@ -94,13 +94,13 @@ export default async function ListingDetail({ params }: { params: Promise<{ id: 
             <div style={{ marginBottom: 20 }}>
               <div style={{ borderRadius: 14, overflow: 'hidden', background: 'var(--bg-surface)', marginBottom: photos.length > 1 ? 8 : 0 }}>
                 {/* eslint-disable-next-line @next/next/no-img-element */}
-                <img src={proxyImg(photos[0] || listing.artist?.cover_image_url, 1000)} alt={listing.title} style={{ width: '100%', maxHeight: 480, objectFit: photos.length > 0 ? 'contain' : 'cover', display: 'block' }} />
+                <img src={proxyImg(photos[0] || listing.artist?.cover_image_url, 1000)} alt={listing.title} decoding="async" style={{ width: '100%', maxHeight: 480, objectFit: photos.length > 0 ? 'contain' : 'cover', display: 'block' }} />
               </div>
               {photos.length > 1 && (
                 <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}>
                   {photos.slice(1).map((p, i) => (
                     // eslint-disable-next-line @next/next/no-img-element
-                    <img key={i} src={proxyImg(p, 240)} alt="" style={{ width: 84, height: 84, objectFit: 'cover', borderRadius: 8, border: '1px solid var(--border-subtle)' }} />
+                    <img key={i} src={proxyImg(p, 240)} alt="" loading="lazy" decoding="async" style={{ width: 84, height: 84, objectFit: 'cover', borderRadius: 8, border: '1px solid var(--border-subtle)' }} />
                   ))}
                 </div>
               )}
@@ -139,7 +139,7 @@ export default async function ListingDetail({ params }: { params: Promise<{ id: 
             }}>
               {listing.artist.cover_image_url && (
                 // eslint-disable-next-line @next/next/no-img-element
-                <img src={proxyImg(listing.artist.cover_image_url, 96)} alt="" style={{ width: 40, height: 40, borderRadius: '50%', objectFit: 'cover' }} />
+                <img src={proxyImg(listing.artist.cover_image_url, 96)} alt="" loading="lazy" decoding="async" style={{ width: 40, height: 40, borderRadius: '50%', objectFit: 'cover' }} />
               )}
               <span style={{ minWidth: 0 }}>
                 <span style={{ display: 'block', fontSize: 14, color: 'var(--text-muted)' }}>Atlikėjas music.lt kataloge</span>
@@ -177,7 +177,7 @@ export default async function ListingDetail({ params }: { params: Promise<{ id: 
               <div style={{ display: 'flex', alignItems: 'center', gap: 12, marginBottom: others.length ? 12 : 0 }}>
                 {author?.avatar_url ? (
                   // eslint-disable-next-line @next/next/no-img-element
-                  <img src={proxyImg(author.avatar_url, 96)} alt="" style={{ width: 44, height: 44, borderRadius: '50%', objectFit: 'cover' }} />
+                  <img src={proxyImg(author.avatar_url, 96)} alt="" loading="lazy" decoding="async" style={{ width: 44, height: 44, borderRadius: '50%', objectFit: 'cover' }} />
                 ) : (
                   <div style={{ width: 44, height: 44, borderRadius: '50%', background: 'var(--bg-active)', display: 'flex', alignItems: 'center', justifyContent: 'center', fontWeight: 800, color: 'var(--text-secondary)' }}>
                     {authorName.charAt(0).toUpperCase()}

@@ -17,7 +17,7 @@
 import { useState, useRef, useMemo, useEffect } from 'react'
 import { useSession, signIn } from 'next-auth/react'
 import Link from 'next/link'
-import { proxyImg } from '@/lib/img-proxy'
+import { proxyImg, proxyImgResized } from '@/lib/img-proxy'
 import EntityCommentsBlock from '@/components/EntityCommentsBlock'
 import LikesModal, { type LikeUser } from '@/components/LikesModal'
 import { LikePill } from '@/components/LikePill'
@@ -356,7 +356,7 @@ export default function BlogPostPageClient(props: Props) {
           {heroImage && (
             <div className="bp-hero-photo">
               {/* eslint-disable-next-line @next/next/no-img-element */}
-              <img src={proxyImg(heroImage)} alt="" />
+              <img src={proxyImgResized(heroImage, 1280)} alt="" decoding="async" />
               <div className="bp-hero-photo-fade" />
             </div>
           )}
@@ -385,7 +385,7 @@ export default function BlogPostPageClient(props: Props) {
               <div className="bp-bar-av" style={{ background: `hsl(${(authorUsername.charCodeAt(0) || 65) * 17 % 360},35%,40%)` }}>
                 {authorAvatar
                   /* eslint-disable-next-line @next/next/no-img-element */
-                  ? <img src={proxyImg(authorAvatar)} alt="" />
+                  ? <img src={proxyImgResized(authorAvatar, 96)} alt="" loading="lazy" decoding="async" />
                   : (authorUsername[0] || '?').toUpperCase()
                 }
               </div>
@@ -443,7 +443,7 @@ export default function BlogPostPageClient(props: Props) {
                   <Link key={r.id} href={r.href} className="bp-bar-pill" title={r.title}>
                     {r.img
                       /* eslint-disable-next-line @next/next/no-img-element */
-                      ? <img src={proxyImg(r.img)} alt="" className={`bp-bar-pill-thumb ${r.round ? 'round' : 'sq'}`} />
+                      ? <img src={proxyImgResized(r.img, 96)} alt="" loading="lazy" decoding="async" className={`bp-bar-pill-thumb ${r.round ? 'round' : 'sq'}`} />
                       : <span className="bp-bar-pill-fallback" style={{ borderRadius: r.round ? '50%' : 7 }}>{r.fallback}</span>
                     }
                     <span className="bp-bar-pill-name">{r.title}</span>
@@ -490,7 +490,7 @@ export default function BlogPostPageClient(props: Props) {
                     textDecoration: 'none', color: 'var(--text-primary)' }}>
                   {gallery.coverUrl && (
                     // eslint-disable-next-line @next/next/no-img-element
-                    <img src={proxyImg(gallery.coverUrl, 200)} alt="" width={72} height={72}
+                    <img src={proxyImg(gallery.coverUrl, 200)} alt="" width={72} height={72} loading="lazy" decoding="async"
                       style={{ width: 72, height: 72, objectFit: 'cover', borderRadius: 10, flex: 'none' }} />
                   )}
                   <span style={{ display: 'flex', flexDirection: 'column', gap: 2 }}>
@@ -584,7 +584,7 @@ function PlayerCard({ tracks, levelOf, active, setActive, playing, setPlaying }:
           >
             {vid && (
               /* eslint-disable-next-line @next/next/no-img-element */
-              <img src={`https://i.ytimg.com/vi/${vid}/hqdefault.jpg`} alt="" referrerPolicy="no-referrer"
+              <img src={`https://i.ytimg.com/vi/${vid}/hqdefault.jpg`} alt="" referrerPolicy="no-referrer" loading="lazy" decoding="async"
                    className="absolute inset-0 h-full w-full object-cover" style={{ filter: 'saturate(1.1) contrast(1.05)' }} />
             )}
             <div className="pointer-events-none absolute inset-0 bg-gradient-to-t from-black/60 via-black/20 to-black/30" />
@@ -702,7 +702,7 @@ function MobileStickyPlayer({ tracks, active, setActive, playing, setPlaying, on
       <div className="flex items-center gap-3 px-3.5 py-2.5">
         {cur?.cover_url
           /* eslint-disable-next-line @next/next/no-img-element */
-          ? <img src={cur.cover_url} alt="" className="h-[42px] w-[42px] shrink-0 rounded-[9px] object-cover" />
+          ? <img src={cur.cover_url} alt="" loading="lazy" decoding="async" className="h-[42px] w-[42px] shrink-0 rounded-[9px] object-cover" />
           : <span className="flex h-[42px] w-[42px] shrink-0 items-center justify-center rounded-[9px] bg-[var(--bg-hover)] text-[20px] text-[var(--text-muted)]">♪</span>
         }
         <div className="min-w-0 flex-1">
@@ -865,7 +865,7 @@ function EnrichedProse({ html }: { html: string }) {
           <div style={{ background: 'var(--bg-elevated)', border: '1px solid var(--border-default)', borderRadius: 14, padding: 12, boxShadow: 'var(--modal-shadow)', display: 'flex', gap: 11 }}>
             {hover.data.cover
               /* eslint-disable-next-line @next/next/no-img-element */
-              ? <img src={proxyImg(hover.data.cover)} alt="" style={{ width: 56, height: 56, borderRadius: 9, objectFit: 'cover', flexShrink: 0 }} />
+              ? <img src={proxyImgResized(hover.data.cover, 96)} alt="" loading="lazy" decoding="async" style={{ width: 56, height: 56, borderRadius: 9, objectFit: 'cover', flexShrink: 0 }} />
               : <div style={{ width: 56, height: 56, borderRadius: 9, background: 'var(--card-bg)', flexShrink: 0 }} />}
             <div style={{ minWidth: 0, flex: 1 }}>
               <div style={{ fontFamily: "'Outfit',sans-serif", fontWeight: 800, fontSize: 14, color: 'var(--text-primary)', lineHeight: 1.2, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{hover.data.title}</div>
@@ -931,7 +931,7 @@ function TopasList({ items }: { items: any[] }) {
               <div className="bp-topas-cover-wrap">
                 {item.image_url
                   /* eslint-disable-next-line @next/next/no-img-element */
-                  ? <img src={item.image_url} alt="" className="bp-topas-cover" />
+                  ? <img src={item.image_url} alt="" loading="lazy" decoding="async" className="bp-topas-cover" />
                   : <div className="bp-topas-cover bp-topas-cover-empty">{(item.artist || item.title || '?').charAt(0).toUpperCase()}</div>
                 }
                 {playable && (
@@ -967,7 +967,7 @@ function ReviewTrackList({ items }: { items: any[] }) {
             <span style={{ fontFamily: "'Outfit', sans-serif", fontWeight: 900, color: 'var(--text-muted)', fontSize: 14, width: 22, textAlign: 'center', flexShrink: 0 }}>{idx + 1}</span>
             {item.image_url
               /* eslint-disable-next-line @next/next/no-img-element */
-              ? <img src={proxyImg(item.image_url)} alt="" style={{ width: 40, height: 40, borderRadius: 8, objectFit: 'cover', flexShrink: 0 }} />
+              ? <img src={proxyImgResized(item.image_url, 96)} alt="" loading="lazy" decoding="async" style={{ width: 40, height: 40, borderRadius: 8, objectFit: 'cover', flexShrink: 0 }} />
               : <span style={{ width: 40, height: 40, borderRadius: 8, background: 'var(--card-bg)', flexShrink: 0 }} />}
             <div style={{ flex: 1, minWidth: 0 }}>
               <p style={{ fontFamily: "'Outfit', sans-serif", fontWeight: 700, fontSize: 16, color: 'var(--text-primary)', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{item.title}</p>
@@ -1007,7 +1007,7 @@ function TargetEntityCard({ target, postType }: { target: any; postType: BlogPos
     <Link href={entity.href} className="bp-sb-card" style={{ display: 'flex', alignItems: 'center', gap: 14, textDecoration: 'none', color: 'inherit', padding: 14 }}>
       {entity.image
         /* eslint-disable-next-line @next/next/no-img-element */
-        ? <img src={proxyImg(entity.image)} alt="" style={{ width: 56, height: 56, borderRadius: 10, objectFit: 'cover', flexShrink: 0 }} />
+        ? <img src={proxyImgResized(entity.image, 96)} alt="" loading="lazy" decoding="async" style={{ width: 56, height: 56, borderRadius: 10, objectFit: 'cover', flexShrink: 0 }} />
         : <div style={{ width: 56, height: 56, borderRadius: 10, background: 'var(--card-bg)', flexShrink: 0 }} />
       }
       <div style={{ flex: 1, minWidth: 0 }}>

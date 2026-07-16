@@ -8,7 +8,7 @@
 
 import { useState, useCallback } from 'react'
 import { useRouter } from 'next/navigation'
-import { proxyImg } from '@/lib/img-proxy'
+import { proxyImgResized } from '@/lib/img-proxy'
 import MusicSearchPicker, { type AttachmentHit } from '@/components/MusicSearchPicker'
 
 type Style = { legacy_style_id: number; style_slug: string; style_name: string }
@@ -162,7 +162,7 @@ export default function OnboardingClient({ styles, initialArtists, username }: P
                       style={{ outline: on ? '3px solid var(--accent-orange)' : '1px solid var(--border-default)', outlineOffset: on ? '0' : '0' }}>
                       {a.cover_image_url ? (
                         // eslint-disable-next-line @next/next/no-img-element
-                        <img src={proxyImg(a.cover_image_url)} alt="" referrerPolicy="no-referrer" className="h-full w-full object-cover transition-transform group-hover:scale-105" />
+                        <img src={proxyImgResized(a.cover_image_url, 256)} alt="" referrerPolicy="no-referrer" loading="lazy" decoding="async" className="h-full w-full object-cover transition-transform group-hover:scale-105" />
                       ) : <div className="flex h-full w-full items-center justify-center text-2xl" style={{ background: 'var(--bg-elevated)' }}>👤</div>}
                       {on && (
                         <div className="absolute inset-0 flex items-center justify-center" style={{ background: 'rgba(249,115,22,0.32)' }}>
@@ -199,7 +199,7 @@ export default function OnboardingClient({ styles, initialArtists, username }: P
                 <div className="h-12 w-12 overflow-hidden rounded-lg" style={{ background: 'var(--bg-elevated)' }}>
                   {moodTrack.image_url ? (
                     // eslint-disable-next-line @next/next/no-img-element
-                    <img src={proxyImg(moodTrack.image_url)} alt="" referrerPolicy="no-referrer" className="h-full w-full object-cover" />
+                    <img src={proxyImgResized(moodTrack.image_url, 96)} alt="" referrerPolicy="no-referrer" loading="lazy" decoding="async" className="h-full w-full object-cover" />
                   ) : <div className="flex h-full w-full items-center justify-center">🎵</div>}
                 </div>
                 <div className="min-w-0 flex-1">

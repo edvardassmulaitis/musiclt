@@ -10,7 +10,7 @@ import { MasterSearch } from '@/components/MasterSearch'
 import { RadarSweepMini } from '@/components/RadarSweepMini'
 import { openQuickCreate } from '@/components/QuickCreate'
 import { useSite } from '@/components/SiteContext'
-import { proxyImg } from '@/lib/img-proxy'
+import { proxyImgResized } from '@/lib/img-proxy'
 import { GENRE_COLORS, GENRE_COLOR_BY_NAME } from '@/lib/genre-colors'
 import { NEWS_STYLES, NEWS_TYPES, NEWS_SCOPES } from '@/lib/news-taxonomy'
 import { LISTING_TYPES, LISTING_TYPE_ORDER } from '@/lib/skelbimai'
@@ -280,7 +280,7 @@ function ImageBox({
   className?: string
   children?: React.ReactNode
 }) {
-  const proxied = src ? proxyImg(src) : null
+  const proxied = src ? proxyImgResized(src, 480) : null
   const rgb = hexToRgb(accent)
   const fallbackBg = `
     radial-gradient(circle at 30% 20%, rgba(${rgb}, 0.55) 0%, transparent 50%),
@@ -527,7 +527,7 @@ function TopMiniRow({ entry, fallbackHref, hex }: { entry: TopMini; fallbackHref
     >
       <span style={{ width: 18, textAlign: 'center', fontWeight: 900, fontSize: 14, color: entry.position === 1 ? hex : 'var(--text-muted)', flexShrink: 0, fontVariantNumeric: 'tabular-nums' }}>{entry.position}</span>
       <span style={{ width: 34, height: 34, borderRadius: 7, overflow: 'hidden', flexShrink: 0, background: 'var(--bg-elevated)', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-        {entry.image ? <img src={proxyImg(entry.image)} alt="" style={{ width: '100%', height: '100%', objectFit: 'cover' }} /> : <span style={{ fontSize: 14, opacity: 0.45 }}>♪</span>}
+        {entry.image ? <img src={proxyImgResized(entry.image, 96)} alt="" loading="lazy" decoding="async" style={{ width: '100%', height: '100%', objectFit: 'cover' }} /> : <span style={{ fontSize: 14, opacity: 0.45 }}>♪</span>}
       </span>
       <span style={{ minWidth: 0, flex: 1, display: 'flex', flexDirection: 'column' }}>
         <span style={{ fontSize: 14, fontWeight: 700, color: 'var(--text-primary)', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{entry.title}</span>
@@ -628,7 +628,7 @@ function TopaiPanel({ data, accent }: { data: NavPreview | null; accent: string 
         {hideFlag
           ? null
           : flag
-            ? <img src={flag} alt="" className="sh-navchip-flag" />
+            ? <img src={flag} alt="" loading="lazy" decoding="async" className="sh-navchip-flag" />
             : <span className="sh-navchip-ic" style={{ color: 'var(--text-secondary)' }} aria-hidden>{/album/i.test(c.title) ? I.vinyl : scopeGlyph(c.scope)}</span>}
         <span style={{ overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', minWidth: 0 }}>{c.title}</span>
       </Link>
@@ -721,7 +721,7 @@ function TopaiPanel({ data, accent }: { data: NavPreview | null; accent: string 
                     style={{ display: 'flex', alignItems: 'center', gap: 9, padding: '7px 12px 7px 8px', borderRadius: 10, border: '1px solid var(--border-default)', textDecoration: 'none', background: 'var(--bg-elevated)' }}
                     className="sh-vote-chip">
                     <span style={{ width: 28, height: 28, borderRadius: 7, overflow: 'hidden', flexShrink: 0, display: 'flex', alignItems: 'center', justifyContent: 'center', background: 'var(--bg-hover)', color: 'var(--text-secondary)' }}>
-                      {v.image ? <img src={proxyImg(v.image)} alt="" style={{ width: '100%', height: '100%', objectFit: 'cover' }} /> : I.award}
+                      {v.image ? <img src={proxyImgResized(v.image, 96)} alt="" loading="lazy" decoding="async" style={{ width: '100%', height: '100%', objectFit: 'cover' }} /> : I.award}
                     </span>
                     <span style={{ fontSize: 14, fontWeight: 700, color: 'var(--text-primary)', whiteSpace: 'nowrap' }}>{v.name}</span>
                   </Link>
@@ -790,7 +790,7 @@ function RenginiaiPanel({ data, accent }: { data: NavPreview | null; accent: str
         <Link key={it?.href || `e-${i}`} href={it?.href || more} className="sh-vcard" title={it?.title || ''}>
           <span style={{ position: 'relative', display: 'block' }}>
             {it?.collage && it.collage.length >= 2
-              ? <span className="sh-vimg sh-collage" aria-hidden>{it.collage.slice(0, 4).map((c, j) => (<span key={j} style={{ backgroundImage: `url(${proxyImg(c)})` }} />))}</span>
+              ? <span className="sh-vimg sh-collage" aria-hidden>{it.collage.slice(0, 4).map((c, j) => (<span key={j} style={{ backgroundImage: `url(${proxyImgResized(c, 256)})` }} />))}</span>
               : <ImageBox src={it?.image} accent={accent} glyph={glyph} className={`sh-vimg${contain ? ' sh-vimg--contain' : ''}`} />}
             {evFlag(it?.flag)}
           </span>
@@ -1253,7 +1253,7 @@ function MobileExpansion({
         <Link key={c.id} href={c.source === 'consensus' ? `/topai/${c.source}-${c.chartKey}` : mAnchor(c.scope)} onClick={onLink}
           className="sh-navchip" title={c.title}>
           {flag
-            ? <img src={flag} alt="" className="sh-navchip-flag" />
+            ? <img src={flag} alt="" loading="lazy" decoding="async" className="sh-navchip-flag" />
             : <span className="sh-navchip-ic" style={{ color: 'var(--text-secondary)' }} aria-hidden>{c.scope === 'social' ? I.trending : I.trophy}</span>}
           {c.title}
         </Link>
@@ -1272,7 +1272,7 @@ function MobileExpansion({
                 style={{ flex: '0 0 auto', width: 116, display: 'flex', flexDirection: 'column', gap: 3, textDecoration: 'none' }}>
                 <span style={{ width: 116, height: 64, borderRadius: 8, overflow: 'hidden', background: 'var(--bg-elevated)', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
                   {e?.image
-                    ? <img src={proxyImg(e.image)} alt="" style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
+                    ? <img src={proxyImgResized(e.image, 256)} alt="" loading="lazy" decoding="async" style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
                     : <span style={{ color: 'var(--text-muted)', opacity: 0.5 }}>{I.music}</span>}
                 </span>
                 <span style={{ fontSize: 14, fontWeight: 700, color: 'var(--text-primary)', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{e?.title || '—'}</span>

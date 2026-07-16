@@ -15,7 +15,7 @@
 
 import { useState, useEffect, useCallback, useMemo } from 'react'
 import { deviceFpSync } from '@/lib/device-fp'
-import { proxyImg } from '@/lib/img-proxy'
+import { proxyImg, proxyImgResized } from '@/lib/img-proxy'
 import { HomeListModal } from '@/components/HomeListModal'
 import { HomeTrackModal } from '@/components/HomeTrackModal'
 import { DainaSuggestModal } from '@/components/DienosDainaSection'
@@ -50,7 +50,7 @@ function Avatar({ src, name, size = 24 }: { src?: string | null; name?: string |
   const nm = name || 'Narys'
   if (src) {
     // eslint-disable-next-line @next/next/no-img-element
-    return <img src={proxyImg(src)} alt="" width={size} height={size} loading="lazy" className="shrink-0 rounded-full object-cover" style={{ width: size, height: size }} />
+    return <img src={proxyImgResized(src, 96)} alt="" width={size} height={size} loading="lazy" decoding="async" className="shrink-0 rounded-full object-cover" style={{ width: size, height: size }} />
   }
   return (
     <div className="flex shrink-0 items-center justify-center rounded-full font-extrabold"
@@ -188,7 +188,7 @@ function WinnersModal({ onClose, onOpenTrack }: { onClose: () => void; onOpenTra
                 className="hp-card group flex items-center gap-3 p-3 text-left">
                 {img ? (
                   // eslint-disable-next-line @next/next/no-img-element
-                  <img src={proxyImg(img)} alt="" loading="lazy" className="h-12 w-12 shrink-0 rounded-lg object-cover" />
+                  <img src={proxyImgResized(img, 96)} alt="" loading="lazy" decoding="async" className="h-12 w-12 shrink-0 rounded-lg object-cover" />
                 ) : <div className="h-12 w-12 shrink-0 rounded-lg" style={{ background: `hsl(${hue(t.title)},30%,18%)` }} />}
                 <div className="min-w-0 flex-1">
                   <p className="m-0 truncate font-['Outfit',sans-serif] text-[16px] font-extrabold text-[var(--text-primary)] group-hover:text-[var(--accent-orange)]">{sani(t.title)}</p>
@@ -312,7 +312,7 @@ export function DienosDainaHero({ fullPage = false }: { fullPage?: boolean }) {
         <button type="button" onClick={() => openTrack(t)} className="flex min-w-0 flex-1 cursor-pointer items-center gap-2.5 border-0 bg-transparent p-0 text-left">
           {img ? (
             // eslint-disable-next-line @next/next/no-img-element
-            <img src={proxyImg(img)} alt="" loading="lazy" className="h-[34px] w-[34px] shrink-0 rounded-[7px] object-cover" />
+            <img src={proxyImgResized(img, 96)} alt="" loading="lazy" decoding="async" className="h-[34px] w-[34px] shrink-0 rounded-[7px] object-cover" />
           ) : <div className="h-[34px] w-[34px] shrink-0 rounded-[7px]" style={{ background: `hsl(${hue(t.title)},30%,18%)` }} />}
           <div className="min-w-0 flex-1">
             <span className="block truncate text-[14px] font-bold text-[var(--text-primary)]">{sani(t.title)}</span>
@@ -351,7 +351,7 @@ export function DienosDainaHero({ fullPage = false }: { fullPage?: boolean }) {
         )}
         {img ? (
           // eslint-disable-next-line @next/next/no-img-element
-          <img src={proxyImg(img)} alt="" loading="lazy" className="h-[34px] w-[34px] shrink-0 rounded-[7px] object-cover" />
+          <img src={proxyImgResized(img, 96)} alt="" loading="lazy" decoding="async" className="h-[34px] w-[34px] shrink-0 rounded-[7px] object-cover" />
         ) : <div className="h-[34px] w-[34px] shrink-0 rounded-[7px]" style={{ background: `hsl(${hue(t.title)},30%,18%)` }} />}
         <div className="min-w-0 flex-1">
           <span className="block truncate text-[14px] font-bold text-[var(--text-primary)]">{sani(t.title)}</span>
@@ -493,7 +493,7 @@ export function DienosDainaHero({ fullPage = false }: { fullPage?: boolean }) {
               )}
               {trackImg(winner.tracks) ? (
                 // eslint-disable-next-line @next/next/no-img-element
-                <img src={proxyImg(trackImg(winner.tracks)!)} alt="" loading="lazy" className="h-[34px] w-[34px] shrink-0 rounded-[7px] object-cover" />
+                <img src={proxyImgResized(trackImg(winner.tracks)!, 96)} alt="" loading="lazy" decoding="async" className="h-[34px] w-[34px] shrink-0 rounded-[7px] object-cover" />
               ) : <div className="h-[34px] w-[34px] shrink-0 rounded-[7px]" style={{ background: `hsl(${hue(winner.tracks.title)},30%,18%)` }} />}
               <div className="min-w-0 flex-1">
                 <div className="flex min-w-0 items-baseline gap-1.5">

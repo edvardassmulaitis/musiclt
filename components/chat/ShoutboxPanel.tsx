@@ -10,7 +10,7 @@
  */
 
 import { useCallback, useEffect, useRef, useState } from 'react'
-import { proxyImg } from '@/lib/img-proxy'
+import { proxyImgResized } from '@/lib/img-proxy'
 
 type Shout = {
   id: number | string
@@ -142,7 +142,7 @@ export function ShoutboxPanel({ viewerId }: { viewerId: string }) {
             <div style={{ flexShrink: 0, width: 30, height: 30, borderRadius: '50%', overflow: 'hidden', background: 'var(--bg-surface)', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
               {m.author_avatar
                 // eslint-disable-next-line @next/next/no-img-element
-                ? <img src={proxyImg(m.author_avatar)} alt="" loading="lazy" style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
+                ? <img src={proxyImgResized(m.author_avatar, 96)} alt="" loading="lazy" decoding="async" style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
                 : <span style={{ fontSize: 14, fontWeight: 800, color: 'var(--text-faint)' }}>{(m.author_name || '?')[0]?.toUpperCase()}</span>}
             </div>
             <div style={{ flex: 1, minWidth: 0 }}>

@@ -19,7 +19,7 @@ import { LikePill } from '@/components/LikePill'
 import { SharePill } from '@/components/SharePill'
 import EntityCommentsBlock from '@/components/EntityCommentsBlock'
 import LyricsWithReactions from '@/components/LyricsWithReactions'
-import { proxyImg } from '@/lib/img-proxy'
+import { proxyImgResized } from '@/lib/img-proxy'
 import { formatArtistList } from '@/lib/format-artists'
 
 /** Modalo track tipas — pakankamas laukų rinkinys. Artist page perduoda savo
@@ -430,7 +430,7 @@ export function TrackInfoModal({
                 <div key={u.user_username} className="flex items-center gap-2 rounded-lg bg-[var(--card-hover)] p-1.5">
                   {u.user_avatar_url ? (
                     // eslint-disable-next-line @next/next/no-img-element
-                    <img src={proxyImg(u.user_avatar_url)} alt="" className="h-[26px] w-[26px] flex-shrink-0 rounded-full object-cover" />
+                    <img src={proxyImgResized(u.user_avatar_url, 96)} alt="" loading="lazy" decoding="async" className="h-[26px] w-[26px] flex-shrink-0 rounded-full object-cover" />
                   ) : (
                     <div className="flex h-[26px] w-[26px] flex-shrink-0 items-center justify-center rounded-full bg-[rgba(99,102,241,0.18)] font-['Outfit',sans-serif] text-[12px] font-bold text-[#818cf8]">
                       {u.user_username.charAt(0).toUpperCase()}
@@ -518,9 +518,10 @@ export function TrackInfoModal({
           {artistThumbUrl && (
             // eslint-disable-next-line @next/next/no-img-element
             <img
-              src={proxyImg(artistThumbUrl)}
+              src={proxyImgResized(artistThumbUrl, 96)}
               alt={artistName}
               referrerPolicy="no-referrer"
+              decoding="async"
               style={{ objectPosition: 'center top' }}
               className="h-[52px] w-[52px] shrink-0 rounded-xl border border-[var(--border-subtle)] object-cover"
             />
@@ -628,6 +629,7 @@ export function TrackInfoModal({
                         <img
                           src={`https://i.ytimg.com/vi/${trackVid}/hqdefault.jpg`}
                           alt=""
+                          decoding="async"
                           className="absolute inset-0 h-full w-full object-cover"
                           referrerPolicy="no-referrer"
                         />
@@ -667,7 +669,7 @@ export function TrackInfoModal({
                       <span className="h-[54px] w-[54px] shrink-0 overflow-hidden rounded-lg bg-[var(--cover-placeholder)]">
                         {primaryAlbum.cover_image_url && (
                           // eslint-disable-next-line @next/next/no-img-element
-                          <img src={proxyImg(primaryAlbum.cover_image_url)} alt="" referrerPolicy="no-referrer" className="h-full w-full object-cover" />
+                          <img src={proxyImgResized(primaryAlbum.cover_image_url, 96)} alt="" referrerPolicy="no-referrer" loading="lazy" decoding="async" className="h-full w-full object-cover" />
                         )}
                       </span>
                       <div className="min-w-0 flex-1">
@@ -702,7 +704,7 @@ export function TrackInfoModal({
                               <span className="aspect-video h-9 shrink-0 overflow-hidden rounded bg-black">
                                 {tvid && (
                                   // eslint-disable-next-line @next/next/no-img-element
-                                  <img src={`https://i.ytimg.com/vi/${tvid}/mqdefault.jpg`} alt="" referrerPolicy="no-referrer" className="h-full w-full object-cover" />
+                                  <img src={`https://i.ytimg.com/vi/${tvid}/mqdefault.jpg`} alt="" referrerPolicy="no-referrer" loading="lazy" decoding="async" className="h-full w-full object-cover" />
                                 )}
                               </span>
                               <span className="min-w-0 flex-1">
@@ -888,7 +890,7 @@ export function TrackInfoModal({
                               {tvid && (
                                 // eslint-disable-next-line @next/next/no-img-element
                                 <img src={`https://i.ytimg.com/vi/${tvid}/mqdefault.jpg`} alt=""
-                                  referrerPolicy="no-referrer" className="h-full w-full object-cover" />
+                                  referrerPolicy="no-referrer" loading="lazy" decoding="async" className="h-full w-full object-cover" />
                               )}
                             </span>
                             <span className="block truncate px-1 pt-1 text-left font-['Outfit',sans-serif] text-[12px] font-extrabold text-[var(--text-primary)]">

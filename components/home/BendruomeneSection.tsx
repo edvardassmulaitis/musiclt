@@ -12,7 +12,7 @@
 import { useState, useEffect } from 'react'
 import Link from 'next/link'
 import Scroller from '@/components/ui/Scroller'
-import { proxyImg } from '@/lib/img-proxy'
+import { proxyImgResized } from '@/lib/img-proxy'
 import SeenLiveMediaViewer from '@/components/seen-live/SeenLiveMediaViewer'
 import type { SeenLiveRecent } from '@/lib/seen-live'
 
@@ -157,7 +157,7 @@ function Cover({ url, alt, hue, h = 134, iconType = 'blog' }: { url: string | nu
             style={{ background: `linear-gradient(135deg,hsl(${hue},34%,22%),hsl(${(hue+40)%360},30%,12%))` }}>
             <PlaceholderIcon type={iconType} />
           </div>
-        : <img src={proxyImg(url!)} alt={alt} loading="lazy" onError={() => setFailed(true)} // eslint-disable-line @next/next/no-img-element
+        : <img src={proxyImgResized(url!, 480)} alt={alt} loading="lazy" decoding="async" onError={() => setFailed(true)} // eslint-disable-line @next/next/no-img-element
             className="h-full w-full object-cover transition-transform duration-500 group-hover:scale-[1.05]" />
       }
     </div>
@@ -172,7 +172,7 @@ function AuthorRow({ it }: { it: CommunityItem }) {
   return (
     <div className="mt-auto flex items-center gap-1.5 border-t border-[var(--border-subtle)] px-3 py-2.5">
       {it.author_avatar
-        ? <img src={proxyImg(it.author_avatar)} alt="" loading="lazy" // eslint-disable-line @next/next/no-img-element
+        ? <img src={proxyImgResized(it.author_avatar, 96)} alt="" loading="lazy" decoding="async" // eslint-disable-line @next/next/no-img-element
             className="h-[18px] w-[18px] shrink-0 rounded-full object-cover" />
         : name
           ? <div className="flex h-[18px] w-[18px] shrink-0 items-center justify-center rounded-full text-[12px] font-extrabold"
@@ -195,7 +195,7 @@ function CommentBubbleEl({ c, clamp = 4 }: { c: CommentBubble; clamp?: number })
     <div className="flex flex-col gap-1 rounded-[4px_12px_12px_12px] border border-[var(--border-subtle)] bg-[rgba(255,255,255,0.05)] px-2.5 py-2">
       <div className="flex items-center gap-1.5">
         {c.avatar
-          ? <img src={proxyImg(c.avatar)} alt="" loading="lazy" // eslint-disable-line @next/next/no-img-element
+          ? <img src={proxyImgResized(c.avatar, 96)} alt="" loading="lazy" decoding="async" // eslint-disable-line @next/next/no-img-element
               className="h-[15px] w-[15px] shrink-0 rounded-full object-cover" />
           : <div className="h-[15px] w-[15px] shrink-0 rounded-full"
               style={{ background: `hsl(${ch},30%,25%)` }} />
@@ -226,7 +226,7 @@ function DDCard({ it }: { it: CommunityItem }) {
       <div className="flex items-center gap-3 px-3.5 pt-9">
         <div className="relative h-[86px] w-[86px] shrink-0 overflow-hidden rounded-xl shadow-[0_8px_22px_rgba(0,0,0,0.45)]">
           {it.cover
-            ? <img src={proxyImg(it.cover)} alt={it.title} loading="lazy" // eslint-disable-line @next/next/no-img-element
+            ? <img src={proxyImgResized(it.cover, 256)} alt={it.title} loading="lazy" decoding="async" // eslint-disable-line @next/next/no-img-element
                 className="h-full w-full object-cover" />
             : <div className="flex h-full w-full items-center justify-center text-white/20"
                 style={{ background: `linear-gradient(135deg,hsl(${h},50%,18%),hsl(${(h+30)%360},40%,10%))` }}>
@@ -255,7 +255,7 @@ function DDCard({ it }: { it: CommunityItem }) {
                 <div key={i} className="flex items-center gap-2">
                   <span className="w-4 shrink-0 text-center font-['Outfit',sans-serif] text-[14px] font-black text-[var(--text-muted)]">{c.rank ?? i + 2}</span>
                   {c.cover
-                    ? <img src={proxyImg(c.cover)} alt="" loading="lazy" // eslint-disable-line @next/next/no-img-element
+                    ? <img src={proxyImgResized(c.cover, 96)} alt="" loading="lazy" decoding="async" // eslint-disable-line @next/next/no-img-element
                         className="h-[30px] w-[30px] shrink-0 rounded-md object-cover" />
                     : <div className="h-[30px] w-[30px] shrink-0 rounded-md" style={{ background: `hsl(${strHue(c.title)},30%,22%)` }} />
                   }
@@ -347,7 +347,7 @@ function TopasCard({ it }: { it: CommunityItem }) {
                   {e.rank}
                 </span>
                 {e.image
-                  ? <img src={proxyImg(e.image)} alt="" loading="lazy" // eslint-disable-line @next/next/no-img-element
+                  ? <img src={proxyImgResized(e.image, 96)} alt="" loading="lazy" decoding="async" // eslint-disable-line @next/next/no-img-element
                       className="h-[38px] w-[38px] shrink-0 rounded-md object-cover" />
                   : <div className="h-[38px] w-[38px] shrink-0 rounded-md"
                       style={{ background: `hsl(${strHue(e.title)},30%,20%)` }} />
@@ -384,7 +384,7 @@ function DiscCard({ it }: { it: CommunityItem }) {
         <>
           <Badge meta={meta} />
           <div className="relative shrink-0 overflow-hidden" style={{ height: 134 }}>
-            <img src={proxyImg(it.cover)} alt={it.title} loading="lazy" // eslint-disable-line @next/next/no-img-element
+            <img src={proxyImgResized(it.cover, 480)} alt={it.title} loading="lazy" decoding="async" // eslint-disable-line @next/next/no-img-element
               className="h-full w-full object-cover transition-transform duration-500 group-hover:scale-[1.05]" />
             <div className="pointer-events-none absolute inset-0" style={{ background: 'linear-gradient(to bottom,transparent 40%,rgba(13,19,32,0.8))' }} />
             {(it.comment_count ?? 0) > 0 && (
@@ -434,7 +434,7 @@ function AtradimasCard({ it }: { it: CommunityItem }) {
         {it.excerpt && (
           <div className="mt-1 flex gap-2">
             {it.author_avatar
-              ? <img src={proxyImg(it.author_avatar)} alt="" loading="lazy" // eslint-disable-line @next/next/no-img-element
+              ? <img src={proxyImgResized(it.author_avatar, 96)} alt="" loading="lazy" decoding="async" // eslint-disable-line @next/next/no-img-element
                   className="mt-0.5 h-[18px] w-[18px] shrink-0 rounded-full object-cover" />
               : it.author_name
                 ? <div className="mt-0.5 flex h-[18px] w-[18px] shrink-0 items-center justify-center rounded-full text-[12px] font-extrabold"
@@ -547,7 +547,7 @@ function SightingCard({ it, onOpen }: { it: SeenLiveRecent; onOpen: () => void }
       <div className="relative shrink-0 overflow-hidden" style={{ height: 134 }}>
         {cover ? (
           // eslint-disable-next-line @next/next/no-img-element
-          <img src={proxyImg(cover)} alt={name} loading="lazy" className="h-full w-full object-cover transition-transform duration-500 group-hover:scale-[1.05]" />
+          <img src={proxyImgResized(cover, 480)} alt={name} loading="lazy" decoding="async" className="h-full w-full object-cover transition-transform duration-500 group-hover:scale-[1.05]" />
         ) : (
           <div className="flex h-full w-full items-center justify-center text-[34px] text-white/30" style={{ background: `linear-gradient(135deg,hsl(${h},34%,22%),hsl(${(h + 40) % 360},30%,12%))` }}>🎤</div>
         )}
@@ -564,11 +564,11 @@ function SightingCard({ it, onOpen }: { it: SeenLiveRecent; onOpen: () => void }
             <div key={i} className="relative h-11 w-11 shrink-0 overflow-hidden rounded-md" style={{ background: 'var(--cover-placeholder)' }}>
               {m.type === 'image' ? (
                 // eslint-disable-next-line @next/next/no-img-element
-                <img src={proxyImg(m.url)} alt="" loading="lazy" referrerPolicy="no-referrer" className="h-full w-full object-cover" />
+                <img src={proxyImgResized(m.url, 96)} alt="" loading="lazy" decoding="async" referrerPolicy="no-referrer" className="h-full w-full object-cover" />
               ) : m.poster ? (
                 <>
                   {/* eslint-disable-next-line @next/next/no-img-element */}
-                  <img src={proxyImg(m.poster)} alt="" loading="lazy" referrerPolicy="no-referrer" className="h-full w-full object-cover" />
+                  <img src={proxyImgResized(m.poster, 96)} alt="" loading="lazy" decoding="async" referrerPolicy="no-referrer" className="h-full w-full object-cover" />
                   <span className="absolute inset-0 flex items-center justify-center"><svg viewBox="0 0 24 24" width={12} height={12} fill="#fff"><polygon points="6 4 20 12 6 20 6 4" /></svg></span>
                 </>
               ) : (
@@ -587,7 +587,7 @@ function SightingCard({ it, onOpen }: { it: SeenLiveRecent; onOpen: () => void }
       {/* Autorius */}
       <div className="mt-auto flex items-center gap-1.5 border-t border-[var(--border-subtle)] px-3 py-2.5">
         {it.user?.avatar_url
-          ? /* eslint-disable-next-line @next/next/no-img-element */ <img src={proxyImg(it.user.avatar_url)} alt="" loading="lazy" className="h-[18px] w-[18px] shrink-0 rounded-full object-cover" />
+          ? /* eslint-disable-next-line @next/next/no-img-element */ <img src={proxyImgResized(it.user.avatar_url, 96)} alt="" loading="lazy" decoding="async" className="h-[18px] w-[18px] shrink-0 rounded-full object-cover" />
           : <div className="flex h-[18px] w-[18px] shrink-0 items-center justify-center rounded-full text-[12px] font-extrabold" style={{ fontFamily: "'Outfit',sans-serif", background: `hsl(${strHue(uname || name)},32%,18%)`, color: `hsl(${strHue(uname || name)},45%,55%)` }}>{(uname || name).charAt(0).toUpperCase()}</div>
         }
         <span className="min-w-0 flex-1 truncate text-[14px] font-semibold text-[var(--text-secondary)]" style={{ fontFamily: "'Outfit',sans-serif" }}>{uname ? `@${uname}` : 'narys'}</span>

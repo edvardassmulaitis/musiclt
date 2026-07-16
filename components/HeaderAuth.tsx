@@ -4,7 +4,7 @@ import { useState, useRef, useEffect } from 'react'
 import { createPortal } from 'react-dom'
 import { signIn, signOut, useSession } from 'next-auth/react'
 import Link from 'next/link'
-import { proxyImg } from '@/lib/img-proxy'
+import { proxyImgResized } from '@/lib/img-proxy'
 import { useSite } from '@/components/SiteContext'
 import TurnstileWidget from '@/components/TurnstileWidget'
 
@@ -320,10 +320,11 @@ function UserMenu() {
             // music.lt URL'us paleidžia per weserv.nl, kitus (Google/FB) palieka.
             // eslint-disable-next-line @next/next/no-img-element
             <img
-              src={proxyImg(session.user.image)}
+              src={proxyImgResized(session.user.image, 96)}
               alt={session.user.name || ''}
               width={32} height={32}
               referrerPolicy="no-referrer"
+              decoding="async"
               className="w-8 h-8 rounded-full object-cover"
               style={{ boxShadow: open ? '0 0 0 2px var(--accent-orange)' : '0 0 0 2px rgba(255,255,255,0.18)' }}
             />
@@ -378,10 +379,12 @@ function UserMenu() {
             {session.user.image ? (
               // eslint-disable-next-line @next/next/no-img-element
               <img
-                src={proxyImg(session.user.image)}
+                src={proxyImgResized(session.user.image, 96)}
                 alt={session.user.name || ''}
                 width={42} height={42}
                 referrerPolicy="no-referrer"
+                loading="lazy"
+                decoding="async"
                 className="w-[42px] h-[42px] rounded-full object-cover flex-shrink-0"
                 style={{ boxShadow: '0 0 0 2px var(--modal-bg), 0 0 0 3px rgba(249,115,22,0.5)' }}
               />

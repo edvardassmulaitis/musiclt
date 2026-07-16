@@ -139,7 +139,7 @@ export default function ChartFullView({ chart, entries }: { chart: FullChart; en
                 <button className="cfv-rowmain" onClick={() => play(i)} type="button" title={playable ? 'Groti' : undefined}>
                   <span className="cfv-pos">{e.position}</span>
                   <span className="cfv-cover">
-                    {e.coverUrl ? <img src={proxyImg(e.coverUrl, 120)} alt="" /> : <span className="cfv-ph">♪</span>}
+                    {e.coverUrl ? <img src={proxyImg(e.coverUrl, 120)} alt="" loading="lazy" decoding="async" /> : <span className="cfv-ph">♪</span>}
                     {playable && <span className="cfv-play" aria-hidden>▶</span>}
                   </span>
                   <span className="cfv-info">

@@ -14,7 +14,7 @@
 // arba spans 2x2 (still square). Niekas ne-elongated.
 
 import Link from 'next/link'
-import { proxyImg } from '@/lib/img-proxy'
+import { proxyImgResized } from '@/lib/img-proxy'
 
 type Artist = {
   id: number
@@ -62,9 +62,10 @@ export function FavoriteArtistsCollage({
             {a.cover_image_url ? (
               // eslint-disable-next-line @next/next/no-img-element
               <img
-                src={proxyImg(a.cover_image_url, isHero ? 720 : 360)}
+                src={proxyImgResized(a.cover_image_url, isHero ? 720 : 360)}
                 alt=""
                 loading="lazy"
+                decoding="async"
                 className="w-full h-full object-cover group-hover:scale-105 transition duration-500"
               />
             ) : (

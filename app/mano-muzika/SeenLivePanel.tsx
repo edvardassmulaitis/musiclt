@@ -13,7 +13,7 @@
 // ────────────────────────────────────────────────────────────────────────────
 
 import { useEffect, useRef, useState } from 'react'
-import { proxyImg } from '@/lib/img-proxy'
+import { proxyImgResized } from '@/lib/img-proxy'
 import MusicSearchPicker, { type AttachmentHit } from '@/components/MusicSearchPicker'
 import GeoPicker, { EMPTY_GEO, type GeoValue } from '@/components/geo/GeoPicker'
 import SeenLiveMediaViewer from '@/components/seen-live/SeenLiveMediaViewer'
@@ -106,7 +106,7 @@ export default function SeenLivePanel({ flash, likedArtists = [] }: { flash: (m:
                     <div className="relative h-11 w-11 shrink-0 overflow-hidden rounded-lg" style={{ background: 'var(--cover-placeholder)' }}>
                       {cover ? (
                         // eslint-disable-next-line @next/next/no-img-element
-                        <img src={proxyImg(cover)} alt="" referrerPolicy="no-referrer" className="h-full w-full object-cover" />
+                        <img src={proxyImgResized(cover, 96)} alt="" referrerPolicy="no-referrer" loading="lazy" decoding="async" className="h-full w-full object-cover" />
                       ) : <div className="flex h-full w-full items-center justify-center text-[16px]" style={{ color: 'var(--text-faint)' }}>🎤</div>}
                       {it.media.length > 0 && <span className="absolute bottom-0 right-0 rounded-tl bg-black/60 px-1 text-[10px] font-bold text-white">{it.media.length}</span>}
                     </div>
@@ -361,7 +361,7 @@ function Wizard({ onAdded, flash, onClose, fullscreen = false, likedArtists = []
               <div className="relative overflow-hidden rounded-2xl" style={{ background: 'var(--cover-placeholder)', aspectRatio: '16 / 10' }}>
                 {artist.image_url ? (
                   // eslint-disable-next-line @next/next/no-img-element
-                  <img src={proxyImg(artist.image_url)} alt="" referrerPolicy="no-referrer" className="h-full w-full object-cover" />
+                  <img src={proxyImgResized(artist.image_url, 1280)} alt="" referrerPolicy="no-referrer" decoding="async" className="h-full w-full object-cover" />
                 ) : <div className="flex h-full w-full items-center justify-center text-[48px]">🎤</div>}
                 <div className="absolute inset-x-0 bottom-0 bg-gradient-to-t from-black/75 to-transparent p-3 pt-8">
                   <div className="font-['Outfit',sans-serif] text-[22px] font-extrabold leading-tight text-white">{artist.title}</div>
@@ -452,7 +452,7 @@ function Wizard({ onAdded, flash, onClose, fullscreen = false, likedArtists = []
                 <label className="mb-1 block text-[12px] font-bold uppercase tracking-wide" style={{ color: 'var(--text-faint)' }}>Savo renginys</label>
                 <div className="flex items-center gap-2 rounded-lg p-2 ring-1" style={{ background: 'var(--bg-elevated)', ['--tw-ring-color' as any]: 'var(--border-subtle)' } as any}>
                   <div className="h-7 w-7 shrink-0 overflow-hidden rounded" style={{ background: 'var(--cover-placeholder)' }}>
-                    {artist?.image_url && /* eslint-disable-next-line @next/next/no-img-element */ <img src={proxyImg(artist.image_url)} alt="" referrerPolicy="no-referrer" className="h-full w-full object-cover" />}
+                    {artist?.image_url && /* eslint-disable-next-line @next/next/no-img-element */ <img src={proxyImgResized(artist.image_url, 96)} alt="" referrerPolicy="no-referrer" loading="lazy" decoding="async" className="h-full w-full object-cover" />}
                   </div>
                   <span className="min-w-0 flex-1 truncate text-[13px]" style={{ color: 'var(--text-primary)' }}><b>{artist?.title || newArtist}</b> · headlineris</span>
                 </div>
@@ -539,7 +539,7 @@ function QuickPickRow({ title, artists, onPick }: { title: string; artists: Quic
             <div className="mx-auto h-[74px] w-[74px] overflow-hidden rounded-full ring-1" style={{ background: 'var(--cover-placeholder)', ['--tw-ring-color' as any]: 'var(--border-subtle)' } as any}>
               {a.image_url ? (
                 // eslint-disable-next-line @next/next/no-img-element
-                <img src={proxyImg(a.image_url)} alt="" referrerPolicy="no-referrer" className="h-full w-full object-cover" />
+                <img src={proxyImgResized(a.image_url, 256)} alt="" referrerPolicy="no-referrer" loading="lazy" decoding="async" className="h-full w-full object-cover" />
               ) : <div className="flex h-full w-full items-center justify-center text-[22px]">🎤</div>}
             </div>
             <div className="mt-1 line-clamp-2 text-[12px] font-semibold leading-tight" style={{ color: 'var(--text-secondary)' }}>{a.title}</div>
@@ -651,11 +651,11 @@ function MediaUploader({ media, setMedia, flash }: { media: SeenLiveMedia[]; set
           <div key={i} className="relative h-20 w-20 overflow-hidden rounded-lg ring-1" style={{ background: 'var(--cover-placeholder)', ['--tw-ring-color' as any]: 'var(--border-subtle)' } as any}>
             {m.type === 'image' ? (
               // eslint-disable-next-line @next/next/no-img-element
-              <img src={proxyImg(m.url)} alt="" referrerPolicy="no-referrer" className="h-full w-full object-cover" />
+              <img src={proxyImgResized(m.url, 256)} alt="" referrerPolicy="no-referrer" loading="lazy" decoding="async" className="h-full w-full object-cover" />
             ) : m.poster ? (
               <>
                 {/* eslint-disable-next-line @next/next/no-img-element */}
-                <img src={proxyImg(m.poster)} alt="" referrerPolicy="no-referrer" className="h-full w-full object-cover" />
+                <img src={proxyImgResized(m.poster, 256)} alt="" referrerPolicy="no-referrer" loading="lazy" decoding="async" className="h-full w-full object-cover" />
                 <span className="absolute inset-0 flex items-center justify-center"><span className="flex h-6 w-6 items-center justify-center rounded-full bg-black/55 text-white"><svg viewBox="0 0 24 24" width={11} height={11} fill="currentColor"><polygon points="6 4 20 12 6 20 6 4" /></svg></span></span>
               </>
             ) : (

@@ -17,7 +17,7 @@ import { createPortal } from 'react-dom'
 import { useSession } from 'next-auth/react'
 import Link from 'next/link'
 import { prettifyDiscussionTitle } from '@/lib/forum-title'
-import { proxyImg } from '@/lib/img-proxy'
+import { proxyImgResized } from '@/lib/img-proxy'
 
 type Discussion = {
   id: number; slug: string; title: string; body: string
@@ -84,7 +84,7 @@ function Avatar({ src, name, size = 20 }: { src?: string | null; name?: string |
   const nm = name || 'narys'
   if (src) {
     // eslint-disable-next-line @next/next/no-img-element
-    return <img src={proxyImg(src)} alt="" width={size} height={size} loading="lazy" className="shrink-0 rounded-full object-cover" style={{ width: size, height: size }} />
+    return <img src={proxyImgResized(src, 96)} alt="" width={size} height={size} loading="lazy" decoding="async" className="shrink-0 rounded-full object-cover" style={{ width: size, height: size }} />
   }
   return (
     <span className="flex shrink-0 items-center justify-center rounded-full font-extrabold"
@@ -211,7 +211,7 @@ function DiscussionRow({ d }: { d: Discussion }) {
       {art?.cover_image_url && (
         <div className="relative hidden w-[78px] shrink-0 overflow-hidden sm:block">
           {/* eslint-disable-next-line @next/next/no-img-element */}
-          <img src={proxyImg(art.cover_image_url)} alt="" loading="lazy" className="h-full w-full object-cover" />
+          <img src={proxyImgResized(art.cover_image_url, 256)} alt="" loading="lazy" decoding="async" className="h-full w-full object-cover" />
         </div>
       )}
     </Link>

@@ -10,7 +10,7 @@
 // ────────────────────────────────────────────────────────────────────────────
 
 import { useEffect, useRef, useState } from 'react'
-import { proxyImg } from '@/lib/img-proxy'
+import { proxyImgResized } from '@/lib/img-proxy'
 import GeoPicker, { EMPTY_GEO, type GeoValue } from '@/components/geo/GeoPicker'
 import type { SeenLivePending } from '@/lib/seen-live'
 
@@ -138,7 +138,7 @@ function ReviewCard({ item, onDone, onError }: { item: SeenLivePending; onDone: 
             <a key={i} href={m.url} target="_blank" rel="noreferrer noopener" className="block h-16 w-16 overflow-hidden rounded-lg ring-1 ring-[var(--border-subtle)]" style={{ background: 'var(--cover-placeholder)' }}>
               {m.type === 'image' ? (
                 // eslint-disable-next-line @next/next/no-img-element
-                <img src={proxyImg(m.url)} alt="" referrerPolicy="no-referrer" className="h-full w-full object-cover" />
+                <img src={proxyImgResized(m.url, 96)} alt="" referrerPolicy="no-referrer" loading="lazy" decoding="async" className="h-full w-full object-cover" />
               ) : <div className="flex h-full w-full items-center justify-center text-[20px]">🎬</div>}
             </a>
           ))}
@@ -150,7 +150,7 @@ function ReviewCard({ item, onDone, onError }: { item: SeenLivePending; onDone: 
         <div className="mb-1 text-[11px] font-bold uppercase tracking-wide text-[var(--text-faint)]">Atlikėjas</div>
         {hasArtist ? (
           <div className="flex items-center gap-2">
-            {item.artist?.cover_image_url && /* eslint-disable-next-line @next/next/no-img-element */ (<img src={proxyImg(item.artist.cover_image_url)} alt="" referrerPolicy="no-referrer" className="h-8 w-8 rounded object-cover" />)}
+            {item.artist?.cover_image_url && /* eslint-disable-next-line @next/next/no-img-element */ (<img src={proxyImgResized(item.artist.cover_image_url, 96)} alt="" referrerPolicy="no-referrer" loading="lazy" decoding="async" className="h-8 w-8 rounded object-cover" />)}
             <span className="text-[14px] font-bold text-[var(--text-primary)]">{item.artist?.name}</span>
             <span className="text-[12px] text-[var(--text-faint)]">(jau DB)</span>
           </div>
@@ -271,7 +271,7 @@ function ArtistSearch({ onPick, picked, placeholder }: { onPick: (a: ArtistHit |
   if (picked) {
     return (
       <div className="flex items-center gap-2 rounded-md border border-[var(--border-default)] bg-[var(--bg-elevated)] px-2.5 py-1.5">
-        {picked.cover_image_url && /* eslint-disable-next-line @next/next/no-img-element */ <img src={proxyImg(picked.cover_image_url)} alt="" referrerPolicy="no-referrer" className="h-6 w-6 rounded object-cover" />}
+        {picked.cover_image_url && /* eslint-disable-next-line @next/next/no-img-element */ <img src={proxyImgResized(picked.cover_image_url, 96)} alt="" referrerPolicy="no-referrer" loading="lazy" decoding="async" className="h-6 w-6 rounded object-cover" />}
         <span className="text-[13px] font-bold text-[var(--text-primary)]">{picked.name}</span>
         <button onClick={() => onPick(null)} className="ml-auto text-[12px] text-[var(--accent-link)]">keisti</button>
       </div>
@@ -286,7 +286,7 @@ function ArtistSearch({ onPick, picked, placeholder }: { onPick: (a: ArtistHit |
           {results.map((a) => (
             <li key={a.id}>
               <button type="button" onClick={() => { onPick(a); setOpen(false); setQ('') }} className="flex w-full items-center gap-2 border-b border-[var(--border-subtle)] px-2.5 py-1.5 text-left last:border-b-0 hover:bg-[var(--bg-hover)]">
-                {a.cover_image_url && /* eslint-disable-next-line @next/next/no-img-element */ <img src={proxyImg(a.cover_image_url)} alt="" referrerPolicy="no-referrer" className="h-6 w-6 rounded object-cover" />}
+                {a.cover_image_url && /* eslint-disable-next-line @next/next/no-img-element */ <img src={proxyImgResized(a.cover_image_url, 96)} alt="" referrerPolicy="no-referrer" loading="lazy" decoding="async" className="h-6 w-6 rounded object-cover" />}
                 <span className="text-[13px] font-bold text-[var(--text-primary)]">{a.name}</span>
                 {a.country && <span className="text-[11px] text-[var(--text-faint)]">{a.country}</span>}
               </button>

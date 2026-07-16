@@ -551,10 +551,10 @@ export default function DienosClient(props: Props) {
                       <>
                         {side.cover_url
                           // eslint-disable-next-line @next/next/no-img-element
-                          ? <img src={side.cover_url} alt="" loading="lazy" />
+                          ? <img src={side.cover_url} alt="" loading="lazy" decoding="async" />
                           : ytId
                           // eslint-disable-next-line @next/next/no-img-element
-                          ? <img src={`https://img.youtube.com/vi/${ytId}/mqdefault.jpg`} alt="" loading="lazy" />
+                          ? <img src={`https://img.youtube.com/vi/${ytId}/mqdefault.jpg`} alt="" loading="lazy" decoding="async" />
                           : <span className="di-duel-ph">🎵</span>}
                         {ytId && !duelPick && <button className="di-play" onClick={() => setDuelPlaying(tag)}>▶</button>}
                       </>
@@ -593,7 +593,7 @@ export default function DienosClient(props: Props) {
                 />
               ) : verdict.track.cover_url ? (
                 // eslint-disable-next-line @next/next/no-img-element
-                <img src={verdict.track.cover_url} alt="" />
+                <img src={verdict.track.cover_url} alt="" decoding="async" />
               ) : null}
             </div>
             <div className="di-verdict-meta">
@@ -635,7 +635,7 @@ export default function DienosClient(props: Props) {
           <p className="di-note">Dirbtinis intelektas nupiešė dainą — atspėk kurią.</p>
           <div className="di-image-wrap">
             {/* eslint-disable-next-line @next/next/no-img-element */}
-            <img src={image.image_url} alt="AI vaizdas pagal dainą" />
+            <img src={image.image_url} alt="AI vaizdas pagal dainą" decoding="async" />
             {imgPick !== null && (
               <div className={`di-verdict-tag ${imgCorrect ? 'ok' : 'bad'}`}>
                 {imgCorrect ? 'Teisingai!' : `Ne — tai ${image.correct.artist} „${image.correct.title}"`}
@@ -840,7 +840,7 @@ function AlbumGameStep({ game, stepNo, stepTotal, onDone }: {
 
       <div className="di-ag-imgwrap">
         {/* eslint-disable-next-line @next/next/no-img-element */}
-        <img key={round.r} src={proxyImg(round.image, 480)} alt="" />
+        <img key={round.r} src={proxyImg(round.image, 480)} alt="" decoding="async" />
         {game === 'vaizdas' && (
           <div className="di-ag-puzzle" aria-hidden>
             {pzRanksRef.current.map((rank, i) => (

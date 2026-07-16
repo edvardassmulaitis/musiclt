@@ -10,7 +10,7 @@
 // 2026-06-23.
 
 import { useState, useEffect, useCallback, useRef } from 'react'
-import { proxyImg } from '@/lib/img-proxy'
+import { proxyImgResized } from '@/lib/img-proxy'
 import { HomeTrackModal } from '@/components/HomeTrackModal'
 
 // ───────── helpers ─────────
@@ -49,7 +49,7 @@ function Avatar({ src, name, size = 22 }: { src?: string | null; name?: string |
   const nm = name || 'Narys'
   if (src) {
     // eslint-disable-next-line @next/next/no-img-element
-    return <img src={proxyImg(src)} alt="" width={size} height={size} loading="lazy" className="shrink-0 rounded-full object-cover" style={{ width: size, height: size }} />
+    return <img src={proxyImgResized(src, 96)} alt="" width={size} height={size} loading="lazy" decoding="async" className="shrink-0 rounded-full object-cover" style={{ width: size, height: size }} />
   }
   return (
     <div className="flex shrink-0 items-center justify-center rounded-full font-extrabold"
@@ -137,7 +137,7 @@ export default function DienosDainaArchive() {
     const img = t ? trackImg(t) : null
     const inner = img ? (
       // eslint-disable-next-line @next/next/no-img-element
-      <img src={proxyImg(img)} alt="" loading="lazy" className="h-full w-full object-cover" />
+      <img src={proxyImgResized(img, 96)} alt="" loading="lazy" decoding="async" className="h-full w-full object-cover" />
     ) : <div className="flex h-full w-full items-center justify-center" style={{ background: `hsl(${hue(t?.title || '')},30%,28%)` }} />
     return (
       <button type="button" onClick={onClick} aria-label="Atidaryti dainą"

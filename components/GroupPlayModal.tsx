@@ -11,7 +11,7 @@
 import { useEffect, useState } from 'react'
 import { HomeListModal } from '@/components/HomeListModal'
 import { ChartYtPlayer } from '@/components/ChartYtPlayer'
-import { proxyImg } from '@/lib/img-proxy'
+import { proxyImgResized } from '@/lib/img-proxy'
 
 function ytId(url?: string | null): string | null {
   if (!url) return null
@@ -46,7 +46,7 @@ export function GroupPlayModal({ artistId, artistName, onClose }: { artistId: nu
 
   const current = tracks && tracks[cur] ? tracks[cur] : null
   const curVid = current ? ytId(current.video_url) : null
-  const poster = curVid ? `https://i.ytimg.com/vi/${curVid}/hqdefault.jpg` : (current?.cover_url ? proxyImg(current.cover_url) : null)
+  const poster = curVid ? `https://i.ytimg.com/vi/${curVid}/hqdefault.jpg` : (current?.cover_url ? proxyImgResized(current.cover_url, 640) : null)
 
   return (
     <HomeListModal open onClose={onClose} title={artistName} subtitle="Grupės dainos">
@@ -78,7 +78,7 @@ export function GroupPlayModal({ artistId, artistName, onClose }: { artistId: nu
                   <span className={`w-5 shrink-0 text-center font-['Outfit',sans-serif] text-[14px] font-black ${active ? 'text-[var(--accent-orange)]' : 'text-[var(--text-faint)]'}`}>{i + 1}</span>
                   {t.cover_url ? (
                     // eslint-disable-next-line @next/next/no-img-element
-                    <img src={proxyImg(t.cover_url)} alt="" loading="lazy" className="h-9 w-9 shrink-0 rounded-md object-cover" />
+                    <img src={proxyImgResized(t.cover_url, 96)} alt="" loading="lazy" decoding="async" className="h-9 w-9 shrink-0 rounded-md object-cover" />
                   ) : <div className="h-9 w-9 shrink-0 rounded-md bg-[var(--cover-placeholder)]" />}
                   <span className="min-w-0 flex-1 truncate text-[14px] font-semibold text-[var(--text-primary)]">{t.title}</span>
                   <svg width="15" height="15" viewBox="0 0 24 24" fill="currentColor" className={`shrink-0 ${active ? 'text-[var(--accent-orange)]' : 'text-[var(--text-faint)]'}`}><polygon points="6 4 20 12 6 20 6 4" /></svg>

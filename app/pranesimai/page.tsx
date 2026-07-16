@@ -11,7 +11,7 @@
 import { useEffect, useState, useCallback } from 'react'
 import Link from 'next/link'
 import { useSession, signIn } from 'next-auth/react'
-import { proxyImg } from '@/lib/img-proxy'
+import { proxyImgResized } from '@/lib/img-proxy'
 import { formatActivityEvent } from '@/lib/activity-logger'
 
 type Tab = 'personal' | 'activity'
@@ -49,7 +49,7 @@ function Avatar({ url, name }: { url?: string | null; name?: string | null }) {
     <div className="pr-av">
       {url
         // eslint-disable-next-line @next/next/no-img-element
-        ? <img src={proxyImg(url)} alt="" loading="lazy" />
+        ? <img src={proxyImgResized(url, 96)} alt="" loading="lazy" decoding="async" />
         : <span>{initial}</span>}
     </div>
   )

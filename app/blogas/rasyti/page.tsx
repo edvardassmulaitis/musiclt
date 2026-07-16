@@ -25,7 +25,7 @@ import { UsernameSetupGate } from '@/components/blog/UsernameSetupGate'
 import { VoiceRecorder } from '@/components/blog/VoiceRecorder'
 import type { BlogPostType } from '@/components/blog/post-types'
 import type { AttachmentHit } from '@/components/MusicSearchPicker'
-import { proxyImg } from '@/lib/img-proxy'
+import { proxyImgResized } from '@/lib/img-proxy'
 import { WizardChrome } from '@/components/blog/wizard/WizardChrome'
 import { EntityPicker, SelectedEntityCard } from '@/components/blog/wizard/EntityPicker'
 import { RatingControl } from '@/components/blog/wizard/RatingControl'
@@ -678,7 +678,7 @@ function TrackReviewList({
           <div className="trl-head">
             {t.image_url
               // eslint-disable-next-line @next/next/no-img-element
-              ? <img src={proxyImg(t.image_url)} alt="" className="trl-cover" />
+              ? <img src={proxyImgResized(t.image_url, 96)} alt="" loading="lazy" decoding="async" className="trl-cover" />
               : <span className="trl-cover trl-cover-ph">🎵</span>}
             <div className="trl-meta">
               <span className="trl-num">{idx + 1}</span>

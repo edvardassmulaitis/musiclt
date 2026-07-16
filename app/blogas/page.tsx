@@ -11,7 +11,7 @@
 
 import { useEffect, useMemo, useRef, useState } from 'react'
 import Link from 'next/link'
-import { proxyImg } from '@/lib/img-proxy'
+import { proxyImgResized } from '@/lib/img-proxy'
 
 type ListEntry = { rank: number; title: string; artist: string | null; image: string | null }
 type FeedPost = {
@@ -73,7 +73,7 @@ function Avatar({ src, name, size = 20 }: { src?: string | null; name?: string |
   const nm = name || 'narys'
   if (src) {
     // eslint-disable-next-line @next/next/no-img-element
-    return <img src={proxyImg(src)} alt="" width={size} height={size} loading="lazy" className="shrink-0 rounded-full object-cover" style={{ width: size, height: size }} />
+    return <img src={proxyImgResized(src, 96)} alt="" width={size} height={size} loading="lazy" decoding="async" className="shrink-0 rounded-full object-cover" style={{ width: size, height: size }} />
   }
   return (
     <span className="flex shrink-0 items-center justify-center rounded-full font-extrabold"
@@ -122,7 +122,7 @@ function PostCard({ p }: { p: FeedPost }) {
                 <span className={`w-4 shrink-0 text-center font-['Outfit',sans-serif] text-[14px] font-black ${e.rank <= 3 ? 'text-[var(--accent-orange)]' : 'text-[var(--text-faint)]'}`}>{e.rank}</span>
                 {e.image ? (
                   // eslint-disable-next-line @next/next/no-img-element
-                  <img src={proxyImg(e.image)} alt="" loading="lazy" className="h-7 w-7 shrink-0 rounded-[7px] object-cover" />
+                  <img src={proxyImgResized(e.image, 96)} alt="" loading="lazy" decoding="async" className="h-7 w-7 shrink-0 rounded-[7px] object-cover" />
                 ) : <div className="h-7 w-7 shrink-0 rounded-[7px]" style={{ background: `hsl(${hue(e.title)},30%,20%)` }} />}
                 <div className="min-w-0 flex-1">
                   <p className="m-0 truncate text-[14px] font-bold text-[var(--text-primary)]">{sani(e.title)}</p>
@@ -142,7 +142,7 @@ function PostCard({ p }: { p: FeedPost }) {
       <div className="relative h-[130px] shrink-0 overflow-hidden bg-[var(--cover-placeholder)]">
         {p.cover ? (
           // eslint-disable-next-line @next/next/no-img-element
-          <img src={proxyImg(p.cover)} alt="" loading="lazy" className="h-full w-full object-cover transition-transform duration-500 group-hover:scale-[1.04]" />
+          <img src={proxyImgResized(p.cover, 480)} alt="" loading="lazy" decoding="async" className="h-full w-full object-cover transition-transform duration-500 group-hover:scale-[1.04]" />
         ) : <div className="h-full w-full" style={{ background: `linear-gradient(135deg, hsl(${hue(p.title)},34%,22%), hsl(${(hue(p.title) + 40) % 360},30%,12%))` }} />}
         {p.rating != null && <span className="absolute right-2 top-2 rounded-md bg-black/75 px-1.5 py-0.5 text-[14px] font-black text-amber-300">★ {p.rating}</span>}
       </div>

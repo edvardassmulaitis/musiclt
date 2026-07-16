@@ -218,6 +218,7 @@ export default function VaizdasClient() {
               key={round.r}
               src={proxyImg(round.image, 640)}
               alt={round.prompt || 'Kas tai?'}
+              decoding="async"
               style={isPuzzle ? undefined : {
                 filter: `blur(${blurNow}px)`,
                 transition: phase === 'reveal' ? 'filter .4s ease' : `filter ${ROUND_MS}ms linear`,

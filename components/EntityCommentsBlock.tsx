@@ -25,7 +25,7 @@
 import { useEffect, useMemo, useRef, useState } from 'react'
 import { useSession } from 'next-auth/react'
 import Link from 'next/link'
-import { proxyImg } from '@/lib/img-proxy'
+import { proxyImgResized } from '@/lib/img-proxy'
 import { type AttachmentHit } from './MusicSearchPicker'
 import MusicSearchModal from './MusicSearchModal'
 import LikesModal, { type LikeUser } from './LikesModal'
@@ -176,9 +176,11 @@ function QuoteBlock({
         {avatarUrl ? (
           // eslint-disable-next-line @next/next/no-img-element
           <img
-            src={proxyImg(avatarUrl)}
+            src={proxyImgResized(avatarUrl, 96)}
             alt=""
             referrerPolicy="no-referrer"
+            loading="lazy"
+            decoding="async"
             className="legacy-quote-avatar"
           />
         ) : (
@@ -458,9 +460,11 @@ function Avatar({ name, url, size = 28 }: { name: string; url?: string | null; s
     return (
       // eslint-disable-next-line @next/next/no-img-element
       <img
-        src={proxyImg(url)}
+        src={proxyImgResized(url, 96)}
         alt={name}
         referrerPolicy="no-referrer"
+        loading="lazy"
+        decoding="async"
         onError={() => setFailed(true)}
         style={{ width: size, height: size }}
         className="shrink-0 rounded-full object-cover"
@@ -914,7 +918,7 @@ export default function EntityCommentsBlock({
               <span className="h-5 w-5 shrink-0 overflow-hidden rounded-sm bg-[var(--cover-placeholder)]">
                 {hit.image_url ? (
                   // eslint-disable-next-line @next/next/no-img-element
-                  <img src={proxyImg(hit.image_url)} alt="" referrerPolicy="no-referrer" className="h-full w-full object-cover" />
+                  <img src={proxyImgResized(hit.image_url, 96)} alt="" referrerPolicy="no-referrer" loading="lazy" decoding="async" className="h-full w-full object-cover" />
                 ) : null}
               </span>
               <span className="font-['Outfit',sans-serif] text-[14px] font-bold">{hit.title}</span>
@@ -1251,7 +1255,7 @@ export default function EntityCommentsBlock({
                               <span className="h-5 w-5 shrink-0 overflow-hidden rounded-sm bg-[var(--cover-placeholder)]">
                                 {a.image_url && (
                                   // eslint-disable-next-line @next/next/no-img-element
-                                  <img src={proxyImg(a.image_url)} alt="" referrerPolicy="no-referrer" className="h-full w-full object-cover" />
+                                  <img src={proxyImgResized(a.image_url, 96)} alt="" referrerPolicy="no-referrer" loading="lazy" decoding="async" className="h-full w-full object-cover" />
                                 )}
                               </span>
                               <span className="font-['Outfit',sans-serif] text-[14px] font-bold text-[var(--text-primary)]">

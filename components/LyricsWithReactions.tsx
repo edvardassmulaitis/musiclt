@@ -16,7 +16,7 @@
 
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { useSession } from 'next-auth/react'
-import { proxyImg } from '@/lib/img-proxy'
+import { proxyImgResized } from '@/lib/img-proxy'
 
 type Reaction = {
   id: number
@@ -107,9 +107,11 @@ function MiniAvatar({ name, url, size = 18 }: { name: string; url?: string | nul
     return (
       // eslint-disable-next-line @next/next/no-img-element
       <img
-        src={proxyImg(url)}
+        src={proxyImgResized(url, 96)}
         alt={name}
         referrerPolicy="no-referrer"
+        loading="lazy"
+        decoding="async"
         onError={() => setFailed(true)}
         style={{ width: size, height: size }}
         className="shrink-0 rounded-full object-cover"

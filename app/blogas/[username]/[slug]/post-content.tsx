@@ -19,16 +19,22 @@ function proxyImg(url: string): string {
   }
   // Jau proxy'intų netinkam pakartotinai
   if (absoluteUrl.includes('wsrv.nl') || absoluteUrl.includes('weserv.nl')) return absoluteUrl
-  return `https://wsrv.nl/?url=${encodeURIComponent(absoluteUrl)}`
+  // PERF 2026-07-16: body nuotraukos rodomos max ~pilno stulpelio pločiu —
+  // &w=1280 + webp nukerpa originalus (gali būti 3-4K px) iki protingo dydžio.
+  return `https://wsrv.nl/?url=${encodeURIComponent(absoluteUrl)}&w=1280&output=webp&q=82`
 }
 
 /** Rewrite'ina visus `<img src="...">` per proxyImg() prieš dangerouslySetInnerHTML. */
 function rewriteImageSrcs(html: string): string {
   if (!html) return html
-  return html.replace(/(<img[^>]+src=)["']([^"']+)["']/gi, (m, prefix, src) => {
-    const proxied = proxyImg(src)
-    return `${prefix}"${proxied}"`
-  })
+  return html
+    .replace(/(<img[^>]+src=)["']([^"']+)["']/gi, (m, prefix, src) => {
+      const proxied = proxyImg(src)
+      return `${prefix}"${proxied}"`
+    })
+    // PERF: body nuotraukos — below-the-fold, lazy-load'inam (decoding
+    // atributą sanitizeRichHtml vis tiek išmestų, todėl tik loading).
+    .replace(/<img(?![^>]*\bloading=)/gi, '<img loading="lazy"')
 }
 
 // Pašalina kabutes, apsupančias enrichintą nuorodą („<a bp-enrich>…</a>" → <a>…</a>).

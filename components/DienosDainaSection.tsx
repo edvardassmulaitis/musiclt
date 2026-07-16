@@ -12,7 +12,7 @@ import { useCallback, useEffect, useState } from 'react'
 import { deviceFpSync } from '@/lib/device-fp'
 import { createPortal } from 'react-dom'
 import Link from 'next/link'
-import { proxyImg } from '@/lib/img-proxy'
+import { proxyImgResized } from '@/lib/img-proxy'
 import { HomeListModal, StickyMoreButton } from '@/components/HomeListModal'
 import { HomeTrackModal } from '@/components/HomeTrackModal'
 
@@ -31,7 +31,7 @@ function Cover({ src, alt, size = 44, radius = 10, ytId, artistSrc }: { src?: st
   const h = strHue(alt)
   const imgSrc = src || (ytId ? `https://img.youtube.com/vi/${ytId}/mqdefault.jpg` : null) || artistSrc
   // eslint-disable-next-line @next/next/no-img-element
-  if (imgSrc) return <img src={proxyImg(imgSrc)} alt={alt} loading="lazy" style={{ width: size, height: size, borderRadius: radius, objectFit: 'cover', flexShrink: 0, display: 'block' }} />
+  if (imgSrc) return <img src={proxyImgResized(imgSrc, 96)} alt={alt} loading="lazy" decoding="async" style={{ width: size, height: size, borderRadius: radius, objectFit: 'cover', flexShrink: 0, display: 'block' }} />
   return (
     <div style={{ width: size, height: size, borderRadius: radius, flexShrink: 0, background: `linear-gradient(135deg, hsl(${h},38%,16%), hsl(${(h + 40) % 360},28%,10%))`, display: 'flex', alignItems: 'center', justifyContent: 'center', color: `hsl(${h},45%,45%)`, fontSize: size * 0.38, fontWeight: 800, fontFamily: 'Outfit, sans-serif' }}>
       {alt[0]?.toUpperCase() || '?'}
@@ -60,7 +60,7 @@ function ProposerLine({ p }: { p?: Proposer | null }) {
     <span className="flex min-w-0 items-center gap-1">
       {p?.avatar_url ? (
         // eslint-disable-next-line @next/next/no-img-element
-        <img src={proxyImg(p.avatar_url)} alt="" className="h-[14px] w-[14px] shrink-0 rounded-full object-cover" />
+        <img src={proxyImgResized(p.avatar_url, 96)} alt="" loading="lazy" decoding="async" className="h-[14px] w-[14px] shrink-0 rounded-full object-cover" />
       ) : (
         <span className="flex h-[14px] w-[14px] shrink-0 items-center justify-center rounded-full text-[12px] font-extrabold" style={{ background: `hsl(${strHue(name)},32%,20%)`, color: `hsl(${strHue(name)},48%,58%)` }}>{name.charAt(0).toUpperCase()}</span>
       )}
@@ -250,7 +250,7 @@ function DainaWinnerCard({ w, onOpenTrack, maxVotes = 1, compact = false }: { w:
         <div className="relative aspect-video overflow-hidden rounded-xl border bg-[var(--cover-placeholder)] shadow-[0_4px_12px_rgba(0,0,0,0.25)] transition-all duration-300 group-hover:-translate-y-0.5 group-hover:shadow-[0_14px_32px_rgba(249,115,22,0.18)]" style={{ borderColor: 'rgba(249,115,22,0.5)' }}>
           {imgSrc ? (
             // eslint-disable-next-line @next/next/no-img-element
-            <img src={proxyImg(imgSrc)} alt={sanitizeTitle(t.title)} loading="lazy" className="h-full w-full object-cover transition-transform duration-500 group-hover:scale-[1.06]" style={{ filter: 'saturate(1.05) contrast(1.02)' }} />
+            <img src={proxyImgResized(imgSrc, 480)} alt={sanitizeTitle(t.title)} loading="lazy" decoding="async" className="h-full w-full object-cover transition-transform duration-500 group-hover:scale-[1.06]" style={{ filter: 'saturate(1.05) contrast(1.02)' }} />
           ) : (
             <div className="flex h-full w-full items-center justify-center text-2xl text-[var(--text-faint)]">🎵</div>
           )}
@@ -287,7 +287,7 @@ function PastNomCard({ n, onOpenTrack, maxVotes = 1, compact = false }: { n: Nom
         <div className="relative aspect-video overflow-hidden rounded-xl border border-[var(--border-default)] bg-[var(--cover-placeholder)] shadow-[0_4px_12px_rgba(0,0,0,0.25)] transition-all duration-300 group-hover:-translate-y-0.5 group-hover:border-[rgba(249,115,22,0.5)] group-hover:shadow-[0_14px_32px_rgba(249,115,22,0.18)]">
           {imgSrc ? (
             // eslint-disable-next-line @next/next/no-img-element
-            <img src={proxyImg(imgSrc)} alt={sanitizeTitle(t.title)} loading="lazy" className="h-full w-full object-cover transition-transform duration-500 group-hover:scale-[1.06]" style={{ filter: 'saturate(1.05) contrast(1.02)' }} />
+            <img src={proxyImgResized(imgSrc, 480)} alt={sanitizeTitle(t.title)} loading="lazy" decoding="async" className="h-full w-full object-cover transition-transform duration-500 group-hover:scale-[1.06]" style={{ filter: 'saturate(1.05) contrast(1.02)' }} />
           ) : (
             <div className="flex h-full w-full items-center justify-center text-2xl text-[var(--text-faint)]">🎵</div>
           )}
@@ -463,7 +463,7 @@ export function DienosDainaSection({ onOpenTrack, variant = 'inline', headerVari
           <div className="relative aspect-video overflow-hidden rounded-xl border border-[var(--border-default)] bg-[var(--cover-placeholder)] shadow-[0_4px_12px_rgba(0,0,0,0.25)] transition-all duration-300 group-hover:-translate-y-0.5 group-hover:border-[rgba(249,115,22,0.5)] group-hover:shadow-[0_14px_32px_rgba(249,115,22,0.18)]">
             {imgSrc ? (
               // eslint-disable-next-line @next/next/no-img-element
-              <img src={proxyImg(imgSrc)} alt={sanitizeTitle(t.title)} loading="lazy" className="h-full w-full object-cover transition-transform duration-500 group-hover:scale-[1.06]" style={{ filter: 'saturate(1.05) contrast(1.02)' }} />
+              <img src={proxyImgResized(imgSrc, 480)} alt={sanitizeTitle(t.title)} loading="lazy" decoding="async" className="h-full w-full object-cover transition-transform duration-500 group-hover:scale-[1.06]" style={{ filter: 'saturate(1.05) contrast(1.02)' }} />
             ) : (
               <div className="flex h-full w-full items-center justify-center text-2xl text-[var(--text-faint)]">🎵</div>
             )}
@@ -662,7 +662,7 @@ export function DienosDainaSection({ onOpenTrack, variant = 'inline', headerVari
                               const nm = vp.full_name || vp.username || '?'
                               return vp.avatar_url ? (
                                 // eslint-disable-next-line @next/next/no-img-element
-                                <img key={i} src={proxyImg(vp.avatar_url)} alt={nm} title={nm} className="h-[18px] w-[18px] rounded-full border border-[var(--bg-surface)] object-cover" />
+                                <img key={i} src={proxyImgResized(vp.avatar_url, 96)} alt={nm} title={nm} loading="lazy" decoding="async" className="h-[18px] w-[18px] rounded-full border border-[var(--bg-surface)] object-cover" />
                               ) : (
                                 <span key={i} title={nm} className="flex h-[18px] w-[18px] items-center justify-center rounded-full border border-[var(--bg-surface)] text-[12px] font-extrabold" style={{ background: `hsl(${strHue(nm)},32%,20%)`, color: `hsl(${strHue(nm)},48%,58%)` }}>{nm.charAt(0).toUpperCase()}</span>
                               )
@@ -735,7 +735,7 @@ export function DienosDainaSection({ onOpenTrack, variant = 'inline', headerVari
                               const nm = vp.full_name || vp.username || '?'
                               return vp.avatar_url ? (
                                 // eslint-disable-next-line @next/next/no-img-element
-                                <img key={i} src={proxyImg(vp.avatar_url)} alt={nm} title={nm} className="h-[18px] w-[18px] rounded-full border border-[var(--bg-surface)] object-cover" />
+                                <img key={i} src={proxyImgResized(vp.avatar_url, 96)} alt={nm} title={nm} loading="lazy" decoding="async" className="h-[18px] w-[18px] rounded-full border border-[var(--bg-surface)] object-cover" />
                               ) : (
                                 <span key={i} title={nm} className="flex h-[18px] w-[18px] items-center justify-center rounded-full border border-[var(--bg-surface)] text-[12px] font-extrabold" style={{ background: `hsl(${strHue(nm)},32%,20%)`, color: `hsl(${strHue(nm)},48%,58%)` }}>{nm.charAt(0).toUpperCase()}</span>
                               )

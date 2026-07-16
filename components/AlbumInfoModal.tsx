@@ -15,7 +15,7 @@
 import { useEffect, useMemo, useRef, useState } from 'react'
 import { createPortal } from 'react-dom'
 import Link from 'next/link'
-import { proxyImg } from '@/lib/img-proxy'
+import { proxyImgResized } from '@/lib/img-proxy'
 import { LikePill } from '@/components/LikePill'
 import { SharePill } from '@/components/SharePill'
 import LikesModal from '@/components/LikesModal'
@@ -464,7 +464,7 @@ export default function AlbumInfoModal({
             >
               {coverNow ? (
                 // eslint-disable-next-line @next/next/no-img-element
-                <img src={proxyImg(coverNow)} alt={titleNow} referrerPolicy="no-referrer" className="h-full w-full object-cover" />
+                <img src={proxyImgResized(coverNow, 96)} alt={titleNow} referrerPolicy="no-referrer" decoding="async" className="h-full w-full object-cover" />
               ) : (
                 <div className="flex h-full w-full items-center justify-center bg-[var(--cover-placeholder)] text-[22px]">💿</div>
               )}
@@ -473,7 +473,7 @@ export default function AlbumInfoModal({
             <div className="shrink-0 overflow-hidden rounded-xl border border-[var(--border-subtle)]" style={{ width: 60, height: 60 }}>
               {coverNow ? (
                 // eslint-disable-next-line @next/next/no-img-element
-                <img src={proxyImg(coverNow)} alt={titleNow} referrerPolicy="no-referrer" className="h-full w-full object-cover" />
+                <img src={proxyImgResized(coverNow, 96)} alt={titleNow} referrerPolicy="no-referrer" decoding="async" className="h-full w-full object-cover" />
               ) : (
                 <div className="flex h-full w-full items-center justify-center bg-[var(--cover-placeholder)] text-[22px]">💿</div>
               )}
@@ -549,6 +549,7 @@ export default function AlbumInfoModal({
                       <img
                         src={`https://i.ytimg.com/vi/${playerVid}/hqdefault.jpg`}
                         alt=""
+                        decoding="async"
                         className="absolute inset-0 h-full w-full object-cover"
                         referrerPolicy="no-referrer"
                       />
@@ -586,7 +587,7 @@ export default function AlbumInfoModal({
                     <div className="h-[88px] w-[88px] overflow-hidden rounded-xl border border-[var(--border-subtle)] bg-[var(--cover-placeholder)]">
                       {artist.cover_image_url ? (
                         // eslint-disable-next-line @next/next/no-img-element
-                        <img src={proxyImg(artist.cover_image_url)} alt={artist.name} referrerPolicy="no-referrer" className="h-full w-full object-cover" />
+                        <img src={proxyImgResized(artist.cover_image_url, 256)} alt={artist.name} referrerPolicy="no-referrer" loading="lazy" decoding="async" className="h-full w-full object-cover" />
                       ) : (
                         <div className="flex h-full w-full items-center justify-center text-[28px]">🎤</div>
                       )}
@@ -634,7 +635,7 @@ export default function AlbumInfoModal({
                         <span className="block aspect-square w-full overflow-hidden rounded-md border border-[var(--border-subtle)] bg-[var(--cover-placeholder)] transition-colors group-hover:border-[var(--border-strong)]">
                           {a.cover_image_url && (
                             // eslint-disable-next-line @next/next/no-img-element
-                            <img src={proxyImg(a.cover_image_url)} alt="" referrerPolicy="no-referrer" className="h-full w-full object-cover" />
+                            <img src={proxyImgResized(a.cover_image_url, 256)} alt="" referrerPolicy="no-referrer" loading="lazy" decoding="async" className="h-full w-full object-cover" />
                           )}
                         </span>
                         <span className="mt-1 block truncate font-['Outfit',sans-serif] text-[12px] font-bold leading-tight text-[var(--text-primary)]">
@@ -849,7 +850,7 @@ export default function AlbumInfoModal({
                         <span className="block aspect-square w-full overflow-hidden rounded bg-[var(--cover-placeholder)]">
                           {a.cover_image_url && (
                             // eslint-disable-next-line @next/next/no-img-element
-                            <img src={proxyImg(a.cover_image_url)} alt="" referrerPolicy="no-referrer" className="h-full w-full object-cover" />
+                            <img src={proxyImgResized(a.cover_image_url, 256)} alt="" referrerPolicy="no-referrer" loading="lazy" decoding="async" className="h-full w-full object-cover" />
                           )}
                         </span>
                         <span className="block truncate px-0.5 pb-0.5 pt-1 font-['Outfit',sans-serif] text-[12px] font-extrabold text-[var(--text-primary)]">

@@ -13,7 +13,7 @@
 
 import { useEffect, useState, useCallback } from 'react'
 import Link from 'next/link'
-import { proxyImg } from '@/lib/img-proxy'
+import { proxyImgResized } from '@/lib/img-proxy'
 
 type Sort = 'new' | 'liked'
 type Facet = { name: string; count: number }
@@ -319,9 +319,9 @@ export function HomeListContent({ type, lane = 'lt', onOpenTrack, onOpenAlbum, o
                         <>
                           {/* Blur backdrop užpildo tuščius plotus; pilnas plakatas — object-contain. */}
                           {/* eslint-disable-next-line @next/next/no-img-element */}
-                          <img src={proxyImg(img)} alt="" aria-hidden className="absolute inset-0 h-full w-full scale-110 object-cover opacity-50 blur-xl" />
+                          <img src={proxyImgResized(img, 64)} alt="" aria-hidden loading="lazy" decoding="async" className="absolute inset-0 h-full w-full scale-110 object-cover opacity-50 blur-xl" />
                           {/* eslint-disable-next-line @next/next/no-img-element */}
-                          <img src={proxyImg(img)} alt={label} loading="lazy" className="absolute inset-0 h-full w-full object-contain transition-transform duration-500 group-hover:scale-[1.04]" />
+                          <img src={proxyImgResized(img, 480)} alt={label} loading="lazy" decoding="async" className="absolute inset-0 h-full w-full object-contain transition-transform duration-500 group-hover:scale-[1.04]" />
                         </>
                       ) : <div className="flex h-full w-full items-center justify-center text-2xl text-[var(--text-faint)]">🎵</div>}
                     </div>
@@ -373,7 +373,7 @@ export function HomeListContent({ type, lane = 'lt', onOpenTrack, onOpenAlbum, o
                     <div className="relative aspect-square overflow-hidden rounded-xl border border-[var(--border-default)] bg-[var(--cover-placeholder)] transition-all duration-300 group-hover:-translate-y-0.5 group-hover:border-[rgba(249,115,22,0.5)]">
                       {img ? (
                         // eslint-disable-next-line @next/next/no-img-element
-                        <img src={proxyImg(img)} alt={title} loading="lazy" className="h-full w-full object-cover transition-transform duration-500 group-hover:scale-[1.06]" />
+                        <img src={proxyImgResized(img, 480)} alt={title} loading="lazy" decoding="async" className="h-full w-full object-cover transition-transform duration-500 group-hover:scale-[1.06]" />
                       ) : <div className="flex h-full w-full items-center justify-center text-2xl text-[var(--text-faint)]">💿</div>}
                       {dateBadge}
                     </div>
@@ -420,7 +420,7 @@ export function HomeListContent({ type, lane = 'lt', onOpenTrack, onOpenAlbum, o
                       >
                         {img ? (
                           // eslint-disable-next-line @next/next/no-img-element
-                          <img src={proxyImg(img)} alt={title} loading="lazy" className="h-full w-full object-cover transition-transform duration-500 group-hover:scale-[1.06]" />
+                          <img src={proxyImgResized(img, 640)} alt={title} loading="lazy" decoding="async" className="h-full w-full object-cover transition-transform duration-500 group-hover:scale-[1.06]" />
                         ) : <div className="flex h-full w-full items-center justify-center text-2xl text-[var(--text-faint)]">🎵</div>}
                         <div className="absolute inset-0 flex items-center justify-center bg-black/15 transition-colors group-hover:bg-black/30">
                           <span className="flex h-11 w-11 items-center justify-center rounded-full bg-[var(--accent-orange)] shadow-[0_4px_16px_rgba(249,115,22,0.5)] transition-transform group-hover:scale-110">

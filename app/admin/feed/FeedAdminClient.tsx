@@ -1,7 +1,7 @@
 'use client'
 
 import { useState, useEffect, useCallback } from 'react'
-import { proxyImg } from '@/lib/img-proxy'
+import { proxyImgResized } from '@/lib/img-proxy'
 
 type Cand = {
   key: string
@@ -225,7 +225,7 @@ export default function FeedAdminClient() {
               <div key={p.id} className="flex items-center gap-3 rounded-lg border border-[var(--border-default)] p-2">
                 {p.image_url
                   // eslint-disable-next-line @next/next/no-img-element
-                  ? <img src={p.image_url} alt="" className="h-10 w-10 shrink-0 rounded object-cover" />
+                  ? <img src={p.image_url} alt="" loading="lazy" decoding="async" className="h-10 w-10 shrink-0 rounded object-cover" />
                   : <span className="h-10 w-10 shrink-0 rounded bg-[var(--bg-hover)]" />}
                 <div className="min-w-0 flex-1">
                   <p className="m-0 truncate text-sm font-semibold text-[var(--text-primary)]">{p.title || p.item_key}</p>
@@ -256,7 +256,7 @@ export default function FeedAdminClient() {
               <button onClick={() => move(i, 1)} disabled={i === cands.length - 1} className="px-1 text-[var(--text-muted)] disabled:opacity-30">▼</button>
             </div>
             <div className="h-12 w-12 flex-shrink-0 overflow-hidden rounded-lg bg-[var(--bg-hover)]">
-              {c.image ? <img src={proxyImg(c.image)} alt="" className="h-full w-full object-cover" /> : null}
+              {c.image ? <img src={proxyImgResized(c.image, 96)} alt="" loading="lazy" decoding="async" className="h-full w-full object-cover" /> : null}
             </div>
             <div className="min-w-0 flex-1">
               <p className="truncate text-sm font-bold text-[var(--text-primary)]">{c.pinned ? '📌 ' : ''}{c.title}</p>

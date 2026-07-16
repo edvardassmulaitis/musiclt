@@ -7,7 +7,7 @@
 // ────────────────────────────────────────────────────────────────────────────
 
 import { useEffect, useState } from 'react'
-import { proxyImg } from '@/lib/img-proxy'
+import { proxyImgResized } from '@/lib/img-proxy'
 import SeenLiveMediaViewer from '@/components/seen-live/SeenLiveMediaViewer'
 import type { SeenLiveRecent } from '@/lib/seen-live'
 
@@ -41,7 +41,7 @@ export default function ArtistSightingsStrip({ artistId }: { artistId: number })
               <div className="relative overflow-hidden rounded-xl bg-[var(--bg-elevated)]" style={{ aspectRatio: '16/9' }}>
                 {thumb ? (
                   // eslint-disable-next-line @next/next/no-img-element
-                  <img src={proxyImg(thumb)} alt="" loading="lazy" referrerPolicy="no-referrer" className="h-full w-full object-cover transition-transform duration-500 group-hover:scale-[1.05]" />
+                  <img src={proxyImgResized(thumb, 480)} alt="" loading="lazy" decoding="async" referrerPolicy="no-referrer" className="h-full w-full object-cover transition-transform duration-500 group-hover:scale-[1.05]" />
                 ) : (
                   <div className="flex h-full w-full items-center justify-center" style={{ background: 'linear-gradient(160deg,#2a2f3a,#171a22)' }}>
                     <svg viewBox="0 0 24 24" width={20} height={20} fill="#fff"><polygon points="6 4 20 12 6 20 6 4" /></svg>
