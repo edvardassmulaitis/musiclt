@@ -70,8 +70,11 @@ export async function GET(req: NextRequest) {
         bio: (a.description || '').replace(/\[[^\]]*\]/g, '').trim().slice(0, 260),
       },
       state: { liked, heard, visited, plays, totalTracks },
-      eraAlbums: era.map(al => ({ id: al.id, t: al.title, slug: al.slug, y: al.year, img: al.cover_image_url || null })),
-      otherAlbums: other.map(al => ({ id: al.id, t: al.title, slug: al.slug, y: al.year, img: al.cover_image_url || null })),
+      // Albumo nuoroda: /albumai/{atlikėjo-slug}-{albumo-slug}-{id}. Vien albumo
+      // slug NEUŽTENKA — jie nėra unikalūs (Eminem ir Michael Jackson abu turi
+      // „off-the-wall"), tad be ID gaunam 404.
+      eraAlbums: era.map(al => ({ id: al.id, t: al.title, href: `/albumai/${a.slug}-${al.slug}-${al.id}`, y: al.year, img: al.cover_image_url || null })),
+      otherAlbums: other.map(al => ({ id: al.id, t: al.title, href: `/albumai/${a.slug}-${al.slug}-${al.id}`, y: al.year, img: al.cover_image_url || null })),
     })
   } catch (e: any) {
     console.error('gilyn atlikejas:', e?.message)

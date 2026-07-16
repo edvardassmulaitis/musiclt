@@ -13,7 +13,7 @@
 import { useEffect, useState } from 'react'
 import Link from 'next/link'
 
-type Album = { id: number; t: string; slug: string; y: number; img: string | null }
+type Album = { id: number; t: string; href: string; y: number; img: string | null }
 type Data = {
   artist: { id: number; name: string; slug: string; country: string; img: string | null; from: number | null; to: number | null; fame: number; bio: string }
   state: { liked: boolean; heard: boolean; visited: boolean; plays: number; totalTracks: number }
@@ -91,7 +91,7 @@ export default function ArtistCard({ artistId, terrName, eraFrom, eraTo, onBack,
               {d.eraAlbums.length ? (
                 <div className="ac-albums">
                   {d.eraAlbums.map(al => (
-                    <Link key={al.id} href={`/albumai/${al.slug}`} target="_blank" className="ac-alb">
+                    <Link key={al.id} href={al.href} target="_blank" className="ac-alb">
                       {al.img ? <img src={al.img} alt="" referrerPolicy="no-referrer" loading="lazy" /> : <span className="ac-ph sm">♪</span>}
                       <span className="ac-albt">{al.t}</span>
                       <span className="ac-alby">{al.y}</span>
