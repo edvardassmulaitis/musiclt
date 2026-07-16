@@ -150,40 +150,34 @@ export default function EventInboxPage() {
     })
   }
 
-  // Auto-detect naujo atlikėjo sukūrimą kitame tab'e (tas pats pattern'as kaip
-  // news inbox'e): „+ Naujas atlikėjas" įrašo localStorage, focus event grįžus
-  // search'ina DB ir auto-add'ina į modalą.
+  // 2026-07-16: naujo atlikėjo sukūrimo handoff — kai admin'as per
+  // ArtistSearchInput'o „+ Sukurti naują" atidaro /admin/artists/new naujame
+  // tab'e (žr. mygtuką žemiau), tas tab'as po sėkmingo išsaugojimo
+  // postMessage'ina atgal { type:'musiclt:artist-created', ... } ir užsidaro
+  // pats. Pakeičia senesnį localStorage+focus-event polling'ą, kuris
+  // praleisdavo atnaujinimus, jei user'is grįždavo be focus event'o.
   useEffect(() => {
     if (!editing) return
-    const checkPendingArtist = async () => {
-      try {
-        const raw = localStorage.getItem('pending_artist_creation_event')
-        if (!raw) return
-        const pending: { name: string; candidateId?: number; timestamp: number } = JSON.parse(raw)
-        if (pending.candidateId !== editing.id) return
-        if (Date.now() - pending.timestamp > 30 * 60 * 1000) {
-          localStorage.removeItem('pending_artist_creation_event')
-          return
-        }
-        const res = await fetch(`/api/artists?search=${encodeURIComponent(pending.name)}&limit=3&exact=1`)
-        if (!res.ok) return
-        const data = await res.json()
-        const found = (data.artists || [])[0]
-        if (found && found.id) {
-          addEditArtist(found.id, found.name, found.cover_image_url || null)
-          localStorage.removeItem('pending_artist_creation_event')
-        }
-      } catch {}
+    const onMessage = (e: MessageEvent) => {
+      if (e.origin !== window.location.origin) return
+      const d = e.data
+      if (!d || d.type !== 'musiclt:artist-created' || d.kind !== 'event') return
+      if (String(d.candidateId) !== String(editing.id)) return
+      addEditArtist(d.id, d.name, d.avatar || null)
     }
-    window.addEventListener('focus', checkPendingArtist)
-    checkPendingArtist()
-    return () => window.removeEventListener('focus', checkPendingArtist)
+    window.addEventListener('message', onMessage)
+    return () => window.removeEventListener('message', onMessage)
   }, [editing]) // eslint-disable-line react-hooks/exhaustive-deps
 
   const load = useCallback(async () => {
     setLoading(true)
     try {
-      const res = await fetch(`/api/admin/event-candidates?status=pending&limit=50`)
+      // 2026-07-16: limit=50 anksčiau tyliai apkarpydavo sąrašą, kol header'is
+      // vis tiek rodė pilną `total` (pvz. "(99)" antraštėj, bet tik 50 kortelių
+      // renderintų — 49 renginiai niekada nepasiekiami review'ui be scroll'inimo
+      // per keletą puslapių, kurių UI net neturi). Pakeltas iki 300, kad
+      // matomas sąrašas visada sutaptų su `total` skaičiumi.
+      const res = await fetch(`/api/admin/event-candidates?status=pending&limit=300`)
       const data = await res.json()
       setCandidates(data.candidates || [])
       setTotal(data.total || 0)
@@ -512,37 +506,34 @@ export default function EventInboxPage() {
                       <span>+ {a.name}</span>
                     </button>
                   ))}
-                  <button type="button" onClick={() => setArtistSearchOpen(v => !v)} title="Ieškoti atlikėjo"
-                    className="inline-flex items-center justify-center w-6 h-6 rounded-full bg-[var(--bg-elevated)] hover:bg-blue-50 text-[var(--text-muted)] hover:text-blue-700 border border-[var(--input-border)]">
+                  {/* 2026-07-16: vienas mygtukas vietoj dviejų atskirų (paieška +
+                     prompt-based "sukurti naują") — atidaro combobox'ą, kuris
+                     tuo pačiu metu ir ieško DB (?check=, žr. ArtistSearchInput),
+                     ir siūlo "sukurti naują", jei tikslaus matcho nėra. Taip
+                     esami panašūs atlikėjai visada matomi PRIEŠ sukuriant naują. */}
+                  <button type="button" onClick={() => setArtistSearchOpen(v => !v)} title="Ieškoti arba sukurti atlikėją"
+                    className="inline-flex items-center gap-0.5 px-1.5 py-0.5 rounded-full text-[12px] bg-[var(--bg-elevated)] hover:bg-blue-50 text-[var(--text-muted)] hover:text-blue-700 border border-[var(--input-border)]">
                     <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round">
                       <circle cx="11" cy="11" r="7" /><path d="m20 20-3.5-3.5" />
                     </svg>
-                  </button>
-                  <button
-                    type="button"
-                    onClick={() => {
-                      const defaultName = (decodeHtmlEntities(editing.title) || '').split(/[—–:|@]/)[0].trim().slice(0, 60)
-                      const name = window.prompt('Atlikėjo pavadinimas (Wikipedia paieška auto-paleidžiama):', defaultName)
-                      if (!name?.trim()) return
-                      try {
-                        localStorage.setItem('pending_artist_creation_event', JSON.stringify({
-                          name: name.trim(),
-                          candidateId: editing.id,
-                          timestamp: Date.now(),
-                        }))
-                      } catch {}
-                      window.open(`/admin/artists/new?name=${encodeURIComponent(name.trim())}`, '_blank')
-                    }}
-                    title="Sukurti naują atlikėją DB'oje su Wikipedia importu"
-                    className="inline-flex items-center gap-0.5 px-1.5 py-0.5 rounded-full text-[12px] bg-emerald-50 hover:bg-emerald-100 text-emerald-700 border border-dashed border-emerald-300">
-                    + Naujas atlikėjas
+                    + Atlikėjas
                   </button>
                 </div>
                 {artistSearchOpen && (
                   <div className="mt-1.5">
                     <ArtistSearchInput
-                      placeholder="Ieškoti atlikėjo..."
+                      placeholder="Ieškoti arba kurti naują atlikėją..."
+                      autoFocus
+                      initialQuery={(decodeHtmlEntities(editing.title) || '').split(/[—–:|@]/)[0].trim().slice(0, 60)}
                       onSelect={(id, name, avatar) => { addEditArtist(id, name, avatar || null); setArtistSearchOpen(false) }}
+                      onCreateNew={(name) => {
+                        if (!name) return
+                        // Naujas tab'as pats postMessage'ins atgal po sukūrimo
+                        // (žr. useEffect aukščiau) ir užsidarys — nereikia
+                        // localStorage/focus polling'o.
+                        window.open(`/admin/artists/new?name=${encodeURIComponent(name)}&returnAssign=1&candidateId=${editing.id}&kind=event`, '_blank')
+                        setArtistSearchOpen(false)
+                      }}
                     />
                   </div>
                 )}

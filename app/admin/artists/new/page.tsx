@@ -16,6 +16,15 @@ export default function NewArtistPage() {
   // Wikipedia paiešką.
   const searchParams = useSearchParams()
   const prefillName = searchParams?.get('name') || ''
+  // 2026-07-16: „quick assign" handoff iš inbox'o (news/events) — kai atidaryta
+  // per ArtistSearchInput'o „+ Sukurti naują" (žr. ten), po sėkmingo sukūrimo
+  // postMessage'inam atgal į opener'į vietoj redirect'o į pilną edit puslapį +
+  // uždarom tab'ą. Pakeičia senesnį localStorage+focus-event polling pattern'ą,
+  // kuris buvo trapus (praleisdavo, jei user'is grįždavo be focus event'o, arba
+  // jei createdavo antrą tab'ą tuo pat metu).
+  const returnAssign = searchParams?.get('returnAssign') === '1'
+  const returnCandidateId = searchParams?.get('candidateId') || ''
+  const returnKind = searchParams?.get('kind') || ''
   const [initialData, setInitialData] = useState<Partial<ArtistFormData>>({})
   const [formKey, setFormKey] = useState(0)
   const [artistId, setArtistId] = useState<string | null>(null)
@@ -67,8 +76,26 @@ export default function NewArtistPage() {
       const id = artistId || String(json.id || json.artist?.id || '')
       console.log('[SAVE] got id:', id)
 
-      // If this was the first save (POST), redirect to the edit page
+      // If this was the first save (POST):
+      //  - „quick assign" iš inbox'o (returnAssign=1 + turim opener'į) →
+      //    postMessage'inam naujo atlikėjo info atgal ir uždarom tab'ą.
+      //  - kitaip (normalus /admin/artists/new naudojimas) → redirect į pilną
+      //    edit puslapį, kaip ir anksčiau.
       if (!artistId && id) {
+        if (returnAssign && typeof window !== 'undefined' && window.opener) {
+          try {
+            window.opener.postMessage({
+              type: 'musiclt:artist-created',
+              id: Number(id),
+              name: data.name || artistName,
+              avatar: data.avatar || null,
+              candidateId: returnCandidateId,
+              kind: returnKind,
+            }, window.location.origin)
+          } catch {}
+          window.close()
+          return
+        }
         window.location.href = `/admin/artists/${id}`
         return
       }

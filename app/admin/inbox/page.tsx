@@ -345,40 +345,23 @@ export default function AdminInboxPage() {
     if (!editPrimaryId) setEditPrimaryId(id)
   }
 
-  // Auto-detect artist'o sukurimą kitame tab'e per focus event. Kai user'is
-  // paspaudžia „+ Naujas atlikėjas", localStorage'e įrašomas {name, candidateId}.
-  // Kai user'is grįžta į news tab'ą (focus event) — search'inam DB pagal name'ą,
-  // ir jei rasta — auto-add'inam į wizard'ą + valom localStorage.
+  // 2026-07-16: naujo atlikėjo sukūrimo handoff — kai admin'as per
+  // ArtistSearchInput'o „+ Sukurti naują" atidaro /admin/artists/new naujame
+  // tab'e (žr. mygtuką žemiau), tas tab'as po sėkmingo išsaugojimo
+  // postMessage'ina atgal { type:'musiclt:artist-created', ... } ir užsidaro
+  // pats. Pakeičia senesnį localStorage+focus-event polling'ą, kuris
+  // praleisdavo atnaujinimus, jei user'is grįždavo be focus event'o.
   useEffect(() => {
     if (!editing) return
-    const checkPendingArtist = async () => {
-      try {
-        const raw = localStorage.getItem('pending_artist_creation')
-        if (!raw) return
-        const pending: { name: string; candidateId?: number; timestamp: number } = JSON.parse(raw)
-        // Tik šitam editing candidate'ui + recent (< 30 min)
-        if (pending.candidateId !== editing.id) return
-        if (Date.now() - pending.timestamp > 30 * 60 * 1000) {
-          localStorage.removeItem('pending_artist_creation')
-          return
-        }
-        // Search DB pagal name
-        const res = await fetch(`/api/artists?search=${encodeURIComponent(pending.name)}&limit=3&exact=1`)
-        if (!res.ok) return
-        const data = await res.json()
-        const found = (data.artists || [])[0]
-        if (found && found.id) {
-          // Pridėti į wizard'ą (jei dar nėra)
-          addEditArtist(found.id, found.name, found.cover_image_url || null)
-          localStorage.removeItem('pending_artist_creation')
-        }
-      } catch {}
+    const onMessage = (e: MessageEvent) => {
+      if (e.origin !== window.location.origin) return
+      const d = e.data
+      if (!d || d.type !== 'musiclt:artist-created' || d.kind !== 'news') return
+      if (String(d.candidateId) !== String(editing.id)) return
+      addEditArtist(d.id, d.name, d.avatar || null)
     }
-    window.addEventListener('focus', checkPendingArtist)
-    // Plus immediate check kai effect mount'inasi (jeigu user'is grįžta į tab'ą
-    // be focus event'o — pvz. browser back button'as)
-    checkPendingArtist()
-    return () => window.removeEventListener('focus', checkPendingArtist)
+    window.addEventListener('message', onMessage)
+    return () => window.removeEventListener('message', onMessage)
   }, [editing]) // eslint-disable-line react-hooks/exhaustive-deps
 
   const closeEdit = () => {
@@ -1145,53 +1128,38 @@ export default function AdminInboxPage() {
                       </button>
                     ))
                   })()}
-                  {/* Compact search toggle */}
+                  {/* 2026-07-16: vienas mygtukas vietoj dviejų atskirų (paieška +
+                     prompt-based "sukurti naują") — atidaro combobox'ą, kuris
+                     tuo pačiu metu ir ieško DB (?check=, žr. ArtistSearchInput),
+                     ir siūlo "sukurti naują", jei tikslaus matcho nėra. Taip
+                     esami panašūs atlikėjai visada matomi PRIEŠ sukuriant naują. */}
                   <button
                     type="button"
                     onClick={() => setArtistSearchOpen(v => !v)}
-                    title="Ieškoti atlikėjo"
-                    className="inline-flex items-center justify-center w-6 h-6 rounded-full bg-[var(--bg-elevated)] hover:bg-blue-50 text-[var(--text-muted)] hover:text-blue-700 border border-[var(--input-border)]">
+                    title="Ieškoti arba sukurti atlikėją"
+                    className="inline-flex items-center gap-0.5 px-1.5 py-0.5 rounded-full text-[12px] bg-[var(--bg-elevated)] hover:bg-blue-50 text-[var(--text-muted)] hover:text-blue-700 border border-[var(--input-border)]">
                     <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round">
                       <circle cx="11" cy="11" r="7" /><path d="m20 20-3.5-3.5" />
                     </svg>
-                  </button>
-                  {/* + Sukurti naują atlikėją — kai DB ne'rasta. Redirect į
-                     /admin/artists/new?name=X kuris auto-paleidžia Wikipedia
-                     paiešką. Default name iš AI extracted primary artist
-                     (ai_tracks_mentioned[].artist) — ne iš pilno news title.
-                     Jei AI nesumatė artist'o → blank prompt. */}
-                  <button
-                    type="button"
-                    onClick={() => {
-                      // Pirmenybė: ai_tracks_mentioned[].artist (Sonnet'as konkrečiai
-                      // identifikavo). Atskirti EN/LT cases, sutrumpinti iki 60 chars.
-                      const aiArtist = (editing?.ai_tracks_mentioned || [])
-                        .map(t => t.artist?.trim()).filter(Boolean)[0] || ''
-                      const defaultName = aiArtist.slice(0, 60)
-                      const name = window.prompt('Atlikėjo pavadinimas (Wikipedia paieška auto-paleidžiama):', defaultName)
-                      if (!name?.trim()) return
-                      // Įrašom į localStorage — kai user'is grįš į šitą tab'ą po
-                      // artist sukūrimo kitame tab'e, focus event auto-search'ins
-                      // DB ir pridės atlikėją į wizard'ą be papildomo paspaudimo.
-                      try {
-                        localStorage.setItem('pending_artist_creation', JSON.stringify({
-                          name: name.trim(),
-                          candidateId: editing?.id,
-                          timestamp: Date.now(),
-                        }))
-                      } catch {}
-                      window.open(`/admin/artists/new?name=${encodeURIComponent(name.trim())}`, '_blank')
-                    }}
-                    title="Sukurti naują atlikėją DB'oje su Wikipedia importu"
-                    className="inline-flex items-center gap-0.5 px-1.5 py-0.5 rounded-full text-[12px] bg-emerald-50 hover:bg-emerald-100 text-emerald-700 border border-dashed border-emerald-300">
-                    + Naujas atlikėjas
+                    + Atlikėjas
                   </button>
                 </div>
                 {artistSearchOpen && (
                   <div className="mt-1.5">
                     <ArtistSearchInput
-                      placeholder="Ieškoti atlikėjo..."
+                      placeholder="Ieškoti arba kurti naują atlikėją..."
+                      autoFocus
+                      // Default query — AI extracted primary artist
+                      // (ai_tracks_mentioned[].artist), taip pat kaip senas prompt().
+                      initialQuery={((editing?.ai_tracks_mentioned || []).map(t => t.artist?.trim()).filter(Boolean)[0] || '').slice(0, 60)}
                       onSelect={(id, name, avatar) => { addEditArtist(id, name, avatar || null); setArtistSearchOpen(false) }}
+                      onCreateNew={(name) => {
+                        if (!name || !editing) return
+                        // Naujas tab'as pats postMessage'ins atgal po sukūrimo
+                        // (žr. useEffect aukščiau) ir užsidarys.
+                        window.open(`/admin/artists/new?name=${encodeURIComponent(name)}&returnAssign=1&candidateId=${editing.id}&kind=news`, '_blank')
+                        setArtistSearchOpen(false)
+                      }}
                     />
                   </div>
                 )}
