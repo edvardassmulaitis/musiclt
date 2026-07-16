@@ -63,9 +63,14 @@ export async function getEvents(opts: {
   /** start_date rikiavimas. 'asc' (default) — soonest first (homepage).
    *  'desc' — newest first (admin'ui, kad scrape'inti 2026 renginiai būtų viršuje). */
   order?: 'asc' | 'desc'
+  /** 2026-07-16: homepage kontekstas — NErodyti renginių su
+   *  events.hide_from_homepage=true. Anksčiau šis stulpelis buvo rašomas
+   *  admin'e („Slėpti nuo pagrindinio"), bet NIEKUR nefiltruojamas → toggle
+   *  neveikė. Įjungiama per /api/events?homepage=1 (arba home_hero=1). */
+  excludeHiddenFromHomepage?: boolean
 } = {}) {
   const supabase = createAdminClient()
-  const { city, venueId, status, period, showPast = false, limit = 20, offset = 0, order = 'asc' } = opts
+  const { city, venueId, status, period, showPast = false, limit = 20, offset = 0, order = 'asc', excludeHiddenFromHomepage = false } = opts
 
   let q = supabase
     .from('events')
@@ -98,6 +103,8 @@ export async function getEvents(opts: {
   if (status) q = q.eq('status', status)
   if (city && city !== 'Visi') q = q.eq('city', city)
   if (venueId) q = q.eq('venue_id', venueId)
+  // NULL laikom „nepaslėptas" (negalima vien .neq — SQL'e NULL != true → NULL).
+  if (excludeHiddenFromHomepage) q = q.or('hide_from_homepage.is.null,hide_from_homepage.eq.false')
 
   if (period === 'week') {
     const end = new Date()

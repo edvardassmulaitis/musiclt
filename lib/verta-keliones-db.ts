@@ -26,6 +26,7 @@ export type VertaKelionesData = { concerts: Concert[]; destinations: Destination
 const ABROAD_SELECT = `
   id, title, slug, description, start_date, end_date, venue_name, city,
   cover_image_url, ticket_url, is_festival, dest_key, why, popularity, verified, status,
+  hide_from_homepage,
   event_artists(artist_id, sort_order, artists(slug, cover_image_url))
 `
 
@@ -59,6 +60,7 @@ function mapEvent(e: any): Concert {
   const d = String(e.start_date || '')
   return {
     id: String(e.id),
+    slug: e.slug || undefined,
     artist: e.title,
     destKey: e.dest_key || '',
     venue: e.venue_name || '',
@@ -161,7 +163,15 @@ export const getAbroadEventBySlug = cache(async (slug: string): Promise<AbroadEv
   }
 })
 
-export const getVertaKelionesData = cache(async (): Promise<VertaKelionesData> => {
+/**
+ * @param excludeHiddenFromHomepage 2026-07-16: homepage kontekstas (naudoja
+ *   /api/verta-keliones, kurį valgo homepage hero/afiša, /admin/feed ir feed
+ *   kandidatų cron'as) — praleidžia renginius su hide_from_homepage=true.
+ *   Anksčiau per „Verta kelionės" kanalą į homepage praslysdavo ir paslėpti /
+ *   nekuruoti renginiai (pvz. Lollapalooza Berlin be vizualo). Pats
+ *   /verta-keliones puslapis kviečia be filtro — flag'as slepia TIK nuo homepage.
+ */
+export const getVertaKelionesData = cache(async (excludeHiddenFromHomepage = false): Promise<VertaKelionesData> => {
   try {
     const sb = createAdminClient()
     const [dRes, eRes] = await Promise.all([
@@ -176,7 +186,8 @@ export const getVertaKelionesData = cache(async (): Promise<VertaKelionesData> =
     // Tik BŪSIMI koncertai — praėję nerodomi nei sąraše, nei /srautas hero.
     // Daugiadieniai: end_date >= šiandien; vienadieniai: start_date >= šiandien (LT).
     const today = ltToday()
-    const evs = (eRes.data || []).filter((e: any) => ((e.end_date || e.start_date || '') as string).slice(0, 10) >= today)
+    let evs = (eRes.data || []).filter((e: any) => ((e.end_date || e.start_date || '') as string).slice(0, 10) >= today)
+    if (excludeHiddenFromHomepage) evs = evs.filter((e: any) => !e.hide_from_homepage)
     // Seed (demo) TIK kai DB tikrai neprieinama (nėra krypčių). Jei kryptys yra,
     // bet verifikuotų koncertų nėra — grąžinam TUŠČIĄ (ne fake seed).
     if (!dests.length) {

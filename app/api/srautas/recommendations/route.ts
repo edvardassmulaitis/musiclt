@@ -315,7 +315,7 @@ async function buildRecs(uid: string, likedIds: number[], limit: number) {
           key: `trip-${c.id}`, kind: 'event',
           title: c.isFestival ? (c.festivalName || c.artist) : c.artist,
           subtitle: tripSubtitle(c.destKey, c.venue), image: c.image || null,
-          href: `/verta-keliones#vk-${c.id}`, date: c.date, badge: 'Koncertas, vertas kelionės',
+          href: `/verta-keliones#vk-${(c as any).slug || c.id}`, date: c.date, badge: 'Koncertas, vertas kelionės',
           meta: { tripInfo: tripInfo(c.destKey), excerpt: c.why || null },
         })
         if (queues.trip.length >= 6) break

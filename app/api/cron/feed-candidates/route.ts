@@ -20,8 +20,16 @@ export const maxDuration = 60
 //
 // Klientas (HomeClient) PRASLEPIA tik 'pending'/'rejected' — nežinomi raktai
 // rodomi (fail-open: cron'ui nulūžus feed'as nenutrūksta).
+//
+// 2026-07-16 DVIEJŲ JUOSTŲ MODELIS:
+//   • AUTO juosta (AUTO_APPROVE_TYPES): naujienos, renginiai, koncertų įrašai —
+//     auto-approve po AUTO_APPROVE_H + instant approve pagal atlikėjo score.
+//   • MANUAL juosta (visa kita, pvz. 'verta'): kabo 'pending' TOL, KOL admin
+//     patvirtina /admin/feed „Kandidatai" bloke. Jokio auto-approve — „verta
+//     kelionės" ir pan. į homepage patenka tik su rankiniu ✓.
 const POP_SCORE = 30
 const AUTO_APPROVE_H = 8
+const AUTO_APPROVE_TYPES = ['news', 'event', 'recording']
 
 type Cand = { key: string; type: string; title: string; image: string | null; artistIds: number[] }
 
@@ -37,7 +45,7 @@ export async function GET(req: NextRequest) {
   const [news, hev, ev, recs, verta] = await Promise.all([
     j('/api/news?limit=12&since_days=7'),
     j('/api/events?home_hero=1&limit=8'),
-    j('/api/events?limit=60'),
+    j('/api/events?limit=60&homepage=1'),
     j('/api/koncertu-irasai?limit=6'),
     j('/api/verta-keliones'),
   ])
@@ -60,7 +68,9 @@ export async function GET(req: NextRequest) {
   }
   for (const c of (verta?.concerts || [])) {
     if (c?.id == null) continue
-    cands.push({ key: `verta::/verta-keliones#vk-${c.id}`, type: 'verta', title: c.isFestival ? (c.festivalName || c.artist || '') : (c.artist || ''), image: c.image || null, artistIds: [] })
+    // Raktas pagal slug — stabilus (UUID keičiasi perkūrus renginį); sutampa su
+    // HomeClient feedKey ir /admin/feed.
+    cands.push({ key: `verta::/verta-keliones#vk-${c.slug || c.id}`, type: 'verta', title: c.isFestival ? (c.festivalName || c.artist || '') : (c.artist || ''), image: c.image || null, artistIds: [] })
   }
 
   const sb = createAdminClient()
@@ -81,7 +91,8 @@ export async function GET(req: NextRequest) {
   let inserted = 0, instant = 0
   for (const c of fresh) {
     const maxScore = Math.max(0, ...c.artistIds.map(id => scoreById.get(id) || 0))
-    const popular = maxScore >= POP_SCORE
+    // Instant approve — TIK auto juostos tipams (manual tipai visada pending).
+    const popular = AUTO_APPROVE_TYPES.includes(c.type) && maxScore >= POP_SCORE
     const { error } = await sb.from('home_feed').insert({
       kind: 'candidate', item_key: c.key, item_type: c.type,
       status: popular ? 'approved' : 'pending',
@@ -92,11 +103,13 @@ export async function GET(req: NextRequest) {
     if (!error) { inserted++; if (popular) instant++ }
   }
 
-  // Auto-approve: pending senesni nei AUTO_APPROVE_H.
+  // Auto-approve: pending senesni nei AUTO_APPROVE_H — TIK auto juostos tipai.
+  // Manual tipai ('verta' ir kt.) laukia rankinio sprendimo neribotai.
   const cutoff = new Date(Date.now() - AUTO_APPROVE_H * 3600_000).toISOString()
   const { data: autoAppr } = await sb.from('home_feed')
     .update({ status: 'approved', auto_approved: true, decided_at: new Date().toISOString() })
     .eq('kind', 'candidate').eq('status', 'pending').lt('first_seen_at', cutoff)
+    .in('item_type', AUTO_APPROVE_TYPES)
     .select('id')
 
   return NextResponse.json({

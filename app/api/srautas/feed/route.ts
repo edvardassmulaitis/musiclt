@@ -632,7 +632,7 @@ async function buildFeed(artistIds: number[], followedIds: string[], limit: numb
           key, kind: 'event',
           title: c.isFestival ? (c.festivalName || c.artist) : c.artist,
           subtitle: tripSubtitle(c.destKey, c.venue), image: c.image || cover || null,
-          href: `/verta-keliones#vk-${c.id}`, date: c.date, badge: 'Koncertas, vertas kelionės',
+          href: `/verta-keliones#vk-${(c as any).slug || c.id}`, date: c.date, badge: 'Koncertas, vertas kelionės',
           avatar: cover,
           meta: { tripInfo: tripInfo(c.destKey), excerpt: c.why || null, venue: c.venue || null },
         })

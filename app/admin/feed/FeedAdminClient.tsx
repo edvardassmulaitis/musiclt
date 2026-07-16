@@ -14,6 +14,9 @@ type Cand = {
   hidden: boolean
   pinned: boolean
   sortOrder: number | null
+  /** Renginys be vizualo — homepage feed'e NErodomas, bet admin'e matomas
+   *  (pilkai, su žyma), kad būtų pilnas vaizdas ir galima paslėpti. */
+  noVisual?: boolean
 }
 
 function ytId(url: string | null | undefined): string | null {
@@ -65,7 +68,7 @@ export default function FeedAdminClient() {
       j('/api/news?limit=12&include=songs&since_days=7'), j('/api/blog/home-hero'),
       j('/api/dienos-daina/winners?limit=7'), j('/api/dienos-daina/nominations'),
       j('/api/muzikos-atradimai?featured=1&limit=6'), j('/api/koncertu-irasai?limit=6'),
-      j('/api/verta-keliones'), j('/api/events?limit=24'), j('/api/events?home_hero=1&limit=8'),
+      j('/api/verta-keliones'), j('/api/events?limit=24&homepage=1'), j('/api/events?home_hero=1&limit=8'),
       j('/api/feed/overrides'),
     ])
 
@@ -101,7 +104,9 @@ export default function FeedAdminClient() {
     list.splice(Math.min(3, list.length), 0, ...dailyCands)
 
     // Verta
-    ;(verta.concerts || []).slice(0, 2).forEach((c: any) => push(`verta::/verta-keliones#vk-${c.id}`, 'Verta kelionės', c.isFestival ? (c.festivalName || c.artist) : c.artist, c.image || null, `/verta-keliones#vk-${c.id}`))
+    // Raktas pagal slug (stabilus; UUID keičiasi perkūrus renginį). Kaip homepage:
+    // tik su vizualu ir tik 1 (homepage rodo max 1 būsimą verta kortelę).
+    ;(verta.concerts || []).filter((c: any) => !!c.image).slice(0, 2).forEach((c: any) => push(`verta::/verta-keliones#vk-${c.slug || c.id}`, 'Verta kelionės', c.isFestival ? (c.festivalName || c.artist) : c.artist, c.image || null, `/verta-keliones#vk-${c.slug || c.id}`))
     // Events — TIKSLIAI kaip homepage (HomeClient): VISI home_hero renginiai
     // (ne max 4!), po jų bendri iki 4 viso; vizualas filtruojamas renderinant.
     // Anksčiau admin'as kirpdavo per 4 → 5-as home_hero renginys (pvz. GALÈRA)
@@ -109,7 +114,10 @@ export default function FeedAdminClient() {
     const evSeen = new Set<any>(); const evList: any[] = []
     for (const ev of (hev.events || [])) { if (!evSeen.has(ev.id)) { evSeen.add(ev.id); evList.push(ev) } }
     for (const ev of (events.events || [])) { if (evList.length >= 4) break; if (!evSeen.has(ev.id)) { evSeen.add(ev.id); evList.push(ev) } }
-    evList.forEach((ev: any) => { const evImg = ev.image_small_url || ev.cover_image_url || null; if (!evImg) return; push(`event::/renginiai/${ev.slug}`, 'Renginys', strip(ev.title), evImg, `/renginiai/${ev.slug}`) })
+    // 2026-07-16: renginių be vizualo NEBESLEPIAM iš admin sąrašo — homepage jų
+    // nerodo, bet admin'e jie matomi su žyma (anksčiau tokių iš viso nesimatė ir
+    // buvo neaišku, kas vyksta).
+    evList.forEach((ev: any) => { const evImg = ev.image_small_url || ev.cover_image_url || null; list.push({ ...mk(`event::/renginiai/${ev.slug}`, 'Renginys', strip(ev.title), evImg, `/renginiai/${ev.slug}`), noVisual: !evImg }) })
 
     // apply overrides — TIKSLIAI kaip homepage: TIK pin'as kelia į viršų; sort_order
     // vienas nedominuoja (paslėpti įrašai lieka rodomi pilki, kad būtų galima atstatyti).
@@ -210,7 +218,7 @@ export default function FeedAdminClient() {
         <div className="mb-6 rounded-xl border-2 border-amber-400/60 bg-[var(--bg-surface)] p-3">
           <div className="mb-2 flex items-center gap-2">
             <span className="text-sm font-black text-[var(--text-primary)]">🕐 Kandidatai ({pending.length})</span>
-            <span className="text-xs text-[var(--text-muted)]">nauji įrašai laukia patvirtinimo · nepatvirtinti auto-įsileidžiami po 8 val.</span>
+            <span className="text-xs text-[var(--text-muted)]">naujienos / renginiai / įrašai auto-įsileidžiami po 8 val. · „verta kelionės" ir kiti — TIK patvirtinus</span>
           </div>
           <div className="flex flex-col gap-1.5">
             {pending.map(p => (
@@ -242,7 +250,7 @@ export default function FeedAdminClient() {
 
       <div className="flex flex-col gap-2">
         {cands.map((c, i) => (
-          <div key={c.key} className={`flex items-center gap-3 rounded-xl border border-[var(--border-default)] bg-[var(--bg-surface)] p-2 ${c.hidden ? 'opacity-45' : ''}`}>
+          <div key={c.key} className={`flex items-center gap-3 rounded-xl border border-[var(--border-default)] bg-[var(--bg-surface)] p-2 ${c.hidden || c.noVisual ? 'opacity-45' : ''}`}>
             <div className="flex flex-col">
               <button onClick={() => move(i, -1)} disabled={i === 0} className="px-1 text-[var(--text-muted)] disabled:opacity-30">▲</button>
               <button onClick={() => move(i, 1)} disabled={i === cands.length - 1} className="px-1 text-[var(--text-muted)] disabled:opacity-30">▼</button>
@@ -252,7 +260,7 @@ export default function FeedAdminClient() {
             </div>
             <div className="min-w-0 flex-1">
               <p className="truncate text-sm font-bold text-[var(--text-primary)]">{c.pinned ? '📌 ' : ''}{c.title}</p>
-              <p className="truncate text-xs text-[var(--text-muted)]">{c.typeLabel}{c.isCustom ? ' · laisvas' : ''}</p>
+              <p className="truncate text-xs text-[var(--text-muted)]">{c.typeLabel}{c.isCustom ? ' · laisvas' : ''}{c.noVisual ? ' · be vizualo — homepage nerodomas' : ''}</p>
             </div>
             {!c.isCustom && (
               <button onClick={() => togglePin(c)} disabled={busy} title="Prisegti viršuje" className={`rounded-lg px-2 py-1.5 text-sm ${c.pinned ? 'bg-[var(--accent-orange)] text-white' : 'border border-[var(--border-default)] text-[var(--text-muted)]'}`}>📌</button>

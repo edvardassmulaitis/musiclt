@@ -189,7 +189,7 @@ export default function RadarClient({ concerts, destinations }: { concerts: Conc
         <div className="vk-empty"><p className="vk-empty-ic">{I.plane}</p><h3>Nieko nerasta</h3><p>Pakeisk filtrus.</p></div>
       ) : (
         <div className="vk-grid">
-          {list.map(c => <Card key={c.id} c={c} d={destMap[c.destKey]} focused={focusId === `vk-${c.id}`} />)}
+          {list.map(c => <Card key={c.id} c={c} d={destMap[c.destKey]} focused={focusId === `vk-${c.slug || c.id}`} />)}
         </div>
       )}
 
@@ -205,7 +205,7 @@ function Card({ c, d, focused }: { c: Concert; d?: Destination; focused?: boolea
     ? { backgroundImage: `url(${c.image})` }
     : { background: gradFor(c.artist) }
   return (
-    <Link id={`vk-${c.id}`} href={vkHref(c)} className={`vk-card${focused ? ' vk-card-focus' : ''}`}>
+    <Link id={`vk-${c.slug || c.id}`} href={vkHref(c)} className={`vk-card${focused ? ' vk-card-focus' : ''}`}>
       <div className={`vk-thumb${c.image ? ' has-img' : ''}`} style={posterStyle}>
         {!c.image && <span className="vk-thumb-name">{c.artist}</span>}
       </div>

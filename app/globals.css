@@ -493,30 +493,47 @@ select:focus-visible {
 }
 
 /* ── Base ── */
-html, body {
+/* Bazinė spalva ant html (canvas), body permatomas — kad body::before
+   gradiento sluoksnis (žr. žemiau) nebūtų uždengtas body fono. */
+html {
   background: var(--bg-body);
   color: var(--text-primary);
   transition: background .25s ease, color .25s ease;
+}
+body {
+  background: transparent;
+  color: var(--text-primary);
+  transition: color .25s ease;
 }
 
 /* ── Fono „gylio" sluoksnis (dizaino elementas) ──
    Subtilus, viewport'e fiksuotas šiltas švytėjimas iš viršaus (tarsi scenos
    šviesa) — kad fonas nebūtų plokščia siena. Tamsoje aiškiau juntamas ir prideda
-   gylio; šviesoje — vos vos. Kompozuojamas ANT bazinės --bg-body spalvos, todėl
-   turinys/kortelės piešiasi virš jo įprastai. Lengvai keičiamas/išimamas. */
-[data-theme="dark"] body {
+   gylio; šviesoje — vos vos.
+
+   PERF 2026-07-16: anksčiau gradientai buvo body background su
+   background-attachment: fixed — fiksuotas fonas negali važiuoti kartu su
+   scroll layer'iu, todėl naršyklė jį perrasterizuodavo KIEKVIENĄ scroll kadrą
+   (stambus scroll-jank šaltinis). Dabar gradientai gyvena body::before
+   (position:fixed; z-index:-1) — piešiasi VIRŠ body bazinės spalvos, bet po
+   visu turiniu, kompozituojami atskirai, scroll'ui nebekainuoja. Vizualiai
+   identiška. */
+body::before {
+  content: '';
+  position: fixed;
+  inset: 0;
+  z-index: -1;
+  pointer-events: none;
+}
+[data-theme="dark"] body::before {
   background:
     radial-gradient(120% 46% at 50% -6%, rgba(249,115,22,0.13), transparent 60%),
     radial-gradient(110% 40% at 88% 8%, rgba(59,130,246,0.07), transparent 62%),
-    linear-gradient(180deg, rgba(255,255,255,0.03), transparent 26%),
-    var(--bg-body);
-  background-attachment: fixed, fixed, fixed, fixed;
+    linear-gradient(180deg, rgba(255,255,255,0.03), transparent 26%);
 }
-[data-theme="light"] body {
+[data-theme="light"] body::before {
   background:
-    radial-gradient(120% 44% at 50% -8%, rgba(234,108,10,0.06), transparent 60%),
-    var(--bg-body);
-  background-attachment: fixed, fixed;
+    radial-gradient(120% 44% at 50% -8%, rgba(234,108,10,0.06), transparent 60%);
 }
 
 /* ═══════════════════════════════════════════════════════════════════

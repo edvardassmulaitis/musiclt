@@ -50,6 +50,9 @@ export type Concert = {
   isFestival?: boolean
   festivalName?: string
   image?: string             // atlikėjo nuotrauka (iš DB)
+  slug?: string              // events.slug — STABILUS raktas feed override'ams
+                             // (events.id UUID keičiasi perkūrus įrašą → override'ai
+                             // tapdavo našlaičiais ir „paslėptas" įrašas vėl išlįsdavo)
   artistSlug?: string        // nuoroda į atlikėjo psl. (ateičiai)
   why: string                // „kodėl verta" (būsimoje versijoje — AI)
   verified?: boolean         // ar data patikrinta iš oficialaus skelbimo

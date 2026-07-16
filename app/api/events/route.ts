@@ -14,6 +14,12 @@ export async function GET(req: NextRequest) {
   }
 
   try {
+    // 2026-07-16: `home_hero=1` istoriškai buvo IGNORUOJAMAS (parametras
+    // egzistavo tik URL'uose) — „hero renginiai" iš tikrųjų buvo tiesiog
+    // artimiausi renginiai. Dabar home_hero=1 / homepage=1 reiškia „homepage
+    // kontekstas": gerbiamas events.hide_from_homepage (admin'o „Slėpti nuo
+    // pagrindinio" pagaliau veikia hero, afišai ir feed kandidatams).
+    const homepageCtx = sp.get('home_hero') === '1' || sp.get('homepage') === '1'
     const result = await getEvents({
       city: sp.get('city') || undefined,
       venueId: sp.get('venueId') ? parseInt(sp.get('venueId')!) : undefined,
@@ -23,6 +29,7 @@ export async function GET(req: NextRequest) {
       order: (sp.get('order') as 'asc' | 'desc') || undefined,
       limit: parseInt(sp.get('limit') || '20'),
       offset: parseInt(sp.get('offset') || '0'),
+      excludeHiddenFromHomepage: homepageCtx,
     })
     // compact=1 — homepage'ui: numetam description (160KB+), ticket_url
     if (sp.get('compact') === '1' && result.events) {

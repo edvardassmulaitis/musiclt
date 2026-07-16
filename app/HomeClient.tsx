@@ -8,7 +8,10 @@ import { HomeChatsWidget } from '@/components/HomeChatsWidget'
 import { ShoutboxWidget } from '@/components/ShoutboxWidget'
 import { ActivityWidget } from '@/components/ActivityWidget'
 import { LazySection } from '@/components/LazySection'
-import { proxyImg } from '@/lib/img-proxy'
+// PERF 2026-07-16: kortelėms naudojam proxyImgResized (weserv &w= + webp) —
+// anksčiau visos nuotraukos ėjo ORIGINALAUS dydžio (1500–3000px dekodavimas į
+// ~200px plotelį = scroll jank). Plotis parenkamas ~2× kortelės CSS pločio.
+import { proxyImg, proxyImgResized } from '@/lib/img-proxy'
 import { sanitizeRichHtml } from '@/lib/sanitize-html'
 import { deviceFpSync } from '@/lib/device-fp'
 import { HomeTrackModal } from '@/components/HomeTrackModal'
@@ -208,7 +211,7 @@ function Cover({ src, alt, size = 44, radius = 10, ytId, artistSrc }: { src?: st
   // užsienio (be nuotraukos) — YouTube thumb'ą. Dabar visur song-specific
   // thumbnail (cover arba YT), atlikėjo nuotrauka tik kraštutinis fallback'as.
   const imgSrc = src || (ytId ? `https://img.youtube.com/vi/${ytId}/mqdefault.jpg` : null) || artistSrc
-  if (imgSrc) return <img src={proxyImg(imgSrc)} alt={alt} loading="lazy" style={{ width: size, height: size, borderRadius: radius, objectFit: 'cover', flexShrink: 0, display: 'block' }} />
+  if (imgSrc) return <img src={proxyImgResized(imgSrc, 128)} alt={alt} loading="lazy" decoding="async" style={{ width: size, height: size, borderRadius: radius, objectFit: 'cover', flexShrink: 0, display: 'block' }} />
   return (
     <div style={{ width: size, height: size, borderRadius: radius, flexShrink: 0, background: `linear-gradient(135deg, hsl(${h},38%,16%), hsl(${(h + 40) % 360},28%,10%))`, display: 'flex', alignItems: 'center', justifyContent: 'center', color: `hsl(${h},45%,45%)`, fontSize: size * 0.38, fontWeight: 800, fontFamily: 'Outfit, sans-serif' }}>
       {alt[0]?.toUpperCase() || '?'}
@@ -711,7 +714,7 @@ function ChartVoteList({ topType, accent, onPlay }: { topType: 'lt_top30' | 'top
           <div key={e.track_id} className="rdr-chart-row">
             <span className="rdr-chart-pos">{e.pos}<TrendBadge prev={e.prev} pos={e.pos} isNew={e.isNew} /></span>
             <button className="rdr-cvl-cover" onClick={() => e.videoId && onPlay(e.videoId, { title: e.title, artist: e.artist, cover: e.cover })} disabled={!e.videoId} aria-label="Groti">
-              {e.cover ? <img src={proxyImg(e.cover)} alt="" /> : <span className="rdr-chart-ph" />}
+              {e.cover ? <img src={proxyImgResized(e.cover, 96)} alt="" loading="lazy" decoding="async" /> : <span className="rdr-chart-ph" />}
               {e.videoId && <span className="rdr-cvl-play"><svg width="13" height="13" viewBox="0 0 24 24" fill="#fff"><path d="M8 5v14l11-7z" /></svg></span>}
             </button>
             <span className="rdr-chart-info"><b>{e.title}</b><i>{e.artist}</i></span>
@@ -771,7 +774,7 @@ function DailyCandidates({ onPlay }: { onPlay: (videoId: string, meta?: { title?
           <div key={n.id} className={`rdr-dc-row${idx === 0 ? ' lead' : ''}`}>
             <span className="rdr-dc-rank">{idx + 1}</span>
             <button className="rdr-cvl-cover" onClick={() => vid && onPlay(vid, { title: sanitizeTitle(t.title || ''), artist: t.artists?.name || null, cover: img })} disabled={!vid} aria-label="Groti">
-              {img ? <img src={proxyImg(img)} alt="" /> : <span className="rdr-chart-ph" />}
+              {img ? <img src={proxyImgResized(img, 96)} alt="" loading="lazy" decoding="async" /> : <span className="rdr-chart-ph" />}
               {vid && <span className="rdr-cvl-play"><svg width="13" height="13" viewBox="0 0 24 24" fill="#fff"><path d="M8 5v14l11-7z" /></svg></span>}
             </button>
             <div className="rdr-dc-info">
@@ -928,8 +931,8 @@ function ReaderSlide({ slide, active, seen, dk, scrollTopSignal, onScrolledChang
           standartiniai YouTube embed'ai „Muzika" sekcijoje po tekstu. ── */}
       {slide.bgImg ? (
         <div className={`rdr-media${tallPoster ? ' rdr-media-tall' : ''}`}>
-          <span className="rdr-poster-bg" style={{ backgroundImage: `url(${proxyImg(slide.bgImg)})` }} />
-          <img className="rdr-poster-img" src={proxyImg(slide.bgImg)} alt="" draggable={false} />
+          <span className="rdr-poster-bg" style={{ backgroundImage: `url(${proxyImgResized(slide.bgImg, 64)})` }} />
+          <img className="rdr-poster-img" src={proxyImgResized(slide.bgImg, 1080)} alt="" draggable={false} decoding="async" />
           <div className="rdr-media-fade" />
         </div>
       ) : null}
@@ -957,7 +960,7 @@ function ReaderSlide({ slide, active, seen, dk, scrollTopSignal, onScrolledChang
                 <div key={t.pos} className="rdr-chart-row">
                   <span className="rdr-chart-pos">{t.pos}<TrendBadge prev={t.prevPos} pos={t.pos} isNew={t.trend === 'new'} /></span>
                   {t.cover_url || t.artist_image
-                    ? <img src={proxyImg(t.cover_url || t.artist_image!)} alt="" />
+                    ? <img src={proxyImgResized(t.cover_url || t.artist_image!, 96)} alt="" loading="lazy" decoding="async" />
                     : <span className="rdr-chart-ph" />}
                   <span className="rdr-chart-info"><b>{t.title}</b><i>{t.artist}</i></span>
                 </div>
@@ -974,7 +977,7 @@ function ReaderSlide({ slide, active, seen, dk, scrollTopSignal, onScrolledChang
                 <div key={idx} className="rdr-top-item">
                   <span className="rdr-top-rank">{it.rank ?? idx + 1}</span>
                   {it.image_url
-                    ? <img className="rdr-top-cover" src={proxyImg(it.image_url)} alt="" loading="lazy" />
+                    ? <img className="rdr-top-cover" src={proxyImgResized(it.image_url, 96)} alt="" loading="lazy" decoding="async" />
                     : <span className="rdr-top-cover rdr-top-ph" />}
                   <div className="rdr-top-info">
                     <p className="rdr-top-title">{it.title}{it.artist ? <span className="rdr-top-artist"> — {it.artist}</span> : null}</p>
@@ -1060,7 +1063,7 @@ function CardFooter({ slide, onNavLink }: {
                 {slide.lineup!.map(a => (
                   <Link key={a.slug} href={`/atlikejai/${a.slug}`} onClick={onNavLink} className="rdr-lineup-item">
                     {a.image
-                      ? <img src={proxyImg(a.image)} alt="" />
+                      ? <img src={proxyImgResized(a.image, 96)} alt="" loading="lazy" decoding="async" />
                       : <span className="rdr-lineup-ph">{a.name[0]}</span>}
                     <span>{a.name}</span>
                   </Link>
@@ -1069,7 +1072,7 @@ function CardFooter({ slide, onNavLink }: {
             ) : (
               <Link href={`/atlikejai/${slide.artist!.slug}`} onClick={onNavLink} className="rdr-foot-artist">
                 {slide.artist!.image
-                  ? <img src={proxyImg(slide.artist!.image)} alt="" />
+                  ? <img src={proxyImgResized(slide.artist!.image, 96)} alt="" loading="lazy" decoding="async" />
                   : <span className="rdr-foot-ph">{slide.artist!.name[0]}</span>}
                 <span>{slide.artist!.name}</span>
               </Link>
@@ -1437,7 +1440,7 @@ function CommunityDiscussionsCard() {
                 <div className="mt-1 flex items-start gap-1.5">
                   {lc.avatar ? (
                     // eslint-disable-next-line @next/next/no-img-element
-                    <img src={proxyImg(lc.avatar)} alt="" className="mt-px h-[15px] w-[15px] shrink-0 rounded-full object-cover" />
+                    <img src={proxyImgResized(lc.avatar, 64)} alt="" loading="lazy" decoding="async" className="mt-px h-[15px] w-[15px] shrink-0 rounded-full object-cover" />
                   ) : (
                     <span className="mt-px flex h-[15px] w-[15px] shrink-0 items-center justify-center rounded-full text-[12px] font-extrabold" style={{ background: `hsl(${hue},32%,20%)`, color: `hsl(${hue},48%,60%)` }}>{(lc.author || '?').charAt(0).toUpperCase()}</span>
                   )}
@@ -1577,7 +1580,7 @@ type IstCatKey = keyof typeof IST_CATS
 function IstThumb({ cover, name, size = 48, radius = 10, gray = false }: { cover: string | null; name: string; size?: number; radius?: number; gray?: boolean }) {
   if (cover) {
     // eslint-disable-next-line @next/next/no-img-element
-    return <img src={proxyImg(cover)} alt="" loading="lazy" className="shrink-0 object-cover" style={{ width: size, height: size, borderRadius: radius, filter: gray ? 'grayscale(1)' : undefined }} />
+    return <img src={proxyImgResized(cover, 128)} alt="" loading="lazy" decoding="async" className="shrink-0 object-cover" style={{ width: size, height: size, borderRadius: radius, filter: gray ? 'grayscale(1)' : undefined }} />
   }
   return (
     <div className="flex shrink-0 items-center justify-center font-['Outfit',sans-serif] font-extrabold" style={{ width: size, height: size, borderRadius: radius, fontSize: size * 0.34, background: gray ? 'hsl(0,0%,18%)' : `hsl(${strHue(name)},32%,20%)`, color: gray ? 'hsl(0,0%,55%)' : `hsl(${strHue(name)},48%,58%)` }}>
@@ -1606,7 +1609,7 @@ function IstGroupChips({ groups, max = 99, avatar = 20 }: { groups?: { name: str
         <span key={i} className="flex min-w-0 items-center gap-1.5">
           {g.cover ? (
             // eslint-disable-next-line @next/next/no-img-element
-            <img src={proxyImg(g.cover)} alt="" loading="lazy" className="shrink-0 rounded-full object-cover" style={{ width: avatar, height: avatar }} />
+            <img src={proxyImgResized(g.cover, 96)} alt="" loading="lazy" decoding="async" className="shrink-0 rounded-full object-cover" style={{ width: avatar, height: avatar }} />
           ) : (
             <span className="flex shrink-0 items-center justify-center rounded-full font-['Outfit',sans-serif] font-extrabold" style={{ width: avatar, height: avatar, fontSize: avatar * 0.42, background: `hsl(${strHue(g.name)},32%,24%)`, color: `hsl(${strHue(g.name)},48%,62%)` }}>{(g.name || '?').charAt(0).toUpperCase()}</span>
           )}
@@ -1724,7 +1727,7 @@ function IstorijaSection({ onOpenAlbum }: { onOpenAlbum?: (id: number, preview: 
                       <div className={`relative aspect-square overflow-hidden rounded-xl bg-[var(--cover-placeholder)] transition-all duration-300 group-hover:-translate-y-0.5 group-hover:border-[rgba(249,115,22,0.5)] group-hover:shadow-[0_14px_32px_rgba(249,115,22,0.18)] ${isJubilee ? 'border-2 border-[var(--accent-orange)] shadow-[0_4px_18px_rgba(249,115,22,0.35)]' : 'border border-[var(--border-default)] shadow-[0_4px_12px_rgba(0,0,0,0.25)]'}`}>
                         {it.cover ? (
                           // eslint-disable-next-line @next/next/no-img-element
-                          <img src={proxyImg(it.cover)} alt={it.title} loading="lazy" className="h-full w-full object-cover transition-transform duration-500 group-hover:scale-[1.06]" style={{ filter: gray ? 'grayscale(1)' : 'saturate(1.05) contrast(1.02)' }} />
+                          <img src={proxyImgResized(it.cover, 480)} alt={it.title} loading="lazy" decoding="async" className="h-full w-full object-cover transition-transform duration-500 group-hover:scale-[1.06]" style={{ filter: gray ? 'grayscale(1)' : 'saturate(1.05) contrast(1.02)' }} />
                         ) : (
                           <div className="flex h-full w-full items-center justify-center font-['Outfit',sans-serif] font-extrabold" style={{ fontSize: 46, background: gray ? 'hsl(0,0%,18%)' : `hsl(${strHue(it.title)},32%,20%)`, color: gray ? 'hsl(0,0%,55%)' : `hsl(${strHue(it.title)},48%,58%)` }}>
                             {(it.title || '?').charAt(0).toUpperCase()}
@@ -1793,7 +1796,7 @@ function IstorijaSection({ onOpenAlbum }: { onOpenAlbum?: (id: number, preview: 
                 <div className="relative aspect-square overflow-hidden rounded-xl border border-[var(--border-default)] bg-[var(--cover-placeholder)] transition-all duration-300 group-hover:-translate-y-0.5 group-hover:border-[rgba(249,115,22,0.5)]">
                   {it.cover ? (
                     // eslint-disable-next-line @next/next/no-img-element
-                    <img src={proxyImg(it.cover)} alt={it.title} loading="lazy" className="h-full w-full object-cover transition-transform duration-500 group-hover:scale-[1.06]" />
+                    <img src={proxyImgResized(it.cover, 480)} alt={it.title} loading="lazy" decoding="async" className="h-full w-full object-cover transition-transform duration-500 group-hover:scale-[1.06]" />
                   ) : <div className="flex h-full w-full items-center justify-center text-2xl text-[var(--text-faint)]">💿</div>}
                   {it.age ? <span className="absolute bottom-1.5 right-1.5 rounded bg-black/70 px-1.5 py-0.5 font-['Outfit',sans-serif] text-[12px] font-bold text-white backdrop-blur-sm">{it.age} m.</span> : null}
                 </div>
@@ -1968,7 +1971,7 @@ function HeroV2Card({ slide, dk }: { slide: HeroSlide; dk: boolean }) {
         {slide.bgImg ? (
           // eslint-disable-next-line @next/next/no-img-element
           <img
-            src={proxyImg(slide.bgImg)}
+            src={proxyImgResized(slide.bgImg, 1280)}
             alt=""
             loading="lazy"
             className="h-full w-auto max-w-full object-cover"
@@ -2065,7 +2068,7 @@ function HeroChartCard({ slide }: { slide: HeroSlide }) {
       <div className="relative h-full w-full overflow-hidden rounded-lg" style={{ boxShadow: size === 'big' ? '0 6px 22px rgba(0,0,0,0.5)' : '0 4px 14px rgba(0,0,0,0.4)' }}>
         {/* eslint-disable-next-line @next/next/no-img-element */}
         <img
-          src={proxyImg(c)}
+          src={proxyImgResized(c, 480)}
           alt=""
           loading="lazy"
           className="absolute inset-0 h-full w-full object-cover transition-transform duration-300 group-hover:scale-[1.04]"
@@ -2446,7 +2449,7 @@ function ChartBottomSheet({
                 <div style={{ width: 44, height: 44, borderRadius: 8, overflow: 'hidden', flexShrink: 0, background: 'rgba(255,255,255,0.05)' }}>
                   {c && (
                     // eslint-disable-next-line @next/next/no-img-element
-                    <img src={proxyImg(c)} alt="" style={{ width: '100%', height: '100%', objectFit: 'cover', display: 'block' }} />
+                    <img src={proxyImgResized(c, 96)} alt="" loading="lazy" decoding="async" style={{ width: '100%', height: '100%', objectFit: 'cover', display: 'block' }} />
                   )}
                 </div>
                 {/* Title + artist */}
@@ -2529,7 +2532,7 @@ function MobileChartSlide({
     return (
       <>
         {/* eslint-disable-next-line @next/next/no-img-element */}
-        <img src={proxyImg(c)} alt="" style={{ width: '100%', height: '100%', objectFit: 'cover', display: 'block' }} />
+        <img src={proxyImgResized(c, 320)} alt="" loading="lazy" decoding="async" style={{ width: '100%', height: '100%', objectFit: 'cover', display: 'block' }} />
         <div style={{ position: 'absolute', inset: 0, background: 'linear-gradient(to top, rgba(0,0,0,0.92) 0%, rgba(0,0,0,0.25) 45%, transparent 70%)' }} />
         <span style={{
           position: 'absolute', top: 5, left: 5, padding: numPad, borderRadius: 6,
@@ -2790,7 +2793,11 @@ export default function HomeClient({ initialLatest, initialHero }: { initialLate
   })
   const filtEvt = events.filter(e => !(e as any).hide_from_homepage)
   const [heroSlides, setHeroSlides] = useState<HeroSlide[]>([])
-  const [heroIdx, setHeroIdx] = useState(0)
+  // PERF 2026-07-16: heroIdx rotacijos timeris (kas 8s setState → viso medžio
+  // re-render) pašalintas — senojo kinematinio hero likutis: `hero` kintamasis
+  // niekur nebebuvo naudojamas (desktop — HeroV2Slider scroll'inis, mobile —
+  // feed strip + reels su savo indeksu). Kartu išimtas kito slide'o Image()
+  // preload'as, sukdavęs paveikslų parsisiuntimą/dekodavimą amžinu ratu.
   // „Hero settle" — kol async šaltiniai (news/topai/events/...) trūkčioja po
   // vieną, hero turinys persirikiuoja → flicker (matosi sąrašo galo įrašai,
   // tada priekiniai). Todėl hero laikom permatomą kol turinys NUSISTOVI (be
@@ -2932,10 +2939,7 @@ export default function HomeClient({ initialLatest, initialHero }: { initialLate
     }
   }, [])
 
-  const [heroImgLoaded, setHeroImgLoaded] = useState(false)
-  const [heroVideoPlaying, setHeroVideoPlaying] = useState(false)
   const [newsSongs, setNewsSongs] = useState<Record<number, { youtube_url: string; title: string | null; artist_name: string | null }[]>>({})
-  const timerRef = useRef<any>(null)
 
   const parseTop = (entries: any[]): TopEntry[] => entries.slice(0, 7).map(e => {
     const prev = e.prev_position; const cur = e.position
@@ -2981,7 +2985,7 @@ export default function HomeClient({ initialLatest, initialHero }: { initialLate
       .catch(() => {}))
     // feed/overrides valdo hero prisegtų slide'ų tvarką — paruošiam PRIEŠ reveal.
     core.push(fetch('/api/feed/overrides').then(r => r.json()).then(d => { setFeedOverrides(d.overrides || []); setFeedCustom(d.custom || []); setFeedBlocked(new Set((d.blocked || []) as string[])) }).catch(() => {}))
-    rest.push(fetch('/api/events?limit=60').then(r => r.json()).then(d => setEvents(d.events || [])).catch(() => {}))
+    rest.push(fetch('/api/events?limit=60&homepage=1').then(r => r.json()).then(d => setEvents(d.events || [])).catch(() => {}))
     rest.push(fetch('/api/muzikos-atradimai?featured=1&limit=6').then(r => r.json()).then(d => setDiscoveries(d.items || [])).catch(() => {}))
     rest.push(fetch('/api/koncertu-irasai?limit=6').then(r => r.json()).then(d => setRecordings(d.recordings || [])).catch(() => {}))
     rest.push(fetch('/api/verta-keliones').then(r => r.json()).then(d => setVertaConcerts({ concerts: d.concerts || [], destinations: d.destinations || [] })).catch(() => {}))
@@ -3201,6 +3205,10 @@ export default function HomeClient({ initialLatest, initialHero }: { initialLate
         const d = new Date(c.date)
         return isNaN(d.getTime()) || d.getTime() > Date.now() - 86400000
       })
+      // VIZUALO FILTRAS (2026-07-16): kaip ir renginiams — be nuotraukos į hero
+      // nepatenka (anksčiau verta tipas šio filtro neturėjo ir pro jį praslysdavo
+      // tuščios kortelės, pvz. Lollapalooza Berlin).
+      .filter((c: any) => !!c.image)
       .slice(0, 1)
       .forEach((c: any) => {
       const dest = (vertaConcerts.destinations || []).find((x: any) => x.key === c.destKey)
@@ -3221,7 +3229,9 @@ export default function HomeClient({ initialLatest, initialHero }: { initialLate
         excerpt: c.why || '',   // „kodėl verta" — PILNAS tekstas
         metaLine: [where, ds, travel].filter(Boolean).join(' · '),
         bgImg: c.image || null,
-        href: `/verta-keliones#vk-${c.id}`,
+        // STABILUS raktas: slug vietoj UUID (UUID keičiasi perkūrus renginį →
+        // admin'o hide override'ai tapdavo našlaičiais). Fallback id — seed'ui.
+        href: `/verta-keliones#vk-${c.slug || c.id}`,
         ticketUrl: c.ticketUrl || null,
         artist: null,
         ctaLabel: 'Apie kelionę',
@@ -3344,49 +3354,9 @@ export default function HomeClient({ initialLatest, initialHero }: { initialLate
     }
 
     setHeroSlides(finalSlides.length ? finalSlides : slides)
-    // PERF: hero atsiskleidžia anksčiau (core-ready), o `rest` slide'ai prisikabina
-    // vėliau — NEnullinam žiūrimo slide indekso, jei jis dar galioja (be peršokimo).
-    setHeroIdx(i => {
-      const n = (finalSlides.length ? finalSlides : slides).length
-      return i < n ? i : 0
-    })
     readyBits.current.hero = true
     tryReady.current()
   }, [news, events, newsSongs, ltTop, worldTop, ltTopDate, worldTopDate, heroPosts, heroEvents, discoveries, recordings, dailyWinners, dailyNomsCount, vertaConcerts, feedOverrides, feedCustom, feedBlocked])
-
-  useEffect(() => {
-    if (!heroSlides.length || heroVideoPlaying) return
-    timerRef.current = setTimeout(() => {
-      setHeroImgLoaded(false)
-      setHeroVideoPlaying(false)
-      setHeroIdx(p => (p + 1) % heroSlides.length)
-    }, 8000)
-    return () => clearTimeout(timerRef.current)
-  }, [heroIdx, heroSlides.length, heroVideoPlaying])
-
-  useEffect(() => {
-    const handleKey = (e: KeyboardEvent) => {
-      if (!heroSlides.length) return
-      if (document.activeElement?.tagName === 'INPUT' || document.activeElement?.tagName === 'TEXTAREA') return
-      if (e.key === 'ArrowLeft') {
-        e.preventDefault()
-        setHeroImgLoaded(false); setHeroVideoPlaying(false)
-        setHeroIdx(p => (p - 1 + heroSlides.length) % heroSlides.length)
-      } else if (e.key === 'ArrowRight') {
-        e.preventDefault()
-        setHeroImgLoaded(false); setHeroVideoPlaying(false)
-        setHeroIdx(p => (p + 1) % heroSlides.length)
-      }
-    }
-    window.addEventListener('keydown', handleKey)
-    return () => window.removeEventListener('keydown', handleKey)
-  }, [heroSlides.length])
-
-  useEffect(() => {
-    if (!heroSlides.length) return
-    const next = heroSlides[(heroIdx + 1) % heroSlides.length]
-    if (next?.bgImg) { const img = new Image(); img.src = next.bgImg }
-  }, [heroIdx, heroSlides])
 
   /* ── "seen" tracking ── */
   const [seenSlides, setSeenSlides] = useState<Set<string>>(() => {
@@ -3394,7 +3364,6 @@ export default function HomeClient({ initialLatest, initialHero }: { initialLate
     catch { return new Set() }
   })
 
-  const hero = heroSlides[heroIdx]
   const chartData = chartTab === 'lt' ? ltTop : worldTop
 
   return (
@@ -3407,7 +3376,10 @@ export default function HomeClient({ initialLatest, initialHero }: { initialLate
         .hp-skel{background:var(--homepage-skeleton-bg);animation:hp-pulse 1.8s ease-in-out infinite}
         .hp-freshdot{width:10px;height:10px;border-radius:50%;background:var(--accent-green);box-shadow:0 0 6px 1.5px rgba(34,197,94,0.85);animation:hp-blip 2.4s ease-in-out infinite}
         @keyframes hp-blip{0%,100%{box-shadow:0 0 4px 1px rgba(34,197,94,0.5);transform:scale(.9)}50%{box-shadow:0 0 9px 2.5px rgba(34,197,94,1);transform:scale(1)}}
-        .hp-scroll{overflow-x:auto;scrollbar-width:none;-webkit-overflow-scrolling:touch;scroll-behavior:smooth}
+        /* overflow-y:hidden — kad overflow-x:auto neišvirstų į implicit
+           overflow-y:auto (kelių px vertikalus overflow „pagauna" wheel
+           scroll'ą virš juostos ir stabdo puslapio slinkimą). */
+        .hp-scroll{overflow-x:auto;overflow-y:hidden;scrollbar-width:none;-webkit-overflow-scrolling:touch;scroll-behavior:smooth}
         .hp-hero-slot{width:580px;flex-shrink:0;min-width:0}
         /* >=1400px: siauresnės kortelės, kad 3-čia naujiena aiškiau matytųsi
            (peek ~38% vietoj ankstesnio ~10%). Edvardo prašymu 2026-05-31. */
@@ -3801,7 +3773,7 @@ export default function HomeClient({ initialLatest, initialHero }: { initialLate
                     }}
                   >
                     {slide.bgImg
-                      ? <img src={proxyImg(slide.bgImg)} alt="" style={{ width: '100%', height: '100%', objectFit: 'cover', display: 'block' }} />
+                      ? <img src={proxyImgResized(slide.bgImg, 480)} alt="" loading="lazy" decoding="async" style={{ width: '100%', height: '100%', objectFit: 'cover', display: 'block' }} />
                       : <div style={{ width: '100%', height: '100%', background: 'linear-gradient(135deg,#0a1428,#162040)' }} />
                     }
                     <div style={{ position: 'absolute', inset: 0, background: 'linear-gradient(to top, rgba(0,0,0,0.95) 0%, rgba(0,0,0,0.55) 35%, rgba(0,0,0,0.10) 60%, rgba(0,0,0,0) 75%)' }} />
@@ -3922,7 +3894,7 @@ export default function HomeClient({ initialLatest, initialHero }: { initialLate
                         <div className="relative aspect-video overflow-hidden rounded-lg border border-[var(--border-default)] bg-[var(--cover-placeholder)] shadow-[0_3px_10px_rgba(0,0,0,0.18)] transition-all duration-300 group-hover:-translate-y-0.5 group-hover:border-[rgba(249,115,22,0.5)]">
                           {imgSrc ? (
                             // eslint-disable-next-line @next/next/no-img-element
-                            <img src={proxyImg(imgSrc)} alt={sanitizeTitle(t.title)} loading="lazy" className="h-full w-full object-cover transition-transform duration-500 group-hover:scale-[1.06]" />
+                            <img src={proxyImgResized(imgSrc, 480)} alt={sanitizeTitle(t.title)} loading="lazy" decoding="async" className="h-full w-full object-cover transition-transform duration-500 group-hover:scale-[1.06]" />
                           ) : (<div className="flex h-full w-full items-center justify-center text-xl text-[var(--text-faint)]">🎵</div>)}
                           <div className="pointer-events-none absolute inset-0 flex items-center justify-center opacity-0 transition-opacity duration-200 group-hover:opacity-100"><span className="flex h-9 w-9 items-center justify-center rounded-full bg-[var(--accent-orange)] shadow-[0_4px_16px_rgba(249,115,22,0.5)]"><svg width="13" height="13" viewBox="0 0 24 24" fill="white"><path d="M8 5v14l11-7z" /></svg></span></div>
                           {rel && (<span className={`absolute bottom-1.5 right-1.5 rounded px-1.5 py-0.5 font-['Outfit',sans-serif] text-[12px] font-bold backdrop-blur-sm ${highlight ? 'bg-[var(--accent-orange)] text-white' : 'bg-black/70 text-white'}`}>{rel}</span>)}
@@ -3978,7 +3950,7 @@ export default function HomeClient({ initialLatest, initialHero }: { initialLate
                         <div className="relative aspect-square overflow-hidden rounded-lg border border-[var(--border-default)] bg-[var(--cover-placeholder)] shadow-[0_3px_10px_rgba(0,0,0,0.18)] transition-all duration-300 group-hover:-translate-y-0.5 group-hover:border-[rgba(249,115,22,0.5)]">
                           {a.cover_image_url || a.artists?.cover_image_url ? (
                             // eslint-disable-next-line @next/next/no-img-element
-                            <img src={proxyImg(a.cover_image_url || a.artists?.cover_image_url || '')} alt={sanitizeTitle(a.title)} loading="lazy" className="h-full w-full object-cover transition-transform duration-500 group-hover:scale-[1.06]" />
+                            <img src={proxyImgResized(a.cover_image_url || a.artists?.cover_image_url || '', 480)} alt={sanitizeTitle(a.title)} loading="lazy" decoding="async" className="h-full w-full object-cover transition-transform duration-500 group-hover:scale-[1.06]" />
                           ) : (<div className="flex h-full w-full items-center justify-center text-xl text-[var(--text-faint)]">💿</div>)}
                           {label && (<span className={`absolute bottom-1 right-1 rounded px-1.5 py-0.5 font-['Outfit',sans-serif] text-[12px] font-bold backdrop-blur-sm ${highlight ? 'bg-[var(--accent-orange)] text-white' : 'bg-black/70 text-white'}`}>{label}</span>)}
                           {isFresh24(a.created_at) && <FreshDot />}
@@ -4034,7 +4006,7 @@ export default function HomeClient({ initialLatest, initialHero }: { initialLate
                             {a.cover_image_url || a.artists?.cover_image_url ? (
                               // eslint-disable-next-line @next/next/no-img-element
                               <img
-                                src={proxyImg(a.cover_image_url || a.artists?.cover_image_url || '')}
+                                src={proxyImgResized(a.cover_image_url || a.artists?.cover_image_url || '', 480)}
                                 alt={sanitizeTitle(a.title)}
                                 loading="lazy"
                                 className="h-full w-full object-cover transition-transform duration-500 group-hover:scale-[1.06]"
@@ -4142,18 +4114,18 @@ export default function HomeClient({ initialLatest, initialHero }: { initialLate
                         <div className="relative flex-1 overflow-hidden">
                           {useCollage ? (
                             <div className="grid h-full w-full grid-cols-2 grid-rows-[3fr_2fr] gap-px">
-                              <div className="col-span-2 bg-cover bg-top" style={{ backgroundImage: `url(${proxyImg(photos[0].cover_image_url!)})` }} />
+                              <div className="col-span-2 bg-cover bg-top" style={{ backgroundImage: `url(${proxyImgResized(photos[0].cover_image_url!, 480)})` }} />
                               {smalls.map((a, idx) => (
-                                <div key={idx} className={`bg-cover bg-top ${smalls.length === 1 ? 'col-span-2' : ''}`} style={{ backgroundImage: `url(${proxyImg(a.cover_image_url!)})` }}>
+                                <div key={idx} className={`bg-cover bg-top ${smalls.length === 1 ? 'col-span-2' : ''}`} style={{ backgroundImage: `url(${proxyImgResized(a.cover_image_url!, 320)})` }}>
                                 </div>
                               ))}
                             </div>
                           ) : singleImg ? (
                             <>
                               {/* eslint-disable-next-line @next/next/no-img-element */}
-                              <img src={proxyImg(singleImg)} alt="" aria-hidden className="absolute inset-0 h-full w-full scale-110 object-cover opacity-50 blur-xl" />
+                              <img src={proxyImgResized(singleImg, 64)} alt="" aria-hidden loading="lazy" decoding="async" className="absolute inset-0 h-full w-full scale-110 object-cover opacity-50 blur-xl" />
                               {/* eslint-disable-next-line @next/next/no-img-element */}
-                              <img src={proxyImg(singleImg)} alt={title} loading="lazy" className="absolute inset-0 h-full w-full object-contain transition-transform duration-500 group-hover:scale-[1.03]" />
+                              <img src={proxyImgResized(singleImg, 640)} alt={title} loading="lazy" decoding="async" className="absolute inset-0 h-full w-full object-contain transition-transform duration-500 group-hover:scale-[1.03]" />
                             </>
                           ) : (
                             <div className="flex h-full w-full items-center justify-center text-2xl text-[var(--text-faint)]">🎵</div>
@@ -4183,7 +4155,7 @@ export default function HomeClient({ initialLatest, initialHero }: { initialLate
                         <div className="relative flex-1 overflow-hidden bg-[#15203a]">
                           <div className="grid h-full w-full grid-cols-3 grid-rows-2 gap-px">
                             {fImgs.map((src, i) => (
-                              <div key={i} className="bg-cover bg-top" style={{ backgroundImage: `url(${proxyImg(src)})` }} />
+                              <div key={i} className="bg-cover bg-top" style={{ backgroundImage: `url(${proxyImgResized(src, 320)})` }} />
                             ))}
                           </div>
                         </div>
@@ -4342,7 +4314,7 @@ export default function HomeClient({ initialLatest, initialHero }: { initialLate
                     <div className="relative h-full aspect-square shrink-0 overflow-hidden bg-[var(--cover-placeholder)]">
                       {(n.image_title_url || n.image_small_url) ? (
                         // eslint-disable-next-line @next/next/no-img-element
-                        <img src={proxyImg(n.image_title_url || n.image_small_url || '')} alt={n.title} loading="lazy" className="h-full w-full object-cover" />
+                        <img src={proxyImgResized(n.image_title_url || n.image_small_url || '', 480)} alt={n.title} loading="lazy" decoding="async" className="h-full w-full object-cover" />
                       ) : (
                         <div className="flex h-full items-center justify-center text-2xl text-[var(--text-faint)]">📰</div>
                       )}

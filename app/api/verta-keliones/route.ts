@@ -8,7 +8,9 @@ export const revalidate = 300
 
 export async function GET() {
   try {
-    const { concerts, destinations } = await getVertaKelionesData()
+    // true = homepage kontekstas: gerbiam events.hide_from_homepage (šitą API
+    // valgo homepage hero/afiša, /admin/feed ir feed kandidatų cron'as).
+    const { concerts, destinations } = await getVertaKelionesData(true)
     return NextResponse.json({ concerts, destinations }, {
       headers: { 'Cache-Control': 'public, s-maxage=300, stale-while-revalidate=900' },
     })
