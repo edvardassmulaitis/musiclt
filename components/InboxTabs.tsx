@@ -12,8 +12,10 @@ import { usePathname } from 'next/navigation'
 export default function InboxTabs() {
   const pathname = usePathname()
   const isEvents = pathname?.startsWith('/admin/inbox/events')
+  const isAlbums = pathname?.startsWith('/admin/inbox/albums')
   const [newsCount, setNewsCount] = useState<number | null>(null)
   const [eventsCount, setEventsCount] = useState<number | null>(null)
+  const [albumsCount, setAlbumsCount] = useState<number | null>(null)
 
   useEffect(() => {
     let cancelled = false
@@ -23,10 +25,12 @@ export default function InboxTabs() {
     Promise.all([
       fetch('/api/admin/news-candidates?status=preview,pending&limit=1').then(r => r.json()).catch(() => null),
       fetch('/api/admin/event-candidates?status=pending&limit=1').then(r => r.json()).catch(() => null),
-    ]).then(([n, e]) => {
+      fetch('/api/admin/wiki-album-candidates?status=pending&limit=1').then(r => r.json()).catch(() => null),
+    ]).then(([n, e, a]) => {
       if (cancelled) return
       setNewsCount(n?.total ?? 0)
       setEventsCount(e?.total ?? 0)
+      setAlbumsCount(a?.total ?? 0)
     })
     return () => { cancelled = true }
   }, [pathname])
@@ -36,7 +40,7 @@ export default function InboxTabs() {
       <Link
         href="/admin/inbox"
         className={`px-3 py-1.5 text-sm font-medium border-b-2 transition-colors ${
-          !isEvents
+          !isEvents && !isAlbums
             ? 'border-blue-600 text-blue-700'
             : 'border-transparent text-[var(--text-muted)] hover:text-[var(--text-secondary)]'
         }`}>
@@ -50,6 +54,15 @@ export default function InboxTabs() {
             : 'border-transparent text-[var(--text-muted)] hover:text-[var(--text-secondary)]'
         }`}>
         🎫 Renginiai {eventsCount !== null && <span className="text-xs opacity-70">({eventsCount})</span>}
+      </Link>
+      <Link
+        href="/admin/inbox/albums"
+        className={`px-3 py-1.5 text-sm font-medium border-b-2 transition-colors ${
+          isAlbums
+            ? 'border-blue-600 text-blue-700'
+            : 'border-transparent text-[var(--text-muted)] hover:text-[var(--text-secondary)]'
+        }`}>
+        💿 Albumai {albumsCount !== null && <span className="text-xs opacity-70">({albumsCount})</span>}
       </Link>
     </div>
   )

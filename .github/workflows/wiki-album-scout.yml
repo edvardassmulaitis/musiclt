@@ -1,0 +1,67 @@
+name: Wiki album scout
+
+# Punktas B — Wikipedia „List of 2026 albums" stebėjimas. Statinis puslapis,
+# pildomas ad-hoc per visus metus (ne RSS) — 1x/parą pakanka, ne skubu (albumo
+# straipsnis atsiranda savaitėmis, ne valandomis, po pirmo pasirodymo sąraše).
+#   06:00 UTC (08:00 EET ryto)
+#
+# NE Cowork scheduled task — žr. EXTERNAL_CHARTS_PLAN.md §9 (senoji scheduled
+# task, gyvenusi tik task'o aplinkoje, dingo ~07-03). Šis darbas iškart daromas
+# per GitHub Actions + repo endpoint'ą, kaip news-scout/events-scout.
+on:
+  schedule:
+    - cron: '0 6 * * *'
+  workflow_dispatch:
+    inputs:
+      source_id:
+        description: "Konkretus source_id (palik tuscia — vienintelis source'as)"
+        required: false
+        type: string
+      dry_run:
+        description: "Dry run (jokio inserto/commit'o)"
+        required: false
+        type: boolean
+        default: false
+
+jobs:
+  run-scout:
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - name: Call wiki-album-scout
+        run: |
+          QUERY=""
+          if [ -n "${{ inputs.source_id }}" ]; then
+            QUERY="?source_id=${{ inputs.source_id }}"
+          fi
+          if [ "${{ inputs.dry_run }}" = "true" ]; then
+            if [ -n "$QUERY" ]; then QUERY="${QUERY}&dry_run=1"; else QUERY="?dry_run=1"; fi
+          fi
+
+          echo "Calling: ${{ secrets.MUSICLT_BASE_URL }}/api/internal/wiki-album-scout/run${QUERY}"
+          response=$(curl -sS -w "\n%{http_code}" \
+            -X POST "${{ secrets.MUSICLT_BASE_URL }}/api/internal/wiki-album-scout/run${QUERY}" \
+            -H "Authorization: Bearer ${{ secrets.INTERNAL_CRON_TOKEN }}" \
+            --max-time 290)
+
+          http_code=$(echo "$response" | tail -n1)
+          body=$(echo "$response" | sed '$d')
+
+          echo "HTTP $http_code"
+          echo "$body" | head -c 3000
+          echo
+
+          if [ "$http_code" != "200" ]; then
+            echo "::error::wiki-album-scout returned non-200"
+            exit 1
+          fi
+
+          queued=$(echo "$body" | grep -oP '"total_queued_pending":\K\d+' || echo "?")
+          committed=$(echo "$body" | grep -oP '"total_auto_committed":\K\d+' || echo "?")
+          errors=$(echo "$body" | grep -oP '"total_errors":\K\d+' || echo "?")
+          skipped=$(echo "$body" | grep -oP '"skipped":"\K[^"]+' || echo "")
+          if [ -n "$skipped" ]; then
+            echo "::notice::wiki-album-scout → SKIPPED ($skipped)"
+          else
+            echo "::notice::wiki-album-scout → auto-committed: $committed | queued pending: $queued | errors: $errors"
+          fi

@@ -117,6 +117,10 @@ embeddable, upload data) po to, kai video jau rastas per feed'ą — tai jau esa
 
 ## B. Wikipedia „List of 2026 albums" + panašių sąrašų stebėjimas
 
+**ĮGYVENDINTA (2026-07-16).** Žemiau B.1–B.4 — originalus planas prieš codavimą
+(liko beveik nepakitęs, realizacija jį atitinka). B.5 aprašo, kas realiai
+sukoduota + vieną sąmoningą nukrypimą nuo B.2 dedupe schemos.
+
 `https://en.wikipedia.org/wiki/List_of_2026_albums` yra HTML lentelės (mėnuo →
 eilutės: data, atlikėjas(-ai), albumas, žanras, leidykla), dažnai su wikilink'u į
 paties albumo straipsnį. Panašūs puslapiai: `List_of_2026_singles` (jei egzistuoja),
@@ -179,6 +183,87 @@ naujam darbui iškart darykime tą patį** — `/api/internal/wiki-album-scout/r
 endpoint'as (Bearer token, kaip `news-scout`), trigerinamas GitHub Actions cron'u
 (pvz. kartą per parą), NE Cowork scheduled task. Tai nuoseklu su jau padaryta
 korekcija ir išvengia to paties bug'o pasikartojimo.
+
+### B.5 — Kas realiai sukoduota + nukrypimas nuo dedupe schemos
+
+**Nauji failai:**
+
+- `lib/wiki-fetch.ts` — `fetchWikitext(title)` iškeltas iš `lib/quick-add.ts`
+  (buvo module-private), kad naudotų ir naujas scout'as, be dubliavimo.
+  `quick-add.ts` dabar importuoja iš čia (senas lokalus apibrėžimas ištrintas).
+- `lib/wiki-album-list.ts` — `parseAlbumListPage(wikitext, year)`. Wikitext
+  state-machine parseris: `=== MonthName ===` sekcijos → `{| ... |}` lentelė →
+  eilutės padalintos per `|-`, kiekvienam blokui pirma linija su `!
+  scope="row"` = naujos dienos header'is (rowspan grupė), likusios (be naujo
+  header'io) paveldi paskutinę datą. **Ignoruoja „Unscheduled and TBA"
+  sekciją** (be datos stulpelio, albumai dažnai `{{TBA}}` — per žema signalo
+  kokybė automatikai). Patestuota GYVAI su tikru puslapiu prieš diegimą
+  (`https://en.wikipedia.org/wiki/List_of_2026_albums`, 2026-07-16): 3059
+  eilutės, 938 su album_wiki_link, 0 dublikuotų fingerprint'ų, 0 likusių
+  template/wikilink fragmentų po valymo.
+  - **Rastas ir pataisytas bug'as testavimo metu:** pirminė cell-parsing
+    implementacija naudojo `lastIndexOf('|')`, kad nupjautų wikitable
+    attribute'us nuo `!`-header'io turinio — bet TA PATI funkcija klaidingai
+    buvo taikoma ir paprastiems `|`-duomenų langeliams, kur pipe'as dažnai
+    priklauso PAČIAM turiniui (piped wikilink `[[Alter Bridge (album)|Alter
+    Bridge]]`). Rezultatas: albumo pavadinimai su piped disambiguation
+    (`(album)`, `(EP)`, ...) buvo nupjaunami iki tuščio/klaidingo
+    `album_wiki_link` (506 vs teisingi 938 su nuoroda po pataisymo). Pataisyta
+    — atskirtos dvi funkcijos: `dayHeaderContent()` (lastIndexOf, TIK dienos
+    header'iui) ir `dataCellContent()` (paprastas pirmo `|` nuėmimas, duomenų
+    cell'ams). Taip pat rastas antras panašus bug'as: `cleanArtistName()`
+    kviečiamas PRIEŠ `cleanWikiText()` palikdavo stray `"X|X"` piped linkams be
+    role-disambiguation (pvz. `Petra (band)|Petra` → cleanArtistName pirma
+    nuima `(band)`, TADA brackets — bet pipe'as lieka). Sutvarkyta apsukant
+    tvarką: `cleanArtistName(cleanWikiText(raw))`.
+  - `albumListFingerprint(artist, album, year, month, day)` — sha1 dedupe
+    raktui. Diacritic-fold per codePoint loop'ą (NE `\u` regex escape — tas
+    pats pitfall'as kaip `lib/apple-music.ts foldCompare`, žr. C.5 klaidų
+    sąrašą; tool-chain kartais `\uXXXX` konvertuoja į literal Unicode simbolius
+    parametruose).
+- `app/api/internal/wiki-album-scout/run/route.ts` — Bearer auth, WHERE
+  `scout_sources.category='wiki_list'`, `fetchWikitext` → `parseAlbumListPage`
+  → per eilutę B.3 taisyklė (žr. žemiau dedupe pastabą).
+- `app/api/admin/wiki-album-candidates/{route.ts,[id]/route.ts}` — GET sąrašas
+  + PATCH `{action:'reject'}` (terminalu) / `{action:'approve', album_wiki_link?}`
+  (admin gali RANKA paduoti nuorodą, jei pats ją rado anksčiau nei sekantis
+  scan; be parametro naudoja jau saugomą, jei yra).
+- `app/admin/inbox/albums/page.tsx` + `components/InboxTabs.tsx` (trečias tab'as
+  „💿 Albumai").
+- `.github/workflows/wiki-album-scout.yml` — 1x/parą (06:00 UTC), + manual
+  `workflow_dispatch` su `dry_run` input'u.
+- Migracija `supabase/migrations/20260716b_wiki_album_candidates.sql` — nauja
+  `wiki_album_candidates` lentelė + `scout_sources.category` CHECK papildytas
+  `'wiki_list'` reikšme + seed'as pagrindiniam 2026 sąrašo puslapiui.
+  **⚠️ ŠITĄ MIGRACIJĄ REIKIA PALEISTI RANKA** (sandbox'e nėra `DATABASE_URL` —
+  scout endpoint'as gaus 500/404 klaidas, kol lentelė neegzistuoja realioje
+  DB'je). Paleisti arba per Supabase dashboard'o SQL Editor'ių (nukopijuoti
+  failo turinį), arba `node scripts/run-migration.mjs supabase/migrations/20260716b_wiki_album_candidates.sql`
+  su `.env.local` turinčiu `DATABASE_URL`.
+
+**Sąmoningas nukrypimas nuo B.2 (dedupe per `scout_seen_urls`):** originalus
+planas siūlė vieną atmintį (`scout_seen_urls`, fingerprint=`url_hash`) visoms
+eilutėms — bet tai reikštų, kad "atlikėjas rastas, bet be album_wiki_link"
+eilutė, patekusi į "seen", niekad nebūtų pertikrinta, kai straipsnis vėliau
+atsiranda. Vietoj to realizacija naudoja DVI atskiro tipo atminties:
+
+- `scout_seen_urls` — TIK kai atlikėjas apskritai nerastas kataloge
+  (`filter_reason='no_artist_match'`) — tikrai permanent, B.3 taisyklė "nesukuriam
+  nieko" nesikeičia niekad ateityje šiai eilutei.
+- `wiki_album_candidates` (nauja lentelė, `fingerprint` UNIQUE) — kai atlikėjas
+  RASTAS: `status='pending'`, jei dar be nuorodos (review queue); `status='approved'`
+  iškart, jei nuoroda jau buvo pirmo scan'o metu (auto-commit per `commitAlbum()`).
+  Kiekvienas sekantis scan'as PALYGINA naują `album_wiki_link` su saugomu —
+  jei atsirado (buvo null, dabar yra) ir kandidatas vis dar `pending`, auto-commit'ina
+  TADA (ne palieka amžinai review queue'e). Terminaliniai statusai
+  (`approved`/`rejected`/`duplicate`/`error`) niekad nebeliečiami.
+
+Cap'ai per paleidimą (Vercel Hobby ~60s wall-clock riba, ta pati pastaba kaip
+`events-scout.ts`): `MAX_FRESH_PER_RUN=200` (kiek NIEKAD-nematytų eilučių
+tikrinam `matchArtists`), `MAX_AUTO_COMMITS_PER_RUN=8` (kiek pilnų
+`commitAlbum()` — išorinis Wikipedia+cover fetch, lėčiau). Backlog'as (~3059
+eilutės pirmam scan'ui) natūraliai "sudegs" per kelis dienos/manual paleidimus,
+nes jau apdorotos eilutės (bet kurioje atmintyje) neskaičiuojamos į fresh cap'ą.
 
 ---
 

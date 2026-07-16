@@ -33,6 +33,7 @@ import { syncTrackFeaturing } from '@/lib/featuring-utils'
 import type { AlbumSuggestion } from '@/lib/album-lookup'
 import { fetchReleaseTracklist, fetchMbCoverUrl, msToDuration } from '@/lib/musicbrainz'
 import { normalizeTitle } from '@/lib/track-dedup'
+import { fetchWikitext } from '@/lib/wiki-fetch'
 
 // ────────────────────────────────────────────────────────────────────────────
 // Tipai
@@ -530,15 +531,6 @@ export function wikiTitleFromUrl(url: string): string | null {
   } catch {
     return m[1]
   }
-}
-
-async function fetchWikitext(title: string): Promise<string> {
-  const api = `https://en.wikipedia.org/w/api.php?action=query&titles=${encodeURIComponent(title)}&prop=revisions&rvprop=content&rvslots=main&format=json&origin=*&redirects=1`
-  const res = await fetch(api, { signal: AbortSignal.timeout(15000) })
-  const json = await res.json()
-  const pages = json?.query?.pages || {}
-  const first: any = Object.values(pages)[0]
-  return first?.revisions?.[0]?.slots?.main?.['*'] || ''
 }
 
 /** Resolvina File:Name → tikslus failo URL (album cover'iams, kuriuos
