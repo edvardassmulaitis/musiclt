@@ -19,13 +19,13 @@ import { unstable_cache } from 'next/cache'
 import { createAdminClient } from '@/lib/supabase'
 import { requireAdmin } from '@/lib/admin-auth'
 import { hasMinRole, type Role } from '@/lib/admin-sections'
+import { getNewsInboxTotal, getEventsInboxTotal } from '@/lib/inbox-counts'
 
 export const dynamic = 'force-dynamic'
 
 type SB = ReturnType<typeof createAdminClient>
 
 // ── Tuning ────────────────────────────────────────────────────────────────
-const NEWS_FRESH_DAYS = 7        // naujienų inbox: tik paskutinės savaitės pending
 const REVIEW_MONTH_DAYS = 31     // narių įrašai / vidiniai topai: per mėnesį
 const RADAR_FRESH_DAYS = 45      // radaras: švieži įkėlimai
 const RADAR_LIKES_CEIL = 250     // virš jų — jau žinomas (ne radarui)
@@ -38,7 +38,6 @@ async function headCount(fn: () => any): Promise<number> {
 }
 
 const daysAgoIso = (d: number) => new Date(Date.now() - d * 86_400_000).toISOString()
-const todayDate = () => new Date().toISOString().slice(0, 10)
 
 // ── Radaro „naujų, dar netriažuotų" skaičius (untriaged fresh emerging) ──────
 // Auto-poolas gyvas (LT atlikėjai su šviežiu įkėlimu, mažai like'ų, radar_status
@@ -102,8 +101,6 @@ const getEditorCounts = unstable_cache(
   async (): Promise<Record<string, number>> => {
     const sb: SB = createAdminClient()
     const monthAgo = daysAgoIso(REVIEW_MONTH_DAYS)
-    const newsFresh = daysAgoIso(NEWS_FRESH_DAYS)
-    const today = todayDate()
 
     const [
       artists, albums, tracks, events, venues,
@@ -119,10 +116,17 @@ const getEditorCounts = unstable_cache(
       headCount(() => sb.from('tracks').select('id', { count: 'exact', head: true })),
       headCount(() => sb.from('events').select('id', { count: 'exact', head: true })),
       headCount(() => sb.from('venues').select('id', { count: 'exact', head: true })),
-      // Naujienos: tik paskutinės savaitės pending
-      headCount(() => sb.from('news_candidates').select('id', { count: 'exact', head: true }).eq('status', 'pending').gte('created_at', newsFresh)),
-      // Renginiai: tik būsimi (fresh) pending
-      headCount(() => sb.from('event_candidates').select('id', { count: 'exact', head: true }).eq('status', 'pending').gte('event_date', today)),
+      // Naujienos: 2026-07-16 — dabar bendras helper'is (žr. lib/inbox-counts.ts),
+      // kad sutaptų su /admin/inbox rodomu skaičiumi. Anksčiau čia buvo atskiras
+      // query (status='pending' only + 7d amžiaus filtras), kuris rodė "1"
+      // kai admin'e realiai laukė 150 — status='preview' (Juodraštis, dar
+      // nesugeneruota LT versija) buvo neskaičiuojami, o dauguma inbox'o kaip
+      // tik ir yra tokie.
+      getNewsInboxTotal(sb),
+      // Renginiai: tas pats — bendras helper'is, be event_date filtro, kuris
+      // anksčiau tyliai išmesdavo renginius be datos (NULL >= today == NULL
+      // SQL'e, ne true) ir rodė 31 vietoj realaus 99.
+      getEventsInboxTotal(sb),
       headCount(() => sb.from('music_requests').select('id', { count: 'exact', head: true }).eq('status', 'pending')),
       headCount(() => sb.from('substyles').select('id', { count: 'exact', head: true }).eq('status', 'pending')),
       headCount(() => sb.from('artist_claims').select('id', { count: 'exact', head: true }).eq('status', 'pending')),

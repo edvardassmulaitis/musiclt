@@ -22,6 +22,7 @@ type SuggestedArtist = {
   slug: string
   cover_image_url: string | null
   legacy_likes: number | null
+  score?: number | null
 }
 
 type AiTrackMention = {
@@ -550,12 +551,14 @@ export default function AdminInboxPage() {
     items: Candidate[]
     topScore: number
     recentPublishAt: string | null
+    latestAt: string
   }
   const groupedCandidates = useMemo<ArtistGroup[]>(() => {
     const map = new Map<string, ArtistGroup>()
     for (const c of candidates) {
       const artist = c.primary_artist || (c.suggested_artists?.[0] ?? null)
       const key = artist ? `a:${artist.id}` : `c:${c.id}`
+      const itemDate = c.source_published_at || c.created_at
       let g = map.get(key)
       if (!g) {
         g = {
@@ -564,11 +567,13 @@ export default function AdminInboxPage() {
           items: [],
           topScore: 0,
           recentPublishAt: artist ? recentPublishByArtist[artist.id] || null : null,
+          latestAt: itemDate,
         }
         map.set(key, g)
       }
       g.items.push(c)
       g.topScore = Math.max(g.topScore, c.score ?? c.ai_confidence ?? 0)
+      if (new Date(itemDate).getTime() > new Date(g.latestAt).getTime()) g.latestAt = itemDate
     }
     const arr = Array.from(map.values())
     // Grupės, kur atlikėjui jau neseniai paskelbta, nuslenka į apačią —
@@ -588,6 +593,16 @@ export default function AdminInboxPage() {
       next.has(key) ? next.delete(key) : next.add(key)
       return next
     })
+  }
+
+  // 2026-07-16: "Atmesti visus" grupės antraštėje — greitas mobile review:
+  // jei atlikėjas nedomina, atmeti visas jo pending naujienas vienu paspaudimu
+  // (be atidarymo po vieną). Kiekvienas reject'as — hard delete, kaip ir
+  // pavienis „✗ Atmesti", tad klausiam patvirtinimo prieš masinį veiksmą.
+  const handleRejectGroup = async (group: { items: Candidate[]; artist: SuggestedArtist | null }) => {
+    const label = group.artist?.name || 'šio atlikėjo'
+    if (!window.confirm(`Atmesti visas ${group.items.length} naujienas apie ${label}?`)) return
+    await Promise.all(group.items.map(c => handleAction(c.id, 'reject', {})))
   }
 
   // Vienos naujienos kortelė — anksčiau buvo inline candidates.map() IIFE,
@@ -883,41 +898,56 @@ export default function AdminInboxPage() {
         ) : (
           <div className="space-y-3">
             {/* News, sugrupuotos pagal pagrindinį atlikėją — events atskirame
-               tab'e per InboxTabs. Vieno kandidato grupės (dažniausias atvejis)
-               renderinamos kaip įprasta kortelė. 2+ kandidatų grupės arba
-               grupės, kur atlikėjui jau paskelbta per 72h, suskleidžiamos po
-               viena antrašte (žr. groupedCandidates aukščiau). */}
+               tab'e per InboxTabs. VISOS grupės su atpažintu atlikėju (net ir
+               1 naujienos) rodomos suskleistos po viena antrašte — vienodas
+               scan'inimo ritmas (atlikėjas + pop score + naujausios data +
+               kiekis), kad review'ą būtų galima daryti greitai mobile'e
+               (žr. groupedCandidates aukščiau). Tik nesumatchinti kandidatai
+               (be atlikėjo) rodomi tiesiogiai, nes jų grupuoti nėra pagal ką. */}
             {groupedCandidates.map(g => {
-              if (g.items.length === 1 && !g.recentPublishAt) {
+              if (!g.artist) {
                 return <div key={g.key}>{renderCandidateCard(g.items[0])}</div>
               }
               const isOpen = openGroups.has(g.key)
               return (
                 <div key={g.key} className="bg-[var(--bg-surface)] border border-[var(--input-border)] rounded-2xl overflow-hidden">
-                  <button
-                    type="button"
-                    onClick={() => toggleGroup(g.key)}
-                    className="w-full flex items-center gap-2.5 p-3 sm:p-4 text-left hover:bg-[var(--bg-elevated)]/50 transition-colors">
-                    {g.artist?.cover_image_url ? (
-                      <img src={g.artist.cover_image_url} alt="" className="w-10 h-10 rounded-full object-cover shrink-0" />
-                    ) : (
-                      <span className="w-10 h-10 rounded-full bg-blue-100 flex items-center justify-center text-lg shrink-0">🎤</span>
-                    )}
-                    <div className="flex-1 min-w-0">
-                      <div className="font-bold text-sm text-[var(--text-primary)] truncate">
-                        {g.artist?.name || 'Be atlikėjo'}
+                  <div className="flex items-center gap-1.5 p-3 sm:p-4">
+                    <button
+                      type="button"
+                      onClick={() => toggleGroup(g.key)}
+                      className="flex-1 min-w-0 flex items-center gap-2.5 text-left">
+                      {g.artist.cover_image_url ? (
+                        <img src={g.artist.cover_image_url} alt="" className="w-10 h-10 rounded-full object-cover shrink-0" />
+                      ) : (
+                        <span className="w-10 h-10 rounded-full bg-blue-100 flex items-center justify-center text-lg shrink-0">🎤</span>
+                      )}
+                      <div className="flex-1 min-w-0">
+                        <div className="font-bold text-sm text-[var(--text-primary)] truncate">
+                          {g.artist.name}
+                        </div>
+                        <div className="flex flex-wrap items-center gap-1.5 text-xs text-[var(--text-muted)]">
+                          <span>{g.items.length === 1 ? '1 naujiena' : `${g.items.length} naujienos`}</span>
+                          {typeof g.artist.score === 'number' && (
+                            <span title="Atlikėjo populiarumo score (0-100)">🔥 {Math.round(g.artist.score)}</span>
+                          )}
+                          <span title="Naujausios naujienos data">🕐 {relativeTimeShort(g.latestAt)}</span>
+                          {g.recentPublishAt && (
+                            <span className="px-1.5 py-0.5 rounded-full bg-emerald-50 text-emerald-700 font-medium">
+                              ✅ paskelbta prieš {relativeTimeShort(g.recentPublishAt)}
+                            </span>
+                          )}
+                        </div>
                       </div>
-                      <div className="flex flex-wrap items-center gap-1.5 text-xs text-[var(--text-muted)]">
-                        <span>{g.items.length} naujienos</span>
-                        {g.recentPublishAt && (
-                          <span className="px-1.5 py-0.5 rounded-full bg-emerald-50 text-emerald-700 font-medium">
-                            ✅ paskelbta prieš {relativeTimeShort(g.recentPublishAt)}
-                          </span>
-                        )}
-                      </div>
-                    </div>
-                    <span className={`text-[var(--text-muted)] transition-transform shrink-0 ${isOpen ? 'rotate-180' : ''}`}>▾</span>
-                  </button>
+                      <span className={`text-[var(--text-muted)] transition-transform shrink-0 ${isOpen ? 'rotate-180' : ''}`}>▾</span>
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => handleRejectGroup(g)}
+                      title="Atmesti visas šios grupės naujienas"
+                      className="shrink-0 px-2 py-1.5 bg-red-50 hover:bg-red-100 active:bg-red-200 text-red-600 rounded-lg text-xs font-medium">
+                      🗑 Visus
+                    </button>
+                  </div>
                   {isOpen && (
                     <div className="space-y-3 p-3 pt-0 sm:p-4 sm:pt-0">
                       {g.items.map(cand => renderCandidateCard(cand))}

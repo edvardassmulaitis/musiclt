@@ -9,6 +9,7 @@ import { NextRequest, NextResponse } from 'next/server'
 import { getServerSession } from 'next-auth'
 import { authOptions } from '@/lib/auth'
 import { createAdminClient } from '@/lib/supabase'
+import { getNewsInboxTotal } from '@/lib/inbox-counts'
 
 export const runtime = 'nodejs'
 
@@ -208,14 +209,19 @@ export async function GET(req: NextRequest) {
     }
   } catch { /* non-fatal — grupavimas tiesiog neturės "neseniai paskelbta" hint'o */ }
 
-  // "total" — realus laukiančių peržiūros kandidatų skaičius (po SCORE_FLOOR
-  // filtro, PRIEŠ limit slice'ą). Anksčiau čia buvo `decorated.length`, kuris
-  // visada ≤ limit (net kai limit=1, kaip InboxTabs count-only kvietime) —
-  // dėl to tab'e rodydavo klaidinantį "(1)" vietoj realaus laukiančių kiekio.
+  // "total" — realus laukiančių peržiūros kandidatų skaičius. 2026-07-16:
+  // dabar skaičiuojamas per bendrą lib/inbox-counts.ts helper'į (tas pats,
+  // kurį naudoja ir dashboard-summary), kad šitas endpoint'as, InboxTabs, IR
+  // admin homepage badge'as VISADA rodytų tą patį skaičių — anksčiau kiekvienas
+  // turėjo savo, nesutampantį query (žr. lib/inbox-counts.ts komentarą).
+  // `showAll=1` atveju rodom žalią pool'ą (SCORE_FLOOR apeitas), kad skaičius
+  // sutaptų su tuo, ką admin'as tada realiai mato sąraše.
+  const total = showAll ? (count || 0) : await getNewsInboxTotal(supabase)
+
   // `pool` — žalias DB total (be SCORE_FLOOR filtro), transparency dėlei.
   return NextResponse.json({
     candidates: decorated,
-    total: filtered.length,
+    total,
     pool: count || 0,
     hidden_low_score: showAll ? 0 : (decoratedAll.length - filtered.length),
     recent_published_by_artist: recentPublishedByArtist,
