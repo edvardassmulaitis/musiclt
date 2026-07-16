@@ -24,7 +24,7 @@ const MB_USER_AGENT = 'musiclt/1.0 (+https://music.lt)'
 let _lastCall = 0
 async function mbThrottle(): Promise<void> {
   const now = Date.now()
-  const wait = _lastCall + 700 - now
+  const wait = _lastCall + 500 - now
   if (wait > 0) await new Promise((r) => setTimeout(r, wait))
   _lastCall = Date.now()
 }
@@ -131,12 +131,26 @@ export type MbAlbumMatch = {
   isPlaceholderish: boolean
 }
 
+export type MbRecordingAnalysis = {
+  /** Ar duota daina priklauso kokiam nors ALBUM/EP tipo official release'ui. */
+  albumMatch: MbAlbumMatch | null
+  /** Ar bent viena šios dainos release'ų grupė yra tipo "Single" (release-group
+   *  primary-type='Single') — MB dažnas atvejis: daina gali BŪTI ir single'as,
+   *  IR priklausyti albumui vienu metu (pvz. lead single). Naudojama
+   *  track.is_single žymėjimui (žr. lib/album-lookup.ts). */
+  isSingleRelease: boolean
+}
+
 /**
- * Ieško, ar duota daina (artist + title) priklauso kokiam nors ALBUM/EP tipo
- * official release'ui. Grąžina geriausią (pilniausią) kandidatą arba null.
+ * Vienas recording paieškos kvietimas, iš kurio ištraukiam DVI faktais: (a) ar
+ * daina priklauso ALBUM/EP release'ui, (b) ar egzistuoja atskiras "Single" tipo
+ * release'as tai pačiai dainai. Sąmoningai VIENAS query (ne du atskiri), kad
+ * nedvigubintume tinklo apkrovos/latency (žr. album-lookup.ts komentarą apie
+ * quick-add preview greitį).
+ *
  * Best-effort: tinklo/klaidų atveju grąžina null (niekada nemeta).
  */
-export async function findAlbumForRecording(artistName: string, trackTitle: string): Promise<MbAlbumMatch | null> {
+export async function analyzeRecording(artistName: string, trackTitle: string): Promise<MbRecordingAnalysis | null> {
   const artistQ = escapeLucene(artistName)
   const titleQ = escapeLucene(trackTitle)
   if (!artistQ || !titleQ) return null
@@ -155,7 +169,9 @@ export async function findAlbumForRecording(artistName: string, trackTitle: stri
   const wantArtist = foldCompare(artistName)
 
   type Candidate = { release: any; releaseGroup: any }
-  const candidates: Candidate[] = []
+  const albumCandidates: Candidate[] = []
+  let isSingleRelease = false
+
   for (const rec of recordings) {
     if (foldCompare(rec.title || '') !== wantTitle) continue
     const creditOk = (rec['artist-credit'] || []).some(
@@ -165,21 +181,23 @@ export async function findAlbumForRecording(artistName: string, trackTitle: stri
     for (const rel of rec.releases || []) {
       const rg = rel['release-group']
       const type = rg?.['primary-type']
+      if (type === 'Single') isSingleRelease = true
       if (type !== 'Album' && type !== 'EP') continue
       if (rel.status && rel.status !== 'Official') continue
-      candidates.push({ release: rel, releaseGroup: rg })
+      albumCandidates.push({ release: rel, releaseGroup: rg })
     }
   }
-  if (!candidates.length) return null
+
+  if (!albumCandidates.length) return { albumMatch: null, isSingleRelease }
 
   // Pirmenybė pilniausiam (daugiausiai track'ų) official release'ui — dažnai
   // egzistuoja keli variantai (standard/deluxe), norim to, kuris turi
   // daugiausiai duomenų.
-  candidates.sort((a, b) => (b.release['track-count'] || 0) - (a.release['track-count'] || 0))
-  const best = candidates[0]
+  albumCandidates.sort((a, b) => (b.release['track-count'] || 0) - (a.release['track-count'] || 0))
+  const best = albumCandidates[0]
 
   const full = await fetchReleaseTracklist(best.release.id)
-  if (!full) return null
+  if (!full) return { albumMatch: null, isSingleRelease }
 
   let matchedPosition: number | null = null
   for (const t of full.tracks) {
@@ -193,15 +211,18 @@ export async function findAlbumForRecording(artistName: string, trackTitle: stri
     full.tracks.filter((t) => !t.title || /^track\s*\d+$/i.test(t.title.trim())).length / full.tracks.length > 0.15
 
   return {
-    releaseId: full.releaseId,
-    releaseGroupId: full.releaseGroupId,
-    title: full.title,
-    primaryType: full.primaryType,
-    year: full.year, month: full.month, day: full.day,
-    trackCount: full.tracks.length,
-    matchedPosition,
-    tracks: full.tracks,
-    isPlaceholderish: placeholderish,
+    albumMatch: {
+      releaseId: full.releaseId,
+      releaseGroupId: full.releaseGroupId,
+      title: full.title,
+      primaryType: full.primaryType,
+      year: full.year, month: full.month, day: full.day,
+      trackCount: full.tracks.length,
+      matchedPosition,
+      tracks: full.tracks,
+      isPlaceholderish: placeholderish,
+    },
+    isSingleRelease,
   }
 }
 

@@ -250,6 +250,57 @@ koks Apple) → tik informacinis tekstas, BE auto-create galimybės (kad
 neprisikurtų albumų su „Track 5" pavadinimais). `ResultCard` rodo chip'ą su
 nuoroda į sukurtą albumą, kai jis buvo pridėtas.
 
+### C.5 — Async atskyrimas + `is_single` žymėjimas (2026-07-16, po pirmo live testo)
+
+Po C.1–C.4 diegimo Edvardas patestavo gyvai ir grąžino du naujus pastebėjimus:
+
+1. „ilgokai uztrunka ir nesinori laukt aridaeius modala" — preview'as tapo lėtas,
+   nes laukdavo sekvencinių MusicBrainz recording paieškos + (kartais) Apple
+   fallback užklausų PRIEŠ parodydamas preview'ą, ir UI buvo blokuojantis
+   (negalėjai pradėti kito quick-add'o, kol laukei).
+2. „ar galima is tu saltiniu istraukt ir pazymet kad daina yra singlas" — ar tie
+   patys šaltiniai (MB/Apple) gali pažymėti `track.is_single`.
+
+**Sprendimas — albumo paieška atskirta nuo preview'o į savo endpoint'ą:**
+
+- `lib/musicbrainz.ts`: senas `findAlbumForRecording()` pakeistas į
+  `analyzeRecording(artist, title) → { albumMatch, isSingleRelease }` — VIENAS
+  MB recording-search kvietimas atsako abu klausimus (ar yra albume, ar bent
+  vienas su šia daina susijęs release-group yra `primary-type='Single'`), kad
+  nereikėtų dviguba užklausų latencijos. Throttle sumažintas 700ms → 500ms.
+- `lib/apple-music.ts`: `AppleAlbumMatch` papildytas `looksLikeSingle` (silpna
+  heuristika — `trackCount<=1` arba pavadinimas baigiasi „- Single"), naudojama
+  TIK kai MB apskritai nieko neturėjo apie šią dainą.
+- `lib/album-lookup.ts`: `findAlbumSuggestion()` dabar grąžina
+  `{ suggestion, is_single }`. Jei MB rado recording'ą, bet be albumo, ir
+  `isSingleRelease=true` → `{suggestion:null, is_single:true}` iškart (be Apple
+  kvietimo). Kitaip Apple fallback kaip anksčiau.
+- `lib/quick-add.ts`: `previewTrack()` NEBEKVIEČIA `findAlbumSuggestion()` —
+  `suggested_album` preview'e visada `null` (greitas, neblokuojantis atsakymas).
+  Naujas `TrackOverrides.is_single?: boolean` — promote-only (kaip ir kiti
+  panašūs laukai): `commitTrack()` prideda `is_single=true` tiek dedup-update,
+  tiek naujo track'o insert šakose, TIK jei `true` (niekad neatstato į `false`).
+  `QuickAddResult.detail.is_single` grąžinamas atgal UI.
+- **Naujas endpoint'as** `app/api/admin/quick-add/album-suggestion/route.ts` —
+  `POST {artist_name, title} → {ok, suggestion, is_single}`. Tas pats
+  admin/super_admin auth kaip pagrindinis quick-add route'as. Best-effort:
+  bet kokia klaida grąžina `ok:true, suggestion:null, is_single:false` (niekad
+  nelaužo UI).
+- **`components/AdminQuickAdd.tsx` perrašytas iš blokuojančio single-item formos
+  į multi-item eilę (`QueueItem[]`)**: URL input'as visada aktyvus (nelaukia
+  jokios globalios fazės); `submit()` iškart išvalo input'ą ir sukuria naują
+  eilutę, kuri savarankiškai eina per `previewing → editing → committing/done`.
+  Kiekvienam track'o preview'ui iškart po sėkmingo preview'o paleidžiamas
+  fire-and-forget `fetchSuggestion()` į naują endpoint'ą — kol jis laukia
+  atsakymo, admin gali redaguoti/commit'inti tą pačią eilutę ARBA įvesti kitą
+  URL ir pradėti sekantį quick-add'ą lygiagrečiai. `EditForm` rodo „🔍
+  Tikrinama…" kol laukia, tada arba `AlbumSuggestionBox`, arba „🏷️ Aptikta kaip
+  singlas" tekstą. `ResultCard` rodo `singlas` chip'ą, kai pažymėta.
+
+**Rezultatas:** preview'as (URL → pavadinimas/atlikėjas/metaduomenys) lieka
+greitas kaip anksčiau; MB/Apple paieška (lėtesnė dalis) vyksta fone, UI
+nelaukia, ir dabar papildomai aptinka bei žymi `is_single`.
+
 ### C.0 — Pradinis planas (istorija, NEBEAKTUALUS kaip C.1–C.4 aukščiau)
 
 <details>

@@ -30,7 +30,7 @@ import * as wiki from '@/lib/wiki-parser'
 import { createAlbum, type AlbumFull, type TrackInAlbum } from '@/lib/supabase-albums'
 import { slugify } from '@/lib/slugify'
 import { syncTrackFeaturing } from '@/lib/featuring-utils'
-import { findAlbumSuggestion, type AlbumSuggestion } from '@/lib/album-lookup'
+import type { AlbumSuggestion } from '@/lib/album-lookup'
 import { fetchReleaseTracklist, fetchMbCoverUrl, msToDuration } from '@/lib/musicbrainz'
 import { normalizeTitle } from '@/lib/track-dedup'
 
@@ -62,6 +62,7 @@ export type QuickAddResult =
         /** Užpildyta tik jei admin patvirtino (arba high-confidence auto)
          *  albumo pasiūlymą — žr. TrackOverrides.create_album. */
         album: { id: number; title: string } | null
+        is_single: boolean
       }
       warnings: string[]
     }
@@ -139,6 +140,12 @@ export type TrackOverrides = {
    *  vieno-mygtuko create'o, nes jų tracklist'ai gali būti placeholder'iniai). */
   create_album?: boolean
   album_mb_release_id?: string | null
+  /** Klientas jau gavo šitą per async /api/admin/quick-add/album-suggestion
+   *  kvietimą (žr. lib/album-lookup.ts AlbumLookupResult.is_single) — čia tik
+   *  perduodam, kad commitTrack() NEBEREIKĖTŲ pakartotinai kviesti MB/Apple
+   *  (nedvigubina latency). PROMOTE-ONLY: true → pažymim; nepateikta/false →
+   *  nieko nekeičiam (niekad nenuimam is_single, kaip ir album_tracks sync'e). */
+  is_single?: boolean
 }
 
 export type AlbumOverrides = {
@@ -798,14 +805,11 @@ export async function previewTrack(url: string): Promise<PreviewResult> {
     })
   )
 
-  // Albumo pasiūlymas (MusicBrainz → Apple Music fallback) — best-effort,
-  // niekada nesulaiko preview'o (žr. lib/album-lookup.ts, timeout viduje).
-  let suggested_album: AlbumSuggestion | null = null
-  try {
-    suggested_album = await findAlbumSuggestion(a.primaryName, ctx.title)
-  } catch {
-    suggested_album = null
-  }
+  // Albumo pasiūlymas (MusicBrainz → Apple Music) NEBEskaičiuojamas čia — buvo
+  // per lėta (kelios sekvencinės išorinės užklausos laikydavo preview'ą).
+  // Klientas iš karto po preview'o kviečia atskirą, async
+  // /api/admin/quick-add/album-suggestion endpoint'ą — nebeblokuoja UI.
+  const suggested_album: AlbumSuggestion | null = null
 
   return {
     ok: true,
@@ -928,6 +932,7 @@ export async function commitTrack(url: string, origin: string, ov: TrackOverride
       video_embeddable: embeddable,
       video_uploaded_at: details?.uploadedAt || null,
     }
+    if (ov.is_single) upd.is_single = true // promote-only, niekad nenuimam
     applyDateGuarded(upd, existingTrack as any)
     await supabase.from('tracks').update(upd).eq('id', trackId)
   } else {
@@ -944,6 +949,7 @@ export async function commitTrack(url: string, origin: string, ov: TrackOverride
       video_embeddable: embeddable,
       video_uploaded_at: details?.uploadedAt || null,
     }
+    if (ov.is_single) insertBody.is_single = true
     applyDate(insertBody)
     const { data: created, error: insErr } = await supabase
       .from('tracks').insert(insertBody).select('id, slug').single()
@@ -1015,6 +1021,7 @@ export async function commitTrack(url: string, origin: string, ov: TrackOverride
       spotify_found: spotifyFound,
       featuring: featuringNames,
       album: albumCreated,
+      is_single: !!ov.is_single,
     },
     warnings,
   }

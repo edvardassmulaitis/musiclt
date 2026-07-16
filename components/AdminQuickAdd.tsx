@@ -8,6 +8,16 @@
  *
  * Atlikėjas ir featuring laukai — DB pickeriai: rodo konkretų katalogo atlikėją
  * (su badge'u) arba leidžia įvesti naują vardą, jei kataloge nėra.
+ *
+ * EILĖ (2026-07-16): kiekviena nuoroda tampa NEPRIKLAUSOMU elementu sąraše —
+ * paspaudus „Peržiūrėti" URL laukas iškart išsivalo ir laukia SEKANČIOS
+ * nuorodos, kol pirmoji dar tikrinasi/redaguojama/kuriasi fone. Anksčiau visa
+ * forma buvo viena bendra būsena — negalėjai pradėti kitos dainos, kol
+ * pirmoji nesibaigė (Edvardo pastaba: per ilgai reikėdavo laukti prie modalo).
+ *
+ * Albumo pasiūlymas (MusicBrainz/Apple Music, žr. lib/album-lookup.ts) irgi
+ * NEBEsulaiko preview'o — užkraunamas ASINCHRONIŠKAI atskiru kvietimu iš karto
+ * po greito preview'o ir „įkrenta" į kortelę, kai gatavas.
  */
 import { useEffect, useRef, useState } from 'react'
 import Link from 'next/link'
@@ -20,96 +30,152 @@ function detectKind(url: string): 'track' | 'album' | 'unknown' {
   return 'unknown'
 }
 
-type Phase = 'idle' | 'previewing' | 'editing' | 'committing' | 'done'
+type Phase = 'previewing' | 'editing' | 'committing' | 'done' | 'error'
+type SuggestionState = 'idle' | 'loading' | 'done'
 
 /** Atlikėjas formoje — id != null reiškia konkretų katalogo įrašą. */
 type ArtistRef = { id: number | null; name: string }
 type ArtistHit = { id: number; name: string; slug: string | null; country?: string | null; cover_image_url?: string | null }
 
+type QueueItem = {
+  id: number
+  url: string
+  kind: 'track' | 'album' | 'unknown'
+  phase: Phase
+  error: string | null
+  preview: any
+  form: any
+  result: any
+  suggestionState: SuggestionState
+}
+
+let _seq = 0
+
 export default function AdminQuickAdd({ bare = false }: { bare?: boolean } = {}) {
   const [url, setUrl] = useState('')
-  const [phase, setPhase] = useState<Phase>('idle')
-  const [error, setError] = useState<string | null>(null)
-  const [preview, setPreview] = useState<any>(null)
-  const [form, setForm] = useState<any>({})
-  const [result, setResult] = useState<any>(null)
+  const [items, setItems] = useState<QueueItem[]>([])
 
   const kind = detectKind(url)
 
-  function reset() {
-    setUrl(''); setPhase('idle'); setError(null); setPreview(null); setForm({}); setResult(null)
+  function patchItem(id: number, patch: Partial<QueueItem> | ((it: QueueItem) => Partial<QueueItem>)) {
+    setItems((prev) => prev.map((it) => (it.id === id ? { ...it, ...(typeof patch === 'function' ? patch(it) : patch) } : it)))
+  }
+  function setItemForm(id: number, updater: any) {
+    setItems((prev) => prev.map((it) => (it.id === id ? { ...it, form: typeof updater === 'function' ? updater(it.form) : updater } : it)))
+  }
+  function removeItem(id: number) {
+    setItems((prev) => prev.filter((it) => it.id !== id))
   }
 
-  async function doPreview() {
+  /** Pradeda naują eilės elementą IR IŠKART išvalo URL lauką — kita nuoroda
+   *  gali būti įvesta nedelsiant, nepriklausomai nuo šito preview progreso. */
+  function submit() {
     const trimmed = url.trim()
-    if (!trimmed || phase === 'previewing') return
-    setPhase('previewing'); setError(null); setResult(null)
+    const k = detectKind(trimmed)
+    if (!trimmed || k === 'unknown') return
+    const id = ++_seq
+    const item: QueueItem = {
+      id, url: trimmed, kind: k, phase: 'previewing', error: null,
+      preview: null, form: {}, result: null, suggestionState: 'idle',
+    }
+    setItems((prev) => [item, ...prev])
+    setUrl('')
+    runPreview(id, trimmed)
+  }
+
+  async function runPreview(id: number, previewUrl: string) {
     try {
       const res = await fetch('/api/admin/quick-add', {
         method: 'POST', headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ url: trimmed, mode: 'preview' }),
+        body: JSON.stringify({ url: previewUrl, mode: 'preview' }),
       })
       const json = await res.json().catch(() => null)
-      if (!json) { setError('Serveris negrąžino atsakymo'); setPhase('idle'); return }
-      if (!json.ok) { setError(json.error || 'Nepavyko'); setPhase('idle'); return }
+      if (!json) { patchItem(id, { error: 'Serveris negrąžino atsakymo', phase: 'error' }); return }
+      if (!json.ok) { patchItem(id, { error: json.error || 'Nepavyko', phase: 'error' }); return }
       const p = json.preview
-      setPreview(p)
-      // Pradinės redaguojamos reikšmės
-      if (p.kind === 'track') {
-        setForm({
-          title: p.title,
-          artist: { id: p.artist_id ?? null, name: p.artist_name } as ArtistRef,
-          featuring: (p.featuring_resolved && p.featuring_resolved.length
-            ? p.featuring_resolved
-            : (p.featuring || []).map((n: string) => ({ name: n, id: null }))
-          ).map((f: any) => ({ id: f.id ?? null, name: f.name })) as ArtistRef[],
-          release_year: p.release_year ?? '', release_month: p.release_month ?? '', release_day: p.release_day ?? '',
-          // Albumo pasiūlymas: pažymėta iš anksto TIK high-confidence (MusicBrainz
-          // su pilnu tracklist'u) atveju — ambiguous/Apple Music paliekam admin'ui
-          // apsispręsti (checkbox default false).
-          create_album: p.suggested_album?.confidence === 'high',
-        })
-      } else {
-        setForm({
-          artist: { id: p.artist_id ?? null, name: p.artist_name } as ArtistRef,
-          album_title: p.album_title, year: p.year ?? '',
-        })
-      }
-      setPhase('editing')
-    } catch (e: any) { setError(String(e?.message || e)); setPhase('idle') }
+      const form = p.kind === 'track'
+        ? {
+            title: p.title,
+            artist: { id: p.artist_id ?? null, name: p.artist_name } as ArtistRef,
+            featuring: (p.featuring_resolved && p.featuring_resolved.length
+              ? p.featuring_resolved
+              : (p.featuring || []).map((n: string) => ({ name: n, id: null }))
+            ).map((f: any) => ({ id: f.id ?? null, name: f.name })) as ArtistRef[],
+            release_year: p.release_year ?? '', release_month: p.release_month ?? '', release_day: p.release_day ?? '',
+            create_album: false,
+            is_single: false,
+          }
+        : {
+            artist: { id: p.artist_id ?? null, name: p.artist_name } as ArtistRef,
+            album_title: p.album_title, year: p.year ?? '',
+          }
+      patchItem(id, { preview: p, form, phase: 'editing' })
+      if (p.kind === 'track') fetchSuggestion(id, form.artist.name, p.title)
+    } catch (e: any) {
+      patchItem(id, { error: String(e?.message || e), phase: 'error' })
+    }
   }
 
-  async function doCommit() {
-    if (phase === 'committing') return
-    setPhase('committing'); setError(null)
+  /** Async, nekliudo redaguoti/commit'inti kol laukiama — badge'as tiesiog
+   *  atsiranda pačioje kortelėje, kai atsakymas grįžta. */
+  async function fetchSuggestion(id: number, artistName: string, title: string) {
+    if (!artistName?.trim() || !title?.trim()) return
+    patchItem(id, { suggestionState: 'loading' })
+    try {
+      const res = await fetch('/api/admin/quick-add/album-suggestion', {
+        method: 'POST', headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ artist_name: artistName, title }),
+      })
+      const json = await res.json().catch(() => null)
+      patchItem(id, (it) => ({
+        suggestionState: 'done',
+        preview: { ...it.preview, suggested_album: json?.suggestion ?? null },
+        form: {
+          ...it.form,
+          create_album: json?.suggestion?.confidence === 'high',
+          is_single: !!json?.is_single,
+        },
+      }))
+    } catch {
+      patchItem(id, { suggestionState: 'done' })
+    }
+  }
+
+  async function doCommit(id: number) {
+    const item = items.find((it) => it.id === id)
+    if (!item || item.phase === 'committing') return
+    patchItem(id, { phase: 'committing', error: null })
     const num = (v: any) => (v === '' || v == null ? null : Number(v))
-    const artist: ArtistRef = form.artist || { id: null, name: '' }
-    const overrides = preview.kind === 'track'
+    const artist: ArtistRef = item.form.artist || { id: null, name: '' }
+    const overrides = item.preview.kind === 'track'
       ? {
-          title: form.title?.trim(),
+          title: item.form.title?.trim(),
           artist_name: artist.name?.trim(),
           artist_id: artist.id ?? null,
-          featuring: (form.featuring || []).map((f: ArtistRef) => f.name.trim()).filter(Boolean),
-          release_year: num(form.release_year), release_month: num(form.release_month), release_day: num(form.release_day),
-          create_album: !!form.create_album && preview.suggested_album?.source === 'musicbrainz',
-          album_mb_release_id: preview.suggested_album?.mb_release_id ?? null,
+          featuring: (item.form.featuring || []).map((f: ArtistRef) => f.name.trim()).filter(Boolean),
+          release_year: num(item.form.release_year), release_month: num(item.form.release_month), release_day: num(item.form.release_day),
+          create_album: !!item.form.create_album && item.preview.suggested_album?.source === 'musicbrainz',
+          album_mb_release_id: item.preview.suggested_album?.mb_release_id ?? null,
+          is_single: !!item.form.is_single,
         }
       : {
           artist_name: artist.name?.trim(),
           artist_id: artist.id ?? null,
-          album_title: form.album_title?.trim(),
-          year: num(form.year),
+          album_title: item.form.album_title?.trim(),
+          year: num(item.form.year),
         }
     try {
       const res = await fetch('/api/admin/quick-add', {
         method: 'POST', headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ url: preview.url, mode: 'commit', overrides }),
+        body: JSON.stringify({ url: item.preview.url, mode: 'commit', overrides }),
       })
       const json = await res.json().catch(() => null)
-      if (!json) { setError('Serveris negrąžino atsakymo'); setPhase('editing'); return }
-      if (!json.ok) { setError(json.error || 'Nepavyko'); setPhase('editing'); return }
-      setResult(json); setPhase('done')
-    } catch (e: any) { setError(String(e?.message || e)); setPhase('editing') }
+      if (!json) { patchItem(id, { error: 'Serveris negrąžino atsakymo', phase: 'editing' }); return }
+      if (!json.ok) { patchItem(id, { error: json.error || 'Nepavyko', phase: 'editing' }); return }
+      patchItem(id, { result: json, phase: 'done' })
+    } catch (e: any) {
+      patchItem(id, { error: String(e?.message || e), phase: 'editing' })
+    }
   }
 
   const hint =
@@ -128,55 +194,35 @@ export default function AdminQuickAdd({ bare = false }: { bare?: boolean } = {})
         <span className="text-[14px] text-[var(--text-faint)]">— {hint}</span>
       </div>
 
-      {/* URL įvestis (rodome kol nėra preview/result) */}
-      {(phase === 'idle' || phase === 'previewing') && (
-        <div className="flex flex-col gap-2 sm:flex-row">
-          <input
-            type="url" inputMode="url" value={url}
-            onChange={(e) => setUrl(e.target.value)}
-            onKeyDown={(e) => { if (e.key === 'Enter') doPreview() }}
-            placeholder="Įmesk YouTube arba Wikipedia albumo nuorodą…"
-            disabled={phase === 'previewing'}
-            className="min-h-[44px] flex-1 rounded-lg border border-[var(--input-border)] bg-[var(--bg-elevated)] px-3 text-[var(--text-primary)] placeholder:text-[var(--text-faint)] focus:border-[var(--border-strong)] focus:outline-none disabled:opacity-60"
-          />
-          <button
-            onClick={doPreview}
-            disabled={phase === 'previewing' || kind === 'unknown'}
-            className="min-h-[44px] shrink-0 rounded-lg bg-music-blue px-5 font-semibold text-white transition-colors hover:opacity-90 disabled:cursor-not-allowed disabled:opacity-50"
-          >
-            {phase === 'previewing' ? 'Tikrinama…' : 'Peržiūrėti'}
-          </button>
-        </div>
-      )}
-
-      {phase === 'previewing' && (
-        <p className="mt-2 text-[14px] text-[var(--text-muted)]">
-          {kind === 'album' ? 'Parsinu Wikipedia albumą…' : 'Tikrinu YouTube video…'}
-        </p>
-      )}
-
-      {error && (
-        <div className="mt-3 rounded-lg border border-red-200 bg-red-50 px-3 py-2 text-[14px] text-red-700">{error}</div>
-      )}
-
-      {/* Redagavimo forma */}
-      {(phase === 'editing' || phase === 'committing') && preview && (
-        <EditForm
-          preview={preview} form={form} setForm={setForm}
-          committing={phase === 'committing'}
-          onCommit={doCommit} onCancel={reset}
+      {/* URL įvestis — VISADA aktyvi, nepriklausomai nuo eilėje esančių elementų */}
+      <div className="flex flex-col gap-2 sm:flex-row">
+        <input
+          type="url" inputMode="url" value={url}
+          onChange={(e) => setUrl(e.target.value)}
+          onKeyDown={(e) => { if (e.key === 'Enter') submit() }}
+          placeholder="Įmesk YouTube arba Wikipedia albumo nuorodą…"
+          className="min-h-[44px] flex-1 rounded-lg border border-[var(--input-border)] bg-[var(--bg-elevated)] px-3 text-[var(--text-primary)] placeholder:text-[var(--text-faint)] focus:border-[var(--border-strong)] focus:outline-none"
         />
-      )}
+        <button
+          onClick={submit}
+          disabled={kind === 'unknown'}
+          className="min-h-[44px] shrink-0 rounded-lg bg-music-blue px-5 font-semibold text-white transition-colors hover:opacity-90 disabled:cursor-not-allowed disabled:opacity-50"
+        >
+          Peržiūrėti
+        </button>
+      </div>
 
-      {/* Rezultatas */}
-      {phase === 'done' && result?.ok && (
-        <>
-          <ResultCard result={result} />
-          <button onClick={reset} className="mt-3 text-[14px] font-medium text-music-blue hover:underline">
-            + Pridėti dar
-          </button>
-        </>
-      )}
+      {/* Eilė — naujausias viršuje, kiekvienas nepriklausomas nuo kitų */}
+      <div className="mt-3 flex flex-col gap-3">
+        {items.map((item) => (
+          <QueueCard
+            key={item.id} item={item}
+            setForm={(updater: any) => setItemForm(item.id, updater)}
+            onCommit={() => doCommit(item.id)}
+            onDismiss={() => removeItem(item.id)}
+          />
+        ))}
+      </div>
     </>
   )
 
@@ -184,6 +230,50 @@ export default function AdminQuickAdd({ bare = false }: { bare?: boolean } = {})
   return (
     <div className="rounded-xl border border-[var(--input-border)] bg-[var(--bg-surface)] p-4">
       {content}
+    </div>
+  )
+}
+
+/** Vienas eilės elementas — savo phase/preview/form/result, nepriklauso nuo
+ *  kitų kortelių. Leidžia turėti kelias dainas „skrydyje" vienu metu. */
+function QueueCard({ item, setForm, onCommit, onDismiss }: { item: QueueItem; setForm: any; onCommit: () => void; onDismiss: () => void }) {
+  const icon = item.kind === 'album' ? '💿' : '🎵'
+  const shortUrl = item.url.length > 52 ? item.url.slice(0, 49) + '…' : item.url
+
+  return (
+    <div className="rounded-lg border border-[var(--border-subtle)] bg-[var(--bg-elevated)] p-3">
+      <div className="mb-1 flex items-center gap-2">
+        <span className="text-[14px] text-[var(--text-faint)]">{icon} {shortUrl}</span>
+        {(item.phase === 'done' || item.phase === 'error') && (
+          <button onClick={onDismiss} className="ml-auto text-[14px] text-[var(--text-faint)] hover:text-[var(--text-secondary)]" aria-label="Uždaryti">✕</button>
+        )}
+      </div>
+
+      {item.phase === 'previewing' && (
+        <p className="text-[14px] text-[var(--text-muted)]">
+          {item.kind === 'album' ? 'Parsinu Wikipedia albumą…' : 'Tikrinu YouTube video…'}
+        </p>
+      )}
+
+      {item.phase === 'error' && (
+        <div className="rounded-lg border border-red-200 bg-red-50 px-3 py-2 text-[14px] text-red-700">{item.error}</div>
+      )}
+
+      {(item.phase === 'editing' || item.phase === 'committing') && item.preview && (
+        <>
+          {item.error && (
+            <div className="mb-2 rounded-lg border border-red-200 bg-red-50 px-3 py-2 text-[14px] text-red-700">{item.error}</div>
+          )}
+          <EditForm
+            preview={item.preview} form={item.form} setForm={setForm}
+            suggestionLoading={item.suggestionState === 'loading'}
+            committing={item.phase === 'committing'}
+            onCommit={onCommit} onCancel={onDismiss}
+          />
+        </>
+      )}
+
+      {item.phase === 'done' && item.result?.ok && <ResultCard result={item.result} />}
     </div>
   )
 }
@@ -397,17 +487,18 @@ function FeaturingPicker({ value, onChange }: { value: ArtistRef[]; onChange: (v
   )
 }
 
-function EditForm({ preview, form, setForm, committing, onCommit, onCancel }: any) {
+function EditForm({ preview, form, setForm, committing, suggestionLoading, onCommit, onCancel }: any) {
   const set = (k: string, v: any) => setForm((f: any) => ({ ...f, [k]: v }))
   const isTrack = preview.kind === 'track'
   const artist: ArtistRef = form.artist || { id: null, name: '' }
 
   return (
-    <div className="mt-3 rounded-lg border border-[var(--border-subtle)] bg-[var(--bg-elevated)] p-3">
+    <div className="mt-1 rounded-lg border border-[var(--border-subtle)] bg-[var(--bg-surface)] p-3">
       <div className="mb-2 flex flex-wrap items-center gap-2 text-[14px] text-[var(--text-muted)]">
         <span>{isTrack ? '🎵 Daina' : '💿 Albumas'}</span>
         {isTrack && preview.views != null && <span>· {Number(preview.views).toLocaleString('lt-LT')} views</span>}
         {isTrack && preview.embeddable === false && <span className="text-orange-600">· embed blokuotas</span>}
+        {isTrack && form.is_single && <span className="text-blue-700">· singlas</span>}
         {!isTrack && <span>· {(preview.track_titles || []).length} dainos</span>}
         {!isTrack && <span>· {preview.cover_found ? 'viršelis ✓' : 'be viršelio'}</span>}
       </div>
@@ -431,15 +522,21 @@ function EditForm({ preview, form, setForm, committing, onCommit, onCancel }: an
                 <input className={`${inputCls} w-16`} type="number" placeholder="d" value={form.release_day || ''} onChange={(e) => set('release_day', e.target.value)} />
               </div>
             </Field>
-            {preview.suggested_album && (
-              <div className="sm:col-span-2">
+            <div className="sm:col-span-2">
+              {suggestionLoading && (
+                <p className="text-[14px] text-[var(--text-faint)]">🔍 Tikrinama, ar priklauso albumui (MusicBrainz/Apple Music)…</p>
+              )}
+              {!suggestionLoading && preview.suggested_album && (
                 <AlbumSuggestionBox
                   suggestion={preview.suggested_album}
                   checked={!!form.create_album}
                   onChange={(v: boolean) => set('create_album', v)}
                 />
-              </div>
-            )}
+              )}
+              {!suggestionLoading && !preview.suggested_album && form.is_single && (
+                <p className="text-[14px] text-blue-700">🏷️ Aptikta kaip singlas (be pilno albumo).</p>
+              )}
+            </div>
           </>
         ) : (
           <>
@@ -535,7 +632,7 @@ function ResultCard({ result }: { result: any }) {
   const warnings: string[] = result.warnings || []
 
   return (
-    <div className="mt-3 rounded-lg border border-green-200 bg-green-50 px-3 py-3">
+    <div className="rounded-lg border border-green-200 bg-green-50 px-3 py-3">
       <div className="flex flex-wrap items-center gap-2">
         <span className="text-base">{isTrack ? '🎵' : '💿'}</span>
         <Link href={entityHref} className="font-semibold text-music-blue hover:underline">{entityTitle}</Link>
@@ -552,6 +649,7 @@ function ResultCard({ result }: { result: any }) {
             <Chip tone={result.detail.lyrics_found ? 'ok' : 'default'}>{result.detail.lyrics_found ? 'lyrics ✓' : 'lyrics —'}</Chip>
             <Chip tone={result.detail.spotify_found ? 'ok' : 'default'}>{result.detail.spotify_found ? 'Spotify ✓' : 'Spotify —'}</Chip>
             <Chip tone={result.detail.embeddable === false ? 'warn' : 'default'}>{result.detail.embeddable === false ? 'embed blokuotas' : 'embed ✓'}</Chip>
+            {result.detail.is_single && <Chip tone="ok">singlas</Chip>}
             {(result.detail.featuring || []).length > 0 && <Chip tone="ok">feat. {result.detail.featuring.join(', ')}</Chip>}
             {result.detail.album && (
               <Link href={`/admin/albums/${result.detail.album.id}`}>

@@ -40,6 +40,10 @@ export type AppleAlbumMatch = {
   day: number | null
   coverUrl: string | null
   isUpcoming: boolean
+  /** Silpnas signalas (be MB struktūrinio release-group tipo): kolekcijos
+   *  pavadinimas baigiasi "- Single" arba turi tik 1 dainą. Naudojamas TIK
+   *  kai MusicBrainz apskritai neturi šios dainos (žr. lib/album-lookup.ts). */
+  looksLikeSingle: boolean
 }
 
 /** Ieško track'o Apple Music kataloge, grąžina jo albumą (jei yra) —
@@ -70,15 +74,17 @@ export async function findAppleAlbumForTrack(artistName: string, trackTitle: str
 
   const relDate = hit.releaseDate ? new Date(hit.releaseDate) : null
   const validDate = relDate && !isNaN(relDate.getTime())
+  const collectionName: string = hit.collectionName || ''
 
   return {
     collectionId: hit.collectionId,
-    title: hit.collectionName || '',
+    title: collectionName,
     trackCount: hit.trackCount || 0,
     year: validDate ? relDate!.getUTCFullYear() : null,
     month: validDate ? relDate!.getUTCMonth() + 1 : null,
     day: validDate ? relDate!.getUTCDate() : null,
     coverUrl: upgradeArtwork(hit.artworkUrl100),
     isUpcoming: validDate ? relDate!.getTime() > Date.now() : false,
+    looksLikeSingle: (hit.trackCount || 0) <= 1 || /-\s*single\s*$/i.test(collectionName),
   }
 }
