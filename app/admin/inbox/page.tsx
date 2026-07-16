@@ -1,6 +1,6 @@
 'use client'
 
-import { useEffect, useState, useCallback } from 'react'
+import { useEffect, useState, useCallback, useMemo } from 'react'
 import { useSession } from 'next-auth/react'
 import { useRouter } from 'next/navigation'
 import Link from 'next/link'
@@ -161,8 +161,14 @@ export default function AdminInboxPage() {
   const [total, setTotal] = useState(0)
   const [eventsTotal, setEventsTotal] = useState(0)
   const [loading, setLoading] = useState(true)
-  const [filter, setFilter] = useState<string>('all')
   const [busy, setBusy] = useState<number | null>(null)
+  // 2026-07-16: atlikėjas → ISO data, kada jam paskutinį kartą paskelbta
+  // naujiena (per pastarąsias 72h). Naudojama grupuoti/nuslėpti kandidatus
+  // apie atlikėją, apie kurį jau ką tik paskelbta — kad flood'as (5 naujienos
+  // apie tą patį atlikėją vienu metu) nebeužverstų inbox'o.
+  const [recentPublishByArtist, setRecentPublishByArtist] = useState<Record<number, string>>({})
+  // Rankiniu būdu atidarytos/uždarytos atlikėjų grupės (žr. groupedCandidates žemiau).
+  const [openGroups, setOpenGroups] = useState<Set<string>>(new Set())
   // 2026-05-20: rewriting state — kuriam candidate'ui dabar paleistas Sonnet
   // rewrite'as. UI rodo „⏳ Perrašoma..." mygtuke.
   const [rewritingIds, setRewritingIds] = useState<Set<number>>(new Set())
@@ -223,16 +229,15 @@ export default function AdminInboxPage() {
   const load = useCallback(async () => {
     setLoading(true)
     try {
-      const q = filter === 'all' ? '' : `&category=${filter}`
-      // Parallel fetch news + events. Events ne'turi category filter'io, todėl
-      // kviečiam visada visus, o vizualiai filtruoti UI'aj jei reikės.
+      // Parallel fetch news + events.
       const [newsRes, eventsRes] = await Promise.all([
-        fetch(`/api/admin/news-candidates?status=preview,pending&limit=50${q}`),
+        fetch(`/api/admin/news-candidates?status=preview,pending&limit=50`),
         fetch(`/api/admin/event-candidates?status=pending&limit=50`),
       ])
       const data = await newsRes.json()
       setCandidates(data.candidates || [])
       setTotal(data.total || 0)
+      setRecentPublishByArtist(data.recent_published_by_artist || {})
       try {
         const eventsData = await eventsRes.json()
         setEvents(eventsData.candidates || [])
@@ -244,7 +249,7 @@ export default function AdminInboxPage() {
     } finally {
       setLoading(false)
     }
-  }, [filter])
+  }, [])
 
   useEffect(() => {
     if (status === 'unauthenticated') { router.push('/auth/signin'); return }
@@ -534,6 +539,306 @@ export default function AdminInboxPage() {
     }
   }
 
+  // 2026-07-16: grupavimas pagal atlikėją — kad kelios naujienos apie tą patį
+  // (populiarų) atlikėją nebeflood'intų sąrašo atskirais kortelėmis. Vieno
+  // kandidato grupės renderinamos kaip anksčiau (be papildomo wrapper'io).
+  // 2+ kandidatų grupės arba grupės, kur atlikėjui jau paskelbta per 72h,
+  // suskleidžiamos po vienu antrašte — admin'as pamato kiekį + gali išskleisti.
+  type ArtistGroup = {
+    key: string
+    artist: SuggestedArtist | null
+    items: Candidate[]
+    topScore: number
+    recentPublishAt: string | null
+  }
+  const groupedCandidates = useMemo<ArtistGroup[]>(() => {
+    const map = new Map<string, ArtistGroup>()
+    for (const c of candidates) {
+      const artist = c.primary_artist || (c.suggested_artists?.[0] ?? null)
+      const key = artist ? `a:${artist.id}` : `c:${c.id}`
+      let g = map.get(key)
+      if (!g) {
+        g = {
+          key,
+          artist,
+          items: [],
+          topScore: 0,
+          recentPublishAt: artist ? recentPublishByArtist[artist.id] || null : null,
+        }
+        map.set(key, g)
+      }
+      g.items.push(c)
+      g.topScore = Math.max(g.topScore, c.score ?? c.ai_confidence ?? 0)
+    }
+    const arr = Array.from(map.values())
+    // Grupės, kur atlikėjui jau neseniai paskelbta, nuslenka į apačią —
+    // vis dar matomos (nieko netrinam), bet nebekliudo prioritetiniam srautui.
+    arr.sort((a, b) => {
+      const aRecent = !!a.recentPublishAt
+      const bRecent = !!b.recentPublishAt
+      if (aRecent !== bRecent) return aRecent ? 1 : -1
+      return b.topScore - a.topScore
+    })
+    return arr
+  }, [candidates, recentPublishByArtist])
+
+  const toggleGroup = (key: string) => {
+    setOpenGroups(prev => {
+      const next = new Set(prev)
+      next.has(key) ? next.delete(key) : next.add(key)
+      return next
+    })
+  }
+
+  // Vienos naujienos kortelė — anksčiau buvo inline candidates.map() IIFE,
+  // ištraukta į funkciją, kad ją galima būtų naudoti tiek flat sąraše
+  // (dažniausias atvejis — 1 atlikėjas = 1 naujiena), tiek išskleistoje
+  // atlikėjo grupėje (žr. groupedCandidates aukščiau).
+  const renderCandidateCard = (cand: Candidate) => {
+    const catMeta = CATEGORY_LABELS[cand.ai_category]
+    const isExpanded = expanded.has(cand.id)
+    const artists = cand.suggested_artists || []
+    const hasMatch = artists.length > 0
+
+    // Mobile-first: rodome max 3 artist chips, likusius — kaip "+N"
+    const visibleArtists = artists.slice(0, 3)
+    const extraArtistsCount = Math.max(0, artists.length - 3)
+
+    return (
+      <div
+        key={cand.id}
+        className="bg-[var(--bg-surface)] border border-[var(--input-border)] rounded-2xl overflow-hidden hover:shadow-sm transition-shadow">
+        {/* Top row — be source image (copyright). Mažesnis category icon
+           placeholder'is mobile'e, kad daugiau erdvės title'ui */}
+        <div className="flex gap-3 p-3 sm:gap-4 sm:p-4">
+          <div className="hidden sm:flex w-20 h-20 rounded-xl bg-[var(--bg-elevated)] shrink-0 items-center justify-center text-3xl">
+            {catMeta?.icon || '📰'}
+          </div>
+
+          {/* Body */}
+          <div className="flex-1 min-w-0">
+            {/* Meta row */}
+            <div className="flex flex-wrap items-center gap-1.5 mb-2 text-xs">
+              {catMeta && (
+                <span className={`px-2 py-0.5 rounded-full font-medium ${catMeta.color}`}>
+                  {catMeta.icon} {catMeta.label}
+                </span>
+              )}
+              {(() => {
+                const score = cand.score ?? cand.ai_confidence
+                const breakdown = cand.score_breakdown
+                const tooltip = breakdown
+                  ? `Score = popularity (${breakdown.popularity}) × recency (${breakdown.recency}) × confidence (${breakdown.confidence})`
+                  : `AI confidence: ${cand.ai_confidence}`
+                return (
+                  <span
+                    title={tooltip}
+                    className={`px-2 py-0.5 rounded-full font-bold ${confidenceColor(score)}`}>
+                    ⭐ {score.toFixed(2)}
+                  </span>
+                )
+              })()}
+              {cand.source_url ? (
+                <a
+                  href={cand.source_url}
+                  target="_blank"
+                  rel="noopener"
+                  className="text-[var(--text-muted)] hover:text-blue-600 underline-offset-2 hover:underline">
+                  {cand.source_portal || cand.source_type} ↗
+                </a>
+              ) : (
+                <span className="text-[var(--text-muted)]">
+                  {cand.source_portal || cand.source_type}
+                </span>
+              )}
+              {/* Source publication date */}
+              {cand.source_published_at && (
+                <span className="text-[var(--text-muted)]" title={`Šaltinio publikacija: ${new Date(cand.source_published_at).toLocaleString('lt-LT')}`}>
+                  · {new Date(cand.source_published_at).toLocaleDateString('lt-LT', { day: 'numeric', month: 'short' })}
+                </span>
+              )}
+              {/* Scraped timestamp — kada AI surinko (atnaujinimo proxy) */}
+              <span className="text-[var(--text-muted)] opacity-60" title={`Surinkta į DB: ${new Date(cand.created_at).toLocaleString('lt-LT')}`}>
+                · 🔄 {relativeTimeShort(cand.created_at)}
+              </span>
+            </div>
+
+            {/* PREVIEW badge — Tier 1 candidate, dar nesugeneruotas LT
+                content. Admin'as turi paspausti „Perrašyti į LT" mygtuką
+                žemiau, kad būtų paleistas Sonnet rewrite'as. */}
+            {cand.status === 'preview' && (
+              <div className="flex items-center gap-2 mb-2">
+                <span className="text-[12px] uppercase font-semibold text-amber-700 bg-amber-100 border border-amber-200 px-1.5 py-0.5 rounded">
+                  Juodraštis
+                </span>
+                <span className="text-[14px] text-[var(--text-muted)]">
+                  {cand.source_portal === 'gmail'
+                    ? 'Tekstas performuluojamas paspaudus „Perrašyti"'
+                    : 'LT versija sugeneruojama paspaudus „Perrašyti"'}
+                </span>
+              </div>
+            )}
+
+            {/* Title — tap to expand'ina peržiūrą. Preview mode'e rodom
+                EN original_title (Sonnet ai_title atsiranda tik po
+                „Perrašyti į LT" click'o). Preview cards NĖRA clickable —
+                neturi body'o ką expand'inti. */}
+            <h2
+              onClick={cand.status === 'preview' ? undefined : () => toggleExpand(cand.id)}
+              className={`font-bold text-base sm:text-base leading-snug mb-2 ${
+                cand.status === 'preview'
+                  ? 'text-[var(--text-muted)] italic'
+                  : 'text-[var(--text-primary)] cursor-pointer'
+              }`}>
+              {decodeHtmlEntities(cand.status === 'preview'
+                ? (cand.original_title || cand.ai_title || '(be antraštės)')
+                : (cand.ai_title || cand.original_title || '(be antraštės)'))}
+            </h2>
+
+            {/* Summary — tik pending kortelėms (preview neturi LT
+                summary'o, ji sugeneruojama per rewrite). */}
+            {cand.status !== 'preview' && cand.ai_summary && (
+              <p
+                onClick={() => toggleExpand(cand.id)}
+                className="text-sm text-[var(--text-muted)] line-clamp-3 sm:line-clamp-2 mb-3 cursor-pointer">
+                {cand.ai_summary}
+              </p>
+            )}
+
+            {/* Attachment'ai (Gmail foto su EXIF metadata) — pirmieji 3 thumbnail'ai */}
+            {cand.attachments && cand.attachments.length > 0 && (
+              <div className="mb-3">
+                <div className="flex flex-wrap gap-2">
+                  {cand.attachments.slice(0, 3).map(att => (
+                    <div
+                      key={att.id}
+                      className="relative group"
+                      title={[
+                        att.photographer ? `📷 ${att.photographer}` : null,
+                        att.copyright ? `© ${att.copyright}` : null,
+                        att.year_taken ? `📅 ${att.year_taken}` : null,
+                        att.caption ? `💬 ${att.caption}` : null,
+                      ].filter(Boolean).join('\n') || 'Be metadata'}>
+                      <img
+                        src={att.public_url}
+                        alt={att.caption || 'attachment'}
+                        className="w-20 h-20 sm:w-24 sm:h-24 object-cover rounded border border-[var(--border)] bg-[var(--bg-elevated)]"
+                      />
+                      {/* Metadata overlay — bottom strip */}
+                      {(att.photographer || att.copyright || att.year_taken) && (
+                        <div className="absolute bottom-0 left-0 right-0 bg-black/70 text-white text-[12px] px-1 py-0.5 rounded-b leading-tight truncate">
+                          {att.photographer && <span>📷 {att.photographer}</span>}
+                          {att.photographer && att.year_taken && <span> · </span>}
+                          {att.year_taken && <span>{att.year_taken}</span>}
+                        </div>
+                      )}
+                    </div>
+                  ))}
+                  {cand.attachments.length > 3 && (
+                    <div className="w-20 h-20 sm:w-24 sm:h-24 rounded border border-[var(--border)] bg-[var(--bg-elevated)] flex items-center justify-center text-xs text-[var(--text-muted)]">
+                      +{cand.attachments.length - 3}
+                    </div>
+                  )}
+                </div>
+                {/* Copyright warning'as jeigu visi attachment'ai be metadata */}
+                {cand.attachments.every(a => !a.photographer && !a.copyright) && (
+                  <div className="text-[12px] text-amber-600 mt-1.5">
+                    ⚠ EXIF metadata nerasta — prieš publikuojant pridėk autorių/copyright per peržiūros modal'ą.
+                  </div>
+                )}
+              </div>
+            )}
+
+            {/* Artist chips — max 3 visible, likusius "+N" */}
+            {hasMatch ? (
+              <div className="flex flex-wrap gap-1.5 mb-3">
+                {visibleArtists.map(a => (
+                  <Link
+                    key={a.id}
+                    href={`/atlikejai/${a.slug}`}
+                    target="_blank"
+                    className="inline-flex items-center gap-1.5 pl-1 pr-2 py-1 bg-blue-50 hover:bg-blue-100 rounded-full text-xs font-medium text-blue-700 transition-colors">
+                    {a.cover_image_url ? (
+                      <img src={a.cover_image_url} alt="" className="w-5 h-5 rounded-full object-cover bg-blue-100" />
+                    ) : (
+                      <span className="w-5 h-5 rounded-full bg-blue-200 flex items-center justify-center text-[12px]">🎤</span>
+                    )}
+                    <span>{a.name}</span>
+                    <span className="text-[12px] text-blue-500 font-normal">❤ {formatLikes(a.legacy_likes)}</span>
+                  </Link>
+                ))}
+                {extraArtistsCount > 0 && (
+                  <span className="inline-flex items-center px-2 py-1 bg-[var(--bg-elevated)] rounded-full text-xs text-[var(--text-muted)]">
+                    +{extraArtistsCount}
+                  </span>
+                )}
+              </div>
+            ) : (
+              <div className="mb-3">
+                <button
+                  onClick={() => {
+                    const titleForGuess = cand.ai_title || cand.original_title || ''
+                    const url = `/admin/artists/new?name=${encodeURIComponent(titleForGuess.split(' ')[0])}`
+                    window.open(url, '_blank')
+                  }}
+                  className="inline-flex items-center gap-1.5 px-3 py-1 bg-amber-50 hover:bg-amber-100 rounded-full text-xs font-medium text-amber-700 border border-amber-200 transition-colors">
+                  <span>⚠ Atlikėjo nerasta DB</span>
+                  <span className="text-amber-600">+ Sukurti naują</span>
+                </button>
+              </div>
+            )}
+
+            {/* Actions — direct approve panaikintas; viskas eina per wizard'ą
+               (modalas atidaromas „Peržiūrėti", kuriame nustatomi atlikėjai, nuotrauka, tekstas).
+               Tik atmesti likęs 1-click, nes nereikalauja setup'o.
+               2026-05-20: Preview cards (Tier 1) rodo „Perrašyti į LT" vietoj
+               „Peržiūrėti" — Sonnet'as paleidžiamas tik admin'o spaudimu. */}
+            <div className="flex items-center gap-2">
+              {cand.status === 'preview' ? (
+                <button
+                  onClick={() => handleRewrite(cand.id)}
+                  disabled={rewritingIds.has(cand.id) || busy === cand.id}
+                  className="flex-1 sm:flex-none px-4 py-2 bg-blue-600 hover:bg-blue-700 active:bg-blue-800 text-white rounded-lg text-sm font-bold disabled:opacity-50 transition-colors">
+                  {rewritingIds.has(cand.id) ? '⏳ Perrašoma…' : '✍ Perrašyti'}
+                </button>
+              ) : (
+                <button
+                  onClick={() => openEdit(cand)}
+                  disabled={busy === cand.id}
+                  className="flex-1 sm:flex-none px-4 py-2 bg-emerald-600 hover:bg-emerald-700 active:bg-emerald-800 text-white rounded-lg text-sm font-bold disabled:opacity-50 transition-colors">
+                  📝 Peržiūrėti & paskelbti
+                </button>
+              )}
+              <button
+                onClick={(e) => handleReject(cand.id, e)}
+                disabled={busy === cand.id || rewritingIds.has(cand.id)}
+                title="Atmesti (alt+click → su priežastimi)"
+                className="flex-1 sm:flex-none px-4 py-2 bg-red-50 hover:bg-red-100 active:bg-red-200 text-red-600 rounded-lg text-sm font-bold disabled:opacity-50">
+                ✗ Atmesti
+              </button>
+            </div>
+          </div>
+        </div>
+
+        {/* Expanded body — TIK pending kortelėms. Preview state'as
+            neturi LT body'o (jis sugeneruojamas tik paspaudus
+            „Perrašyti į LT"). */}
+        {isExpanded && cand.status !== 'preview' && (
+          <div className="border-t border-[var(--border-subtle)] p-4 bg-[var(--bg-elevated)]/40">
+            {bodies[cand.id] ? (
+              <div
+                className="prose prose-sm max-w-none text-[var(--text-primary)]"
+                dangerouslySetInnerHTML={{ __html: bodies[cand.id] }}
+              />
+            ) : (
+              <p className="text-sm text-[var(--text-muted)]">Kraunama...</p>
+            )}
+          </div>
+        )}
+      </div>
+    )
+  }
+
   if (status === 'loading' || loading) {
     return (
       <div className="min-h-screen flex items-center justify-center bg-[var(--bg-elevated)]">
@@ -566,29 +871,6 @@ export default function AdminInboxPage() {
 
       <div className="max-w-5xl mx-auto px-3 sm:px-4 py-3">
         <InboxTabs />
-        {/* Category filter — icon-only chips mobile'e, su label desktop'e */}
-        <div className="flex flex-wrap gap-1 mb-3 overflow-x-auto -mx-1 px-1">
-          {['all', 'release', 'performance', 'tour', 'career_step', 'other'].map(cat => (
-            <button
-              key={cat}
-              onClick={() => setFilter(cat)}
-              title={cat === 'all' ? 'Visos' : CATEGORY_LABELS[cat]?.label}
-              className={`px-2 py-1 rounded text-xs font-medium transition-colors whitespace-nowrap ${
-                filter === cat
-                  ? 'bg-blue-600 text-white'
-                  : 'bg-[var(--bg-surface)] text-[var(--text-muted)] hover:bg-[var(--bg-active)] border border-[var(--input-border)]'
-              }`}>
-              {cat === 'all'
-                ? 'Visos'
-                : (
-                  <>
-                    <span>{CATEGORY_LABELS[cat]?.icon}</span>
-                    <span className="hidden sm:inline ml-1">{CATEGORY_LABELS[cat]?.label}</span>
-                  </>
-                )}
-            </button>
-          ))}
-        </div>
 
         {candidates.length === 0 ? (
           <div className="bg-[var(--bg-surface)] border border-[var(--input-border)] rounded-2xl p-16 text-center">
@@ -600,256 +882,50 @@ export default function AdminInboxPage() {
           </div>
         ) : (
           <div className="space-y-3">
-            {/* News only — events atskirame tab'e per InboxTabs */}
-            {(() => {
-              return candidates.map(cand_outer => {
-                return (() => {
-                  const cand = cand_outer
-              const catMeta = CATEGORY_LABELS[cand.ai_category]
-              const isExpanded = expanded.has(cand.id)
-              const artists = cand.suggested_artists || []
-              const hasMatch = artists.length > 0
-
-              // Mobile-first: rodome max 3 artist chips, likusius — kaip "+N"
-              const visibleArtists = artists.slice(0, 3)
-              const extraArtistsCount = Math.max(0, artists.length - 3)
-
+            {/* News, sugrupuotos pagal pagrindinį atlikėją — events atskirame
+               tab'e per InboxTabs. Vieno kandidato grupės (dažniausias atvejis)
+               renderinamos kaip įprasta kortelė. 2+ kandidatų grupės arba
+               grupės, kur atlikėjui jau paskelbta per 72h, suskleidžiamos po
+               viena antrašte (žr. groupedCandidates aukščiau). */}
+            {groupedCandidates.map(g => {
+              if (g.items.length === 1 && !g.recentPublishAt) {
+                return <div key={g.key}>{renderCandidateCard(g.items[0])}</div>
+              }
+              const isOpen = openGroups.has(g.key)
               return (
-                <div
-                  key={cand.id}
-                  className="bg-[var(--bg-surface)] border border-[var(--input-border)] rounded-2xl overflow-hidden hover:shadow-sm transition-shadow">
-                  {/* Top row — be source image (copyright). Mažesnis category icon
-                     placeholder'is mobile'e, kad daugiau erdvės title'ui */}
-                  <div className="flex gap-3 p-3 sm:gap-4 sm:p-4">
-                    <div className="hidden sm:flex w-20 h-20 rounded-xl bg-[var(--bg-elevated)] shrink-0 items-center justify-center text-3xl">
-                      {catMeta?.icon || '📰'}
-                    </div>
-
-                    {/* Body */}
+                <div key={g.key} className="bg-[var(--bg-surface)] border border-[var(--input-border)] rounded-2xl overflow-hidden">
+                  <button
+                    type="button"
+                    onClick={() => toggleGroup(g.key)}
+                    className="w-full flex items-center gap-2.5 p-3 sm:p-4 text-left hover:bg-[var(--bg-elevated)]/50 transition-colors">
+                    {g.artist?.cover_image_url ? (
+                      <img src={g.artist.cover_image_url} alt="" className="w-10 h-10 rounded-full object-cover shrink-0" />
+                    ) : (
+                      <span className="w-10 h-10 rounded-full bg-blue-100 flex items-center justify-center text-lg shrink-0">🎤</span>
+                    )}
                     <div className="flex-1 min-w-0">
-                      {/* Meta row */}
-                      <div className="flex flex-wrap items-center gap-1.5 mb-2 text-xs">
-                        {catMeta && (
-                          <span className={`px-2 py-0.5 rounded-full font-medium ${catMeta.color}`}>
-                            {catMeta.icon} {catMeta.label}
-                          </span>
-                        )}
-                        {(() => {
-                          const score = cand.score ?? cand.ai_confidence
-                          const breakdown = cand.score_breakdown
-                          const tooltip = breakdown
-                            ? `Score = popularity (${breakdown.popularity}) × recency (${breakdown.recency}) × confidence (${breakdown.confidence})`
-                            : `AI confidence: ${cand.ai_confidence}`
-                          return (
-                            <span
-                              title={tooltip}
-                              className={`px-2 py-0.5 rounded-full font-bold ${confidenceColor(score)}`}>
-                              ⭐ {score.toFixed(2)}
-                            </span>
-                          )
-                        })()}
-                        {cand.source_url ? (
-                          <a
-                            href={cand.source_url}
-                            target="_blank"
-                            rel="noopener"
-                            className="text-[var(--text-muted)] hover:text-blue-600 underline-offset-2 hover:underline">
-                            {cand.source_portal || cand.source_type} ↗
-                          </a>
-                        ) : (
-                          <span className="text-[var(--text-muted)]">
-                            {cand.source_portal || cand.source_type}
-                          </span>
-                        )}
-                        {/* Source publication date */}
-                        {cand.source_published_at && (
-                          <span className="text-[var(--text-muted)]" title={`Šaltinio publikacija: ${new Date(cand.source_published_at).toLocaleString('lt-LT')}`}>
-                            · {new Date(cand.source_published_at).toLocaleDateString('lt-LT', { day: 'numeric', month: 'short' })}
-                          </span>
-                        )}
-                        {/* Scraped timestamp — kada AI surinko (atnaujinimo proxy) */}
-                        <span className="text-[var(--text-muted)] opacity-60" title={`Surinkta į DB: ${new Date(cand.created_at).toLocaleString('lt-LT')}`}>
-                          · 🔄 {relativeTimeShort(cand.created_at)}
-                        </span>
+                      <div className="font-bold text-sm text-[var(--text-primary)] truncate">
+                        {g.artist?.name || 'Be atlikėjo'}
                       </div>
-
-                      {/* PREVIEW badge — Tier 1 candidate, dar nesugeneruotas LT
-                          content. Admin'as turi paspausti „Perrašyti į LT" mygtuką
-                          žemiau, kad būtų paleistas Sonnet rewrite'as. */}
-                      {cand.status === 'preview' && (
-                        <div className="flex items-center gap-2 mb-2">
-                          <span className="text-[12px] uppercase font-semibold text-amber-700 bg-amber-100 border border-amber-200 px-1.5 py-0.5 rounded">
-                            Juodraštis
+                      <div className="flex flex-wrap items-center gap-1.5 text-xs text-[var(--text-muted)]">
+                        <span>{g.items.length} naujienos</span>
+                        {g.recentPublishAt && (
+                          <span className="px-1.5 py-0.5 rounded-full bg-emerald-50 text-emerald-700 font-medium">
+                            ✅ paskelbta prieš {relativeTimeShort(g.recentPublishAt)}
                           </span>
-                          <span className="text-[14px] text-[var(--text-muted)]">
-                            {cand.source_portal === 'gmail'
-                              ? 'Tekstas performuluojamas paspaudus „Perrašyti"'
-                              : 'LT versija sugeneruojama paspaudus „Perrašyti"'}
-                          </span>
-                        </div>
-                      )}
-
-                      {/* Title — tap to expand'ina peržiūrą. Preview mode'e rodom
-                          EN original_title (Sonnet ai_title atsiranda tik po
-                          „Perrašyti į LT" click'o). Preview cards NĖRA clickable —
-                          neturi body'o ką expand'inti. */}
-                      <h2
-                        onClick={cand.status === 'preview' ? undefined : () => toggleExpand(cand.id)}
-                        className={`font-bold text-base sm:text-base leading-snug mb-2 ${
-                          cand.status === 'preview'
-                            ? 'text-[var(--text-muted)] italic'
-                            : 'text-[var(--text-primary)] cursor-pointer'
-                        }`}>
-                        {decodeHtmlEntities(cand.status === 'preview'
-                          ? (cand.original_title || cand.ai_title || '(be antraštės)')
-                          : (cand.ai_title || cand.original_title || '(be antraštės)'))}
-                      </h2>
-
-                      {/* Summary — tik pending kortelėms (preview neturi LT
-                          summary'o, ji sugeneruojama per rewrite). */}
-                      {cand.status !== 'preview' && cand.ai_summary && (
-                        <p
-                          onClick={() => toggleExpand(cand.id)}
-                          className="text-sm text-[var(--text-muted)] line-clamp-3 sm:line-clamp-2 mb-3 cursor-pointer">
-                          {cand.ai_summary}
-                        </p>
-                      )}
-
-                      {/* Attachment'ai (Gmail foto su EXIF metadata) — pirmieji 3 thumbnail'ai */}
-                      {cand.attachments && cand.attachments.length > 0 && (
-                        <div className="mb-3">
-                          <div className="flex flex-wrap gap-2">
-                            {cand.attachments.slice(0, 3).map(att => (
-                              <div
-                                key={att.id}
-                                className="relative group"
-                                title={[
-                                  att.photographer ? `📷 ${att.photographer}` : null,
-                                  att.copyright ? `© ${att.copyright}` : null,
-                                  att.year_taken ? `📅 ${att.year_taken}` : null,
-                                  att.caption ? `💬 ${att.caption}` : null,
-                                ].filter(Boolean).join('\n') || 'Be metadata'}>
-                                <img
-                                  src={att.public_url}
-                                  alt={att.caption || 'attachment'}
-                                  className="w-20 h-20 sm:w-24 sm:h-24 object-cover rounded border border-[var(--border)] bg-[var(--bg-elevated)]"
-                                />
-                                {/* Metadata overlay — bottom strip */}
-                                {(att.photographer || att.copyright || att.year_taken) && (
-                                  <div className="absolute bottom-0 left-0 right-0 bg-black/70 text-white text-[12px] px-1 py-0.5 rounded-b leading-tight truncate">
-                                    {att.photographer && <span>📷 {att.photographer}</span>}
-                                    {att.photographer && att.year_taken && <span> · </span>}
-                                    {att.year_taken && <span>{att.year_taken}</span>}
-                                  </div>
-                                )}
-                              </div>
-                            ))}
-                            {cand.attachments.length > 3 && (
-                              <div className="w-20 h-20 sm:w-24 sm:h-24 rounded border border-[var(--border)] bg-[var(--bg-elevated)] flex items-center justify-center text-xs text-[var(--text-muted)]">
-                                +{cand.attachments.length - 3}
-                              </div>
-                            )}
-                          </div>
-                          {/* Copyright warning'as jeigu visi attachment'ai be metadata */}
-                          {cand.attachments.every(a => !a.photographer && !a.copyright) && (
-                            <div className="text-[12px] text-amber-600 mt-1.5">
-                              ⚠ EXIF metadata nerasta — prieš publikuojant pridėk autorių/copyright per peržiūros modal'ą.
-                            </div>
-                          )}
-                        </div>
-                      )}
-
-                      {/* Artist chips — max 3 visible, likusius "+N" */}
-                      {hasMatch ? (
-                        <div className="flex flex-wrap gap-1.5 mb-3">
-                          {visibleArtists.map(a => (
-                            <Link
-                              key={a.id}
-                              href={`/atlikejai/${a.slug}`}
-                              target="_blank"
-                              className="inline-flex items-center gap-1.5 pl-1 pr-2 py-1 bg-blue-50 hover:bg-blue-100 rounded-full text-xs font-medium text-blue-700 transition-colors">
-                              {a.cover_image_url ? (
-                                <img src={a.cover_image_url} alt="" className="w-5 h-5 rounded-full object-cover bg-blue-100" />
-                              ) : (
-                                <span className="w-5 h-5 rounded-full bg-blue-200 flex items-center justify-center text-[12px]">🎤</span>
-                              )}
-                              <span>{a.name}</span>
-                              <span className="text-[12px] text-blue-500 font-normal">❤ {formatLikes(a.legacy_likes)}</span>
-                            </Link>
-                          ))}
-                          {extraArtistsCount > 0 && (
-                            <span className="inline-flex items-center px-2 py-1 bg-[var(--bg-elevated)] rounded-full text-xs text-[var(--text-muted)]">
-                              +{extraArtistsCount}
-                            </span>
-                          )}
-                        </div>
-                      ) : (
-                        <div className="mb-3">
-                          <button
-                            onClick={() => {
-                              const titleForGuess = cand.ai_title || cand.original_title || ''
-                              const url = `/admin/artists/new?name=${encodeURIComponent(titleForGuess.split(' ')[0])}`
-                              window.open(url, '_blank')
-                            }}
-                            className="inline-flex items-center gap-1.5 px-3 py-1 bg-amber-50 hover:bg-amber-100 rounded-full text-xs font-medium text-amber-700 border border-amber-200 transition-colors">
-                            <span>⚠ Atlikėjo nerasta DB</span>
-                            <span className="text-amber-600">+ Sukurti naują</span>
-                          </button>
-                        </div>
-                      )}
-
-                      {/* Actions — direct approve panaikintas; viskas eina per wizard'ą
-                         (modalas atidaromas „Peržiūrėti", kuriame nustatomi atlikėjai, nuotrauka, tekstas).
-                         Tik atmesti likęs 1-click, nes nereikalauja setup'o.
-                         2026-05-20: Preview cards (Tier 1) rodo „Perrašyti į LT" vietoj
-                         „Peržiūrėti" — Sonnet'as paleidžiamas tik admin'o spaudimu. */}
-                      <div className="flex items-center gap-2">
-                        {cand.status === 'preview' ? (
-                          <button
-                            onClick={() => handleRewrite(cand.id)}
-                            disabled={rewritingIds.has(cand.id) || busy === cand.id}
-                            className="flex-1 sm:flex-none px-4 py-2 bg-blue-600 hover:bg-blue-700 active:bg-blue-800 text-white rounded-lg text-sm font-bold disabled:opacity-50 transition-colors">
-                            {rewritingIds.has(cand.id) ? '⏳ Perrašoma…' : '✍ Perrašyti'}
-                          </button>
-                        ) : (
-                          <button
-                            onClick={() => openEdit(cand)}
-                            disabled={busy === cand.id}
-                            className="flex-1 sm:flex-none px-4 py-2 bg-emerald-600 hover:bg-emerald-700 active:bg-emerald-800 text-white rounded-lg text-sm font-bold disabled:opacity-50 transition-colors">
-                            📝 Peržiūrėti & paskelbti
-                          </button>
                         )}
-                        <button
-                          onClick={(e) => handleReject(cand.id, e)}
-                          disabled={busy === cand.id || rewritingIds.has(cand.id)}
-                          title="Atmesti (alt+click → su priežastimi)"
-                          className="flex-1 sm:flex-none px-4 py-2 bg-red-50 hover:bg-red-100 active:bg-red-200 text-red-600 rounded-lg text-sm font-bold disabled:opacity-50">
-                          ✗ Atmesti
-                        </button>
                       </div>
                     </div>
-                  </div>
-
-                  {/* Expanded body — TIK pending kortelėms. Preview state'as
-                      neturi LT body'o (jis sugeneruojamas tik paspaudus
-                      „Perrašyti į LT"). */}
-                  {isExpanded && cand.status !== 'preview' && (
-                    <div className="border-t border-[var(--border-subtle)] p-4 bg-[var(--bg-elevated)]/40">
-                      {bodies[cand.id] ? (
-                        <div
-                          className="prose prose-sm max-w-none text-[var(--text-primary)]"
-                          dangerouslySetInnerHTML={{ __html: bodies[cand.id] }}
-                        />
-                      ) : (
-                        <p className="text-sm text-[var(--text-muted)]">Kraunama...</p>
-                      )}
+                    <span className={`text-[var(--text-muted)] transition-transform shrink-0 ${isOpen ? 'rotate-180' : ''}`}>▾</span>
+                  </button>
+                  {isOpen && (
+                    <div className="space-y-3 p-3 pt-0 sm:p-4 sm:pt-0">
+                      {g.items.map(cand => renderCandidateCard(cand))}
                     </div>
                   )}
                 </div>
               )
-                })()
-              })
-            })()}
+            })}
           </div>
         )}
       </div>

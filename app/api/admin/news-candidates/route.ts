@@ -170,10 +170,45 @@ export async function GET(req: NextRequest) {
     .slice(0, limit)
     .map(({ _artistScoreRaw, _hasArtist, ...rest }: any) => rest)
 
+  // 2026-07-16: "Kiek atlikėjui neseniai paskelbta" žemėlapis — naudojamas
+  // frontend'e grupuoti/paslėpti duomenis apie tą patį atlikėją, jei apie jį
+  // jau paskelbta per pastarąsias 72h (flood'o prevencija admin'o srautui).
+  // Tikrinam ir artist_id, ir artist_id2 (legacy dual-slot), nes news_artists
+  // junction lentelė gali būti dar nepilnai užpildyta senesniems įrašams.
+  let recentPublishedByArtist: Record<number, string> = {}
+  try {
+    const primaryIds = Array.from(new Set(
+      decorated.map((c: any) => c.primary_artist_id).filter((x: any): x is number => typeof x === 'number')
+    ))
+    if (primaryIds.length > 0) {
+      const cutoff = new Date(Date.now() - 3 * 86_400_000).toISOString()
+      const orExpr = `artist_id.in.(${primaryIds.join(',')}),artist_id2.in.(${primaryIds.join(',')})`
+      const { data: recentNews } = await supabase
+        .from('news')
+        .select('artist_id, artist_id2, published_at')
+        .or(orExpr)
+        .gte('published_at', cutoff)
+        .order('published_at', { ascending: false })
+      for (const row of (recentNews || []) as any[]) {
+        for (const aid of [row.artist_id, row.artist_id2]) {
+          if (aid && primaryIds.includes(aid) && !recentPublishedByArtist[aid]) {
+            recentPublishedByArtist[aid] = row.published_at
+          }
+        }
+      }
+    }
+  } catch { /* non-fatal — grupavimas tiesiog neturės "neseniai paskelbta" hint'o */ }
+
+  // "total" — realus laukiančių peržiūros kandidatų skaičius (po SCORE_FLOOR
+  // filtro, PRIEŠ limit slice'ą). Anksčiau čia buvo `decorated.length`, kuris
+  // visada ≤ limit (net kai limit=1, kaip InboxTabs count-only kvietime) —
+  // dėl to tab'e rodydavo klaidinantį "(1)" vietoj realaus laukiančių kiekio.
+  // `pool` — žalias DB total (be SCORE_FLOOR filtro), transparency dėlei.
   return NextResponse.json({
     candidates: decorated,
-    total: decorated.length,
+    total: filtered.length,
     pool: count || 0,
     hidden_low_score: showAll ? 0 : (decoratedAll.length - filtered.length),
+    recent_published_by_artist: recentPublishedByArtist,
   })
 }
