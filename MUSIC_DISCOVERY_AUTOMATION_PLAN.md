@@ -184,70 +184,91 @@ korekcija ir išvengia to paties bug'o pasikartojimo.
 
 ## C. Greito pridėjimo papildymas — daina → patikrinti albumą
 
-### C.1 — Konkreti vieta kode
+**ĮGYVENDINTA (2026-07-16).** Pradinis planas (žemiau paliktas C.0 istorijai) siūlė
+Wikipedia discography kaip šaltinį. Prieš codavimą Edvardas paprašė patestuoti su
+realiu atveju (Carly Rae Jepsen „On Wires") — testas parodė, kad Wikipedia čia
+BLOGIAUSIAS iš keturių patikrintų šaltinių: albumo puslapis jau egzistavo, bet
+`{{Track listing}}` šablone užpildyti tik 2 iš 12 laukų (likę — tušti). Palyginimui
+tuo pačiu metu:
 
-`lib/quick-add.ts` `commitTrack()` (eil. 809–949). Šiuo metu sukuria/atnaujina TIK
-`tracks` įrašą. Reikia naujo žingsnio PO track'o sukūrimo/matchinimo, PRIEŠ grąžinant
-rezultatą.
+| Šaltinis | Tracklist | Cover | Data | Pastaba |
+|---|---|---|---|---|
+| **MusicBrainz** | ✅ pilnas, 25 tikri pavadinimai | ✅ (Cover Art Archive) | ✅ | Laimėtojas |
+| **Apple Music** (iTunes Search API) | ⚠️ track count teisingas, bet placeholder'iai („Track 5") | ✅ aukštos kokybės | ✅ | Geras metadata fallback |
+| **Wikipedia** | ❌ 2/12 užpildyta | — | ✅ (infobox) | Per lėtas TIK tracklist'ui |
+| **Deezer** | ❌ dar nesusiejęs su albumu | — | — | Neaktualus šiam atvejui |
 
-### C.2 — Logika
+**Galutinis sprendimas:** MusicBrainz pirminis šaltinis (laisva JSON API, be auth,
+~1200 req/val), Apple Music (iTunes Search API, be auth) — fallback signalui/
+viršeliui, kai MB neturi duomenų. Wikipedia NENAUDOJAMA track↔album ryšiui (lieka
+tik esamam admin-inicijuotam albumo-per-Wiki-nuorodą srautui nepakitusi).
+
+### C.1 — Nauji failai
+
+- `lib/musicbrainz.ts` — `findAlbumForRecording(artist, title)` (recording paieška →
+  ALBUM/EP tipo release'ai → pilnas tracklist re-fetch'as), `fetchReleaseTracklist()`,
+  `fetchMbCoverUrl()` (Cover Art Archive).
+- `lib/apple-music.ts` — `findAppleAlbumForTrack()` (iTunes Search API, TIK
+  metaduomenims — niekad tracklist'o kūrimui, nes placeholder'iai).
+- `lib/album-lookup.ts` — orchestratorius: MB pirma (confidence='high' jei
+  ne-placeholder tracklist'as), Apple fallback (visad confidence='ambiguous').
+
+### C.2 — Integracija `lib/quick-add.ts`
+
+- `TrackPreview.suggested_album` — užpildomas `previewTrack()` metu (best-effort,
+  timeout viduje `album-lookup.ts`, niekad nesulaiko preview'o).
+- `TrackOverrides.create_album` + `album_mb_release_id` — admin patvirtinimas.
+- `commitTrack()`: jei `create_album=true`, PO track'o sukūrimo (turim `trackId`)
+  re-fetch'ina pilną MB tracklist'ą per `createAlbumFromMusicBrainz()` (šviežius
+  duomenis, ne preview'o snapshot'ą) ir susieja jau sukurtą track'ą su jo pozicija
+  tracklist'e (`track_id` eksplicitiškai, ne slug-matching — saugiau).
+- `AlbumFull.source` (naujas laukas `lib/supabase-albums.ts`) — MB albumai gauna
+  `source: 'musicbrainz'`, kad nesimaišytų su Wiki reconciliation darbu
+  (WIKI_BATCH_HANDOFF.md).
+- `is_upcoming` — MB albumo data lyginama su šiandiena; jei ateityje (kaip „Day and
+  Night" 2026-09-18 testo atveju), pažymima `is_upcoming=true` (kitaip albumas
+  rodytųsi `/albumai` sąraše kaip jau išleistas, nes tas puslapis filtruoja
+  `is_upcoming=false`).
+
+### C.3 — Rastas ir pataisytas šalutinis bug'as (`syncAlbumTracks`)
+
+`lib/supabase-albums.ts` `syncAlbumTracks()` komentaras žadėjo „release_year
+FILL-ONLY: jei DB jau turi, neperrašom", bet kodas iš tikrųjų VISADA perrašydavo,
+kai payload turėjo `release_year`. Tai reiškė: sukūrus MB albumą su albumo-lygio
+fallback data (pvz. 2026-09-18), jau egzistuojančio single'o teisinga ANKSTESNĖ
+data (2026-06-26) būtų buvusi perrašyta — TIKSLIAI ta pati bug'o klasė kaip D
+punkte, tik per albumo sync'ą, ne quick-add dedup'ą. Pataisyta: naujas
+`fillReleaseDateIfMissing()` helper'is realiai tikrina DB prieš rašydamas (veikia
+abiem `syncAlbumTracks` šakoms — tiek MB, tiek esamam Wiki importui).
+
+### C.4 — UI (`components/AdminQuickAdd.tsx`)
+
+Naujas `AlbumSuggestionBox` — rodo viršelį/pavadinimą/datą/track count/šaltinį.
+`confidence='high'` (MusicBrainz, pilnas tracklist'as) → checkbox „Pridėti albumą
+kartu su daina", pažymėtas iš anksto. `confidence='ambiguous'` (dalinis MB arba bet
+koks Apple) → tik informacinis tekstas, BE auto-create galimybės (kad
+neprisikurtų albumų su „Track 5" pavadinimais). `ResultCard` rodo chip'ą su
+nuoroda į sukurtą albumą, kai jis buvo pridėtas.
+
+### C.0 — Pradinis planas (istorija, NEBEAKTUALUS kaip C.1–C.4 aukščiau)
+
+<details>
+<summary>Wikipedia-based planas prieš 2026-07-16 testą (paliktas kontekstui)</summary>
 
 ```
 1. Track sukurtas/rastas su artist = {id, name, slug}.
 2. Ar track jau priklauso kokiam nors albumui DB'e (album_tracks join)?
-   → jei TAIP: nieko nedaryti (jau sutvarkyta).
-   → jei NE: tęsti.
-3. Best-effort (su timeout, NEBLOKUOJANT commit'o jei nepavyksta):
-   a) Ar atlikėjas turi Wikipedia puslapį (artist.wiki_url arba paieška per
-      artist name)? Jei ne — stop, jokio warning'o (dauguma LT atlikėjų neturės).
-   b) fetchWikitext(artistWikiTitle) → wiki.parseMainPageDiscography() arba
-      parseDiscographyPage() (JAU EGZISTUOJA `lib/wiki-parser.ts`) → gaunam
-      albumų sąrašą su metais.
-   c) Filtruojam albumus, kurių metai ±1 nuo track'o release_year (arba visus,
-      jei track neturi datos) — apriboja Wikipedia fetch'ų kiekį per albumą.
-   d) Kiekvienam kandidatui: fetchAlbumWiki(albumWikiUrl) → parseTracklist() →
-      normalizeTitle(track.title) palyginam su normalizuotais tracklist
-      pavadinimais (naudoti `lib/track-dedup.ts normalizeTitle()` — JAU
-      EGZISTUOJA, tiksliai tam skirta).
-4. Sprendimas:
-   - Tikslus title match VIENAME albume, IR to albumo Wikipedia turi cover'į arba
-     ≥3 dainas tracklist'e (apsauga nuo tuščių/placeholder straipsnių) →
-     **auto-create albumas** per esamą `createAlbum()` (tas pats kelias kaip
-     commitAlbum), track'as prijungiamas prie jo (arba, jei jau egzistuoja su kitu
-     ID per albumo importą, merge'inamas pagal title+artist — žr. album_tracks
-     insert logiką `createAlbum`).
-     → warning: „Taip pat pridėtas albumas „{title}" ({year}), kuriame yra ši daina."
-   - Match KELIUOSE albumuose (pvz. album + jo deluxe versija abi turi tą pačią
-     dainą) ARBA fuzzy/dalinis match (ne exact po normalize) →
-     **NEkuriam automatiškai** — warning/suggestion preview'e:
-     „Galimai priklauso albumui „{title}" ({year}) — nori pridėti?" su nuoroda,
-     kurią admin gali paspausti (atidaro tą albumo Wiki URL per esamą „Greitas
-     pridėjimas" albumo srautą, jau užpildytą).
-   - Nieko nerasta → be warning'o (nereikia terlioti UI kiekvienam single'ui).
+   → jei TAIP: nieko nedaryti.
+3. Best-effort: atlikėjo Wiki puslapis → parseMainPageDiscography() →
+   albumų sąrašas → fetchAlbumWiki() kiekvienam kandidatui → parseTracklist() →
+   normalizeTitle() palyginimas.
+4. Auto-create tik tikslaus match'o atveju.
 ```
 
-### C.3 — Kur šitas žingsnis vyksta preview vs. commit fazėje
+Atmesta, nes Wikipedia track listing dažnai lieka tuščias savaites po anonso
+(žr. testo lentelę aukščiau) — MusicBrainz turėjo pilnus duomenis tuo pačiu metu.
 
-Kadangi tai papildomi Wikipedia fetch'ai (lėta, 1-3s+), rekomenduoju paleisti šį
-patikrinimą **preview fazėje** (kad admin matytų pasiūlymą PRIEŠ commit'indamas),
-grąžinant naują `TrackPreview.suggested_album` lauką:
-`{ found: boolean, title: string, year: number|null, wiki_url: string,
-confidence: 'high'|'ambiguous' }`. UI (`AdminQuickAddModal.tsx`) parodo badge'ą
-„📀 Rastas albumas: {title} ({year})" su checkbox'u „pridėti kartu" (default TRUE
-tik kai `confidence='high'`). Commit fazėje `commitTrack()` priima naują override
-`create_album_url?: string` (Wikipedia URL, jei admin patvirtino arba high-confidence
-auto) ir viduje kviečia `commitAlbum()`.
-
-### C.4 — Apribojimai (kad nesulėtintų kiekvieno quick-add)
-
-- Šis žingsnis vyksta TIK jei track'as neturi albumo IR atlikėjas turi Wikipedia
-  puslapį (didžioji dalis naujausių single'ų šiaip pasilieka be albumo — tai
-  normalu, nereikia versti kiekvienos dainos į albumą).
-- **Cache**: `artist_id → { discography, fetched_at }` su TTL 24h (paprasta lentelė
-  arba net Redis/Vercel KV jei jau naudojama; jei ne — pakanka DB lentelės
-  `artist_wiki_disco_cache`), kad tas pats atlikėjas per dieną nebūtų fetch'inamas
-  pakartotinai kiekvienam naujam single'ui (dažna atlikėjų su 10+ singlų per mėnesį
-  situacija).
+</details>
 
 ---
 

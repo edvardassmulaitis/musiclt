@@ -30,6 +30,9 @@ import * as wiki from '@/lib/wiki-parser'
 import { createAlbum, type AlbumFull, type TrackInAlbum } from '@/lib/supabase-albums'
 import { slugify } from '@/lib/slugify'
 import { syncTrackFeaturing } from '@/lib/featuring-utils'
+import { findAlbumSuggestion, type AlbumSuggestion } from '@/lib/album-lookup'
+import { fetchReleaseTracklist, fetchMbCoverUrl, msToDuration } from '@/lib/musicbrainz'
+import { normalizeTitle } from '@/lib/track-dedup'
 
 // ────────────────────────────────────────────────────────────────────────────
 // Tipai
@@ -56,6 +59,9 @@ export type QuickAddResult =
         lyrics_found: boolean
         spotify_found: boolean
         featuring: string[]
+        /** Užpildyta tik jei admin patvirtino (arba high-confidence auto)
+         *  albumo pasiūlymą — žr. TrackOverrides.create_album. */
+        album: { id: number; title: string } | null
       }
       warnings: string[]
     }
@@ -94,6 +100,9 @@ export type TrackPreview = {
   release_day: number | null
   embeddable: boolean | null
   views: number | null
+  /** MusicBrainz/Apple Music pasiūlymas — „ši daina priklauso albumui X"
+   *  (žr. lib/album-lookup.ts). null = nieko nerasta arba tai tiesiog single'as. */
+  suggested_album: AlbumSuggestion | null
 }
 
 export type AlbumPreview = {
@@ -124,6 +133,12 @@ export type TrackOverrides = {
   release_year?: number | null
   release_month?: number | null
   release_day?: number | null
+  /** Admin patvirtino preview'e siūlytą albumą ("taip pat pridėti albumą").
+   *  Reikalauja album_mb_release_id (šiuo metu albumo auto-kūrimas palaikomas
+   *  tik iš MusicBrainz šaltinio — Apple Music pasiūlymai lieka signalu be
+   *  vieno-mygtuko create'o, nes jų tracklist'ai gali būti placeholder'iniai). */
+  create_album?: boolean
+  album_mb_release_id?: string | null
 }
 
 export type AlbumOverrides = {
@@ -783,6 +798,15 @@ export async function previewTrack(url: string): Promise<PreviewResult> {
     })
   )
 
+  // Albumo pasiūlymas (MusicBrainz → Apple Music fallback) — best-effort,
+  // niekada nesulaiko preview'o (žr. lib/album-lookup.ts, timeout viduje).
+  let suggested_album: AlbumSuggestion | null = null
+  try {
+    suggested_album = await findAlbumSuggestion(a.primaryName, ctx.title)
+  } catch {
+    suggested_album = null
+  }
+
   return {
     ok: true,
     preview: {
@@ -801,6 +825,7 @@ export async function previewTrack(url: string): Promise<PreviewResult> {
       release_day: ctx.release.day,
       embeddable: ctx.embeddable,
       views: ctx.details?.viewCount ?? null,
+      suggested_album,
     },
   }
 }
@@ -963,6 +988,21 @@ export async function commitTrack(url: string, origin: string, ov: TrackOverride
     }
   } catch { /* ignore */ }
 
+  // Albumas — TIK jei admin patvirtino preview'e siūlytą MusicBrainz albumą
+  // (arba jį iš anksto pažymėjo, jei UI kada nors pridės auto-tick high
+  // confidence atveju). Re-fetch'inam tracklist'ą commit metu (ne naudojam
+  // preview'o snapshot'o), kad turėtume šviežiausius duomenis.
+  let albumCreated: { id: number; title: string } | null = null
+  if (ov.create_album && ov.album_mb_release_id) {
+    try {
+      albumCreated = await createAlbumFromMusicBrainz(ov.album_mb_release_id, artist.id, trackId, title)
+      if (albumCreated) warnings.push(`Taip pat pridėtas albumas „${albumCreated.title}", kuriame yra ši daina.`)
+      else warnings.push('Nepavyko atkurti albumo duomenų (MusicBrainz) commit metu — pridėta tik daina.')
+    } catch (e: any) {
+      warnings.push(`Albumo sukūrimas nepavyko: ${String(e?.message || e).slice(0, 120)}`)
+    }
+  }
+
   return {
     ok: true, kind: 'track',
     track: { id: trackId, title, slug: trackSlug },
@@ -974,9 +1014,58 @@ export async function commitTrack(url: string, origin: string, ov: TrackOverride
       lyrics_found: lyricsFound,
       spotify_found: spotifyFound,
       featuring: featuringNames,
+      album: albumCreated,
     },
     warnings,
   }
+}
+
+/** Sukuria albumą iš MusicBrainz release'o (re-fetch'ina pilną tracklist'ą
+ *  pagal releaseId), susiedama jau egzistuojantį track'ą (matchedTrackId) su
+ *  jo pozicija tracklist'e — kad NESUDUBLIUOTŲ kaip atskiras track'as. */
+async function createAlbumFromMusicBrainz(
+  releaseId: string, artistId: number, matchedTrackId: number, matchedTrackTitle: string
+): Promise<{ id: number; title: string } | null> {
+  const rel = await fetchReleaseTracklist(releaseId)
+  if (!rel || !rel.tracks.length) return null
+
+  const cover = await fetchMbCoverUrl(releaseId).catch(() => null)
+  const wantNorm = normalizeTitle(matchedTrackTitle)
+
+  const tracks: TrackInAlbum[] = rel.tracks.map((t) => ({
+    title: t.title,
+    sort_order: t.position,
+    disc_number: t.discNumber,
+    duration: msToDuration(t.length),
+    type: 'normal',
+    track_id: normalizeTitle(t.title) === wantNorm ? matchedTrackId : undefined,
+    release_year: rel.year, release_month: rel.month, release_day: rel.day,
+  }))
+
+  // Albumas gali būti dar TIK anonsuotas (MB release'as su ateities data, kaip
+  // "Day and Night" 2026-09-18 testo atveju) — /albumai sąrašas filtruoja
+  // `is_upcoming=false`, tad be šito flag'o būsimas albumas rodytųsi kaip jau
+  // išleistas. Palyginam su šiandiena (release_date > now → upcoming).
+  const releaseDate = rel.year
+    ? new Date(Date.UTC(rel.year, (rel.month || 1) - 1, rel.day || 1))
+    : null
+  const isUpcoming = !!(releaseDate && releaseDate.getTime() > Date.now())
+
+  const albumData: AlbumFull = {
+    title: rel.title, artist_id: artistId,
+    year: rel.year, month: rel.month, day: rel.day,
+    type_studio: rel.primaryType !== 'EP', type_compilation: false,
+    type_ep: rel.primaryType === 'EP', type_single: false,
+    type_live: false, type_remix: false, type_covers: false,
+    type_holiday: false, type_soundtrack: false, type_demo: false,
+    cover_image_url: cover || undefined,
+    source: 'musicbrainz',
+    is_upcoming: isUpcoming,
+    tracks,
+  }
+
+  const albumId = await createAlbum(albumData)
+  return { id: albumId, title: rel.title }
 }
 
 // ────────────────────────────────────────────────────────────────────────────

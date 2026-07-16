@@ -64,6 +64,10 @@ export default function AdminQuickAdd({ bare = false }: { bare?: boolean } = {})
             : (p.featuring || []).map((n: string) => ({ name: n, id: null }))
           ).map((f: any) => ({ id: f.id ?? null, name: f.name })) as ArtistRef[],
           release_year: p.release_year ?? '', release_month: p.release_month ?? '', release_day: p.release_day ?? '',
+          // Albumo pasiūlymas: pažymėta iš anksto TIK high-confidence (MusicBrainz
+          // su pilnu tracklist'u) atveju — ambiguous/Apple Music paliekam admin'ui
+          // apsispręsti (checkbox default false).
+          create_album: p.suggested_album?.confidence === 'high',
         })
       } else {
         setForm({
@@ -87,6 +91,8 @@ export default function AdminQuickAdd({ bare = false }: { bare?: boolean } = {})
           artist_id: artist.id ?? null,
           featuring: (form.featuring || []).map((f: ArtistRef) => f.name.trim()).filter(Boolean),
           release_year: num(form.release_year), release_month: num(form.release_month), release_day: num(form.release_day),
+          create_album: !!form.create_album && preview.suggested_album?.source === 'musicbrainz',
+          album_mb_release_id: preview.suggested_album?.mb_release_id ?? null,
         }
       : {
           artist_name: artist.name?.trim(),
@@ -425,6 +431,15 @@ function EditForm({ preview, form, setForm, committing, onCommit, onCancel }: an
                 <input className={`${inputCls} w-16`} type="number" placeholder="d" value={form.release_day || ''} onChange={(e) => set('release_day', e.target.value)} />
               </div>
             </Field>
+            {preview.suggested_album && (
+              <div className="sm:col-span-2">
+                <AlbumSuggestionBox
+                  suggestion={preview.suggested_album}
+                  checked={!!form.create_album}
+                  onChange={(v: boolean) => set('create_album', v)}
+                />
+              </div>
+            )}
           </>
         ) : (
           <>
@@ -464,6 +479,47 @@ function EditForm({ preview, form, setForm, committing, onCommit, onCancel }: an
   )
 }
 
+/** Albumo pasiūlymas iš MusicBrainz/Apple Music (žr. lib/album-lookup.ts).
+ *  high confidence (MusicBrainz, pilnas tracklist'as) → checkbox su „pridėti
+ *  kartu su albumu", pažymėtas iš anksto, leidžia sukurti vienu paspaudimu.
+ *  ambiguous (dalinis MB arba Apple) → tik informacinis badge'as, be
+ *  auto-create galimybės (Apple tracklist'ai dažnai placeholder'iniai). */
+function AlbumSuggestionBox({ suggestion, checked, onChange }: { suggestion: any; checked: boolean; onChange: (v: boolean) => void }) {
+  const dateStr = suggestion.year
+    ? [suggestion.year, suggestion.month, suggestion.day].filter(Boolean).join('-')
+    : null
+  const sourceLabel = suggestion.source === 'musicbrainz' ? 'MusicBrainz' : 'Apple Music'
+  const canAutoCreate = suggestion.source === 'musicbrainz' && suggestion.confidence === 'high'
+
+  return (
+    <div className="flex items-start gap-2 rounded-lg border border-blue-200 bg-blue-50 px-3 py-2">
+      {suggestion.cover_url && (
+        // eslint-disable-next-line @next/next/no-img-element
+        <img src={suggestion.cover_url} alt="" className="h-10 w-10 shrink-0 rounded object-cover" />
+      )}
+      <div className="min-w-0 flex-1">
+        <p className="text-[14px] text-blue-900">
+          📀 Galimai priklauso albumui <strong>„{suggestion.title}"</strong>
+          {dateStr && <> ({dateStr})</>} · {suggestion.track_count} dainos · {sourceLabel}
+          {suggestion.confidence === 'ambiguous' && <span className="text-blue-700"> — nepatvirtinta</span>}
+        </p>
+        {canAutoCreate ? (
+          <label className="mt-1 flex items-center gap-1.5 text-[14px] text-blue-800">
+            <input type="checkbox" checked={checked} onChange={(e) => onChange(e.target.checked)} />
+            Pridėti albumą kartu su daina
+          </label>
+        ) : (
+          <p className="mt-1 text-[14px] text-blue-700">
+            {suggestion.source === 'apple_music'
+              ? 'Tracklist dar nepatvirtintas (Apple Music placeholder pavadinimai) — albumą reikės pridėti rankiniu būdu vėliau.'
+              : 'MusicBrainz tracklist dar dalinis — patikrink rankiniu būdu prieš pridedant.'}
+          </p>
+        )}
+      </div>
+    </div>
+  )
+}
+
 function Chip({ children, tone = 'default' }: { children: React.ReactNode; tone?: 'default' | 'ok' | 'warn' }) {
   const cls =
     tone === 'ok' ? 'bg-green-100 text-green-700 border-green-200'
@@ -497,6 +553,11 @@ function ResultCard({ result }: { result: any }) {
             <Chip tone={result.detail.spotify_found ? 'ok' : 'default'}>{result.detail.spotify_found ? 'Spotify ✓' : 'Spotify —'}</Chip>
             <Chip tone={result.detail.embeddable === false ? 'warn' : 'default'}>{result.detail.embeddable === false ? 'embed blokuotas' : 'embed ✓'}</Chip>
             {(result.detail.featuring || []).length > 0 && <Chip tone="ok">feat. {result.detail.featuring.join(', ')}</Chip>}
+            {result.detail.album && (
+              <Link href={`/admin/albums/${result.detail.album.id}`}>
+                <Chip tone="ok">📀 albumas: {result.detail.album.title}</Chip>
+              </Link>
+            )}
           </>
         ) : (
           <>

@@ -57,6 +57,12 @@ export type AlbumFull = {
    *  automatiškai praplėsti taksonomy be admin manual'o.
    *  Naudojama TIK Wiki importo flow'e (admin form'as siuncia substyle_ids). */
   substyle_names?: string[]
+  /** Iš kur album'as kilęs. Default 'wikipedia' (dauguma esamų kelių — admin
+   *  Wiki Disco importas, quick-add albumo srautas). Naujiems šaltiniams
+   *  (pvz. MusicBrainz auto-album per quick-add track flow) perduoti eksplicitiškai,
+   *  kad neapsimestų Wiki importu vėlesniam reconciliation darbui
+   *  (žr. WIKI_BATCH_HANDOFF.md). */
+  source?: string
 }
 
 export type TrackInAlbum = {
@@ -235,9 +241,11 @@ export async function createAlbum(data: AlbumFull): Promise<number> {
     video_url: data.video_url || null,
     show_artist_name: data.show_artist_name ?? false,
     show_player: data.show_player ?? false,
-    // source = 'wikipedia' kai per UI Discography importas. match_legacy_overlay
-    // promote'ins į 'legacy+wikipedia' jei music.lt rasi tą patį album'ą.
-    source: 'wikipedia',
+    // source = 'wikipedia' default (UI Discography importas / quick-add albumo
+    // srautas). match_legacy_overlay promote'ins į 'legacy+wikipedia' jei
+    // music.lt rasi tą patį album'ą. Kiti šaltiniai (pvz. 'musicbrainz' — quick-add
+    // track flow auto-album) perduoda data.source eksplicitiškai.
+    source: data.source || 'wikipedia',
     is_upcoming: data.is_upcoming ?? false,
     description: data.description || null,
   }).select('id').single()
@@ -376,6 +384,27 @@ async function findOrCreateArtist(name: string): Promise<number | null> {
   return findOrCreateArtistShared(supabase, name)
 }
 
+/**
+ * release_year/month/day FILL-ONLY pagalbininkas: jei track'as DB'e jau turi
+ * release_year, NEPERRAŠOM (net jei payload'e ateina kita reikšmė — pvz. albumo
+ * fallback data non-single track'ui, kai track'as jau turi tikslesnę/ankstesnę
+ * datą iš kito šaltinio). Jei DB neturi — užpildom iš payload'o.
+ *
+ * PASTABA (2026-07-16): iki šiol funkcijos komentaras žadėjo šitą elgesį, bet
+ * updateBody buvo pildomas besąlygiškai — realiai VISADA perrašydavo. Rastas
+ * implementuojant MusicBrainz auto-album quick-add flow'ą (žr.
+ * MUSIC_DISCOVERY_AUTOMATION_PLAN.md punktas C/D): albumo sukūrimas būtų
+ * perrašęs jau teisingą (ankstesnę) single'o release datą albumo data.
+ */
+async function fillReleaseDateIfMissing(trackId: number, t: TrackInAlbum, updateBody: Record<string, any>) {
+  if (!t.release_year) return
+  const { data: cur } = await supabase.from('tracks').select('release_year').eq('id', trackId).maybeSingle()
+  if ((cur as any)?.release_year) return // DB jau turi — nieko nedarom
+  updateBody.release_year = t.release_year
+  updateBody.release_month = t.release_month
+  updateBody.release_day = t.release_day
+}
+
 async function syncAlbumTracks(albumId: number, artistId: number, tracks: TrackInAlbum[]) {
   console.log('[syncAlbumTracks] START albumId:', albumId, 'artistId:', artistId, 'tracks:', tracks.length)
   await supabase.from('album_tracks').delete().eq('album_id', albumId)
@@ -408,9 +437,7 @@ async function syncAlbumTracks(albumId: number, artistId: number, tracks: TrackI
         spotify_id: t.spotify_id || null,
       }
       if (t.is_single) updateBody.is_single = true
-      if (t.release_year) updateBody.release_year = t.release_year
-      if (t.release_month) updateBody.release_month = t.release_month
-      if (t.release_day) updateBody.release_day = t.release_day
+      await fillReleaseDateIfMissing(trackId, t, updateBody)
       await supabase.from('tracks').update(updateBody).eq('id', trackId)
     } else {
       // Naujas track
@@ -452,9 +479,7 @@ async function syncAlbumTracks(albumId: number, artistId: number, tracks: TrackI
           spotify_id: t.spotify_id || null,
         }
         if (t.is_single) updateBody.is_single = true
-        if (t.release_year) updateBody.release_year = t.release_year
-        if (t.release_month) updateBody.release_month = t.release_month
-        if (t.release_day) updateBody.release_day = t.release_day
+        await fillReleaseDateIfMissing(trackId, t, updateBody)
         await supabase.from('tracks').update(updateBody).eq('id', trackId)
       } else {
         // Unikalus slug jei reikia
