@@ -17,6 +17,10 @@ type Cand = {
   /** Renginys be vizualo — homepage feed'e NErodomas, bet admin'e matomas
    *  (pilkai, su žyma), kad būtų pilnas vaizdas ir galima paslėpti. */
   noVisual?: boolean
+  /** 2026-07-16: įrašo „šviežumo" data (published_at/event date/created_at,
+   *  priklausomai nuo tipo) — rodoma admin'e, kad būtų aišku KODĖL/NUO KADA
+   *  įrašas matomas ir ar jis jau senas (feedback: „reikia timerių/datų"). */
+  dateIso?: string | null
 }
 
 function ytId(url: string | null | undefined): string | null {
@@ -26,6 +30,23 @@ function ytId(url: string | null | undefined): string | null {
 }
 function ytThumb(id: string | null): string | null { return id ? `https://img.youtube.com/vi/${id}/hqdefault.jpg` : null }
 function strip(s: string | null | undefined): string { return (s || '').replace(/<[^>]*>/g, '').replace(/&[^;]+;/g, ' ').replace(/\s+/g, ' ').trim() }
+
+/** Santykinis laikas admin sąrašui (lt-LT), pvz. „prieš 15 d.". Skiriasi nuo
+ *  HomeClient timeAgo — čia paprastesnis, tik admin peržiūrai. */
+function relTime(iso: string | null | undefined): string {
+  if (!iso) return ''
+  const t = new Date(iso).getTime()
+  if (isNaN(t)) return ''
+  const diffMs = Date.now() - t
+  const days = Math.floor(diffMs / 86_400_000)
+  if (days < 0) return `už ${Math.abs(days)} d.`
+  if (days === 0) { const h = Math.floor(diffMs / 3_600_000); return h <= 0 ? 'ką tik' : `prieš ${h} val.` }
+  if (days === 1) return 'vakar'
+  if (days < 30) return `prieš ${days} d.`
+  const months = Math.floor(days / 30)
+  if (months < 12) return `prieš ${months} mėn.`
+  return `prieš ${Math.floor(months / 12)} m.`
+}
 
 // Kandidatų sistemos eilutė (kind='candidate' iš home_feed).
 type PendingCand = { id: number; item_key: string; item_type: string | null; title: string | null; image_url: string | null; href: string | null; first_seen_at: string }
@@ -40,6 +61,11 @@ export default function FeedAdminClient() {
   // Laukiantys kandidatai (nauji auto-įrašai, dar nepatvirtinti į feed'ą).
   const [pending, setPending] = useState<PendingCand[]>([])
   const [candBusy, setCandBusy] = useState<number | null>(null)
+  // 2026-07-16: „našlaičių" override'ai — senos paslėptos eilutės, kurių UUID
+  // raktas dabar niekada nebesugeneruojamas (event/verta perėjo prie slug).
+  // Tokios eilutės DB kabo amžinai; čia tik parodom kiekį + leidžiam išvalyti.
+  const [orphanCount, setOrphanCount] = useState<number | null>(null)
+  const [orphanBusy, setOrphanBusy] = useState(false)
 
   const loadPending = useCallback(async () => {
     try {
@@ -47,7 +73,24 @@ export default function FeedAdminClient() {
       setPending(d.pending || [])
     } catch { /* tyliai */ }
   }, [])
-  useEffect(() => { loadPending() }, [loadPending])
+  const loadOrphans = useCallback(async () => {
+    try {
+      const d = await fetch('/api/admin/feed/cleanup-orphans').then(r => r.json())
+      setOrphanCount(typeof d.count === 'number' ? d.count : null)
+    } catch { setOrphanCount(null) }
+  }, [])
+  useEffect(() => { loadPending(); loadOrphans() }, [loadPending, loadOrphans])
+
+  const cleanupOrphans = async () => {
+    setOrphanBusy(true); setMsg('')
+    try {
+      const r = await fetch('/api/admin/feed/cleanup-orphans', { method: 'POST' }).then(r => r.json())
+      setMsg(r.removed ? `Išvalyta našlaičių: ${r.removed} ✓` : 'Našlaičių nerasta')
+      setOrphanCount(0)
+    } catch { setMsg('Klaida valant') }
+    setOrphanBusy(false)
+    setTimeout(() => setMsg(''), 4000)
+  }
 
   const decideCand = async (id: number, action: 'approve' | 'reject') => {
     setCandBusy(id)
@@ -63,21 +106,21 @@ export default function FeedAdminClient() {
   const load = useCallback(async () => {
     setLoading(true)
     const j = (u: string) => fetch(u).then(r => r.json()).catch(() => ({}))
-    const [lt, w, news, blog, winners, noms, disc, recs, verta, events, hev, ov] = await Promise.all([
+    const [lt, w, news, blog, winners, noms, disc, recs, verta, events, hev, ov, disk] = await Promise.all([
       j('/api/top/entries?type=lt_top30'), j('/api/top/entries?type=top40'),
       j('/api/news?limit=12&include=songs&since_days=7'), j('/api/blog/home-hero'),
       j('/api/dienos-daina/winners?limit=7'), j('/api/dienos-daina/nominations'),
       j('/api/muzikos-atradimai?featured=1&limit=6'), j('/api/koncertu-irasai?limit=6'),
       j('/api/verta-keliones'), j('/api/events?limit=24&homepage=1'), j('/api/events?home_hero=1&limit=8'),
-      j('/api/feed/overrides'),
+      j('/api/feed/overrides'), j('/api/diskusijos?sort=activity&limit=8'),
     ])
 
     const list: Cand[] = []
     const ms = (s: string | null | undefined) => { const t = s ? new Date(s).getTime() : NaN; return isNaN(t) ? 0 : t }
-    const mk = (key: string, typeLabel: string, title: string, image: string | null, href: string): Cand =>
-      ({ key, typeLabel, title, image, href, isCustom: false, hidden: false, pinned: false, sortOrder: null })
-    const push = (key: string, typeLabel: string, title: string, image: string | null, href: string) =>
-      list.push(mk(key, typeLabel, title, image, href))
+    const mk = (key: string, typeLabel: string, title: string, image: string | null, href: string, dateIso: string | null = null): Cand =>
+      ({ key, typeLabel, title, image, href, isCustom: false, hidden: false, pinned: false, sortOrder: null, dateIso })
+    const push = (key: string, typeLabel: string, title: string, image: string | null, href: string, dateIso: string | null = null) =>
+      list.push(mk(key, typeLabel, title, image, href, dateIso))
 
     // ── Topai + naujienos + įrašai: surikiuota pagal šviežumą (TIKSLIAI kaip homepage) ──
     // Web feed'e topai NEBE visada pirmi — kiekvienas gauna datą (topas → savaitės
@@ -85,28 +128,33 @@ export default function FeedAdminClient() {
     // šitas admin sąrašas dabar atspindi realią homepage tvarką (naujienos priekyje).
     const dated: { sortMs: number; add: () => void }[] = []
     const ltE = lt.entries || []; const wE = w.entries || []
-    if (ltE.length) dated.push({ sortMs: ms(lt.week?.created_at || lt.week?.week_start), add: () => { const v = ytId(ltE[0]?.tracks?.video_url); push('chart_lt::/top30', 'Topas LT', 'LT TOP 30', ytThumb(v) || ltE[0]?.tracks?.cover_url || null, '/top30') } })
-    if (wE.length) dated.push({ sortMs: ms(w.week?.created_at || w.week?.week_start), add: () => { const v = ytId(wE[0]?.tracks?.video_url); push('chart_world::/top40', 'Topas', 'TOP 40', ytThumb(v) || wE[0]?.tracks?.cover_url || null, '/top40') } })
-    ;(news.news || []).slice(0, 30).forEach((n: any) => dated.push({ sortMs: ms(n.published_at), add: () => push(`news::/news/${n.slug}`, 'Naujiena', strip(n.title), n.image_title_url || n.image_small_url || null, `/news/${n.slug}`) }))
-    ;(blog.posts || []).forEach((p: any) => dated.push({ sortMs: ms(p.published_at), add: () => push(`blog::${p.href}`, 'Įrašas', strip(p.title), p.cover || null, p.href) }))
+    const ltDate = lt.week?.created_at || lt.week?.week_start
+    const wDate = w.week?.created_at || w.week?.week_start
+    if (ltE.length) dated.push({ sortMs: ms(ltDate), add: () => { const v = ytId(ltE[0]?.tracks?.video_url); push('chart_lt::/top30', 'Topas LT', 'LT TOP 30', ytThumb(v) || ltE[0]?.tracks?.cover_url || null, '/top30', ltDate || null) } })
+    if (wE.length) dated.push({ sortMs: ms(wDate), add: () => { const v = ytId(wE[0]?.tracks?.video_url); push('chart_world::/top40', 'Topas', 'TOP 40', ytThumb(v) || wE[0]?.tracks?.cover_url || null, '/top40', wDate || null) } })
+    ;(news.news || []).slice(0, 30).forEach((n: any) => dated.push({ sortMs: ms(n.published_at), add: () => push(`news::/news/${n.slug}`, 'Naujiena', strip(n.title), n.image_title_url || n.image_small_url || null, `/news/${n.slug}`, n.published_at || null) }))
+    ;(blog.posts || []).forEach((p: any) => dated.push({ sortMs: ms(p.published_at), add: () => push(`blog::${p.href}`, 'Įrašas', strip(p.title), p.cover || null, p.href, p.published_at || null) }))
     dated.sort((a, b) => b.sortMs - a.sortMs)
     dated.forEach(x => x.add())
 
     // Discoveries
-    ;(disc.items || []).slice(0, 2).forEach((d: any) => { const href = d.artist_slug ? `/atlikejai/${d.artist_slug}` : '/muzikos-atradimai'; push(`discovery::${href}`, 'Atradimas', d.artist_name || d.track_name || 'Atradimas', d.artist_cover || null, href) })
-    // Recordings
-    ;(recs.recordings || []).slice(0, 2).forEach((r: any) => push(`recording::/koncertu-irasai/${r.slug}`, 'Koncerto įrašas', strip(r.title || r.artist_name || ''), r.thumbnail_url || ytThumb(r.youtube_id) || null, `/koncertu-irasai/${r.slug}`))
+    ;(disc.items || []).slice(0, 2).forEach((d: any) => { const href = d.artist_slug ? `/atlikejai/${d.artist_slug}` : '/muzikos-atradimai'; push(`discovery::${href}`, 'Atradimas', d.artist_name || d.track_name || 'Atradimas', d.artist_cover || null, href, d.created_at || null) })
+    // Recordings — 2026-07-16: šviežumo data (created_at) dabar rodoma admin'e,
+    // kad matytum, jei tas pats įrašas kabo hero'juje jau ilgai (jokio auto
+    // apkarpymo sąmoningai nededam — retas naujų įrašų srautas yra reali
+    // situacija, ne bug'as; sprendimą palieku tau, matant datą).
+    ;(recs.recordings || []).slice(0, 2).forEach((r: any) => push(`recording::/koncertu-irasai/${r.slug}`, 'Koncerto įrašas', strip(r.title || r.artist_name || ''), r.thumbnail_url || ytThumb(r.youtube_id) || null, `/koncertu-irasai/${r.slug}`, r.created_at || null))
     // Dienos daina — įsiterpia giliau (po ~3 įrašų), kaip homepage (slides.splice)
     const dailyCands: Cand[] = []
     const nomCount = (noms.nominations || []).filter((x: any) => x.tracks).length
     if (nomCount >= 5) dailyCands.push(mk('daily::/dienos-daina', 'Dienos daina', 'Šiandienos dienos daina', null, '/dienos-daina'))
-    if ((winners.winners || []).length) { const ww = winners.winners[0]; const tr = ww?.tracks; if (tr) dailyCands.push(mk('daily_winner::/dienos-daina', 'Vakar laimėjo', strip(tr.title), ytThumb(ytId(tr.video_url)) || tr.cover_url || null, '/dienos-daina')) }
+    if ((winners.winners || []).length) { const ww = winners.winners[0]; const tr = ww?.tracks; if (tr) dailyCands.push(mk('daily_winner::/dienos-daina', 'Vakar laimėjo', strip(tr.title), ytThumb(ytId(tr.video_url)) || tr.cover_url || null, '/dienos-daina', ww?.date || null)) }
     list.splice(Math.min(3, list.length), 0, ...dailyCands)
 
     // Verta
     // Raktas pagal slug (stabilus; UUID keičiasi perkūrus renginį). Kaip homepage:
     // tik su vizualu ir tik 1 (homepage rodo max 1 būsimą verta kortelę).
-    ;(verta.concerts || []).filter((c: any) => !!c.image).slice(0, 2).forEach((c: any) => push(`verta::/verta-keliones#vk-${c.slug || c.id}`, 'Verta kelionės', c.isFestival ? (c.festivalName || c.artist) : c.artist, c.image || null, `/verta-keliones#vk-${c.slug || c.id}`))
+    ;(verta.concerts || []).filter((c: any) => !!c.image).slice(0, 2).forEach((c: any) => push(`verta::/verta-keliones#vk-${c.slug || c.id}`, 'Verta kelionės', c.isFestival ? (c.festivalName || c.artist) : c.artist, c.image || null, `/verta-keliones#vk-${c.slug || c.id}`, c.date || null))
     // Events — TIKSLIAI kaip homepage (HomeClient): VISI home_hero renginiai
     // (ne max 4!), po jų bendri iki 4 viso; vizualas filtruojamas renderinant.
     // Anksčiau admin'as kirpdavo per 4 → 5-as home_hero renginys (pvz. GALÈRA)
@@ -117,7 +165,12 @@ export default function FeedAdminClient() {
     // 2026-07-16: renginių be vizualo NEBESLEPIAM iš admin sąrašo — homepage jų
     // nerodo, bet admin'e jie matomi su žyma (anksčiau tokių iš viso nesimatė ir
     // buvo neaišku, kas vyksta).
-    evList.forEach((ev: any) => { const evImg = ev.image_small_url || ev.cover_image_url || null; list.push({ ...mk(`event::/renginiai/${ev.slug}`, 'Renginys', strip(ev.title), evImg, `/renginiai/${ev.slug}`), noVisual: !evImg }) })
+    evList.forEach((ev: any) => { const evImg = ev.image_small_url || ev.cover_image_url || null; list.push({ ...mk(`event::/renginiai/${ev.slug}`, 'Renginys', strip(ev.title), evImg, `/renginiai/${ev.slug}`, ev.start_date || ev.event_date || ev.created_at || null), noVisual: !evImg }) })
+    // Bendruomenė (diskusijos) — 2026-07-16: anksčiau šitos apskritai NEBUVO
+    // valdomos iš /admin/feed (rodėsi atskirame homepage widget'e be jokio
+    // hide/pin). Dabar bent pin/slėpti galima kaip ir kitiems tipams —
+    // HomeClient „Žmonės" sekcija gerbia tuos pačius override'us.
+    ;(disk.discussions || []).slice(0, 6).forEach((d: any) => push(`discussion::/diskusijos/${d.slug || d.id}`, 'Diskusija', strip(d.title || ''), null, `/diskusijos/${d.slug || d.id}`, d.created_at || d.last_activity_at || null))
 
     // apply overrides — TIKSLIAI kaip homepage: TIK pin'as kelia į viršų; sort_order
     // vienas nedominuoja (paslėpti įrašai lieka rodomi pilki, kad būtų galima atstatyti).
@@ -245,6 +298,12 @@ export default function FeedAdminClient() {
       <div className="mb-4 flex flex-wrap items-center gap-2">
         <button onClick={saveOrder} disabled={busy} className="rounded-lg bg-[var(--accent-orange)] px-4 py-2 text-sm font-bold text-white disabled:opacity-50">Išsaugoti tvarką</button>
         <button onClick={load} disabled={busy} className="rounded-lg border border-[var(--border-default)] px-4 py-2 text-sm font-semibold text-[var(--text-primary)]">↻ Atnaujinti</button>
+        {!!orphanCount && (
+          <button onClick={cleanupOrphans} disabled={orphanBusy} title="Ištrina paslėpimus, kurių senas UUID raktas jau niekada nebeatsiras (renginys/verta perkurti su nauju slug)"
+            className="rounded-lg border border-amber-500/60 bg-amber-500/10 px-4 py-2 text-sm font-semibold text-amber-600 disabled:opacity-50">
+            🧹 Išvalyti našlaičius ({orphanCount})
+          </button>
+        )}
         {msg && <span className="text-sm text-[var(--text-muted)]">{msg}</span>}
       </div>
 
@@ -260,7 +319,12 @@ export default function FeedAdminClient() {
             </div>
             <div className="min-w-0 flex-1">
               <p className="truncate text-sm font-bold text-[var(--text-primary)]">{c.pinned ? '📌 ' : ''}{c.title}</p>
-              <p className="truncate text-xs text-[var(--text-muted)]">{c.typeLabel}{c.isCustom ? ' · laisvas' : ''}{c.noVisual ? ' · be vizualo — homepage nerodomas' : ''}</p>
+              <p className="truncate text-xs text-[var(--text-muted)]">
+                {c.typeLabel}{c.isCustom ? ' · laisvas' : ''}{c.noVisual ? ' · be vizualo — homepage nerodomas' : ''}
+                {c.dateIso ? ` · ${relTime(c.dateIso)}` : ''}
+                {c.hidden ? ' · paslėpta rankomis (nepradings pati)' : ''}
+                {!c.hidden && c.sortOrder != null && !c.pinned ? ' · rankinė tvarka' : ''}
+              </p>
             </div>
             {!c.isCustom && (
               <button onClick={() => togglePin(c)} disabled={busy} title="Prisegti viršuje" className={`rounded-lg px-2 py-1.5 text-sm ${c.pinned ? 'bg-[var(--accent-orange)] text-white' : 'border border-[var(--border-default)] text-[var(--text-muted)]'}`}>📌</button>

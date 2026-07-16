@@ -63,11 +63,11 @@ export async function GET() {
   const disc2y  = new Date(Date.now() - 2 * 365 * 86400000).toISOString()
 
   try {
-    // SVARBU: kintamieji TIKSLIAI atitinka Promise.all eilutę (0-4).
+    // SVARBU: kintamieji TIKSLIAI atitinka Promise.all eilutę (0-5).
     // Bet kokia keitimas čia turi atitikti destruktūrizacijos eilutę viršuje!
     // Paslėpti nariai (hide_from_homepage) išmetami PER UŽKLAUSĄ (!inner + not.is.true),
     // todėl atskiro profiles query nebėra ir limit'o negali užtvindyti vienas produktyvus paslėptas narys.
-    const [nomRes, votesRes, pastWinnerRes, blogRes, discRes, discoveryRes] = await Promise.all([
+    const [nomRes, votesRes, pastWinnerRes, blogRes, discRes, discoveryRes, hiddenDiscRes] = await Promise.all([
       // 0 — Šiandieninės nominacijos (DD lyderis + kandidatai)
       sb.from('daily_song_nominations')
         .select('id, tracks!track_id(title, slug, cover_url, video_url, artists!artist_id(name, slug, cover_image_url))')
@@ -113,6 +113,13 @@ export async function GET() {
         .not('embed_id', 'is', null)
         .order('created_at', { ascending: false })
         .limit(1),
+
+      // 6 — 2026-07-16: paslėptos diskusijos (/admin/feed „Diskusija" 🚫).
+      //   Anksčiau ši sekcija VISADA rodė #1 pagal last_comment_at diskusiją —
+      //   jei ta pati tema nuolat komentuojama, ji amžinai kabodavo homepage'e be
+      //   jokio būdo ją nutraukti (Edvardo pastebėjimas: „community postai lieka
+      //   visa laika"). Dabar admin gali ją paslėpti — tada imamas kitas #1.
+      sb.from('home_feed').select('item_key').eq('kind', 'override').eq('hidden', true).like('item_key', 'discussion::%'),
     ])
 
     // ── Dienos daina ──────────────────────────────────────────────────────────
@@ -344,7 +351,10 @@ export async function GET() {
     blogItems.sort((a, b) => blogPriority(a) - blogPriority(b))
 
     // ── Diskusijos — 1 vnt, 2 naujausi komentarai ────────────────────────────
-    const discRows = (discRes.data || []) as any[]
+    // Praleidžiam admin'o paslėptas (kitaip ta pati amžinai komentuojama tema
+    // niekad neužleistų vietos kitai — žr. komentarą prie hiddenDiscRes aukščiau).
+    const hiddenDiscKeys = new Set(((hiddenDiscRes.data || []) as any[]).map(r => r.item_key))
+    const discRows = ((discRes.data || []) as any[]).filter(d => !hiddenDiscKeys.has(`discussion::/diskusijos/${d.slug || d.id}`))
     const discIds = discRows.slice(0, 1).map(d => d.id) as number[]
     const commentsByDisc = new Map<number, { text: string; author: string | null; avatar: string | null; time: string }[]>()
     if (discIds.length) {

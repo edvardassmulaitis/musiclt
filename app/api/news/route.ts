@@ -284,6 +284,39 @@ async function fetchHomeNewsRaw(sinceIso: string, limit: number) {
 
   if (modernRes.error) throw modernRes.error
 
+  // 2026-07-16: FALLBACK kai since_days langas tuščias (pastebėta — 15 d. be
+  // naujos naujienos → homepage/admin „Naujiena" juosta visai dingdavo, nors
+  // senesnio turinio yra). Švieža data visada prioritetas, BET jei per pask.
+  // `sinceIso` langą NIEKO nėra (nei modern, nei legacy), imam paskutines
+  // `limit` naujienas NEPRIKLAUSOMAI nuo amžiaus — juosta niekada nebūna
+  // tuščia vien dėl publikavimo pauzės.
+  if ((modernRes.data || []).length === 0 && (legacyRes.data || []).length === 0) {
+    const [modernFallback, legacyFallback] = await Promise.all([
+      supabase
+        .from('news')
+        .select(`
+          id, slug, title, body, type, is_featured, is_hidden_home,
+          image_small_url, image_title_url, published_at, created_at,
+          artist:artists!news_artist_id_fkey(id, name, slug, cover_image_url)
+        `)
+        .order('published_at', { ascending: false })
+        .range(0, limit - 1),
+      supabase
+        .from('discussions')
+        .select(`
+          id, slug, title, body, source_url, first_post_at, created_at,
+          legacy_kind, legacy_id, is_legacy,
+          artist:artists!discussions_artist_id_fkey(id, name, slug, cover_image_url)
+        `)
+        .eq('legacy_kind', 'news')
+        .eq('is_legacy', true)
+        .order('first_post_at', { ascending: false, nullsFirst: false })
+        .range(0, limit - 1),
+    ])
+    if (!modernFallback.error) modernRes.data = modernFallback.data
+    if (!legacyFallback.error) legacyRes.data = legacyFallback.data
+  }
+
   const modernNews = (modernRes.data || []).map((n: any) => ({
     ...n,
     excerpt: n.body
