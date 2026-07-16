@@ -856,9 +856,40 @@ export async function commitTrack(url: string, origin: string, ov: TrackOverride
     }
   }
 
+  // Palyginamas skaičius YYYYMMDD stiliumi (trūkstamą mėn./dieną laikom „01",
+  // t.y. metų pradžia — geriausias apytikslis, kai turim tik metus).
+  const toDateComparable = (y?: number | null, m?: number | null, d?: number | null): number | null =>
+    y ? y * 10000 + (m || 1) * 100 + (d || 1) : null
+
+  /** applyDate variantas dedup (jau egzistuojančio track'o) atvejui: video gali
+   *  būti senos dainos re-upload'as/remaster'is su VĖLESNE YT įkėlimo data nei
+   *  tikroji išleidimo data (grupė perkelia seną klipą į naują kanalą ir pan.).
+   *  Nauja data laimi TIK jei senos dar nėra ARBA nauja yra ANKSTESNĖ — niekad
+   *  „nepajaunina" jau žinomos ankstesnės release datos. */
+  const applyDateGuarded = (
+    b: Record<string, any>,
+    existing: { release_year: number | null; release_month: number | null; release_day: number | null }
+  ) => {
+    if (!ry) return
+    const existingComparable = toDateComparable(existing.release_year, existing.release_month, existing.release_day)
+    const newComparable = toDateComparable(ry, rm, rd)
+    if (existingComparable !== null && newComparable !== null && newComparable >= existingComparable) {
+      const fmt = (y: number | null, m: number | null, d: number | null) =>
+        y ? `${y}-${String(m || 1).padStart(2, '0')}-${String(d || 1).padStart(2, '0')}` : '?'
+      warnings.push(
+        `Rastas naujesnis (ar toks pat) video įkėlimas (${fmt(ry, rm, rd)}) nei jau įrašyta išleidimo data ` +
+        `(${fmt(existing.release_year, existing.release_month, existing.release_day)}) — palikta senesnė (tikėtina re-upload/remaster/naujas kanalas).`
+      )
+      return
+    }
+    applyDate(b)
+  }
+
   // Duplicate guard
   const { data: existingTrack } = await supabase
-    .from('tracks').select('id, title, slug').eq('artist_id', artist.id).ilike('title', title).maybeSingle()
+    .from('tracks')
+    .select('id, title, slug, release_year, release_month, release_day')
+    .eq('artist_id', artist.id).ilike('title', title).maybeSingle()
 
   let trackId: number
   let trackSlug: string | null = null
@@ -872,7 +903,7 @@ export async function commitTrack(url: string, origin: string, ov: TrackOverride
       video_embeddable: embeddable,
       video_uploaded_at: details?.uploadedAt || null,
     }
-    applyDate(upd)
+    applyDateGuarded(upd, existingTrack as any)
     await supabase.from('tracks').update(upd).eq('id', trackId)
   } else {
     const base = slugify(title) || `track-${Date.now()}`
