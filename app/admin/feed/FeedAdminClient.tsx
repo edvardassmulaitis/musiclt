@@ -21,6 +21,10 @@ type Cand = {
    *  priklausomai nuo tipo) — rodoma admin'e, kad būtų aišku KODĖL/NUO KADA
    *  įrašas matomas ir ar jis jau senas (feedback: „reikia timerių/datų"). */
   dateIso?: string | null
+  /** 2026-07-16: kada override'as (hidden/pinned) buvo paskutinį kartą
+   *  pakeistas — naudojama nusenusiems paslėpimams suslėpti iš sąrašo
+   *  (žr. HIDDEN_DECLUTTER_H). */
+  hiddenAt?: string | null
 }
 
 function ytId(url: string | null | undefined): string | null {
@@ -66,6 +70,13 @@ export default function FeedAdminClient() {
   // Tokios eilutės DB kabo amžinai; čia tik parodom kiekį + leidžiam išvalyti.
   const [orphanCount, setOrphanCount] = useState<number | null>(null)
   const [orphanBusy, setOrphanBusy] = useState(false)
+  // 2026-07-16: paslėpti įrašai anksčiau liko sąraše amžinai (pilki, bet
+  // matomi) — sąrašas pribrinkdavo šimtais nebeaktualių eilučių (Edvardo
+  // feedback: „nereikia matyti tokio didelio sąrašo paslėptų"). Dabar
+  // paslėpti iškart išskiriami į atskirą suskleistą „Paslėpti (N)" bloką po
+  // pagrindiniu sąrašu — vis dar pasiekiami/atstatomi, tiesiog nebeplūduriuoja
+  // tarp aktualių įrašų. showHidden — ar tas blokas išskleistas.
+  const [showHidden, setShowHidden] = useState(false)
 
   const loadPending = useCallback(async () => {
     try {
@@ -175,9 +186,9 @@ export default function FeedAdminClient() {
     // apply overrides — TIKSLIAI kaip homepage: TIK pin'as kelia į viršų; sort_order
     // vienas nedominuoja (paslėpti įrašai lieka rodomi pilki, kad būtų galima atstatyti).
     const ovMap = new Map((ov.overrides || []).map((o: any) => [o.item_key, o]))
-    list.forEach(c => { const o: any = ovMap.get(c.key); if (o) { c.hidden = !!o.hidden; c.pinned = !!o.pinned; c.sortOrder = (typeof o.sort_order === 'number') ? o.sort_order : null } })
+    list.forEach(c => { const o: any = ovMap.get(c.key); if (o) { c.hidden = !!o.hidden; c.pinned = !!o.pinned; c.sortOrder = (typeof o.sort_order === 'number') ? o.sort_order : null; c.hiddenAt = o.updated_at || null } })
     // custom (visada gauna eiliškumą, kaip homepage)
-    ;(ov.custom || []).forEach((c: any) => list.push({ key: `custom::${c.href}`, typeLabel: 'Laisvas', title: strip(c.title), image: c.image_url || null, href: c.href, isCustom: true, customId: c.id, hidden: !!c.hidden, pinned: false, sortOrder: typeof c.sort_order === 'number' ? c.sort_order : -1 }))
+    ;(ov.custom || []).forEach((c: any) => list.push({ key: `custom::${c.href}`, typeLabel: 'Laisvas', title: strip(c.title), image: c.image_url || null, href: c.href, isCustom: true, customId: c.id, hidden: !!c.hidden, pinned: false, sortOrder: typeof c.sort_order === 'number' ? c.sort_order : -1, hiddenAt: c.hidden ? (c.updated_at || null) : null }))
 
     // Stabilus: ord turintys įrašai (pin/custom) pirmi pagal ord; kiti — pagal bazinę
     // (šviežumo) tvarką.
@@ -198,51 +209,77 @@ export default function FeedAdminClient() {
 
   useEffect(() => { load() }, [load])
 
-  const setOverride = async (c: Cand, patch: any) => {
+  // 2026-07-16: BUVO fire-and-forget — response.ok niekad netikrintas, klaida
+  // (pvz. lenktynės su lygiagrečiu saveOrder POST'u tam pačiam item_key —
+  // žr. /api/admin/feed/route.ts komentarą) tyliai dingdavo, o UI vis tiek
+  // rodė „paslėpta". Dabar tikrinam atsakymą ir NEsėkmės atveju grąžinam
+  // optimistinį UI pakeitimą atgal + parodom klaidą, kad admin matytų, jog
+  // veiksmas realiai neišsisaugojo.
+  const setOverride = async (c: Cand, patch: any, revert?: () => void) => {
     setBusy(true)
     try {
+      let ok = true
       if (c.isCustom) {
-        // custom: hidden valdomas per custom endpoint
-        if ('hidden' in patch) await fetch('/api/admin/feed/custom', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ id: c.customId, title: c.title, href: c.href, image_url: c.image, hidden: patch.hidden }) })
+        if ('hidden' in patch) {
+          const r = await fetch('/api/admin/feed/custom', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ id: c.customId, title: c.title, href: c.href, image_url: c.image, hidden: patch.hidden }) })
+          ok = r.ok
+        }
       } else {
-        await fetch('/api/admin/feed', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ item_key: c.key, ...patch }) })
+        const r = await fetch('/api/admin/feed', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ item_key: c.key, ...patch }) })
+        ok = r.ok
       }
-    } catch {}
+      if (!ok) throw new Error('save failed')
+    } catch {
+      revert?.()
+      setMsg('Klaida išsaugant — bandyk dar kartą')
+      setTimeout(() => setMsg(''), 4000)
+    }
     setBusy(false)
   }
 
   const toggleHide = async (c: Cand) => {
     const v = !c.hidden
-    setCands(p => p.map(x => x.key === c.key ? { ...x, hidden: v } : x))
-    await setOverride(c, { hidden: v })
+    const prevHiddenAt = c.hiddenAt
+    setCands(p => p.map(x => x.key === c.key ? { ...x, hidden: v, hiddenAt: v ? new Date().toISOString() : null } : x))
+    await setOverride(c, { hidden: v }, () => setCands(p => p.map(x => x.key === c.key ? { ...x, hidden: !v, hiddenAt: prevHiddenAt } : x)))
   }
   const togglePin = async (c: Cand) => {
     if (c.isCustom) return
     const v = !c.pinned
     setCands(p => p.map(x => x.key === c.key ? { ...x, pinned: v } : x))
-    await setOverride(c, { pinned: v })
+    await setOverride(c, { pinned: v }, () => setCands(p => p.map(x => x.key === c.key ? { ...x, pinned: !v } : x)))
   }
-  const move = (idx: number, dir: -1 | 1) => {
+  // Sukeičia du KONKREČIUS cands indeksus (gali būti nesigretimi, jei tarp jų
+  // yra paslėptų įrašų — tie lieka savo vietose, nepaliesti).
+  const swapAt = (realA: number, realB: number) => {
     setCands(p => {
       const next = [...p]
-      const j = idx + dir
-      if (j < 0 || j >= next.length) return p
-      ;[next[idx], next[j]] = [next[j], next[idx]]
+      ;[next[realA], next[realB]] = [next[realB], next[realA]]
       return next
     })
+  }
+  // Perkelia tarp AKTYVIŲ (nepaslėptų) įrašų — paslėpti tarpe „praleidžiami",
+  // kad ▲▼ judintų tik tai, ką admin iš tikrųjų mato (žr. activeIdx render'e).
+  const moveActive = (displayIdx: number, dir: -1 | 1) => {
+    const otherDisplayIdx = displayIdx + dir
+    if (otherDisplayIdx < 0 || otherDisplayIdx >= activeIdx.length) return
+    swapAt(activeIdx[displayIdx], activeIdx[otherDisplayIdx])
   }
   const saveOrder = async () => {
     setBusy(true); setMsg('')
     try {
+      let failCount = 0
       for (let i = 0; i < cands.length; i++) {
         const c = cands[i]
-        if (c.isCustom) await fetch('/api/admin/feed/custom', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ id: c.customId, title: c.title, href: c.href, image_url: c.image, hidden: c.hidden, sort_order: i }) })
-        else await fetch('/api/admin/feed', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ item_key: c.key, sort_order: i }) })
+        const r = c.isCustom
+          ? await fetch('/api/admin/feed/custom', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ id: c.customId, title: c.title, href: c.href, image_url: c.image, hidden: c.hidden, sort_order: i }) })
+          : await fetch('/api/admin/feed', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ item_key: c.key, sort_order: i }) })
+        if (!r.ok) failCount++
       }
-      setMsg('Tvarka išsaugota ✓')
+      setMsg(failCount ? `Klaida: ${failCount} įrašų neišsisaugojo` : 'Tvarka išsaugota ✓')
     } catch { setMsg('Klaida saugant') }
     setBusy(false)
-    setTimeout(() => setMsg(''), 3000)
+    setTimeout(() => setMsg(''), 4000)
   }
 
   const addCustom = async () => {
@@ -263,6 +300,13 @@ export default function FeedAdminClient() {
   }
 
   if (loading) return <p className="text-sm text-[var(--text-muted)]">Kraunama…</p>
+
+  // Aktyvūs (rodomi + valdomi pagrindiniame sąraše) vs paslėpti (suskleista
+  // sekcija apačioje) — realūs indeksai į `cands`, kad move()/saveOrder()
+  // toliau dirbtų su PILNU masyvu.
+  const activeIdx: number[] = []
+  const hiddenIdx: number[] = []
+  cands.forEach((c, i) => (c.hidden ? hiddenIdx : activeIdx).push(i))
 
   return (
     <div>
@@ -308,11 +352,13 @@ export default function FeedAdminClient() {
       </div>
 
       <div className="flex flex-col gap-2">
-        {cands.map((c, i) => (
-          <div key={c.key} className={`flex items-center gap-3 rounded-xl border border-[var(--border-default)] bg-[var(--bg-surface)] p-2 ${c.hidden || c.noVisual ? 'opacity-45' : ''}`}>
+        {activeIdx.map((i, displayIdx) => {
+          const c = cands[i]
+          return (
+          <div key={c.key} className={`flex items-center gap-3 rounded-xl border border-[var(--border-default)] bg-[var(--bg-surface)] p-2 ${c.noVisual ? 'opacity-45' : ''}`}>
             <div className="flex flex-col">
-              <button onClick={() => move(i, -1)} disabled={i === 0} className="px-1 text-[var(--text-muted)] disabled:opacity-30">▲</button>
-              <button onClick={() => move(i, 1)} disabled={i === cands.length - 1} className="px-1 text-[var(--text-muted)] disabled:opacity-30">▼</button>
+              <button onClick={() => moveActive(displayIdx, -1)} disabled={displayIdx === 0} className="px-1 text-[var(--text-muted)] disabled:opacity-30">▲</button>
+              <button onClick={() => moveActive(displayIdx, 1)} disabled={displayIdx === activeIdx.length - 1} className="px-1 text-[var(--text-muted)] disabled:opacity-30">▼</button>
             </div>
             <div className="h-12 w-12 flex-shrink-0 overflow-hidden rounded-lg bg-[var(--bg-hover)]">
               {c.image ? <img src={proxyImgResized(c.image, 96)} alt="" loading="lazy" decoding="async" className="h-full w-full object-cover" /> : null}
@@ -322,20 +368,54 @@ export default function FeedAdminClient() {
               <p className="truncate text-xs text-[var(--text-muted)]">
                 {c.typeLabel}{c.isCustom ? ' · laisvas' : ''}{c.noVisual ? ' · be vizualo — homepage nerodomas' : ''}
                 {c.dateIso ? ` · ${relTime(c.dateIso)}` : ''}
-                {c.hidden ? ' · paslėpta rankomis (nepradings pati)' : ''}
-                {!c.hidden && c.sortOrder != null && !c.pinned ? ' · rankinė tvarka' : ''}
+                {c.sortOrder != null && !c.pinned ? ' · rankinė tvarka' : ''}
               </p>
             </div>
             {!c.isCustom && (
               <button onClick={() => togglePin(c)} disabled={busy} title="Prisegti viršuje" className={`rounded-lg px-2 py-1.5 text-sm ${c.pinned ? 'bg-[var(--accent-orange)] text-white' : 'border border-[var(--border-default)] text-[var(--text-muted)]'}`}>📌</button>
             )}
-            <button onClick={() => toggleHide(c)} disabled={busy} title={c.hidden ? 'Rodyti' : 'Slėpti'} className={`rounded-lg px-2 py-1.5 text-sm ${c.hidden ? 'bg-red-500/80 text-white' : 'border border-[var(--border-default)] text-[var(--text-muted)]'}`}>{c.hidden ? '🚫' : '👁'}</button>
+            <button onClick={() => toggleHide(c)} disabled={busy} title="Slėpti" className="rounded-lg border border-[var(--border-default)] px-2 py-1.5 text-sm text-[var(--text-muted)]">👁</button>
             {c.isCustom && (
               <button onClick={() => delCustom(c)} disabled={busy} title="Ištrinti" className="rounded-lg border border-[var(--border-default)] px-2 py-1.5 text-sm text-red-400">✕</button>
             )}
           </div>
-        ))}
+          )
+        })}
       </div>
+
+      {/* ── Paslėpti — suskleista, kad neplūduriuotų tarp aktualių įrašų ── */}
+      {hiddenIdx.length > 0 && (
+        <div className="mt-4">
+          <button onClick={() => setShowHidden(s => !s)}
+            className="flex items-center gap-1.5 text-xs font-semibold text-[var(--text-muted)] hover:text-[var(--text-primary)]">
+            {showHidden ? '▾' : '▸'} Paslėpti ({hiddenIdx.length})
+          </button>
+          {showHidden && (
+            <div className="mt-2 flex flex-col gap-1.5">
+              {hiddenIdx.map(i => {
+                const c = cands[i]
+                return (
+                  <div key={c.key} className="flex items-center gap-3 rounded-xl border border-[var(--border-default)] bg-[var(--bg-surface)] p-2 opacity-60">
+                    <div className="h-10 w-10 flex-shrink-0 overflow-hidden rounded-lg bg-[var(--bg-hover)]">
+                      {c.image ? <img src={proxyImgResized(c.image, 96)} alt="" loading="lazy" decoding="async" className="h-full w-full object-cover" /> : null}
+                    </div>
+                    <div className="min-w-0 flex-1">
+                      <p className="truncate text-sm font-bold text-[var(--text-primary)]">{c.title}</p>
+                      <p className="truncate text-xs text-[var(--text-muted)]">
+                        {c.typeLabel}{c.isCustom ? ' · laisvas' : ''} · paslėpta {relTime(c.hiddenAt) || 'neseniai'}
+                      </p>
+                    </div>
+                    <button onClick={() => toggleHide(c)} disabled={busy} title="Rodyti (atstatyti)" className="rounded-lg bg-red-500/80 px-2 py-1.5 text-sm text-white">🚫</button>
+                    {c.isCustom && (
+                      <button onClick={() => delCustom(c)} disabled={busy} title="Ištrinti visam laikui" className="rounded-lg border border-[var(--border-default)] px-2 py-1.5 text-sm text-red-400">✕</button>
+                    )}
+                  </div>
+                )
+              })}
+            </div>
+          )}
+        </div>
+      )}
 
       <div className="mt-6 rounded-xl border border-[var(--border-default)] bg-[var(--bg-surface)] p-4">
         <h3 className="mb-3 font-['Outfit',sans-serif] text-base font-extrabold text-[var(--text-primary)]">+ Pridėti laisvą įrašą</h3>

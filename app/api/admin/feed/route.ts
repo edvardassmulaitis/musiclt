@@ -21,13 +21,36 @@ export async function POST(req: NextRequest) {
   if (typeof b.pinned === 'boolean') patch.pinned = b.pinned
   if ('sort_order' in b) patch.sort_order = b.sort_order
 
-  const { data: existing } = await sb.from('home_feed').select('id').eq('kind', 'override').eq('item_key', item_key).maybeSingle()
-  if (existing) {
-    const { error } = await sb.from('home_feed').update(patch).eq('id', (existing as any).id)
-    if (error) return NextResponse.json({ error: error.message }, { status: 500 })
-  } else {
-    const { error } = await sb.from('home_feed').insert(patch)
-    if (error) return NextResponse.json({ error: error.message }, { status: 500 })
+  // 2026-07-16: BUVO select-then-insert-or-update — TOCTOU race. „Slėpti"
+  // (toggleHide) ir „Išsaugoti tvarką" (saveOrder) admin'e dažnai iššaunami
+  // beveik vienu metu tam pačiam item_key: abu SELECT'ina, abu mato
+  // `existing == null`, abu bando INSERT — vienas laimi, antras krenta su
+  // unique constraint klaida IR TA REIKŠMĖ (pvz. hidden:true) TYLIAI
+  // PRARANDAMA (klientas klaidos nepatikrina, žr. FeedAdminClient setOverride).
+  // Realus simptomas: paslepi renginį, iškart Išsaugoti tvarką → po refresh
+  // vėl matomas. Dabar: pirmiausia UPDATE (idempotentiškas, jokio lenktynių
+  // lango prieš tai), o jei 0 eilučių paveikta — tada INSERT su fallback'u
+  // į UPDATE, jei INSERT vis tiek susikirstų su lygiagrečiu request'u.
+  const { data: updated, error: updErr } = await sb
+    .from('home_feed')
+    .update(patch)
+    .eq('kind', 'override')
+    .eq('item_key', item_key)
+    .select('id')
+  if (updErr) return NextResponse.json({ error: updErr.message }, { status: 500 })
+
+  if (!updated || updated.length === 0) {
+    const { error: insErr } = await sb.from('home_feed').insert(patch)
+    if (insErr) {
+      // 23505 = unique_violation (lygiagretus request'as spėjo įterpti pirmas) —
+      // eilutė jau yra, patch'inam ją vietoj to, kad klaida nedingtų tyliai.
+      if (insErr.code === '23505') {
+        const { error: retryErr } = await sb.from('home_feed').update(patch).eq('kind', 'override').eq('item_key', item_key)
+        if (retryErr) return NextResponse.json({ error: retryErr.message }, { status: 500 })
+      } else {
+        return NextResponse.json({ error: insErr.message }, { status: 500 })
+      }
+    }
   }
   return NextResponse.json({ ok: true })
 }
