@@ -1973,7 +1973,15 @@ function HeroV2Card({ slide, dk }: { slide: HeroSlide; dk: boolean }) {
           <img
             src={proxyImgResized(slide.bgImg, 1280)}
             alt=""
-            loading="lazy"
+            // 2026-07-16: BUVO loading="lazy" — hero kortelės yra above-the-fold
+            // (matomos be scroll'inimo), bet guli horizontaliai slenkančiame
+            // hp-hero-track konteineryje; native lazy-load intersection check
+            // tokiam layout'ui nesuveikdavo TEISINGAI (patikrinta tiesiogiai:
+            // 0 fetch'ų dėl w=1280 nuotraukų, nors kortelės matomos iškart) —
+            // vizualai likdavo tušti/pilki amžinai. Sweep'o (d748b369) principas
+            // ir taip sakė „above-the-fold — tik decoding=async, be lazy" — čia
+            // ta taisyklė tiesiog nebuvo pritaikyta.
+            decoding="async"
             className="h-full w-auto max-w-full object-cover"
             style={{
               objectPosition: 'center 25%',
@@ -3773,7 +3781,11 @@ export default function HomeClient({ initialLatest, initialHero }: { initialLate
                     }}
                   >
                     {slide.bgImg
-                      ? <img src={proxyImgResized(slide.bgImg, 480)} alt="" loading="lazy" decoding="async" style={{ width: '100%', height: '100%', objectFit: 'cover', display: 'block' }} />
+                      // 2026-07-16: be loading="lazy" — mobile hero juosta irgi
+                      // above-the-fold + horizontaliai slenkanti, tas pats
+                      // intersection-observer bug'as kaip desktop hero (žr.
+                      // HeroV2Card komentarą aukščiau).
+                      ? <img src={proxyImgResized(slide.bgImg, 480)} alt="" decoding="async" style={{ width: '100%', height: '100%', objectFit: 'cover', display: 'block' }} />
                       : <div style={{ width: '100%', height: '100%', background: 'linear-gradient(135deg,#0a1428,#162040)' }} />
                     }
                     <div style={{ position: 'absolute', inset: 0, background: 'linear-gradient(to top, rgba(0,0,0,0.95) 0%, rgba(0,0,0,0.55) 35%, rgba(0,0,0,0.10) 60%, rgba(0,0,0,0) 75%)' }} />
