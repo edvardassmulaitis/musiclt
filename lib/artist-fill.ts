@@ -200,37 +200,81 @@ type ModelCall = { obj: any; stopReason: string | null; apiError: string | null 
 // Tool-based structured output — API grąžina VALIDŲ JSON objektą kaip tool_use
 // input'ą (jokio teksto parse'inimo, jokių newline/kabučių problemų). Tai tikras
 // sprendimas vietoj prefill+regex, kuris lūžo dėl modelio bio formatavimo.
+// PLOKŠČIA schema — VISI atlikėjo laukai top-level (ne įdėtas artist_patch
+// objektas). Priežastis: modelis įdėtą objektą kartais grąžina kaip JSON-stringą
+// su neescape'intomis kabutėmis/newline'ais bio viduje → neparsinasi. Kai laukai
+// plokšti (scalar + masyvai su items), API juos grąžina kaip native reikšmes ir
+// pats teisingai suescape'ina. `artist_patch` struktūrą sudėliojam kode.
 const IMPORT_TOOL = {
   name: 'emit_artist_import',
-  description: 'Grąžina Music.lt importui paruoštą atlikėjo JSON pagal sistemos instrukciją.',
+  description: 'Grąžina Music.lt importui paruoštus atlikėjo duomenis (plokšti laukai).',
   input_schema: {
     type: 'object',
     properties: {
-      // `items` BŪTINA — be jo modelis kartais paduoda masyvą kaip JSON-stringą.
-      artist_patch: {
-        type: 'object',
-        properties: {
-          name: { type: 'string' },
-          type: { type: 'string' },
-          country: { type: 'string' },
-          birth_date: { type: ['string', 'null'] },
-          active_year_start: { type: ['integer', 'null'] },
-          active_year_end: { type: ['integer', 'null'] },
-          is_active: { type: 'boolean' },
-          gender: { type: ['string', 'null'] },
-          genre_group: { type: 'string' },
-          genres: { type: 'array', items: { type: 'string' } },
-          bio: { type: 'string' },
+      name: { type: 'string' },
+      type: { type: 'string' }, // solo_artist | group | project
+      country: { type: 'string' },
+      birth_date: { type: ['string', 'null'] },
+      active_year_start: { type: ['integer', 'null'] },
+      active_year_end: { type: ['integer', 'null'] },
+      is_active: { type: 'boolean' },
+      gender: { type: ['string', 'null'] },
+      genre_group: { type: 'string' },
+      genres: { type: 'array', items: { type: 'string' } },
+      bio: { type: 'string' },
+      links: { type: 'array', items: { type: 'object', properties: { type: { type: 'string' }, url: { type: 'string' } } } },
+      contacts: { type: 'array', items: { type: 'object' } },
+      albums: {
+        type: 'array',
+        items: {
+          type: 'object',
+          properties: {
+            title: { type: 'string' }, source_title: { type: 'string' },
+            type: { type: 'string' }, release_date: { type: ['string', 'null'] },
+            release_year: { type: ['integer', 'null'] }, total_tracks: { type: ['integer', 'null'] },
+            description: { type: 'string' }, spotify_url: { type: 'string' },
+            apple_music_url: { type: 'string' }, youtube_music_url: { type: 'string' },
+            bandcamp_url: { type: 'string' }, official_url: { type: 'string' },
+          },
         },
       },
-      links: { type: 'array', items: { type: 'object' } },
-      contacts: { type: 'array', items: { type: 'object' } },
-      albums: { type: 'array', items: { type: 'object' } },
       tracks: { type: 'array', items: { type: 'object' } },
-      images: { type: 'array', items: { type: 'object' } },
     },
-    required: ['artist_patch'],
+    required: ['name'],
   },
+}
+
+/** Masyvą grąžinam kaip masyvą; jei modelis vis dėlto paduoda JSON-stringą —
+ *  parse'inam (su sanitize), o nepavykus — tuščias masyvas (kad neblokuotų). */
+function coerceArray(v: any): any[] {
+  if (Array.isArray(v)) return v
+  if (typeof v === 'string') { const p = safeJsonParse(v); return Array.isArray(p) ? p : [] }
+  return []
+}
+
+/** Iš plokščių tool laukų sudėliojam standartinę import struktūrą. */
+function buildImport(inp: any): any {
+  if (!inp || typeof inp !== 'object') return null
+  return {
+    artist_patch: {
+      name: inp.name,
+      type: inp.type,
+      country: inp.country,
+      birth_date: inp.birth_date ?? null,
+      active_year_start: inp.active_year_start ?? null,
+      active_year_end: inp.active_year_end ?? null,
+      is_active: inp.is_active ?? true,
+      gender: inp.gender ?? null,
+      genre_group: inp.genre_group,
+      genres: coerceArray(inp.genres),
+      bio: typeof inp.bio === 'string' ? inp.bio : '',
+    },
+    links: coerceArray(inp.links),
+    contacts: coerceArray(inp.contacts),
+    albums: coerceArray(inp.albums),
+    tracks: coerceArray(inp.tracks),
+    images: [],
+  }
 }
 
 /** Escape'ina literal control simbolius (\n \r \t) string'ų VIDUJE — modelio
@@ -263,23 +307,6 @@ function safeJsonParse(str: string): any {
   const s = sanitizeControlChars(str)
   try { return JSON.parse(s) } catch { /* toliau */ }
   try { return JSON.parse(s.replace(/,(\s*[}\]])/g, '$1')) } catch { return undefined }
-}
-
-/** Apsauga: jei modelis masyvą/objektą paduoda kaip JSON-stringą — atparsinam
- *  (net jei stringe yra literal naujų eilučių, kaip bio atveju). */
-function coerceImport(obj: any): any {
-  if (!obj || typeof obj !== 'object') return obj
-  const parseMaybe = (v: any) => {
-    if (typeof v !== 'string') return v
-    const parsed = safeJsonParse(v)
-    return parsed === undefined ? v : parsed
-  }
-  const o: any = { ...obj }
-  o.artist_patch = parseMaybe(o.artist_patch)
-  for (const k of ['links', 'contacts', 'albums', 'tracks', 'images']) {
-    if (k in o) o[k] = parseMaybe(o[k])
-  }
-  return o
 }
 
 // Web search default'u ĮJUNGTA (kad kokybė prilygtų ChatGPT flow'ui — modelis
@@ -358,8 +385,8 @@ export async function fillArtist(input: string): Promise<ArtistFillResult> {
   for (const model of modelChain()) {
     const call = await callModel(model, ARTIST_IMPORT_PROMPT, userMsg, 8000)
     if (call.apiError) { attempts.push(`${model}: ${call.apiError}`); continue }
-    const obj = coerceImport(call.obj)
-    if (obj && typeof obj === 'object' && obj.artist_patch) {
+    const obj = buildImport(call.obj)
+    if (obj && obj.artist_patch && obj.artist_patch.name) {
       return {
         ok: true,
         json: JSON.stringify(obj, null, 2),
