@@ -31,7 +31,7 @@ import { createAlbum, type AlbumFull, type TrackInAlbum } from '@/lib/supabase-a
 import { slugify } from '@/lib/slugify'
 import { syncTrackFeaturing } from '@/lib/featuring-utils'
 import type { AlbumSuggestion } from '@/lib/album-lookup'
-import { fetchReleaseTracklist, fetchMbCoverUrl, msToDuration } from '@/lib/musicbrainz'
+import { fetchReleaseTracklist, fetchMbCoverUrl, msToDuration, isRecordingSingle } from '@/lib/musicbrainz'
 import { normalizeTitle } from '@/lib/track-dedup'
 import { fetchWikitext } from '@/lib/wiki-fetch'
 
@@ -1021,7 +1021,13 @@ export async function commitTrack(url: string, origin: string, ov: TrackOverride
 
 /** Sukuria albumą iš MusicBrainz release'o (re-fetch'ina pilną tracklist'ą
  *  pagal releaseId), susiedama jau egzistuojantį track'ą (matchedTrackId) su
- *  jo pozicija tracklist'e — kad NESUDUBLIUOTŲ kaip atskiras track'as. */
+ *  jo pozicija tracklist'e — kad NESUDUBLIUOTŲ kaip atskiras track'as.
+ *
+ * 2026-07-17 (Edvardo pastaba): anksčiau `is_single` gaudavo TIK pati
+ * quick-add'inta daina (per `ov.is_single` viename track'e). Dabar
+ * patikrinam VISUS albumo track'us per MB `isRecordingSingle()` (tikslus
+ * recording ID lookup'as, ne tekstinė paieška) ir pažymim kiekvieną, kuris
+ * turi savo atskirą "Single" release-group'ą — ne tik pirminę dainą. */
 async function createAlbumFromMusicBrainz(
   releaseId: string, artistId: number, matchedTrackId: number, matchedTrackTitle: string
 ): Promise<{ id: number; title: string } | null> {
@@ -1031,6 +1037,20 @@ async function createAlbumFromMusicBrainz(
   const cover = await fetchMbCoverUrl(releaseId).catch(() => null)
   const wantNorm = normalizeTitle(matchedTrackTitle)
 
+  // Kiekvienam track'ui (su recording ID) patikrinam ar jis atskirai buvo
+  // išleistas kaip "Single" — throttled MB kvietimas per track'ą (žr.
+  // mbThrottle musicbrainz.ts). Ribojam iki 30 track'ų (praktiškai jokia
+  // albumo tracklist'a tiek neturi), kad nerizikuotume Vercel timeout'o.
+  const MAX_SINGLE_CHECKS = 30
+  const singleFlags = new Map<number, boolean>() // position → is_single
+  for (const t of rel.tracks.slice(0, MAX_SINGLE_CHECKS)) {
+    if (!t.recordingId) continue
+    try {
+      const isSingle = await isRecordingSingle(t.recordingId)
+      if (isSingle) singleFlags.set(t.position, true)
+    } catch { /* best-effort — nesulaikom albumo kūrimo */ }
+  }
+
   const tracks: TrackInAlbum[] = rel.tracks.map((t) => ({
     title: t.title,
     sort_order: t.position,
@@ -1038,6 +1058,7 @@ async function createAlbumFromMusicBrainz(
     duration: msToDuration(t.length),
     type: 'normal',
     track_id: normalizeTitle(t.title) === wantNorm ? matchedTrackId : undefined,
+    is_single: singleFlags.get(t.position) || undefined,
     release_year: rel.year, release_month: rel.month, release_day: rel.day,
   }))
 

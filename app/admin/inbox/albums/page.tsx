@@ -54,6 +54,9 @@ export default function WikiAlbumInboxPage() {
   const [busy, setBusy] = useState<number | null>(null)
   const [linkDrafts, setLinkDrafts] = useState<Record<number, string>>({})
   const [errorMsg, setErrorMsg] = useState<Record<number, string>>({})
+  const [scanning, setScanning] = useState(false)
+  const [scanSummary, setScanSummary] = useState<any | null>(null)
+  const [scanError, setScanError] = useState('')
 
   const isAdmin = ['editor', 'admin', 'super_admin'].includes(session?.user?.role || '')
 
@@ -79,6 +82,30 @@ export default function WikiAlbumInboxPage() {
     if (!isAdmin) { router.replace('/admin'); return }
     load()
   }, [status, isAdmin, router, load])
+
+  async function runScanNow(dryRun: boolean) {
+    setScanning(true)
+    setScanError('')
+    setScanSummary(null)
+    try {
+      const res = await fetch('/api/admin/wiki-album-scout/trigger', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ dry_run: dryRun }),
+      })
+      const j = await res.json().catch(() => ({}))
+      if (!res.ok) {
+        setScanError(j.error || `Klaida (HTTP ${res.status})`)
+      } else {
+        setScanSummary(j.summary || j)
+        if (!dryRun) await load()
+      }
+    } catch (e: any) {
+      setScanError(e.message || 'Klaida')
+    } finally {
+      setScanning(false)
+    }
+  }
 
   async function reject(id: number) {
     setBusy(id)
@@ -124,12 +151,48 @@ export default function WikiAlbumInboxPage() {
       </h1>
       <InboxTabs />
 
-      <p className="text-sm text-[var(--text-muted)] mb-4">
+      <p className="text-sm text-[var(--text-muted)] mb-3">
         Wikipedia „List of {new Date().getFullYear()} albums" — atlikėjai, kurie jau yra kataloge, bet
         albumas dar neturi savo Wikipedia straipsnio (taigi negalime auto-sukurti tracklist'o).
         Kai straipsnis atsiras, sekantis scan'as sukurs albumą automatiškai — čia gali atmesti klaidingus
         match'us arba, jei pats radai nuorodą anksčiau, patvirtinti ranka.
       </p>
+
+      <div className="mb-4 p-3 rounded-lg border border-[var(--input-border)] bg-[var(--surface-secondary)]">
+        <div className="flex items-center gap-2 flex-wrap">
+          <button
+            onClick={() => runScanNow(false)}
+            disabled={scanning}
+            className="text-sm px-3 py-1.5 rounded bg-blue-600 text-white disabled:opacity-40"
+          >
+            {scanning ? 'Skenuojama…' : '🔎 Paleisti scan\'ą dabar'}
+          </button>
+          <button
+            onClick={() => runScanNow(true)}
+            disabled={scanning}
+            className="text-sm px-3 py-1.5 rounded border border-[var(--input-border)] disabled:opacity-40"
+          >
+            Dry run (be rašymo)
+          </button>
+          <span className="text-xs text-[var(--text-muted)]">
+            Normaliai veikia automatiškai 1x/parą (GitHub Actions) — šitas mygtukas paleidžia iš karto, nelaukiant.
+          </span>
+        </div>
+
+        {scanError && <div className="text-xs text-red-600 mt-2">{scanError}</div>}
+
+        {scanSummary && (
+          <div className="text-xs text-[var(--text-muted)] mt-2 flex flex-wrap gap-x-4 gap-y-1">
+            <span>puslapio eilučių: <strong>{scanSummary.total_list_items ?? scanSummary.per_source?.[0]?.list_items ?? '—'}</strong></span>
+            <span>naujai patikrinta: <strong>{scanSummary.total_fresh_checked}</strong></span>
+            <span>auto-sukurta: <strong>{scanSummary.total_auto_committed}</strong></span>
+            <span>į eilę: <strong>{scanSummary.total_queued_pending}</strong></span>
+            <span>be atlikėjo match'o: <strong>{scanSummary.total_no_artist_match}</strong></span>
+            {scanSummary.total_errors > 0 && <span className="text-red-600">klaidų: <strong>{scanSummary.total_errors}</strong></span>}
+            {scanSummary.dry_run && <span className="text-amber-600">(dry run — niekas neįrašyta)</span>}
+          </div>
+        )}
+      </div>
 
       {loading ? (
         <p className="text-sm text-[var(--text-muted)]">Kraunama…</p>

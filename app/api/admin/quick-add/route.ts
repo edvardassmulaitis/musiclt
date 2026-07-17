@@ -22,7 +22,12 @@ import {
 } from '@/lib/quick-add'
 
 export const runtime = 'nodejs'
-export const maxDuration = 60
+// 2026-07-17: pakelta 60→120 — createAlbumFromMusicBrainz() dabar tikrina
+// is_single VISIEMS albumo track'ams (throttled MB kvietimas per track'ą,
+// žr. lib/quick-add.ts komentarą), didesniems albumams (15-25 track'ų) tai
+// gali užtrukti 10-15s papildomai. UI (AdminQuickAdd.tsx queue) nebeblokuoja
+// admin'o kol laukia — commit vyksta fone.
+export const maxDuration = 120
 
 export async function POST(req: NextRequest) {
   const session = await getServerSession(authOptions)

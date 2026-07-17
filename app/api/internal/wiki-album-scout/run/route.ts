@@ -2,10 +2,13 @@
  * Wiki album list scout endpoint — punktas B (žr. MUSIC_DISCOVERY_AUTOMATION_PLAN.md §B).
  * Kviečiamas iš GitHub Actions cron'o (mirror'ina news-scout/events-scout pattern'ą —
  * NE Cowork scheduled task, žr. EXTERNAL_CHARTS_PLAN.md §9 dingusio scheduled
- * task'o pamoką).
+ * task'o pamoką). Nuo 2026-07-17 pati skenavimo logika gyvena
+ * `lib/wiki-album-scout-run.ts` (`runWikiAlbumScout()`), kad ją galėtų kviesti
+ * IR admin „Paleisti dabar" mygtukas (`app/api/admin/wiki-album-scout/trigger`)
+ * be HTTP self-call'o — žr. to failo viršutinį komentarą dėl priežasties.
  *
  * Flow (per scout_sources WHERE category='wiki_list'):
- *   1. Bearer auth
+ *   1. Bearer auth (šis endpoint'as)
  *   2. fetchWikitext(list_url puslapio title'as) → parseAlbumListPage()
  *   3. Per eilutę — fingerprint = sha1(artist|album|data), TRIJŲ lygių memory:
  *
@@ -44,44 +47,13 @@
  */
 
 import { NextRequest, NextResponse } from 'next/server'
-import { createAdminClient } from '@/lib/supabase'
-import { fetchWikitext } from '@/lib/wiki-fetch'
-import { parseAlbumListPage, albumListFingerprint, type AlbumListEntry } from '@/lib/wiki-album-list'
-import { matchArtists } from '@/lib/entity-matcher'
-import { commitAlbum } from '@/lib/quick-add'
+import { runWikiAlbumScout } from '@/lib/wiki-album-scout-run'
 
 export const runtime = 'nodejs'
 export const maxDuration = 300
 
-const MAX_FRESH_PER_RUN = 200
-const MAX_AUTO_COMMITS_PER_RUN = 8
-
-type RunCounters = {
-  source_id: number
-  source_name: string
-  list_items: number
-  fresh_checked: number
-  skipped_known: number
-  no_artist_match: number
-  queued_pending: number
-  updated_link: number
-  auto_committed: number
-  errors: number
-  error_details: string[]
-}
-
 function baseUrl(): string {
   return process.env.MUSICLT_BASE_URL || `https://${process.env.VERCEL_URL || 'musiclt.vercel.app'}`
-}
-
-function wikiTitleFromListUrl(url: string): string | null {
-  const m = (url || '').match(/wikipedia\.org\/wiki\/([^?#]+)/)
-  if (!m) return null
-  try { return decodeURIComponent(m[1]) } catch { return m[1] }
-}
-
-function albumWikiUrl(title: string): string {
-  return `https://en.wikipedia.org/wiki/${encodeURIComponent(title.replace(/ /g, '_'))}`
 }
 
 export async function POST(req: NextRequest) {
@@ -94,212 +66,9 @@ export async function POST(req: NextRequest) {
   const { searchParams } = new URL(req.url)
   const explicitSourceId = searchParams.get('source_id')
   const dryRun = searchParams.get('dry_run') === '1'
-  const origin = baseUrl()
 
-  const supabase = createAdminClient()
-
-  let sourcesQuery = supabase
-    .from('scout_sources')
-    .select('id, name, list_url')
-    .eq('is_active', true)
-    .eq('category', 'wiki_list')
-  if (explicitSourceId) sourcesQuery = sourcesQuery.eq('id', parseInt(explicitSourceId, 10))
-
-  const { data: sources, error: srcErr } = await sourcesQuery
-  if (srcErr) return NextResponse.json({ error: srcErr.message }, { status: 500 })
-  if (!sources || sources.length === 0) {
-    if (explicitSourceId) {
-      return NextResponse.json({ skipped: 'inactive_or_missing', source_id: parseInt(explicitSourceId, 10) })
-    }
-    return NextResponse.json({ error: 'No active wiki_list sources matched' }, { status: 404 })
-  }
-
-  const allCounters: RunCounters[] = []
-
-  for (const source of sources) {
-    const c: RunCounters = {
-      source_id: source.id, source_name: source.name,
-      list_items: 0, fresh_checked: 0, skipped_known: 0, no_artist_match: 0,
-      queued_pending: 0, updated_link: 0, auto_committed: 0, errors: 0, error_details: [],
-    }
-
-    try {
-      if (!source.list_url) {
-        c.error_details.push('No list_url set')
-        c.errors++
-        allCounters.push(c)
-        continue
-      }
-
-      const pageTitle = wikiTitleFromListUrl(source.list_url)
-      const yearMatch = (pageTitle || '').match(/(\d{4})/)
-      if (!pageTitle || !yearMatch) {
-        c.error_details.push(`Nepavyko atpažinti puslapio/metų iš list_url: ${source.list_url}`)
-        c.errors++
-        allCounters.push(c)
-        continue
-      }
-      const year = parseInt(yearMatch[1], 10)
-
-      const wikitext = await fetchWikitext(pageTitle)
-      if (!wikitext) throw new Error('Nepavyko gauti Wikipedia wikitext')
-
-      const entries: AlbumListEntry[] = parseAlbumListPage(wikitext, year)
-      c.list_items = entries.length
-
-      for (const e of entries) {
-        if (c.fresh_checked >= MAX_FRESH_PER_RUN) break
-
-        const fp = albumListFingerprint(e.artist_raw, e.album_title, e.year, e.month, e.day)
-
-        // a) permanent no-artist-match memory
-        const { data: seenRow } = await supabase
-          .from('scout_seen_urls')
-          .select('url_hash')
-          .eq('url_hash', fp)
-          .maybeSingle()
-        if (seenRow) { c.skipped_known++; continue }
-
-        // b/c) esamas candidate?
-        const { data: existing } = await supabase
-          .from('wiki_album_candidates')
-          .select('id, status, album_wiki_link, matched_artist_id, match_score')
-          .eq('fingerprint', fp)
-          .maybeSingle()
-
-        if (existing) {
-          if (existing.status !== 'pending') { c.skipped_known++; continue }
-
-          const link = existing.album_wiki_link || e.album_wiki_link
-          if (link && c.auto_committed < MAX_AUTO_COMMITS_PER_RUN && existing.matched_artist_id) {
-            c.auto_committed++
-            if (!dryRun) {
-              try {
-                const result = await commitAlbum(albumWikiUrl(link), origin, { artist_id: existing.matched_artist_id })
-                if (result.ok && result.kind === 'album') {
-                  await supabase.from('wiki_album_candidates').update({
-                    status: 'approved', album_wiki_link: link,
-                    reviewed_at: new Date().toISOString(),
-                    published_album_id: result.album.id,
-                  }).eq('id', existing.id)
-                } else {
-                  await supabase.from('wiki_album_candidates').update({
-                    status: 'error', album_wiki_link: link, rescanned_at: new Date().toISOString(),
-                  }).eq('id', existing.id)
-                  c.error_details.push(`Auto-commit (existing #${existing.id}) failed: ${!result.ok ? result.error : 'unknown'}`)
-                }
-              } catch (ce: any) {
-                c.error_details.push(`Auto-commit (existing #${existing.id}) threw: ${ce.message}`)
-              }
-            }
-          } else if (e.album_wiki_link && !existing.album_wiki_link && !dryRun) {
-            await supabase.from('wiki_album_candidates').update({
-              album_wiki_link: e.album_wiki_link, rescanned_at: new Date().toISOString(),
-            }).eq('id', existing.id)
-            c.updated_link++
-          }
-          continue
-        }
-
-        // Visiškai nauja eilutė — skaičiuojasi į fresh cap'ą.
-        c.fresh_checked++
-
-        let matches
-        try {
-          matches = await matchArtists([{ name: e.artist_raw }])
-        } catch (me: any) {
-          c.errors++
-          c.error_details.push(`matchArtists failed (${e.artist_raw}): ${me.message}`)
-          continue
-        }
-        const top = matches[0]
-
-        if (!top) {
-          if (!dryRun) {
-            await supabase.from('scout_seen_urls').insert({
-              url_hash: fp, source_id: source.id, candidate_id: null, filter_reason: 'no_artist_match',
-            })
-          }
-          c.no_artist_match++
-          continue
-        }
-
-        if (e.album_wiki_link && c.auto_committed < MAX_AUTO_COMMITS_PER_RUN) {
-          c.auto_committed++
-          if (!dryRun) {
-            try {
-              const result = await commitAlbum(albumWikiUrl(e.album_wiki_link), origin, { artist_id: top.artist_id })
-              const { data: inserted, error: insErr } = await supabase
-                .from('wiki_album_candidates')
-                .insert({
-                  source_id: source.id, source_url: source.list_url,
-                  artist_raw: e.artist_raw, album_title: e.album_title, album_wiki_link: e.album_wiki_link,
-                  release_year: e.year, release_month: e.month, release_day: e.day,
-                  genres_raw: e.genres, label_raw: e.label,
-                  matched_artist_id: top.artist_id, match_score: top.score,
-                  fingerprint: fp,
-                  status: result.ok && result.kind === 'album' ? 'approved' : 'error',
-                  reviewed_at: new Date().toISOString(),
-                  published_album_id: result.ok && result.kind === 'album' ? result.album.id : null,
-                })
-                .select('id')
-                .single()
-              if (insErr) {
-                if (insErr.code === '23505') { c.skipped_known++ } else { c.errors++; c.error_details.push(`Insert failed: ${insErr.message}`) }
-              } else if (!result.ok) {
-                c.error_details.push(`Auto-commit (new, candidate #${inserted.id}) failed: ${result.error}`)
-              }
-            } catch (ce: any) {
-              c.errors++
-              c.error_details.push(`Auto-commit (new, ${e.artist_raw}) threw: ${ce.message}`)
-            }
-          }
-          continue
-        }
-
-        // Atlikėjas rastas, bet dar be album_wiki_link (arba auto-commit cap
-        // pasiektas šiam run'ui) → review queue.
-        if (!dryRun) {
-          const { error: insErr } = await supabase.from('wiki_album_candidates').insert({
-            source_id: source.id, source_url: source.list_url,
-            artist_raw: e.artist_raw, album_title: e.album_title, album_wiki_link: e.album_wiki_link,
-            release_year: e.year, release_month: e.month, release_day: e.day,
-            genres_raw: e.genres, label_raw: e.label,
-            matched_artist_id: top.artist_id, match_score: top.score,
-            fingerprint: fp, status: 'pending',
-          })
-          if (insErr && insErr.code !== '23505') { c.errors++; c.error_details.push(`Insert failed: ${insErr.message}`) }
-        }
-        c.queued_pending++
-      }
-
-      if (!dryRun) {
-        await supabase.from('scout_sources').update({ last_fetched_at: new Date().toISOString(), last_error: null }).eq('id', source.id)
-      }
-    } catch (e: any) {
-      c.error_details.push(`Source failed: ${e.message}`)
-      c.errors++
-      if (!dryRun) {
-        await supabase.from('scout_sources').update({ last_error: e.message?.slice(0, 500) }).eq('id', source.id)
-      }
-    }
-
-    allCounters.push(c)
-  }
-
-  const summary = {
-    sources_processed: allCounters.length,
-    total_list_items: allCounters.reduce((s, c) => s + c.list_items, 0),
-    total_fresh_checked: allCounters.reduce((s, c) => s + c.fresh_checked, 0),
-    total_no_artist_match: allCounters.reduce((s, c) => s + c.no_artist_match, 0),
-    total_queued_pending: allCounters.reduce((s, c) => s + c.queued_pending, 0),
-    total_updated_link: allCounters.reduce((s, c) => s + c.updated_link, 0),
-    total_auto_committed: allCounters.reduce((s, c) => s + c.auto_committed, 0),
-    total_errors: allCounters.reduce((s, c) => s + c.errors, 0),
-    dry_run: dryRun,
-  }
-
-  return NextResponse.json({ ok: true, summary, per_source: allCounters })
+  const { status, body } = await runWikiAlbumScout({ sourceId: explicitSourceId, dryRun, origin: baseUrl() })
+  return NextResponse.json(body, { status })
 }
 
 export async function GET(req: NextRequest) {

@@ -73,7 +73,7 @@ function parseIsoDate(d?: string | null): { year: number | null; month: number |
   return { year: +m[1], month: m[2] ? +m[2] : null, day: m[3] ? +m[3] : null }
 }
 
-export type MbTrack = { position: number; title: string; length: number | null; discNumber: number }
+export type MbTrack = { position: number; title: string; length: number | null; discNumber: number; recordingId: string | null }
 
 export type MbReleaseTracklist = {
   releaseId: string
@@ -101,7 +101,12 @@ export async function fetchReleaseTracklist(releaseId: string): Promise<MbReleas
     for (const t of medium.tracks || []) {
       globalPos++
       const title = t.title || t.recording?.title || ''
-      tracks.push({ position: globalPos, title, length: t.length ?? t.recording?.length ?? null, discNumber: discIdx + 1 })
+      tracks.push({
+        position: globalPos, title,
+        length: t.length ?? t.recording?.length ?? null,
+        discNumber: discIdx + 1,
+        recordingId: t.recording?.id || null,
+      })
     }
   })
   if (!tracks.length) return null
@@ -223,6 +228,32 @@ export async function analyzeRecording(artistName: string, trackTitle: string): 
       isPlaceholderish: placeholderish,
     },
     isSingleRelease,
+  }
+}
+
+/**
+ * Ar konkretus recording'as (žinomas MBID, ne tekstinė paieška) priklauso
+ * bent vienam "Single" tipo release-group'ui. Naudojama pažymėti VISŲ albumo
+ * track'ų (ne tik pirminio quick-add'into) `is_single` MB-sourced albumo
+ * kūrimo metu (žr. lib/quick-add.ts createAlbumFromMusicBrainz) — 2026-07-17,
+ * Edvardo pastaba: anksčiau tik viena (quick-add'inta) daina gaudavo
+ * is_single žymę, likę albumo track'ai — ne, nors MB dažnai turi tą info
+ * kiekvienam track'ui atskirai.
+ *
+ * Tikslesnis nei `analyzeRecording()` šiam konkrečiam patikrinimui, nes
+ * naudoja jau žinomą recording ID (iš `fetchReleaseTracklist`), o ne
+ * tekstinę artist+title paiešką — nėra vardo/pavadinimo dviprasmybės rizikos.
+ * Best-effort: klaidos atveju grąžina false (niekad nemeta, niekad nesulaiko
+ * albumo sukūrimo).
+ */
+export async function isRecordingSingle(recordingId: string): Promise<boolean> {
+  if (!recordingId) return false
+  try {
+    const json = await mbFetch(`/recording/${recordingId}?inc=releases+release-groups&fmt=json`)
+    const releases: any[] = json?.releases || []
+    return releases.some((r) => r?.['release-group']?.['primary-type'] === 'Single')
+  } catch {
+    return false
   }
 }
 
