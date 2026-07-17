@@ -50,7 +50,7 @@ export async function POST() {
 
   for (const c of candidates as any[]) {
     scanned++
-    const text = `${c.ai_title || ''} ${c.raw_text || ''}`
+    const text = `${c.ai_title || ''}\n${c.raw_text || ''}`
     const mentions = await detectArtistMentions(text)
     if (mentions.length === 0) continue
     const matches = await matchArtists(mentions)

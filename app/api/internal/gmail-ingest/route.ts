@@ -265,7 +265,7 @@ export async function POST(req: NextRequest) {
   // praplėstas 500→3000, kad katalogo atlikėjai už top-500 (pvz. Gogol Bordello,
   // The Cinematic Orchestra) irgi būtų aptinkami. Tas pats helper'is naudojamas ir
   // admin rematch endpoint'e.
-  const fullText = `${subject || ''} ${rawBody}`
+  const fullText = `${subject || ''}\n${rawBody}`
   const artistsMentioned = await detectArtistMentions(fullText)
 
   // 2026-06-11: track mention'ai iš kabučių antraštėje + pirmame paragrafe —

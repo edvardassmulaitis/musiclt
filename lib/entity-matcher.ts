@@ -223,45 +223,55 @@ export async function getTopArtistsForHint(limit = 500): Promise<string[]> {
 }
 
 /**
- * Aptikti atlikėjų paminėjimus laisvame tekste (Gmail press release'ai ir pan.),
- * substring'u prieš katalogo atlikėjų sąrašą (word-boundary, case-insensitive).
+ * Aptikti atlikėjų paminėjimus laisvame tekste (Gmail press release'ai ir pan.).
  *
- * Naudojama Gmail ingestijoje IR admin rematch endpoint'e — vienas šaltinis, kad
- * abu keliai elgtųsi vienodai.
+ * Naudojama Gmail ingestijoje IR admin rematch endpoint'e — grąžina PAMINĖJIMŲ
+ * VARDUS (kabutėse esančius spanus), kuriuos toliau rezolvina `matchArtists`
+ * (exact ilike + trgm). Antraštės kabutės grąžinamos PIRMOS — kadangi
+ * `matchArtists` stabiliai rikiuoja pagal score (visi exact = 1.0, tvarka
+ * išsaugoma), pagrindinis atlikėjas (primary) tampa antraštėje pirmas
+ * paminėtas atlikėjas — tiksliai kaip LT muzikos press release'e.
  *
- * 2026-07-17: hint anksčiau buvo TIK top 500 pagal legacy_likes — realūs katalogo
- * atlikėjai už to slenksčio (pvz. Gogol Bordello rank 563, The Cinematic Orchestra
- * rank 900) niekada nebūdavo aptinkami, tad gmail naujienos likdavo be atlikėjo.
- * Default pakeltas iki 3000, kad apimtų prasmingą katalogo dalį. Rezultatai eina į
- * `suggested_artist_ids` kaip PASIŪLYMAI — admin'as vis tiek patvirtina prieš
- * publikaciją, tad platesnis langas saugus (galimą retą false-positive admin'as
- * pašalina peržiūros modal'e).
+ * 2026-07-17: ankstesnis būdas — substring'as prieš top-N katalogo atlikėjų —
+ * duodavo false-positive'us iš bendrinių žodžių, sutampančių su atlikėjų
+ * vardais („Live" iš „Live Nation", „kino", „lights"), o rikiuojant pagal
+ * legacy_likes klaidingai iškeldavo garsesnį atsitiktinį vardą į primary
+ * (pvz. „The Beatles" vietoj „Gogol Bordello"). LT muzikos PR atlikėjus/dainas
+ * beveik visada rašo kabutėse, tad imam TIK kabutėse esančius spanus (+
+ * antraštę), ir rezoliucija daroma per matchArtists visam span'ui (ne
+ * substring'u) — todėl „Lukiškių kalėjimas 2.0" ar „vasaros koncertai" tiesiog
+ * nerezolvinasi į jokį atlikėją, o „Biplan" rezolvinasi tiksliai.
  *
- * @param text laisvas tekstas (subject + body + title)
- * @param opts.hintLimit kiek katalogo atlikėjų (pagal legacy_likes) tikrinti
- * @param opts.maxMentions kiek daugiausiai paminėjimų grąžinti
+ * @param text laisvas tekstas — PIRMA eilutė turi būti antraštė/subject
+ * @param opts.maxMentions kiek daugiausiai paminėjimų grąžinti (default 6)
  */
 export async function detectArtistMentions(
   text: string,
-  opts: { hintLimit?: number; maxMentions?: number } = {}
+  opts: { maxMentions?: number } = {}
 ): Promise<Array<{ name: string }>> {
-  const hintLimit = opts.hintLimit ?? 3000
-  const maxMentions = opts.maxMentions ?? 5
-  const hint = await getTopArtistsForHint(hintLimit)
-  const haystack = (text || '').toLowerCase()
-  if (!haystack.trim()) return []
+  const maxMentions = opts.maxMentions ?? 6
+  const original = text || ''
+  if (!original.trim()) return []
 
+  const QUOTES = '„"“”‟‚‘’«»'
+  const quoteRe = new RegExp(`[${QUOTES}]([^${QUOTES}]{2,80})[${QUOTES}]`, 'g')
+
+  const firstLine = (original.split(/\r?\n/).find(l => l.trim()) || '').trim()
+  const rest = original.slice(firstLine.length)
+
+  const titleSpans = [...firstLine.matchAll(quoteRe)].map(m => m[1].trim())
+  const bodySpans = [...rest.matchAll(quoteRe)].map(m => m[1].trim())
+
+  // Antraštės kabutės PIRMOS (primary šaltinis), po jų body kabutės. Dedupe.
+  const seen = new Set<string>()
   const mentions: Array<{ name: string }> = []
-  for (const raw of hint) {
-    const name = (raw || '').toLowerCase()
-    // Word-boundary check kad „bo" nematchintų į „bonus"; min ilgis 3 saugo nuo
-    // per trumpų/triukšmingų vardų.
-    if (!name || name.length < 3) continue
-    const pattern = new RegExp(`(^|\\W)${name.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')}(\\W|$)`)
-    if (pattern.test(haystack)) {
-      mentions.push({ name: raw })
-      if (mentions.length >= maxMentions) break
-    }
+  for (const s of [...titleSpans, ...bodySpans]) {
+    if (s.length < 2 || s.length > 80) continue
+    const key = s.toLowerCase()
+    if (seen.has(key)) continue
+    seen.add(key)
+    mentions.push({ name: s })
+    if (mentions.length >= maxMentions) break
   }
   return mentions
 }
