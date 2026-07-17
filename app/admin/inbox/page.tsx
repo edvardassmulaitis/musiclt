@@ -1526,11 +1526,18 @@ export default function AdminInboxPage() {
                   if (!targetArtistId) {
                     return <p className="text-[14px] text-amber-600">Pirma priskirk atlikėją (1 žingsnis „Turinys").</p>
                   }
+                  const assignedArtists = editArtistIds
+                    .map(id => {
+                      const a = artistMeta[id]
+                      return a ? { id, name: a.name } : null
+                    })
+                    .filter((x): x is { id: number; name: string } => !!x)
                   return editStep === 3 ? (
                     <NewsMusicPicker
                       key={targetArtistId}
                       artistId={targetArtistId}
                       artistName={targetName}
+                      artists={assignedArtists}
                       mentions={editing?.ai_tracks_mentioned || []}
                       attachedIds={editTrackIds}
                       onAdd={handleAddTrack}
