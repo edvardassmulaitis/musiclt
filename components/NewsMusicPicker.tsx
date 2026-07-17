@@ -136,12 +136,17 @@ export default function NewsMusicPicker({
   // Identifikuotos naujienos dainos — chip'ai paieškai (be dublikatų).
   const chipTitles = Array.from(new Set(mentions.map(m => m.title).filter(Boolean)))
 
+  // YT rezultatuose neberodom tų, kurie jau pridėti prie DB (surišta pagal
+  // YouTube video id iš dainos video_url) — punktas 1.
+  const attachedVideoIds = new Set(attached.map(t => ytId(t.video_url)).filter(Boolean) as string[])
+  const visibleResults = results.filter(h => !attachedVideoIds.has(h.videoId))
+
   return (
     <div className="space-y-3">
       {/* ── Prie naujienos playerio (TIKRI DB įrašai) ─────────────── */}
       <div>
         <div className="text-[11px] font-semibold text-[var(--text-muted)] uppercase tracking-wide mb-1">
-          Prie naujienos playerio {attachedIds.length > 0 && <span className="text-emerald-600">({attachedIds.length})</span>}
+          Sistemoje jau esančios dainos {attachedIds.length > 0 && <span className="text-emerald-600">({attachedIds.length})</span>}
         </div>
         {attachedIds.length === 0 ? (
           <p className="text-[13px] text-[var(--text-muted)] italic">Kol kas nepridėta dainų.</p>
@@ -209,13 +214,13 @@ export default function NewsMusicPicker({
         {commitMsg && (
           <div className={`text-[12px] mb-1.5 ${commitMsg.startsWith('✓') ? 'text-emerald-600' : 'text-amber-600'}`}>{commitMsg}</div>
         )}
-        {searching && results.length === 0 ? (
+        {searching && visibleResults.length === 0 ? (
           <p className="text-[13px] text-[var(--text-muted)] py-2">Ieškoma…</p>
-        ) : results.length === 0 ? (
-          <p className="text-[13px] text-[var(--text-muted)] py-2">Nieko nerasta — pakeisk paiešką.</p>
+        ) : visibleResults.length === 0 ? (
+          <p className="text-[13px] text-[var(--text-muted)] py-2">Nieko naujo nerasta — pakeisk paiešką.</p>
         ) : (
           <div className="space-y-1.5">
-            {results.map(hit => {
+            {visibleResults.map(hit => {
               const busy = committing === hit.videoId
               return (
                 <button key={hit.videoId} type="button" onClick={() => addFromYt(hit)} disabled={!!committing}

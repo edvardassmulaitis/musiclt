@@ -215,6 +215,12 @@ export default function AdminInboxPage() {
   type EmbedMeta = { title: string | null; label: string; platform: string; thumbnail: string | null; embedSrc: string | null; playable: boolean }
   const [embedMeta, setEmbedMeta] = useState<Record<string, EmbedMeta>>({})
   const [playingEmbed, setPlayingEmbed] = useState<string | null>(null)
+  // 2026-07-17: YouTube paieška Video žingsnyje — greitam embed pridėjimui.
+  type VidHit = { videoId: string; title: string; channel: string; thumbnail: string; viewCount: number | null }
+  const [vidQuery, setVidQuery] = useState('')
+  const [vidResults, setVidResults] = useState<VidHit[]>([])
+  const [vidSearching, setVidSearching] = useState(false)
+  const [vidSearchOpen, setVidSearchOpen] = useState(false)
 
   // Body scroll lock kai edit modal'as atidarytas — užkerta iOS rubber-band
   // scroll'inimą per fixed wrapper'į ir page scroll'o leak'ą kai modal'as veikia.
@@ -372,6 +378,9 @@ export default function AdminInboxPage() {
       setImageOptions([])
     }
     setWikiArtistName(suggested[0]?.name || cand.primary_artist?.name || '')
+    setVidQuery(suggested[0]?.name || cand.primary_artist?.name || '')
+    setVidResults([])
+    setVidSearchOpen(false)
   }
 
   const removeEditArtist = (id: number) => {
@@ -431,6 +440,9 @@ export default function AdminInboxPage() {
     setEditEmbeds([])
     setEmbedMeta({})
     setPlayingEmbed(null)
+    setVidQuery('')
+    setVidResults([])
+    setVidSearchOpen(false)
   }
 
   // 2026-07-17: pakraunam embed'ų metaduomenis (title/thumbnail/embedSrc) tik
@@ -466,6 +478,25 @@ export default function AdminInboxPage() {
       ;[next[index], next[j]] = [next[j], next[index]]
       return next
     })
+  }
+  // 2026-07-17: YouTube paieška Video žingsnyje — pridėti embed'ą iš rezultato.
+  const ytIdOfUrl = (u: string) =>
+    u.match(/[?&]v=([^&]+)/)?.[1] || u.match(/youtu\.be\/([^?&]+)/)?.[1] || u.match(/youtube\.com\/(?:embed|shorts)\/([^?&/]+)/)?.[1] || null
+  const addEmbedVideo = (videoId: string) => {
+    setEditEmbeds(prev => {
+      if (prev.some(u => ytIdOfUrl(u) === videoId)) return prev
+      return [...prev, `https://www.youtube.com/watch?v=${videoId}`]
+    })
+  }
+  const runVidSearch = async (q: string) => {
+    const query = (q || '').trim()
+    if (!query) return
+    setVidSearching(true)
+    try {
+      const res = await fetch(`/api/search/youtube?q=${encodeURIComponent(query)}`)
+      const d = await res.json()
+      setVidResults(Array.isArray(d.results) ? d.results.slice(0, 5) : [])
+    } catch { setVidResults([]) } finally { setVidSearching(false) }
   }
 
   const toggleEditTrack = (id: number) => {
@@ -1433,6 +1464,54 @@ export default function AdminInboxPage() {
                     })}
                   </div>
                 )}
+                {/* Greitai pridėti embed'ą iš YouTube (punktas 2). */}
+                <div className="pt-2 mt-1 border-t border-[var(--border-subtle)]">
+                  {!vidSearchOpen ? (
+                    <button type="button"
+                      onClick={() => { setVidSearchOpen(true); if (vidResults.length === 0) runVidSearch(vidQuery) }}
+                      className="text-[13px] text-blue-600 hover:text-blue-700 font-medium">
+                      ＋ Pridėti video iš YouTube
+                    </button>
+                  ) : (
+                    <div className="space-y-1.5">
+                      <div className="text-[11px] font-semibold text-[var(--text-muted)] uppercase tracking-wide">🔍 Pridėti video iš YouTube</div>
+                      <div className="flex gap-1">
+                        <input
+                          type="text"
+                          value={vidQuery}
+                          onChange={e => setVidQuery(e.target.value)}
+                          onKeyDown={e => { if (e.key === 'Enter') { e.preventDefault(); runVidSearch(vidQuery) } }}
+                          placeholder="Ieškoti video YouTube…"
+                          className="flex-1 px-2.5 py-1.5 border border-[var(--input-border)] rounded-lg text-[13px] bg-[var(--bg-elevated)] text-[var(--text-primary)] focus:outline-none focus:border-blue-400"
+                        />
+                        <button type="button" onClick={() => runVidSearch(vidQuery)} disabled={vidSearching}
+                          className="px-3 py-1.5 bg-blue-600 hover:bg-blue-700 disabled:opacity-50 text-white rounded-lg text-[13px] font-medium shrink-0">
+                          {vidSearching ? '…' : 'Ieškoti'}
+                        </button>
+                      </div>
+                      {(() => {
+                        const fresh = vidResults.filter(h => !editEmbeds.some(u => ytIdOfUrl(u) === h.videoId))
+                        if (vidSearching && fresh.length === 0) return <p className="text-[13px] text-[var(--text-muted)] py-1">Ieškoma…</p>
+                        if (fresh.length === 0) return <p className="text-[13px] text-[var(--text-muted)] py-1">Nieko naujo — pakeisk paiešką.</p>
+                        return (
+                          <div className="space-y-1.5">
+                            {fresh.map(hit => (
+                              <button key={hit.videoId} type="button" onClick={() => addEmbedVideo(hit.videoId)}
+                                className="w-full flex items-center gap-2 rounded-lg border border-[var(--input-border)] bg-[var(--bg-surface)] p-1.5 text-left hover:border-blue-400 hover:bg-blue-50/40">
+                                <img src={hit.thumbnail} alt="" className="w-14 h-9 rounded object-cover bg-black shrink-0" />
+                                <div className="flex-1 min-w-0">
+                                  <div className="text-[13px] font-medium text-[var(--text-primary)] truncate">{hit.title}</div>
+                                  <div className="text-[11px] text-[var(--text-muted)] truncate">{hit.channel}</div>
+                                </div>
+                                <span className="shrink-0 text-blue-600 text-lg font-bold px-1">＋</span>
+                              </button>
+                            ))}
+                          </div>
+                        )
+                      })()}
+                    </div>
+                  )}
+                </div>
               </div>
 
               {/* === MUZIKA (žingsnis 3): susijusios muzikos playeris ===
