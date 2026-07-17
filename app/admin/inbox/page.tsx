@@ -204,8 +204,16 @@ export default function AdminInboxPage() {
   const [artistMeta, setArtistMeta] = useState<Record<number, SuggestedArtist>>({})
   const [artistSearchOpen, setArtistSearchOpen] = useState(false)
   const [previewOpen, setPreviewOpen] = useState(false)
-  // Wizard'o žingsnis: 1 Turinys · 2 Muzika · 3 Nuotraukos → Paskelbti
+  // Wizard'o žingsnis: 1 Turinys · 2 Video · 3 Muzika · 4 Nuotraukos → Paskelbti
   const [editStep, setEditStep] = useState(1)
+  // 2026-07-17: redaguojami embed'ai (Video žingsnis) — iš candidate.embed_urls,
+  // admin gali pašalinti / keisti tvarką. embedMeta — title/thumbnail/embedSrc
+  // iš /api/admin/embed-meta (best-effort). playingEmbed — kuris embed'as dabar
+  // atidarytas grotuvu (inline iframe).
+  const [editEmbeds, setEditEmbeds] = useState<string[]>([])
+  type EmbedMeta = { title: string | null; label: string; platform: string; thumbnail: string | null; embedSrc: string | null; playable: boolean }
+  const [embedMeta, setEmbedMeta] = useState<Record<string, EmbedMeta>>({})
+  const [playingEmbed, setPlayingEmbed] = useState<string | null>(null)
 
   // Body scroll lock kai edit modal'as atidarytas — užkerta iOS rubber-band
   // scroll'inimą per fixed wrapper'į ir page scroll'o leak'ą kai modal'as veikia.
@@ -308,6 +316,9 @@ export default function AdminInboxPage() {
     setEditTitle(decodeHtmlEntities(cand.ai_title || ''))
     setEditBody(await fetchBody(cand.id))
     setEditImages([])
+    // ─── Video embed'ai (redaguojami) ───
+    setEditEmbeds(Array.isArray(cand.embed_urls) ? cand.embed_urls : [])
+    setPlayingEmbed(null)
     // ─── Artist'ų wizard state'as ───
     // Default: TIK primary selected. AI dažnai pasiūlo per daug ne-esminių
     // atlikėjų (Rolling Stones article → +McCartney + Robert Smith + Steve
@@ -397,6 +408,44 @@ export default function AdminInboxPage() {
     setTrackMeta({})
     setPickerOpen(false)
     setPickerInitialQuery('')
+    setEditEmbeds([])
+    setEmbedMeta({})
+    setPlayingEmbed(null)
+  }
+
+  // 2026-07-17: pakraunam embed'ų metaduomenis (title/thumbnail/embedSrc) tik
+  // Video žingsnyje, tik tiems URL'ams, kurių dar neturim. Best-effort — klaida
+  // tyliai palieka be title (rodom platformą + URL).
+  useEffect(() => {
+    if (!editing || editStep !== 2) return
+    const missing = editEmbeds.filter(u => u && !embedMeta[u])
+    if (missing.length === 0) return
+    let cancelled = false
+    ;(async () => {
+      for (const u of missing) {
+        try {
+          const res = await fetch(`/api/admin/embed-meta?url=${encodeURIComponent(u)}`)
+          const m = await res.json()
+          if (cancelled) return
+          if (res.ok) setEmbedMeta(prev => ({ ...prev, [u]: m }))
+        } catch { /* ignore */ }
+      }
+    })()
+    return () => { cancelled = true }
+  }, [editing, editStep, editEmbeds, embedMeta])
+
+  const removeEmbed = (url: string) => {
+    setEditEmbeds(prev => prev.filter(u => u !== url))
+    setPlayingEmbed(p => (p === url ? null : p))
+  }
+  const moveEmbed = (index: number, dir: -1 | 1) => {
+    setEditEmbeds(prev => {
+      const next = [...prev]
+      const j = index + dir
+      if (j < 0 || j >= next.length) return prev
+      ;[next[index], next[j]] = [next[j], next[index]]
+      return next
+    })
   }
 
   const toggleEditTrack = (id: number) => {
@@ -535,6 +584,7 @@ export default function AdminInboxPage() {
         artist_ids: ordered,
         primary_artist_id: editPrimaryId,
         track_ids: editTrackIds,
+        embed_urls: editEmbeds, // Video žingsnis — admin galėjo pašalinti/perrikiuoti
       } as any)
     } finally {
       setSavingEdit(false)
@@ -1158,18 +1208,19 @@ export default function AdminInboxPage() {
                 />
               )}
             </div>
-            {/* Stepper — 1 Turinys · 2 Muzika · 3 Nuotraukos */}
+            {/* Stepper — 1 Turinys · 2 Video · 3 Muzika · 4 Nuotraukos */}
             <div className="flex items-center gap-1 px-3 sm:px-4 py-2 border-b border-[var(--border-subtle)] bg-[var(--bg-surface)] shrink-0">
               {[
                 { n: 1, label: 'Turinys' },
-                { n: 2, label: 'Muzika' },
-                { n: 3, label: 'Nuotraukos' },
-              ].map((s, i) => (
+                { n: 2, label: 'Video' },
+                { n: 3, label: 'Muzika' },
+                { n: 4, label: 'Nuotraukos' },
+              ].map((s, i, arr) => (
                 <div key={s.n} className="flex items-center gap-1 min-w-0">
                   <button
                     type="button"
                     onClick={() => setEditStep(s.n)}
-                    className={`flex items-center gap-1.5 rounded-full px-2.5 py-1 text-xs font-semibold transition-colors ${
+                    className={`flex items-center gap-1.5 rounded-full px-2 py-1 text-xs font-semibold transition-colors ${
                       editStep === s.n
                         ? 'bg-emerald-600 text-white'
                         : editStep > s.n
@@ -1181,7 +1232,7 @@ export default function AdminInboxPage() {
                     }`}>{editStep > s.n ? '✓' : s.n}</span>
                     <span>{s.label}</span>
                   </button>
-                  {i < 2 && <span className="text-[var(--text-faint)] text-xs">·</span>}
+                  {i < arr.length - 1 && <span className="text-[var(--text-faint)] text-xs">·</span>}
                 </div>
               ))}
             </div>
@@ -1280,46 +1331,88 @@ export default function AdminInboxPage() {
               </div>
 
               {/* === Žingsnis 2: Muzika — video embed'ai (info) + katalogo dainos === */}
-              <div className={editStep === 2 ? 'space-y-4' : 'hidden'}>
-                {/* Video embed'ai — automatiškai iš straipsnio, eis po tekstu.
-                    NEtampa katalogo dainomis (tik įterpti video). */}
-                {(() => {
-                  const embeds = editing?.embed_urls || []
-                  if (embeds.length === 0) return null
-                  const ytThumb = (u: string) => {
-                    const v = u.match(/[?&]v=([^&]+)/)?.[1] || u.match(/youtu\.be\/([^?&]+)/)?.[1] || u.match(/youtube\.com\/(?:embed|shorts)\/([^?&/]+)/)?.[1]
-                    return v ? `https://i.ytimg.com/vi/${v}/mqdefault.jpg` : null
-                  }
-                  return (
-                    <div>
-                      <div className="text-xs font-semibold text-[var(--text-muted)] uppercase tracking-wide mb-1.5">
-                        Video <span className="ml-1 normal-case font-normal opacity-70">({embeds.length}) — eis po tekstu kaip įterpti video</span>
-                      </div>
-                      <div className="flex flex-wrap gap-2">
-                        {embeds.map((u, i) => {
-                          const thumb = ytThumb(u)
-                          const isSpotify = /spotify\.com/.test(u)
-                          return (
-                            <div key={i} className="flex items-center gap-2 rounded-lg border border-[var(--input-border)] bg-[var(--bg-elevated)] p-1.5">
-                              {thumb ? (
-                                <img src={thumb} alt="" className="w-16 h-10 rounded object-cover bg-black" />
-                              ) : (
-                                <div className="w-16 h-10 rounded bg-black/80 flex items-center justify-center text-white text-[12px]">{isSpotify ? 'Spotify' : 'Video'}</div>
-                              )}
-                              <span className="text-[12px] text-[var(--text-muted)]">{isSpotify ? '🎧' : '🎬'} embed</span>
+              {/* === VIDEO (žingsnis 2): įterpti embed'ai iš straipsnio ===
+                  YouTube, Instagram, TikTok, Spotify ir kt. Admin gali paleisti,
+                  pašalinti, keisti tvarką. Eina po tekstu kaip įterpti video. */}
+              <div className={editStep === 2 ? 'space-y-3' : 'hidden'}>
+                <div className="text-xs font-semibold text-[var(--text-muted)] uppercase tracking-wide">
+                  Video / embed'ai
+                  <span className="ml-1 normal-case font-normal opacity-70">({editEmbeds.length}) — eina po tekstu, tokia tvarka</span>
+                </div>
+                {editEmbeds.length === 0 ? (
+                  <p className="text-[14px] text-[var(--text-muted)] italic">
+                    Šioje naujienoje įterptų video/embed'ų nerasta.
+                  </p>
+                ) : (
+                  <div className="space-y-2">
+                    {editEmbeds.map((u, i) => {
+                      const meta = embedMeta[u]
+                      const ytV = u.match(/[?&]v=([^&]+)/)?.[1] || u.match(/youtu\.be\/([^?&]+)/)?.[1] || u.match(/youtube\.com\/(?:embed|shorts)\/([^?&/]+)/)?.[1]
+                      const thumb = meta?.thumbnail || (ytV ? `https://i.ytimg.com/vi/${ytV}/mqdefault.jpg` : null)
+                      const label = meta?.label || 'Nuoroda'
+                      const title = meta?.title || (meta ? label : null)
+                      const playable = meta ? meta.playable : !!ytV
+                      const isPlaying = playingEmbed === u
+                      return (
+                        <div key={u} className="rounded-lg border border-[var(--input-border)] bg-[var(--bg-elevated)] overflow-hidden">
+                          <div className="flex items-center gap-2 p-2">
+                            {/* Tvarkos keitimas */}
+                            <div className="flex flex-col shrink-0">
+                              <button type="button" onClick={() => moveEmbed(i, -1)} disabled={i === 0}
+                                aria-label="Aukštyn" className="w-5 h-4 flex items-center justify-center text-[var(--text-muted)] hover:text-[var(--text-primary)] disabled:opacity-30 leading-none">▲</button>
+                              <button type="button" onClick={() => moveEmbed(i, 1)} disabled={i === editEmbeds.length - 1}
+                                aria-label="Žemyn" className="w-5 h-4 flex items-center justify-center text-[var(--text-muted)] hover:text-[var(--text-primary)] disabled:opacity-30 leading-none">▼</button>
                             </div>
-                          )
-                        })}
-                      </div>
-                      <p className="mt-1.5 text-[12px] text-[var(--text-muted)]">
-                        Šie video įterpiami automatiškai. Katalogo dainas (jei reikia) pridėk žemiau.
-                      </p>
-                    </div>
-                  )
-                })()}
+                            {/* Thumbnail */}
+                            {thumb ? (
+                              <img src={thumb} alt="" className="w-16 h-10 rounded object-cover bg-black shrink-0" />
+                            ) : (
+                              <div className="w-16 h-10 rounded bg-black/80 flex items-center justify-center text-white text-[11px] shrink-0">{label}</div>
+                            )}
+                            {/* Title + platforma */}
+                            <div className="flex-1 min-w-0">
+                              <div className="text-[13px] font-medium text-[var(--text-primary)] truncate">
+                                {title || (meta === undefined ? 'Kraunama…' : u)}
+                              </div>
+                              <div className="text-[11px] text-[var(--text-muted)]">{label}</div>
+                            </div>
+                            {/* Paleisti */}
+                            {playable && (
+                              <button type="button" onClick={() => setPlayingEmbed(p => (p === u ? null : u))}
+                                className="shrink-0 px-2 py-1 rounded text-[12px] font-medium bg-blue-50 hover:bg-blue-100 text-blue-700">
+                                {isPlaying ? '▾ Slėpti' : '▶ Paleisti'}
+                              </button>
+                            )}
+                            <a href={u} target="_blank" rel="noopener" title="Atidaryti nuorodą"
+                              className="shrink-0 text-[var(--text-muted)] hover:text-blue-600 text-sm">↗</a>
+                            {/* Pašalinti */}
+                            <button type="button" onClick={() => removeEmbed(u)} aria-label="Pašalinti"
+                              className="shrink-0 w-6 h-6 rounded-full hover:bg-red-100 text-red-500 flex items-center justify-center text-base leading-none">×</button>
+                          </div>
+                          {isPlaying && meta?.embedSrc && (
+                            <div className="border-t border-[var(--border-subtle)] bg-black">
+                              <div className="relative w-full" style={{ aspectRatio: meta.platform === 'instagram' || meta.platform === 'tiktok' ? '9 / 16' : '16 / 9' }}>
+                                <iframe
+                                  src={meta.embedSrc}
+                                  className="absolute inset-0 w-full h-full"
+                                  loading="lazy"
+                                  allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture; fullscreen"
+                                  allowFullScreen
+                                  title={title || 'Embed'}
+                                />
+                              </div>
+                            </div>
+                          )}
+                        </div>
+                      )
+                    })}
+                  </div>
+                )}
+              </div>
+
+              {/* === MUZIKA (žingsnis 3): katalogo dainos (tobulinsim atskirai) === */}
+              <div className={editStep === 3 ? '' : 'hidden'}>
                 {(() => {
-                  const mentions = editing?.ai_tracks_mentioned || []
-                  const suggestedCount = mentions.length
                   const selectedCount = editTrackIds.length
                   const selectedTracks = editTrackIds.map(id => trackMeta[id]).filter(Boolean)
                   return (
@@ -1360,8 +1453,8 @@ export default function AdminInboxPage() {
                 })()}
               </div>
 
-              {/* === Nuotraukos (multi-select, ordered: 1=hero, 2-5=galerija) === (žingsnis 3) */}
-              <div className={editStep === 3 ? '' : 'hidden'}>
+              {/* === Nuotraukos (multi-select, ordered: 1=hero, 2-5=galerija) === (žingsnis 4) */}
+              <div className={editStep === 4 ? '' : 'hidden'}>
                 <div className="text-xs font-semibold text-[var(--text-muted)] uppercase tracking-wide mb-1.5">
                   Nuotraukos
                   {editImages.length > 0 && (
@@ -1506,7 +1599,7 @@ export default function AdminInboxPage() {
                 className="px-3 py-1.5 sm:py-2 bg-[var(--bg-elevated)] hover:bg-[var(--bg-active)] rounded-lg text-sm font-medium text-[var(--text-secondary)]">
                 {editStep === 1 ? 'Atšaukti' : '← Atgal'}
               </button>
-              {editStep < 3 ? (
+              {editStep < 4 ? (
                 <button
                   onClick={() => setEditStep(s => s + 1)}
                   disabled={editStep === 1 && (!editTitle.trim() || !editBody.trim() || editArtistIds.length === 0)}

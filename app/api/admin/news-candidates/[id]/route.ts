@@ -372,9 +372,13 @@ export async function PATCH(req: NextRequest, { params }: { params: Promise<{ id
       }
     }
 
-    // 2) Embed URLs iš source'o — eina į apačią kaip embed'ai (is_embed=true),
-    //    NE kaip katalogo dainos. Skipinam dublikatus jei daina jau turi tą video.
-    const embeds: string[] = (cand.embed_urls || []) as string[]
+    // 2) Embed URLs — eina į apačią kaip embed'ai (is_embed=true), NE kaip
+    //    katalogo dainos. Skipinam dublikatus jei daina jau turi tą video.
+    //    2026-07-17: admin gali perrikiuoti/pašalinti embed'us Video žingsnyje →
+    //    naudojam body.embed_urls override, jei paduotas; kitaip candidate'o.
+    const embeds: string[] = Array.isArray(body.embed_urls)
+      ? (body.embed_urls as string[])
+      : ((cand.embed_urls || []) as string[])
     let order = songsToInsert.length
     for (const url of embeds) {
       if (songsToInsert.some(s => s.youtube_url === url)) continue

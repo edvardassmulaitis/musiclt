@@ -93,7 +93,7 @@ export async function POST(
   // Run Sonnet normalize su improved prompt'u
   const artistHint = await getTopArtistsForHint(500)
   const embedHint = article.embed_urls.length > 0
-    ? `\n\nSOURCE'E RASTI EMBED'AI (YT/Spotify/SoundCloud/Bandcamp) — ĮDĖK į embed_urls output'ą:\n${article.embed_urls.join('\n')}`
+    ? `\n\nSOURCE'E RASTI EMBED'AI (YT/Spotify/SoundCloud/Bandcamp/Instagram/TikTok/Facebook/X) — ĮDĖK VISUS į embed_urls output'ą tokia pačia tvarka:\n${article.embed_urls.join('\n')}`
     : ''
 
   let ai

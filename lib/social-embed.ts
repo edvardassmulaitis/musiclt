@@ -56,3 +56,50 @@ export function youtubeId(rawUrl: string): string | null {
     return null
   }
 }
+
+/** Instagram post/reel shortcode iš URL. */
+export function instagramShortcode(rawUrl: string): { kind: 'p' | 'reel' | 'tv'; code: string } | null {
+  const m = (rawUrl || '').match(/instagram\.com\/(p|reel|tv)\/([\w-]+)/i)
+  if (!m) return null
+  return { kind: m[1].toLowerCase() as 'p' | 'reel' | 'tv', code: m[2] }
+}
+
+/** TikTok video ID iš URL (formos /video/{id} arba /embed/v2/{id}). */
+export function tiktokVideoId(rawUrl: string): string | null {
+  const m = (rawUrl || '').match(/tiktok\.com\/(?:@[\w.]+\/video|embed(?:\/v2)?)\/(\d+)/i)
+  return m ? m[1] : null
+}
+
+/**
+ * Iframe `src` grotuvui pagal platformą. Grąžina null, jei platforma neturi
+ * paprasto iframe embed'o (X, Facebook, unknown) — tada rodom nuorodos kortelę.
+ * Naudojama tiek admin peržiūroje (embedų preview), tiek galima ir viešame
+ * puslapyje.
+ */
+export function buildEmbedSrc(rawUrl: string): string | null {
+  const url = (rawUrl || '').trim()
+  if (!url) return null
+  const platform = detectPlatform(url)
+
+  if (platform === 'youtube') {
+    const id = youtubeId(url)
+    return id ? `https://www.youtube-nocookie.com/embed/${id}?rel=0` : null
+  }
+  if (platform === 'instagram') {
+    const ig = instagramShortcode(url)
+    return ig ? `https://www.instagram.com/${ig.kind}/${ig.code}/embed` : null
+  }
+  if (platform === 'tiktok') {
+    const id = tiktokVideoId(url)
+    return id ? `https://www.tiktok.com/embed/v2/${id}` : null
+  }
+  if (/spotify\.com/i.test(url)) {
+    const m = url.match(/open\.spotify\.com\/(track|album|artist|playlist|episode|show)\/([\w]+)/i)
+    return m ? `https://open.spotify.com/embed/${m[1]}/${m[2]}` : null
+  }
+  if (/soundcloud\.com/i.test(url)) {
+    return `https://w.soundcloud.com/player/?url=${encodeURIComponent(url)}&visual=true`
+  }
+  // facebook, x, bandcamp, unknown → nėra paprasto iframe embed'o
+  return null
+}

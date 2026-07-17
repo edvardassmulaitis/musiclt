@@ -75,18 +75,26 @@ export function parseHtml(html: string, baseUrl: string): ExtractedArticle {
     }
   }
 
-  // 7a) PRIEŠ strip'inant — extract'inam embed URLs (YT/Spotify/SoundCloud/Bandcamp)
+  // 7a) PRIEŠ strip'inant — extract'inam embed URLs. 2026-07-17: be YT/Spotify/
+  // SoundCloud/Bandcamp dabar gaudom ir socialinius (Instagram/TikTok/Facebook/X)
+  // — press release'uose ir naujienose vis dažniau įterpiami būtent jie.
+  const EMBED_HOST = /youtube\.com|youtu\.be|spotify\.com|soundcloud\.com|bandcamp\.com|instagram\.com|tiktok\.com|facebook\.com|fb\.watch|twitter\.com|x\.com/i
   const embedUrls: string[] = []
   // iframe src
   const iframeMatches = bodyHtml.matchAll(/<iframe[^>]+src=["']([^"']+)/gi)
   for (const m of iframeMatches) {
     const src = m[1]
-    if (/youtube\.com|youtu\.be|spotify\.com|soundcloud\.com|bandcamp\.com/i.test(src)) {
+    if (EMBED_HOST.test(src)) {
       embedUrls.push(absoluteUrl(src, baseUrl))
     }
   }
-  // Anchor links to music platforms (Pitchfork often inline-links these)
-  const linkMatches = bodyHtml.matchAll(/<a[^>]+href=["']([^"']*(?:youtube\.com\/watch|youtu\.be\/[\w-]+|open\.spotify\.com|soundcloud\.com\/[\w-]+\/[\w-]+|[\w-]+\.bandcamp\.com)[^"']*)["']/gi)
+  // blockquote embed'ai (Instagram/TikTok/X naudoja <blockquote ... data-*-permalink|cite>)
+  const bqMatches = bodyHtml.matchAll(/<blockquote[^>]+(?:cite|data-instgrm-permalink|data-video-id|data-url)=["']([^"']+)["'][^>]*>/gi)
+  for (const m of bqMatches) {
+    if (EMBED_HOST.test(m[1])) embedUrls.push(absoluteUrl(m[1], baseUrl))
+  }
+  // Anchor links į media/socialines platformas (dažnai inline-link'inama)
+  const linkMatches = bodyHtml.matchAll(/<a[^>]+href=["']([^"']*(?:youtube\.com\/watch|youtu\.be\/[\w-]+|open\.spotify\.com|soundcloud\.com\/[\w-]+\/[\w-]+|[\w-]+\.bandcamp\.com|instagram\.com\/(?:p|reel|tv)\/[\w-]+|tiktok\.com\/@[\w.]+\/video\/\d+)[^"']*)["']/gi)
   for (const m of linkMatches) {
     embedUrls.push(absoluteUrl(m[1], baseUrl))
   }

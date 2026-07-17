@@ -318,7 +318,7 @@ export async function normalizeArticle(input: {
         },
         embed_urls: {
           type: 'array' as const,
-          description: 'YouTube, Spotify, SoundCloud or Bandcamp URLs found in source article (especially for new release announcements). Include full URLs.',
+          description: 'Media/social embed URLs found in the source article: YouTube, Spotify, SoundCloud, Bandcamp, AND social posts (Instagram, TikTok, Facebook, X/Twitter). Include ALL of them with full URLs, in the order they appear (especially for new release announcements and posts the artist shared).',
           items: { type: 'string' as const },
         },
         confidence: {
