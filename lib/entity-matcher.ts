@@ -221,3 +221,47 @@ export async function getTopArtistsForHint(limit = 500): Promise<string[]> {
     .limit(limit)
   return (data || []).map((r: any) => r.name).filter(Boolean)
 }
+
+/**
+ * Aptikti atlikėjų paminėjimus laisvame tekste (Gmail press release'ai ir pan.),
+ * substring'u prieš katalogo atlikėjų sąrašą (word-boundary, case-insensitive).
+ *
+ * Naudojama Gmail ingestijoje IR admin rematch endpoint'e — vienas šaltinis, kad
+ * abu keliai elgtųsi vienodai.
+ *
+ * 2026-07-17: hint anksčiau buvo TIK top 500 pagal legacy_likes — realūs katalogo
+ * atlikėjai už to slenksčio (pvz. Gogol Bordello rank 563, The Cinematic Orchestra
+ * rank 900) niekada nebūdavo aptinkami, tad gmail naujienos likdavo be atlikėjo.
+ * Default pakeltas iki 3000, kad apimtų prasmingą katalogo dalį. Rezultatai eina į
+ * `suggested_artist_ids` kaip PASIŪLYMAI — admin'as vis tiek patvirtina prieš
+ * publikaciją, tad platesnis langas saugus (galimą retą false-positive admin'as
+ * pašalina peržiūros modal'e).
+ *
+ * @param text laisvas tekstas (subject + body + title)
+ * @param opts.hintLimit kiek katalogo atlikėjų (pagal legacy_likes) tikrinti
+ * @param opts.maxMentions kiek daugiausiai paminėjimų grąžinti
+ */
+export async function detectArtistMentions(
+  text: string,
+  opts: { hintLimit?: number; maxMentions?: number } = {}
+): Promise<Array<{ name: string }>> {
+  const hintLimit = opts.hintLimit ?? 3000
+  const maxMentions = opts.maxMentions ?? 5
+  const hint = await getTopArtistsForHint(hintLimit)
+  const haystack = (text || '').toLowerCase()
+  if (!haystack.trim()) return []
+
+  const mentions: Array<{ name: string }> = []
+  for (const raw of hint) {
+    const name = (raw || '').toLowerCase()
+    // Word-boundary check kad „bo" nematchintų į „bonus"; min ilgis 3 saugo nuo
+    // per trumpų/triukšmingų vardų.
+    if (!name || name.length < 3) continue
+    const pattern = new RegExp(`(^|\\W)${name.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')}(\\W|$)`)
+    if (pattern.test(haystack)) {
+      mentions.push({ name: raw })
+      if (mentions.length >= maxMentions) break
+    }
+  }
+  return mentions
+}

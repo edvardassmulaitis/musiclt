@@ -40,7 +40,7 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { createAdminClient } from '@/lib/supabase'
 import { classifyMusicRelevance } from '@/lib/ai-normalize'
-import { matchArtists, matchTracks, getTopArtistsForHint } from '@/lib/entity-matcher'
+import { matchArtists, matchTracks, detectArtistMentions } from '@/lib/entity-matcher'
 import { extractExifFromBuffer } from '@/lib/exif-extract'
 import { extractDocxFromBuffer } from '@/lib/docx-extract'
 import { extractPhotographerFromText, extractDriveLinks } from '@/lib/extract-credits'
@@ -260,20 +260,13 @@ export async function POST(req: NextRequest) {
     extractPhotographerFromText(docxBodyText || '') ||
     extractPhotographerFromText(rawBody)
 
-  // Artist scan — substring match prieš top 500 (case-insensitive, žodžio ribos)
-  const artistHint = await getTopArtistsForHint(500)
-  const fullText = `${subject || ''} ${rawBody}`.toLowerCase()
-  const artistsMentioned: Array<{ name: string }> = []
-  for (const a of artistHint as any[]) {
-    const name = (a?.name || '').toLowerCase()
-    if (!name || name.length < 3) continue
-    // Word-boundary check kad „bo" nematchintų į „bonus"
-    const pattern = new RegExp(`(^|\\W)${name.replace(/[.*+?^${}()|[\\]\\\\]/g, '\\$&')}(\\W|$)`)
-    if (pattern.test(fullText)) {
-      artistsMentioned.push({ name: a.name })
-      if (artistsMentioned.length >= 5) break
-    }
-  }
+  // Artist scan — substring match prieš katalogą (word-boundary, case-insensitive).
+  // 2026-07-17: iškelta į bendrą lib/entity-matcher.detectArtistMentions ir hint
+  // praplėstas 500→3000, kad katalogo atlikėjai už top-500 (pvz. Gogol Bordello,
+  // The Cinematic Orchestra) irgi būtų aptinkami. Tas pats helper'is naudojamas ir
+  // admin rematch endpoint'e.
+  const fullText = `${subject || ''} ${rawBody}`
+  const artistsMentioned = await detectArtistMentions(fullText)
 
   // 2026-06-11: track mention'ai iš kabučių antraštėje + pirmame paragrafe —
   // press release'uose dainos visada kabutėse („Vasara", "DNA", 'Laikas').

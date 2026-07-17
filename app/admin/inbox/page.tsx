@@ -171,6 +171,12 @@ export default function AdminInboxPage() {
   const [recentPublishByArtist, setRecentPublishByArtist] = useState<Record<number, string>>({})
   // Rankiniu būdu atidarytos/uždarytos atlikėjų grupės (žr. groupedCandidates žemiau).
   const [openGroups, setOpenGroups] = useState<Set<string>>(new Set())
+  // 2026-07-17: rikiavimo režimas. 'smart' = subalansuotas (recency 50% +
+  // populiarumas 50%) — kad naujausios naujienos nebūtų užgožtos vien populiarių
+  // atlikėjų; 'newest' = tik pagal datą; 'popular' = tik pagal populiarumą.
+  const [sortMode, setSortMode] = useState<'smart' | 'newest' | 'popular'>('smart')
+  // Rematch (atlikėjų priskyrimas nepriskirtiems kandidatams) būsena.
+  const [rematching, setRematching] = useState(false)
   // 2026-05-20: rewriting state — kuriam candidate'ui dabar paleistas Sonnet
   // rewrite'as. UI rodo „⏳ Perrašoma..." mygtuke.
   const [rewritingIds, setRewritingIds] = useState<Set<number>>(new Set())
@@ -571,16 +577,32 @@ export default function AdminInboxPage() {
       if (new Date(itemDate).getTime() > new Date(g.latestAt).getTime()) g.latestAt = itemDate
     }
     const arr = Array.from(map.values())
-    // Grupės, kur atlikėjui jau neseniai paskelbta, nuslenka į apačią —
-    // vis dar matomos (nieko netrinam), bet nebekliudo prioritetiniam srautui.
+    // 2026-07-17: rikiavimas priklauso nuo sortMode.
+    //  • 'smart'   — subalansuotas: recency 50% + populiarumas 50% (kad
+    //                naujausios naujienos nebūtų užgožtos vien populiarių atlikėjų)
+    //  • 'newest'  — tik pagal naujausios grupės naujienos datą
+    //  • 'popular' — tik pagal grupės rank (topScore, populiarumas dominuoja)
+    const now = Date.now()
+    const recencyOf = (iso: string) => {
+      const ageDays = (now - new Date(iso).getTime()) / 86_400_000
+      return Math.max(0, Math.exp(-ageDays / 7)) // ~7d half-life
+    }
+    const popOf = (g: ArtistGroup) => Math.min(1, Math.max(0, (g.artist?.score ?? 0) / 100))
+    const keyOf = (g: ArtistGroup) => {
+      if (sortMode === 'newest') return new Date(g.latestAt).getTime()
+      if (sortMode === 'popular') return g.topScore
+      return recencyOf(g.latestAt) * 0.5 + popOf(g) * 0.5
+    }
+    // Grupės, kur atlikėjui jau neseniai paskelbta, nuslenka į apačią — vis dar
+    // matomos (nieko netrinam), bet nebekliudo prioritetiniam srautui.
     arr.sort((a, b) => {
       const aRecent = !!a.recentPublishAt
       const bRecent = !!b.recentPublishAt
       if (aRecent !== bRecent) return aRecent ? 1 : -1
-      return b.topScore - a.topScore
+      return keyOf(b) - keyOf(a)
     })
     return arr
-  }, [candidates, recentPublishByArtist])
+  }, [candidates, recentPublishByArtist, sortMode])
 
   const toggleGroup = (key: string) => {
     setOpenGroups(prev => {
@@ -599,6 +621,33 @@ export default function AdminInboxPage() {
     if (!window.confirm(`Atmesti visas ${group.items.length} naujienas apie ${label}?`)) return
     await Promise.all(group.items.map(c => handleAction(c.id, 'reject', {})))
   }
+
+  // 2026-07-17: pakartotinis atlikėjų priskyrimas nepriskirtiems kandidatams
+  // (pvz. gmail naujienos, kurių atlikėjas buvo už tuometinio hint lango). Po
+  // sėkmės — perkraunam sąrašą, kad priskirti kandidatai iškart sugrupuotų.
+  const handleRematch = async () => {
+    setRematching(true)
+    try {
+      const res = await fetch('/api/admin/news-candidates/rematch', { method: 'POST' })
+      const data = await res.json()
+      if (!res.ok) {
+        alert(`Klaida: ${data.error || 'Nežinoma'}`)
+        return
+      }
+      await load()
+      alert(`Priskirta atlikėjų: ${data.updated} iš ${data.scanned} patikrintų.`)
+    } catch (e: any) {
+      alert(`Rematch klaida: ${e?.message || e}`)
+    } finally {
+      setRematching(false)
+    }
+  }
+
+  // Kiek kandidatų sąraše dar be atlikėjo (rematch mygtuko rodymui).
+  const unmatchedCount = useMemo(
+    () => candidates.filter(c => !c.primary_artist && !(c.suggested_artists && c.suggested_artists.length > 0)).length,
+    [candidates]
+  )
 
   // Vienos naujienos kortelė — anksčiau buvo inline candidates.map() IIFE,
   // ištraukta į funkciją, kad ją galima būtų naudoti tiek flat sąraše
@@ -881,6 +930,42 @@ export default function AdminInboxPage() {
 
       <div className="max-w-5xl mx-auto px-3 sm:px-4 py-3">
         <InboxTabs />
+
+        {/* Rikiavimo juostelė + rematch. 2026-07-17. */}
+        {candidates.length > 0 && (
+          <div className="flex items-center gap-2 mb-3 flex-wrap">
+            <span className="text-xs text-[var(--text-muted)]">Rikiuoti:</span>
+            <div className="inline-flex rounded-lg border border-[var(--input-border)] overflow-hidden text-xs">
+              {([
+                { k: 'smart', label: '⚖️ Svarbiausi' },
+                { k: 'newest', label: '🕐 Naujausi' },
+                { k: 'popular', label: '🔥 Populiariausi' },
+              ] as const).map(o => (
+                <button
+                  key={o.k}
+                  type="button"
+                  onClick={() => setSortMode(o.k)}
+                  className={`px-2.5 py-1 font-medium transition-colors ${
+                    sortMode === o.k
+                      ? 'bg-blue-600 text-white'
+                      : 'bg-[var(--bg-surface)] text-[var(--text-muted)] hover:bg-[var(--bg-elevated)]'
+                  }`}>
+                  {o.label}
+                </button>
+              ))}
+            </div>
+            {unmatchedCount > 0 && (
+              <button
+                type="button"
+                onClick={handleRematch}
+                disabled={rematching}
+                title="Bandyti automatiškai priskirti atlikėjus kandidatams be atlikėjo"
+                className="ml-auto px-2.5 py-1 text-xs font-medium bg-amber-50 hover:bg-amber-100 text-amber-700 border border-amber-200 rounded-lg disabled:opacity-50">
+                {rematching ? '⏳ Priskiriama…' : `🔗 Priskirti atlikėjus (${unmatchedCount})`}
+              </button>
+            )}
+          </div>
+        )}
 
         {candidates.length === 0 ? (
           <div className="bg-[var(--bg-surface)] border border-[var(--input-border)] rounded-2xl p-16 text-center">
