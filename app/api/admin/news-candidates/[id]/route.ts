@@ -12,6 +12,7 @@ import { getServerSession } from 'next-auth'
 import { authOptions } from '@/lib/auth'
 import { createAdminClient } from '@/lib/supabase'
 import { extractVideoIdFromUrl } from '@/lib/yt-innertube'
+import { detectPlatform, buildEmbedSrc } from '@/lib/social-embed'
 
 export const runtime = 'nodejs'
 
@@ -299,6 +300,20 @@ export async function PATCH(req: NextRequest, { params }: { params: Promise<{ id
     // Multi-image: pirma → image_title + image_small (hero). Likusios 2-5 →
     // image1_url..image4_url legacy slots (image5_url paliktas atskirai).
     const galleryImages = wizardImages.slice(1, 5)
+
+    // 2026-07-17: Video žingsnio embed'ai → news.embeds (JSONB), kad viešame
+    // straipsnyje būtų renderinami kaip iframe'ai (NewsEmbeds), o NE į news_songs
+    // (kur dubliuodavosi su grotuvo dainomis). YT — embedUrl paliekam null (front
+    // pats deda youtube.com/embed); IG/TikTok/Spotify/SoundCloud — buildEmbedSrc.
+    const embedUrls: string[] = Array.isArray(body.embed_urls)
+      ? (body.embed_urls as string[])
+      : ((cand.embed_urls || []) as string[])
+    const newsEmbeds = embedUrls.filter(Boolean).map((url: string) => {
+      const platform = detectPlatform(url)
+      const isYt = /youtube\.com|youtu\.be/i.test(url)
+      return { url, type: platform, embedUrl: isYt ? null : buildEmbedSrc(url), thumbnailUrl: null, title: null }
+    })
+
     const { data: created, error: insErr } = await supabase
       .from('news')
       .insert({
@@ -306,6 +321,7 @@ export async function PATCH(req: NextRequest, { params }: { params: Promise<{ id
         slug: finalSlug,
         title: overrideTitle,
         body: bodyWithSource,
+        embeds: newsEmbeds,
         type: 'news',
         author_id: (session.user as any).id || null,
         source_url: cand.source_url,
@@ -372,25 +388,9 @@ export async function PATCH(req: NextRequest, { params }: { params: Promise<{ id
       }
     }
 
-    // 2) Embed URLs — eina į apačią kaip embed'ai (is_embed=true), NE kaip
-    //    katalogo dainos. Skipinam dublikatus jei daina jau turi tą video.
-    //    2026-07-17: admin gali perrikiuoti/pašalinti embed'us Video žingsnyje →
-    //    naudojam body.embed_urls override, jei paduotas; kitaip candidate'o.
-    const embeds: string[] = Array.isArray(body.embed_urls)
-      ? (body.embed_urls as string[])
-      : ((cand.embed_urls || []) as string[])
-    let order = songsToInsert.length
-    for (const url of embeds) {
-      if (songsToInsert.some(s => s.youtube_url === url)) continue
-      songsToInsert.push({
-        news_id: created.id,
-        sort_order: order++,
-        title: '',
-        artist_name: '',
-        youtube_url: url,
-        is_embed: true,
-      })
-    }
+    // 2026-07-17: Video žingsnio embed'ai NEBEDEDAMI į news_songs — jie eina į
+    // news.embeds (žr. aukščiau) ir renderinami straipsnio kūne. news_songs lieka
+    // TIK katalogo dainos (grotuvas), tad nebėra dublikatų (pvz. Paradise 2x).
 
     if (songsToInsert.length > 0) {
       const { error: songsErr } = await supabase

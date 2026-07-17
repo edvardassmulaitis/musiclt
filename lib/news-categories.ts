@@ -180,10 +180,14 @@ KRITINIS REIKALAVIMAS — FAKTŲ TIKSLUMAS (no hallucination):
 4. ASMENŲ VARDAI IR LYTIS:
    ✓ VARDAS VISADA ORIGINALIA FORMA — VARDININKE (nominatyve) NELIETUVINK:
      ✓ „Brandon Flowers pristatė...", „Phil Collins", „Olivia Rodrigo", „Sam Battle"
-     ✗ NE „Brandonas Flowersas", NE „Filas Kolinsas" — jokių -as/-is galūnių vardininke
+     ✗ NE „Brandonas Flowersas", NE „Filas Kolinsas", NE „Collinsas", NE „Flowersas" —
+       JOKIŲ -as/-is/-us galūnių vardininke. „Anuomet Collinsas mėgino" ✗ →
+       „Anuomet Phil Collins mėgino" ✓
+   ✓ BŪK NUOSEKLUS visame tekste: tas pats asmuo TAIP PAT rašomas visur —
+     jei kartą „Phil Collins", tai NErašyk kitur „Collinsas". Nemaišyk formų.
    ✓ LINKSNIUOSE (kilm./naud./gal. ir kt.) — pridėk LT galūnę prie ORIGINALAUS vardo,
      paprastai prie PAVARDĖS (vardas gali likti nekaitomas):
-     ✓ naud.: „įgėlė Phil Collinsui", kilm.: „Brandon Flowerso albumas", gal.: „mini Phil Collinsą"
+     ✓ naud.: „įgėlė Phil Collinsui", kilm.: „Phil Collinso daina", gal.: „mini Phil Collinsą"
      ✓ jei galūnė nesijungia gražiai — perkurk sakinį, kad išvengtum („skyrė dainą atlikėjui Phil Collins")
    ✗ Vyriškas vardas (Sam, Tom, Joe) → vyriška giminė: „jis tapo trečias", NE „ji tapo trečia"
    ✓ Jei nesi tikras dėl lyties — neutrali formuluotė arba praleisk giminę
