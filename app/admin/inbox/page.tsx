@@ -10,6 +10,7 @@ import InboxTabs from '@/components/InboxTabs'
 import { useInboxCounts } from '@/components/useInboxCounts'
 import ArtistSearchInput from '@/components/ui/ArtistSearchInput'
 import TrackSuggestPicker, { type PickResult } from '@/components/TrackSuggestPicker'
+import NewsMusicPicker, { type AttachedTrack } from '@/components/NewsMusicPicker'
 import { decodeHtmlEntities } from '@/lib/html-entities'
 import dynamic from 'next/dynamic'
 
@@ -235,7 +236,7 @@ export default function AdminInboxPage() {
   // sukūrimo, search'inam DB pagal name'ą ir auto-add'inam į wizard'ą.
   // Wizard'o track'ų state — pasirinkti DB track_ids (matched + naujai sukurti)
   const [editTrackIds, setEditTrackIds] = useState<number[]>([])
-  const [trackMeta, setTrackMeta] = useState<Record<number, { id: number; title: string; artist_name: string }>>({})
+  const [trackMeta, setTrackMeta] = useState<Record<number, { id: number; title: string; artist_name: string; video_url?: string }>>({})
   // Track picker modal state
   const [pickerOpen, setPickerOpen] = useState(false)
   const [pickerInitialQuery, setPickerInitialQuery] = useState<string>('')
@@ -338,9 +339,28 @@ export default function AdminInboxPage() {
     setEditArtistIds(primaryId ? [primaryId] : [])
     setEditPrimaryId(primaryId)
 
-    // Tracks: matched (suggested_track_ids) default checked
-    setEditTrackIds(cand.suggested_track_ids || [])
-    setTrackMeta({}) // bus papildyta kai user'is sukuria tracks
+    // Tracks: naujienoje identifikuotos IR kataloge rastos dainos — iškart
+    // pridėtos (admin gali pašalinti). trackMeta užpildom iš ai_tracks_mentioned
+    // (title + YT thumbnail), kad „Prie playerio" kortelės iškart matytųsi.
+    {
+      const aiMentions = cand.ai_tracks_mentioned || []
+      const artistNameForMeta = cand.primary_artist?.name || suggested[0]?.name || ''
+      const meta: Record<number, { id: number; title: string; artist_name: string; video_url?: string }> = {}
+      const preIds: number[] = []
+      for (const m of aiMentions) {
+        if (m.matched_track_id && !meta[m.matched_track_id]) {
+          meta[m.matched_track_id] = {
+            id: m.matched_track_id,
+            title: m.title,
+            artist_name: m.artist || artistNameForMeta,
+            video_url: m.youtube_url || undefined,
+          }
+          preIds.push(m.matched_track_id)
+        }
+      }
+      setEditTrackIds(preIds.length > 0 ? preIds : (cand.suggested_track_ids || []))
+      setTrackMeta(meta)
+    }
     // Image picker options
     try {
       const res = await fetch(`/api/admin/news-candidates/${cand.id}/images`)
@@ -462,6 +482,15 @@ export default function AdminInboxPage() {
     setPickerOpen(true)
   }
 
+  // 2026-07-17: NewsMusicPicker pridėjimo/šalinimo handler'iai.
+  const handleAddTrack = (t: AttachedTrack) => {
+    setTrackMeta(prev => ({ ...prev, [t.id]: { id: t.id, title: t.title, artist_name: t.artist_name, video_url: t.video_url } }))
+    setEditTrackIds(prev => (prev.includes(t.id) ? prev : [...prev, t.id]))
+  }
+  const handleRemoveTrack = (id: number) => {
+    setEditTrackIds(prev => prev.filter(x => x !== id))
+  }
+
   const handlePickerManyResults = (results: PickResult[]) => {
     if (!results || results.length === 0) {
       setPickerOpen(false)
@@ -470,7 +499,7 @@ export default function AdminInboxPage() {
     setTrackMeta(prev => {
       const next = { ...prev }
       for (const r of results) {
-        next[r.track_id] = { id: r.track_id, title: r.title, artist_name: r.artist_name }
+        next[r.track_id] = { id: r.track_id, title: r.title, artist_name: r.artist_name, video_url: r.video_url || undefined }
       }
       return next
     })
@@ -1407,53 +1436,32 @@ export default function AdminInboxPage() {
               </div>
 
               {/* === MUZIKA (žingsnis 3): susijusios muzikos playeris ===
-                  Inline dainų picker'is (DB match + YouTube quick-import) — be
-                  „Tvarkyti" gate'o. Identifikuotos naujienos dainos (ai_tracks_
-                  mentioned) + embed'ai paduodami kaip signalas. */}
-              <div className={editStep === 3 ? 'space-y-2' : 'hidden'}>
+                  Minimalus NewsMusicPicker — pridėtos dainos (su ×) + YouTube
+                  paieška su identifikuotomis dainomis. Mount'inasi tik esant
+                  šitame žingsnyje (netaško YT kvotos). */}
+              <div className={editStep === 3 ? '' : 'hidden'}>
                 {(() => {
-                  const selectedTracks = editTrackIds.map(id => trackMeta[id]).filter(Boolean)
                   const targetArtistId = editPrimaryId || editArtistIds[0]
                   const targetArtist = targetArtistId ? artistMeta[targetArtistId] : null
                   const targetName = targetArtist?.name || editing?.primary_artist?.name || ''
-                  return (
-                    <>
-                      <div className="text-xs font-semibold text-[var(--text-muted)] uppercase tracking-wide flex items-center gap-1.5">
-                        <span>Muzika {editTrackIds.length > 0 && <span className="text-emerald-600">({editTrackIds.length})</span>}</span>
-                        <span className="normal-case font-normal opacity-60">— dainos prie naujienos playerio</span>
-                      </div>
-                      {/* Pridėtos dainos (chips su ×) */}
-                      {selectedTracks.length > 0 && (
-                        <div className="flex flex-wrap gap-1">
-                          {selectedTracks.map(t => (
-                            <div key={t.id} className="inline-flex items-center gap-1 px-1.5 py-0.5 bg-emerald-50 border border-emerald-200 rounded-full text-[13px]">
-                              <span className="truncate max-w-[200px]">{t.title}</span>
-                              <button type="button" onClick={() => toggleEditTrack(t.id)} aria-label="Pašalinti"
-                                className="w-3.5 h-3.5 rounded-full hover:bg-red-200 text-red-500 flex items-center justify-center text-xs leading-none">×</button>
-                            </div>
-                          ))}
-                        </div>
-                      )}
-                      {/* Inline picker — mount'inasi tik kai esam šitame žingsnyje */}
-                      {editStep === 3 && (
-                        !targetArtistId ? (
-                          <p className="text-[14px] text-amber-600">Pirma priskirk atlikėją (1 žingsnis „Turinys").</p>
-                        ) : (
-                          <TrackSuggestPicker
-                            key={targetArtistId}
-                            inline
-                            artistId={targetArtistId}
-                            artistName={targetName}
-                            embedUrls={editEmbeds}
-                            aiMentions={editing?.ai_tracks_mentioned || []}
-                            alreadySelectedIds={editTrackIds}
-                            onPickMany={handlePickerManyResults}
-                            onClose={() => {}}
-                          />
-                        )
-                      )}
-                    </>
-                  )
+                  const attached: AttachedTrack[] = editTrackIds
+                    .map(id => trackMeta[id])
+                    .filter(Boolean)
+                    .map(t => ({ id: t.id, title: t.title, artist_name: t.artist_name, video_url: t.video_url }))
+                  if (!targetArtistId) {
+                    return <p className="text-[14px] text-amber-600">Pirma priskirk atlikėją (1 žingsnis „Turinys").</p>
+                  }
+                  return editStep === 3 ? (
+                    <NewsMusicPicker
+                      key={targetArtistId}
+                      artistId={targetArtistId}
+                      artistName={targetName}
+                      mentions={editing?.ai_tracks_mentioned || []}
+                      attached={attached}
+                      onAdd={handleAddTrack}
+                      onRemove={handleRemoveTrack}
+                    />
+                  ) : null
                 })()}
               </div>
 
