@@ -10,7 +10,7 @@ import InboxTabs from '@/components/InboxTabs'
 import { useInboxCounts } from '@/components/useInboxCounts'
 import ArtistSearchInput from '@/components/ui/ArtistSearchInput'
 import TrackSuggestPicker, { type PickResult } from '@/components/TrackSuggestPicker'
-import NewsMusicPicker, { type AttachedTrack } from '@/components/NewsMusicPicker'
+import NewsMusicPicker from '@/components/NewsMusicPicker'
 import { decodeHtmlEntities } from '@/lib/html-entities'
 import dynamic from 'next/dynamic'
 
@@ -482,10 +482,10 @@ export default function AdminInboxPage() {
     setPickerOpen(true)
   }
 
-  // 2026-07-17: NewsMusicPicker pridėjimo/šalinimo handler'iai.
-  const handleAddTrack = (t: AttachedTrack) => {
-    setTrackMeta(prev => ({ ...prev, [t.id]: { id: t.id, title: t.title, artist_name: t.artist_name, video_url: t.video_url } }))
-    setEditTrackIds(prev => (prev.includes(t.id) ? prev : [...prev, t.id]))
+  // 2026-07-17: NewsMusicPicker pridėjimo/šalinimo handler'iai (tik track_id;
+  // komponentas pats fetch'ina tikrus DB duomenis).
+  const handleAddTrack = (id: number) => {
+    setEditTrackIds(prev => (prev.includes(id) ? prev : [...prev, id]))
   }
   const handleRemoveTrack = (id: number) => {
     setEditTrackIds(prev => prev.filter(x => x !== id))
@@ -1444,10 +1444,6 @@ export default function AdminInboxPage() {
                   const targetArtistId = editPrimaryId || editArtistIds[0]
                   const targetArtist = targetArtistId ? artistMeta[targetArtistId] : null
                   const targetName = targetArtist?.name || editing?.primary_artist?.name || ''
-                  const attached: AttachedTrack[] = editTrackIds
-                    .map(id => trackMeta[id])
-                    .filter(Boolean)
-                    .map(t => ({ id: t.id, title: t.title, artist_name: t.artist_name, video_url: t.video_url }))
                   if (!targetArtistId) {
                     return <p className="text-[14px] text-amber-600">Pirma priskirk atlikėją (1 žingsnis „Turinys").</p>
                   }
@@ -1457,7 +1453,7 @@ export default function AdminInboxPage() {
                       artistId={targetArtistId}
                       artistName={targetName}
                       mentions={editing?.ai_tracks_mentioned || []}
-                      attached={attached}
+                      attachedIds={editTrackIds}
                       onAdd={handleAddTrack}
                       onRemove={handleRemoveTrack}
                     />

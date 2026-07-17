@@ -1,29 +1,27 @@
 'use client'
 
 import { useCallback, useEffect, useRef, useState } from 'react'
-import { parseYtTitleForArtist } from './TrackSuggestPicker'
 
 /**
  * NewsMusicPicker — MINIMALUS muzikos pridėjimas inbox'o „Muzika" žingsnyje.
  *
- * 2026-07-17: pakeitė triukšmingą TrackSuggestPicker inline (embed sekcijos,
- * DB recent/top, wiki importas). Čia TIK du dalykai:
- *   1. Pridėtos dainos (kas eis prie naujienos playerio) — su thumbnail + × šalinti.
- *   2. Pridėjimas iš YouTube — viena paieška, identifikuotos naujienos dainos kaip
- *      chip'ai (click → užpildo paiešką, redaguojama). DB-matched dainos = 1 tap.
- * Jokių kitų šaltinių (embed'ai valdomi Video žingsnyje).
+ * 2026-07-17 (v2): rodo TIKRUS DB dainų duomenis (video/cover/užpildymą), NE
+ * straipsnio embed'us. Pridėjimas eina per PILNĄ greito-pridėjimo flow
+ * (/api/admin/quick-add commit — tikrina/atnaujina esamą dainą, prideda video).
+ *
+ * Du blokai:
+ *   1. „Prie naujienos playerio" — jau pridėtos DB dainos: tikras video thumb +
+ *      užpildymo būsena (⚠ be video) + × šalinti.
+ *   2. „Pridėti dainą iš YouTube" — viena paieška, seed = [atlikėjas] [main daina];
+ *      identifikuotos dainos kaip chip'ai; rezultatas → quick-add commit → daina
+ *      atsiranda viršuje (su tikru video).
  */
 
-type Mention = {
-  title: string
-  artist: string
-  matched_track_id: number | null
-  youtube_url: string | null
-}
-export type AttachedTrack = { id: number; title: string; artist_name: string; video_url?: string }
+type Mention = { title: string; artist: string; matched_track_id: number | null; youtube_url: string | null }
+type DbTrack = { id: number; title: string; artist_name: string; video_url: string | null; cover_url: string | null; release_year: number | null }
 type YtHit = { videoId: string; title: string; channel: string; thumbnail: string; viewCount: number | null }
 
-function ytIdFromUrl(url?: string | null): string | null {
+function ytId(url?: string | null): string | null {
   if (!url) return null
   return url.match(/[?&]v=([^&]+)/)?.[1]
     || url.match(/youtu\.be\/([^?&]+)/)?.[1]
@@ -31,7 +29,7 @@ function ytIdFromUrl(url?: string | null): string | null {
     || null
 }
 function ytThumb(url?: string | null): string | null {
-  const id = ytIdFromUrl(url)
+  const id = ytId(url)
   return id ? `https://i.ytimg.com/vi/${id}/mqdefault.jpg` : null
 }
 function fmtViews(n: number | null): string {
@@ -43,24 +41,42 @@ function fmtViews(n: number | null): string {
 }
 
 export default function NewsMusicPicker({
-  artistId, artistName, mentions, attached, onAdd, onRemove,
+  artistId, artistName, mentions, attachedIds, onAdd, onRemove,
 }: {
   artistId: number
   artistName: string
   mentions: Mention[]
-  attached: AttachedTrack[]
-  onAdd: (t: AttachedTrack) => void
-  onRemove: (id: number) => void
+  attachedIds: number[]
+  onAdd: (trackId: number) => void
+  onRemove: (trackId: number) => void
 }) {
-  const [query, setQuery] = useState(artistName)
+  const [attached, setAttached] = useState<DbTrack[]>([])
+  const [loadingAttached, setLoadingAttached] = useState(false)
+  const [refreshKey, setRefreshKey] = useState(0)
+
+  const [query, setQuery] = useState('')
   const [results, setResults] = useState<YtHit[]>([])
   const [nextPageToken, setNextPageToken] = useState<string | null>(null)
   const [searching, setSearching] = useState(false)
   const [loadingMore, setLoadingMore] = useState(false)
-  const [creating, setCreating] = useState<string | null>(null) // videoId
+  const [committing, setCommitting] = useState<string | null>(null) // videoId
+  const [commitMsg, setCommitMsg] = useState<string | null>(null)
   const didInit = useRef(false)
 
-  const attachedIds = new Set(attached.map(a => a.id))
+  const idsKey = attachedIds.join(',')
+
+  // Realūs DB duomenys pridėtoms dainoms.
+  useEffect(() => {
+    if (attachedIds.length === 0) { setAttached([]); return }
+    let cancelled = false
+    setLoadingAttached(true)
+    fetch(`/api/admin/tracks/by-ids?ids=${encodeURIComponent(idsKey)}`)
+      .then(r => r.json())
+      .then(d => { if (!cancelled) setAttached(Array.isArray(d.tracks) ? d.tracks : []) })
+      .catch(() => { if (!cancelled) setAttached([]) })
+      .finally(() => { if (!cancelled) setLoadingAttached(false) })
+    return () => { cancelled = true }
+  }, [idsKey, refreshKey]) // eslint-disable-line react-hooks/exhaustive-deps
 
   const runSearch = useCallback(async (q: string, pageToken: string | null = null) => {
     const query = (q || '').trim() || artistName.trim()
@@ -82,72 +98,77 @@ export default function NewsMusicPicker({
     }
   }, [artistName])
 
-  // Pirmoji paieška — seed'inam pagal pirmą identifikuotą (nematched) dainą, jei
-  // yra; kitaip pagal atlikėją. Tik kartą.
+  // Seed = [atlikėjas] [MAIN daina]. Main daina = pirma paminėta (svarbiausia).
   useEffect(() => {
     if (didInit.current) return
     didInit.current = true
-    const firstUnmatched = mentions.find(m => !m.matched_track_id)
-    const seed = firstUnmatched ? `${artistName} ${firstUnmatched.title}`.trim() : artistName
+    const main = mentions[0]?.title
+    const seed = main ? `${artistName} ${main}`.trim() : artistName
     setQuery(seed)
     runSearch(seed)
   }, [mentions, artistName, runSearch])
 
+  // + prie YT rezultato → PILNAS quick-add flow (commit). Tikrina/atnaujina
+  // esamą dainą (pvz. prideda video Paradise'ui), po to daina atsiranda viršuje.
   const addFromYt = async (hit: YtHit) => {
-    setCreating(hit.videoId)
+    setCommitting(hit.videoId)
+    setCommitMsg(null)
     try {
-      const cleanTitle = parseYtTitleForArtist(hit.title, artistName) || hit.title
-      const res = await fetch('/api/admin/tracks/quick-create', {
+      const res = await fetch('/api/admin/quick-add', {
         method: 'POST', headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          title: cleanTitle,
-          artist_id: artistId,
-          youtube_url: `https://www.youtube.com/watch?v=${hit.videoId}`,
-        }),
+        body: JSON.stringify({ url: `https://www.youtube.com/watch?v=${hit.videoId}`, mode: 'commit', overrides: {} }),
       })
       const d = await res.json()
-      if (res.ok && d.track_id) {
-        onAdd({ id: d.track_id, title: d.title || cleanTitle, artist_name: d.artist_name || artistName, video_url: d.youtube_url || `https://www.youtube.com/watch?v=${hit.videoId}` })
+      if (d.ok && d.kind === 'track' && d.track?.id) {
+        onAdd(d.track.id)
+        setRefreshKey(k => k + 1)
+        setCommitMsg(`✓ Pridėta: ${d.track.title}`)
+      } else {
+        setCommitMsg(`⚠ ${d.error || 'Nepavyko pridėti'}`)
       }
+    } catch (e: any) {
+      setCommitMsg(`⚠ ${e?.message || 'Klaida'}`)
     } finally {
-      setCreating(null)
+      setCommitting(null)
     }
   }
 
-  const addFromDb = (m: Mention) => {
-    if (!m.matched_track_id) return
-    onAdd({ id: m.matched_track_id, title: m.title, artist_name: m.artist || artistName, video_url: m.youtube_url || undefined })
-  }
-
-  // Identifikuotos dainos, kurių DAR nėra pridėta — kaip pridėjimo pasiūlymai.
-  const matchedMentions = mentions.filter(m => m.matched_track_id && !attachedIds.has(m.matched_track_id))
-  const searchChips = mentions.filter(m => !m.matched_track_id)
+  // Identifikuotos naujienos dainos — chip'ai paieškai (be dublikatų).
+  const chipTitles = Array.from(new Set(mentions.map(m => m.title).filter(Boolean)))
 
   return (
     <div className="space-y-3">
-      {/* ── Pridėtos dainos ─────────────────────────────────────── */}
+      {/* ── Prie naujienos playerio (TIKRI DB įrašai) ─────────────── */}
       <div>
         <div className="text-[11px] font-semibold text-[var(--text-muted)] uppercase tracking-wide mb-1">
-          Prie naujienos playerio {attached.length > 0 && <span className="text-emerald-600">({attached.length})</span>}
+          Prie naujienos playerio {attachedIds.length > 0 && <span className="text-emerald-600">({attachedIds.length})</span>}
         </div>
-        {attached.length === 0 ? (
+        {attachedIds.length === 0 ? (
           <p className="text-[13px] text-[var(--text-muted)] italic">Kol kas nepridėta dainų.</p>
+        ) : loadingAttached && attached.length === 0 ? (
+          <p className="text-[13px] text-[var(--text-muted)]">Kraunama…</p>
         ) : (
           <div className="space-y-1.5">
             {attached.map(t => {
-              const thumb = ytThumb(t.video_url)
+              const thumb = ytThumb(t.video_url) || t.cover_url || null
+              const hasVideo = !!t.video_url
               return (
                 <div key={t.id} className="flex items-center gap-2 rounded-lg border border-[var(--input-border)] bg-[var(--bg-elevated)] p-1.5">
                   {thumb ? (
                     <img src={thumb} alt="" className="w-14 h-9 rounded object-cover bg-black shrink-0" />
                   ) : (
-                    <div className="w-14 h-9 rounded bg-black/70 flex items-center justify-center text-white text-sm shrink-0">🎵</div>
+                    <div className="w-14 h-9 rounded bg-black/60 flex items-center justify-center text-white text-sm shrink-0">🎵</div>
                   )}
                   <div className="flex-1 min-w-0">
                     <div className="text-[13px] font-medium text-[var(--text-primary)] truncate">{t.title}</div>
-                    <div className="text-[11px] text-[var(--text-muted)] truncate">{t.artist_name}</div>
+                    <div className="text-[11px] truncate flex items-center gap-1.5">
+                      <span className="text-[var(--text-muted)]">{t.artist_name}</span>
+                      {hasVideo
+                        ? <span className="text-emerald-600">🎬 su video</span>
+                        : <span className="text-amber-600">⚠ be video — pridėk iš paieškos žemiau</span>}
+                    </div>
                   </div>
-                  <button type="button" onClick={() => onRemove(t.id)} aria-label="Pašalinti" title="Pašalinti"
+                  <button type="button" onClick={() => onRemove(t.id)} aria-label="Pašalinti" title="Pašalinti iš naujienos"
                     className="shrink-0 w-6 h-6 rounded-full hover:bg-red-100 text-red-500 flex items-center justify-center text-base leading-none">×</button>
                 </div>
               )
@@ -156,29 +177,7 @@ export default function NewsMusicPicker({
         )}
       </div>
 
-      {/* ── DB match'ai iš naujienos — 1 tap pridėti ───────────────── */}
-      {matchedMentions.length > 0 && (
-        <div className="space-y-1">
-          <div className="text-[11px] font-semibold text-[var(--text-muted)] uppercase tracking-wide">Rasta kataloge</div>
-          {matchedMentions.map((m, i) => (
-            <button key={i} type="button" onClick={() => addFromDb(m)}
-              className="w-full flex items-center gap-2 rounded-lg border border-emerald-200 bg-emerald-50 p-1.5 text-left hover:bg-emerald-100">
-              {ytThumb(m.youtube_url) ? (
-                <img src={ytThumb(m.youtube_url)!} alt="" className="w-14 h-9 rounded object-cover bg-black shrink-0" />
-              ) : (
-                <div className="w-14 h-9 rounded bg-emerald-600/80 flex items-center justify-center text-white text-sm shrink-0">🎵</div>
-              )}
-              <div className="flex-1 min-w-0">
-                <div className="text-[13px] font-medium text-emerald-900 truncate">{m.title}</div>
-                <div className="text-[11px] text-emerald-700">Jau kataloge — spausk pridėti</div>
-              </div>
-              <span className="shrink-0 text-emerald-700 text-lg font-bold px-1">＋</span>
-            </button>
-          ))}
-        </div>
-      )}
-
-      {/* ── Pridėjimas iš YouTube ──────────────────────────────────── */}
+      {/* ── Pridėti dainą iš YouTube (pilnas quick-add flow) ────────── */}
       <div>
         <div className="text-[11px] font-semibold text-[var(--text-muted)] uppercase tracking-wide mb-1">🔍 Pridėti dainą iš YouTube</div>
         <div className="flex gap-1 mb-1.5">
@@ -187,7 +186,7 @@ export default function NewsMusicPicker({
             value={query}
             onChange={e => setQuery(e.target.value)}
             onKeyDown={e => { if (e.key === 'Enter') { e.preventDefault(); runSearch(query) } }}
-            placeholder={`Ieškoti „${artistName} ..."`}
+            placeholder={`Ieškoti „${artistName} daina"`}
             className="flex-1 px-2.5 py-1.5 border border-[var(--input-border)] rounded-lg text-[13px] bg-[var(--bg-elevated)] text-[var(--text-primary)] focus:outline-none focus:border-blue-400"
           />
           <button type="button" onClick={() => runSearch(query)} disabled={searching}
@@ -195,20 +194,21 @@ export default function NewsMusicPicker({
             {searching ? '…' : 'Ieškoti'}
           </button>
         </div>
-        {/* Identifikuotos naujienos dainos — click užpildo paiešką (redaguojama) */}
-        {searchChips.length > 0 && (
+        {chipTitles.length > 0 && (
           <div className="flex flex-wrap items-center gap-1 mb-1.5">
             <span className="text-[11px] text-[var(--text-muted)]">📰 Naujienoje:</span>
-            {searchChips.slice(0, 6).map((m, i) => (
+            {chipTitles.slice(0, 6).map((title, i) => (
               <button key={i} type="button"
-                onClick={() => { const q = `${artistName} ${m.title}`.trim(); setQuery(q); runSearch(q) }}
+                onClick={() => { const q = `${artistName} ${title}`.trim(); setQuery(q); runSearch(q) }}
                 className="px-2 py-0.5 rounded-full bg-blue-50 hover:bg-blue-100 text-blue-700 text-[12px] font-medium border border-blue-200">
-                {m.title}
+                {title}
               </button>
             ))}
           </div>
         )}
-        {/* Rezultatai */}
+        {commitMsg && (
+          <div className={`text-[12px] mb-1.5 ${commitMsg.startsWith('✓') ? 'text-emerald-600' : 'text-amber-600'}`}>{commitMsg}</div>
+        )}
         {searching && results.length === 0 ? (
           <p className="text-[13px] text-[var(--text-muted)] py-2">Ieškoma…</p>
         ) : results.length === 0 ? (
@@ -216,9 +216,9 @@ export default function NewsMusicPicker({
         ) : (
           <div className="space-y-1.5">
             {results.map(hit => {
-              const busy = creating === hit.videoId
+              const busy = committing === hit.videoId
               return (
-                <button key={hit.videoId} type="button" onClick={() => addFromYt(hit)} disabled={!!creating}
+                <button key={hit.videoId} type="button" onClick={() => addFromYt(hit)} disabled={!!committing}
                   className="w-full flex items-center gap-2 rounded-lg border border-[var(--input-border)] bg-[var(--bg-surface)] p-1.5 text-left hover:border-blue-400 hover:bg-blue-50/40 disabled:opacity-60">
                   <img src={hit.thumbnail} alt="" className="w-14 h-9 rounded object-cover bg-black shrink-0" />
                   <div className="flex-1 min-w-0">
@@ -227,7 +227,7 @@ export default function NewsMusicPicker({
                       {hit.channel}{hit.viewCount ? ` · 👁 ${fmtViews(hit.viewCount)}` : ''}
                     </div>
                   </div>
-                  <span className="shrink-0 text-blue-600 text-lg font-bold px-1">{busy ? '…' : '＋'}</span>
+                  <span className="shrink-0 text-blue-600 text-lg font-bold px-1 w-6 text-center">{busy ? '…' : '＋'}</span>
                 </button>
               )
             })}
