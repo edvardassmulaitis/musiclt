@@ -236,37 +236,44 @@ function tryParse(raw: string): any {
 }
 
 /**
- * Ištraukia PIRMĄ balansuotą JSON objektą (ne greedy iki paskutinio }).
- * Būtina, nes modelis po JSON dažnai prirašo „Pastabos" su pavyzdiniais { } —
- * greedy `{...}` pagriebtų iki jų ir sulaužytų parse'ą. Skaičiuojam skliaustų
- * gylį, praleisdami string'us/escape'us, ir sustojam ties gyliu 0.
+ * Ištraukia PIRMĄ balansuotą JSON objektą IR jį sanitizuoja:
+ *  1) ne greedy iki paskutinio } (modelis po JSON prirašo „Pastabos" su { }) —
+ *     skaičiuojam skliaustų gylį, sustojam ties gyliu 0;
+ *  2) escape'inam literal control simbolius (\n \r \t) string'ų VIDUJE — modelis
+ *     bio lauke rašo tikras naujas eilutes, o JSON.parse to nepriima (tai buvo
+ *     tikroji „be JSON" priežastis; mobile kartais suveikdavo, kai bio išeidavo
+ *     viena eilute).
  */
 function extractJsonObject(text: string | null): { obj: any; raw: string } | null {
   if (!text) return null
   const s = text.replace(/```(?:json)?/gi, '')
   const start = s.indexOf('{')
   if (start < 0) return null
-  let depth = 0, inStr = false, esc = false
-  for (let i = start; i < s.length; i++) {
+  const out: string[] = []
+  let depth = 0, inStr = false, esc = false, done = false
+  for (let i = start; i < s.length && !done; i++) {
     const ch = s[i]
     if (inStr) {
-      if (esc) esc = false
-      else if (ch === '\\') esc = true
-      else if (ch === '"') inStr = false
+      if (esc) { out.push(ch); esc = false; continue }
+      if (ch === '\\') { out.push(ch); esc = true; continue }
+      if (ch === '"') { out.push(ch); inStr = false; continue }
+      if (ch === '\n') { out.push('\\n'); continue }
+      if (ch === '\r') { out.push('\\r'); continue }
+      if (ch === '\t') { out.push('\\t'); continue }
+      const code = ch.charCodeAt(0)
+      if (code < 0x20) { out.push('\\u' + code.toString(16).padStart(4, '0')); continue }
+      out.push(ch)
       continue
     }
+    out.push(ch)
     if (ch === '"') inStr = true
     else if (ch === '{') depth++
-    else if (ch === '}') {
-      depth--
-      if (depth === 0) {
-        const raw = s.slice(start, i + 1)
-        const obj = tryParse(raw)
-        return obj === undefined ? null : { obj, raw }
-      }
-    }
+    else if (ch === '}') { depth--; if (depth === 0) done = true }
   }
-  return null
+  if (!done) return null
+  const raw = out.join('')
+  const obj = tryParse(raw)
+  return obj === undefined ? null : { obj, raw }
 }
 
 export type ArtistFillResult =
@@ -303,6 +310,7 @@ export async function fillArtist(input: string): Promise<ArtistFillResult> {
     'Grąžink TIK validų JSON pagal aukščiau aprašytą schemą. NErašyk „Pastabos" ar jokio teksto prieš/po JSON — VIEN JSON objektą.',
     'genre_group turi būti TIKSLIAI viena iš 8 leistinų reikšmių. Šalį rašyk lietuvišku pavadinimu (pvz. „Lietuva", „Jungtinė Karalystė", „JAV").',
     'Kad atsakymas tilptų: į tracks[] įtrauk iki ~20 svarbiausių/žinomiausių dainų (ne visą katalogą), į albums[] — pilną sąrašą.',
+    'SVARBU dėl JSON validumo: string reikšmių viduje (ypač bio) naudok TIK lietuviškas kabutes „ " — NIEKADA ASCII " (ji sulaužytų JSON). Kabučių dainų/albumų pavadinimams naudok „ ".',
   ].join('\n')
 
   // Bandom modelius iš eilės, kol vienas grąžina parse'inamą JSON.
