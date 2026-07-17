@@ -16,9 +16,10 @@ const USER_AGENT = 'Mozilla/5.0 (compatible; music.lt-scout/1.0; +https://music.
 export type FeedItem = {
   url: string
   title: string
-  summary?: string             // <description> / <summary>
+  summary?: string             // <description> / <summary> / (YouTube) <media:description>
   published_at?: string
   guid?: string
+  views?: number               // (YouTube) <media:statistics views="..."> — velocity skaičiavimui
 }
 
 /**
@@ -87,12 +88,19 @@ function parseAtom(xml: string): FeedItem[] {
     const title = extractTag(entry, 'title')
     if (!title) continue
 
+    // YouTube Atom neša <media:group> su <media:description> (pilnas aprašymas)
+    // ir <media:community><media:statistics views="..."/>. Generic <summary>/
+    // <content> šitiems feed'ams tušti, tad imam media:* jei yra.
+    const mediaDesc = extractTag(entry, 'media:description')
+    const viewsMatch = entry.match(/<media:statistics\b[^>]*\bviews=["'](\d+)["']/i)
+
     items.push({
       url: url.trim(),
       title: decodeXml(title.trim()),
-      summary: cleanSummary(extractTag(entry, 'summary') || extractTag(entry, 'content') || ''),
+      summary: cleanSummary(mediaDesc || extractTag(entry, 'summary') || extractTag(entry, 'content') || ''),
       published_at: extractTag(entry, 'published') || extractTag(entry, 'updated'),
       guid: extractTag(entry, 'id') || undefined,
+      views: viewsMatch ? parseInt(viewsMatch[1], 10) : undefined,
     })
   }
 

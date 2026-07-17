@@ -169,6 +169,33 @@ export default function ArtistImportPage() {
   // undefined = auto, 0 = kurti naują, number = pasirinktas atlikėjas
   const [selectedId, setSelectedId] = useState<number | undefined>(undefined)
 
+  // ── AI užpildymas (grounded per MusicBrainz + Sonnet) ──
+  const [aiName, setAiName] = useState('')
+  const [aiLoading, setAiLoading] = useState(false)
+  const [aiInfo, setAiInfo] = useState<string>('')
+
+  async function aiFill() {
+    const name = aiName.trim()
+    if (!name) return
+    setAiLoading(true); setError(''); setErrors([]); setAiInfo('')
+    try {
+      const res = await fetch('/api/admin/artist-fill', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ name }),
+      })
+      const data = await res.json()
+      if (!res.ok) { setError(data.error || 'AI klaida'); return }
+      setJsonText(data.json || '')
+      setPreview(null); setSummary(null)
+      setAiInfo(`${data.grounded ? '🟢' : '🟡'} ${data.grounding_summary || ''} · modelis: ${data.model || '?'}`)
+    } catch (e: any) {
+      setError(e.message || 'Tinklo klaida')
+    } finally {
+      setAiLoading(false)
+    }
+  }
+
   // ── Pasirinkimo (varnelių) būsena ──
   const [selFields, setSelFields] = useState<Set<string>>(new Set())
   const [selLinks, setSelLinks] = useState<Set<number>>(new Set())
@@ -258,6 +285,34 @@ export default function ArtistImportPage() {
         <p className="mt-1 text-[14px] text-[var(--text-muted)]">
           Įklijuok GPT / LLM sugeneruotą JSON — pilną atlikėją, albumą arba vien albumo aprašymą (<code className="font-mono">{`{ artist, album, description }`}</code>). Peržiūra parodo pakeitimus; gali atžymėti, ko nenori keisti, prieš išsaugant.
         </p>
+
+        {/* AI užpildymas (grounded) */}
+        <div className="mt-4 rounded-xl border border-[var(--input-border)] bg-[var(--bg-surface)] p-3">
+          <div className="flex items-center gap-2">
+            <span className="text-sm font-semibold text-[var(--text-primary)]">⚡ Užpildyti su AI</span>
+            <span className="text-xs text-[var(--text-muted)]">— MusicBrainz įžeminimas + modelis suformuoja JSON</span>
+          </div>
+          <div className="mt-2 flex flex-wrap items-center gap-2">
+            <input
+              value={aiName}
+              onChange={e => setAiName(e.target.value)}
+              onKeyDown={e => { if (e.key === 'Enter' && !aiLoading) aiFill() }}
+              placeholder="Atlikėjo pavadinimas (pvz. Jessica Shy)"
+              className="min-w-[240px] flex-1 rounded-lg border border-[var(--input-border)] bg-[var(--bg-elevated)] px-3 py-2 text-sm text-[var(--text-primary)] focus:border-blue-500 focus:outline-none"
+            />
+            <button
+              onClick={aiFill}
+              disabled={aiLoading || !aiName.trim()}
+              className="rounded-lg bg-blue-600 px-4 py-2 text-sm font-semibold text-white transition-colors hover:bg-blue-700 disabled:opacity-50"
+            >
+              {aiLoading ? 'Generuojama…' : 'Užpildyti'}
+            </button>
+          </div>
+          {aiInfo && <p className="mt-2 text-xs text-[var(--text-muted)]">{aiInfo}</p>}
+          <p className="mt-1.5 text-xs text-[var(--text-faint)]">
+            Rezultatas įkris į lauką žemiau — tada „Peržiūrėti" ir „Taikyti" kaip įprasta.
+          </p>
+        </div>
 
         {/* Input */}
         <div className="mt-4">
