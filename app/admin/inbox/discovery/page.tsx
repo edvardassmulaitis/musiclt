@@ -4,6 +4,7 @@ export const dynamic = 'force-dynamic'
 
 import { useState, useEffect, useCallback } from 'react'
 import Link from 'next/link'
+import InboxTabs from '@/components/InboxTabs'
 
 type Cand = {
   id: number
@@ -98,6 +99,8 @@ export default function DiscoveryInboxPage() {
           <span className="text-[var(--text-faint)]">/</span>
           <span className="font-semibold text-[var(--text-secondary)]">🎵 Muzikos atradimai</span>
         </nav>
+
+        <InboxTabs />
 
         <div className="flex flex-wrap items-center gap-3">
           <h1 className="font-['Outfit',sans-serif] text-2xl font-extrabold text-[var(--text-primary)]">🎵 Muzikos atradimai</h1>

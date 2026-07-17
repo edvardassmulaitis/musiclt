@@ -72,22 +72,39 @@ export async function getAlbumsInboxTotal(sb: SB): Promise<number> {
   }
 }
 
+// Realus "laukia peržiūros" YouTube discovery kandidatų skaičius (punktas A) —
+// visi status='pending'. Best-effort: jei lentelės dar nėra (migracija
+// nepaleista) — grąžina 0, nelaužo bendro count'o.
+export async function getDiscoveryInboxTotal(sb: SB): Promise<number> {
+  try {
+    const { count } = await sb
+      .from('yt_discovery_candidates')
+      .select('id', { count: 'exact', head: true })
+      .eq('status', 'pending')
+    return count ?? 0
+  } catch {
+    return 0
+  }
+}
+
 export type InboxCounts = {
   news: number
   events: number
   albums: number
+  discovery: number
   total: number
 }
 
 // Bendras VISŲ inbox tab'ų skaičius — viršutinio "📥 Inbox" badge'o šaltinis.
-// `total` = news + events + albums. Kai pridedamas naujas kandidatų tipas
-// (pvz. YouTube dainos), pridėk jo helper'į ČIA ir įtrauk į `total` — badge'as
-// visuose puslapiuose bei InboxTabs automatiškai jį apims, be pakeitimų UI.
+// `total` = news + events + albums + discovery. Kai pridedamas naujas kandidatų
+// tipas, pridėk jo helper'į ČIA ir įtrauk į `total` — badge'as visuose
+// puslapiuose bei InboxTabs automatiškai jį apims, be pakeitimų UI.
 export async function getInboxCounts(sb: SB): Promise<InboxCounts> {
-  const [news, events, albums] = await Promise.all([
+  const [news, events, albums, discovery] = await Promise.all([
     getNewsInboxTotal(sb),
     getEventsInboxTotal(sb),
     getAlbumsInboxTotal(sb),
+    getDiscoveryInboxTotal(sb),
   ])
-  return { news, events, albums, total: news + events + albums }
+  return { news, events, albums, discovery, total: news + events + albums + discovery }
 }
