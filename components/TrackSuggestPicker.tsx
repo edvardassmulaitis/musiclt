@@ -230,7 +230,7 @@ export default function TrackSuggestPicker({
   artistId, artistName, initialQuery, embedUrls = [],
   aiMentions = [],
   alreadySelectedIds = [],
-  onPickMany, onClose,
+  onPickMany, onClose, inline = false,
 }: {
   artistId: number
   artistName: string
@@ -240,6 +240,10 @@ export default function TrackSuggestPicker({
   alreadySelectedIds?: number[]
   onPickMany: (results: PickResult[]) => void
   onClose: () => void
+  // 2026-07-17: inline — renderina be modalo (tiesiai inbox Muzikos žingsnyje),
+  // be „Atšaukti", su savo bounded scroll'u; selection'as po „Pridėti" išvalomas,
+  // kad būtų galima toliau pridėti.
+  inline?: boolean
 }) {
   const [loading, setLoading] = useState(true)
   const [data, setData] = useState<Suggestions | null>(null)
@@ -355,6 +359,9 @@ export default function TrackSuggestPicker({
         }
       }
       onPickMany(results)
+      // Inline režime modalas neužsidaro — išvalom pažymėjimą, kad būtų galima
+      // toliau pridėti kitas dainas be dublikatų.
+      if (inline) setSelected([])
     } finally {
       setSubmitting(false)
     }
@@ -363,13 +370,8 @@ export default function TrackSuggestPicker({
   // ── UI ───────────────────────────────────────────────────────────
   const totalToProcess = selected.length
 
-  return (
-    <FullscreenModal
-      onClose={onClose}
-      title={`🎵 ${artistName}: dainos`}
-      maxWidth="max-w-2xl"
-      noPadding
-    >
+  const inner = (
+    <>
       {/* Scrollable content */}
       <div className="flex-1 min-h-0 overflow-y-auto px-3 py-2 space-y-2 bg-gray-50">
         {/* ── Wiki disco import banner — kai DB tracks < 5 ───────── */}
@@ -677,13 +679,15 @@ export default function TrackSuggestPicker({
       </div>
 
       {/* Bottom sticky bar */}
-      <div className="px-3 py-2 border-t border-gray-200 bg-white flex items-center gap-2 shrink-0">
-        <button
-          type="button"
-          onClick={onClose}
-          className="px-3 py-1.5 border border-gray-200 text-gray-600 rounded text-xs hover:bg-gray-100">
-          Atšaukti
-        </button>
+      <div className="px-3 py-2 border-t border-gray-200 bg-white flex items-center gap-2 shrink-0 sticky bottom-0">
+        {!inline && (
+          <button
+            type="button"
+            onClick={onClose}
+            className="px-3 py-1.5 border border-gray-200 text-gray-600 rounded text-xs hover:bg-gray-100">
+            Atšaukti
+          </button>
+        )}
         <button
           type="button"
           onClick={handleSubmit}
@@ -696,6 +700,24 @@ export default function TrackSuggestPicker({
               : 'Nieko nepasirinkta'}
         </button>
       </div>
+    </>
+  )
+
+  if (inline) {
+    return (
+      <div className="flex flex-col max-h-[70vh] border border-gray-200 rounded-lg overflow-hidden bg-white" data-theme="light">
+        {inner}
+      </div>
+    )
+  }
+  return (
+    <FullscreenModal
+      onClose={onClose}
+      title={`🎵 ${artistName}: dainos`}
+      maxWidth="max-w-2xl"
+      noPadding
+    >
+      {inner}
     </FullscreenModal>
   )
 }

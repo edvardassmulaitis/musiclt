@@ -1348,52 +1348,41 @@ export default function AdminInboxPage() {
                     {editEmbeds.map((u, i) => {
                       const meta = embedMeta[u]
                       const ytV = u.match(/[?&]v=([^&]+)/)?.[1] || u.match(/youtu\.be\/([^?&]+)/)?.[1] || u.match(/youtube\.com\/(?:embed|shorts)\/([^?&/]+)/)?.[1]
-                      const thumb = meta?.thumbnail || (ytV ? `https://i.ytimg.com/vi/${ytV}/mqdefault.jpg` : null)
-                      const label = meta?.label || 'Nuoroda'
+                      const label = meta?.label || (ytV ? 'YouTube' : 'Nuoroda')
                       const title = meta?.title || (meta ? label : null)
-                      const playable = meta ? meta.playable : !!ytV
-                      const isPlaying = playingEmbed === u
+                      // Playeris rodomas IŠKART (be „Paleisti" clicko). YT src
+                      // apskaičiuojam vietoje — nereikia laukti meta fetch'o;
+                      // kitoms platformoms naudojam meta.embedSrc kai atkeliauja.
+                      const src = meta?.embedSrc || (ytV ? `https://www.youtube-nocookie.com/embed/${ytV}?rel=0` : null)
+                      const vertical = meta?.platform === 'instagram' || meta?.platform === 'tiktok'
                       return (
                         <div key={u} className="rounded-lg border border-[var(--input-border)] bg-[var(--bg-elevated)] overflow-hidden">
-                          <div className="flex items-center gap-2 p-2">
+                          <div className="flex items-start gap-2 p-2">
                             {/* Tvarkos keitimas */}
-                            <div className="flex flex-col shrink-0">
+                            <div className="flex flex-col shrink-0 pt-0.5">
                               <button type="button" onClick={() => moveEmbed(i, -1)} disabled={i === 0}
-                                aria-label="Aukštyn" className="w-5 h-4 flex items-center justify-center text-[var(--text-muted)] hover:text-[var(--text-primary)] disabled:opacity-30 leading-none">▲</button>
+                                aria-label="Aukštyn" className="w-6 h-5 flex items-center justify-center text-[var(--text-muted)] hover:text-[var(--text-primary)] disabled:opacity-30 leading-none">▲</button>
                               <button type="button" onClick={() => moveEmbed(i, 1)} disabled={i === editEmbeds.length - 1}
-                                aria-label="Žemyn" className="w-5 h-4 flex items-center justify-center text-[var(--text-muted)] hover:text-[var(--text-primary)] disabled:opacity-30 leading-none">▼</button>
+                                aria-label="Žemyn" className="w-6 h-5 flex items-center justify-center text-[var(--text-muted)] hover:text-[var(--text-primary)] disabled:opacity-30 leading-none">▼</button>
                             </div>
-                            {/* Thumbnail */}
-                            {thumb ? (
-                              <img src={thumb} alt="" className="w-16 h-10 rounded object-cover bg-black shrink-0" />
-                            ) : (
-                              <div className="w-16 h-10 rounded bg-black/80 flex items-center justify-center text-white text-[11px] shrink-0">{label}</div>
-                            )}
-                            {/* Title + platforma */}
+                            {/* Title (pilnas, iki 2 eilučių) + platforma */}
                             <div className="flex-1 min-w-0">
-                              <div className="text-[13px] font-medium text-[var(--text-primary)] truncate">
+                              <div className="text-[13px] font-medium text-[var(--text-primary)] leading-snug line-clamp-2">
                                 {title || (meta === undefined ? 'Kraunama…' : u)}
                               </div>
-                              <div className="text-[11px] text-[var(--text-muted)]">{label}</div>
+                              <div className="text-[11px] text-[var(--text-muted)] mt-0.5">{label}</div>
                             </div>
-                            {/* Paleisti */}
-                            {playable && (
-                              <button type="button" onClick={() => setPlayingEmbed(p => (p === u ? null : u))}
-                                className="shrink-0 px-2 py-1 rounded text-[12px] font-medium bg-blue-50 hover:bg-blue-100 text-blue-700">
-                                {isPlaying ? '▾ Slėpti' : '▶ Paleisti'}
-                              </button>
-                            )}
                             <a href={u} target="_blank" rel="noopener" title="Atidaryti nuorodą"
-                              className="shrink-0 text-[var(--text-muted)] hover:text-blue-600 text-sm">↗</a>
-                            {/* Pašalinti */}
-                            <button type="button" onClick={() => removeEmbed(u)} aria-label="Pašalinti"
+                              className="shrink-0 text-[var(--text-muted)] hover:text-blue-600 text-sm mt-0.5">↗</a>
+                            <button type="button" onClick={() => removeEmbed(u)} aria-label="Pašalinti" title="Pašalinti"
                               className="shrink-0 w-6 h-6 rounded-full hover:bg-red-100 text-red-500 flex items-center justify-center text-base leading-none">×</button>
                           </div>
-                          {isPlaying && meta?.embedSrc && (
-                            <div className="border-t border-[var(--border-subtle)] bg-black">
-                              <div className="relative w-full" style={{ aspectRatio: meta.platform === 'instagram' || meta.platform === 'tiktok' ? '9 / 16' : '16 / 9' }}>
+                          {/* Playeris — visada matomas */}
+                          {src ? (
+                            <div className="bg-black">
+                              <div className={`relative w-full mx-auto ${vertical ? 'max-w-[300px]' : ''}`} style={{ aspectRatio: vertical ? '9 / 16' : '16 / 9' }}>
                                 <iframe
-                                  src={meta.embedSrc}
+                                  src={src}
                                   className="absolute inset-0 w-full h-full"
                                   loading="lazy"
                                   allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture; fullscreen"
@@ -1402,6 +1391,11 @@ export default function AdminInboxPage() {
                                 />
                               </div>
                             </div>
+                          ) : meta && (
+                            <a href={u} target="_blank" rel="noopener"
+                              className="block px-2 py-3 text-center text-[12px] text-blue-600 bg-[var(--bg-surface)] border-t border-[var(--border-subtle)]">
+                              {label} įrašo peržiūra — atidaryti ↗
+                            </a>
                           )}
                         </div>
                       )
@@ -1410,43 +1404,51 @@ export default function AdminInboxPage() {
                 )}
               </div>
 
-              {/* === MUZIKA (žingsnis 3): katalogo dainos (tobulinsim atskirai) === */}
-              <div className={editStep === 3 ? '' : 'hidden'}>
+              {/* === MUZIKA (žingsnis 3): susijusios muzikos playeris ===
+                  Inline dainų picker'is (DB match + YouTube quick-import) — be
+                  „Tvarkyti" gate'o. Identifikuotos naujienos dainos (ai_tracks_
+                  mentioned) + embed'ai paduodami kaip signalas. */}
+              <div className={editStep === 3 ? 'space-y-2' : 'hidden'}>
                 {(() => {
-                  const selectedCount = editTrackIds.length
                   const selectedTracks = editTrackIds.map(id => trackMeta[id]).filter(Boolean)
+                  const targetArtistId = editPrimaryId || editArtistIds[0]
+                  const targetArtist = targetArtistId ? artistMeta[targetArtistId] : null
+                  const targetName = targetArtist?.name || editing?.primary_artist?.name || ''
                   return (
                     <>
-                      <div className="text-xs font-semibold text-[var(--text-muted)] uppercase tracking-wide mb-1.5 flex items-center justify-between">
-                        <span>Muzika {selectedCount > 0 && <span className="ml-1 text-emerald-600">({selectedCount})</span>}</span>
-                        <button
-                          type="button"
-                          onClick={() => openTrackPicker('')}
-                          disabled={editArtistIds.length === 0}
-                          title={editArtistIds.length === 0 ? 'Pirma priskirk atlikėją' : ''}
-                          className="px-2 py-0.5 bg-blue-50 hover:bg-blue-100 disabled:opacity-50 text-blue-700 rounded text-[12px] font-medium normal-case tracking-normal">
-                            {selectedCount > 0
-                              ? '🎵 Tvarkyti'
-                              : '🎬 Surasti video'}
-                        </button>
+                      <div className="text-xs font-semibold text-[var(--text-muted)] uppercase tracking-wide flex items-center gap-1.5">
+                        <span>Muzika {editTrackIds.length > 0 && <span className="text-emerald-600">({editTrackIds.length})</span>}</span>
+                        <span className="normal-case font-normal opacity-60">— dainos prie naujienos playerio</span>
                       </div>
-                      {selectedTracks.length === 0 ? (
-                        <p className="text-[14px] text-[var(--text-muted)] italic">
-                          Nepridėta dainų.
-                        </p>
-                      ) : (
+                      {/* Pridėtos dainos (chips su ×) */}
+                      {selectedTracks.length > 0 && (
                         <div className="flex flex-wrap gap-1">
                           {selectedTracks.map(t => (
-                            <div key={t.id} className="inline-flex items-center gap-1 px-1.5 py-0.5 bg-emerald-50 border border-emerald-200 rounded-full text-[14px]">
-                              <span className="truncate max-w-[180px]">{t.title}</span>
-                              <button
-                                type="button"
-                                onClick={() => toggleEditTrack(t.id)}
-                                aria-label="Pašalinti"
+                            <div key={t.id} className="inline-flex items-center gap-1 px-1.5 py-0.5 bg-emerald-50 border border-emerald-200 rounded-full text-[13px]">
+                              <span className="truncate max-w-[200px]">{t.title}</span>
+                              <button type="button" onClick={() => toggleEditTrack(t.id)} aria-label="Pašalinti"
                                 className="w-3.5 h-3.5 rounded-full hover:bg-red-200 text-red-500 flex items-center justify-center text-xs leading-none">×</button>
                             </div>
                           ))}
                         </div>
+                      )}
+                      {/* Inline picker — mount'inasi tik kai esam šitame žingsnyje */}
+                      {editStep === 3 && (
+                        !targetArtistId ? (
+                          <p className="text-[14px] text-amber-600">Pirma priskirk atlikėją (1 žingsnis „Turinys").</p>
+                        ) : (
+                          <TrackSuggestPicker
+                            key={targetArtistId}
+                            inline
+                            artistId={targetArtistId}
+                            artistName={targetName}
+                            embedUrls={editEmbeds}
+                            aiMentions={editing?.ai_tracks_mentioned || []}
+                            alreadySelectedIds={editTrackIds}
+                            onPickMany={handlePickerManyResults}
+                            onClose={() => {}}
+                          />
+                        )
                       )}
                     </>
                   )
