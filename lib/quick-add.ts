@@ -906,11 +906,45 @@ export async function commitTrack(url: string, origin: string, ov: TrackOverride
     applyDate(b)
   }
 
-  // Duplicate guard
-  const { data: existingTrack } = await supabase
+  // Duplicate guard — tas pats YouTube video NIEKADA neturi sukurti antro įrašo.
+  // Anksčiau buvo TIK `ilike('title', title)` — case-insensitive, BET jautrus
+  // punktuacijai/diakritikai: „Don't Break Her Heart" (tiesus apostrofas ') ir
+  // „Don't break her heart" (garbanotas ' = U+2019) praeidavo kaip skirtingi
+  // pavadinimai → dublikatas (nors video_url identiškas). Dabar tikrinam DVIEM
+  // nepriklausomais signalais:
+  //   (1) kanoninis video_url (statomas iš videoId — deterministinis; youtu.be/
+  //       &list variantai jau susilieję į tą patį),
+  //   (2) atlikėjas + normalizeTitle() (nuima diakritiką, skliaustus, punktuaciją,
+  //       taip pat abu apostrofų variantus — abu → „don t break her heart").
+  const canonicalUrl = `https://www.youtube.com/watch?v=${videoId}`
+  const normTitle = normalizeTitle(title)
+  const { data: artistTracks } = await supabase
     .from('tracks')
-    .select('id, title, slug, release_year, release_month, release_day')
-    .eq('artist_id', artist.id).ilike('title', title).maybeSingle()
+    .select('id, title, slug, video_url, release_year, release_month, release_day')
+    .eq('artist_id', artist.id)
+    .limit(5000)
+  const existingTrack =
+    (artistTracks || []).find((t: any) => t.video_url && t.video_url === canonicalUrl) ||
+    (normTitle ? (artistTracks || []).find((t: any) => normalizeTitle(t.title || '') === normTitle) : null) ||
+    null
+
+  // Jei ŠIAM atlikėjui dublikato nėra — vis tiek patikrinam, ar tas pats VIDEO
+  // jau egzistuoja kataloge po KITU įrašu/atlikėju. Globalus URL unikalumas:
+  // tas pats YouTube URL neturi praeiti niekaip.
+  if (!existingTrack) {
+    const { data: sameVideoElsewhere } = await supabase
+      .from('tracks')
+      .select('id, title, slug')
+      .eq('video_url', canonicalUrl)
+      .limit(1)
+    const other = (sameVideoElsewhere || [])[0] as any
+    if (other) {
+      return {
+        ok: false, kind: 'track',
+        error: `Šis YouTube video jau priskirtas kitam katalogo įrašui (track #${other.id} „${other.title}") — dublikatas nesukurtas. Sujunk įrašus rankiniu būdu, jei reikia.`,
+      }
+    }
+  }
 
   let trackId: number
   let trackSlug: string | null = null
@@ -1133,9 +1167,14 @@ export async function commitChartTrack(
       .filter((n) => n && slugify(n) !== artist.slug && wiki.cleanArtistName(n).toLowerCase() !== artist.name.toLowerCase()),
   ))
 
-  // 3) Track (dup guard pagal artist+title).
-  const { data: existing } = await supabase
-    .from('tracks').select('id, slug').eq('artist_id', artist.id).ilike('title', title).maybeSingle()
+  // 3) Track (dup guard: normalizuotas pavadinimas, ne trapus ILIKE — apostrofų
+  //    („Don't" tiesus vs garbanotas) ir diakritikos skirtumai nebekurs dublikato).
+  const normAlbumTrackTitle = normalizeTitle(title)
+  const { data: candTracks } = await supabase
+    .from('tracks').select('id, slug, title').eq('artist_id', artist.id).limit(5000)
+  const existing = (normAlbumTrackTitle
+    ? (candTracks || []).find((t: any) => normalizeTitle(t.title || '') === normAlbumTrackTitle)
+    : null) || null
   let trackId: number
   if (existing) {
     trackId = (existing as any).id
