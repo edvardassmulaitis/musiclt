@@ -206,15 +206,46 @@ const IMPORT_TOOL = {
   input_schema: {
     type: 'object',
     properties: {
-      artist_patch: { type: 'object' },
-      links: { type: 'array' },
-      contacts: { type: 'array' },
-      albums: { type: 'array' },
-      tracks: { type: 'array' },
-      images: { type: 'array' },
+      // `items` BŪTINA — be jo modelis kartais paduoda masyvą kaip JSON-stringą.
+      artist_patch: {
+        type: 'object',
+        properties: {
+          name: { type: 'string' },
+          type: { type: 'string' },
+          country: { type: 'string' },
+          birth_date: { type: ['string', 'null'] },
+          active_year_start: { type: ['integer', 'null'] },
+          active_year_end: { type: ['integer', 'null'] },
+          is_active: { type: 'boolean' },
+          gender: { type: ['string', 'null'] },
+          genre_group: { type: 'string' },
+          genres: { type: 'array', items: { type: 'string' } },
+          bio: { type: 'string' },
+        },
+      },
+      links: { type: 'array', items: { type: 'object' } },
+      contacts: { type: 'array', items: { type: 'object' } },
+      albums: { type: 'array', items: { type: 'object' } },
+      tracks: { type: 'array', items: { type: 'object' } },
+      images: { type: 'array', items: { type: 'object' } },
     },
     required: ['artist_patch'],
   },
+}
+
+/** Apsauga: jei modelis masyvą/objektą paduoda kaip JSON-stringą — atparsinam. */
+function coerceImport(obj: any): any {
+  if (!obj || typeof obj !== 'object') return obj
+  const parseMaybe = (v: any) => {
+    if (typeof v !== 'string') return v
+    try { return JSON.parse(v) } catch { return v }
+  }
+  const o: any = { ...obj }
+  o.artist_patch = parseMaybe(o.artist_patch)
+  for (const k of ['links', 'contacts', 'albums', 'tracks', 'images']) {
+    if (k in o) o[k] = parseMaybe(o[k])
+  }
+  return o
 }
 
 async function callModel(model: string, system: string, user: string, maxTokens: number): Promise<ModelCall> {
@@ -284,10 +315,11 @@ export async function fillArtist(input: string): Promise<ArtistFillResult> {
   for (const model of modelChain()) {
     const call = await callModel(model, ARTIST_IMPORT_PROMPT, userMsg, 8000)
     if (call.apiError) { attempts.push(`${model}: ${call.apiError}`); continue }
-    if (call.obj && typeof call.obj === 'object' && call.obj.artist_patch) {
+    const obj = coerceImport(call.obj)
+    if (obj && typeof obj === 'object' && obj.artist_patch) {
       return {
         ok: true,
-        json: JSON.stringify(call.obj, null, 2),
+        json: JSON.stringify(obj, null, 2),
         model,
         grounded: grounding.found,
         grounding_summary: grounding.found

@@ -187,8 +187,12 @@ export default function ArtistImportPage() {
       const data = await res.json()
       if (!res.ok) { setError(data.error || 'AI klaida'); return }
       setJsonText(data.json || '')
-      setPreview(null); setSummary(null)
+      setSummary(null)
+      setSelectedId(undefined)
       setAiInfo(`${data.grounded ? '🟢' : '🟡'} ${data.grounding_summary || ''} · modelis: ${data.model || '?'}`)
+      // Iškart parodom išparsintą peržiūrą (be „Peržiūrėti" perklikimo) —
+      // JSON adminui neaktualus, tai tik duomenų perėmimo būdas.
+      await call(false, undefined, data.json || '')
     } catch (e: any) {
       setError(e.message || 'Tinklo klaida')
     } finally {
@@ -219,7 +223,7 @@ export default function ArtistImportPage() {
     })
   }
 
-  async function call(apply: boolean, overrideId?: number | undefined) {
+  async function call(apply: boolean, overrideId?: number | undefined, jsonOverride?: string) {
     setLoading(true); setError(''); setErrors([])
     if (!apply) setSummary(null)
     try {
@@ -228,7 +232,7 @@ export default function ArtistImportPage() {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
-          json: jsonText,
+          json: jsonOverride !== undefined ? jsonOverride : jsonText,
           apply,
           artist_id: idToSend,
           selection: apply ? {
