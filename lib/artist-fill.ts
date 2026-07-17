@@ -195,85 +195,51 @@ function modelChain(): string[] {
   return [...new Set(chain.filter(Boolean))]
 }
 
-type ModelCall = { text: string | null; stopReason: string | null; apiError: string | null }
+type ModelCall = { obj: any; stopReason: string | null; apiError: string | null }
+
+// Tool-based structured output — API grąžina VALIDŲ JSON objektą kaip tool_use
+// input'ą (jokio teksto parse'inimo, jokių newline/kabučių problemų). Tai tikras
+// sprendimas vietoj prefill+regex, kuris lūžo dėl modelio bio formatavimo.
+const IMPORT_TOOL = {
+  name: 'emit_artist_import',
+  description: 'Grąžina Music.lt importui paruoštą atlikėjo JSON pagal sistemos instrukciją.',
+  input_schema: {
+    type: 'object',
+    properties: {
+      artist_patch: { type: 'object' },
+      links: { type: 'array' },
+      contacts: { type: 'array' },
+      albums: { type: 'array' },
+      tracks: { type: 'array' },
+      images: { type: 'array' },
+    },
+    required: ['artist_patch'],
+  },
+}
 
 async function callModel(model: string, system: string, user: string, maxTokens: number): Promise<ModelCall> {
   const key = process.env.ANTHROPIC_API_KEY
-  if (!key) return { text: null, stopReason: null, apiError: 'ANTHROPIC_API_KEY nenustatytas' }
+  if (!key) return { obj: null, stopReason: null, apiError: 'ANTHROPIC_API_KEY nenustatytas' }
   try {
     const res = await fetch('https://api.anthropic.com/v1/messages', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json', 'x-api-key': key, 'anthropic-version': '2023-06-01' },
-      // Prefill'inam asistento atsakymą su "{" — priverčiam modelį tęsti JSON'u,
-      // o ne proza (haiku/sonnet kartais atsako tekstu, ypač kai MB grounding
-      // tuščias). Grąžintą tekstą sujungiam su prefill'u ("{" + text).
       body: JSON.stringify({
         model, max_tokens: maxTokens, system,
-        messages: [
-          { role: 'user', content: user },
-          { role: 'assistant', content: '{' },
-        ],
+        messages: [{ role: 'user', content: user }],
+        tools: [IMPORT_TOOL],
+        tool_choice: { type: 'tool', name: 'emit_artist_import' },
       }),
       signal: AbortSignal.timeout(40000),
     })
     const json = await res.json()
-    if (json?.error) return { text: null, stopReason: null, apiError: `${json.error.type || 'error'}: ${json.error.message || ''}`.slice(0, 200) }
-    const cont = json?.content?.[0]?.text
-    return {
-      text: typeof cont === 'string' ? '{' + cont : null,
-      stopReason: json?.stop_reason || null,
-      apiError: null,
-    }
+    if (json?.error) return { obj: null, stopReason: null, apiError: `${json.error.type || 'error'}: ${json.error.message || ''}`.slice(0, 200) }
+    const blocks: any[] = json?.content || []
+    const tu = blocks.find((b) => b?.type === 'tool_use' && b?.name === 'emit_artist_import')
+    return { obj: tu?.input ?? null, stopReason: json?.stop_reason || null, apiError: null }
   } catch (e: any) {
-    return { text: null, stopReason: null, apiError: String(e?.message || e).slice(0, 200) }
+    return { obj: null, stopReason: null, apiError: String(e?.message || e).slice(0, 200) }
   }
-}
-
-function tryParse(raw: string): any {
-  try { return JSON.parse(raw) } catch { /* try repair */ }
-  // Lengvas remontas: nuimam trailing kablelius prieš } arba ]
-  try { return JSON.parse(raw.replace(/,(\s*[}\]])/g, '$1')) } catch { return undefined }
-}
-
-/**
- * Ištraukia PIRMĄ balansuotą JSON objektą IR jį sanitizuoja:
- *  1) ne greedy iki paskutinio } (modelis po JSON prirašo „Pastabos" su { }) —
- *     skaičiuojam skliaustų gylį, sustojam ties gyliu 0;
- *  2) escape'inam literal control simbolius (\n \r \t) string'ų VIDUJE — modelis
- *     bio lauke rašo tikras naujas eilutes, o JSON.parse to nepriima (tai buvo
- *     tikroji „be JSON" priežastis; mobile kartais suveikdavo, kai bio išeidavo
- *     viena eilute).
- */
-function extractJsonObject(text: string | null): { obj: any; raw: string } | null {
-  if (!text) return null
-  const s = text.replace(/```(?:json)?/gi, '')
-  const start = s.indexOf('{')
-  if (start < 0) return null
-  const out: string[] = []
-  let depth = 0, inStr = false, esc = false, done = false
-  for (let i = start; i < s.length && !done; i++) {
-    const ch = s[i]
-    if (inStr) {
-      if (esc) { out.push(ch); esc = false; continue }
-      if (ch === '\\') { out.push(ch); esc = true; continue }
-      if (ch === '"') { out.push(ch); inStr = false; continue }
-      if (ch === '\n') { out.push('\\n'); continue }
-      if (ch === '\r') { out.push('\\r'); continue }
-      if (ch === '\t') { out.push('\\t'); continue }
-      const code = ch.charCodeAt(0)
-      if (code < 0x20) { out.push('\\u' + code.toString(16).padStart(4, '0')); continue }
-      out.push(ch)
-      continue
-    }
-    out.push(ch)
-    if (ch === '"') inStr = true
-    else if (ch === '{') depth++
-    else if (ch === '}') { depth--; if (depth === 0) done = true }
-  }
-  if (!done) return null
-  const raw = out.join('')
-  const obj = tryParse(raw)
-  return obj === undefined ? null : { obj, raw }
 }
 
 export type ArtistFillResult =
@@ -313,16 +279,15 @@ export async function fillArtist(input: string): Promise<ArtistFillResult> {
     'SVARBU dėl JSON validumo: string reikšmių viduje (ypač bio) naudok TIK lietuviškas kabutes „ " — NIEKADA ASCII " (ji sulaužytų JSON). Kabučių dainų/albumų pavadinimams naudok „ ".',
   ].join('\n')
 
-  // Bandom modelius iš eilės, kol vienas grąžina parse'inamą JSON.
+  // Bandom modelius iš eilės, kol vienas grąžina tool_use objektą.
   const attempts: string[] = []
   for (const model of modelChain()) {
     const call = await callModel(model, ARTIST_IMPORT_PROMPT, userMsg, 8000)
     if (call.apiError) { attempts.push(`${model}: ${call.apiError}`); continue }
-    const extracted = extractJsonObject(call.text)
-    if (extracted) {
+    if (call.obj && typeof call.obj === 'object' && call.obj.artist_patch) {
       return {
         ok: true,
-        json: JSON.stringify(extracted.obj, null, 2),
+        json: JSON.stringify(call.obj, null, 2),
         model,
         grounded: grounding.found,
         grounding_summary: grounding.found
@@ -331,11 +296,7 @@ export async function fillArtist(input: string): Promise<ArtistFillResult> {
         mb_release_count: grounding.releases.length,
       }
     }
-    attempts.push(
-      call.stopReason === 'max_tokens'
-        ? `${model}: truncated`
-        : `${model}: be JSON${call.text ? ` (len=${call.text.length})` : ''}`
-    )
+    attempts.push(call.stopReason === 'max_tokens' ? `${model}: truncated` : `${model}: nėra tool_use`)
   }
-  return { ok: false, error: `Nepavyko sugeneruoti JSON. Bandymai — ${attempts.join(' | ')}` }
+  return { ok: false, error: `Nepavyko sugeneruoti. Bandymai — ${attempts.join(' | ')}` }
 }
