@@ -204,12 +204,26 @@ async function callModel(model: string, system: string, user: string, maxTokens:
     const res = await fetch('https://api.anthropic.com/v1/messages', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json', 'x-api-key': key, 'anthropic-version': '2023-06-01' },
-      body: JSON.stringify({ model, max_tokens: maxTokens, system, messages: [{ role: 'user', content: user }] }),
+      // Prefill'inam asistento atsakymą su "{" — priverčiam modelį tęsti JSON'u,
+      // o ne proza (haiku/sonnet kartais atsako tekstu, ypač kai MB grounding
+      // tuščias). Grąžintą tekstą sujungiam su prefill'u ("{" + text).
+      body: JSON.stringify({
+        model, max_tokens: maxTokens, system,
+        messages: [
+          { role: 'user', content: user },
+          { role: 'assistant', content: '{' },
+        ],
+      }),
       signal: AbortSignal.timeout(40000),
     })
     const json = await res.json()
     if (json?.error) return { text: null, stopReason: null, apiError: `${json.error.type || 'error'}: ${json.error.message || ''}`.slice(0, 200) }
-    return { text: json?.content?.[0]?.text || null, stopReason: json?.stop_reason || null, apiError: null }
+    const cont = json?.content?.[0]?.text
+    return {
+      text: typeof cont === 'string' ? '{' + cont : null,
+      stopReason: json?.stop_reason || null,
+      apiError: null,
+    }
   } catch (e: any) {
     return { text: null, stopReason: null, apiError: String(e?.message || e).slice(0, 200) }
   }
@@ -265,18 +279,16 @@ export async function fillArtist(input: string): Promise<ArtistFillResult> {
   ].join('\n')
 
   // Bandom modelius iš eilės, kol vienas grąžina parse'inamą JSON.
-  let lastErr = 'nežinoma'
-  let usedModel = ''
+  const attempts: string[] = []
   for (const model of modelChain()) {
     const call = await callModel(model, ARTIST_IMPORT_PROMPT, userMsg, 8000)
-    if (call.apiError) { lastErr = `${model}: ${call.apiError}`; continue }
+    if (call.apiError) { attempts.push(`${model}: ${call.apiError}`); continue }
     const extracted = extractJsonObject(call.text)
     if (extracted) {
-      usedModel = model
       return {
         ok: true,
         json: JSON.stringify(extracted.obj, null, 2),
-        model: usedModel,
+        model,
         grounded: grounding.found,
         grounding_summary: grounding.found
           ? `MusicBrainz: ${grounding.name} (${grounding.country || '?'}), ${grounding.releases.length} leidinių`
@@ -284,9 +296,11 @@ export async function fillArtist(input: string): Promise<ArtistFillResult> {
         mb_release_count: grounding.releases.length,
       }
     }
-    lastErr = call.stopReason === 'max_tokens'
-      ? `${model}: atsakymas per ilgas (truncated)`
-      : `${model}: negrąžino JSON${call.text ? ' (gautas tekstas be JSON)' : ''}`
+    attempts.push(
+      call.stopReason === 'max_tokens'
+        ? `${model}: truncated`
+        : `${model}: be JSON${call.text ? ` (len=${call.text.length})` : ''}`
+    )
   }
-  return { ok: false, error: `Nepavyko sugeneruoti JSON. Paskutinė klaida — ${lastErr}` }
+  return { ok: false, error: `Nepavyko sugeneruoti JSON. Bandymai — ${attempts.join(' | ')}` }
 }
