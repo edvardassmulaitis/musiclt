@@ -248,6 +248,11 @@ function coerceImport(obj: any): any {
   return o
 }
 
+// Web search default'u ĮJUNGTA (kad kokybė prilygtų ChatGPT flow'ui — modelis
+// naršo Spotify/oficialius/žiniasklaidą, ne tik MB). Išjungiama env=0.
+const WEB_SEARCH = process.env.ARTIST_FILL_WEB_SEARCH !== '0'
+const WEB_SEARCH_TOOL = { type: 'web_search_20250305', name: 'web_search', max_uses: 6 }
+
 async function callModel(model: string, system: string, user: string, maxTokens: number): Promise<ModelCall> {
   const key = process.env.ANTHROPIC_API_KEY
   if (!key) return { obj: null, stopReason: null, apiError: 'ANTHROPIC_API_KEY nenustatytas' }
@@ -258,15 +263,18 @@ async function callModel(model: string, system: string, user: string, maxTokens:
       body: JSON.stringify({
         model, max_tokens: maxTokens, system,
         messages: [{ role: 'user', content: user }],
-        tools: [IMPORT_TOOL],
-        tool_choice: { type: 'tool', name: 'emit_artist_import' },
+        // Su web search modelis PIRMA naršo (server tool, ciklas API viduje),
+        // TADA emit'ina. tool_choice=auto (ne forced), kad naršymas būtų leidžiamas.
+        tools: WEB_SEARCH ? [WEB_SEARCH_TOOL, IMPORT_TOOL] : [IMPORT_TOOL],
+        tool_choice: WEB_SEARCH ? { type: 'auto' } : { type: 'tool', name: 'emit_artist_import' },
       }),
-      signal: AbortSignal.timeout(40000),
+      signal: AbortSignal.timeout(WEB_SEARCH ? 110000 : 40000),
     })
     const json = await res.json()
     if (json?.error) return { obj: null, stopReason: null, apiError: `${json.error.type || 'error'}: ${json.error.message || ''}`.slice(0, 200) }
     const blocks: any[] = json?.content || []
-    const tu = blocks.find((b) => b?.type === 'tool_use' && b?.name === 'emit_artist_import')
+    // Paskutinis emit_artist_import tool_use (po web_search blokų)
+    const tu = [...blocks].reverse().find((b) => b?.type === 'tool_use' && b?.name === 'emit_artist_import')
     return { obj: tu?.input ?? null, stopReason: json?.stop_reason || null, apiError: null }
   } catch (e: any) {
     return { obj: null, stopReason: null, apiError: String(e?.message || e).slice(0, 200) }
@@ -301,14 +309,15 @@ export async function fillArtist(input: string): Promise<ArtistFillResult> {
 
   const groundingText = isPlainArtist ? groundingToText(grounding) : ''
   const userMsg = [
+    WEB_SEARCH
+      ? 'PIRMA pasinaršyk internete (web_search) ir patikrink faktus iš patikimų šaltinių: oficialus puslapis, Spotify, Apple Music, YouTube, Discogs, MusicBrainz, žiniasklaida. Ypač svarbu užsienio ir nišiniams atlikėjams, kurių gali nebūti Wikipedijoj. TADA, kai turi faktus, PRIVALAI iškviesti įrankį emit_artist_import su galutiniu JSON — neatsakinėk tekstu.'
+      : '',
     groundingText,
     `Įvestis: ${name}`,
     '',
-    'Grąžink TIK validų JSON pagal aukščiau aprašytą schemą. NErašyk „Pastabos" ar jokio teksto prieš/po JSON — VIEN JSON objektą.',
     'genre_group turi būti TIKSLIAI viena iš 8 leistinų reikšmių. Šalį rašyk lietuvišku pavadinimu (pvz. „Lietuva", „Jungtinė Karalystė", „JAV").',
-    'Kad atsakymas tilptų: į tracks[] įtrauk iki ~20 svarbiausių/žinomiausių dainų (ne visą katalogą), į albums[] — pilną sąrašą.',
-    'SVARBU dėl JSON validumo: string reikšmių viduje (ypač bio) naudok TIK lietuviškas kabutes „ " — NIEKADA ASCII " (ji sulaužytų JSON). Kabučių dainų/albumų pavadinimams naudok „ ".',
-  ].join('\n')
+    'Į tracks[] įtrauk iki ~20 svarbiausių/žinomiausių dainų (ne visą katalogą), į albums[] — pilną sąrašą.',
+  ].filter(Boolean).join('\n')
 
   // Bandom modelius iš eilės, kol vienas grąžina tool_use objektą.
   const attempts: string[] = []

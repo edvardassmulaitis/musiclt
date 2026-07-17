@@ -18,7 +18,7 @@ import { authOptions } from '@/lib/auth'
 import { fillArtist } from '@/lib/artist-fill'
 
 export const runtime = 'nodejs'
-export const maxDuration = 120
+export const maxDuration = 240 // web search naršymas gali užtrukti
 
 export async function POST(req: NextRequest) {
   const session = await getServerSession(authOptions)
