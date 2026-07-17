@@ -589,8 +589,11 @@ export default function AdminInboxPage() {
     }
     const popOf = (g: ArtistGroup) => Math.min(1, Math.max(0, (g.artist?.score ?? 0) / 100))
     const keyOf = (g: ArtistGroup) => {
+      // 'popular' rikiuoja pagal ATLIKĖJO score (tas pats 🔥, kuris rodomas grupės
+      // antraštėje) — NE pagal kandidato rank (topScore), kuris apima ir recency,
+      // todėl vien nauja naujiena (pvz. „1h") nebeiškelia žemo-score atlikėjo į viršų.
       if (sortMode === 'newest') return new Date(g.latestAt).getTime()
-      if (sortMode === 'popular') return g.topScore
+      if (sortMode === 'popular') return g.artist?.score ?? 0
       return recencyOf(g.latestAt) * 0.5 + popOf(g) * 0.5
     }
     // Grupės, kur atlikėjui jau neseniai paskelbta, nuslenka į apačią — vis dar
