@@ -308,10 +308,15 @@ export async function PATCH(req: NextRequest, { params }: { params: Promise<{ id
     const embedUrls: string[] = Array.isArray(body.embed_urls)
       ? (body.embed_urls as string[])
       : ((cand.embed_urls || []) as string[])
+    const ytEmbedId = (u: string) =>
+      u.match(/[?&]v=([^&]+)/)?.[1] || u.match(/youtu\.be\/([^?&]+)/)?.[1] || u.match(/youtube\.com\/(?:embed|shorts)\/([^?&/]+)/)?.[1] || null
     const newsEmbeds = embedUrls.filter(Boolean).map((url: string) => {
       const platform = detectPlatform(url)
-      const isYt = /youtube\.com|youtu\.be/i.test(url)
-      return { url, type: platform, embedUrl: isYt ? null : buildEmbedSrc(url), thumbnailUrl: null, title: null }
+      const yid = ytEmbedId(url)
+      // YT — youtube.com/embed/{id} (NE nocookie, kad neduotų „Playback error"),
+      // eksplicitiškai, nes viešo puslapio ytId neatpažįsta /embed/ formos.
+      const embedUrl = yid ? `https://www.youtube.com/embed/${yid}` : buildEmbedSrc(url)
+      return { url, type: platform, embedUrl, thumbnailUrl: null, title: null }
     })
 
     const { data: created, error: insErr } = await supabase
