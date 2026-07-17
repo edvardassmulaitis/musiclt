@@ -30,7 +30,7 @@ import { ARTIST_IMPORT_PROMPT } from './artist-import-prompt'
 
 // Modelis: default Sonnet (aukštos vertės, mažo kiekio vieno-click veiksmas —
 // kaina nereikšminga, kokybė svarbi, kad prilygtų GPT). Perrašoma env var'u.
-const ARTIST_FILL_MODEL = process.env.ARTIST_FILL_MODEL || 'claude-sonnet-4-6'
+const ARTIST_FILL_MODEL = process.env.ARTIST_FILL_MODEL || 'claude-sonnet-4-5'
 
 // ── MusicBrainz įžeminimas ────────────────────────────────────────────────────
 // Savarankiškas fetch (ne importuojam iš lib/musicbrainz.ts, kad neliestume to
@@ -187,32 +187,39 @@ function groundingToText(g: MbGrounding): string {
 
 // ── Modelio kvietimas ─────────────────────────────────────────────────────────
 
-async function callModel(system: string, user: string, maxTokens = 4096): Promise<string | null> {
+// Fallback grandinė: default env → sonnet → haiku (garantuotai galiojantis).
+// Kadangi iš sandbox'o API iškviesti negalima, neguess'inam vieno teisingo
+// modelio — bandom iš eilės, kol vienas grąžina parse'inamą JSON.
+function modelChain(): string[] {
+  const chain = [ARTIST_FILL_MODEL, 'claude-sonnet-4-5', 'claude-haiku-4-5-20251001']
+  return [...new Set(chain.filter(Boolean))]
+}
+
+type ModelCall = { text: string | null; stopReason: string | null; apiError: string | null }
+
+async function callModel(model: string, system: string, user: string, maxTokens: number): Promise<ModelCall> {
   const key = process.env.ANTHROPIC_API_KEY
-  if (!key) return null
+  if (!key) return { text: null, stopReason: null, apiError: 'ANTHROPIC_API_KEY nenustatytas' }
   try {
     const res = await fetch('https://api.anthropic.com/v1/messages', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json', 'x-api-key': key, 'anthropic-version': '2023-06-01' },
-      body: JSON.stringify({
-        model: ARTIST_FILL_MODEL,
-        max_tokens: maxTokens,
-        system,
-        messages: [{ role: 'user', content: user }],
-      }),
-      signal: AbortSignal.timeout(60000),
+      body: JSON.stringify({ model, max_tokens: maxTokens, system, messages: [{ role: 'user', content: user }] }),
+      signal: AbortSignal.timeout(40000),
     })
     const json = await res.json()
-    return json?.content?.[0]?.text || null
-  } catch {
-    return null
+    if (json?.error) return { text: null, stopReason: null, apiError: `${json.error.type || 'error'}: ${json.error.message || ''}`.slice(0, 200) }
+    return { text: json?.content?.[0]?.text || null, stopReason: json?.stop_reason || null, apiError: null }
+  } catch (e: any) {
+    return { text: null, stopReason: null, apiError: String(e?.message || e).slice(0, 200) }
   }
 }
 
-/** Ištraukia pirmą JSON objektą iš modelio atsakymo (greedy — iki paskutinio }). */
+/** Ištraukia JSON objektą iš modelio atsakymo (nuima ```fences, greedy iki }). */
 function extractJsonObject(text: string | null): { obj: any; raw: string } | null {
   if (!text) return null
-  const m = text.match(/\{[\s\S]*\}/)
+  const cleaned = text.replace(/```(?:json)?/gi, '')
+  const m = cleaned.match(/\{[\s\S]*\}/)
   if (!m) return null
   try {
     return { obj: JSON.parse(m[0]), raw: m[0] }
@@ -250,26 +257,36 @@ export async function fillArtist(input: string): Promise<ArtistFillResult> {
   const groundingText = isPlainArtist ? groundingToText(grounding) : ''
   const userMsg = [
     groundingText,
-    groundingText ? '' : '',
     `Įvestis: ${name}`,
     '',
-    'Grąžink TIK validų JSON pagal aukščiau aprašytą schemą. NErašyk „Pastabos" ar jokio teksto po JSON. genre_group turi būti TIKSLIAI viena iš 8 leistinų reikšmių. Šalį rašyk lietuvišku pavadinimu (pvz. „Lietuva", „Jungtinė Karalystė", „JAV").',
-  ]
-    .filter((l) => l !== undefined)
-    .join('\n')
+    'Grąžink TIK validų JSON pagal aukščiau aprašytą schemą. NErašyk „Pastabos" ar jokio teksto prieš/po JSON — VIEN JSON objektą.',
+    'genre_group turi būti TIKSLIAI viena iš 8 leistinų reikšmių. Šalį rašyk lietuvišku pavadinimu (pvz. „Lietuva", „Jungtinė Karalystė", „JAV").',
+    'Kad atsakymas tilptų: į tracks[] įtrauk iki ~20 svarbiausių/žinomiausių dainų (ne visą katalogą), į albums[] — pilną sąrašą.',
+  ].join('\n')
 
-  const text = await callModel(ARTIST_IMPORT_PROMPT, userMsg)
-  const extracted = extractJsonObject(text)
-  if (!extracted) return { ok: false, error: 'Modelis negrąžino tinkamo JSON (bandyk dar kartą)' }
-
-  return {
-    ok: true,
-    json: JSON.stringify(extracted.obj, null, 2),
-    model: ARTIST_FILL_MODEL,
-    grounded: grounding.found,
-    grounding_summary: grounding.found
-      ? `MusicBrainz: ${grounding.name} (${grounding.country || '?'}), ${grounding.releases.length} leidinių`
-      : 'MusicBrainz: nerasta (naudota tik modelio žinios)',
-    mb_release_count: grounding.releases.length,
+  // Bandom modelius iš eilės, kol vienas grąžina parse'inamą JSON.
+  let lastErr = 'nežinoma'
+  let usedModel = ''
+  for (const model of modelChain()) {
+    const call = await callModel(model, ARTIST_IMPORT_PROMPT, userMsg, 8000)
+    if (call.apiError) { lastErr = `${model}: ${call.apiError}`; continue }
+    const extracted = extractJsonObject(call.text)
+    if (extracted) {
+      usedModel = model
+      return {
+        ok: true,
+        json: JSON.stringify(extracted.obj, null, 2),
+        model: usedModel,
+        grounded: grounding.found,
+        grounding_summary: grounding.found
+          ? `MusicBrainz: ${grounding.name} (${grounding.country || '?'}), ${grounding.releases.length} leidinių`
+          : 'MusicBrainz: nerasta (naudota tik modelio žinios)',
+        mb_release_count: grounding.releases.length,
+      }
+    }
+    lastErr = call.stopReason === 'max_tokens'
+      ? `${model}: atsakymas per ilgas (truncated)`
+      : `${model}: negrąžino JSON${call.text ? ' (gautas tekstas be JSON)' : ''}`
   }
+  return { ok: false, error: `Nepavyko sugeneruoti JSON. Paskutinė klaida — ${lastErr}` }
 }
