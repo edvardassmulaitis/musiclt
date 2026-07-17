@@ -1344,16 +1344,18 @@ export default function AdminInboxPage() {
                     Šioje naujienoje įterptų video/embed'ų nerasta.
                   </p>
                 ) : (
-                  <div className="space-y-2">
+                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
                     {editEmbeds.map((u, i) => {
                       const meta = embedMeta[u]
                       const ytV = u.match(/[?&]v=([^&]+)/)?.[1] || u.match(/youtu\.be\/([^?&]+)/)?.[1] || u.match(/youtube\.com\/(?:embed|shorts)\/([^?&/]+)/)?.[1]
                       const label = meta?.label || (ytV ? 'YouTube' : 'Nuoroda')
                       const title = meta?.title || (meta ? label : null)
                       // Playeris rodomas IŠKART (be „Paleisti" clicko). YT src
-                      // apskaičiuojam vietoje — nereikia laukti meta fetch'o;
-                      // kitoms platformoms naudojam meta.embedSrc kai atkeliauja.
-                      const src = meta?.embedSrc || (ytV ? `https://www.youtube-nocookie.com/embed/${ytV}?rel=0` : null)
+                      // apskaičiuojam vietoje — nereikia laukti meta fetch'o.
+                      // 2026-07-17: admin preview'e naudojam youtube.com/embed (NE
+                      // youtube-nocookie) — pastarasis kai kuriems embeddable=true
+                      // video meta „Playback error", nors youtube.com veikia.
+                      const src = ytV ? `https://www.youtube.com/embed/${ytV}?rel=0` : (meta?.embedSrc || null)
                       const vertical = meta?.platform === 'instagram' || meta?.platform === 'tiktok'
                       return (
                         <div key={u} className="rounded-lg border border-[var(--input-border)] bg-[var(--bg-elevated)] overflow-hidden">
