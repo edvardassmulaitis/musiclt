@@ -311,19 +311,18 @@ export async function PATCH(req: NextRequest, { params }: { params: Promise<{ id
     const ytEmbedId = (u: string) =>
       u.match(/[?&]v=([^&]+)/)?.[1] || u.match(/youtu\.be\/([^?&]+)/)?.[1] || u.match(/youtube\.com\/(?:embed|shorts)\/([^?&/]+)/)?.[1] || null
 
-    // 2026-07-17: jei embed'o video SUTAMPA su grotuvo dainos video — rodom TIK
-    // grotuve (išmetam iš straipsnio kūno), kad tas pats klipas nesikartotų.
-    const playerVideoIds = new Set<string>()
+    // 2026-07-17: jei embed'o video sutampa su PIRMOS grotuvo dainos (trackIds[0])
+    // video — rodom TIK grotuve (išmetam tą embed'ą iš straipsnio kūno). Tik pirma
+    // daina, ne visos — kad nepašalintume embed'ų, sutampančių su kitomis dainomis.
+    let firstSongVideoId: string | null = null
     if (trackIds.length > 0) {
-      const { data: pv } = await supabase.from('tracks').select('video_url').in('id', trackIds)
-      for (const r of (pv || []) as any[]) {
-        const id = r.video_url ? ytEmbedId(r.video_url) : null
-        if (id) playerVideoIds.add(id)
-      }
+      const { data: pv } = await supabase.from('tracks').select('id, video_url').in('id', trackIds)
+      const first = (pv || []).find((r: any) => r.id === trackIds[0])
+      firstSongVideoId = first?.video_url ? ytEmbedId(first.video_url) : null
     }
 
     const newsEmbeds = embedUrls.filter(Boolean)
-      .filter((url: string) => { const id = ytEmbedId(url); return !(id && playerVideoIds.has(id)) })
+      .filter((url: string) => { const id = ytEmbedId(url); return !(id && id === firstSongVideoId) })
       .map((url: string) => {
         const platform = detectPlatform(url)
         const yid = ytEmbedId(url)
@@ -393,11 +392,16 @@ export async function PATCH(req: NextRequest, { params }: { params: Promise<{ id
         .from('tracks')
         .select('id, title, video_url, artists!tracks_artist_id_fkey(name)')
         .in('id', trackIds)
-      for (let i = 0; i < (tracks?.length || 0); i++) {
-        const t: any = (tracks as any[])[i]
+      // Išlaikom trackIds tvarką (= admino sąrašo tvarka), kad grotuvo PIRMA daina
+      // būtų deterministiška (svarbu embed dedupe'ui aukščiau).
+      const byId = new Map<number, any>((tracks || []).map((t: any) => [t.id, t]))
+      let so = 0
+      for (const tid of trackIds) {
+        const t = byId.get(tid)
+        if (!t) continue
         songsToInsert.push({
           news_id: created.id,
-          sort_order: i,
+          sort_order: so++,
           song_id: t.id,
           title: t.title,
           artist_name: t.artists?.name || '',
