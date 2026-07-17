@@ -233,12 +233,46 @@ const IMPORT_TOOL = {
   },
 }
 
-/** Apsauga: jei modelis masyvą/objektą paduoda kaip JSON-stringą — atparsinam. */
+/** Escape'ina literal control simbolius (\n \r \t) string'ų VIDUJE — modelio
+ *  stringifikuotas artist_patch/albums turi tikras naujas eilutes bio viduje,
+ *  o JSON.parse to nepriima. */
+function sanitizeControlChars(s: string): string {
+  const out: string[] = []
+  let inStr = false, esc = false
+  for (let i = 0; i < s.length; i++) {
+    const ch = s[i]
+    if (inStr) {
+      if (esc) { out.push(ch); esc = false; continue }
+      if (ch === '\\') { out.push(ch); esc = true; continue }
+      if (ch === '"') { out.push(ch); inStr = false; continue }
+      if (ch === '\n') { out.push('\\n'); continue }
+      if (ch === '\r') { out.push('\\r'); continue }
+      if (ch === '\t') { out.push('\\t'); continue }
+      const code = ch.charCodeAt(0)
+      if (code < 0x20) { out.push('\\u' + code.toString(16).padStart(4, '0')); continue }
+      out.push(ch); continue
+    }
+    out.push(ch)
+    if (ch === '"') inStr = true
+  }
+  return out.join('')
+}
+
+function safeJsonParse(str: string): any {
+  try { return JSON.parse(str) } catch { /* toliau */ }
+  const s = sanitizeControlChars(str)
+  try { return JSON.parse(s) } catch { /* toliau */ }
+  try { return JSON.parse(s.replace(/,(\s*[}\]])/g, '$1')) } catch { return undefined }
+}
+
+/** Apsauga: jei modelis masyvą/objektą paduoda kaip JSON-stringą — atparsinam
+ *  (net jei stringe yra literal naujų eilučių, kaip bio atveju). */
 function coerceImport(obj: any): any {
   if (!obj || typeof obj !== 'object') return obj
   const parseMaybe = (v: any) => {
     if (typeof v !== 'string') return v
-    try { return JSON.parse(v) } catch { return v }
+    const parsed = safeJsonParse(v)
+    return parsed === undefined ? v : parsed
   }
   const o: any = { ...obj }
   o.artist_patch = parseMaybe(o.artist_patch)
