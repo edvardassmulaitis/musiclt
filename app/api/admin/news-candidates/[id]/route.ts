@@ -310,14 +310,28 @@ export async function PATCH(req: NextRequest, { params }: { params: Promise<{ id
       : ((cand.embed_urls || []) as string[])
     const ytEmbedId = (u: string) =>
       u.match(/[?&]v=([^&]+)/)?.[1] || u.match(/youtu\.be\/([^?&]+)/)?.[1] || u.match(/youtube\.com\/(?:embed|shorts)\/([^?&/]+)/)?.[1] || null
-    const newsEmbeds = embedUrls.filter(Boolean).map((url: string) => {
-      const platform = detectPlatform(url)
-      const yid = ytEmbedId(url)
-      // YT — youtube.com/embed/{id} (NE nocookie, kad neduotų „Playback error"),
-      // eksplicitiškai, nes viešo puslapio ytId neatpažįsta /embed/ formos.
-      const embedUrl = yid ? `https://www.youtube.com/embed/${yid}` : buildEmbedSrc(url)
-      return { url, type: platform, embedUrl, thumbnailUrl: null, title: null }
-    })
+
+    // 2026-07-17: jei embed'o video SUTAMPA su grotuvo dainos video — rodom TIK
+    // grotuve (išmetam iš straipsnio kūno), kad tas pats klipas nesikartotų.
+    const playerVideoIds = new Set<string>()
+    if (trackIds.length > 0) {
+      const { data: pv } = await supabase.from('tracks').select('video_url').in('id', trackIds)
+      for (const r of (pv || []) as any[]) {
+        const id = r.video_url ? ytEmbedId(r.video_url) : null
+        if (id) playerVideoIds.add(id)
+      }
+    }
+
+    const newsEmbeds = embedUrls.filter(Boolean)
+      .filter((url: string) => { const id = ytEmbedId(url); return !(id && playerVideoIds.has(id)) })
+      .map((url: string) => {
+        const platform = detectPlatform(url)
+        const yid = ytEmbedId(url)
+        // YT — youtube.com/embed/{id} (NE nocookie, kad neduotų „Playback error"),
+        // eksplicitiškai, nes viešo puslapio ytId neatpažįsta /embed/ formos.
+        const embedUrl = yid ? `https://www.youtube.com/embed/${yid}` : buildEmbedSrc(url)
+        return { url, type: platform, embedUrl, thumbnailUrl: null, title: null }
+      })
 
     const { data: created, error: insErr } = await supabase
       .from('news')
