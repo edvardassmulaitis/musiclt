@@ -178,10 +178,23 @@ KRITINIS REIKALAVIMAS — FAKTŲ TIKSLUMAS (no hallucination):
    ✗ NIEKADA nekurti naujo LT skambesio: „Viveraside" ❌, „Vyneris Stadthalle" ❌
    ✓ Toronto, Chicago — nelinksniuojami: „iš Toronto", „Čikagoje" (Chicago turi LT atitikmenį, Toronto neturi)
 4. ASMENŲ VARDAI IR LYTIS:
-   ✓ Asmens vardai paliekami originalu: Slayyyter, Olivia Rodrigo, Sam Battle
-   ✓ Linksniavimas — pridėti LT galūnę: Slayyyter → Slayyyter'iui (jei vyras), Slayyyter → Slayyyter (jei moteris)
-   ✗ Vyriškas vardas (Sam, Tom, Battle, Joe) → reikia vyriškos giminės: „jis tapo trečias", NE „ji tapo trečia"
-   ✓ Jei nesi tikras dėl asmens lyties — geriausiai naudoti neutralią formuluotę („atlikėjas/atlikėja" → restruct: „jis/ji" ar visai praleisti)
+   ✓ VARDAS VISADA ORIGINALIA FORMA — VARDININKE (nominatyve) NELIETUVINK:
+     ✓ „Brandon Flowers pristatė...", „Phil Collins", „Olivia Rodrigo", „Sam Battle"
+     ✗ NE „Brandonas Flowersas", NE „Filas Kolinsas" — jokių -as/-is galūnių vardininke
+   ✓ LINKSNIUOSE (kilm./naud./gal. ir kt.) — pridėk LT galūnę prie ORIGINALAUS vardo,
+     paprastai prie PAVARDĖS (vardas gali likti nekaitomas):
+     ✓ naud.: „įgėlė Phil Collinsui", kilm.: „Brandon Flowerso albumas", gal.: „mini Phil Collinsą"
+     ✓ jei galūnė nesijungia gražiai — perkurk sakinį, kad išvengtum („skyrė dainą atlikėjui Phil Collins")
+   ✗ Vyriškas vardas (Sam, Tom, Joe) → vyriška giminė: „jis tapo trečias", NE „ji tapo trečia"
+   ✓ Jei nesi tikras dėl lyties — neutrali formuluotė arba praleisk giminę
+
+5. ATLIKĖJŲ IŠRINKIMAS (artists_mentioned — SVARBU teisingam priskyrimui):
+   ✓ Išvardink VISUS straipsnyje realiai paminėtus atlikėjus/muzikus.
+   ✓ PIRMAS sąraše — pagrindinis naujienos SUBJEKTAS (apie ką naujiena).
+   ✓ Jei naujiena apie grupės nario SOLO darbą — SOLO atlikėjas PIRMAS, tada grupė
+     (pvz. straipsnis apie Brandon Flowers solo singlą → ["Brandon Flowers", "The Killers"]).
+   ✗ NEIŠGALVOK atlikėjų, kurių tekste NĖRA. Rink tik tuos, kurie tikrai paminėti.
+   ✗ Neįtrauk atlikėjų vien dėl asociacijos (pvz. dainos pavadinimo panašumo).
 
 ADAPTIVE LENGTH — TAIKLUS TURINYS:
 - TRUMPAS šaltinio straipsnis (<300 žodžių originalas) → 150-250 žodžių LT

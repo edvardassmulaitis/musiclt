@@ -295,6 +295,7 @@ export async function normalizeArticle(input: {
         },
         artists_mentioned: {
           type: 'array' as const,
+          description: 'Visi straipsnyje REALIAI paminėti atlikėjai/muzikai. PIRMAS = pagrindinis naujienos subjektas (apie ką naujiena). Jei naujiena apie grupės nario SOLO darbą — solo atlikėjas pirmas, tada grupė (pvz. ["Brandon Flowers", "The Killers"]). NEIŠGALVOK atlikėjų, kurių tekste nėra.',
           items: {
             type: 'object' as const,
             properties: {

@@ -165,9 +165,12 @@ export async function PATCH(req: NextRequest, { params }: { params: Promise<{ id
   }
 
   if (action === 'approve') {
-    // Build news INSERT payload from candidate + optional body overrides
-    const overrideTitle = (body.title as string | undefined) || cand.ai_title
-    const overrideBody  = (body.body  as string | undefined) || cand.ai_body
+    // Build news INSERT payload from candidate + optional body overrides.
+    // 2026-07-17: em/en brūkšnys → paprastas „-" ir publikuojant (galutinė
+    // garantija — apima ir admin ranka redaguotą tekstą, ne tik AI output'ą).
+    const dashFix = (s: string | null | undefined) => (s || '').replace(/[—–]/g, '-')
+    const overrideTitle = dashFix((body.title as string | undefined) || cand.ai_title)
+    const overrideBody  = dashFix((body.body  as string | undefined) || cand.ai_body)
     const overrideImage = (body.image_url as string | undefined) || cand.suggested_image_url
 
     // Build slug

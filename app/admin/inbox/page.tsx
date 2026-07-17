@@ -1010,6 +1010,20 @@ export default function AdminInboxPage() {
                         </div>
                         <div className="flex flex-wrap items-center gap-1.5 text-xs text-[var(--text-muted)]">
                           <span>{g.items.length === 1 ? '1 naujiena' : `${g.items.length} naujienos`}</span>
+                          {/* 2026-07-17: „paruošta" žymė suskleistame view — kiek grupės
+                             naujienų jau perrašyta (status != 'preview') ir laukia
+                             peržiūros/paskelbimo. Leidžia scan'inti ką jau paruošei. */}
+                          {(() => {
+                            const ready = g.items.filter(i => i.status !== 'preview').length
+                            if (ready === 0) return null
+                            return (
+                              <span
+                                title="Jau perrašytos ir paruoštos peržiūrai"
+                                className="px-1.5 py-0.5 rounded-full bg-emerald-100 text-emerald-700 font-semibold">
+                                ✓ {ready === g.items.length ? 'paruošta' : `${ready} paruošta`}
+                              </span>
+                            )
+                          })()}
                           {typeof g.artist.score === 'number' && (
                             <span title="Atlikėjo populiarumo score (0-100)">🔥 {Math.round(g.artist.score)}</span>
                           )}

@@ -164,6 +164,20 @@ export const MUSIC_LT_VOICE_RULES = `STILIAUS PRINCIPAI:
    ✗ "5 albumas"   ✓ "5 albumai" arba "5-as albumas"
 
 8. Lietuviškos kabutės „..."  ne anglų "..."
+
+9. Brūkšnys: naudok paprastą „-" (ne „—" em dash ir ne „–" en dash). Ilgas
+   brūkšnys sukuria dirbtinį „AI" jausmą.
+   ✗ "Brandon Flowers — grupės lyderis"
+   ✓ "Brandon Flowers - grupės lyderis"
+
+10. Vengtini kalkiniai/nenatūralūs žodžiai (rink natūralų LT atitikmenį):
+   ✗ "anonsas"  → ✓ "pristatymas" / "naujiena" / konkrečiai kas pristatoma
+     (pvz. "pristatė antrąjį singlą", ne "paskelbė antrąjį anonsą")
+   ✗ "relizas"  → ✓ "išleidimas"
+   ✗ "dropino / dropinti"  → ✓ "išleido / pristatė"
+   ✗ "tyzeris"  → ✓ "trumpas anonsinis vaizdas" / "užuomina"
+   ✗ "feat'as / featas"  → ✓ "su" / "kartu su"
+   ✗ "trekas"  → ✓ "daina" / "kūrinys"
 `
 
 // ─────────────────────────────────────────────────────────────────
@@ -224,6 +238,10 @@ export const MUSIC_LT_REGEX_FIXES: Array<[RegExp, string]> = [
   [/\btūr([aąouš]\w*)/gi, 'tur$1'],
   // srautai (streams) → klausymai
   [/\b(\d+|milijon|milijard)\w*\s+sraut([aąouš]\w*)/gi, '$1 klausym$2'],
+  // Em/en brūkšnys → paprastas brūkšnys. AI mėgsta „—" (em dash) — jis sukuria
+  // dirbtinį „AI" jausmą, kurio nenorim. Keičiam tik patį simbolį, tarpai lieka
+  // kaip buvo (datų intervalai „2010–2020" → „2010-2020" lieka tankūs).
+  [/[—–]/g, '-'],
   // bool kabučių normalizacija (ne literal " arba ', o lietuviškos „...")
   // Šitai paliekam AI'ui — regex'as gali sulaužyti HTML
 ]
