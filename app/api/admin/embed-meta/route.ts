@@ -11,7 +11,7 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { getServerSession } from 'next-auth'
 import { authOptions } from '@/lib/auth'
-import { detectPlatform, PLATFORM_LABEL, buildEmbedSrc } from '@/lib/social-embed'
+import { detectPlatform, PLATFORM_LABEL, buildEmbedSrc, youtubeId } from '@/lib/social-embed'
 
 export const runtime = 'nodejs'
 
@@ -38,7 +38,13 @@ function resolvePlatform(url: string): { platform: string; label: string } {
 function oembedEndpoint(platform: string, url: string): string | null {
   const enc = encodeURIComponent(url)
   switch (platform) {
-    case 'youtube': return `https://www.youtube.com/oembed?url=${enc}&format=json`
+    case 'youtube': {
+      // YT oEmbed reikalauja watch?v= formos — saugomi būna /embed/{id}, tad
+      // normalizuojam per id, kad title tikrai grįžtų.
+      const id = youtubeId(url)
+      const watch = id ? `https://www.youtube.com/watch?v=${id}` : url
+      return `https://www.youtube.com/oembed?url=${encodeURIComponent(watch)}&format=json`
+    }
     case 'spotify': return `https://open.spotify.com/oembed?url=${enc}`
     case 'soundcloud': return `https://soundcloud.com/oembed?url=${enc}&format=json`
     case 'tiktok': return `https://www.tiktok.com/oembed?url=${enc}`
@@ -83,6 +89,11 @@ export async function GET(req: NextRequest) {
     const meta = await fetchOembed(endpoint)
     title = meta.title
     thumbnail = meta.thumbnail
+  }
+  // YouTube thumbnail fallback iš video id (jei oEmbed negrąžino)
+  if (!thumbnail && platform === 'youtube') {
+    const id = youtubeId(url)
+    if (id) thumbnail = `https://i.ytimg.com/vi/${id}/mqdefault.jpg`
   }
   // Instagram/kiti be oEmbed — bent žmoniškas fallback title
   if (!title) {
