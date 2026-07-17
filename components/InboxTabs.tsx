@@ -27,6 +27,7 @@ export default function InboxTabs() {
   const eventsCount = counts?.events ?? null
   const albumsCount = counts?.albums ?? null
   const discoveryCount = counts?.discovery ?? null
+  const missingCount = counts?.missing ?? null
 
   return (
     <div className="flex flex-wrap gap-1 border-b border-[var(--input-border)] mb-3">
@@ -43,7 +44,7 @@ export default function InboxTabs() {
         🎵 Atradimai {discoveryCount !== null && <span className="text-xs opacity-70">({discoveryCount})</span>}
       </Link>
       <Link href="/admin/charts/missing" className={tabCls(!!isMissing)}>
-        📊 Iš topų
+        📊 Iš topų {missingCount !== null && <span className="text-xs opacity-70">({missingCount})</span>}
       </Link>
     </div>
   )

@@ -77,6 +77,7 @@ export async function runYtDiscovery(opts: RunOpts): Promise<RunResult> {
   let fresh = 0
   let matchedCount = 0
   let refreshed = 0
+  let skippedExisting = 0
   const perSource: any[] = []
 
   for (const src of sources as any[]) {
@@ -107,27 +108,43 @@ export async function runYtDiscovery(opts: RunOpts): Promise<RunResult> {
         .maybeSingle()
 
       if (existing) {
-        // Velocity refresh (tik jei dar pending ir turim naujas views)
-        if ((existing as any).status === 'pending' && typeof item.views === 'number') {
-          const vFirst = (existing as any).views_first as number | null
-          const vFirstAt = (existing as any).views_first_at as string | null
-          let vph: number | null = null
-          const hFromFirst = hoursBetween(vFirstAt, now)
-          if (vFirst != null && hFromFirst && item.views >= vFirst) {
-            vph = (item.views - vFirst) / hFromFirst
-          } else {
-            const hPub = hoursBetween(item.published_at, now)
-            if (hPub) vph = item.views / hPub
+        if ((existing as any).status === 'pending') {
+          // Retro-clean: jei pending kandidato daina JAU atsirado kataloge
+          // (pvz. pridėta per topus tuo pačiu video) — pažymim duplicate, kad
+          // nebekartotų. Video-id patikra (patikima, tas pats YouTube video).
+          const vid2 = extractVideoId(url)
+          if (vid2 && !opts.dryRun) {
+            const { data: tr } = await sb.from('tracks').select('id').ilike('video_url', `%${vid2}%`).limit(1)
+            if (tr && (tr as any[]).length) {
+              await sb.from('yt_discovery_candidates').update({
+                status: 'duplicate', published_track_id: (tr as any[])[0].id, rescanned_at: nowIso,
+              }).eq('id', (existing as any).id)
+              skippedExisting++
+              continue
+            }
           }
-          if (!opts.dryRun) {
-            await sb.from('yt_discovery_candidates').update({
-              views_last: item.views,
-              views_last_at: nowIso,
-              velocity_vph: vph,
-              rescanned_at: nowIso,
-            }).eq('id', (existing as any).id)
+          // Velocity refresh (jei turim naujas views)
+          if (typeof item.views === 'number') {
+            const vFirst = (existing as any).views_first as number | null
+            const vFirstAt = (existing as any).views_first_at as string | null
+            let vph: number | null = null
+            const hFromFirst = hoursBetween(vFirstAt, now)
+            if (vFirst != null && hFromFirst && item.views >= vFirst) {
+              vph = (item.views - vFirst) / hFromFirst
+            } else {
+              const hPub = hoursBetween(item.published_at, now)
+              if (hPub) vph = item.views / hPub
+            }
+            if (!opts.dryRun) {
+              await sb.from('yt_discovery_candidates').update({
+                views_last: item.views,
+                views_last_at: nowIso,
+                velocity_vph: vph,
+                rescanned_at: nowIso,
+              }).eq('id', (existing as any).id)
+            }
+            refreshed++
           }
-          refreshed++
         }
         continue
       }
@@ -151,10 +168,27 @@ export async function runYtDiscovery(opts: RunOpts): Promise<RunResult> {
       const scope = scopeFromMatch(country, matchedArtistId != null)
       const hPub = hoursBetween(item.published_at, now)
       const vph = typeof item.views === 'number' && hPub ? item.views / hPub : null
+      const vid = extractVideoId(url)
+
+      // Katalogo-egzistavimo patikra — kad NEkartotume jau esančių dainų (pvz.
+      // jau pridėtų per topus su tuo pačiu YouTube video, arba jau turimų pas
+      // atlikėją). Radus → status='duplicate' + published_track_id (nerodom
+      // pending sąraše, bet fingerprint atsimena, kad nebeperklaustume).
+      let existingTrackId: number | null = null
+      if (vid) {
+        const { data } = await sb.from('tracks').select('id').ilike('video_url', `%${vid}%`).limit(1)
+        if (data && (data as any[]).length) existingTrackId = (data as any[])[0].id
+      }
+      if (!existingTrackId && matchedArtistId && parsed.title) {
+        const { data } = await sb.from('tracks').select('id').eq('artist_id', matchedArtistId).ilike('title', parsed.title).limit(1)
+        if (data && (data as any[]).length) existingTrackId = (data as any[])[0].id
+      }
+
+      const status = existingTrackId ? 'duplicate' : (isShort(url) ? 'not_music' : 'pending')
 
       const { error: insErr } = await sb.from('yt_discovery_candidates').insert({
         source_id: src.id,
-        video_id: extractVideoId(url),
+        video_id: vid,
         video_url: url,
         guid: item.guid || null,
         raw_title: item.title,
@@ -171,7 +205,8 @@ export async function runYtDiscovery(opts: RunOpts): Promise<RunResult> {
         match_score: matchScore,
         scope,
         fingerprint,
-        status: isShort(url) ? 'not_music' : 'pending', // Shorts default'u atmetam (dažniausiai ne pilna daina)
+        status,
+        published_track_id: existingTrackId,
       })
       if (insErr) {
         // Lenktynės (unique fingerprint) — praleidžiam tyliai
@@ -180,7 +215,8 @@ export async function runYtDiscovery(opts: RunOpts): Promise<RunResult> {
         }
         continue
       }
-      if (matchedArtistId) matchedCount++
+      if (existingTrackId) skippedExisting++
+      else if (matchedArtistId) matchedCount++
       fresh++
       srcFresh++
     }
@@ -193,6 +229,6 @@ export async function runYtDiscovery(opts: RunOpts): Promise<RunResult> {
 
   return {
     status: 200,
-    body: { ok: true, dryRun: !!opts.dryRun, sources: sources.length, fresh, matched: matchedCount, refreshed, detail: perSource },
+    body: { ok: true, dryRun: !!opts.dryRun, sources: sources.length, fresh, matched: matchedCount, skipped_existing: skippedExisting, refreshed, detail: perSource },
   }
 }

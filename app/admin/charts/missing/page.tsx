@@ -1,6 +1,7 @@
 'use client'
 
 import { useState, useEffect, useCallback, useRef } from 'react'
+import InboxTabs from '@/components/InboxTabs'
 
 /* /admin/charts/missing — agreguotos trūkstamos (nesusietos) dainos per visus
  * dainų topus. Sutvarkius vieną kartą, daina susidėlioja į VISUS topus. */
@@ -40,6 +41,7 @@ export default function AdminMissingPage() {
 
   return (
     <div className="mx-auto max-w-[860px] px-4 py-6 sm:px-6">
+      <InboxTabs />
       <div className="mb-4 flex items-center justify-between gap-3">
         <div>
           <h1 className="text-2xl font-black text-gray-900">Trūkstamos dainos</h1>

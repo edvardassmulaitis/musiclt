@@ -8,10 +8,11 @@ export type InboxCounts = {
   events: number
   albums: number
   discovery: number
+  missing: number
   total: number
 }
 
-const EMPTY: InboxCounts = { news: 0, events: 0, albums: 0, discovery: 0, total: 0 }
+const EMPTY: InboxCounts = { news: 0, events: 0, albums: 0, discovery: 0, missing: 0, total: 0 }
 
 /**
  * Bendras inbox count'ų šaltinis (viršutinis "📥 Inbox" badge + InboxTabs).

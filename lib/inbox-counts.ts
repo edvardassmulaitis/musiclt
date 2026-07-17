@@ -13,6 +13,7 @@
 // nesantaika nebegalėtų atsirasti.
 
 import type { createAdminClient } from '@/lib/supabase'
+import { normalizeForMatch, primaryArtist } from '@/lib/chart-resolve'
 
 type SB = ReturnType<typeof createAdminClient>
 
@@ -87,11 +88,42 @@ export async function getDiscoveryInboxTotal(sb: SB): Promise<number> {
   }
 }
 
+// „Trūkstamos iš topų" — nesusietos (track_id IS NULL) dainos per visus
+// dabartinius dainų topus, dedublikuotos pagal artist|title (tas pats raktas
+// kaip /admin/charts/missing puslapyje). NEįtraukiama į `total` (kitas workflow
+// nei inbox kandidatai) — rodoma tik atskiro tab'o badge'e.
+export async function getMissingFromChartsTotal(sb: SB): Promise<number> {
+  try {
+    const { data: charts } = await sb
+      .from('external_charts')
+      .select('id')
+      .eq('is_current', true)
+      .neq('source', 'consensus')
+    const ids = ((charts || []) as any[]).map((c) => c.id)
+    if (!ids.length) return 0
+    const { data: entries } = await sb
+      .from('external_chart_entries')
+      .select('artist_name, title')
+      .in('chart_id', ids)
+      .is('track_id', null)
+      .in('resolve_state', ['pending', 'ambiguous', 'text_only'])
+      .limit(2000)
+    const seen = new Set<string>()
+    for (const e of (entries || []) as any[]) {
+      seen.add(normalizeForMatch(primaryArtist(e.artist_name)) + '|' + normalizeForMatch(e.title))
+    }
+    return seen.size
+  } catch {
+    return 0
+  }
+}
+
 export type InboxCounts = {
   news: number
   events: number
   albums: number
   discovery: number
+  missing: number
   total: number
 }
 
@@ -100,11 +132,13 @@ export type InboxCounts = {
 // tipas, pridėk jo helper'į ČIA ir įtrauk į `total` — badge'as visuose
 // puslapiuose bei InboxTabs automatiškai jį apims, be pakeitimų UI.
 export async function getInboxCounts(sb: SB): Promise<InboxCounts> {
-  const [news, events, albums, discovery] = await Promise.all([
+  const [news, events, albums, discovery, missing] = await Promise.all([
     getNewsInboxTotal(sb),
     getEventsInboxTotal(sb),
     getAlbumsInboxTotal(sb),
     getDiscoveryInboxTotal(sb),
+    getMissingFromChartsTotal(sb),
   ])
-  return { news, events, albums, discovery, total: news + events + albums + discovery }
+  // `missing` NEįeina į total (kitas workflow) — tik atskiro tab'o badge'ui.
+  return { news, events, albums, discovery, missing, total: news + events + albums + discovery }
 }
