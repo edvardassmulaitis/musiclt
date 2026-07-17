@@ -5,6 +5,7 @@ import { useSession } from 'next-auth/react'
 import { useRouter } from 'next/navigation'
 import Link from 'next/link'
 import InboxTabs from '@/components/InboxTabs'
+import { useInboxCounts } from '@/components/useInboxCounts'
 import ArtistSearchInput from '@/components/ui/ArtistSearchInput'
 import { decodeHtmlEntities } from '@/lib/html-entities'
 
@@ -102,6 +103,11 @@ export default function EventInboxPage() {
   const [savingEdit, setSavingEdit] = useState(false)
 
   const isAdmin = ['editor', 'admin', 'super_admin'].includes(session?.user?.role || '')
+
+  // 2026-07-17: viršutinis "📥 Inbox" badge = bendra suma (news+events+albums).
+  // Renginių dalį imam iš live `total` (mažėja patvirtinus), kitas iš snapshot'o.
+  const { counts } = useInboxCounts()
+  const grandTotal = counts ? (counts.total - counts.events + total) : total
 
   // Body scroll lock kai modalas atidarytas
   useEffect(() => {
@@ -276,7 +282,7 @@ export default function EventInboxPage() {
             ←
           </Link>
           <h1 className="text-base font-bold text-[var(--text-primary)]">📥 Inbox</h1>
-          <span className="text-xs text-[var(--text-muted)]">({total})</span>
+          <span className="text-xs text-[var(--text-muted)]" title="Iš viso laukia: naujienos + renginiai + albumai">({grandTotal})</span>
           <button
             onClick={load}
             title="Atnaujinti"

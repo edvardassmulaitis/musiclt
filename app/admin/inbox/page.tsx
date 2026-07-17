@@ -7,6 +7,7 @@ import Link from 'next/link'
 import WikimediaSearch from '@/components/WikimediaSearch'
 import type { Photo } from '@/components/PhotoGallery'
 import InboxTabs from '@/components/InboxTabs'
+import { useInboxCounts } from '@/components/useInboxCounts'
 import ArtistSearchInput from '@/components/ui/ArtistSearchInput'
 import TrackSuggestPicker, { type PickResult } from '@/components/TrackSuggestPicker'
 import { decodeHtmlEntities } from '@/lib/html-entities'
@@ -227,12 +228,23 @@ export default function AdminInboxPage() {
 
   const isAdmin = ['editor', 'admin', 'super_admin'].includes(session?.user?.role || '')
 
+  // 2026-07-17: viršutinis "📥 Inbox" badge = BENDRA suma (naujienos + renginiai
+  // + albumai), ne tik naujienos. Einamos kategorijos (naujienų) dalį imam iš
+  // live `total` state'o (mažėja iškart patvirtinus/atmetus), kitas kategorijas
+  // — iš bendro snapshot'o. Kol snapshot'as kraunasi, fallback = news `total`.
+  const { counts } = useInboxCounts()
+  const grandTotal = counts ? (counts.total - counts.news + total) : total
+
   const load = useCallback(async () => {
     setLoading(true)
     try {
       // Parallel fetch news + events.
       const [newsRes, eventsRes] = await Promise.all([
-        fetch(`/api/admin/news-candidates?status=preview,pending&limit=50`),
+        // 2026-07-17: limit=50 apkarpydavo sąrašą, nors tab'as rodė pilną
+        // `total` (pvz. 145) — matydavai tik ~50 kandidatų (dar sugrupuotų).
+        // Pakelta iki 300 (kaip renginių puslapyje), kad matomas sąrašas
+        // sutaptų su count'u. fetchLimit serveryje = 400, tad telpa.
+        fetch(`/api/admin/news-candidates?status=preview,pending&limit=300`),
         fetch(`/api/admin/event-candidates?status=pending&limit=50`),
       ])
       const data = await newsRes.json()
@@ -854,7 +866,7 @@ export default function AdminInboxPage() {
             ←
           </Link>
           <h1 className="text-base font-bold text-[var(--text-primary)]">📥 Inbox</h1>
-          <span className="text-xs text-[var(--text-muted)]">({total})</span>
+          <span className="text-xs text-[var(--text-muted)]" title="Iš viso laukia: naujienos + renginiai + albumai">({grandTotal})</span>
           <button
             onClick={load}
             title="Atnaujinti"

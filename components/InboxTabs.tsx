@@ -1,39 +1,23 @@
 'use client'
 
-import { useEffect, useState } from 'react'
 import Link from 'next/link'
 import { usePathname } from 'next/navigation'
+import { useInboxCounts } from '@/components/useInboxCounts'
 
 /**
- * InboxTabs su pending count'eriais. Fetch'ina abu candidates endpoint'us
- * count'ams. Cached per tab open session — refetch'inam tik kai pathname
- * keičiasi.
+ * InboxTabs su pending count'eriais. 2026-07-17: skaičiai imami iš bendro
+ * /api/admin/inbox-counts (useInboxCounts) — tas pats šaltinis kaip viršutinis
+ * "📥 Inbox" grand-total badge, tad tab'ai ir badge visada sutampa. Refetch'ina
+ * kai pathname keičiasi.
  */
 export default function InboxTabs() {
   const pathname = usePathname()
   const isEvents = pathname?.startsWith('/admin/inbox/events')
   const isAlbums = pathname?.startsWith('/admin/inbox/albums')
-  const [newsCount, setNewsCount] = useState<number | null>(null)
-  const [eventsCount, setEventsCount] = useState<number | null>(null)
-  const [albumsCount, setAlbumsCount] = useState<number | null>(null)
-
-  useEffect(() => {
-    let cancelled = false
-    // 2026-06-11: news count = preview+pending (tas pats query kaip inbox
-    // puslapio sąrašas) — anksčiau čia buvo tik 'pending' ir skaičiai
-    // nesutapdavo su tuo, kas matosi tab'e.
-    Promise.all([
-      fetch('/api/admin/news-candidates?status=preview,pending&limit=1').then(r => r.json()).catch(() => null),
-      fetch('/api/admin/event-candidates?status=pending&limit=1').then(r => r.json()).catch(() => null),
-      fetch('/api/admin/wiki-album-candidates?status=pending&limit=1').then(r => r.json()).catch(() => null),
-    ]).then(([n, e, a]) => {
-      if (cancelled) return
-      setNewsCount(n?.total ?? 0)
-      setEventsCount(e?.total ?? 0)
-      setAlbumsCount(a?.total ?? 0)
-    })
-    return () => { cancelled = true }
-  }, [pathname])
+  const { counts } = useInboxCounts()
+  const newsCount = counts?.news ?? null
+  const eventsCount = counts?.events ?? null
+  const albumsCount = counts?.albums ?? null
 
   return (
     <div className="flex gap-1 border-b border-[var(--input-border)] mb-3">

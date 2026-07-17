@@ -57,3 +57,37 @@ export async function getEventsInboxTotal(sb: SB): Promise<number> {
     return 0
   }
 }
+
+// Realus "laukia peržiūros" albumų kandidatų skaičius (Wikipedia album list
+// scout) — visi status='pending'.
+export async function getAlbumsInboxTotal(sb: SB): Promise<number> {
+  try {
+    const { count } = await sb
+      .from('wiki_album_candidates')
+      .select('id', { count: 'exact', head: true })
+      .eq('status', 'pending')
+    return count ?? 0
+  } catch {
+    return 0
+  }
+}
+
+export type InboxCounts = {
+  news: number
+  events: number
+  albums: number
+  total: number
+}
+
+// Bendras VISŲ inbox tab'ų skaičius — viršutinio "📥 Inbox" badge'o šaltinis.
+// `total` = news + events + albums. Kai pridedamas naujas kandidatų tipas
+// (pvz. YouTube dainos), pridėk jo helper'į ČIA ir įtrauk į `total` — badge'as
+// visuose puslapiuose bei InboxTabs automatiškai jį apims, be pakeitimų UI.
+export async function getInboxCounts(sb: SB): Promise<InboxCounts> {
+  const [news, events, albums] = await Promise.all([
+    getNewsInboxTotal(sb),
+    getEventsInboxTotal(sb),
+    getAlbumsInboxTotal(sb),
+  ])
+  return { news, events, albums, total: news + events + albums }
+}

@@ -5,6 +5,7 @@ import { useSession } from 'next-auth/react'
 import { useRouter } from 'next/navigation'
 import Link from 'next/link'
 import InboxTabs from '@/components/InboxTabs'
+import { useInboxCounts } from '@/components/useInboxCounts'
 
 type MatchedArtist = {
   id: number
@@ -55,6 +56,11 @@ export default function WikiAlbumInboxPage() {
   const [errorMsg, setErrorMsg] = useState<Record<number, string>>({})
 
   const isAdmin = ['editor', 'admin', 'super_admin'].includes(session?.user?.role || '')
+
+  // 2026-07-17: viršutinis "📥 Inbox" badge = bendra suma (news+events+albums).
+  // Albumų dalį imam iš live `total` (mažėja patvirtinus), kitas iš snapshot'o.
+  const { counts } = useInboxCounts()
+  const grandTotal = counts ? (counts.total - counts.albums + total) : total
 
   const load = useCallback(async () => {
     setLoading(true)
@@ -113,7 +119,9 @@ export default function WikiAlbumInboxPage() {
 
   return (
     <div className="max-w-3xl mx-auto px-4 py-6">
-      <h1 className="text-base font-bold text-[var(--text-primary)] mb-3">📥 Inbox</h1>
+      <h1 className="text-base font-bold text-[var(--text-primary)] mb-3">
+        📥 Inbox <span className="text-xs font-normal text-[var(--text-muted)]" title="Iš viso laukia: naujienos + renginiai + albumai">({grandTotal})</span>
+      </h1>
       <InboxTabs />
 
       <p className="text-sm text-[var(--text-muted)] mb-4">
