@@ -229,17 +229,44 @@ async function callModel(model: string, system: string, user: string, maxTokens:
   }
 }
 
-/** Ištraukia JSON objektą iš modelio atsakymo (nuima ```fences, greedy iki }). */
+function tryParse(raw: string): any {
+  try { return JSON.parse(raw) } catch { /* try repair */ }
+  // Lengvas remontas: nuimam trailing kablelius prieš } arba ]
+  try { return JSON.parse(raw.replace(/,(\s*[}\]])/g, '$1')) } catch { return undefined }
+}
+
+/**
+ * Ištraukia PIRMĄ balansuotą JSON objektą (ne greedy iki paskutinio }).
+ * Būtina, nes modelis po JSON dažnai prirašo „Pastabos" su pavyzdiniais { } —
+ * greedy `{...}` pagriebtų iki jų ir sulaužytų parse'ą. Skaičiuojam skliaustų
+ * gylį, praleisdami string'us/escape'us, ir sustojam ties gyliu 0.
+ */
 function extractJsonObject(text: string | null): { obj: any; raw: string } | null {
   if (!text) return null
-  const cleaned = text.replace(/```(?:json)?/gi, '')
-  const m = cleaned.match(/\{[\s\S]*\}/)
-  if (!m) return null
-  try {
-    return { obj: JSON.parse(m[0]), raw: m[0] }
-  } catch {
-    return null
+  const s = text.replace(/```(?:json)?/gi, '')
+  const start = s.indexOf('{')
+  if (start < 0) return null
+  let depth = 0, inStr = false, esc = false
+  for (let i = start; i < s.length; i++) {
+    const ch = s[i]
+    if (inStr) {
+      if (esc) esc = false
+      else if (ch === '\\') esc = true
+      else if (ch === '"') inStr = false
+      continue
+    }
+    if (ch === '"') inStr = true
+    else if (ch === '{') depth++
+    else if (ch === '}') {
+      depth--
+      if (depth === 0) {
+        const raw = s.slice(start, i + 1)
+        const obj = tryParse(raw)
+        return obj === undefined ? null : { obj, raw }
+      }
+    }
   }
+  return null
 }
 
 export type ArtistFillResult =
