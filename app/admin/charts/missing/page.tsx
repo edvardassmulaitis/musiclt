@@ -56,30 +56,55 @@ export default function AdminMissingPage() {
         <div className="rounded-xl border border-gray-200 bg-white p-8 text-center text-sm text-gray-500">Visos dainos susietos 🎉</div>
       ) : (
         <div className="overflow-hidden rounded-xl border border-gray-200 bg-white">
-          {list.map((m, i) => <MissingRow key={`${m.artist}-${m.title}-${i}`} m={m} onDone={() => onDone(m)} />)}
+          {list.map((m, i) => <MissingRow key={`${m.artist}-${m.title}-${i}`} m={m} autoSuggest={i < 10} onDone={() => onDone(m)} />)}
         </div>
       )}
     </div>
   )
 }
 
-function MissingRow({ m, onDone }: { m: Missing; onDone: () => void }) {
+type Suggestion = {
+  video: { videoId: string; title: string; channel: string; duration: string } | null
+  existingTrackId: number | null
+  artist: { id: number; name: string; slug: string; score: number | null } | null
+}
+
+function MissingRow({ m, onDone, autoSuggest }: { m: Missing; onDone: () => void; autoSuggest?: boolean }) {
   const [busy, setBusy] = useState(false)
   const [msg, setMsg] = useState<string | null>(null)
   const [searching, setSearching] = useState(false)
+  const [sug, setSug] = useState<Suggestion | null>(null)
+  const [sugLoading, setSugLoading] = useState(false)
+  const [sugTried, setSugTried] = useState(false)
 
-  const act = async (action: string, extra?: any) => {
-    setBusy(true); setMsg('Tvarkoma…')
-    const r = await fetch('/api/admin/charts/missing', {
+  const post = async (action: string, extra?: any) =>
+    fetch('/api/admin/charts/missing', {
       method: 'POST', headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ artist: m.artist, title: m.title, action, ...extra }),
     }).then(r => r.json()).catch(() => null)
+
+  const act = async (action: string, extra?: any) => {
+    setBusy(true); setMsg('Tvarkoma…')
+    const r = await post(action, extra)
     setBusy(false)
     if (r?.ok) {
-      setMsg(r.deduped ? `✓ jau kataloge — susieta ${r.linked ?? 0} topuose` : `✓ susieta ${r.linked ?? 0} topuose`)
+      setMsg(r.deduped ? `✓ jau kataloge — susieta ${r.linked ?? 0} topuose` : `✓ pridėta, susieta ${r.linked ?? 0} topuose`)
       setTimeout(onDone, 800)
     } else setMsg(r?.error || 'Klaida')
   }
+
+  const fetchSuggest = useCallback(async () => {
+    if (sugTried) return
+    setSugTried(true); setSugLoading(true)
+    const r = await post('suggest')
+    setSugLoading(false)
+    if (r?.ok) setSug({ video: r.video, existingTrackId: r.existingTrackId, artist: r.artist })
+  }, [sugTried]) // eslint-disable-line react-hooks/exhaustive-deps
+
+  useEffect(() => { if (autoSuggest) fetchSuggest() }, [autoSuggest, fetchSuggest])
+
+  const score = sug?.artist?.score
+  const ytUrl = sug?.video ? `https://www.youtube.com/watch?v=${sug.video.videoId}` : null
 
   return (
     <div className="border-b border-gray-100 px-3 py-2.5 last:border-b-0">
@@ -87,17 +112,50 @@ function MissingRow({ m, onDone }: { m: Missing; onDone: () => void }) {
         <span className="shrink-0 rounded bg-amber-100 px-2 py-0.5 text-[14px] font-bold tabular-nums text-amber-700" title="Keliuose topuose">{m.chartCount}×</span>
         <div className="min-w-0 flex-1">
           <p className="truncate text-sm font-semibold text-gray-800">{m.title}</p>
-          <p className="truncate text-xs text-gray-500">{m.artist} <span className="text-gray-300">· {m.charts.join(', ')}</span></p>
+          <p className="truncate text-xs text-gray-500">
+            {m.artist}
+            {sug?.artist && <span className="ml-1 rounded bg-orange-100 px-1.5 py-0.5 text-[11px] font-bold text-orange-700" title="Atlikėjas jau kataloge · populiarumo score">🔥 {score ?? '—'}</span>}
+            <span className="text-gray-300"> · {m.charts.join(', ')}</span>
+          </p>
         </div>
         {msg && <span className="shrink-0 text-[14px] font-medium text-gray-500">{msg}</span>}
         <div className="flex shrink-0 items-center gap-1.5">
+          {!autoSuggest && !sug && !sugLoading && (
+            <button onClick={fetchSuggest} disabled={busy}
+              className="rounded bg-gray-100 px-2.5 py-1 text-[14px] font-medium text-gray-700 hover:bg-gray-200 disabled:opacity-50">🔎 YouTube</button>
+          )}
           <button onClick={() => setSearching(s => !s)} disabled={busy}
             className="rounded bg-gray-100 px-2.5 py-1 text-[14px] font-medium text-gray-700 hover:bg-gray-200 disabled:opacity-50">Susieti</button>
           <button onClick={() => act('create')} disabled={busy}
-            title="Sukurti dainą + atlikėją ir susieti visuose topuose"
-            className="rounded bg-blue-50 px-2.5 py-1 text-[14px] font-semibold text-blue-600 hover:bg-blue-100 disabled:opacity-50">Sukurti</button>
+            title="YouTube paieška + dedup, sukuria/susieja ir propaguoja per visus topus"
+            className="rounded bg-blue-600 px-2.5 py-1 text-[14px] font-semibold text-white hover:bg-blue-700 disabled:opacity-50">✓ Pridėti</button>
         </div>
       </div>
+
+      {/* YouTube siūlymas (peržiūrai) */}
+      {(sugLoading || sug?.video) && (
+        <div className="ml-12 mt-2 flex items-center gap-3 rounded-lg border border-gray-200 bg-gray-50 p-2">
+          {sugLoading ? (
+            <span className="text-xs text-gray-400">🔎 Ieškoma YouTube…</span>
+          ) : sug?.video && ytUrl ? (
+            <>
+              <a href={ytUrl} target="_blank" rel="noreferrer" className="shrink-0">
+                <img src={`https://i.ytimg.com/vi/${sug.video.videoId}/mqdefault.jpg`} alt="" className="h-12 w-20 rounded object-cover" />
+              </a>
+              <div className="min-w-0 flex-1">
+                <a href={ytUrl} target="_blank" rel="noreferrer" className="block truncate text-sm font-medium text-gray-800 hover:underline">{sug.video.title}</a>
+                <p className="truncate text-xs text-gray-500">{sug.video.channel} {sug.video.duration && `· ${sug.video.duration}`}</p>
+              </div>
+              {sug.existingTrackId ? (
+                <button onClick={() => act('link', { trackId: sug.existingTrackId })} disabled={busy}
+                  className="shrink-0 rounded bg-amber-100 px-2.5 py-1 text-[14px] font-semibold text-amber-700 hover:bg-amber-200 disabled:opacity-50">Jau kataloge — susieti</button>
+              ) : null}
+            </>
+          ) : null}
+        </div>
+      )}
+      {sug && !sug.video && !sugLoading && <p className="ml-12 mt-1 text-xs text-gray-400">YouTube siūlymo nerasta.</p>}
+
       {searching && <LinkSearch defaultQuery={`${simpleArtist(m.artist)} ${cleanTitle(m.title)}`} fallbackQuery={cleanTitle(m.title)} onPick={(h) => { setSearching(false); act('link', { trackId: h.id }) }} />}
     </div>
   )

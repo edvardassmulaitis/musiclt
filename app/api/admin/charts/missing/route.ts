@@ -100,5 +100,32 @@ export async function POST(req: NextRequest) {
     return NextResponse.json({ ok: true, trackId: (tr as any).id, linked })
   }
 
+  // YouTube siūlymas peržiūrai (embed) + dedup būsena + atlikėjo populiarumas.
+  if (action === 'suggest') {
+    let video: any = null
+    try {
+      const vids = await searchYouTube(`${artist} ${title}`)
+      if (vids[0]?.videoId) video = { videoId: vids[0].videoId, title: vids[0].title, channel: vids[0].channel, duration: vids[0].duration }
+    } catch { /* InnerTube gali būti blokuotas — grąžinam be video */ }
+
+    let existingTrackId: number | null = null
+    if (video?.videoId) {
+      const { data } = await sb.from('tracks').select('id').ilike('video_url', `%${video.videoId}%`).limit(1)
+      if (data && (data as any[]).length) existingTrackId = (data as any[])[0].id
+    }
+
+    // Atlikėjo populiarumas (jei jau kataloge) — score
+    let artistInfo: any = null
+    const pa = primaryArtist(artist)
+    if (pa) {
+      const { data: art } = await sb.from('artists').select('id, name, slug, score').ilike('name', pa).limit(1)
+      if (art && (art as any[]).length) {
+        const a = (art as any[])[0]
+        artistInfo = { id: a.id, name: a.name, slug: a.slug, score: a.score ?? null }
+      }
+    }
+    return NextResponse.json({ ok: true, video, existingTrackId, artist: artistInfo })
+  }
+
   return NextResponse.json({ error: 'unknown action' }, { status: 400 })
 }
