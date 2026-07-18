@@ -6,7 +6,7 @@ import InboxTabs from '@/components/InboxTabs'
 /* /admin/charts/missing — agreguotos trūkstamos (nesusietos) dainos per visus
  * dainų topus. Sutvarkius vieną kartą, daina susidėlioja į VISUS topus. */
 
-type Missing = { artist: string; title: string; chartCount: number; charts: string[] }
+type Missing = { artist: string; title: string; chartCount: number; charts: string[]; videoId?: string | null }
 type Hit = { type: string; id: number; slug: string; title: string; artist: string | null; image_url: string | null }
 
 /* Supaprastina netvarkingą topo atlikėjo kreditą iki PIRMO atlikėjo paieškai
@@ -50,6 +50,8 @@ export default function AdminMissingPage() {
         <a href="/admin/charts" className="shrink-0 rounded-lg border border-gray-200 px-3 py-1.5 text-xs font-semibold text-gray-700 hover:bg-gray-100">← Topų valdymas</a>
       </div>
 
+      <PlaylistSources />
+
       {loading ? (
         <div className="text-sm text-gray-400">Kraunama…</div>
       ) : list.length === 0 ? (
@@ -57,6 +59,77 @@ export default function AdminMissingPage() {
       ) : (
         <div className="overflow-hidden rounded-xl border border-gray-200 bg-white">
           {list.map((m, i) => <MissingRow key={`${m.artist}-${m.title}-${i}`} m={m} autoSuggest={i < 10} onDone={() => onDone(m)} />)}
+        </div>
+      )}
+    </div>
+  )
+}
+
+type Source = { id: number; name: string; feed_url: string; is_active: boolean; last_fetched_at: string | null; last_error: string | null }
+
+function PlaylistSources() {
+  const [open, setOpen] = useState(false)
+  const [sources, setSources] = useState<Source[]>([])
+  const [url, setUrl] = useState('')
+  const [busy, setBusy] = useState(false)
+  const [scanMsg, setScanMsg] = useState('')
+
+  const load = useCallback(async () => {
+    const r = await fetch('/api/admin/yt-discovery/sources').then(r => r.json()).catch(() => ({ sources: [] }))
+    setSources(r.sources || [])
+  }, [])
+  useEffect(() => { if (open) load() }, [open, load])
+
+  const add = async () => {
+    if (!url.trim()) return
+    setBusy(true)
+    const r = await fetch('/api/admin/yt-discovery/sources', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ url }) }).then(r => r.json()).catch(() => null)
+    setBusy(false)
+    if (r?.ok) { setUrl(''); load() } else setScanMsg(r?.error || 'Klaida')
+  }
+  const toggle = async (s: Source) => {
+    await fetch('/api/admin/yt-discovery/sources', { method: 'PATCH', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ id: s.id, is_active: !s.is_active }) })
+    load()
+  }
+  const del = async (s: Source) => {
+    await fetch(`/api/admin/yt-discovery/sources?id=${s.id}`, { method: 'DELETE' })
+    load()
+  }
+  const scan = async () => {
+    setBusy(true); setScanMsg('Skenuojama…')
+    const r = await fetch('/api/admin/yt-discovery/trigger', { method: 'POST' }).then(r => r.json()).catch(() => null)
+    setBusy(false)
+    setScanMsg(r?.message ? r.message : `Scan: +${r?.fresh ?? 0} naujų, ${r?.skipped_existing ?? 0} jau kataloge, ${r?.matched ?? 0} LT match. Perkrauk puslapį.`)
+  }
+
+  return (
+    <div className="mb-4 rounded-xl border border-gray-200 bg-white">
+      <button onClick={() => setOpen(o => !o)} className="flex w-full items-center gap-2 px-3 py-2 text-left text-sm font-semibold text-gray-700 hover:bg-gray-50">
+        <span>🎧 YouTube playlist'ai (discovery šaltiniai)</span>
+        <span className="ml-auto text-xs text-gray-400">{open ? '▾' : '▸'}</span>
+      </button>
+      {open && (
+        <div className="border-t border-gray-100 p-3">
+          <p className="mb-2 text-xs text-gray-500">Kuruotų „top recent" playlist'ų nuorodos. Scan perskaito visą playlist'ą (Data API, be 15 ribos) ir įdeda tik ko dar nėra kataloge — jie atsiranda šiame sąraše žemiau.</p>
+          <div className="mb-2 flex gap-2">
+            <input value={url} onChange={e => setUrl(e.target.value)} onKeyDown={e => { if (e.key === 'Enter') add() }}
+              placeholder="YouTube playlist nuoroda (…?list=…)"
+              className="min-w-0 flex-1 rounded-md border border-gray-200 px-2.5 py-1.5 text-sm outline-none focus:border-violet-400" />
+            <button onClick={add} disabled={busy || !url.trim()} className="shrink-0 rounded-md bg-gray-800 px-3 py-1.5 text-sm font-semibold text-white hover:bg-gray-900 disabled:opacity-50">Pridėti</button>
+            <button onClick={scan} disabled={busy} className="shrink-0 rounded-md bg-blue-600 px-3 py-1.5 text-sm font-semibold text-white hover:bg-blue-700 disabled:opacity-50">Paleisti scan'ą</button>
+          </div>
+          {scanMsg && <p className="mb-2 text-xs text-gray-600">{scanMsg}</p>}
+          <div className="space-y-1">
+            {sources.length === 0 && <p className="text-xs text-gray-400">Nėra playlist'ų. Pridėk bent vieną kuruotą „naujos muzikos" playlist'ą.</p>}
+            {sources.map(s => (
+              <div key={s.id} className="flex items-center gap-2 rounded-md border border-gray-100 px-2 py-1.5 text-sm">
+                <button onClick={() => toggle(s)} title={s.is_active ? 'Aktyvus' : 'Išjungtas'}
+                  className={`h-4 w-4 shrink-0 rounded-full ${s.is_active ? 'bg-green-500' : 'bg-gray-300'}`} />
+                <span className="min-w-0 flex-1 truncate text-gray-700">{s.name}{s.last_error && <span className="ml-1 text-red-500" title={s.last_error}>⚠</span>}</span>
+                <button onClick={() => del(s)} className="shrink-0 text-xs text-gray-400 hover:text-red-500">Šalinti</button>
+              </div>
+            ))}
+          </div>
         </div>
       )}
     </div>
@@ -73,9 +146,12 @@ function MissingRow({ m, onDone, autoSuggest }: { m: Missing; onDone: () => void
   const [busy, setBusy] = useState(false)
   const [msg, setMsg] = useState<string | null>(null)
   const [searching, setSearching] = useState(false)
-  const [sug, setSug] = useState<Suggestion | null>(null)
+  // Jei daina atėjo iš YouTube discovery — jau turim tikrą video, rodom iškart (be paieškos).
+  const [sug, setSug] = useState<Suggestion | null>(
+    m.videoId ? { video: { videoId: m.videoId, title: m.title, channel: 'YouTube discovery', duration: '' }, existingTrackId: null, artist: null } : null
+  )
   const [sugLoading, setSugLoading] = useState(false)
-  const [sugTried, setSugTried] = useState(false)
+  const [sugTried, setSugTried] = useState(!!m.videoId)
 
   const post = async (action: string, extra?: any) =>
     fetch('/api/admin/charts/missing', {

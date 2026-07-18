@@ -41,18 +41,42 @@ export async function GET() {
     from += 1000
   }
 
-  const map = new Map<string, { artist: string; title: string; charts: Set<string> }>()
+  const map = new Map<string, { artist: string; title: string; charts: Set<string>; videoId: string | null }>()
   for (const e of rows) {
     const key = normalizeForMatch(primaryArtist(e.artist_name)) + '|' + normalizeForMatch(e.title)
     if (!key.replace(/\|/g, '').trim()) continue
     let m = map.get(key)
-    if (!m) { m = { artist: e.artist_name, title: e.title, charts: new Set() }; map.set(key, m) }
+    if (!m) { m = { artist: e.artist_name, title: e.title, charts: new Set(), videoId: null }; map.set(key, m) }
     m.charts.add(titleById.get(e.chart_id) || String(e.chart_id))
   }
+
+  // Sujungiam YouTube discovery kandidatus (playlist'ų scan) — tas pats „trūksta"
+  // sąrašas. Dedupe pagal tą patį artist|title raktą, tad ta pati daina nesidubliuoja.
+  // Discovery items turi tikrą video_id, tad siūlymas rodomas be papildomos paieškos.
+  try {
+    const { data: disc } = await sb
+      .from('yt_discovery_candidates')
+      .select('artist_raw, title_raw, video_id, scope')
+      .eq('status', 'pending')
+      .order('created_at', { ascending: false })
+      .limit(400)
+    for (const d of (disc || []) as any[]) {
+      const artist = (d.artist_raw || '').trim()
+      const title = (d.title_raw || '').trim()
+      if (!artist || !title) continue
+      const key = normalizeForMatch(primaryArtist(artist)) + '|' + normalizeForMatch(title)
+      if (!key.replace(/\|/g, '').trim()) continue
+      let m = map.get(key)
+      if (!m) { m = { artist, title, charts: new Set(), videoId: d.video_id || null }; map.set(key, m) }
+      else if (!m.videoId && d.video_id) m.videoId = d.video_id
+      m.charts.add('YouTube')
+    }
+  } catch { /* lentelės gali nebūti — praleidžiam */ }
+
   const missing = Array.from(map.values())
-    .map(m => ({ artist: m.artist, title: m.title, chartCount: m.charts.size, charts: Array.from(m.charts).slice(0, 8) }))
+    .map(m => ({ artist: m.artist, title: m.title, chartCount: m.charts.size, charts: Array.from(m.charts).slice(0, 8), videoId: m.videoId }))
     .sort((a, b) => b.chartCount - a.chartCount)
-    .slice(0, 300)
+    .slice(0, 400)
   return NextResponse.json({ missing })
 }
 

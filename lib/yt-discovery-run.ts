@@ -21,13 +21,63 @@
  */
 
 import { createAdminClient } from '@/lib/supabase'
-import { fetchFeed } from '@/lib/scout-feeds'
+import { fetchFeed, type FeedItem } from '@/lib/scout-feeds'
 import { matchArtists } from '@/lib/entity-matcher'
 import { parseYtTitle } from '@/lib/quick-add'
 import { canonicalUrlHash } from '@/lib/url-extract'
 
-const MAX_SOURCES = 12
-const MAX_FRESH_PER_RUN = 120 // matchArtists DB round-trip kiekvienam naujam
+const MAX_SOURCES = 20
+const MAX_FRESH_PER_RUN = 200 // matchArtists DB round-trip kiekvienam naujam
+
+/** Playlist ID iš URL (?list=...) arba grynas ID (PL/OLAK/UU/...). */
+function extractPlaylistId(s: string): string | null {
+  if (!s) return null
+  const m = s.match(/[?&]list=([\w-]+)/)
+  if (m) return m[1]
+  if (/^(PL|OLAK|RD|UU|FL|LL)[\w-]{5,}$/.test(s.trim())) return s.trim()
+  return null
+}
+
+/** Pilnas playlist'as per YouTube Data API (BE 15 ribos — 50/psl, puslapiuota). */
+async function fetchPlaylistItemsData(feedUrlOrId: string, maxPages = 6): Promise<FeedItem[]> {
+  const key = process.env.YOUTUBE_API_KEY
+  if (!key) throw new Error('YOUTUBE_API_KEY nenustatytas')
+  const pid = extractPlaylistId(feedUrlOrId)
+  if (!pid) throw new Error('Nepavyko atpažinti playlist ID')
+  const out: FeedItem[] = []
+  let pageToken = ''
+  for (let p = 0; p < maxPages; p++) {
+    const api = `https://www.googleapis.com/youtube/v3/playlistItems?part=snippet,contentDetails&maxResults=50&playlistId=${encodeURIComponent(pid)}&key=${key}${pageToken ? `&pageToken=${pageToken}` : ''}`
+    const r = await fetch(api, { signal: AbortSignal.timeout(10000) })
+    if (!r.ok) {
+      if (r.status === 404) throw new Error('Playlistas nerastas arba privatus')
+      throw new Error(`YouTube Data API ${r.status}`)
+    }
+    const data = await r.json()
+    for (const it of (data.items || [])) {
+      const sn = it.snippet || {}
+      const cd = it.contentDetails || {}
+      const vid = cd.videoId || sn.resourceId?.videoId
+      if (!vid) continue
+      if (sn.title === 'Private video' || sn.title === 'Deleted video') continue
+      out.push({
+        url: `https://www.youtube.com/watch?v=${vid}`,
+        title: sn.title || '',
+        published_at: cd.videoPublishedAt || sn.publishedAt || undefined,
+        guid: vid,
+      })
+    }
+    if (!data.nextPageToken) break
+    pageToken = data.nextPageToken
+  }
+  return out
+}
+
+/** Playlist → Data API (pilnas); kitaip — Atom feed'as (15 ribotas). */
+async function fetchSourceItems(feedUrl: string): Promise<FeedItem[]> {
+  if (extractPlaylistId(feedUrl)) return fetchPlaylistItemsData(feedUrl)
+  return fetchFeed(feedUrl)
+}
 
 type RunOpts = { sourceId?: string | null; dryRun?: boolean; origin: string }
 type RunResult = { status: number; body: any }
@@ -84,9 +134,9 @@ export async function runYtDiscovery(opts: RunOpts): Promise<RunResult> {
     if (fresh >= MAX_FRESH_PER_RUN) break
     if (!src.feed_url) continue
 
-    let items: Awaited<ReturnType<typeof fetchFeed>> = []
+    let items: FeedItem[] = []
     try {
-      items = await fetchFeed(src.feed_url)
+      items = await fetchSourceItems(src.feed_url)
     } catch (e: any) {
       await sb.from('scout_sources').update({ last_error: String(e?.message || e).slice(0, 300), last_fetched_at: nowIso }).eq('id', src.id)
       perSource.push({ source: src.name, error: String(e?.message || e).slice(0, 120) })
