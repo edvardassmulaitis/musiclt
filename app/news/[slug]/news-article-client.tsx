@@ -602,14 +602,19 @@ export default function NewsArticleClient({
         }
         @media(max-width:860px){
           .na-hero { height:auto; min-height:auto; max-height:none; flex-direction:column; align-items:stretch; }
-          .na-hero-scrim { background:linear-gradient(to top, #080d14 0%, rgba(8,13,20,0.2) 55%, transparent 100%); }
-          .na-hero-photo { position:relative; width:100%; height:250px; padding:16px 16px 6px; }
-          .na-hero-frame { box-shadow:0 14px 34px -18px rgba(0,0,0,0.72), 0 0 0 1px rgba(255,255,255,0.06); }
+          /* Mobile: foto zonai ambient fonas ŠVIESESNIS + spalvingas (ta pati foto),
+             kad vertikalios/kvadratinės nuotraukos šonų tuštuma NEatrodytų juoda —
+             aštri foto „rėme" centre ant spalvingo blur fono (Apple Music stilius),
+             tad BET KOKS formatas atrodo solidžiai. */
+          .na-hero-bg { filter:blur(34px) saturate(1.5) brightness(0.8); transform:scale(1.25); }
+          .na-hero-scrim { background:radial-gradient(130% 88% at 50% 42%, transparent 52%, rgba(8,13,20,0.62) 100%); }
+          .na-hero-photo { position:relative; width:100%; height:340px; padding:20px 20px 22px; }
+          .na-hero-frame { box-shadow:0 16px 40px -16px rgba(0,0,0,0.78), 0 0 0 1px rgba(255,255,255,0.09); }
           .na-hero-wrap { position:relative; background:#080d14; padding:16px 20px 26px; max-width:100%; }
           .na-hero-inner { max-width:100%; }
         }
         @media(max-width:640px){
-          .na-hero-photo { height:200px; }
+          .na-hero-photo { height:300px; padding:16px 16px 18px; }
           .na-h1 { font-size:1.5rem; }
           .na-page { padding:0 16px; }
           .na-grid { padding:24px 0 60px; gap:30px; }
