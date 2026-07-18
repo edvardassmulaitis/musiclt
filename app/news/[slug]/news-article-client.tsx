@@ -453,6 +453,10 @@ export default function NewsArticleClient({
   songs?: SongEntry[]
 }) {
   const heroImg = news.image_small_url || news.artist?.cover_image_url
+  // Hero orientacija — nustatoma kliente iš natūralių nuotraukos matmenų
+  // (news lentelė nesaugo W/H). 'cine' = plati (cover kadras), 'split' = vertikali/
+  // kvadratinė (rodoma visa ant blur), 'pending' = kol dar nežinom.
+  const [heroOrient, setHeroOrient] = useState<'pending' | 'cine' | 'split'>('pending')
   const gallery = news.gallery || []
   const artists = (news.artists && news.artists.length > 0
     ? news.artists
@@ -473,31 +477,58 @@ export default function NewsArticleClient({
 
         .na-root { background:var(--bg-body); color:var(--text-primary); font-family:'DM Sans',sans-serif; -webkit-font-smoothing:antialiased; min-height:100vh; overflow-x:clip; }
 
-        /* ══ HERO — band visada tamsus, foto dešinėje ══ */
+        /* ══ HERO — ADAPTYVUS pagal nuotraukos orientaciją ══
+           Orientacija nustatoma kliente (img.onLoad, natural W/H), nes news lentelė
+           nesaugo matmenų. Aukštis rezervuojamas iškart → jokio CLS desktop'e.
+             • cine  = plati (landscape) nuotrauka → PILNO PLOČIO kadras (cover),
+                       antraštė ant jos. Kadangi cover kerpa — taikom TIK plačioms.
+             • split = vertikali arba kvadratinė → nuotrauka rodoma VISA (contain)
+                       šone ant ambient blur, antraštė greta. Niekada nekerpa
+                       (albumų viršelių NEsuploja į siaurą juostą).
+             • pending = kol JS dar nenustatė: rodom tik ambient blur + antraštę,
+                       aštri foto paslėpta (opacity:0), kad nemirktelėtų blogas kadras. */
         .na-hero {
           position:relative; width:100%;
           min-height:340px; max-height:480px; height:46vh;
           overflow:hidden; background:#080d14;
           display:flex; align-items:flex-end;
         }
-        /* Ambient fonas — nuotrauka per VISĄ hero plotį, išblukinta+patamsinta,
-           kad būtų vientisas atspalvis, o ne juoda letterbox dėžė dešinėje. */
-        .na-hero-bg    { position:absolute; inset:0; background-size:cover; background-position:center 30%; filter:blur(60px) saturate(1.25) brightness(0.5); transform:scale(1.18); }
-        /* Scrim — kairė (po tekstu) tamsi ir soli, dešinė šviesesnė (matosi ambient);
-           + apatinis fade į puslapio foną, kad hero sklandžiai pereitų į turinį. */
-        .na-hero-scrim { position:absolute; inset:0; pointer-events:none;
-          background:
-            linear-gradient(to top, var(--bg-body) 1%, rgba(8,13,20,0.15) 22%, transparent 46%),
-            linear-gradient(to right, rgba(8,13,20,0.97) 0%, rgba(8,13,20,0.86) 34%, rgba(8,13,20,0.45) 62%, rgba(8,13,20,0.25) 100%); }
-        /* Aštri nuotrauka — dešinėje, „rėme" (apvalūs kampai + šešėlis + plonas
-           rėmelis), inset nuo kraštų → atrodo kaip sąmoningas kadras, ne priklijuota. */
-        .na-hero-photo { position:absolute; inset-block:0; right:0; left:auto; width:54%; display:flex; align-items:center; justify-content:center; padding:26px 34px 30px; z-index:1; }
-        .na-hero-frame { position:relative; display:flex; max-width:100%; max-height:100%; min-width:0; min-height:0; border-radius:16px; overflow:hidden; box-shadow:0 24px 60px -22px rgba(0,0,0,0.75), 0 0 0 1px rgba(255,255,255,0.06); }
-        .na-hero-img   { display:block; max-width:100%; max-height:100%; width:auto; height:auto; object-fit:contain; filter:saturate(1.04) contrast(1.02); }
+        /* Ambient fonas — TA PATI nuotrauka per visą plotį, išblukinta+patamsinta. */
+        .na-hero-bg    { position:absolute; inset:0; z-index:0; background-size:cover; background-position:center 30%; filter:blur(60px) saturate(1.25) brightness(0.5); transform:scale(1.18); }
+        .na-hero-scrim { position:absolute; inset:0; z-index:1; pointer-events:none; }
+        .na-hero-photo { position:absolute; inset:0; z-index:2; display:flex; align-items:center; justify-content:center; }
+        .na-hero-frame { position:relative; display:flex; min-width:0; min-height:0; overflow:hidden; }
+        .na-hero-img   { display:block; filter:saturate(1.04) contrast(1.02); transition:opacity .35s ease; }
         .na-hero-noimg  { position:absolute; inset:0; background:linear-gradient(135deg,#0d1420 0%,#111826 100%); }
         .na-hero-noimg::after { content:''; position:absolute; inset:0; background:radial-gradient(ellipse at 75% 40%, rgba(249,115,22,0.12) 0%, transparent 55%); }
 
-        .na-hero-wrap  { position:relative; z-index:2; width:100%; max-width:1240px; margin:0 auto; padding:0 28px 22px; }
+        /* ── PENDING: aštri foto paslėpta, scrim kaip cine ── */
+        .na-hero--pending .na-hero-photo { opacity:0; }
+
+        /* ── CINE (landscape): cover per visą band, antraštė ant jos ── */
+        .na-hero--cine .na-hero-bg   { display:none; }
+        .na-hero--cine .na-hero-photo{ z-index:0; padding:0; }
+        .na-hero--cine .na-hero-frame{ position:absolute; inset:0; border-radius:0; box-shadow:none; }
+        .na-hero--cine .na-hero-img  { width:100%; height:100%; object-fit:cover; object-position:center 28%; }
+        .na-hero--pending .na-hero-scrim,
+        .na-hero--cine .na-hero-scrim{
+          background:
+            linear-gradient(to top, var(--bg-body) 1%, rgba(8,13,20,0.10) 42%, rgba(8,13,20,0.30) 100%),
+            linear-gradient(to right, rgba(8,13,20,0.88) 0%, rgba(8,13,20,0.5) 50%, rgba(8,13,20,0.12) 82%, transparent 100%); }
+
+        /* ── SPLIT (portretas/kvadratas): foto VISA dešinėje ant blur, antraštė kairėje ── */
+        .na-hero--split { align-items:stretch; }
+        .na-hero--split .na-hero-photo{ left:auto; right:0; width:44%; padding:26px 40px 30px 12px; }
+        .na-hero--split .na-hero-frame{ max-width:100%; max-height:100%; border-radius:16px; box-shadow:0 24px 60px -22px rgba(0,0,0,0.75), 0 0 0 1px rgba(255,255,255,0.06); }
+        .na-hero--split .na-hero-img  { max-width:100%; max-height:100%; width:auto; height:auto; object-fit:contain; }
+        .na-hero--split .na-hero-wrap { align-self:center; }
+        .na-hero--split .na-hero-inner{ max-width:600px; }
+        .na-hero--split .na-hero-scrim{
+          background:
+            linear-gradient(to top, var(--bg-body) 1%, transparent 44%),
+            linear-gradient(to right, rgba(8,13,20,0.95) 0%, rgba(8,13,20,0.82) 30%, rgba(8,13,20,0.5) 56%, rgba(8,13,20,0.2) 80%, transparent 100%); }
+
+        .na-hero-wrap  { position:relative; z-index:3; width:100%; max-width:1240px; margin:0 auto; padding:0 28px 22px; }
         .na-hero-inner { max-width:700px; animation:na-in .7s .05s both; }
         .na-h1 { font-family:'Outfit',sans-serif; font-size:clamp(1.7rem,3.1vw,2.8rem); font-weight:900; line-height:1.06; letter-spacing:-.03em; color:#fff; margin:0 0 16px; text-shadow:0 2px 24px rgba(0,0,0,0.45); overflow-wrap:break-word; word-break:break-word; hyphens:auto; }
 
@@ -600,42 +631,60 @@ export default function NewsArticleClient({
           .na-grid.has-sb { grid-template-columns:1fr; }
           .na-sidebar { position:static; }
         }
+        /* ── MOBILE: tas pats adaptyvus principas, tik vertikaliai ──
+           CINE (landscape) → cover juosta, antraštė ant jos.
+           SPLIT (portretas/kvadratas) → foto VISA viršuje ant blur, antraštė po ja.
+           PENDING → rezervuojam juostą, antraštė apačioje. */
         @media(max-width:860px){
-          .na-hero { height:auto; min-height:auto; max-height:none; flex-direction:column; align-items:stretch; }
-          /* Mobile: foto zonai ambient fonas ŠVIESESNIS + spalvingas (ta pati foto),
-             kad vertikalios/kvadratinės nuotraukos šonų tuštuma NEatrodytų juoda —
-             aštri foto „rėme" centre ant spalvingo blur fono (Apple Music stilius),
-             tad BET KOKS formatas atrodo solidžiai. */
-          .na-hero-bg { filter:blur(34px) saturate(1.5) brightness(0.8); transform:scale(1.25); }
-          .na-hero-scrim { background:radial-gradient(130% 88% at 50% 42%, transparent 52%, rgba(8,13,20,0.62) 100%); }
-          .na-hero-photo { position:relative; width:100%; height:340px; padding:20px 20px 22px; }
-          .na-hero-frame { box-shadow:0 16px 40px -16px rgba(0,0,0,0.78), 0 0 0 1px rgba(255,255,255,0.09); }
-          .na-hero-wrap { position:relative; background:#080d14; padding:16px 20px 26px; max-width:100%; }
-          .na-hero-inner { max-width:100%; }
+          .na-hero { height:auto; min-height:0; max-height:none; display:block; }
+          .na-hero-bg { filter:blur(38px) saturate(1.5) brightness(0.6); transform:scale(1.28); }
+
+          .na-hero--pending, .na-hero--cine { position:relative; aspect-ratio:16/10; }
+          .na-hero--pending .na-hero-wrap, .na-hero--cine .na-hero-wrap { position:absolute; left:0; right:0; bottom:0; max-width:100%; }
+          .na-hero--cine .na-hero-photo { position:absolute; inset:0; }
+
+          .na-hero--split { display:block; }
+          .na-hero--split .na-hero-photo { position:relative; inset:auto; width:100%; padding:22px 20px 4px; }
+          .na-hero--split .na-hero-frame { box-shadow:0 18px 44px -18px rgba(0,0,0,0.8), 0 0 0 1px rgba(255,255,255,0.09); }
+          .na-hero--split .na-hero-img { max-height:56vh; }
+          .na-hero--split .na-hero-wrap { position:relative; align-self:auto; padding:12px 20px 26px; max-width:100%; }
+          .na-hero--split .na-hero-inner { max-width:100%; }
+          .na-hero--split .na-hero-scrim { background:linear-gradient(to bottom, transparent 28%, var(--bg-body) 100%); }
         }
         @media(max-width:640px){
-          .na-hero-photo { height:300px; padding:16px 16px 18px; }
           .na-h1 { font-size:1.5rem; }
           .na-page { padding:0 16px; }
           .na-grid { padding:24px 0 60px; gap:30px; }
+          .na-hero--split .na-hero-img { max-height:52vh; }
         }
       `}</style>
 
       <div className="na-root">
 
         {/* ══════════ HERO ══════════ */}
-        <div className="na-hero">
+        <div className={`na-hero na-hero--${heroOrient}`}>
           {heroImg ? (
             <>
-              {/* Ambient fonas — TA PATI nuotrauka per visą hero plotį, stipriai
-                  išblukinta ir patamsinta → vientisas foninis atspalvis (ne juoda
-                  dėžė). Ant jo — aštri nuotrauka „rėme" su apvaliais kampais +
-                  šešėliu, kad atrodytų integruota, ne priklijuota. */}
+              {/* Ambient blur fonas (rodomas TIK split režime — plačiam cover jo
+                  nereikia). Aštri nuotrauka adaptuojasi pagal orientaciją: plati →
+                  cover per visą band; vertikali/kvadratinė → rodoma visa dešinėje. */}
               <div className="na-hero-bg" style={{ backgroundImage: `url(${heroImg})` }} />
               <div className="na-hero-scrim" />
               <div className="na-hero-photo">
                 <div className="na-hero-frame">
-                  <img src={heroImg} alt="" className="na-hero-img" referrerPolicy="no-referrer" />
+                  <img
+                    src={heroImg}
+                    alt=""
+                    className="na-hero-img"
+                    referrerPolicy="no-referrer"
+                    onLoad={(e) => {
+                      const im = e.currentTarget
+                      if (im.naturalWidth && im.naturalHeight) {
+                        // Plati (landscape) → cover; kitaip (portretas/kvadratas) → contain ant blur.
+                        setHeroOrient(im.naturalWidth >= im.naturalHeight * 1.25 ? 'cine' : 'split')
+                      }
+                    }}
+                  />
                   <PhotoCredit url={heroImg} source={news.source_url || news.source_name} credit={news.heroCredit} />
                 </div>
               </div>
