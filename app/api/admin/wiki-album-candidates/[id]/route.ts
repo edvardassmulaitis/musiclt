@@ -14,6 +14,7 @@ import { getServerSession } from 'next-auth'
 import { authOptions } from '@/lib/auth'
 import { createAdminClient } from '@/lib/supabase'
 import { commitAlbum } from '@/lib/quick-add'
+import { commitAlbumFromMb, commitShellAlbum } from '@/lib/album-commit'
 
 export const runtime = 'nodejs'
 
@@ -58,6 +59,46 @@ export async function PATCH(req: NextRequest, { params }: { params: Promise<{ id
       .eq('id', candidateId)
     if (error) return NextResponse.json({ error: error.message }, { status: 500 })
     return NextResponse.json({ ok: true, status: 'rejected' })
+  }
+
+  // 2026-07-18: naujas vieno-click „Pridėti" — sukuria albumą iš MusicBrainz
+  // (pilnas tracklist'as) arba „skeletą" (title+data+viršelis), BE Wikipedia
+  // straipsnio. UI pirma pasiima /preview (enrichAlbum), tada siunčia rezultatą čia.
+  if (action === 'add') {
+    if (!cand.matched_artist_id) {
+      return NextResponse.json({ error: 'Nėra pririšto atlikėjo — negalima pridėti' }, { status: 400 })
+    }
+    const mode: string = body.mode === 'full' ? 'full' : 'shell'
+    const mbReleaseId = typeof body.mb_release_id === 'string' ? body.mb_release_id : null
+
+    let result: Awaited<ReturnType<typeof commitShellAlbum>>
+    if (mode === 'full' && mbReleaseId) {
+      result = await commitAlbumFromMb(mbReleaseId, cand.matched_artist_id)
+    } else {
+      result = await commitShellAlbum({
+        artistId: cand.matched_artist_id,
+        title: cand.album_title,
+        year: typeof body.year === 'number' ? body.year : cand.release_year,
+        month: typeof body.month === 'number' ? body.month : (cand.release_month || null),
+        day: typeof body.day === 'number' ? body.day : (cand.release_day || null),
+        coverUrl: typeof body.cover_url === 'string' ? body.cover_url : null,
+        primaryType: typeof body.primary_type === 'string' ? body.primary_type : null,
+      })
+    }
+    if (!result.ok) return NextResponse.json({ error: result.error }, { status: 500 })
+
+    await supabase
+      .from('wiki_album_candidates')
+      .update({
+        status: 'approved',
+        reviewed_at: new Date().toISOString(),
+        published_album_id: result.album_id,
+      })
+      .eq('id', candidateId)
+    return NextResponse.json({
+      ok: true, status: 'approved', album_id: result.album_id,
+      track_count: result.track_count, existed: result.existed, mode,
+    })
   }
 
   if (action === 'approve') {
