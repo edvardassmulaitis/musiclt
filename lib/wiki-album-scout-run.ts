@@ -176,6 +176,29 @@ export async function runWikiAlbumScout(opts: { sourceId?: string | null; dryRun
           continue
         }
 
+        // Albumas JAU kataloge (artist_id + title)? → neaktualu (kaip su dainom).
+        // Žymim 'duplicate' (įrašom fingerprint'ą, kad nekabotų review eilėje ir
+        // nebūtų pertikrinamas kiekvieną scan'ą).
+        try {
+          const { data: existingAlbum } = await supabase
+            .from('albums').select('id').eq('artist_id', top.artist_id).ilike('title', e.album_title).limit(1).maybeSingle()
+          if (existingAlbum) {
+            if (!dryRun) {
+              await supabase.from('wiki_album_candidates').insert({
+                source_id: source.id, source_url: source.list_url,
+                artist_raw: e.artist_raw, album_title: e.album_title, album_wiki_link: e.album_wiki_link,
+                release_year: e.year, release_month: e.month, release_day: e.day,
+                genres_raw: e.genres, label_raw: e.label,
+                matched_artist_id: top.artist_id, match_score: top.score,
+                fingerprint: fp, status: 'duplicate', reviewed_at: new Date().toISOString(),
+                published_album_id: (existingAlbum as any).id,
+              })
+            }
+            c.skipped_known++
+            continue
+          }
+        } catch { /* best-effort — jei patikra krenta, tęsiam įprastai */ }
+
         if (e.album_wiki_link && c.auto_committed < MAX_AUTO_COMMITS_PER_RUN) {
           c.auto_committed++
           if (!dryRun) {

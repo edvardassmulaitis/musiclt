@@ -48,9 +48,6 @@ function formatDate(y: number, m: number, d: number) {
     return `${y}-${String(m).padStart(2, '0')}-${String(d).padStart(2, '0')}`
   }
 }
-function wikiUrl(title: string) {
-  return `https://en.wikipedia.org/wiki/${encodeURIComponent(title.replace(/ /g, '_'))}`
-}
 
 const SOURCE_BADGE: Record<string, { label: string; cls: string }> = {
   musicbrainz: { label: 'MusicBrainz', cls: 'bg-emerald-100 text-emerald-700' },
@@ -67,8 +64,6 @@ export default function WikiAlbumInboxPage() {
   const [busy, setBusy] = useState<number | null>(null)
   const [errorMsg, setErrorMsg] = useState<Record<number, string>>({})
   const [enrich, setEnrich] = useState<Record<number, EnrichState>>({})
-  const [linkOpen, setLinkOpen] = useState<Record<number, boolean>>({})
-  const [linkDrafts, setLinkDrafts] = useState<Record<number, string>>({})
   const [scanning, setScanning] = useState(false)
   const [scanSummary, setScanSummary] = useState<any | null>(null)
   const [scanError, setScanError] = useState('')
@@ -183,22 +178,6 @@ export default function WikiAlbumInboxPage() {
     } finally { setBusy(null) }
   }
 
-  // Rankinė Wikipedia nuoroda (advanced fallback) — senasis approve kelias.
-  async function approveWithLink(id: number) {
-    const draft = linkDrafts[id]?.trim()
-    if (!draft) return
-    setBusy(id); setErrorMsg(p => ({ ...p, [id]: '' }))
-    try {
-      const res = await fetch(`/api/admin/wiki-album-candidates/${id}`, {
-        method: 'PATCH', headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ action: 'approve', album_wiki_link: draft }),
-      })
-      const j = await res.json().catch(() => ({}))
-      if (res.ok) { setCandidates(prev => prev.filter(c => c.id !== id)); setTotal(t => Math.max(0, t - 1)) }
-      else setErrorMsg(p => ({ ...p, [id]: j.error || 'Klaida' }))
-    } finally { setBusy(null) }
-  }
-
   if (status === 'loading' || !isAdmin) return null
 
   return (
@@ -303,7 +282,6 @@ export default function WikiAlbumInboxPage() {
                     ) : (
                       <span className="text-amber-600">nerasta MB/Apple — pridės kaip skeletą</span>
                     )}
-                    {c.match_score !== null && <span className="text-[var(--text-muted)]">· match {Math.round((c.match_score || 0) * 100)}%</span>}
                   </div>
 
                   {errorMsg[c.id] && <div className="text-xs text-red-600 mt-1">{errorMsg[c.id]}</div>}
@@ -316,28 +294,7 @@ export default function WikiAlbumInboxPage() {
                     </button>
                     <button onClick={() => reject(c.id)} disabled={busy === c.id}
                       className="text-sm px-3 py-1 rounded border border-[var(--input-border)]">Atmesti</button>
-                    <button onClick={() => setLinkOpen(p => ({ ...p, [c.id]: !p[c.id] }))}
-                      className="text-xs text-[var(--text-muted)] hover:underline ml-auto">
-                      {linkOpen[c.id] ? 'Slėpti' : 'Wiki nuoroda ▸'}
-                    </button>
                   </div>
-
-                  {/* Advanced: rankinė Wikipedia nuoroda */}
-                  {linkOpen[c.id] && (
-                    <div className="mt-2">
-                      {c.album_wiki_link && (
-                        <a href={wikiUrl(c.album_wiki_link)} target="_blank" rel="noreferrer" className="text-xs text-emerald-700 hover:underline block mb-1">✓ Wikipedia straipsnis: {c.album_wiki_link}</a>
-                      )}
-                      <div className="flex gap-1.5">
-                        <input type="text" placeholder="Wikipedia albumo straipsnio pavadinimas (jei nori kurti iš Wiki)"
-                          value={linkDrafts[c.id] ?? (c.album_wiki_link || '')}
-                          onChange={(ev) => setLinkDrafts(p => ({ ...p, [c.id]: ev.target.value }))}
-                          className="flex-1 text-sm border border-[var(--input-border)] rounded px-2 py-1" />
-                        <button onClick={() => approveWithLink(c.id)} disabled={busy === c.id || !(linkDrafts[c.id] ?? c.album_wiki_link)?.trim()}
-                          className="text-sm px-3 py-1 rounded bg-blue-600 text-white disabled:opacity-40 shrink-0">Iš Wiki</button>
-                      </div>
-                    </div>
-                  )}
                 </div>
               </div>
             )
