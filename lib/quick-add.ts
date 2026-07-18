@@ -222,9 +222,18 @@ const YT_TITLE_NOISE = [
   /\[\s*4k\s*\]/gi,
 ]
 
+// Bendras „triukšmo" skliaustų šalinimas — bet koks (…) ar […] blokas, kuriame
+// yra promo/formato raktažodis (official / video / audio / lyric / visualizer /
+// mv / hd / hq / 4k / 8k / 1080p / 720p / remaster / clip / explicit). Pagauna
+// KOMBINACIJAS, kurių fiksuotas sąrašas nepadengia, pvz. „(official 4k video)".
+// NEšalinam „(Live)", „(Acoustic)", „(Remix)", „(feat. …)" — tie prasmingi.
+const YT_TITLE_NOISE_GENERIC =
+  /\s*[([]\s*[^)\]]*\b(?:official|video|audio|lyric|lyrics|visuali[sz]er|m\/?v|hd|hq|4k|8k|1080p|720p|remaster(?:ed)?|explicit|clip|colou?r(?:ized)?|full\s+stream)\b[^)\]]*[)\]]/gi
+
 function stripTitleNoise(s: string): string {
   let out = s
   for (const re of YT_TITLE_NOISE) out = out.replace(re, '')
+  out = out.replace(YT_TITLE_NOISE_GENERIC, '')
   return out.replace(/\s{2,}/g, ' ').trim()
 }
 
@@ -953,11 +962,14 @@ export async function commitTrack(url: string, origin: string, ov: TrackOverride
     trackSlug = (existingTrack as any).slug
     warnings.push('Tokia daina jau egzistavo — papildyta (ne dublikatas).')
     const upd: Record<string, any> = {
-      title,
       video_url: `https://www.youtube.com/watch?v=${videoId}`,
       video_embeddable: embeddable,
       video_uploaded_at: details?.uploadedAt || null,
     }
+    // Pavadinimo NEPERRAŠOM esamai dainai — DB pavadinimas autoritetingas (dažnai
+    // švaresnis nei YouTube antraštė su „(official 4k video)" ir pan.). Keičiam
+    // TIK jei admin eksplicitiškai pateikė override pavadinimą.
+    if (typeof ov.title === 'string' && ov.title.trim()) upd.title = title
     if (ov.is_single) upd.is_single = true // promote-only, niekad nenuimam
     applyDateGuarded(upd, existingTrack as any)
     await supabase.from('tracks').update(upd).eq('id', trackId)
