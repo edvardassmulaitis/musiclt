@@ -480,20 +480,20 @@ export default function NewsArticleClient({
           overflow:hidden; background:#080d14;
           display:flex; align-items:flex-end;
         }
-        /* Foto dešinėje — VISO AUKŠČIO (object-contain), be kokybės praradimo /
-           nukirpimo. object-position:center → foto centruota savo dėžėje, tad
-           NEprilipusi prie krašto; blur fill sklandžiai užpildo šonus. */
-        .na-hero-photo { position:absolute; inset-block:0; right:0; left:auto; width:60%; overflow:hidden; }
-        .na-hero-blur  { position:absolute; inset:0; background-size:cover; background-position:center; filter:blur(46px) saturate(1.1) brightness(0.55); transform:scale(1.2); }
-        /* Foto „rėmas" — flex shrink-wrap apie realią contain nuotrauką, kad ©
-           kreditas (frame viduje) sėdėtų ant TIKRO nuotraukos kampo, o ne ant
-           dėžės krašto / blur juostos šone. */
-        .na-hero-stage { position:absolute; inset:0; display:flex; align-items:center; justify-content:center; }
-        .na-hero-frame { position:relative; display:flex; max-width:100%; max-height:100%; min-width:0; min-height:0; }
+        /* Ambient fonas — nuotrauka per VISĄ hero plotį, išblukinta+patamsinta,
+           kad būtų vientisas atspalvis, o ne juoda letterbox dėžė dešinėje. */
+        .na-hero-bg    { position:absolute; inset:0; background-size:cover; background-position:center 30%; filter:blur(60px) saturate(1.25) brightness(0.5); transform:scale(1.18); }
+        /* Scrim — kairė (po tekstu) tamsi ir soli, dešinė šviesesnė (matosi ambient);
+           + apatinis fade į puslapio foną, kad hero sklandžiai pereitų į turinį. */
+        .na-hero-scrim { position:absolute; inset:0; pointer-events:none;
+          background:
+            linear-gradient(to top, var(--bg-body) 1%, rgba(8,13,20,0.15) 22%, transparent 46%),
+            linear-gradient(to right, rgba(8,13,20,0.97) 0%, rgba(8,13,20,0.86) 34%, rgba(8,13,20,0.45) 62%, rgba(8,13,20,0.25) 100%); }
+        /* Aštri nuotrauka — dešinėje, „rėme" (apvalūs kampai + šešėlis + plonas
+           rėmelis), inset nuo kraštų → atrodo kaip sąmoningas kadras, ne priklijuota. */
+        .na-hero-photo { position:absolute; inset-block:0; right:0; left:auto; width:54%; display:flex; align-items:center; justify-content:center; padding:26px 34px 30px; z-index:1; }
+        .na-hero-frame { position:relative; display:flex; max-width:100%; max-height:100%; min-width:0; min-height:0; border-radius:16px; overflow:hidden; box-shadow:0 24px 60px -22px rgba(0,0,0,0.75), 0 0 0 1px rgba(255,255,255,0.06); }
         .na-hero-img   { display:block; max-width:100%; max-height:100%; width:auto; height:auto; object-fit:contain; filter:saturate(1.04) contrast(1.02); }
-        /* Siaura kairio krašto blend juosta — blur juosta įsilieja į tamsų foną */
-        .na-hero-fade-l { position:absolute; inset:0; background:linear-gradient(to right, #080d14 0%, rgba(8,13,20,0.5) 16%, transparent 38%); pointer-events:none; }
-        .na-hero-fade-b { position:absolute; inset:0; background:linear-gradient(to top, rgba(8,13,20,0.5) 0%, transparent 20%); pointer-events:none; }
         .na-hero-noimg  { position:absolute; inset:0; background:linear-gradient(135deg,#0d1420 0%,#111826 100%); }
         .na-hero-noimg::after { content:''; position:absolute; inset:0; background:radial-gradient(ellipse at 75% 40%, rgba(249,115,22,0.12) 0%, transparent 55%); }
 
@@ -602,14 +602,14 @@ export default function NewsArticleClient({
         }
         @media(max-width:860px){
           .na-hero { height:auto; min-height:auto; max-height:none; flex-direction:column; align-items:stretch; }
-          .na-hero-photo { position:relative; width:100%; height:230px; }
-          .na-hero-fade-l { background:linear-gradient(to top, #080d14 4%, transparent 70%); }
-          .na-hero-fade-b { display:none; }
-          .na-hero-wrap { background:#080d14; padding:18px 20px 26px; max-width:100%; }
+          .na-hero-scrim { background:linear-gradient(to top, #080d14 0%, rgba(8,13,20,0.2) 55%, transparent 100%); }
+          .na-hero-photo { position:relative; width:100%; height:250px; padding:16px 16px 6px; }
+          .na-hero-frame { box-shadow:0 14px 34px -18px rgba(0,0,0,0.72), 0 0 0 1px rgba(255,255,255,0.06); }
+          .na-hero-wrap { position:relative; background:#080d14; padding:16px 20px 26px; max-width:100%; }
           .na-hero-inner { max-width:100%; }
         }
         @media(max-width:640px){
-          .na-hero-photo { height:170px; }
+          .na-hero-photo { height:200px; }
           .na-h1 { font-size:1.5rem; }
           .na-page { padding:0 16px; }
           .na-grid { padding:24px 0 60px; gap:30px; }
@@ -621,17 +621,20 @@ export default function NewsArticleClient({
         {/* ══════════ HERO ══════════ */}
         <div className="na-hero">
           {heroImg ? (
-            <div className="na-hero-photo">
-              <div className="na-hero-blur" style={{ backgroundImage: `url(${heroImg})` }} />
-              <div className="na-hero-fade-l" />
-              <div className="na-hero-fade-b" />
-              <div className="na-hero-stage">
+            <>
+              {/* Ambient fonas — TA PATI nuotrauka per visą hero plotį, stipriai
+                  išblukinta ir patamsinta → vientisas foninis atspalvis (ne juoda
+                  dėžė). Ant jo — aštri nuotrauka „rėme" su apvaliais kampais +
+                  šešėliu, kad atrodytų integruota, ne priklijuota. */}
+              <div className="na-hero-bg" style={{ backgroundImage: `url(${heroImg})` }} />
+              <div className="na-hero-scrim" />
+              <div className="na-hero-photo">
                 <div className="na-hero-frame">
                   <img src={heroImg} alt="" className="na-hero-img" referrerPolicy="no-referrer" />
                   <PhotoCredit url={heroImg} source={news.source_url || news.source_name} credit={news.heroCredit} />
                 </div>
               </div>
-            </div>
+            </>
           ) : (
             <div className="na-hero-noimg" />
           )}

@@ -279,14 +279,40 @@ export default async function NewsPage({ params }: Props) {
   const relatedArtistsRaw = Array.isArray(relatedTracksRaw)
     ? relatedTracksRaw.filter((e: any) => e?.kind === 'artist')
     : []
-  // Sukurti pilną artist'ų sąrašą: primary (jei yra) + susiję iš article'o.
-  // Dedupe pagal id, primary pirmas.
+  // news_artists junction — VISI naujienos atlikėjai (3+), teisinga tvarka
+  // (primary pirmas). Publikuojant čia įrašomi visi wizard'o atlikėjai, todėl
+  // šitas turi PIRMENYBĘ prieš legacy artist_id/artist_id2 (kurie talpina tik 2).
+  let junctionArtists: { id: number; name: string; cover_image_url?: string }[] = []
+  {
+    const supabaseNA = createAdminClient()
+    const { data: naRows } = await supabaseNA
+      .from('news_artists')
+      .select('artist_id, is_primary, sort_order, artists!inner ( id, name, cover_image_url )')
+      .eq('news_id', (raw as any).id)
+      .order('is_primary', { ascending: false })
+      .order('sort_order', { ascending: true })
+    junctionArtists = (naRows || []).map((r: any) => {
+      const a = Array.isArray(r.artists) ? r.artists[0] : r.artists
+      return { id: a?.id, name: a?.name || '', cover_image_url: a?.cover_image_url || undefined }
+    }).filter((a: any) => a.id)
+  }
+
+  // Sukurti pilną artist'ų sąrašą: junction (visi) arba legacy primary + susiję
+  // iš article'o related_tracks. Dedupe pagal id, primary pirmas.
   const allArtists: { id: number; name: string; cover_image_url?: string }[] = []
   const seenArtistIds = new Set<number>()
-  if (artistObj?.id) {
+  // 1) Junction — autoritetingiausias šaltinis (visi wizard'o atlikėjai).
+  for (const a of junctionArtists) {
+    if (seenArtistIds.has(a.id)) continue
+    seenArtistIds.add(a.id)
+    allArtists.push(a)
+  }
+  // 2) Legacy primary (jei junction tuščias — seni įrašai be junction eilučių).
+  if (artistObj?.id && !seenArtistIds.has(artistObj.id)) {
     allArtists.push(artistObj)
     seenArtistIds.add(artistObj.id)
   }
+  // 3) Susiję iš related_tracks (papildo, jei dar nėra).
   for (const a of relatedArtistsRaw) {
     if (!a?.id || seenArtistIds.has(a.id)) continue
     seenArtistIds.add(a.id)
