@@ -40,7 +40,7 @@ function fmtViews(n: number | null): string {
 }
 
 export default function NewsMusicPicker({
-  artistId, artistName, artists, mentions, attachedIds, onAdd, onRemove,
+  artistId, artistName, artists, mentions, attachedIds, onAdd, onRemove, onReorder,
 }: {
   artistId: number
   artistName: string
@@ -49,14 +49,37 @@ export default function NewsMusicPicker({
   attachedIds: number[]
   onAdd: (trackId: number) => void
   onRemove: (trackId: number) => void
+  /** Pakeičia grotuvo tvarką (dir: -1 aukštyn / +1 žemyn). */
+  onReorder?: (trackId: number, dir: -1 | 1) => void
 }) {
   const [tab, setTab] = useState<'dainos' | 'albumai' | 'atlikejai'>('dainos')
   const [attached, setAttached] = useState<DbTrack[]>([])
   const [loadingAttached, setLoadingAttached] = useState(false)
   const [refreshKey, setRefreshKey] = useState(0)
+  // Inline pavadinimo redagavimas (quick-fix). trackId → juodraštinis tekstas.
+  const [editingTitleId, setEditingTitleId] = useState<number | null>(null)
+  const [titleDraft, setTitleDraft] = useState('')
+  const [savingTitle, setSavingTitle] = useState(false)
 
   const idsKey = attachedIds.join(',')
   const attachedSet = new Set(attachedIds)
+
+  const saveTitle = async (trackId: number) => {
+    const t = titleDraft.trim()
+    if (!t) return
+    setSavingTitle(true)
+    try {
+      const res = await fetch(`/api/admin/tracks/${trackId}`, {
+        method: 'PATCH', headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ title: t }),
+      })
+      const d = await res.json()
+      if (d.ok) {
+        setAttached(prev => prev.map(x => x.id === trackId ? { ...x, title: d.track?.title || t } : x))
+        setEditingTitleId(null)
+      }
+    } finally { setSavingTitle(false) }
+  }
 
   // Realūs DB duomenys pridėtoms dainoms.
   useEffect(() => {
@@ -86,18 +109,52 @@ export default function NewsMusicPicker({
           <p className="text-[13px] text-[var(--text-muted)]">Kraunama…</p>
         ) : (
           <div className="space-y-1.5">
-            {attached.map(t => {
+            {attached.map((t, idx) => {
               const thumb = ytThumb(t.video_url) || t.cover_url || null
               const hasVideo = !!t.video_url
+              const isEditing = editingTitleId === t.id
               return (
                 <div key={t.id} className="flex items-center gap-2 rounded-lg border border-[var(--input-border)] bg-[var(--bg-elevated)] p-1.5">
+                  {/* Grotuvo tvarka — ↑/↓ (pirma daina = grotuvo pradžia) */}
+                  {onReorder && attached.length > 1 && (
+                    <div className="flex flex-col shrink-0 -my-0.5">
+                      <button type="button" onClick={() => onReorder(t.id, -1)} disabled={idx === 0}
+                        aria-label="Aukštyn" title="Perkelti aukščiau"
+                        className="w-5 h-4 flex items-center justify-center text-[var(--text-muted)] hover:text-blue-600 disabled:opacity-25 leading-none text-[11px]">▲</button>
+                      <button type="button" onClick={() => onReorder(t.id, 1)} disabled={idx === attached.length - 1}
+                        aria-label="Žemyn" title="Perkelti žemiau"
+                        className="w-5 h-4 flex items-center justify-center text-[var(--text-muted)] hover:text-blue-600 disabled:opacity-25 leading-none text-[11px]">▼</button>
+                    </div>
+                  )}
                   {thumb ? (
                     <img src={thumb} alt="" className="w-14 h-9 rounded object-cover bg-black shrink-0" />
                   ) : (
                     <div className="w-14 h-9 rounded bg-black/60 flex items-center justify-center text-white text-sm shrink-0">🎵</div>
                   )}
                   <div className="flex-1 min-w-0">
-                    <div className="text-[13px] font-medium text-[var(--text-primary)] truncate">{t.title}</div>
+                    {isEditing ? (
+                      <div className="flex items-center gap-1">
+                        <input
+                          autoFocus type="text" value={titleDraft} onChange={e => setTitleDraft(e.target.value)}
+                          onKeyDown={e => {
+                            if (e.key === 'Enter') { e.preventDefault(); saveTitle(t.id) }
+                            if (e.key === 'Escape') { e.preventDefault(); setEditingTitleId(null) }
+                          }}
+                          disabled={savingTitle}
+                          className="flex-1 min-w-0 px-1.5 py-0.5 rounded border border-blue-400 text-[13px] bg-[var(--bg-surface)] text-[var(--text-primary)] focus:outline-none" />
+                        <button type="button" onClick={() => saveTitle(t.id)} disabled={savingTitle || !titleDraft.trim()}
+                          className="shrink-0 text-emerald-600 disabled:opacity-40 text-[13px] font-bold px-1" title="Išsaugoti">{savingTitle ? '…' : '✓'}</button>
+                        <button type="button" onClick={() => setEditingTitleId(null)} disabled={savingTitle}
+                          className="shrink-0 text-[var(--text-muted)] hover:text-red-500 text-[13px] px-0.5" title="Atšaukti">×</button>
+                      </div>
+                    ) : (
+                      <div className="text-[13px] font-medium text-[var(--text-primary)] truncate flex items-center gap-1">
+                        <span className="truncate">{t.title}</span>
+                        <button type="button" onClick={() => { setEditingTitleId(t.id); setTitleDraft(t.title) }}
+                          aria-label="Taisyti pavadinimą" title="Taisyti pavadinimą"
+                          className="shrink-0 text-[var(--text-muted)] hover:text-blue-600 text-[11px] opacity-70 hover:opacity-100">✎</button>
+                      </div>
+                    )}
                     <div className="text-[11px] truncate flex items-center gap-1.5">
                       <span className="text-[var(--text-muted)]">{t.artist_name}</span>
                       {hasVideo
@@ -151,6 +208,7 @@ function DainosTab({ artistId, artistName, mentions, attached, onAdd, onCommitte
   const [searching, setSearching] = useState(false)
   const [loadingMore, setLoadingMore] = useState(false)
   const [committing, setCommitting] = useState<string | null>(null)
+  const [committingTitle, setCommittingTitle] = useState<string>('')
   const [commitMsg, setCommitMsg] = useState<string | null>(null)
   const didInit = useRef(false)
 
@@ -182,7 +240,7 @@ function DainosTab({ artistId, artistName, mentions, attached, onAdd, onCommitte
   }, [mentions, artistName, runSearch])
 
   const addFromYt = async (hit: YtHit) => {
-    setCommitting(hit.videoId); setCommitMsg(null)
+    setCommitting(hit.videoId); setCommittingTitle(hit.title); setCommitMsg(null)
     try {
       const res = await fetch('/api/admin/quick-add', {
         method: 'POST', headers: { 'Content-Type': 'application/json' },
@@ -193,7 +251,7 @@ function DainosTab({ artistId, artistName, mentions, attached, onAdd, onCommitte
         onAdd(d.track.id); onCommitted(); setCommitMsg(`✓ Pridėta: ${d.track.title}`)
       } else setCommitMsg(`⚠ ${d.error || 'Nepavyko pridėti'}`)
     } catch (e: any) { setCommitMsg(`⚠ ${e?.message || 'Klaida'}`) }
-    finally { setCommitting(null) }
+    finally { setCommitting(null); setCommittingTitle('') }
   }
 
   const chipTitles = Array.from(new Set(mentions.map(m => m.title).filter(Boolean)))
@@ -221,7 +279,13 @@ function DainosTab({ artistId, artistName, mentions, attached, onAdd, onCommitte
           ))}
         </div>
       )}
-      {commitMsg && <div className={`text-[12px] mb-1.5 ${commitMsg.startsWith('✓') ? 'text-emerald-600' : 'text-amber-600'}`}>{commitMsg}</div>}
+      {committing && (
+        <div className="flex items-center gap-2 mb-1.5 px-2.5 py-2 rounded-lg bg-blue-50 border border-blue-200 text-[12px] text-blue-700">
+          <span className="w-3.5 h-3.5 border-2 border-blue-500 border-t-transparent rounded-full animate-spin shrink-0" />
+          <span className="min-w-0 truncate">Pridedama į sistemą{committingTitle ? `: „${committingTitle}"` : ''}… (paimam video, dangtelį, atlikėją)</span>
+        </div>
+      )}
+      {!committing && commitMsg && <div className={`text-[12px] mb-1.5 ${commitMsg.startsWith('✓') ? 'text-emerald-600' : 'text-amber-600'}`}>{commitMsg}</div>}
       {searching && visibleResults.length === 0 ? (
         <p className="text-[13px] text-[var(--text-muted)] py-2">Ieškoma…</p>
       ) : visibleResults.length === 0 ? (
@@ -232,13 +296,22 @@ function DainosTab({ artistId, artistName, mentions, attached, onAdd, onCommitte
             const busy = committing === hit.videoId
             return (
               <button key={hit.videoId} type="button" onClick={() => addFromYt(hit)} disabled={!!committing}
-                className="w-full flex items-center gap-2 rounded-lg border border-[var(--input-border)] bg-[var(--bg-surface)] p-1.5 text-left hover:border-blue-400 hover:bg-blue-50/40 disabled:opacity-60">
-                <img src={hit.thumbnail} alt="" className="w-14 h-9 rounded object-cover bg-black shrink-0" />
+                className={`w-full flex items-center gap-2 rounded-lg border p-1.5 text-left disabled:opacity-60 ${busy ? 'border-blue-400 bg-blue-50/60' : 'border-[var(--input-border)] bg-[var(--bg-surface)] hover:border-blue-400 hover:bg-blue-50/40'}`}>
+                <div className="relative w-14 h-9 shrink-0">
+                  <img src={hit.thumbnail} alt="" className="w-14 h-9 rounded object-cover bg-black" />
+                  {busy && (
+                    <div className="absolute inset-0 rounded bg-black/50 flex items-center justify-center">
+                      <span className="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin" />
+                    </div>
+                  )}
+                </div>
                 <div className="flex-1 min-w-0">
                   <div className="text-[13px] font-medium text-[var(--text-primary)] truncate">{hit.title}</div>
-                  <div className="text-[11px] text-[var(--text-muted)] truncate">{hit.channel}{hit.viewCount ? ` · 👁 ${fmtViews(hit.viewCount)}` : ''}</div>
+                  <div className="text-[11px] text-[var(--text-muted)] truncate">{busy ? 'Pridedama…' : `${hit.channel}${hit.viewCount ? ` · 👁 ${fmtViews(hit.viewCount)}` : ''}`}</div>
                 </div>
-                <span className="shrink-0 text-blue-600 text-lg font-bold px-1 w-6 text-center">{busy ? '…' : '＋'}</span>
+                <span className="shrink-0 text-blue-600 text-lg font-bold px-1 w-6 text-center">
+                  {busy ? <span className="inline-block w-3.5 h-3.5 border-2 border-blue-500 border-t-transparent rounded-full animate-spin align-middle" /> : '＋'}
+                </span>
               </button>
             )
           })}

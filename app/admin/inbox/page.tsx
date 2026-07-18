@@ -11,6 +11,7 @@ import { useInboxCounts } from '@/components/useInboxCounts'
 import ArtistSearchInput from '@/components/ui/ArtistSearchInput'
 import TrackSuggestPicker, { type PickResult } from '@/components/TrackSuggestPicker'
 import NewsMusicPicker from '@/components/NewsMusicPicker'
+import NewsPhotoStep from '@/components/NewsPhotoStep'
 import { decodeHtmlEntities } from '@/lib/html-entities'
 import dynamic from 'next/dynamic'
 
@@ -194,10 +195,11 @@ export default function AdminInboxPage() {
     source: string
     video_id?: string
     yt_meta?: { title: string | null; channel_title: string | null; view_count: number | null; uploaded_at: string | null } | null
-    meta?: { photographer?: string | null; copyright?: string | null; year_taken?: number | null; caption?: string | null; image_id?: number }
+    meta?: { photographer?: string | null; copyright?: string | null; year_taken?: number | null; caption?: string | null; image_id?: number; sourceUrl?: string | null; takenAt?: string | null }
   }>>([])
   const [showWiki, setShowWiki] = useState(false)
   const [wikiArtistName, setWikiArtistName] = useState('')
+  const [wikiProfileMsg, setWikiProfileMsg] = useState('')
   const [savingEdit, setSavingEdit] = useState(false)
   // Wizard'o artist'ų state — visi pasirinkti į sąrašą (order'is = sort_order news_artists'e)
   const [editArtistIds, setEditArtistIds] = useState<number[]>([])
@@ -430,6 +432,7 @@ export default function AdminInboxPage() {
     setEditImages([])
     setImageOptions([])
     setShowWiki(false)
+    setWikiProfileMsg('')
     setEditArtistIds([])
     setEditPrimaryId(null)
     setArtistMeta({})
@@ -520,6 +523,33 @@ export default function AdminInboxPage() {
   }
   const handleRemoveTrack = (id: number) => {
     setEditTrackIds(prev => prev.filter(x => x !== id))
+  }
+  // Grotuvo tvarka — pirma daina = grotuvo pradžia (ir embed dedupe pagal ją).
+  const handleReorderTrack = (id: number, dir: -1 | 1) => {
+    setEditTrackIds(prev => {
+      const i = prev.indexOf(id)
+      if (i < 0) return prev
+      const j = i + dir
+      if (j < 0 || j >= prev.length) return prev
+      const next = [...prev]
+      ;[next[i], next[j]] = [next[j], next[i]]
+      return next
+    })
+  }
+
+  // Nuotraukų žingsnio (step 4) pasirinkimo toggle — multi-select, pirma = hero, max 5.
+  const togglePhoto = (url: string) => {
+    setEditImages(prev => {
+      if (prev.includes(url)) return prev.filter(x => x !== url)
+      if (prev.length >= 5) { alert('Max 5 nuotraukos (1 hero + 4 papildomos). Pirma pašalink.'); return prev }
+      return [...prev, url]
+    })
+  }
+  // Po press-foto autoriaus išsaugojimo — atnaujinam option meta lokaliai.
+  const updateOptionAuthor = (url: string, photographer: string) => {
+    setImageOptions(prev => prev.map(o =>
+      o.url === url ? { ...o, meta: { ...(o.meta || {}), photographer }, label: photographer ? `📷 ${photographer}` : o.label } : o
+    ))
   }
 
   const handlePickerManyResults = (results: PickResult[]) => {
@@ -1193,15 +1223,25 @@ export default function AdminInboxPage() {
         <WikimediaSearch
           artistName={wikiArtistName}
           onAddMultiple={(photos: Photo[]) => {
-            // Multi-photo support: Wikimedia photo'us pridedam visu's į options
-            // ir auto-select kaip multi-image galeriją. User'is gali patikslinti.
-            const newOptions = photos
-              .filter(p => p.url)
-              .map(p => ({ url: p.url, label: p.author ? `Wiki · ${p.author}` : 'Wikimedia', source: 'wiki' }))
+            // Multi-photo support: Wikimedia photo'us pridedam į options + auto-select.
+            // Author/license/sourceUrl išsaugom meta (naudojama credit'ui + profilio pridėjimui).
+            const clean = photos.filter(p => p.url)
+            const newOptions = clean.map(p => ({
+              url: p.url,
+              label: (p as any).author ? `Wiki · ${(p as any).author}` : 'Wikimedia',
+              source: 'wiki',
+              meta: {
+                photographer: (p as any).author || null,
+                copyright: (p as any).license || null,
+                caption: null,
+                sourceUrl: (p as any).sourceUrl || (p as any).authorUrl || null,
+                takenAt: (p as any).takenAt || null,
+              },
+            }))
             setImageOptions(prev => {
               const out = [...prev]
               for (const opt of newOptions) {
-                if (!out.some(o => o.url === opt.url)) out.push(opt)
+                if (!out.some(o => o.url === opt.url)) out.push(opt as any)
               }
               return out
             })
@@ -1213,6 +1253,24 @@ export default function AdminInboxPage() {
               }
               return out
             })
+            // Papildom ir ATLIKĖJO profilį (artist_photos) — deduped serveryje.
+            const targetArtistId = editPrimaryId || editArtistIds[0]
+            if (targetArtistId && clean.length > 0) {
+              fetch(`/api/admin/artists/${targetArtistId}/photos-append`, {
+                method: 'POST', headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({
+                  photos: clean.map(p => ({
+                    url: p.url,
+                    author: (p as any).author || null,
+                    license: (p as any).license || null,
+                    sourceUrl: (p as any).sourceUrl || (p as any).authorUrl || null,
+                    takenAt: (p as any).takenAt || null,
+                  })),
+                }),
+              }).then(r => r.json()).then(d => {
+                if (d?.ok && d.added > 0) setWikiProfileMsg(`✓ ${d.added} nuotr. pridėta ir prie „${wikiArtistName}" profilio`)
+              }).catch(() => {})
+            }
             setShowWiki(false)
           }}
           onClose={() => setShowWiki(false)}
@@ -1542,124 +1600,27 @@ export default function AdminInboxPage() {
                       attachedIds={editTrackIds}
                       onAdd={handleAddTrack}
                       onRemove={handleRemoveTrack}
+                      onReorder={handleReorderTrack}
                     />
                   ) : null
                 })()}
               </div>
 
-              {/* === Nuotraukos (multi-select, ordered: 1=hero, 2-5=galerija) === (žingsnis 4) */}
+              {/* === Nuotraukos (grupuota pagal šaltinį: press → profilis → embedai) === (žingsnis 4) */}
               <div className={editStep === 4 ? '' : 'hidden'}>
-                <div className="text-xs font-semibold text-[var(--text-muted)] uppercase tracking-wide mb-1.5">
-                  Nuotraukos
-                  {editImages.length > 0 && (
-                    <span className="ml-1 normal-case font-normal opacity-70">
-                      ({editImages.length} pasirinkta, pirma = hero)
-                    </span>
-                  )}
-                </div>
-                {imageOptions.length > 0 ? (
-                  <div className="grid grid-cols-4 sm:grid-cols-4 gap-1.5">
-                    {imageOptions.map((opt, i) => {
-                      const orderIdx = editImages.indexOf(opt.url)
-                      const isSelected = orderIdx >= 0
-                      const isPrimary = orderIdx === 0
-                      return (
-                        <button
-                          key={i}
-                          onClick={() => {
-                            // Toggle multi-select: if selected, remove; else append
-                            setEditImages(prev => {
-                              if (prev.includes(opt.url)) return prev.filter(x => x !== opt.url)
-                              if (prev.length >= 5) {
-                                alert('Max 5 nuotraukos (1 hero + 4 papildomos). Pirma pašalink.')
-                                return prev
-                              }
-                              return [...prev, opt.url]
-                            })
-                          }}
-                          className={`relative aspect-square rounded-lg overflow-hidden border-2 transition-all ${
-                            isPrimary
-                              ? 'border-emerald-500 ring-2 ring-emerald-200'
-                              : isSelected
-                                ? 'border-blue-500 ring-1 ring-blue-200'
-                                : 'border-transparent hover:border-[var(--input-border)]'
-                          }`}>
-                          <img
-                            src={opt.url}
-                            alt={opt.label}
-                            className="absolute inset-0 w-full h-full object-cover bg-[var(--bg-elevated)]"
-                            onError={e => ((e.target as HTMLImageElement).style.display = 'none')}
-                          />
-                          {isSelected && (
-                            <div className={`absolute top-1 left-1 w-5 h-5 rounded-full flex items-center justify-center text-[12px] font-bold text-white ${
-                              isPrimary ? 'bg-emerald-600' : 'bg-blue-600'
-                            }`}>
-                              {orderIdx + 1}
-                            </div>
-                          )}
-                          <div className="absolute bottom-0 left-0 right-0 bg-gradient-to-t from-black/90 via-black/70 to-transparent text-white text-[12px] px-1.5 py-1">
-                            <div className="font-semibold opacity-90 leading-tight">
-                              {opt.source === 'email_attachment' && '📧 Press foto'}
-                              {opt.source === 'artist_photo' && '📸 Galerija'}
-                              {opt.source === 'artist_cover' && '🎤 Profilio nuotrauka'}
-                              {opt.source === 'youtube_thumb' && '🎬 YT thumb'}
-                              {opt.source === 'wiki' && '📖 Wikimedia'}
-                            </div>
-                            {/* Email attachment — photographer/copyright/year */}
-                            {opt.source === 'email_attachment' && opt.meta ? (
-                              <>
-                                <div className="opacity-95 leading-tight truncate text-[12px]">
-                                  {opt.meta.caption && <span>{opt.meta.caption}</span>}
-                                  {!opt.meta.caption && opt.meta.photographer && <span>📷 {opt.meta.photographer}</span>}
-                                </div>
-                                <div className="opacity-70 leading-tight truncate text-[12px]">
-                                  {opt.meta.photographer && opt.meta.caption && <span>📷 {opt.meta.photographer}</span>}
-                                  {opt.meta.year_taken && <span> · {opt.meta.year_taken}</span>}
-                                  {opt.meta.copyright && <span> · © {opt.meta.copyright}</span>}
-                                </div>
-                              </>
-                            ) :
-                            /* YT thumb'ams — rodom title + channel + views + age vietoj generic label'o */
-                            opt.source === 'youtube_thumb' && opt.yt_meta ? (
-                              <>
-                                <div className="opacity-95 leading-tight truncate" title={opt.yt_meta.title || ''}>
-                                  {opt.yt_meta.title || opt.label}
-                                </div>
-                                <div className="opacity-70 leading-tight truncate text-[12px]">
-                                  {opt.yt_meta.channel_title && <span>{opt.yt_meta.channel_title}</span>}
-                                  {opt.yt_meta.view_count && <span> · 👁 {formatViewCount(opt.yt_meta.view_count)}</span>}
-                                  {opt.yt_meta.uploaded_at && <span> · {ytAgeShort(opt.yt_meta.uploaded_at)}</span>}
-                                </div>
-                              </>
-                            ) : (
-                              <div className="opacity-70 truncate leading-tight">{opt.label}</div>
-                            )}
-                          </div>
-                        </button>
-                      )
-                    })}
-                  </div>
-                ) : (
-                  <p className="text-sm text-[var(--text-muted)] italic">Atlikėjo nuotraukų DB nėra.</p>
+                {editing && (
+                  <NewsPhotoStep
+                    candidateId={editing.id}
+                    options={imageOptions}
+                    selected={editImages}
+                    onToggle={togglePhoto}
+                    onClear={() => setEditImages([])}
+                    wikiArtistName={wikiArtistName}
+                    onOpenWiki={() => setShowWiki(true)}
+                    wikiProfileMsg={wikiProfileMsg}
+                    onUpdateOptionAuthor={updateOptionAuthor}
+                  />
                 )}
-                <div className="flex flex-wrap gap-2 mt-2">
-                  {wikiArtistName && (
-                    <button
-                      type="button"
-                      onClick={() => setShowWiki(true)}
-                      className="px-3 py-1.5 bg-amber-50 hover:bg-amber-100 text-amber-700 rounded-lg text-xs font-medium border border-amber-200">
-                      🔍 Wiki paieška: {wikiArtistName}
-                    </button>
-                  )}
-                  {editImages.length > 0 && (
-                    <button
-                      type="button"
-                      onClick={() => setEditImages([])}
-                      className="px-3 py-1.5 bg-[var(--bg-elevated)] hover:bg-[var(--bg-active)] text-[var(--text-secondary)] rounded-lg text-xs font-medium">
-                      Išvalyti pasirinkimą
-                    </button>
-                  )}
-                </div>
               </div>
 
               {/* === Antraštė === (žingsnis 1: Turinys) */}
