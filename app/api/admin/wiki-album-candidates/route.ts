@@ -13,6 +13,7 @@ import { NextRequest, NextResponse } from 'next/server'
 import { getServerSession } from 'next-auth'
 import { authOptions } from '@/lib/auth'
 import { createAdminClient } from '@/lib/supabase'
+import { normalizeAlbumTitle } from '@/lib/album-title'
 
 export const runtime = 'nodejs'
 
@@ -54,12 +55,12 @@ export async function GET(req: NextRequest) {
       .from('albums')
       .select('artist_id, title')
       .in('artist_id', artistIds)
-    for (const a of (albums || []) as any[]) existing.add(`${a.artist_id}::${(a.title || '').toLowerCase().trim()}`)
+    for (const a of (albums || []) as any[]) existing.add(`${a.artist_id}::${normalizeAlbumTitle(a.title || '')}`)
   }
   const dupIds: number[] = []
   const kept = rows.filter(r => {
     if (status !== 'pending' || !r.matched_artist_id) return true
-    const key = `${r.matched_artist_id}::${(r.album_title || '').toLowerCase().trim()}`
+    const key = `${r.matched_artist_id}::${normalizeAlbumTitle(r.album_title || '')}`
     if (existing.has(key)) { dupIds.push(r.id); return false }
     return true
   })

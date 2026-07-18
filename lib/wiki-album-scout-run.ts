@@ -18,6 +18,7 @@ import { fetchWikitext } from '@/lib/wiki-fetch'
 import { parseAlbumListPage, albumListFingerprint, type AlbumListEntry } from '@/lib/wiki-album-list'
 import { matchArtists } from '@/lib/entity-matcher'
 import { commitAlbum } from '@/lib/quick-add'
+import { normalizeAlbumTitle } from '@/lib/album-title'
 
 const MAX_FRESH_PER_RUN = 200
 const MAX_AUTO_COMMITS_PER_RUN = 8
@@ -176,12 +177,14 @@ export async function runWikiAlbumScout(opts: { sourceId?: string | null; dryRun
           continue
         }
 
-        // Albumas JAU kataloge (artist_id + title)? → neaktualu (kaip su dainom).
-        // Žymim 'duplicate' (įrašom fingerprint'ą, kad nekabotų review eilėje ir
-        // nebūtų pertikrinamas kiekvieną scan'ą).
+        // Albumas JAU kataloge (artist_id + normalizuotas title)? → neaktualu (kaip su
+        // dainom). Normalizuojam, kad pagautume „Days of Ash" vs „Days of Ash EP".
+        // Žymim 'duplicate' (įrašom fingerprint'ą, kad nekabotų review eilėje).
         try {
-          const { data: existingAlbum } = await supabase
-            .from('albums').select('id').eq('artist_id', top.artist_id).ilike('title', e.album_title).limit(1).maybeSingle()
+          const wantNorm = normalizeAlbumTitle(e.album_title)
+          const { data: artistAlbums } = await supabase
+            .from('albums').select('id, title').eq('artist_id', top.artist_id).limit(500)
+          const existingAlbum = (artistAlbums || []).find((a: any) => normalizeAlbumTitle(a.title || '') === wantNorm)
           if (existingAlbum) {
             if (!dryRun) {
               await supabase.from('wiki_album_candidates').insert({

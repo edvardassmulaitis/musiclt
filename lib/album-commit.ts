@@ -13,6 +13,7 @@
 import { createAdminClient } from '@/lib/supabase'
 import { createAlbum, type AlbumFull, type TrackInAlbum } from '@/lib/supabase-albums'
 import { fetchReleaseTracklist, fetchMbCoverUrl, msToDuration } from '@/lib/musicbrainz'
+import { normalizeAlbumTitle } from '@/lib/album-title'
 
 export type AlbumCommitResult =
   | { ok: true; album_id: number; title: string; track_count: number; existed: boolean }
@@ -23,15 +24,18 @@ function isUpcoming(y: number | null, m: number | null, d: number | null): boole
   return Date.UTC(y, (m || 1) - 1, d || 1) > Date.now()
 }
 
-/** Ar atlikėjas jau turi tokio pavadinimo albumą (ilike). Grąžina id arba null. */
+/** Ar atlikėjas jau turi tokio pavadinimo albumą (normalizuotas palyginimas —
+ *  pagauna „Days of Ash" vs „Days of Ash EP"). Grąžina id arba null. */
 async function findExistingAlbum(supabase: any, artistId: number, title: string): Promise<number | null> {
+  const want = normalizeAlbumTitle(title)
+  if (!want) return null
   const { data } = await supabase
     .from('albums')
     .select('id, title')
     .eq('artist_id', artistId)
-    .ilike('title', title)
-    .limit(1)
-  return data && data[0] ? (data[0].id as number) : null
+    .limit(500)
+  const hit = (data || []).find((a: any) => normalizeAlbumTitle(a.title || '') === want)
+  return hit ? (hit.id as number) : null
 }
 
 const BASE_TYPES = {

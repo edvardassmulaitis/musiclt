@@ -49,6 +49,10 @@ function formatDate(y: number, m: number, d: number) {
   }
 }
 
+function wikiUrl(title: string) {
+  return `https://en.wikipedia.org/wiki/${encodeURIComponent(title.replace(/ /g, '_'))}`
+}
+
 const SOURCE_BADGE: Record<string, { label: string; cls: string }> = {
   musicbrainz: { label: 'MusicBrainz', cls: 'bg-emerald-100 text-emerald-700' },
   apple: { label: 'Apple Music', cls: 'bg-blue-100 text-blue-700' },
@@ -262,7 +266,13 @@ export default function WikiAlbumInboxPage() {
                         {c.artist_raw}
                       </span>
                     )}
-                    {' — '}{c.album_title}
+                    {' — '}
+                    {c.album_wiki_link ? (
+                      <a href={wikiUrl(c.album_wiki_link)} target="_blank" rel="noopener noreferrer"
+                        className="hover:underline decoration-dotted underline-offset-2" title="Atidaryti Wikipedia straipsnį">
+                        {c.album_title} <span className="text-[10px] align-super opacity-60">↗</span>
+                      </a>
+                    ) : c.album_title}
                   </div>
                   <div className="text-[12px] mt-1 flex items-center gap-1.5 flex-wrap">
                     {enriching ? (
