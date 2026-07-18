@@ -315,7 +315,8 @@ function FieldBox({ label, children }: { label: string; children: React.ReactNod
   )
 }
 
-const inputCls = 'min-h-[40px] rounded-lg border border-[var(--input-border)] bg-[var(--bg-elevated)] px-3 text-[14px] text-[var(--text-primary)] focus:border-[var(--border-strong)] focus:outline-none'
+// text-[16px]: mažiau nei 16px iOS'e sukelia auto-zoom fokusuojant input'ą.
+const inputCls = 'min-h-[40px] rounded-lg border border-[var(--input-border)] bg-[var(--bg-elevated)] px-3 text-[16px] text-[var(--text-primary)] focus:border-[var(--border-strong)] focus:outline-none'
 
 // ────────────────────────────────────────────────────────────────────────────
 // Atlikėjų paieška (debounced) — bendras hook pickeriams

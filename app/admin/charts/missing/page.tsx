@@ -7,7 +7,7 @@ import { openAdminQuickAdd } from '@/components/AdminQuickAddModal'
 /* /admin/charts/missing — agreguotos trūkstamos (nesusietos) dainos per visus
  * dainų topus. Sutvarkius vieną kartą, daina susidėlioja į VISUS topus. */
 
-type Missing = { artist: string; title: string; chartCount: number; charts: string[]; videoId?: string | null }
+type Missing = { artist: string; title: string; chartCount: number; charts: string[]; videoId?: string | null; artistId?: number | null; artistScore?: number | null }
 type Hit = { type: string; id: number; slug: string; title: string; artist: string | null; image_url: string | null }
 
 /* Supaprastina netvarkingą topo atlikėjo kreditą iki PIRMO atlikėjo paieškai
@@ -29,6 +29,7 @@ function cleanTitle(t: string): string {
 export default function AdminMissingPage() {
   const [list, setList] = useState<Missing[]>([])
   const [loading, setLoading] = useState(true)
+  const [onlyWithArtist, setOnlyWithArtist] = useState(false)
 
   const load = useCallback(async () => {
     setLoading(true)
@@ -40,8 +41,23 @@ export default function AdminMissingPage() {
 
   const onDone = (m: Missing) => setList(prev => prev.filter(x => !(x.artist === m.artist && x.title === m.title)))
 
+  const withArtistCount = list.filter(m => m.artistId != null).length
+  const shown = onlyWithArtist ? list.filter(m => m.artistId != null) : list
+
   return (
-    <div className="mx-auto max-w-[860px] px-4 py-6 sm:px-6">
+    <div className="missing-page mx-auto max-w-[860px] px-4 py-6 sm:px-6">
+      {/* iOS: neleidžiam native long-press callout/selection ant mygtukų — jis
+          iššaukdavo zoom'ą / teksto meniu telefone. Inputai lieka selectable. */}
+      <style>{`
+        @media (max-width: 719px) {
+          .missing-page button, .missing-page a, .missing-page img {
+            -webkit-touch-callout: none; -webkit-user-select: none; user-select: none;
+          }
+          .missing-page input, .missing-page textarea {
+            -webkit-user-select: text; user-select: text; font-size: 16px;
+          }
+        }
+      `}</style>
       <InboxTabs />
       <div className="mb-4 flex items-center justify-between gap-3">
         <div>
@@ -53,13 +69,21 @@ export default function AdminMissingPage() {
 
       <PlaylistSources />
 
+      {!loading && withArtistCount > 0 && (
+        <label className="mb-3 flex cursor-pointer select-none items-center gap-2 text-sm text-gray-600">
+          <input type="checkbox" checked={onlyWithArtist} onChange={e => setOnlyWithArtist(e.target.checked)}
+            className="h-4 w-4 rounded border-gray-300 text-blue-600 focus:ring-blue-500" />
+          <span>Tik su rastu atlikėju <span className="text-gray-400">({withArtistCount})</span></span>
+        </label>
+      )}
+
       {loading ? (
         <div className="text-sm text-gray-400">Kraunama…</div>
-      ) : list.length === 0 ? (
-        <div className="rounded-xl border border-gray-200 bg-white p-8 text-center text-sm text-gray-500">Visos dainos susietos 🎉</div>
+      ) : shown.length === 0 ? (
+        <div className="rounded-xl border border-gray-200 bg-white p-8 text-center text-sm text-gray-500">{onlyWithArtist ? 'Nėra dainų su jau esamu atlikėju.' : 'Visos dainos susietos 🎉'}</div>
       ) : (
         <div className="overflow-hidden rounded-xl border border-gray-200 bg-white">
-          {list.map((m, i) => <MissingRow key={`${m.artist}-${m.title}-${i}`} m={m} autoSuggest={i < 10} onDone={() => onDone(m)} />)}
+          {shown.map((m, i) => <MissingRow key={`${m.artist}-${m.title}-${i}`} m={m} autoSuggest={i < 10} onDone={() => onDone(m)} />)}
         </div>
       )}
     </div>
@@ -170,6 +194,16 @@ function MissingRow({ m, onDone, autoSuggest }: { m: Missing; onDone: () => void
     } else setMsg(r?.error || 'Klaida')
   }
 
+  // Atmesti pasiūlymą — dažniausiai discovery daina, kurios nenorim (ne iš topų).
+  // Pažymim kandidatą 'rejected' backend'e ir iškart dingdinam iš sąrašo.
+  const reject = async () => {
+    if (busy) return
+    setBusy(true); setMsg('Atmetama…')
+    await post('reject')
+    setMsg('✕ atmesta')
+    setTimeout(onDone, 500)
+  }
+
   const fetchSuggest = useCallback(async () => {
     if (sugTried) return
     setSugTried(true); setSugLoading(true)
@@ -212,7 +246,10 @@ function MissingRow({ m, onDone, autoSuggest }: { m: Missing; onDone: () => void
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [openedVid])
 
-  const score = sug?.artist?.score
+  // Atlikėjas jau kataloge? Discovery kandidatai atneša tai iškart (m.artistId),
+  // chart eilutėms — po „suggest" (sug.artist). Rodom 🔥 su populiarumo score.
+  const hasArtist = sug?.artist != null || m.artistId != null
+  const score = sug?.artist?.score ?? m.artistScore ?? null
   const ytUrl = sug?.video ? `https://www.youtube.com/watch?v=${sug.video.videoId}` : null
 
   return (
@@ -223,7 +260,7 @@ function MissingRow({ m, onDone, autoSuggest }: { m: Missing; onDone: () => void
           <p className="text-sm font-semibold leading-snug text-gray-800">{m.title}</p>
           <p className="mt-0.5 text-xs text-gray-500">
             <span className="font-medium text-gray-600">{m.artist}</span>
-            {sug?.artist && <span className="ml-1 rounded bg-orange-100 px-1.5 py-0.5 text-[11px] font-bold text-orange-700" title="Atlikėjas jau kataloge · populiarumo score">🔥 {score ?? '—'}</span>}
+            {hasArtist && <span className="ml-1 rounded bg-orange-100 px-1.5 py-0.5 text-[11px] font-bold text-orange-700" title="Atlikėjas jau kataloge · populiarumo score">🔥 {score ?? '—'}</span>}
             <span className="text-gray-300"> · {m.charts.join(', ')}</span>
           </p>
 
@@ -237,6 +274,11 @@ function MissingRow({ m, onDone, autoSuggest }: { m: Missing; onDone: () => void
             {!autoSuggest && !sug && !sugLoading && (
               <button onClick={fetchSuggest} disabled={busy}
                 className="rounded bg-gray-100 px-3 py-1 text-[13px] font-medium text-gray-700 hover:bg-gray-200 disabled:opacity-50">🔎 YouTube</button>
+            )}
+            {m.videoId && (
+              <button onClick={reject} disabled={busy}
+                title="Atmesti pasiūlymą — daugiau nebesiūlys"
+                className="rounded bg-gray-100 px-3 py-1 text-[13px] font-medium text-gray-500 hover:bg-red-100 hover:text-red-600 disabled:opacity-50">✕ Atmesti</button>
             )}
             {msg && <span className="text-[13px] font-medium text-gray-500">{msg}</span>}
           </div>
