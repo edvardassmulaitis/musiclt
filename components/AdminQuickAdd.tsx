@@ -47,6 +47,7 @@ type QueueItem = {
   form: any
   result: any
   suggestionState: SuggestionState
+  albumBg?: 'pending' | 'done' | 'error' | null
 }
 
 let _seq = 0
@@ -157,6 +158,14 @@ export default function AdminQuickAdd({ bare = false, initialUrl }: { bare?: boo
     patchItem(id, { phase: 'committing', error: null })
     const num = (v: any) => (v === '' || v == null ? null : Number(v))
     const artist: ArtistRef = item.form.artist || { id: null, name: '' }
+    // Albumas — tik ĮSIMENAM ketinimą; NEBEKURIAM inline (per lėta mobile'e:
+    // iki 30 throttled MB single-check kvietimų ~30s, nulūžta perėjus kitur).
+    // Daina commit'inama greitai, albumas paleidžiamas fone po sėkmės (žr. žemiau).
+    const wantAlbum = item.preview.kind === 'track'
+      && !!item.form.create_album
+      && item.preview.suggested_album?.source === 'musicbrainz'
+      && !!item.preview.suggested_album?.mb_release_id
+    const albumMbId: string | null = item.preview.suggested_album?.mb_release_id ?? null
     const overrides = item.preview.kind === 'track'
       ? {
           title: item.form.title?.trim(),
@@ -164,8 +173,8 @@ export default function AdminQuickAdd({ bare = false, initialUrl }: { bare?: boo
           artist_id: artist.id ?? null,
           featuring: (item.form.featuring || []).map((f: ArtistRef) => f.name.trim()).filter(Boolean),
           release_year: num(item.form.release_year), release_month: num(item.form.release_month), release_day: num(item.form.release_day),
-          create_album: !!item.form.create_album && item.preview.suggested_album?.source === 'musicbrainz',
-          album_mb_release_id: item.preview.suggested_album?.mb_release_id ?? null,
+          create_album: false, // fone, atskiru kvietimu
+          album_mb_release_id: albumMbId,
           is_single: !!item.form.is_single,
         }
       : {
@@ -177,12 +186,16 @@ export default function AdminQuickAdd({ bare = false, initialUrl }: { bare?: boo
     try {
       const res = await fetch('/api/admin/quick-add', {
         method: 'POST', headers: { 'Content-Type': 'application/json' },
+        // keepalive: requestas išgyvena modalo užsidarymą / navigaciją mobile'e.
+        keepalive: true,
         body: JSON.stringify({ url: item.preview.url, mode: 'commit', overrides }),
       })
       const json = await res.json().catch(() => null)
       if (!json) { patchItem(id, { error: 'Serveris negrąžino atsakymo', phase: 'editing' }); return }
       if (!json.ok) { patchItem(id, { error: json.error || 'Nepavyko', phase: 'editing' }); return }
-      patchItem(id, { result: json, phase: 'done' })
+      const trackId = json?.track?.id ?? null
+      const artistId = json?.artist?.id ?? null
+      patchItem(id, { result: json, phase: 'done', albumBg: wantAlbum ? 'pending' : null })
       // Praneša išorei (pvz. „Dainos" sąrašui), kad daina sukurta — kad susietų
       // su topais ir pašalintų eilutę. video_id — patikimam sutapimui.
       try {
@@ -190,6 +203,17 @@ export default function AdminQuickAdd({ bare = false, initialUrl }: { bare?: boo
           detail: { url: item.preview?.url ?? item.url, videoId: json?.detail?.video_id ?? null, result: json },
         }))
       } catch { /* noop */ }
+      // Albumas FONE — non-blocking, keepalive (išgyvena navigaciją). Nelaukiam:
+      // admin jau priėmė dainą ir gali eiti prie kitos; badge įkrenta kai gatava.
+      if (wantAlbum && albumMbId && trackId && artistId) {
+        fetch('/api/admin/quick-add/album', {
+          method: 'POST', headers: { 'Content-Type': 'application/json' }, keepalive: true,
+          body: JSON.stringify({ album_mb_release_id: albumMbId, artist_id: artistId, track_id: trackId, title: overrides.title }),
+        })
+          .then((r) => r.json().catch(() => null))
+          .then((aj) => patchItem(id, { albumBg: aj?.ok ? 'done' : 'error' }))
+          .catch(() => patchItem(id, { albumBg: 'error' }))
+      }
     } catch (e: any) {
       patchItem(id, { error: String(e?.message || e), phase: 'editing' })
     }
@@ -291,6 +315,14 @@ function QueueCard({ item, setForm, onCommit, onDismiss }: { item: QueueItem; se
       )}
 
       {item.phase === 'done' && item.result?.ok && <ResultCard result={item.result} />}
+
+      {item.phase === 'done' && item.albumBg && (
+        <p className={`mt-1.5 text-[13px] ${item.albumBg === 'error' ? 'text-amber-600' : 'text-[var(--text-muted)]'}`}>
+          {item.albumBg === 'pending' && '💿 Albumas kuriamas fone… (gali eiti prie kitos dainos)'}
+          {item.albumBg === 'done' && '💿 Albumas pridėtas.'}
+          {item.albumBg === 'error' && '💿 Albumo fone sukurti nepavyko — daina išsaugota, albumą gali pridėti vėliau.'}
+        </p>
+      )}
     </div>
   )
 }

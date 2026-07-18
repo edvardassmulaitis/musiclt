@@ -1158,6 +1158,18 @@ async function createAlbumFromMusicBrainz(
   return { id: albumId, title: rel.title }
 }
 
+/**
+ * Fone kuriamas albumas jau egzistuojančiai dainai — commitTrack nebekuria albumo
+ * inline (per lėta mobile'e: iki 30 throttled MB single-check kvietimų ~30s), o
+ * grąžina dainą iškart. Klientas po commit'o iškviečia ŠITĄ atskiru non-blocking
+ * (keepalive) requestu, tad approvinimas lieka greitas ir nenulūžta perėjus kitur.
+ */
+export async function createAlbumForTrack(
+  releaseId: string, artistId: number, trackId: number, title: string
+): Promise<{ id: number; title: string } | null> {
+  return createAlbumFromMusicBrainz(releaseId, artistId, trackId, title)
+}
+
 // ────────────────────────────────────────────────────────────────────────────
 // commitChartTrack — sukuria praturtintą dainą iš atlikėjo segmento + pavadinimo
 // (BE YouTube nuorodos — naudoja chart resolver „Sukurti"). Skirtumas nuo
