@@ -156,7 +156,7 @@ function MissingRow({ m, onDone, autoSuggest }: { m: Missing; onDone: () => void
   const post = async (action: string, extra?: any) =>
     fetch('/api/admin/charts/missing', {
       method: 'POST', headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ artist: m.artist, title: m.title, action, ...extra }),
+      body: JSON.stringify({ artist: m.artist, title: m.title, videoId: m.videoId ?? null, action, ...extra }),
     }).then(r => r.json()).catch(() => null)
 
   const act = async (action: string, extra?: any) => {

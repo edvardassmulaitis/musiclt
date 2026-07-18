@@ -89,21 +89,50 @@ export async function POST(req: NextRequest) {
   if (!artist || !title) return NextResponse.json({ error: 'artist + title required' }, { status: 400 })
 
   const sb = createAdminClient()
+  const videoId = String(body.videoId || '').trim() || null
+
+  // Pažymim YouTube discovery kandidatą 'approved', kad po pridėjimo dingtų iš
+  // sąrašo ir nebegrįžtų perkrovus (anksčiau likdavo 'pending').
+  async function markDiscoveryDone(vid: string | null, trackId: number | null) {
+    if (!vid) return
+    try {
+      await sb.from('yt_discovery_candidates')
+        .update({ status: 'approved', published_track_id: trackId, reviewed_at: new Date().toISOString() })
+        .eq('video_id', vid).eq('status', 'pending')
+    } catch { /* lentelės gali nebūti */ }
+  }
+
+  // Ar daina JAU kataloge pagal atlikėją+pavadinimą (ne tik video URL) — kad
+  // jau turimų dainų nebekurtume iš naujo ir nerodytume kaip trūkstamų.
+  async function findExistingByArtistTitle(): Promise<{ id: number; artist_id: number } | null> {
+    const pa = primaryArtist(artist)
+    if (!pa || !title) return null
+    const { data: arts } = await sb.from('artists').select('id').ilike('name', pa).limit(1)
+    if (!arts || !(arts as any[]).length) return null
+    const { data: tr } = await sb.from('tracks').select('id, artist_id').eq('artist_id', (arts as any[])[0].id).ilike('title', title).limit(1)
+    return tr && (tr as any[]).length ? { id: (tr as any[])[0].id, artist_id: (tr as any[])[0].artist_id } : null
+  }
 
   if (action === 'create') {
-    // DEDUP: pirma YouTube paieška + patikra, ar tas video jau nėra kokioje nors
-    // dainoje. Jei yra — susiejam su esama, NEkuriam dublikato (Edvardo prašymas:
-    // „iškart padaryti youtube paiešką ir pažiūrėti ar tikrai nei vienas įrašas
-    // tokio url neturi"). Best-effort: paieškos klaida → kuriam kaip anksčiau.
+    // DEDUP #1 — atlikėjas+pavadinimas jau kataloge → susiejam, nekuriam.
+    const byName = await findExistingByArtistTitle()
+    if (byName) {
+      const linked = await linkSongAcrossCharts(sb, { trackId: byName.id, artistId: byName.artist_id, rawArtist: artist, rawTitle: title }).catch(() => 0)
+      await markDiscoveryDone(videoId, byName.id)
+      return NextResponse.json({ ok: true, trackId: byName.id, linked, deduped: true })
+    }
+
+    // DEDUP #2 — YouTube video jau priskirtas kokiai nors dainai → susiejam.
     try {
       const vids = await searchYouTube(`${artist} ${title}`)
       const top = vids[0]
-      if (top?.videoId) {
-        const { data: existing } = await sb
-          .from('tracks').select('id, artist_id').ilike('video_url', `%${top.videoId}%`).limit(1)
+      const vid = top?.videoId || videoId
+      if (vid) {
+        const { data: existing } = await sb.from('tracks').select('id, artist_id').ilike('video_url', `%${vid}%`).limit(1)
         if (existing && (existing as any[]).length) {
           const tr = (existing as any[])[0]
           const linked = await linkSongAcrossCharts(sb, { trackId: tr.id, artistId: tr.artist_id, rawArtist: artist, rawTitle: title }).catch(() => 0)
+          await markDiscoveryDone(videoId, tr.id)
           return NextResponse.json({ ok: true, trackId: tr.id, linked, deduped: true })
         }
       }
@@ -112,6 +141,7 @@ export async function POST(req: NextRequest) {
     const r = await commitChartTrack(artist, title, req.nextUrl.origin, { enrich: true })
     if (!r.ok) return NextResponse.json({ error: r.error }, { status: 500 })
     const linked = await linkSongAcrossCharts(sb, { trackId: r.trackId, artistId: r.artistId, rawArtist: artist, rawTitle: title }).catch(() => 0)
+    await markDiscoveryDone(videoId, r.trackId)
     return NextResponse.json({ ok: true, trackId: r.trackId, artistId: r.artistId, artistCreated: r.artistCreated, linked })
   }
 
@@ -121,6 +151,7 @@ export async function POST(req: NextRequest) {
     const { data: tr } = await sb.from('tracks').select('id, artist_id').eq('id', trackId).maybeSingle()
     if (!tr) return NextResponse.json({ error: 'track not found' }, { status: 404 })
     const linked = await linkSongAcrossCharts(sb, { trackId: (tr as any).id, artistId: (tr as any).artist_id, rawArtist: artist, rawTitle: title }).catch(() => 0)
+    await markDiscoveryDone(videoId, (tr as any).id)
     return NextResponse.json({ ok: true, trackId: (tr as any).id, linked })
   }
 
@@ -132,13 +163,7 @@ export async function POST(req: NextRequest) {
       if (vids[0]?.videoId) video = { videoId: vids[0].videoId, title: vids[0].title, channel: vids[0].channel, duration: vids[0].duration }
     } catch { /* InnerTube gali būti blokuotas — grąžinam be video */ }
 
-    let existingTrackId: number | null = null
-    if (video?.videoId) {
-      const { data } = await sb.from('tracks').select('id').ilike('video_url', `%${video.videoId}%`).limit(1)
-      if (data && (data as any[]).length) existingTrackId = (data as any[])[0].id
-    }
-
-    // Atlikėjo populiarumas (jei jau kataloge) — score
+    // Atlikėjo populiarumas + ar jau kataloge (score)
     let artistInfo: any = null
     const pa = primaryArtist(artist)
     if (pa) {
@@ -147,6 +172,18 @@ export async function POST(req: NextRequest) {
         const a = (art as any[])[0]
         artistInfo = { id: a.id, name: a.name, slug: a.slug, score: a.score ?? null }
       }
+    }
+
+    // Dedup: pirma pagal video URL, tada pagal atlikėją+pavadinimą (jau kataloge).
+    let existingTrackId: number | null = null
+    const vid = video?.videoId || videoId
+    if (vid) {
+      const { data } = await sb.from('tracks').select('id').ilike('video_url', `%${vid}%`).limit(1)
+      if (data && (data as any[]).length) existingTrackId = (data as any[])[0].id
+    }
+    if (!existingTrackId) {
+      const byName = await findExistingByArtistTitle()
+      if (byName) existingTrackId = byName.id
     }
     return NextResponse.json({ ok: true, video, existingTrackId, artist: artistInfo })
   }
