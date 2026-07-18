@@ -26,7 +26,6 @@ export default function InboxTabs() {
   const newsCount = counts?.news ?? null
   const eventsCount = counts?.events ?? null
   const albumsCount = counts?.albums ?? null
-  const discoveryCount = counts?.discovery ?? null
   const missingCount = counts?.missing ?? null
 
   return (
@@ -40,11 +39,8 @@ export default function InboxTabs() {
       <Link href="/admin/inbox/albums" className={tabCls(!!isAlbums)}>
         💿 Albumai {albumsCount !== null && <span className="text-xs opacity-70">({albumsCount})</span>}
       </Link>
-      <Link href="/admin/inbox/discovery" className={tabCls(!!isDiscovery)}>
-        🎵 Atradimai {discoveryCount !== null && <span className="text-xs opacity-70">({discoveryCount})</span>}
-      </Link>
-      <Link href="/admin/charts/missing" className={tabCls(!!isMissing)}>
-        📊 Iš topų {missingCount !== null && <span className="text-xs opacity-70">({missingCount})</span>}
+      <Link href="/admin/charts/missing" className={tabCls(!!isMissing || !!isDiscovery)}>
+        🎵 Dainos {missingCount !== null && <span className="text-xs opacity-70">({missingCount})</span>}
       </Link>
     </div>
   )

@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from 'next/server'
 import { createAdminClient } from '@/lib/supabase'
 import { normalizeForMatch, primaryArtist, linkSongAcrossCharts } from '@/lib/chart-resolve'
 import { commitChartTrack } from '@/lib/quick-add'
+import { searchYouTube } from '@/lib/yt-innertube'
 
 export const dynamic = 'force-dynamic'
 export const runtime = 'nodejs'
@@ -66,6 +67,24 @@ export async function POST(req: NextRequest) {
   const sb = createAdminClient()
 
   if (action === 'create') {
+    // DEDUP: pirma YouTube paieška + patikra, ar tas video jau nėra kokioje nors
+    // dainoje. Jei yra — susiejam su esama, NEkuriam dublikato (Edvardo prašymas:
+    // „iškart padaryti youtube paiešką ir pažiūrėti ar tikrai nei vienas įrašas
+    // tokio url neturi"). Best-effort: paieškos klaida → kuriam kaip anksčiau.
+    try {
+      const vids = await searchYouTube(`${artist} ${title}`)
+      const top = vids[0]
+      if (top?.videoId) {
+        const { data: existing } = await sb
+          .from('tracks').select('id, artist_id').ilike('video_url', `%${top.videoId}%`).limit(1)
+        if (existing && (existing as any[]).length) {
+          const tr = (existing as any[])[0]
+          const linked = await linkSongAcrossCharts(sb, { trackId: tr.id, artistId: tr.artist_id, rawArtist: artist, rawTitle: title }).catch(() => 0)
+          return NextResponse.json({ ok: true, trackId: tr.id, linked, deduped: true })
+        }
+      }
+    } catch { /* paieška nepavyko — tęsiam su create */ }
+
     const r = await commitChartTrack(artist, title, req.nextUrl.origin, { enrich: true })
     if (!r.ok) return NextResponse.json({ error: r.error }, { status: 500 })
     const linked = await linkSongAcrossCharts(sb, { trackId: r.trackId, artistId: r.artistId, rawArtist: artist, rawTitle: title }).catch(() => 0)

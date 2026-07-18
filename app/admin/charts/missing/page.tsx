@@ -44,8 +44,8 @@ export default function AdminMissingPage() {
       <InboxTabs />
       <div className="mb-4 flex items-center justify-between gap-3">
         <div>
-          <h1 className="text-2xl font-black text-gray-900">Trūkstamos dainos</h1>
-          <p className="mt-1 text-sm text-gray-500">Nesusietos dainos iš visų topų. Sutvarkyk vieną kartą — susidėlios į visus.</p>
+          <h1 className="text-2xl font-black text-gray-900">🎵 Dainos</h1>
+          <p className="mt-1 text-sm text-gray-500">Trūkstamos dainos iš visų topų. „Sukurti" pirma padaro YouTube paiešką ir, jei toks video jau kataloge — susieja, o ne kuria dublikato.</p>
         </div>
         <a href="/admin/charts" className="shrink-0 rounded-lg border border-gray-200 px-3 py-1.5 text-xs font-semibold text-gray-700 hover:bg-gray-100">← Topų valdymas</a>
       </div>
@@ -75,8 +75,10 @@ function MissingRow({ m, onDone }: { m: Missing; onDone: () => void }) {
       body: JSON.stringify({ artist: m.artist, title: m.title, action, ...extra }),
     }).then(r => r.json()).catch(() => null)
     setBusy(false)
-    if (r?.ok) { setMsg(`✓ susieta ${r.linked ?? 0} topuose`); setTimeout(onDone, 700) }
-    else setMsg(r?.error || 'Klaida')
+    if (r?.ok) {
+      setMsg(r.deduped ? `✓ jau kataloge — susieta ${r.linked ?? 0} topuose` : `✓ susieta ${r.linked ?? 0} topuose`)
+      setTimeout(onDone, 800)
+    } else setMsg(r?.error || 'Klaida')
   }
 
   return (
