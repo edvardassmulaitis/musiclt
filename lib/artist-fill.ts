@@ -252,9 +252,42 @@ function coerceArray(v: any): any[] {
   return []
 }
 
+/** Jei albums[] tuščias, bet tracks[] turi album_title — sudėliojam albumus iš
+ *  dainų (grupuojam pagal album_title). Kad dainos prisikabintų prie albumų,
+ *  nepriklausomai nuo to, ar modelis užpildė albums[]. */
+function albumsFromTracks(tracks: any[]): any[] {
+  const byTitle = new Map<string, { source_title: string; year: number | null; count: number }>()
+  for (const t of tracks) {
+    if (!t || typeof t !== 'object') continue
+    const title = typeof t.album_title === 'string' ? t.album_title.trim() : ''
+    if (!title) continue
+    const cur = byTitle.get(title) || { source_title: (t.source_album_title || title), year: null, count: 0 }
+    cur.count++
+    if (!cur.year && typeof t.release_year === 'number') cur.year = t.release_year
+    byTitle.set(title, cur)
+  }
+  const out: any[] = []
+  for (const [title, info] of byTitle) {
+    out.push({
+      title,
+      source_title: info.source_title,
+      type: info.count <= 6 ? 'ep' : 'studio_album', // apytikris; admin gali pakeisti
+      release_date: null,
+      release_year: info.year,
+      total_tracks: info.count,
+      description: '',
+      spotify_url: '', apple_music_url: '', youtube_music_url: '', bandcamp_url: '', official_url: '',
+    })
+  }
+  return out
+}
+
 /** Iš plokščių tool laukų sudėliojam standartinę import struktūrą. */
 function buildImport(inp: any): any {
   if (!inp || typeof inp !== 'object') return null
+  const tracks = coerceArray(inp.tracks)
+  let albums = coerceArray(inp.albums)
+  if (albums.length === 0 && tracks.length > 0) albums = albumsFromTracks(tracks)
   return {
     artist_patch: {
       name: inp.name,
@@ -271,8 +304,8 @@ function buildImport(inp: any): any {
     },
     links: coerceArray(inp.links),
     contacts: coerceArray(inp.contacts),
-    albums: coerceArray(inp.albums),
-    tracks: coerceArray(inp.tracks),
+    albums,
+    tracks,
     images: [],
   }
 }
