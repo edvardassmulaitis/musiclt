@@ -32,7 +32,7 @@ const MAX_FRESH_PER_RUN = 200 // matchArtists DB round-trip kiekvienam naujam
 /** Playlist ID iš URL (?list=...) arba grynas ID (PL/OLAK/UU/...). */
 function extractPlaylistId(s: string): string | null {
   if (!s) return null
-  const m = s.match(/[?&]list=([\w-]+)/)
+  const m = s.match(/[?&](?:list|playlist_id)=([\w-]+)/)
   if (m) return m[1]
   if (/^(PL|OLAK|RD|UU|FL|LL)[\w-]{5,}$/.test(s.trim())) return s.trim()
   return null
