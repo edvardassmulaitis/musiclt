@@ -184,53 +184,55 @@ function MissingRow({ m, onDone, autoSuggest }: { m: Missing; onDone: () => void
 
   return (
     <div className="border-b border-gray-100 px-3 py-2.5 last:border-b-0">
-      <div className="flex items-center gap-3">
-        <span className="shrink-0 rounded bg-amber-100 px-2 py-0.5 text-[14px] font-bold tabular-nums text-amber-700" title="Keliuose topuose">{m.chartCount}×</span>
+      <div className="flex items-start gap-2.5">
+        <span className="mt-0.5 shrink-0 rounded bg-amber-100 px-1.5 py-0.5 text-[13px] font-bold tabular-nums text-amber-700" title="Keliuose topuose">{m.chartCount}×</span>
         <div className="min-w-0 flex-1">
-          <p className="truncate text-sm font-semibold text-gray-800">{m.title}</p>
-          <p className="truncate text-xs text-gray-500">
-            {m.artist}
+          <p className="text-sm font-semibold leading-snug text-gray-800">{m.title}</p>
+          <p className="mt-0.5 text-xs text-gray-500">
+            <span className="font-medium text-gray-600">{m.artist}</span>
             {sug?.artist && <span className="ml-1 rounded bg-orange-100 px-1.5 py-0.5 text-[11px] font-bold text-orange-700" title="Atlikėjas jau kataloge · populiarumo score">🔥 {score ?? '—'}</span>}
             <span className="text-gray-300"> · {m.charts.join(', ')}</span>
           </p>
-        </div>
-        {msg && <span className="shrink-0 text-[14px] font-medium text-gray-500">{msg}</span>}
-        <div className="flex shrink-0 items-center gap-1.5">
-          {!autoSuggest && !sug && !sugLoading && (
-            <button onClick={fetchSuggest} disabled={busy}
-              className="rounded bg-gray-100 px-2.5 py-1 text-[14px] font-medium text-gray-700 hover:bg-gray-200 disabled:opacity-50">🔎 YouTube</button>
+
+          {/* Veiksmai — atskira eilutė, wrap'inasi mobile'e */}
+          <div className="mt-2 flex flex-wrap items-center gap-1.5">
+            <button onClick={() => act('create')} disabled={busy}
+              title="YouTube paieška + dedup, sukuria/susieja ir propaguoja per visus topus"
+              className="rounded bg-blue-600 px-3 py-1 text-[13px] font-semibold text-white hover:bg-blue-700 disabled:opacity-50">✓ Pridėti</button>
+            <button onClick={() => setSearching(s => !s)} disabled={busy}
+              className="rounded bg-gray-100 px-3 py-1 text-[13px] font-medium text-gray-700 hover:bg-gray-200 disabled:opacity-50">Susieti</button>
+            {!autoSuggest && !sug && !sugLoading && (
+              <button onClick={fetchSuggest} disabled={busy}
+                className="rounded bg-gray-100 px-3 py-1 text-[13px] font-medium text-gray-700 hover:bg-gray-200 disabled:opacity-50">🔎 YouTube</button>
+            )}
+            {msg && <span className="text-[13px] font-medium text-gray-500">{msg}</span>}
+          </div>
+
+          {/* YouTube siūlymas (peržiūrai) */}
+          {(sugLoading || sug?.video) && (
+            <div className="mt-2 flex items-center gap-2.5 rounded-lg border border-gray-200 bg-gray-50 p-2">
+              {sugLoading ? (
+                <span className="text-xs text-gray-400">🔎 Ieškoma YouTube…</span>
+              ) : sug?.video && ytUrl ? (
+                <>
+                  <a href={ytUrl} target="_blank" rel="noreferrer" className="shrink-0">
+                    <img src={`https://i.ytimg.com/vi/${sug.video.videoId}/mqdefault.jpg`} alt="" className="h-11 w-[74px] rounded object-cover" />
+                  </a>
+                  <div className="min-w-0 flex-1">
+                    <a href={ytUrl} target="_blank" rel="noreferrer" className="block truncate text-[13px] font-medium text-gray-800 hover:underline">{sug.video.title}</a>
+                    <p className="truncate text-xs text-gray-500">{sug.video.channel}{sug.video.duration && ` · ${sug.video.duration}`}</p>
+                  </div>
+                  {sug.existingTrackId ? (
+                    <button onClick={() => act('link', { trackId: sug.existingTrackId })} disabled={busy}
+                      className="shrink-0 rounded bg-amber-100 px-2.5 py-1 text-[12px] font-semibold text-amber-700 hover:bg-amber-200 disabled:opacity-50">Susieti</button>
+                  ) : null}
+                </>
+              ) : null}
+            </div>
           )}
-          <button onClick={() => setSearching(s => !s)} disabled={busy}
-            className="rounded bg-gray-100 px-2.5 py-1 text-[14px] font-medium text-gray-700 hover:bg-gray-200 disabled:opacity-50">Susieti</button>
-          <button onClick={() => act('create')} disabled={busy}
-            title="YouTube paieška + dedup, sukuria/susieja ir propaguoja per visus topus"
-            className="rounded bg-blue-600 px-2.5 py-1 text-[14px] font-semibold text-white hover:bg-blue-700 disabled:opacity-50">✓ Pridėti</button>
+          {sug && !sug.video && !sugLoading && <p className="mt-1 text-xs text-gray-400">YouTube siūlymo nerasta.</p>}
         </div>
       </div>
-
-      {/* YouTube siūlymas (peržiūrai) */}
-      {(sugLoading || sug?.video) && (
-        <div className="ml-12 mt-2 flex items-center gap-3 rounded-lg border border-gray-200 bg-gray-50 p-2">
-          {sugLoading ? (
-            <span className="text-xs text-gray-400">🔎 Ieškoma YouTube…</span>
-          ) : sug?.video && ytUrl ? (
-            <>
-              <a href={ytUrl} target="_blank" rel="noreferrer" className="shrink-0">
-                <img src={`https://i.ytimg.com/vi/${sug.video.videoId}/mqdefault.jpg`} alt="" className="h-12 w-20 rounded object-cover" />
-              </a>
-              <div className="min-w-0 flex-1">
-                <a href={ytUrl} target="_blank" rel="noreferrer" className="block truncate text-sm font-medium text-gray-800 hover:underline">{sug.video.title}</a>
-                <p className="truncate text-xs text-gray-500">{sug.video.channel} {sug.video.duration && `· ${sug.video.duration}`}</p>
-              </div>
-              {sug.existingTrackId ? (
-                <button onClick={() => act('link', { trackId: sug.existingTrackId })} disabled={busy}
-                  className="shrink-0 rounded bg-amber-100 px-2.5 py-1 text-[14px] font-semibold text-amber-700 hover:bg-amber-200 disabled:opacity-50">Jau kataloge — susieti</button>
-              ) : null}
-            </>
-          ) : null}
-        </div>
-      )}
-      {sug && !sug.video && !sugLoading && <p className="ml-12 mt-1 text-xs text-gray-400">YouTube siūlymo nerasta.</p>}
 
       {searching && <LinkSearch defaultQuery={`${simpleArtist(m.artist)} ${cleanTitle(m.title)}`} fallbackQuery={cleanTitle(m.title)} onPick={(h) => { setSearching(false); act('link', { trackId: h.id }) }} />}
     </div>
