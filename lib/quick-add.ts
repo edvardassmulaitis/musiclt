@@ -220,6 +220,11 @@ const YT_TITLE_NOISE = [
   /\[\s*mv\s*\]/gi,
   /\[\s*hd\s*\]/gi,
   /\[\s*4k\s*\]/gi,
+  // Beprasmės versijų uodegos (NE remix'ai — tie prasmingi)
+  /[([]\s*original\s+mix\s*[)\]]/gi,
+  /[([]\s*extended\s+mix\s*[)\]]/gi,
+  /[([]\s*radio\s+(?:edit|version|mix)\s*[)\]]/gi,
+  /[([]\s*(?:album|single|original)\s+version\s*[)\]]/gi,
 ]
 
 // Bendras „triukšmo" skliaustų šalinimas — bet koks (…) ar […] blokas, kuriame
@@ -235,6 +240,23 @@ function stripTitleNoise(s: string): string {
   for (const re of YT_TITLE_NOISE) out = out.replace(re, '')
   out = out.replace(YT_TITLE_NOISE_GENERIC, '')
   return out.replace(/\s{2,}/g, ' ').trim()
+}
+
+/** Gražus pavadinimo case'as: kiekvieno žodžio pirma raidė didžioji, likusios
+ *  mažosios. Paliekam: akronimus (visos DIDŽIOSIOS, ≤4 raidės — DNA, XO, MC) ir
+ *  stilizuotus žodžius su vidinėm didžiosiom (iPhone, DJ). „Last goodbye" → „Last Goodbye". */
+function smartTitleCase(s: string): string {
+  if (!s) return s
+  // Jei title mišrus (turi mažųjų) — akronimus/stilizaciją paliekam. Jei VISAS
+  // DIDŽIOSIOMIS — case'inam viską („LAST GOODBYE" → „Last Goodbye").
+  const hasLower = /[a-ząčęėįšųūž]/.test(s)
+  return s.replace(/[^\s\-–—/()[\]]+/g, (word) => {
+    if (hasLower) {
+      if (/^[A-ZĄČĘĖĮŠŲŪŽ0-9]{1,4}$/.test(word)) return word            // akronimas
+      if (/[a-ząčęėįšųūž][A-ZĄČĘĖĮŠŲŪŽ]/.test(word)) return word          // vidinė didžioji (stilizuota)
+    }
+    return word.charAt(0).toUpperCase() + word.slice(1).toLowerCase()
+  })
 }
 
 /** Nukerpa YouTube'e dažnus „papildomus užrašus" po skirtuko:
@@ -289,6 +311,8 @@ export function parseYtTitle(
   title = stripTitleNoise(title)
   // Kabutės aplink pavadinimą
   title = title.replace(/^["'«»""'']+|["'«»""'']+$/g, '').trim()
+  // Gražus case'as (Last goodbye → Last Goodbye)
+  title = smartTitleCase(title)
 
   // Atlikėjo valymas
   artist = cleanChannelToArtist(artist)
