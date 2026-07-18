@@ -377,7 +377,10 @@ export async function fillArtist(input: string): Promise<ArtistFillResult> {
     `Įvestis: ${name}`,
     '',
     'genre_group turi būti TIKSLIAI viena iš 8 leistinų reikšmių. Šalį rašyk lietuvišku pavadinimu (pvz. „Lietuva", „Jungtinė Karalystė", „JAV").',
-    'Į tracks[] įtrauk iki ~20 svarbiausių/žinomiausių dainų (ne visą katalogą), į albums[] — pilną sąrašą.',
+    'Surask VISĄ diskografiją — įskaitant ankstyvus EP ir singlus, ne tik pagrindinius albumus.',
+    'BŪTINAI užpildyk albums[] KIEKVIENAM albumui/EP/kompiliacijai atskiru įrašu su: title, type (studio_album|ep|compilation|live_album|single), release_year (ir release_date jei žinoma), total_tracks, description (2–4 sakiniai) ir stream linkais jei randi. NEPALIK albums[] tuščio, jei atlikėjas turi albumų — net jei tas pačias dainas dedi ir į tracks[].',
+    'Į tracks[] įtrauk svarbiausias/žinomiausias dainas su album_title.',
+    'Tekste (bio, aprašymai) kabutėms naudok TIK lietuviškas „ " nuosekliai — niekada ASCII " ar \\".',
   ].filter(Boolean).join('\n')
 
   // Bandom modelius iš eilės, kol vienas grąžina tool_use objektą.

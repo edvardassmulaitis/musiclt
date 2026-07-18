@@ -2,7 +2,7 @@
 
 export const dynamic = 'force-dynamic'
 
-import { useState } from 'react'
+import { useState, useEffect } from 'react'
 import Link from 'next/link'
 import FullEnrichButton from '@/components/FullEnrichButton'
 import { ARTIST_IMPORT_PROMPT } from '@/lib/artist-import-prompt'
@@ -173,6 +173,14 @@ export default function ArtistImportPage() {
   const [aiName, setAiName] = useState('')
   const [aiLoading, setAiLoading] = useState(false)
   const [aiInfo, setAiInfo] = useState<string>('')
+  const [aiElapsed, setAiElapsed] = useState(0)
+
+  // Elapsed laikmatis + kintanti statuso žinutė kol AI dirba (naršo internete).
+  useEffect(() => {
+    if (!aiLoading) { setAiElapsed(0); return }
+    const t = setInterval(() => setAiElapsed(s => s + 1), 1000)
+    return () => clearInterval(t)
+  }, [aiLoading])
 
   async function aiFill() {
     const name = aiName.trim()
@@ -312,10 +320,29 @@ export default function ArtistImportPage() {
               {aiLoading ? 'Generuojama…' : 'Užpildyti'}
             </button>
           </div>
-          {aiInfo && <p className="mt-2 text-xs text-[var(--text-muted)]">{aiInfo}</p>}
-          <p className="mt-1.5 text-xs text-[var(--text-faint)]">
-            Rezultatas įkris į lauką žemiau — tada „Peržiūrėti" ir „Taikyti" kaip įprasta.
-          </p>
+          {aiLoading && (
+            <div className="mt-3 flex items-center gap-3 rounded-lg border border-blue-200 bg-blue-50 px-3 py-2.5">
+              <svg className="h-5 w-5 shrink-0 animate-spin text-blue-600" viewBox="0 0 24 24" fill="none">
+                <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" />
+                <path className="opacity-90" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.4 0 0 5.4 0 12h4z" />
+              </svg>
+              <div className="min-w-0 flex-1">
+                <div className="text-sm font-semibold text-blue-800">
+                  {aiElapsed < 6 ? 'Renkami įžeminimo duomenys…'
+                    : aiElapsed < 30 ? '🔎 Naršoma internete (Spotify, oficialūs, žiniasklaida)…'
+                    : aiElapsed < 55 ? '🧩 Sudėliojama diskografija ir biografija…'
+                    : 'Baigiama — beveik gatava…'}
+                </div>
+                <div className="text-xs text-blue-600">{aiElapsed}s · gali užtrukti iki ~minutės, nes modelis realiai naršo</div>
+              </div>
+            </div>
+          )}
+          {!aiLoading && aiInfo && <p className="mt-2 text-xs text-[var(--text-muted)]">{aiInfo}</p>}
+          {!aiLoading && (
+            <p className="mt-1.5 text-xs text-[var(--text-faint)]">
+              Rezultatas įkris į lauką žemiau ir iškart parodys peržiūrą.
+            </p>
+          )}
         </div>
 
         {/* Input */}
