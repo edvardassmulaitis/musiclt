@@ -273,8 +273,16 @@ export default function WikiAlbumInboxPage() {
                   </div>
                   <div className="font-medium leading-tight">
                     {c.matched_artist ? (
-                      <Link href={`/atlikejas/${c.matched_artist.slug}`} className="text-blue-700 hover:underline" target="_blank">{c.matched_artist.name}</Link>
-                    ) : c.artist_raw}
+                      <span title="Atlikėjas jau kataloge">
+                        <span className="text-emerald-600 mr-0.5" aria-label="kataloge">✅</span>
+                        <Link href={`/atlikejai/${c.matched_artist.slug}`} className="text-blue-700 hover:underline" target="_blank">{c.matched_artist.name}</Link>
+                      </span>
+                    ) : (
+                      <span title="Atlikėjo dar nėra kataloge — reikės sukurti">
+                        <span className="text-amber-600 mr-0.5" aria-label="reikia sukurti">➕</span>
+                        {c.artist_raw}
+                      </span>
+                    )}
                     {' — '}{c.album_title}
                   </div>
                   <div className="text-[12px] mt-1 flex items-center gap-1.5 flex-wrap">
