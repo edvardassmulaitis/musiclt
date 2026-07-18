@@ -301,6 +301,25 @@ export async function PATCH(req: NextRequest, { params }: { params: Promise<{ id
     // image1_url..image4_url legacy slots (image5_url paliktas atskirai).
     const galleryImages = wizardImages.slice(1, 5)
 
+    // Hero nuotraukos kreditai {author, license, url} — iš wizard'o (frontend
+    // žino pasirinkto hero šaltinį: press foto autorių, wiki autorių ir pan.).
+    // Saugom TIK jei hero yra būtent ta wizard nuotrauka (finalImage == wizard[0]),
+    // kad kredito nepriskirtume fallback'iniam paveikslėliui. Press foto autorius
+    // svarbus, nes po kandidato ištrynimo jo nebūtų iš kur atsekti viešame puslapy.
+    let imageCredit: { author: string; license: string; url: string } | null = null
+    {
+      const rc: any = (body as any).image_credit
+      const heroIsWizard = !!wizardImages[0] && finalImage === wizardImages[0]
+      if (heroIsWizard && rc && typeof rc === 'object') {
+        const author = typeof rc.author === 'string' ? rc.author.trim() : ''
+        const license = typeof rc.license === 'string' ? rc.license.trim() : ''
+        const url = typeof rc.url === 'string' ? rc.url.trim() : ''
+        if (author || url) {
+          imageCredit = { author: dashFix(author).slice(0, 200), license: license.slice(0, 100), url: url.slice(0, 500) }
+        }
+      }
+    }
+
     // 2026-07-17: Video žingsnio embed'ai → news.embeds (JSONB), kad viešame
     // straipsnyje būtų renderinami kaip iframe'ai (NewsEmbeds), o NE į news_songs
     // (kur dubliuodavosi su grotuvo dainomis). YT — embedUrl paliekam null (front
@@ -348,6 +367,7 @@ export async function PATCH(req: NextRequest, { params }: { params: Promise<{ id
         artist_id2: artistId2,
         image_small_url: finalImage,
         image_title_url: finalImage,
+        image_credit: imageCredit,
         image1_url: galleryImages[0] || null,
         image2_url: galleryImages[1] || null,
         image3_url: galleryImages[2] || null,

@@ -23,7 +23,7 @@ async function getNews(slug: string) {
     .from('news')
     .select(`
       id, title, slug, body, type, source_url, source_name, news_category,
-      published_at, created_at, image_small_url, gallery, embeds,
+      published_at, created_at, image_small_url, image_credit, gallery, embeds,
       image1_url, image1_caption, image2_url, image2_caption,
       image3_url, image3_caption, image4_url, image4_caption,
       image5_url, image5_caption,
@@ -355,10 +355,18 @@ export default async function NewsPage({ params }: Props) {
     artists: allArtists,  // VISI susiję atlikėjai (primary + Susijusi info section)
   }
 
-  // Hero foto kreditas — jei nuotrauka iš Wikimedia/Wikipedia, paimam realų
-  // autorių + licenciją ir nuorodą į PAČIĄ nuotrauką (File: puslapį), ne į
-  // straipsnio šaltinį. Cache'inama 7 d. (žr. lib/wiki-credit.ts).
-  news.heroCredit = await wikiImageCredit(news.image_small_url || artistObj?.cover_image_url)
+  // Hero foto kreditas. Pirmenybė — publikuojant išsaugotas news.image_credit
+  // (press foto autorius iš žiniasklaidos, wiki autorius ir pan.), nes press
+  // nuotraukos autoriaus negalima atsekti iš URL po kandidato ištrynimo.
+  // Fallback — wikiImageCredit() URL paieška (Wikimedia/Wikipedia nuotraukoms).
+  {
+    const stored = (raw as any).image_credit
+    if (stored && typeof stored === 'object' && (stored.author || stored.url)) {
+      news.heroCredit = { author: stored.author || '', license: stored.license || '', url: stored.url || '' }
+    } else {
+      news.heroCredit = await wikiImageCredit(news.image_small_url || artistObj?.cover_image_url)
+    }
+  }
 
   // ── SEO: NewsArticle + BreadcrumbList JSON-LD ──────────────────────────
   const heroForLd = news.image_small_url

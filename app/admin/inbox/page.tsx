@@ -659,6 +659,21 @@ export default function AdminInboxPage() {
     }
   }
 
+  // Hero nuotraukos kreditas iš pasirinkto pirmojo paveikslėlio meta (press foto
+  // autorius / wiki autorius). Grąžinam {author, license, url} arba null.
+  const heroCreditFor = (heroUrl: string | undefined): { author: string; license: string; url: string } | null => {
+    if (!heroUrl) return null
+    const opt = imageOptions.find(o => o.url === heroUrl)
+    if (!opt) return null
+    const m = opt.meta || {}
+    const author = (m.photographer || '').trim()
+    const license = (m.copyright || '').trim()
+    // Press foto — nuoroda į naujienos šaltinį; wiki — į Wikimedia File puslapį.
+    const url = (m.sourceUrl || (opt.source === 'email_attachment' ? (editing?.source_url || '') : '')).trim()
+    if (!author && !url) return null
+    return { author, license, url }
+  }
+
   const handleSaveEdit = async () => {
     if (!editing) return
     const ordered = editPrimaryId
@@ -671,6 +686,7 @@ export default function AdminInboxPage() {
         body: editBody,
         image_url: editImages[0] || undefined,
         image_urls: editImages, // multi-image array (pirma = hero, rest → image1..5)
+        image_credit: heroCreditFor(editImages[0]), // press/wiki hero autorius → viešas kreditas
         artist_ids: ordered,
         primary_artist_id: editPrimaryId,
         track_ids: editTrackIds,
