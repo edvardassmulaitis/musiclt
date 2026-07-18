@@ -2,6 +2,7 @@
 
 import { useState, useEffect, useCallback, useRef } from 'react'
 import InboxTabs from '@/components/InboxTabs'
+import { openAdminQuickAdd } from '@/components/AdminQuickAddModal'
 
 /* /admin/charts/missing — agreguotos trūkstamos (nesusietos) dainos per visus
  * dainų topus. Sutvarkius vieną kartą, daina susidėlioja į VISUS topus. */
@@ -179,6 +180,38 @@ function MissingRow({ m, onDone, autoSuggest }: { m: Missing; onDone: () => void
 
   useEffect(() => { if (autoSuggest) fetchSuggest() }, [autoSuggest, fetchSuggest])
 
+  // „Pridėti" → atidaro TĄ PATĮ kontroliuojamą quick-add flow (URL → preview →
+  // albumų patikra → commit). Po commit'o susiejam su topais (žr. listener'į).
+  const [openedVid, setOpenedVid] = useState<string | null>(null)
+  async function startQuickAdd() {
+    let vid = sug?.video?.videoId || m.videoId || null
+    if (!vid) {
+      setSugLoading(true)
+      const r = await post('suggest')
+      setSugLoading(false)
+      if (r?.ok) { setSug({ video: r.video, existingTrackId: r.existingTrackId, artist: r.artist }); setSugTried(true) }
+      vid = r?.video?.videoId || null
+    }
+    if (!vid) { setMsg('YouTube nerasta'); return }
+    setOpenedVid(vid)
+    openAdminQuickAdd(`https://www.youtube.com/watch?v=${vid}`)
+  }
+  useEffect(() => {
+    if (!openedVid) return
+    const onCommit = (e: Event) => {
+      const d = (e as CustomEvent).detail
+      if (!d) return
+      const match = d.videoId === openedVid || (typeof d.url === 'string' && d.url.includes(openedVid))
+      if (!match) return
+      const trackId = d.result?.track?.id
+      if (trackId) act('link', { trackId })
+      else { setMsg('✓ pridėta'); setTimeout(onDone, 700) }
+    }
+    window.addEventListener('musiclt:quickadd-committed', onCommit)
+    return () => window.removeEventListener('musiclt:quickadd-committed', onCommit)
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [openedVid])
+
   const score = sug?.artist?.score
   const ytUrl = sug?.video ? `https://www.youtube.com/watch?v=${sug.video.videoId}` : null
 
@@ -196,8 +229,8 @@ function MissingRow({ m, onDone, autoSuggest }: { m: Missing; onDone: () => void
 
           {/* Veiksmai — atskira eilutė, wrap'inasi mobile'e */}
           <div className="mt-2 flex flex-wrap items-center gap-1.5">
-            <button onClick={() => act('create')} disabled={busy}
-              title="YouTube paieška + dedup, sukuria/susieja ir propaguoja per visus topus"
+            <button onClick={startQuickAdd} disabled={busy}
+              title="Atidaro greito pridėjimo flow (peržiūra + albumų patikra), po patvirtinimo susieja su topais"
               className="rounded bg-blue-600 px-3 py-1 text-[13px] font-semibold text-white hover:bg-blue-700 disabled:opacity-50">✓ Pridėti</button>
             <button onClick={() => setSearching(s => !s)} disabled={busy}
               className="rounded bg-gray-100 px-3 py-1 text-[13px] font-medium text-gray-700 hover:bg-gray-200 disabled:opacity-50">Susieti</button>

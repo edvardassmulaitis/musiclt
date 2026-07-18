@@ -18,20 +18,26 @@ import AdminQuickAdd from '@/components/AdminQuickAdd'
 
 const AQA_EVENT = 'musiclt:admin-quickadd'
 
-/** Atidaro greito pridėjimo modalą iš bet kurios vietos. */
-export function openAdminQuickAdd() {
-  if (typeof window !== 'undefined') window.dispatchEvent(new Event(AQA_EVENT))
+/** Atidaro greito pridėjimo modalą iš bet kurios vietos. Su url — prakiša
+ *  nuorodą (pvz. iš „Dainos" sąrašo), kad iškart pasileistų preview. */
+export function openAdminQuickAdd(url?: string) {
+  if (typeof window !== 'undefined') window.dispatchEvent(new CustomEvent(AQA_EVENT, { detail: { url: url || null } }))
 }
 
 export function AdminQuickAddModal() {
   const [open, setOpen] = useState(false)
   const [mounted, setMounted] = useState(false)
+  const [initialUrl, setInitialUrl] = useState<string | undefined>(undefined)
   const pathname = usePathname()
 
   useEffect(() => { setMounted(true) }, [])
 
   useEffect(() => {
-    const onOpen = () => setOpen(true)
+    const onOpen = (e: Event) => {
+      const u = (e as CustomEvent).detail?.url
+      setInitialUrl(u || undefined)
+      setOpen(true)
+    }
     window.addEventListener(AQA_EVENT, onOpen)
     return () => window.removeEventListener(AQA_EVENT, onOpen)
   }, [])
@@ -99,7 +105,7 @@ export function AdminQuickAddModal() {
               <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.4" strokeLinecap="round"><line x1="18" y1="6" x2="6" y2="18" /><line x1="6" y1="6" x2="18" y2="18" /></svg>
             </button>
           </div>
-          <AdminQuickAdd bare />
+          <AdminQuickAdd bare initialUrl={initialUrl} key={initialUrl || 'plain'} />
         </div>
       </div>
     </>,

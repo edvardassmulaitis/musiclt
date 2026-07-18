@@ -51,9 +51,16 @@ type QueueItem = {
 
 let _seq = 0
 
-export default function AdminQuickAdd({ bare = false }: { bare?: boolean } = {}) {
+export default function AdminQuickAdd({ bare = false, initialUrl }: { bare?: boolean; initialUrl?: string } = {}) {
   const [url, setUrl] = useState('')
   const [items, setItems] = useState<QueueItem[]>([])
+
+  // Iš „Dainos" (topų/discovery) atidarytas su prakištu URL — iškart pradedam
+  // preview'ą tuo pačiu kontroliuojamu flow'u (album check ir t.t.).
+  useEffect(() => {
+    if (initialUrl) startUrl(initialUrl)
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [initialUrl])
 
   const kind = detectKind(url)
 
@@ -69,8 +76,8 @@ export default function AdminQuickAdd({ bare = false }: { bare?: boolean } = {})
 
   /** Pradeda naują eilės elementą IR IŠKART išvalo URL lauką — kita nuoroda
    *  gali būti įvesta nedelsiant, nepriklausomai nuo šito preview progreso. */
-  function submit() {
-    const trimmed = url.trim()
+  function startUrl(u: string) {
+    const trimmed = (u || '').trim()
     const k = detectKind(trimmed)
     if (!trimmed || k === 'unknown') return
     const id = ++_seq
@@ -79,8 +86,11 @@ export default function AdminQuickAdd({ bare = false }: { bare?: boolean } = {})
       preview: null, form: {}, result: null, suggestionState: 'idle',
     }
     setItems((prev) => [item, ...prev])
-    setUrl('')
     runPreview(id, trimmed)
+  }
+  function submit() {
+    startUrl(url)
+    setUrl('')
   }
 
   async function runPreview(id: number, previewUrl: string) {
@@ -173,6 +183,13 @@ export default function AdminQuickAdd({ bare = false }: { bare?: boolean } = {})
       if (!json) { patchItem(id, { error: 'Serveris negrąžino atsakymo', phase: 'editing' }); return }
       if (!json.ok) { patchItem(id, { error: json.error || 'Nepavyko', phase: 'editing' }); return }
       patchItem(id, { result: json, phase: 'done' })
+      // Praneša išorei (pvz. „Dainos" sąrašui), kad daina sukurta — kad susietų
+      // su topais ir pašalintų eilutę. video_id — patikimam sutapimui.
+      try {
+        window.dispatchEvent(new CustomEvent('musiclt:quickadd-committed', {
+          detail: { url: item.preview?.url ?? item.url, videoId: json?.detail?.video_id ?? null, result: json },
+        }))
+      } catch { /* noop */ }
     } catch (e: any) {
       patchItem(id, { error: String(e?.message || e), phase: 'editing' })
     }
