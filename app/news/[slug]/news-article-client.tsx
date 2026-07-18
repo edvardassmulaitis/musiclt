@@ -471,7 +471,7 @@ export default function NewsArticleClient({
         @keyframes na-in   { from { opacity:0; transform:translateY(16px) } to { opacity:1; transform:none } }
         @keyframes na-zoom { 0%{transform:scale(1.0)} 100%{transform:scale(1.06)} }
 
-        .na-root { background:var(--bg-body); color:var(--text-primary); font-family:'DM Sans',sans-serif; -webkit-font-smoothing:antialiased; min-height:100vh; }
+        .na-root { background:var(--bg-body); color:var(--text-primary); font-family:'DM Sans',sans-serif; -webkit-font-smoothing:antialiased; min-height:100vh; overflow-x:clip; }
 
         /* ══ HERO — band visada tamsus, foto dešinėje ══ */
         .na-hero {
@@ -499,7 +499,7 @@ export default function NewsArticleClient({
 
         .na-hero-wrap  { position:relative; z-index:2; width:100%; max-width:1240px; margin:0 auto; padding:0 28px 22px; }
         .na-hero-inner { max-width:700px; animation:na-in .7s .05s both; }
-        .na-h1 { font-family:'Outfit',sans-serif; font-size:clamp(1.7rem,3.1vw,2.8rem); font-weight:900; line-height:1.06; letter-spacing:-.03em; color:#fff; margin:0 0 16px; text-shadow:0 2px 24px rgba(0,0,0,0.45); }
+        .na-h1 { font-family:'Outfit',sans-serif; font-size:clamp(1.7rem,3.1vw,2.8rem); font-weight:900; line-height:1.06; letter-spacing:-.03em; color:#fff; margin:0 0 16px; text-shadow:0 2px 24px rgba(0,0,0,0.45); overflow-wrap:break-word; word-break:break-word; hyphens:auto; }
 
         /* Veiksmai VIRŠ pavadinimo */
         .na-actbar { display:flex; flex-wrap:wrap; gap:9px; margin-bottom:16px; }
@@ -534,7 +534,7 @@ export default function NewsArticleClient({
         .na-grid.no-sb  { grid-template-columns:minmax(0,1fr); max-width:760px; margin:0 auto; }
 
         /* ── Prose ── */
-        .na-prose { color:var(--text-secondary); font-size:1.08rem; line-height:1.85; max-width:680px; }
+        .na-prose { color:var(--text-secondary); font-size:1.08rem; line-height:1.85; max-width:680px; overflow-wrap:break-word; word-break:break-word; }
         /* „pagal pirminį šaltinį" nuoroda (įdėta į body kaip .news-source) — slepiam */
         .na-prose .news-source { display:none; }
         .na-prose p  { margin-bottom:22px; }
