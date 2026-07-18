@@ -55,7 +55,7 @@ function wikiUrl(title: string) {
 const SOURCE_BADGE: Record<string, { label: string; cls: string }> = {
   musicbrainz: { label: 'MusicBrainz', cls: 'bg-emerald-100 text-emerald-700' },
   apple: { label: 'Apple Music', cls: 'bg-blue-100 text-blue-700' },
-  none: { label: 'be tracklist’o', cls: 'bg-amber-100 text-amber-700' },
+  none: { label: 'MB/Apple nerado', cls: 'bg-amber-100 text-amber-700' },
 }
 
 export default function WikiAlbumInboxPage() {
