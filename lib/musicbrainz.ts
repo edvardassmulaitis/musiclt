@@ -268,4 +268,101 @@ export async function fetchMbCoverUrl(releaseId: string): Promise<string | null>
   return null
 }
 
+export type MbAlbumByTitle = {
+  releaseId: string
+  releaseGroupId: string | null
+  title: string
+  primaryType: string | null
+  year: number | null
+  month: number | null
+  day: number | null
+  tracks: MbTrack[]
+  coverUrl: string | null
+}
+
+/**
+ * Albumo paieška MusicBrainz pagal ATLIKĖJĄ + ALBUMO PAVADINIMĄ (ne pagal dainą).
+ * Naudojama naujo albumų siūlymo flow'e (Wiki album scout kandidatams praturtinti
+ * BE priklausomybės nuo Wikipedia straipsnio): grąžina tikrą tracklist'ą + datą +
+ * viršelį, jei MB turi šį release'ą.
+ *
+ * Best-effort: tinklo/klaidų atveju grąžina null (niekada nemeta).
+ */
+export async function searchAlbumByTitle(
+  artistName: string,
+  albumTitle: string,
+  preferYear?: number | null,
+): Promise<MbAlbumByTitle | null> {
+  const artistQ = escapeLucene(artistName)
+  const titleQ = escapeLucene(albumTitle)
+  if (!artistQ || !titleQ) return null
+
+  let json: any
+  try {
+    json = await mbFetch(
+      `/release-group/?query=${encodeURIComponent(`releasegroup:"${titleQ}" AND artist:"${artistQ}" AND (primarytype:album OR primarytype:ep)`)}&fmt=json&limit=10`
+    )
+  } catch {
+    return null
+  }
+
+  const wantTitle = foldCompare(albumTitle)
+  const wantArtist = foldCompare(artistName)
+  const groups: any[] = json?.['release-groups'] || []
+
+  // Tikslus title + artist-credit atitikmuo; pirmenybė metų atitikmeniui, tada
+  // Album prieš EP, tada aukščiausiam MB score'ui.
+  const scored = groups
+    .filter((rg) => {
+      if (foldCompare(rg.title || '') !== wantTitle) return false
+      return (rg['artist-credit'] || []).some(
+        (ac: any) => foldCompare(ac?.artist?.name || ac?.name || '') === wantArtist
+      )
+    })
+    .map((rg) => {
+      const y = parseIsoDate(rg['first-release-date']).year
+      const yearMatch = preferYear && y ? (y === preferYear ? 2 : (Math.abs(y - preferYear) <= 1 ? 1 : 0)) : 0
+      const typeScore = rg['primary-type'] === 'Album' ? 1 : 0
+      return { rg, rank: yearMatch * 10 + typeScore * 2 + (rg.score || 0) / 100 }
+    })
+    .sort((a, b) => b.rank - a.rank)
+
+  const bestRg = scored[0]?.rg
+  if (!bestRg?.id) return null
+
+  // Release'ai grupėje → renkam oficialų su daugiausiai track'ų (pilniausias).
+  let releases: any[] = []
+  try {
+    const rgFull = await mbFetch(`/release-group/${bestRg.id}?fmt=json&inc=releases+media`)
+    releases = rgFull?.releases || []
+  } catch {
+    return null
+  }
+  if (!releases.length) return null
+
+  const trackCountOf = (r: any) =>
+    (r.media || []).reduce((s: number, m: any) => s + (m['track-count'] || 0), 0)
+  const official = releases.filter((r) => !r.status || r.status === 'Official')
+  const pool = official.length ? official : releases
+  pool.sort((a, b) => trackCountOf(b) - trackCountOf(a))
+  const bestRelease = pool[0]
+  if (!bestRelease?.id) return null
+
+  const full = await fetchReleaseTracklist(bestRelease.id)
+  const cover = await fetchMbCoverUrl(bestRelease.id)
+
+  const d = parseIsoDate(bestRg['first-release-date'])
+  return {
+    releaseId: bestRelease.id,
+    releaseGroupId: bestRg.id,
+    title: bestRg.title || albumTitle,
+    primaryType: bestRg['primary-type'] || full?.primaryType || null,
+    year: full?.year ?? d.year,
+    month: full?.month ?? d.month,
+    day: full?.day ?? d.day,
+    tracks: full?.tracks || [],
+    coverUrl: cover,
+  }
+}
+
 export { msToDuration, foldCompare }

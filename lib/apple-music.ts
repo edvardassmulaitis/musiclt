@@ -46,6 +46,49 @@ export type AppleAlbumMatch = {
   looksLikeSingle: boolean
 }
 
+/** Ieško ALBUMO pagal atlikėją + albumo pavadinimą (entity=album). Grąžina
+ *  metaduomenis (viršelis/data/track count) — NE tracklist'o turiniui (Apple
+ *  pre-release dažnai "Track N" placeholder'iai). Naudojama naujo albumų flow'e
+ *  kaip viršelio/datos fallback, kai MusicBrainz dar neturi release'o.
+ *  Best-effort: klaidos/timeout atveju grąžina null, niekad nemeta. */
+export async function searchAppleAlbum(artistName: string, albumTitle: string): Promise<AppleAlbumMatch | null> {
+  const term = `${artistName} ${albumTitle}`.trim()
+  if (!term) return null
+  let json: any
+  try {
+    const res = await fetch(
+      `https://itunes.apple.com/search?term=${encodeURIComponent(term)}&entity=album&limit=8&country=US`,
+      { signal: AbortSignal.timeout(8000) }
+    )
+    if (!res.ok) return null
+    json = await res.json()
+  } catch {
+    return null
+  }
+  const wantTitle = foldCompare(albumTitle)
+  const wantArtist = foldCompare(artistName)
+  const hit = (json?.results || []).find(
+    (r: any) => foldCompare(r.collectionName || '').replace(/ (deluxe|expanded|explicit).*/,'').trim() === wantTitle && foldCompare(r.artistName || '') === wantArtist
+  ) || (json?.results || []).find(
+    (r: any) => foldCompare(r.collectionName || '') === wantTitle
+  )
+  if (!hit || !hit.collectionId) return null
+  const relDate = hit.releaseDate ? new Date(hit.releaseDate) : null
+  const validDate = relDate && !isNaN(relDate.getTime())
+  const collectionName: string = hit.collectionName || ''
+  return {
+    collectionId: hit.collectionId,
+    title: collectionName,
+    trackCount: hit.trackCount || 0,
+    year: validDate ? relDate!.getUTCFullYear() : null,
+    month: validDate ? relDate!.getUTCMonth() + 1 : null,
+    day: validDate ? relDate!.getUTCDate() : null,
+    coverUrl: upgradeArtwork(hit.artworkUrl100),
+    isUpcoming: validDate ? relDate!.getTime() > Date.now() : false,
+    looksLikeSingle: (hit.trackCount || 0) <= 1 || /-\s*single\s*$/i.test(collectionName),
+  }
+}
+
 /** Ieško track'o Apple Music kataloge, grąžina jo albumą (jei yra) —
  *  metaduomenims (viršelis/data/track count), NE tracklist'o turiniui.
  *  Best-effort: klaidos/timeout atveju grąžina null, niekad nemeta. */
