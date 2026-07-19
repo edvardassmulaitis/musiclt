@@ -14,9 +14,12 @@ import { getServerSession } from 'next-auth'
 import { authOptions } from '@/lib/auth'
 import { createAdminClient } from '@/lib/supabase'
 import { commitAlbum } from '@/lib/quick-add'
-import { commitAlbumFromMb, commitShellAlbum } from '@/lib/album-commit'
+import { commitAlbumFromMb, commitShellAlbum, enrichAlbumTracks } from '@/lib/album-commit'
 
 export const runtime = 'nodejs'
+// Albumo dainų YouTube praturtinimas gali užtrukti (ypač didesniems albumams) —
+// leidžiam iki 120s (tail'ą užbaigia foninis yt-backfill cron'as).
+export const maxDuration = 120
 
 async function requireAdmin() {
   const session = await getServerSession(authOptions)
@@ -84,7 +87,8 @@ export async function PATCH(req: NextRequest, { params }: { params: Promise<{ id
         await supabase.from('wiki_album_candidates').update({
           status: 'approved', reviewed_at: new Date().toISOString(), published_album_id: r.album.id,
         }).eq('id', candidateId)
-        return NextResponse.json({ ok: true, status: 'approved', album_id: r.album.id, mode: 'wiki', warnings: r.warnings })
+        const enr = await enrichAlbumTracks(r.album.id, req.nextUrl.origin).catch(() => ({ enriched: 0, lyrics: 0, total: 0 }))
+        return NextResponse.json({ ok: true, status: 'approved', album_id: r.album.id, mode: 'wiki', enriched: enr.enriched, tracks_needing: enr.total, warnings: r.warnings })
       } catch (e: any) {
         return NextResponse.json({ error: `Publish failed: ${e.message}` }, { status: 500 })
       }
@@ -115,9 +119,14 @@ export async function PATCH(req: NextRequest, { params }: { params: Promise<{ id
         published_album_id: result.album_id,
       })
       .eq('id', candidateId)
+    // Naujo albumo dainoms surandam YouTube video (jei jų yra).
+    const enr = !result.existed && result.track_count > 0
+      ? await enrichAlbumTracks(result.album_id, req.nextUrl.origin).catch(() => ({ enriched: 0, lyrics: 0, total: 0 }))
+      : { enriched: 0, lyrics: 0, total: 0 }
     return NextResponse.json({
       ok: true, status: 'approved', album_id: result.album_id,
       track_count: result.track_count, existed: result.existed, mode,
+      enriched: enr.enriched, tracks_needing: enr.total,
     })
   }
 

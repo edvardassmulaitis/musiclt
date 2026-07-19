@@ -14,6 +14,52 @@ import { createAdminClient } from '@/lib/supabase'
 import { createAlbum, type AlbumFull, type TrackInAlbum } from '@/lib/supabase-albums'
 import { fetchReleaseTracklist, fetchMbCoverUrl, msToDuration } from '@/lib/musicbrainz'
 import { normalizeAlbumTitle } from '@/lib/album-title'
+import { enrichTrack } from '@/lib/yt-enrich'
+
+/**
+ * Praturtina naujai sukurto albumo dainas — kiekvienai suranda YouTube video
+ * (+ views). Ribojama laiko biudžetu (`budgetMs`), kad neužstrigtų didelio
+ * albumo (44 dainos) request'as: mažus (EP/albumas) apdoroja iškart, ilgą uodegą
+ * paskui užbaigia foninis yt-backfill cron'as (tas pats mechanizmas kaip Wiki importui).
+ * Best-effort: klaidos nesulaiko — grąžina kiek spėjo.
+ */
+export async function enrichAlbumTracks(albumId: number, origin?: string, budgetMs = 90000): Promise<{ enriched: number; lyrics: number; total: number }> {
+  const supabase = createAdminClient()
+  const { data: links } = await supabase.from('album_tracks').select('track_id, position').eq('album_id', albumId).order('position', { ascending: true })
+  const ids = (links || []).map((r: any) => r.track_id).filter(Boolean)
+  if (!ids.length) return { enriched: 0, lyrics: 0, total: 0 }
+  const { data: tracks } = await supabase
+    .from('tracks')
+    .select('id, title, video_url, lyrics, artists!tracks_artist_id_fkey(name)')
+    .in('id', ids)
+  // Apdorojam dainas, kurioms trūksta video ARBA lyrics.
+  const need = (tracks || []).filter((t: any) => !t.video_url || !t.lyrics)
+
+  const start = Date.now()
+  let enriched = 0, lyricsCount = 0
+  for (const t of need as any[]) {
+    if (Date.now() - start > budgetMs) break
+    // 1) YouTube video (+ views)
+    if (!t.video_url) {
+      try {
+        const r = await enrichTrack(t.id, false)
+        if ((r as any)?.ok && (r as any)?.videoUrl) enriched++
+      } catch { /* best-effort */ }
+    }
+    // 2) Lyrics (LRCLib per /api/search/lyrics) — jei dar nėra ir turim origin
+    if (!t.lyrics && origin) {
+      try {
+        const artistName = (t.artists?.name || '') as string
+        const lr = await fetch(`${origin}/api/search/lyrics?artist=${encodeURIComponent(artistName)}&title=${encodeURIComponent(t.title || '')}`, { signal: AbortSignal.timeout(12000) })
+        if (lr.ok) {
+          const lj = await lr.json()
+          if (lj?.lyrics) { await supabase.from('tracks').update({ lyrics: lj.lyrics }).eq('id', t.id); lyricsCount++ }
+        }
+      } catch { /* best-effort */ }
+    }
+  }
+  return { enriched, lyrics: lyricsCount, total: need.length }
+}
 
 export type AlbumCommitResult =
   | { ok: true; album_id: number; title: string; track_count: number; existed: boolean }
