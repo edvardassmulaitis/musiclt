@@ -548,6 +548,24 @@ export default function NewsArticleClient({
         .na-hero-noimg  { position:absolute; inset:0; background:linear-gradient(135deg,#0d1420 0%,#111826 100%); }
         .na-hero-noimg::after { content:''; position:absolute; inset:0; background:radial-gradient(ellipse at 75% 40%, rgba(249,115,22,0.12) 0%, transparent 55%); }
 
+        /* ── NOIMG: tekstinis hero (be nuotraukos). Temos-suderintas gradientas su
+              akcentu → gražu ir light, ir dark; tekstas visada įskaitomas. Kompaktiškas. */
+        .na-hero--noimg { min-height:0; max-height:none; height:auto; align-items:stretch; background:var(--bg-body); }
+        .na-hero--noimg .na-hero-noimg { background:
+            radial-gradient(115% 130% at 12% 0%, rgba(249,115,22,0.18) 0%, rgba(249,115,22,0.05) 26%, transparent 52%),
+            linear-gradient(180deg, var(--bg-elevated) 0%, var(--bg-body) 100%); }
+        .na-hero--noimg .na-hero-noimg::after { background:radial-gradient(ellipse at 88% 12%, rgba(249,115,22,0.10) 0%, transparent 48%); }
+        .na-hero--noimg .na-hero-wrap { padding-top:42px; padding-bottom:28px; }
+        .na-hero--noimg .na-h1 { color:var(--text-primary); text-shadow:none; }
+        .na-hero--noimg .na-date { color:var(--text-muted); }
+        .na-hero--noimg .na-meta-sep { background:var(--text-muted); }
+        .na-hero--noimg .na-artpill { background:var(--bg-body); border-color:var(--border-default); }
+        .na-hero--noimg .na-artpill:hover { background:var(--bg-elevated); }
+        .na-hero--noimg .na-artpill span { color:var(--text-primary); }
+        .na-hero--noimg .na-act { background:var(--bg-body); border-color:var(--border-default); color:var(--text-primary); }
+        .na-hero--noimg .na-act:hover { background:var(--bg-elevated); }
+        .na-hero--noimg .na-act-liked { color:var(--accent-orange); background:rgba(249,115,22,0.14); border-color:rgba(249,115,22,0.4); }
+
         /* ── PENDING: aštri foto paslėpta, scrim kaip cine ── */
         .na-hero--pending .na-hero-photo { opacity:0; }
 
@@ -579,7 +597,7 @@ export default function NewsArticleClient({
         .na-h1 { font-family:'Outfit',sans-serif; font-size:clamp(1.7rem,3.1vw,2.8rem); font-weight:900; line-height:1.06; letter-spacing:-.03em; color:#fff; margin:0 0 16px; text-shadow:0 2px 24px rgba(0,0,0,0.45); overflow-wrap:break-word; word-break:break-word; hyphens:auto; }
 
         /* Veiksmai VIRŠ pavadinimo */
-        .na-actbar { display:flex; flex-wrap:wrap; gap:9px; margin-bottom:16px; }
+        .na-actbar { display:flex; flex-wrap:wrap; gap:9px; margin-top:18px; }
         /* Meta po pavadinimu: data kairėje, susiję atlikėjai dešinėje */
         .na-meta { display:flex; align-items:center; flex-wrap:wrap; gap:12px; }
         .na-date { font-size:12px; color:rgba(255,255,255,0.55); font-weight:600; font-family:'Outfit',sans-serif; }
@@ -745,7 +763,7 @@ export default function NewsArticleClient({
       <div className="na-root">
 
         {/* ══════════ HERO ══════════ */}
-        <div className={`na-hero na-hero--${heroOrient}`}>
+        <div className={`na-hero na-hero--${heroImg ? heroOrient : 'noimg'}`}>
           {heroImg ? (
             <>
               {/* Ambient blur fonas (rodomas TIK split režime — plačiam cover jo
@@ -781,11 +799,8 @@ export default function NewsArticleClient({
 
           <div className="na-hero-wrap">
             <div className="na-hero-inner">
-              {/* Veiksmai virš pavadinimo */}
-              <div className="na-actbar">
-                <NewsLikeButton newsId={news.id} />
-                <ShareButton />
-              </div>
+              {/* Viskas prasideda nuo pavadinimo: title → meta (data + atlikėjai) →
+                  veiksmai (patinka/dalintis) apačioje. */}
               <h1 className="na-h1">{news.title}</h1>
               <div className="na-meta">
                 <span className="na-date">{formatDate(news.published_at)}</span>
@@ -804,6 +819,10 @@ export default function NewsArticleClient({
                   </div>
                   </>
                 )}
+              </div>
+              <div className="na-actbar">
+                <NewsLikeButton newsId={news.id} />
+                <ShareButton />
               </div>
             </div>
           </div>
