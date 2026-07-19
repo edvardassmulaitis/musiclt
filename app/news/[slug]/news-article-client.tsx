@@ -64,6 +64,15 @@ function PhotoCredit({ url, source, credit }: {
   credit?: { author: string; license: string; url: string } | null
 }) {
   const [open, setOpen] = useState(false)
+  // Užsidaro paspaudus šalia arba Escape (hook'ai VISADA prieš early return).
+  useEffect(() => {
+    if (!open) return
+    const onDoc = () => setOpen(false)
+    const onKey = (e: KeyboardEvent) => { if (e.key === 'Escape') setOpen(false) }
+    document.addEventListener('click', onDoc)
+    document.addEventListener('keydown', onKey)
+    return () => { document.removeEventListener('click', onDoc); document.removeEventListener('keydown', onKey) }
+  }, [open])
   if (!url) return null
 
   const ytVid = ytThumbId(url)
@@ -87,19 +96,37 @@ function PhotoCredit({ url, source, credit }: {
   } else if (source) { label = 'Šaltinis: ' + source }
   else { label = '© Autorių teisės' }
 
+  // Trumpas nuorodos tekstas modaliuke
+  let linkText = 'Peržiūrėti šaltinį'
+  if (ytVid) linkText = 'Žiūrėti „YouTube"'
+  else if (isWiki) linkText = 'Atidaryti Wikipedia'
+  else if (href) { try { linkText = new URL(href).hostname.replace(/^www\./, '') } catch { /* keep default */ } }
+
   const ico = (
     <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" aria-hidden><circle cx="12" cy="12" r="10" /><path d="M14.6 9.4a3.5 3.5 0 1 0 0 5.2" /></svg>
   )
+  // Paspaudus © NIEKADA iškart nenaviguoja — atidaro informacinį modaliuką su
+  // kreditu ir (jei yra) mini nuoroda į šaltinį.
   return (
-    <div className={`na-credit ${open ? 'is-open' : ''}`}>
-      {href ? (
-        <a className="na-credit-btn" href={href} target="_blank" rel="noopener noreferrer" title={label} aria-label={label} onClick={(e) => e.stopPropagation()}>
-          {ico}<span className="na-credit-label">{label}</span>
-        </a>
-      ) : (
-        <button className="na-credit-btn" type="button" title={label} aria-label={label} onClick={(e) => { e.stopPropagation(); setOpen(o => !o) }}>
-          {ico}<span className="na-credit-label">{label}</span>
-        </button>
+    <div className={`na-credit ${open ? 'is-open' : ''}`} onClick={(e) => e.stopPropagation()}>
+      <button
+        className="na-credit-btn"
+        type="button"
+        aria-label="Nuotraukos informacija"
+        aria-expanded={open}
+        onClick={(e) => { e.stopPropagation(); setOpen(o => !o) }}
+      >
+        {ico}
+      </button>
+      {open && (
+        <div className="na-credit-pop" role="dialog" aria-label="Nuotraukos šaltinis">
+          <span className="na-credit-pop-label">{label}</span>
+          {href && (
+            <a className="na-credit-pop-link" href={href} target="_blank" rel="noopener noreferrer">
+              {linkText} <span aria-hidden>↗</span>
+            </a>
+          )}
+        </div>
       )}
     </div>
   )
@@ -462,9 +489,9 @@ export default function NewsArticleClient({
     ? news.artists
     : news.artist ? [news.artist] : []) as ArtistRef[]
 
-  // Atmetam tuščias dainų eilutes (be pavadinimo ir be video) — kitaip
-  // player'is rodydavo tuščias „3", „4" vietas.
-  const validSongs = songs.filter(s => (s.title && s.title.trim()) || ytId(s.youtube_url))
+  // Rodom TIK dainas su realiu video embedu (ytId). Be video („Video dar nėra")
+  // eilučių neberodom — jei nė viena daina neturi video, sidebar'o išvis nėra.
+  const validSongs = songs.filter(s => ytId(s.youtube_url))
   const hasSidebar = validSongs.length > 0
 
   return (
@@ -553,16 +580,27 @@ export default function NewsArticleClient({
 
         /* Foto kreditas — © ženkliukas, hover atskleidžia šaltinį */
         .na-credit { position:absolute; z-index:4; bottom:10px; right:10px; }
-        .na-credit-btn { display:inline-flex; align-items:center; gap:0; height:26px; padding:0 6px; border-radius:100px; background:rgba(0,0,0,0.5); backdrop-filter:blur(6px); border:1px solid rgba(255,255,255,0.2); color:rgba(255,255,255,0.85); font-size:12px; font-weight:700; font-family:'Outfit',sans-serif; text-decoration:none; cursor:pointer; transition:background .2s,border-color .2s; white-space:nowrap; }
-        .na-credit-btn:hover { background:rgba(0,0,0,0.78); border-color:rgba(255,255,255,0.36); color:#fff; }
-        .na-credit-label { max-width:0; opacity:0; overflow:hidden; transition:max-width .3s ease,opacity .2s,margin .2s; }
-        .na-credit:hover .na-credit-label, .na-credit.is-open .na-credit-label { max-width:220px; opacity:1; margin-left:6px; }
+        .na-credit-btn { display:inline-flex; align-items:center; justify-content:center; width:28px; height:28px; padding:0; border-radius:50%; background:rgba(0,0,0,0.5); backdrop-filter:blur(6px); border:1px solid rgba(255,255,255,0.22); color:rgba(255,255,255,0.85); cursor:pointer; transition:background .2s,border-color .2s,color .2s; }
+        .na-credit-btn:hover { background:rgba(0,0,0,0.78); border-color:rgba(255,255,255,0.4); color:#fff; }
+        /* Informacinis modaliukas (atsidaro virš © mygtuko, visada tamsus → įskaitomas) */
+        .na-credit-pop { position:absolute; bottom:36px; right:0; z-index:5; min-width:172px; max-width:250px; display:flex; flex-direction:column; gap:9px; padding:11px 13px; border-radius:12px; background:rgba(10,12,16,0.92); backdrop-filter:blur(12px); border:1px solid rgba(255,255,255,0.16); box-shadow:0 14px 40px -14px rgba(0,0,0,0.78); animation:na-in .16s ease both; }
+        .na-credit-pop-label { color:rgba(255,255,255,0.9); font-size:12px; line-height:1.45; font-weight:600; font-family:'DM Sans',sans-serif; }
+        .na-credit-pop-link { display:inline-flex; align-items:center; gap:4px; color:var(--accent-orange); font-size:12px; font-weight:800; font-family:'Outfit',sans-serif; text-decoration:none; }
+        .na-credit-pop-link:hover { text-decoration:underline; }
 
         /* ── Page layout — platesnis player'is (420), siauresnis tekstas ── */
         .na-page { max-width:1240px; margin:0 auto; padding:0 28px; }
         .na-grid { display:grid; gap:60px; align-items:start; padding:22px 0 90px; }
-        .na-grid.has-sb { grid-template-columns:minmax(0,1fr) 420px; }
+        /* has-sb: kairė = straipsnis + komentarai (viena po kitos), dešinė = sticky
+           player per abi eilutes. Areas leidžia mobile'e perrikiuoti į
+           main → sidebar (muzika) → comments. */
+        .na-grid.has-sb { grid-template-columns:minmax(0,1fr) 420px; grid-template-areas:"main sidebar" "comments sidebar"; }
+        .na-grid.has-sb > .na-main    { grid-area:main; }
+        .na-grid.has-sb > .na-sidebar { grid-area:sidebar; }
+        .na-grid.has-sb > .na-comments{ grid-area:comments; }
         .na-grid.no-sb  { grid-template-columns:minmax(0,1fr); max-width:760px; margin:0 auto; }
+        /* komentarų tarpą tvarko grid gap (ne margin) — kitaip grid'e dvigubas tarpas */
+        .na-grid > .na-comments { margin-top:0; }
 
         /* ── Prose ── */
         .na-prose { color:var(--text-secondary); font-size:1.08rem; line-height:1.85; max-width:680px; overflow-wrap:break-word; word-break:break-word; }
@@ -632,7 +670,7 @@ export default function NewsArticleClient({
              stulpeliui susitraukti žemiau turinio min-content, todėl platus vaikas
              (pvz. „Susijusi muzika" sh-strip) ištempdavo stulpelį >viewport ir tekstas
              būdavo nukerpamas per .na-root overflow-x:clip (be scrollo). */
-          .na-grid.has-sb { grid-template-columns:minmax(0,1fr); }
+          .na-grid.has-sb { grid-template-columns:minmax(0,1fr); grid-template-areas:"main" "sidebar" "comments"; }
           .na-grid.has-sb > *, .na-prose, .na-sidebar { min-width:0; }
           .na-sidebar { position:static; }
         }
@@ -655,6 +693,17 @@ export default function NewsArticleClient({
           .na-hero--split .na-hero-wrap { position:relative; align-self:auto; padding:12px 20px 26px; max-width:100%; }
           .na-hero--split .na-hero-inner { max-width:100%; }
           .na-hero--split .na-hero-scrim { background:linear-gradient(to bottom, transparent 28%, var(--bg-body) 100%); }
+          /* Split mobile: antraštė+meta yra PO nuotrauka ant body fono — todėl
+             baltas tekstas (skirtas tamsiam hero) light mode'e dingsta. Naudojam
+             temos tokenus (veikia ir light, ir dark). */
+          .na-hero--split .na-h1 { color:var(--text-primary); text-shadow:none; }
+          .na-hero--split .na-date { color:var(--text-muted); }
+          .na-hero--split .na-meta-sep { background:var(--text-muted); }
+          .na-hero--split .na-artpill { background:var(--bg-elevated); border-color:var(--border-default); }
+          .na-hero--split .na-artpill span { color:var(--text-primary); }
+          .na-hero--split .na-artpill-av { color:#fff; }
+          .na-hero--split .na-act { background:var(--bg-elevated); border-color:var(--border-default); color:var(--text-primary); }
+          .na-hero--split .na-act-liked { color:var(--accent-orange); background:rgba(249,115,22,0.14); border-color:rgba(249,115,22,0.4); }
         }
         @media(max-width:640px){
           .na-h1 { font-size:1.5rem; }
@@ -731,13 +780,10 @@ export default function NewsArticleClient({
         {/* ══════════ ARTICLE + SIDEBAR ══════════ */}
         <div className="na-page" id="na-article">
           <div className={`na-grid ${hasSidebar ? 'has-sb' : 'no-sb'}`}>
-            <main>
+            <main className="na-main">
               <div className="na-prose" dangerouslySetInnerHTML={{ __html: news.body }} />
               {news.embeds && news.embeds.length > 0 && <NewsEmbeds embeds={news.embeds} />}
               {gallery.length > 0 && <PhotoGallery photos={gallery} />}
-              <div className="na-comments">
-                <EntityCommentsBlock entityType="news" entityId={news.id} title="Komentarai" skipLegacy />
-              </div>
             </main>
 
             {hasSidebar && (
@@ -745,6 +791,12 @@ export default function NewsArticleClient({
                 <MusicPlayer songs={validSongs} />
               </aside>
             )}
+
+            {/* Komentarai — atskiras grid item, kad mobile'e „Susijusi muzika"
+                (sidebar) atsidurtų VIRŠ komentarų (grid-template-areas tvarka). */}
+            <div className="na-comments">
+              <EntityCommentsBlock entityType="news" entityId={news.id} title="Komentarai" skipLegacy />
+            </div>
           </div>
         </div>
 
