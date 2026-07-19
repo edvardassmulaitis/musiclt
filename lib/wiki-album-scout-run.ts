@@ -20,13 +20,13 @@ import { matchArtists } from '@/lib/entity-matcher'
 import { commitAlbum } from '@/lib/quick-add'
 import { normalizeAlbumTitle } from '@/lib/album-title'
 
-// Padidinta 200→600 (2026-07-18): po parserio pataisymo metai turi ~1500 realių
-// eilučių (visi 12 mėn., ne tik sausis). Su laiko biudžetu (žemiau) vienas scan'as
-// apima žymiai daugiau; likutį užbaigia kiti manual scan'ai + kasdienis cron'as.
-const MAX_FRESH_PER_RUN = 600
-const MAX_AUTO_COMMITS_PER_RUN = 8
-// Wall-clock biudžetas — kad neviršytume Vercel funkcijos limito (maxDuration).
-const RUN_BUDGET_MS = 55000
+// Scan'as = GREITA discovery (match + queue), be lėto auto-commit'o. Anksčiau
+// auto-commit (8 × ~3s Wiki fetch+album create) suvalgydavo biudžetą per ~70 eilučių
+// (liko tik sausis). Dabar admin prideda per UI (review flow), tad scan'as tik atranda.
+const MAX_FRESH_PER_RUN = 1500
+const MAX_AUTO_COMMITS_PER_RUN = 0   // auto-commit IŠJUNGTAS — greitis > auto
+// Wall-clock biudžetas — po maxDuration (300s) su atsarga.
+const RUN_BUDGET_MS = 240000
 
 export type WikiAlbumScoutCounters = {
   source_id: number

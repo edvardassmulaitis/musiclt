@@ -213,19 +213,20 @@ export default function WikiAlbumInboxPage() {
 
   return (
     <div className="max-w-3xl mx-auto px-4 py-6">
-      <h1 className="text-base font-bold text-[var(--text-primary)] mb-3">
-        📥 Inbox <span className="text-xs font-normal text-[var(--text-muted)]" title="Iš viso laukia: naujienos + renginiai + albumai">({grandTotal})</span>
-      </h1>
+      <div className="flex items-center justify-between gap-2 mb-3">
+        <h1 className="text-base font-bold text-[var(--text-primary)]">
+          📥 Inbox <span className="text-xs font-normal text-[var(--text-muted)]" title="Iš viso laukia: naujienos + renginiai + albumai">({grandTotal})</span>
+        </h1>
+        <button onClick={() => runScanNow(false)} disabled={scanning} title="Paleisti Wikipedia albumų scan'ą"
+          className="text-xs px-2.5 py-1 rounded-full border border-[var(--input-border)] text-[var(--text-secondary)] hover:bg-[var(--bg-elevated)] disabled:opacity-40 shrink-0">
+          {scanning ? '⏳ Skenuoja…' : '🔎 Scan'}
+        </button>
+      </div>
       <InboxTabs />
-
-      <p className="text-sm text-[var(--text-muted)] mb-3">
-        Būsimi / nauji albumai (atlikėjai jau kataloge). Kiekvienam bandome rasti tracklist’ą, viršelį ir datą
-        iš MusicBrainz / Apple Music — <strong>net jei Wikipedia straipsnio dar nėra</strong>. Peržiūrėk ir pridėk vienu paspaudimu.
-      </p>
 
       {/* Metų tab'ai — rodom tik metus, kurie turi laukiančių kandidatų */}
       {years.length > 1 && (
-        <div className="flex items-center gap-1.5 mb-3 flex-wrap">
+        <div className="flex items-center gap-1.5 mt-3 mb-1 flex-wrap">
           {years.map(y => (
             <button key={y.year} onClick={() => load(y.year)}
               className={`text-sm px-3 py-1 rounded-full border transition-colors ${
@@ -238,30 +239,8 @@ export default function WikiAlbumInboxPage() {
           ))}
         </div>
       )}
-
-      <div className="mb-4 p-3 rounded-lg border border-[var(--input-border)] bg-[var(--surface-secondary)]">
-        <div className="flex items-center gap-2 flex-wrap">
-          <button onClick={() => runScanNow(false)} disabled={scanning}
-            className="text-sm px-3 py-1.5 rounded bg-blue-600 text-white disabled:opacity-40">
-            {scanning ? 'Skenuojama…' : '🔎 Paleisti scan\'ą dabar'}
-          </button>
-          <button onClick={() => runScanNow(true)} disabled={scanning}
-            className="text-sm px-3 py-1.5 rounded border border-[var(--input-border)] disabled:opacity-40">
-            Dry run (be rašymo)
-          </button>
-          <span className="text-xs text-[var(--text-muted)]">Automatiškai 1x/parą — mygtukas paleidžia iš karto.</span>
-        </div>
-        {scanError && <div className="text-xs text-red-600 mt-2">{scanError}</div>}
-        {scanSummary && (
-          <div className="text-xs text-[var(--text-muted)] mt-2 flex flex-wrap gap-x-4 gap-y-1">
-            <span>naujai patikrinta: <strong>{scanSummary.total_fresh_checked}</strong></span>
-            <span>auto-sukurta: <strong>{scanSummary.total_auto_committed}</strong></span>
-            <span>į eilę: <strong>{scanSummary.total_queued_pending}</strong></span>
-            {scanSummary.total_errors > 0 && <span className="text-red-600">klaidų: <strong>{scanSummary.total_errors}</strong></span>}
-            {scanSummary.dry_run && <span className="text-amber-600">(dry run)</span>}
-          </div>
-        )}
-      </div>
+      {scanError && <div className="text-xs text-red-600 mt-2">{scanError}</div>}
+      <div className="mb-3" />
 
       {loading ? (
         <p className="text-sm text-[var(--text-muted)]">Kraunama…</p>
