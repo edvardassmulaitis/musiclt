@@ -1,16 +1,18 @@
 name: Wiki album scout
 
-# Punktas B — Wikipedia „List of 2026 albums" stebėjimas. Statinis puslapis,
-# pildomas ad-hoc per visus metus (ne RSS) — 1x/parą pakanka, ne skubu (albumo
-# straipsnis atsiranda savaitėmis, ne valandomis, po pirmo pasirodymo sąraše).
-#   06:00 UTC (08:00 EET ryto)
+# Punktas B — Wikipedia „List of 2026/2027 albums" stebėjimas. Statiniai puslapiai,
+# pildomi ad-hoc per visus metus (ne RSS). Albumo straipsnis atsiranda savaitėmis,
+# ne valandomis — tad KAS SAVAITĘ pilnai pakanka (Edvardo pasirinkimas 2026-07-19;
+# in-memory scan dabar apima visus metus per vieną paleidimą). Seni metai (2017 ir kt.)
+# — vienkartinis backfill, tie source'ai deaktyvuoti (is_active=false), tad čia nepaimami.
+#   Pirmadienis 06:00 UTC (08:00 EET ryto)
 #
 # NE Cowork scheduled task — žr. EXTERNAL_CHARTS_PLAN.md §9 (senoji scheduled
 # task, gyvenusi tik task'o aplinkoje, dingo ~07-03). Šis darbas iškart daromas
 # per GitHub Actions + repo endpoint'ą, kaip news-scout/events-scout.
 on:
   schedule:
-    - cron: '0 6 * * *'
+    - cron: '0 6 * * 1'
   workflow_dispatch:
     inputs:
       source_id:

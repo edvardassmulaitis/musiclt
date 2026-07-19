@@ -1,0 +1,43 @@
+name: Album release backfill
+
+# Kai „skeleto"/būsimo albumo REALI išleidimo data ateina — sistema pati bando
+# rasti tracklist'ą (jei dar be dainų, TIK aiškus MB atitikmuo) ir praturtinti
+# visas albumo dainas (YouTube video + lyrics). Žr. app/api/internal/
+# album-release-backfill/route.ts.
+#
+# Kasdien 07:00 UTC (09:00 EET) — po nakties, kad ką tik išleisti albumai
+# užsipildytų per dieną. Volume mažas (tik upcoming→released perėjimai).
+on:
+  schedule:
+    - cron: '0 7 * * *'
+  workflow_dispatch:
+
+jobs:
+  run-backfill:
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - name: Call album-release-backfill
+        run: |
+          echo "Calling: ${{ secrets.MUSICLT_BASE_URL }}/api/internal/album-release-backfill"
+          response=$(curl -sS -w "\n%{http_code}" \
+            -X POST "${{ secrets.MUSICLT_BASE_URL }}/api/internal/album-release-backfill" \
+            -H "Authorization: Bearer ${{ secrets.INTERNAL_CRON_TOKEN }}" \
+            --max-time 290)
+
+          http_code=$(echo "$response" | tail -n1)
+          body=$(echo "$response" | sed '$d')
+
+          echo "HTTP $http_code"
+          echo "$body" | head -c 3000
+          echo
+
+          if [ "$http_code" != "200" ]; then
+            echo "::error::album-release-backfill returned non-200"
+            exit 1
+          fi
+
+          released=$(echo "$body" | grep -oP '"released_marked":\K\d+' || echo "?")
+          tl=$(echo "$body" | grep -oP '"tracklist_added":\K\d+' || echo "?")
+          errors=$(echo "$body" | grep -oP '"errors":\K\d+' || echo "?")
+          echo "::notice::album-release-backfill → released: $released | tracklists: $tl | errors: $errors"
