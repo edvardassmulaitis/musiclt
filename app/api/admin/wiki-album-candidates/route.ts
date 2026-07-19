@@ -39,6 +39,7 @@ export async function GET(req: NextRequest) {
       id, source_url, artist_raw, album_title, album_wiki_link,
       release_year, release_month, release_day, genres_raw, label_raw,
       matched_artist_id, match_score, status, created_at, rescanned_at,
+      preview_payload, preview_at,
       matched_artist:artists!wiki_album_candidates_matched_artist_id_fkey(id, name, slug, cover_image_url, score)
     `)
     .eq('status', status)

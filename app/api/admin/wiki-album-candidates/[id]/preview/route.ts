@@ -41,13 +41,22 @@ export async function GET(req: NextRequest, { params }: { params: Promise<{ id: 
   const candidateId = parseInt((await params).id, 10)
   if (Number.isNaN(candidateId)) return NextResponse.json({ error: 'Bad ID' }, { status: 400 })
 
+  const force = req.nextUrl.searchParams.get('force') === '1'
   const supabase = createAdminClient()
   const { data: cand, error } = await supabase
     .from('wiki_album_candidates')
-    .select('id, artist_raw, album_title, release_year, album_wiki_link, matched_artist_id, matched_artist:artists!wiki_album_candidates_matched_artist_id_fkey(name)')
+    .select('id, artist_raw, album_title, release_year, album_wiki_link, matched_artist_id, preview_payload, preview_at, matched_artist:artists!wiki_album_candidates_matched_artist_id_fkey(name)')
     .eq('id', candidateId)
     .single()
   if (error || !cand) return NextResponse.json({ error: 'Not found' }, { status: 404 })
+
+  // ── Cache: jei jau praturtinta ir dar šviežia (< 14 d.) — grąžinam iš karto ──
+  const FRESH_MS = 14 * 24 * 60 * 60 * 1000
+  const cachedAt = (cand as any).preview_at ? Date.parse((cand as any).preview_at) : 0
+  const cached = (cand as any).preview_payload
+  if (!force && cached && cachedAt && (Date.now() - cachedAt) < FRESH_MS) {
+    return NextResponse.json({ ok: true, candidate_id: candidateId, enrichment: cached, cached: true })
+  }
 
   const artistName = ((cand as any).matched_artist?.name as string) || cand.artist_raw || ''
 
@@ -74,5 +83,10 @@ export async function GET(req: NextRequest, { params }: { params: Promise<{ id: 
   }
   if (!enrichment) enrichment = await enrichAlbum(artistName, cand.album_title, cand.release_year)
 
-  return NextResponse.json({ ok: true, candidate_id: candidateId, artist_name: artistName, enrichment })
+  // Įrašom į cache — kad kitą kartą nekartotume išorinių fetch'ų.
+  supabase.from('wiki_album_candidates')
+    .update({ preview_payload: enrichment, preview_at: new Date().toISOString() })
+    .eq('id', candidateId).then(() => {})
+
+  return NextResponse.json({ ok: true, candidate_id: candidateId, artist_name: artistName, enrichment, cached: false })
 }

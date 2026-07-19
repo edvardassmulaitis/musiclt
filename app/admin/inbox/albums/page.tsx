@@ -25,6 +25,8 @@ type WikiAlbumCandidate = {
   status: string
   created_at: string
   matched_artist: MatchedArtist | null
+  preview_payload?: Enrichment | null
+  preview_at?: string | null
 }
 
 type Enrichment = {
@@ -85,8 +87,17 @@ export default function WikiAlbumInboxPage() {
     try {
       const res = await fetch('/api/admin/wiki-album-candidates?status=pending&limit=40')
       const j = await res.json()
-      setCandidates(j.candidates || [])
+      const cands: WikiAlbumCandidate[] = j.candidates || []
+      setCandidates(cands)
       setTotal(j.total || 0)
+      // Seed'inam enrichment iš cache (preview_payload) — tie nebus fetch'inami iš naujo.
+      const seed: Record<number, EnrichState> = {}
+      for (const c of cands) {
+        const FRESH = 14 * 24 * 60 * 60 * 1000
+        const at = c.preview_at ? Date.parse(c.preview_at) : 0
+        if (c.preview_payload && at && (Date.now() - at) < FRESH) seed[c.id] = { loading: false, data: c.preview_payload }
+      }
+      if (Object.keys(seed).length > 0) setEnrich(prev => ({ ...seed, ...prev }))
     } finally {
       setLoading(false)
     }
@@ -107,7 +118,14 @@ export default function WikiAlbumInboxPage() {
     if (candidates.length === 0) return
     let cancelled = false
     const CONCURRENCY = 3
-    const queue = candidates.map(c => c.id).filter(id => !enrichRef.current[id])
+    const FRESH = 14 * 24 * 60 * 60 * 1000
+    // Praleidžiam tuos, kurie jau turi (šviežų) cache — jokių pakartotinių fetch'ų.
+    const queue = candidates.filter(c => {
+      if (enrichRef.current[c.id]) return false
+      const at = c.preview_at ? Date.parse(c.preview_at) : 0
+      if (c.preview_payload && at && (Date.now() - at) < FRESH) return false
+      return true
+    }).map(c => c.id)
     if (queue.length === 0) return
     // Pažymim kaip loading iškart (kad nedubliuotume).
     setEnrich(prev => {
