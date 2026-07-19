@@ -96,10 +96,12 @@ export async function getMissingFromChartsTotal(sb: SB): Promise<number> {
   try {
     const { data: charts } = await sb
       .from('external_charts')
-      .select('id')
+      .select('id, chart_key')
       .eq('is_current', true)
       .neq('source', 'consensus')
-    const ids = ((charts || []) as any[]).map((c) => c.id)
+    // TIK dainų topai — albumų topus /admin/charts/missing puslapis irgi praleidžia,
+    // tad count'as turi atitikti (anksčiau įskaitydavo albumus → count > sąrašas).
+    const ids = ((charts || []) as any[]).filter((c) => c.chart_key !== 'albums').map((c) => c.id)
     if (!ids.length) return 0
     const { data: entries } = await sb
       .from('external_chart_entries')
@@ -110,8 +112,25 @@ export async function getMissingFromChartsTotal(sb: SB): Promise<number> {
       .limit(2000)
     const seen = new Set<string>()
     for (const e of (entries || []) as any[]) {
-      seen.add(normalizeForMatch(primaryArtist(e.artist_name)) + '|' + normalizeForMatch(e.title))
+      const key = normalizeForMatch(primaryArtist(e.artist_name)) + '|' + normalizeForMatch(e.title)
+      if (key.replace(/\|/g, '').trim()) seen.add(key)
     }
+    // Discovery kandidatai (YouTube) — puslapis juos irgi rodo, tad įtraukiam į
+    // count'ą. Tas pats keying kaip GET: atlikėjas arba (jei nėra) yt:video_id.
+    try {
+      const { data: disc } = await sb
+        .from('yt_discovery_candidates')
+        .select('artist_raw, title_raw, video_id')
+        .eq('status', 'pending')
+        .limit(400)
+      for (const d of (disc || []) as any[]) {
+        const t = (d.title_raw || '').trim()
+        if (!t) continue
+        const a = (d.artist_raw || '').trim()
+        const key = (a ? normalizeForMatch(primaryArtist(a)) : ('yt:' + (d.video_id || t))) + '|' + normalizeForMatch(t)
+        if (key.replace(/\|/g, '').trim()) seen.add(key)
+      }
+    } catch { /* lentelės gali nebūti */ }
     return seen.size
   } catch {
     return 0

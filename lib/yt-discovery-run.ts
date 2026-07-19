@@ -24,6 +24,7 @@ import { createAdminClient } from '@/lib/supabase'
 import { fetchFeed, type FeedItem } from '@/lib/scout-feeds'
 import { matchArtists } from '@/lib/entity-matcher'
 import { parseYtTitle } from '@/lib/quick-add'
+import { findConfidentMatch } from '@/lib/chart-resolve'
 import { canonicalUrlHash } from '@/lib/url-extract'
 
 const MAX_SOURCES = 20
@@ -100,6 +101,20 @@ function hoursBetween(aIso: string | undefined | null, bMs: number): number | nu
   if (!Number.isFinite(a)) return null
   const h = (bMs - a) / 3600000
   return h > 0 ? h : null
+}
+
+/** Ar „kanalas" iš tikro yra playlist'o/agregatoriaus deskriptorius (ne atlikėjas)?
+ *  Tokių niekad nesaugom kaip artist_raw — geriau palikti tuščią, nei rodyti
+ *  „YouTube: Trending 20 Lithuania" ar „YouTube playlist PL…" kaip atlikėją. */
+/** Nuima „feat./ft./featuring …" uodegą iš pavadinimo — tai featuring kreditas,
+ *  ne pavadinimo dalis. „Step Ft. Swizz Beatz" → „Step" (kad sutaptų su katalogo
+ *  „Step"). Skliaustinį „(feat. …)" irgi. */
+function stripFeatFromTitle(t: string): string {
+  return (t || '')
+    .replace(/\s*[([]\s*(?:feat|ft|featuring|con)\.?\s[^)\]]*[)\]]/gi, '')
+    .replace(/\s*\b(?:feat|ft|featuring)\.?\s+.+$/i, '')
+    .replace(/\s{2,}/g, ' ')
+    .trim()
 }
 
 /** Ar „kanalas" iš tikro yra playlist'o/agregatoriaus deskriptorius (ne atlikėjas)?
@@ -227,6 +242,9 @@ export async function runYtDiscovery(opts: RunOpts): Promise<RunResult> {
       // kanalas. Jei kanalas agregatorius („YouTube: Trending…") — artist tuščias.
       const realChannel = item.channel || ''
       const parsed = parseYtTitle(item.title, realChannel)
+      // „feat./ft. X" — featuring kreditas, ne pavadinimas. Nuimam, kad title_raw
+      // sutaptų su katalogu („Step Ft. Swizz Beatz" → „Step") ir tarp topų dubl.
+      const cleanTitle = stripFeatFromTitle(parsed.title)
       let artistRaw = parsed.artist || ''
       if (isAggregatorChannel(artistRaw)) artistRaw = ''
       let matchedArtistId: number | null = null
@@ -255,9 +273,11 @@ export async function runYtDiscovery(opts: RunOpts): Promise<RunResult> {
         const { data } = await sb.from('tracks').select('id').ilike('video_url', `%${vid}%`).limit(1)
         if (data && (data as any[]).length) existingTrackId = (data as any[])[0].id
       }
-      if (!existingTrackId && matchedArtistId && parsed.title) {
-        const { data } = await sb.from('tracks').select('id').eq('artist_id', matchedArtistId).ilike('title', parsed.title).limit(1)
-        if (data && (data as any[]).length) existingTrackId = (data as any[])[0].id
+      // Normalizuotas katalogo match (atsparus „feat.", diakritikams, versijoms) —
+      // pakeičia žalią ilike, kuris „Step Ft. Swizz Beatz" nepagaudavo prieš „Step".
+      if (!existingTrackId && artistRaw && cleanTitle) {
+        const cm = await findConfidentMatch(sb, artistRaw, cleanTitle, { fuzzy: true }).catch(() => null)
+        if (cm) existingTrackId = cm.trackId
       }
 
       const status = existingTrackId ? 'duplicate' : (isShort(url) ? 'not_music' : 'pending')
@@ -270,7 +290,7 @@ export async function runYtDiscovery(opts: RunOpts): Promise<RunResult> {
         raw_title: item.title,
         channel_title: item.channel || src.name || null,
         artist_raw: artistRaw || null,
-        title_raw: parsed.title || null,
+        title_raw: cleanTitle || parsed.title || null,
         published_at: item.published_at || null,
         views_first: typeof item.views === 'number' ? item.views : null,
         views_first_at: nowIso,

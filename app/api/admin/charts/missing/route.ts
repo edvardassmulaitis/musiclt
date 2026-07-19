@@ -94,10 +94,24 @@ export async function POST(req: NextRequest) {
   const artist = String(body.artist || '').trim()
   const title = String(body.title || '').trim()
   const action = String(body.action || '')
-  if (!artist || !title) return NextResponse.json({ error: 'artist + title required' }, { status: 400 })
-
   const sb = createAdminClient()
   const videoId = String(body.videoId || '').trim() || null
+
+  // Atmesti pasiūlymą — reikia TIK videoId. Tvarkom PRIEŠ artist/title reikalavimą,
+  // nes discovery daina gali neturėti atlikėjo (artist_raw null) — anksčiau tokiu
+  // atveju grąžindavo 400 ir atmestis nepersistindavo (daina grįždavo po refresh).
+  if (action === 'reject') {
+    if (videoId) {
+      try {
+        await sb.from('yt_discovery_candidates')
+          .update({ status: 'rejected', reviewed_at: new Date().toISOString() })
+          .eq('video_id', videoId).eq('status', 'pending')
+      } catch { /* lentelės gali nebūti */ }
+    }
+    return NextResponse.json({ ok: true, rejected: true })
+  }
+
+  if (!artist || !title) return NextResponse.json({ error: 'artist + title required' }, { status: 400 })
 
   // Pažymim YouTube discovery kandidatą 'approved', kad po pridėjimo dingtų iš
   // sąrašo ir nebegrįžtų perkrovus (anksčiau likdavo 'pending').
@@ -161,19 +175,6 @@ export async function POST(req: NextRequest) {
     const linked = await linkSongAcrossCharts(sb, { trackId: (tr as any).id, artistId: (tr as any).artist_id, rawArtist: artist, rawTitle: title }).catch(() => 0)
     await markDiscoveryDone(videoId, (tr as any).id)
     return NextResponse.json({ ok: true, trackId: (tr as any).id, linked })
-  }
-
-  // Atmesti pasiūlymą (dažniausiai discovery daina, kurios nenorim) — pažymim
-  // discovery kandidatą 'rejected', kad nebegrįžtų. Chart eilutėms — no-op.
-  if (action === 'reject') {
-    if (videoId) {
-      try {
-        await sb.from('yt_discovery_candidates')
-          .update({ status: 'rejected', reviewed_at: new Date().toISOString() })
-          .eq('video_id', videoId).eq('status', 'pending')
-      } catch { /* lentelės gali nebūti */ }
-    }
-    return NextResponse.json({ ok: true, rejected: true })
   }
 
   // YouTube siūlymas peržiūrai (embed) + dedup būsena + atlikėjo populiarumas.
