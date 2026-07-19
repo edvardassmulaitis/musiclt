@@ -167,6 +167,20 @@ export async function runWikiAlbumScout(opts: { sourceId?: string | null; dryRun
         }
         const top = matches[0]
 
+        // Reikalaujam STIPRAUS atlikėjo match'o — silpni (pvz. „Exo"→„Exodus" 0.60,
+        // „Sault"→„Nuclear Assault", „Ive"→„At the Drive-In") teršia eilę. Realūs
+        // atitikmenys ~1.0; <0.85 laikom „nerasta" (į scout_seen_urls, nekuriam).
+        const MIN_ARTIST_MATCH = 0.85
+        if (top && typeof top.score === 'number' && top.score < MIN_ARTIST_MATCH) {
+          if (!dryRun) {
+            await supabase.from('scout_seen_urls').insert({
+              url_hash: fp, source_id: source.id, candidate_id: null, filter_reason: 'weak_artist_match',
+            })
+          }
+          c.no_artist_match++
+          continue
+        }
+
         if (!top) {
           if (!dryRun) {
             await supabase.from('scout_seen_urls').insert({

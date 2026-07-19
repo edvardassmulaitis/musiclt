@@ -28,13 +28,15 @@ type WikiAlbumCandidate = {
 }
 
 type Enrichment = {
-  source: 'musicbrainz' | 'apple' | 'none'
+  source: 'wikipedia' | 'musicbrainz' | 'apple' | 'none'
+  source_url: string | null
   cover_url: string | null
   year: number | null; month: number | null; day: number | null
   tracks: { position: number; title: string }[]
   track_count: number
   mb_release_id: string | null
   primary_type: string | null
+  types: string[]
   is_upcoming: boolean
   confidence: 'high' | 'medium' | 'low'
 }
@@ -54,9 +56,10 @@ function wikiUrl(title: string) {
 }
 
 const SOURCE_BADGE: Record<string, { label: string; cls: string }> = {
+  wikipedia: { label: 'Wikipedia', cls: 'bg-emerald-100 text-emerald-700' },
   musicbrainz: { label: 'MusicBrainz', cls: 'bg-emerald-100 text-emerald-700' },
   apple: { label: 'Apple Music', cls: 'bg-blue-100 text-blue-700' },
-  none: { label: 'MB/Apple nerado', cls: 'bg-amber-100 text-amber-700' },
+  none: { label: 'nerasta šaltinio', cls: 'bg-amber-100 text-amber-700' },
 }
 
 export default function WikiAlbumInboxPage() {
@@ -171,6 +174,7 @@ export default function WikiAlbumInboxPage() {
       cover_url: e?.cover_url || null,
       year: e?.year ?? undefined, month: e?.month ?? undefined, day: e?.day ?? undefined,
       primary_type: e?.primary_type || null,
+      types: e?.types || [],
     }
     try {
       const res = await fetch(`/api/admin/wiki-album-candidates/${c.id}`, {
@@ -235,18 +239,21 @@ export default function WikiAlbumInboxPage() {
             const dy = e?.year ?? c.release_year
             const dm = e?.month ?? c.release_month
             const dd = e?.day ?? c.release_day
-            const cover = e?.cover_url || c.matched_artist?.cover_image_url || null
+            // TIK realus albumo viršelis (be atlikėjo cover fallback'o — klaidina).
+            const cover = e?.cover_url || null
             const full = !!(e && e.mb_release_id && e.track_count > 0)
+            const hasTracks = !!(e && e.track_count > 0)
+            // Title nuoroda: Wikipedia (jei yra) arba šaltinis (MusicBrainz/Apple).
+            const titleHref = c.album_wiki_link ? wikiUrl(c.album_wiki_link) : (e?.source_url || null)
+            const extraTypes = (e?.types || []).filter(t => t && t.toLowerCase() !== 'album')
             return (
               <div key={c.id} className="border border-[var(--input-border)] rounded-lg p-2.5 flex gap-3">
-                {/* Cover */}
-                <div className="shrink-0 w-16 h-16 rounded-md overflow-hidden bg-[var(--bg-elevated)] flex items-center justify-center">
-                  {cover ? (
+                {/* Cover — rodom TIK jei yra realus albumo viršelis */}
+                {cover && (
+                  <div className="shrink-0 w-16 h-16 rounded-md overflow-hidden bg-[var(--bg-elevated)]">
                     <img src={cover} alt="" className="w-full h-full object-cover" referrerPolicy="no-referrer" />
-                  ) : (
-                    <span className="text-2xl opacity-50">💿</span>
-                  )}
-                </div>
+                  </div>
+                )}
 
                 {/* Info */}
                 <div className="min-w-0 flex-1">
@@ -258,7 +265,7 @@ export default function WikiAlbumInboxPage() {
                     {c.matched_artist ? (
                       <span title="Atlikėjas jau kataloge">
                         <span className="text-emerald-600 mr-0.5" aria-label="kataloge">✅</span>
-                        <Link href={`/atlikejai/${c.matched_artist.slug}`} className="text-blue-700 hover:underline" target="_blank">{c.matched_artist.name}</Link>
+                        <Link href={`/atlikejai/${c.matched_artist.slug}`} className="text-blue-700 hover:underline" target="_blank" rel="noopener noreferrer">{c.matched_artist.name}</Link>
                       </span>
                     ) : (
                       <span title="Atlikėjo dar nėra kataloge — reikės sukurti">
@@ -267,9 +274,10 @@ export default function WikiAlbumInboxPage() {
                       </span>
                     )}
                     {' — '}
-                    {c.album_wiki_link ? (
-                      <a href={wikiUrl(c.album_wiki_link)} target="_blank" rel="noopener noreferrer"
-                        className="hover:underline decoration-dotted underline-offset-2" title="Atidaryti Wikipedia straipsnį">
+                    {titleHref ? (
+                      <a href={titleHref} target="_blank" rel="noopener noreferrer"
+                        className="hover:underline decoration-dotted underline-offset-2"
+                        title={c.album_wiki_link ? 'Atidaryti Wikipedia straipsnį' : 'Atidaryti šaltinį'}>
                         {c.album_title} <span className="text-[10px] align-super opacity-60">↗</span>
                       </a>
                     ) : c.album_title}
@@ -282,12 +290,14 @@ export default function WikiAlbumInboxPage() {
                     ) : e ? (
                       <>
                         <span className={`px-1.5 py-0.5 rounded-full font-medium ${badge.cls}`}>{badge.label}</span>
-                        {full ? (
-                          <span className="text-emerald-700">🎵 {e.track_count} dainos</span>
+                        {hasTracks ? (
+                          <span className="text-emerald-700">🎵 {e!.track_count} dainos</span>
                         ) : (
                           <span className="text-amber-600">be tracklist’o (skeletas)</span>
                         )}
-                        {e.primary_type === 'EP' && <span className="text-[var(--text-muted)]">EP</span>}
+                        {extraTypes.map(t => (
+                          <span key={t} className="px-1.5 py-0.5 rounded-full bg-[var(--bg-elevated)] text-[var(--text-secondary)] font-medium">{t}</span>
+                        ))}
                       </>
                     ) : (
                       <span className="text-amber-600">nerasta MB/Apple — pridės kaip skeletą</span>
@@ -300,7 +310,7 @@ export default function WikiAlbumInboxPage() {
                   <div className="flex gap-2 mt-2 items-center flex-wrap">
                     <button onClick={() => addOneClick(c)} disabled={busy === c.id || enriching}
                       className="text-sm px-3 py-1 rounded bg-emerald-600 text-white disabled:opacity-40 font-medium">
-                      {busy === c.id ? '…' : full ? `＋ Pridėti (${e!.track_count} d.)` : '＋ Pridėti (skeletas)'}
+                      {busy === c.id ? '…' : hasTracks ? `＋ Pridėti (${e!.track_count} d.)` : '＋ Pridėti (skeletas)'}
                     </button>
                     <button onClick={() => reject(c.id)} disabled={busy === c.id}
                       className="text-sm px-3 py-1 rounded border border-[var(--input-border)]">Atmesti</button>

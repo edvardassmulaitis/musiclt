@@ -13,7 +13,16 @@ import { NextRequest, NextResponse } from 'next/server'
 import { getServerSession } from 'next-auth'
 import { authOptions } from '@/lib/auth'
 import { createAdminClient } from '@/lib/supabase'
-import { enrichAlbum } from '@/lib/album-enrich'
+import { enrichAlbum, type AlbumEnrichment } from '@/lib/album-enrich'
+import { enrichAlbumFromWiki } from '@/lib/quick-add'
+
+function albumWikiUrl(title: string): string {
+  return `https://en.wikipedia.org/wiki/${encodeURIComponent(title.replace(/ /g, '_'))}`
+}
+function isUpcoming(y: number | null, m: number | null, d: number | null): boolean {
+  if (!y) return false
+  return Date.UTC(y, (m || 1) - 1, d || 1) > Date.now()
+}
 
 export const runtime = 'nodejs'
 export const dynamic = 'force-dynamic'
@@ -25,7 +34,7 @@ async function requireAdmin() {
   return session
 }
 
-export async function GET(_req: NextRequest, { params }: { params: Promise<{ id: string }> }) {
+export async function GET(req: NextRequest, { params }: { params: Promise<{ id: string }> }) {
   const session = await requireAdmin()
   if (!session) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
 
@@ -35,13 +44,35 @@ export async function GET(_req: NextRequest, { params }: { params: Promise<{ id:
   const supabase = createAdminClient()
   const { data: cand, error } = await supabase
     .from('wiki_album_candidates')
-    .select('id, artist_raw, album_title, release_year, matched_artist_id, matched_artist:artists!wiki_album_candidates_matched_artist_id_fkey(name)')
+    .select('id, artist_raw, album_title, release_year, album_wiki_link, matched_artist_id, matched_artist:artists!wiki_album_candidates_matched_artist_id_fkey(name)')
     .eq('id', candidateId)
     .single()
   if (error || !cand) return NextResponse.json({ error: 'Not found' }, { status: 404 })
 
   const artistName = ((cand as any).matched_artist?.name as string) || cand.artist_raw || ''
-  const enrichment = await enrichAlbum(artistName, cand.album_title, cand.release_year)
+
+  // Jei yra Wikipedia straipsnis — jis AUTORITETINGAS (pririštas prie konkretaus
+  // albumo; MB paieška pagal vardą gali pataikyti į kitą to paties vardo atlikėją).
+  let enrichment: AlbumEnrichment | null = null
+  if ((cand as any).album_wiki_link) {
+    const w = await enrichAlbumFromWiki(albumWikiUrl((cand as any).album_wiki_link), req.nextUrl.origin).catch(() => null)
+    if (w) {
+      enrichment = {
+        source: 'wikipedia',
+        source_url: albumWikiUrl((cand as any).album_wiki_link),
+        cover_url: w.cover_url,
+        year: w.year, month: w.month, day: w.day,
+        tracks: w.tracks,
+        track_count: w.tracks.length,
+        mb_release_id: null,
+        primary_type: w.types[0] || null,
+        types: w.types,
+        is_upcoming: isUpcoming(w.year, w.month, w.day),
+        confidence: w.tracks.length > 0 ? 'high' : 'low',
+      }
+    }
+  }
+  if (!enrichment) enrichment = await enrichAlbum(artistName, cand.album_title, cand.release_year)
 
   return NextResponse.json({ ok: true, candidate_id: candidateId, artist_name: artistName, enrichment })
 }

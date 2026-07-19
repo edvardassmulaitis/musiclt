@@ -1324,6 +1324,40 @@ type AlbumWiki = {
   warnings: string[]
 }
 
+/**
+ * Albumo praturtinimas iš Wikipedia straipsnio (naujam albumų flow'ui). Kai
+ * kandidatas turi `album_wiki_link`, tai AUTORITETINGAS šaltinis — anksčiau MB
+ * paieška pagal vardą galėjo pataikyti į KITĄ to paties vardo atlikėją (pvz.
+ * „WILLOW" atveju gaudavo svetimą viršelį/tracklist'ą). Wiki straipsnis pririštas
+ * prie konkretaus albumo. Grąžina cover/data/tracks/types arba null.
+ */
+export async function enrichAlbumFromWiki(url: string, origin: string): Promise<{
+  cover_url: string | null
+  year: number | null; month: number | null; day: number | null
+  tracks: { position: number; title: string }[]
+  types: string[]
+} | null> {
+  const w = await fetchAlbumWiki(url)
+  if ('error' in w) return null
+  const cover = await fetchAlbumCover(w.pageTitle, w.wikitext, origin).catch(() => null)
+  const tf: any = w.typeFlags || {}
+  const types: string[] = []
+  if (tf.type_ep) types.push('EP')
+  if (tf.type_single) types.push('Single')
+  if (tf.type_live) types.push('Live')
+  if (tf.type_remix) types.push('Remix')
+  if (tf.type_compilation) types.push('Compilation')
+  if (tf.type_soundtrack) types.push('Soundtrack')
+  if (tf.type_covers) types.push('Covers')
+  if (types.length === 0) types.push('Album')
+  return {
+    cover_url: cover,
+    year: w.date.year, month: w.date.month, day: w.date.day,
+    tracks: w.trackEntries.map((t, i) => ({ position: t.sort_order ?? i + 1, title: t.title })),
+    types,
+  }
+}
+
 /** Bendras Wiki albumo parse (preview + commit). Be DB rašymo. */
 async function fetchAlbumWiki(url: string): Promise<AlbumWiki | { error: string }> {
   ensureWikiInit()

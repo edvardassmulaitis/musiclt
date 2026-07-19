@@ -273,11 +273,24 @@ export type MbAlbumByTitle = {
   releaseGroupId: string | null
   title: string
   primaryType: string | null
+  /** MB antriniai tipai: Remix / Live / Soundtrack / Compilation / DJ-mix / … */
+  secondaryTypes: string[]
   year: number | null
   month: number | null
   day: number | null
   tracks: MbTrack[]
   coverUrl: string | null
+}
+
+/** Cover Art Archive pagal RELEASE-GROUP (kanoninis grupės viršelis) — dažnai
+ *  teisingesnis nei konkretaus release'o (booklet/variantų art). */
+async function fetchMbGroupCoverUrl(releaseGroupId: string): Promise<string | null> {
+  const url = `https://coverartarchive.org/release-group/${releaseGroupId}/front-500`
+  try {
+    const res = await fetch(url, { method: 'HEAD', redirect: 'follow', signal: AbortSignal.timeout(8000) })
+    if (res.ok) return url
+  } catch { /* ignore */ }
+  return null
 }
 
 /**
@@ -349,14 +362,17 @@ export async function searchAlbumByTitle(
   if (!bestRelease?.id) return null
 
   const full = await fetchReleaseTracklist(bestRelease.id)
-  const cover = await fetchMbCoverUrl(bestRelease.id)
+  // Viršelis: pirma kanoninis release-group front, tada konkretaus release'o.
+  const cover = (await fetchMbGroupCoverUrl(bestRg.id)) || (await fetchMbCoverUrl(bestRelease.id))
 
   const d = parseIsoDate(bestRg['first-release-date'])
+  const secondaryTypes: string[] = Array.isArray(bestRg['secondary-types']) ? bestRg['secondary-types'] : []
   return {
     releaseId: bestRelease.id,
     releaseGroupId: bestRg.id,
     title: bestRg.title || albumTitle,
     primaryType: bestRg['primary-type'] || full?.primaryType || null,
+    secondaryTypes,
     year: full?.year ?? d.year,
     month: full?.month ?? d.month,
     day: full?.day ?? d.day,

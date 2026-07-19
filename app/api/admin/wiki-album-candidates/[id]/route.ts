@@ -70,10 +70,29 @@ export async function PATCH(req: NextRequest, { params }: { params: Promise<{ id
     }
     const mode: string = body.mode === 'full' ? 'full' : 'shell'
     const mbReleaseId = typeof body.mb_release_id === 'string' ? body.mb_release_id : null
+    const types: string[] = Array.isArray(body.types) ? body.types.filter((t: any) => typeof t === 'string') : []
+
+    // Wikipedia straipsnis (jei yra) — AUTORITETINGAS: pilnas tracklist'as+viršelis
+    // iš konkretaus albumo straipsnio (MB paieška pagal vardą gali pataikyti kitą
+    // to paties vardo atlikėją). Naudojam senąjį commitAlbum wiki kelią.
+    if (cand.album_wiki_link) {
+      try {
+        const r = await commitAlbum(albumWikiUrl(cand.album_wiki_link), req.nextUrl.origin, { artist_id: cand.matched_artist_id })
+        if (!r.ok || r.kind !== 'album') {
+          return NextResponse.json({ error: `Publish failed: ${!r.ok ? r.error : 'nežinoma klaida'}` }, { status: 500 })
+        }
+        await supabase.from('wiki_album_candidates').update({
+          status: 'approved', reviewed_at: new Date().toISOString(), published_album_id: r.album.id,
+        }).eq('id', candidateId)
+        return NextResponse.json({ ok: true, status: 'approved', album_id: r.album.id, mode: 'wiki', warnings: r.warnings })
+      } catch (e: any) {
+        return NextResponse.json({ error: `Publish failed: ${e.message}` }, { status: 500 })
+      }
+    }
 
     let result: Awaited<ReturnType<typeof commitShellAlbum>>
     if (mode === 'full' && mbReleaseId) {
-      result = await commitAlbumFromMb(mbReleaseId, cand.matched_artist_id)
+      result = await commitAlbumFromMb(mbReleaseId, cand.matched_artist_id, types)
     } else {
       result = await commitShellAlbum({
         artistId: cand.matched_artist_id,
@@ -83,6 +102,7 @@ export async function PATCH(req: NextRequest, { params }: { params: Promise<{ id
         day: typeof body.day === 'number' ? body.day : (cand.release_day || null),
         coverUrl: typeof body.cover_url === 'string' ? body.cover_url : null,
         primaryType: typeof body.primary_type === 'string' ? body.primary_type : null,
+        types,
       })
     }
     if (!result.ok) return NextResponse.json({ error: result.error }, { status: 500 })
