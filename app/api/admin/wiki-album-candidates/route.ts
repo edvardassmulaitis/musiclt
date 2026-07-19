@@ -32,51 +32,65 @@ export async function GET(req: NextRequest) {
   const limit = parseInt(searchParams.get('limit') || '50', 10)
 
   const supabase = createAdminClient()
+  const SEL = `
+    id, source_url, artist_raw, album_title, album_wiki_link,
+    release_year, release_month, release_day, genres_raw, label_raw,
+    matched_artist_id, match_score, status, created_at, rescanned_at,
+    preview_payload, preview_at,
+    matched_artist:artists!wiki_album_candidates_matched_artist_id_fkey(id, name, slug, cover_image_url, score)
+  `
 
-  const { data, error } = await supabase
-    .from('wiki_album_candidates')
-    .select(`
-      id, source_url, artist_raw, album_title, album_wiki_link,
-      release_year, release_month, release_day, genres_raw, label_raw,
-      matched_artist_id, match_score, status, created_at, rescanned_at,
-      preview_payload, preview_at,
-      matched_artist:artists!wiki_album_candidates_matched_artist_id_fkey(id, name, slug, cover_image_url, score)
-    `)
-    .eq('status', status)
-    .limit(500)
-  if (error) return NextResponse.json({ error: error.message }, { status: 500 })
+  // Ne-pending būsenoms — paprastas sąrašas.
+  if (status !== 'pending') {
+    const { data, error } = await supabase.from('wiki_album_candidates').select(SEL).eq('status', status).limit(limit)
+    if (error) return NextResponse.json({ error: error.message }, { status: 500 })
+    return NextResponse.json({ candidates: data || [], total: (data || []).length })
+  }
 
-  const rows = (data || []) as any[]
+  // ── Pending: 2 fetch'ai (matched + unmatched), kad Tier 1 visada būtų viršuje
+  //    (matched'ų nedaug — tik katalogo atlikėjai; unmatched gali būti daug). ──
+  const [{ data: matchedRows }, { data: unmatchedRows }] = await Promise.all([
+    supabase.from('wiki_album_candidates').select(SEL).eq('status', 'pending').not('matched_artist_id', 'is', null).limit(600),
+    supabase.from('wiki_album_candidates').select(SEL).eq('status', 'pending').is('matched_artist_id', null).limit(400),
+  ])
+  const matched = (matchedRows || []) as any[]
+  const unmatched = (unmatchedRows || []) as any[]
 
-  // ── Dedupe prieš katalogą: albumas jau egzistuoja (artist_id + title) → neaktualus ──
-  const artistIds = Array.from(new Set(rows.map(r => r.matched_artist_id).filter(Boolean)))
+  // ── Dedupe matched prieš katalogą (albumas jau yra) → pažymim duplicate ──
+  const artistIds = Array.from(new Set(matched.map(r => r.matched_artist_id).filter(Boolean)))
   const existing = new Set<string>()
-  if (status === 'pending' && artistIds.length > 0) {
-    const { data: albums } = await supabase
-      .from('albums')
-      .select('artist_id, title')
-      .in('artist_id', artistIds)
+  if (artistIds.length > 0) {
+    const { data: albums } = await supabase.from('albums').select('artist_id, title').in('artist_id', artistIds)
     for (const a of (albums || []) as any[]) existing.add(`${a.artist_id}::${normalizeAlbumTitle(a.title || '')}`)
   }
   const dupIds: number[] = []
-  const kept = rows.filter(r => {
-    if (status !== 'pending' || !r.matched_artist_id) return true
+  const matchedKept = matched.filter(r => {
     const key = `${r.matched_artist_id}::${normalizeAlbumTitle(r.album_title || '')}`
     if (existing.has(key)) { dupIds.push(r.id); return false }
     return true
   })
-  // Best-effort: pažymim rastus dublikatus, kad kitąkart nebeskaičiuotų/nerodytų.
   if (dupIds.length > 0) {
     supabase.from('wiki_album_candidates').update({ status: 'duplicate', reviewed_at: new Date().toISOString() }).in('id', dupIds).then(() => {})
   }
 
-  // ── Sort: atlikėjo populiarumas (score) desc, nulls last; tada data desc ──
-  const scoreOf = (r: any) => {
-    const s = r.matched_artist?.score
-    return typeof s === 'number' ? s : -1
-  }
   const dateOf = (r: any) => (r.release_year || 0) * 10000 + (r.release_month || 0) * 100 + (r.release_day || 0)
-  kept.sort((a, b) => (scoreOf(b) - scoreOf(a)) || (dateOf(b) - dateOf(a)))
+  const scoreOf = (r: any) => (typeof r.matched_artist?.score === 'number' ? r.matched_artist.score : -1)
+  const hasMb = (r: any) => { const p = r.preview_payload; return !!(p && (p.mb_release_id || p.source === 'musicbrainz' || p.source === 'apple' || p.source === 'wikipedia')) }
 
-  return NextResponse.json({ candidates: kept.slice(0, limit), total: kept.length })
+  // Tier: 1 matched · 2 unmatched+wiki · 3 unmatched+MB · 4 unmatched(tik data)
+  const tierOf = (r: any): number => {
+    if (r.matched_artist_id) return 1
+    if (r.album_wiki_link) return 2
+    if (hasMb(r)) return 3
+    return 4
+  }
+  const withTier = (r: any) => ({ ...r, tier: tierOf(r) })
+
+  // Tier 1 — pagal atlikėjo populiarumą (score) desc, tada data.
+  matchedKept.sort((a, b) => (scoreOf(b) - scoreOf(a)) || (dateOf(b) - dateOf(a)))
+  // Unmatched — pagal tier (2→3→4), tada data desc.
+  unmatched.sort((a, b) => (tierOf(a) - tierOf(b)) || (dateOf(b) - dateOf(a)))
+
+  const combined = [...matchedKept.map(withTier), ...unmatched.map(withTier)]
+  return NextResponse.json({ candidates: combined.slice(0, limit), total: combined.length })
 }

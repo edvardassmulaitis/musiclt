@@ -20,8 +20,13 @@ import { matchArtists } from '@/lib/entity-matcher'
 import { commitAlbum } from '@/lib/quick-add'
 import { normalizeAlbumTitle } from '@/lib/album-title'
 
-const MAX_FRESH_PER_RUN = 200
+// Padidinta 200→600 (2026-07-18): po parserio pataisymo metai turi ~1500 realių
+// eilučių (visi 12 mėn., ne tik sausis). Su laiko biudžetu (žemiau) vienas scan'as
+// apima žymiai daugiau; likutį užbaigia kiti manual scan'ai + kasdienis cron'as.
+const MAX_FRESH_PER_RUN = 600
 const MAX_AUTO_COMMITS_PER_RUN = 8
+// Wall-clock biudžetas — kad neviršytume Vercel funkcijos limito (maxDuration).
+const RUN_BUDGET_MS = 55000
 
 export type WikiAlbumScoutCounters = {
   source_id: number
@@ -71,6 +76,7 @@ export async function runWikiAlbumScout(opts: { sourceId?: string | null; dryRun
   }
 
   const allCounters: WikiAlbumScoutCounters[] = []
+  const startedAt = Date.now()
 
   for (const source of sources) {
     const c: WikiAlbumScoutCounters = {
@@ -105,6 +111,7 @@ export async function runWikiAlbumScout(opts: { sourceId?: string | null; dryRun
 
       for (const e of entries) {
         if (c.fresh_checked >= MAX_FRESH_PER_RUN) break
+        if (Date.now() - startedAt > RUN_BUDGET_MS) break
 
         const fp = albumListFingerprint(e.artist_raw, e.album_title, e.year, e.month, e.day)
 
@@ -167,60 +174,46 @@ export async function runWikiAlbumScout(opts: { sourceId?: string | null; dryRun
         }
         const top = matches[0]
 
-        // Reikalaujam STIPRAUS atlikėjo match'o — silpni (pvz. „Exo"→„Exodus" 0.60,
-        // „Sault"→„Nuclear Assault", „Ive"→„At the Drive-In") teršia eilę. Realūs
-        // atitikmenys ~1.0; <0.85 laikom „nerasta" (į scout_seen_urls, nekuriam).
+        // Atlikėjo match'as: stiprus (>=0.85) → kataloge (Tier 1). Silpnas/nėra →
+        // „nepriskirta" (matched_artist_id=null) — VIS TIEK į eilę (Tier 2-4), kad
+        // admin galėtų sukurti atlikėją+albumą, jei verta (pvz. jei turi Wiki/MB).
+        // Silpni match'ai (Exo→Exodus 0.60) NEBEpriskiriami klaidingam atlikėjui.
         const MIN_ARTIST_MATCH = 0.85
-        if (top && typeof top.score === 'number' && top.score < MIN_ARTIST_MATCH) {
-          if (!dryRun) {
-            await supabase.from('scout_seen_urls').insert({
-              url_hash: fp, source_id: source.id, candidate_id: null, filter_reason: 'weak_artist_match',
-            })
-          }
-          c.no_artist_match++
-          continue
-        }
+        const matchedId: number | null = (top && typeof top.score === 'number' && top.score >= MIN_ARTIST_MATCH) ? top.artist_id : null
+        const matchScore: number | null = matchedId ? (top!.score as number) : null
 
-        if (!top) {
-          if (!dryRun) {
-            await supabase.from('scout_seen_urls').insert({
-              url_hash: fp, source_id: source.id, candidate_id: null, filter_reason: 'no_artist_match',
-            })
-          }
-          c.no_artist_match++
-          continue
-        }
-
-        // Albumas JAU kataloge (artist_id + normalizuotas title)? → neaktualu (kaip su
-        // dainom). Normalizuojam, kad pagautume „Days of Ash" vs „Days of Ash EP".
-        // Žymim 'duplicate' (įrašom fingerprint'ą, kad nekabotų review eilėje).
-        try {
-          const wantNorm = normalizeAlbumTitle(e.album_title)
-          const { data: artistAlbums } = await supabase
-            .from('albums').select('id, title').eq('artist_id', top.artist_id).limit(500)
-          const existingAlbum = (artistAlbums || []).find((a: any) => normalizeAlbumTitle(a.title || '') === wantNorm)
-          if (existingAlbum) {
-            if (!dryRun) {
-              await supabase.from('wiki_album_candidates').insert({
-                source_id: source.id, source_url: source.list_url,
-                artist_raw: e.artist_raw, album_title: e.album_title, album_wiki_link: e.album_wiki_link,
-                release_year: e.year, release_month: e.month, release_day: e.day,
-                genres_raw: e.genres, label_raw: e.label,
-                matched_artist_id: top.artist_id, match_score: top.score,
-                fingerprint: fp, status: 'duplicate', reviewed_at: new Date().toISOString(),
-                published_album_id: (existingAlbum as any).id,
-              })
+        // Dedup vs katalogas — TIK jei atlikėjas žinomas.
+        if (matchedId) {
+          try {
+            const wantNorm = normalizeAlbumTitle(e.album_title)
+            const { data: artistAlbums } = await supabase
+              .from('albums').select('id, title').eq('artist_id', matchedId).limit(500)
+            const existingAlbum = (artistAlbums || []).find((a: any) => normalizeAlbumTitle(a.title || '') === wantNorm)
+            if (existingAlbum) {
+              if (!dryRun) {
+                await supabase.from('wiki_album_candidates').insert({
+                  source_id: source.id, source_url: source.list_url,
+                  artist_raw: e.artist_raw, album_title: e.album_title, album_wiki_link: e.album_wiki_link,
+                  release_year: e.year, release_month: e.month, release_day: e.day,
+                  genres_raw: e.genres, label_raw: e.label,
+                  matched_artist_id: matchedId, match_score: matchScore,
+                  fingerprint: fp, status: 'duplicate', reviewed_at: new Date().toISOString(),
+                  published_album_id: (existingAlbum as any).id,
+                })
+              }
+              c.skipped_known++
+              continue
             }
-            c.skipped_known++
-            continue
-          }
-        } catch { /* best-effort — jei patikra krenta, tęsiam įprastai */ }
+          } catch { /* best-effort */ }
+        }
 
-        if (e.album_wiki_link && c.auto_committed < MAX_AUTO_COMMITS_PER_RUN) {
+        // Auto-commit wiki — TIK matched (turim atlikėją kataloge). Naujo atlikėjo
+        // kūrimas NEturi būti automatinis — unmatched wiki albumus paliekam adminui.
+        if (matchedId && e.album_wiki_link && c.auto_committed < MAX_AUTO_COMMITS_PER_RUN) {
           c.auto_committed++
           if (!dryRun) {
             try {
-              const result = await commitAlbum(albumWikiUrl(e.album_wiki_link), origin, { artist_id: top.artist_id })
+              const result = await commitAlbum(albumWikiUrl(e.album_wiki_link), origin, { artist_id: matchedId })
               const { data: inserted, error: insErr } = await supabase
                 .from('wiki_album_candidates')
                 .insert({
@@ -228,7 +221,7 @@ export async function runWikiAlbumScout(opts: { sourceId?: string | null; dryRun
                   artist_raw: e.artist_raw, album_title: e.album_title, album_wiki_link: e.album_wiki_link,
                   release_year: e.year, release_month: e.month, release_day: e.day,
                   genres_raw: e.genres, label_raw: e.label,
-                  matched_artist_id: top.artist_id, match_score: top.score,
+                  matched_artist_id: matchedId, match_score: matchScore,
                   fingerprint: fp,
                   status: result.ok && result.kind === 'album' ? 'approved' : 'error',
                   reviewed_at: new Date().toISOString(),
@@ -249,18 +242,33 @@ export async function runWikiAlbumScout(opts: { sourceId?: string | null; dryRun
           continue
         }
 
+        // Unmatched BE Wikipedia straipsnio (Tier 3-4) — NEeiliuojam (kad neužterštume
+        // eilės tūkstančiais nekatalogo albumų). Verti dėmesio unmatched turi bent
+        // Wiki straipsnį (Tier 2 — galima sukurti atlikėją+albumą iš jo).
+        if (!matchedId && !e.album_wiki_link) {
+          if (!dryRun) {
+            await supabase.from('scout_seen_urls').insert({
+              url_hash: fp, source_id: source.id, candidate_id: null, filter_reason: 'unmatched_no_wiki',
+            })
+          }
+          c.no_artist_match++
+          continue
+        }
+
+        // Į eilę — matched (Tier 1) arba unmatched+wiki (Tier 2).
         if (!dryRun) {
           const { error: insErr } = await supabase.from('wiki_album_candidates').insert({
             source_id: source.id, source_url: source.list_url,
             artist_raw: e.artist_raw, album_title: e.album_title, album_wiki_link: e.album_wiki_link,
             release_year: e.year, release_month: e.month, release_day: e.day,
             genres_raw: e.genres, label_raw: e.label,
-            matched_artist_id: top.artist_id, match_score: top.score,
+            matched_artist_id: matchedId, match_score: matchScore,
             fingerprint: fp, status: 'pending',
           })
           if (insErr && insErr.code !== '23505') { c.errors++; c.error_details.push(`Insert failed: ${insErr.message}`) }
         }
         c.queued_pending++
+        if (!matchedId) c.no_artist_match++
       }
 
       if (!dryRun) {

@@ -234,9 +234,13 @@ export function parseAlbumListPage(wikitext: string, year: number): AlbumListEnt
     matches.push({ month, start: m.index + m[0].length, end: -1 })
   }
 
-  // Kiekvienos sekcijos pabaiga — arba sekantis `==...==` header'is (bet
-  // kokio lygio), arba failo pabaiga.
-  const anyHeaderRe = /^==[^=\n][\s\S]*?==\s*$/gm
+  // Kiekvienos sekcijos pabaiga — sekantis BET KOKIO lygio header'is (`==`, `===`,
+  // `====`), arba failo pabaiga. SVARBU: sena versija `^==[^=\n]` NEatpažindavo
+  // level-3 `=== Month ===` header'ių (po `==` eina dar `=`), tad `=== January ===`
+  // sekcija tęsdavosi iki `== Second quarter ==` ir apimdavo VASARIO+KOVO lenteles,
+  // visas pažymėdama sausiu (bug: visi albumai month=1, klaidingos datos, per mažai
+  // parse'inta). Dabar `={2,}` gaudo bet kokį header'į → kiekvienas mėnuo tik savo.
+  const anyHeaderRe = /^={2,}[^=\n].*$/gm
   const headerPositions: number[] = []
   let hm: RegExpExecArray | null
   while ((hm = anyHeaderRe.exec(wikitext))) headerPositions.push(hm.index)

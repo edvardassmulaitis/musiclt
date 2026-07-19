@@ -15,6 +15,7 @@ import { authOptions } from '@/lib/auth'
 import { createAdminClient } from '@/lib/supabase'
 import { commitAlbum } from '@/lib/quick-add'
 import { commitAlbumFromMb, commitShellAlbum, enrichAlbumTracks } from '@/lib/album-commit'
+import { findOrCreateArtist } from '@/lib/featuring-utils'
 
 export const runtime = 'nodejs'
 // Albumo dainų YouTube praturtinimas gali užtrukti (ypač didesniems albumams) —
@@ -68,19 +69,16 @@ export async function PATCH(req: NextRequest, { params }: { params: Promise<{ id
   // (pilnas tracklist'as) arba „skeletą" (title+data+viršelis), BE Wikipedia
   // straipsnio. UI pirma pasiima /preview (enrichAlbum), tada siunčia rezultatą čia.
   if (action === 'add') {
-    if (!cand.matched_artist_id) {
-      return NextResponse.json({ error: 'Nėra pririšto atlikėjo — negalima pridėti' }, { status: 400 })
-    }
     const mode: string = body.mode === 'full' ? 'full' : 'shell'
     const mbReleaseId = typeof body.mb_release_id === 'string' ? body.mb_release_id : null
     const types: string[] = Array.isArray(body.types) ? body.types.filter((t: any) => typeof t === 'string') : []
 
     // Wikipedia straipsnis (jei yra) — AUTORITETINGAS: pilnas tracklist'as+viršelis
-    // iš konkretaus albumo straipsnio (MB paieška pagal vardą gali pataikyti kitą
-    // to paties vardo atlikėją). Naudojam senąjį commitAlbum wiki kelią.
+    // iš konkretaus albumo straipsnio. commitAlbum pats resolve'ina/sukuria atlikėją
+    // (iš wiki), tad veikia IR kai atlikėjo dar nėra kataloge (Tier 2).
     if (cand.album_wiki_link) {
       try {
-        const r = await commitAlbum(albumWikiUrl(cand.album_wiki_link), req.nextUrl.origin, { artist_id: cand.matched_artist_id })
+        const r = await commitAlbum(albumWikiUrl(cand.album_wiki_link), req.nextUrl.origin, cand.matched_artist_id ? { artist_id: cand.matched_artist_id } : {})
         if (!r.ok || r.kind !== 'album') {
           return NextResponse.json({ error: `Publish failed: ${!r.ok ? r.error : 'nežinoma klaida'}` }, { status: 500 })
         }
@@ -94,12 +92,20 @@ export async function PATCH(req: NextRequest, { params }: { params: Promise<{ id
       }
     }
 
+    // Ne-wiki: reikia atlikėjo id. Matched → jo id; unmatched → sukuriam pagal vardą
+    // (Tier 3-4: naujas atlikėjas + jo albumas).
+    let artistId: number | null = cand.matched_artist_id
+    if (!artistId) {
+      artistId = await findOrCreateArtist(supabase, cand.artist_raw).catch(() => null)
+      if (!artistId) return NextResponse.json({ error: `Nepavyko sukurti atlikėjo „${cand.artist_raw}"` }, { status: 500 })
+    }
+
     let result: Awaited<ReturnType<typeof commitShellAlbum>>
     if (mode === 'full' && mbReleaseId) {
-      result = await commitAlbumFromMb(mbReleaseId, cand.matched_artist_id, types)
+      result = await commitAlbumFromMb(mbReleaseId, artistId, types)
     } else {
       result = await commitShellAlbum({
-        artistId: cand.matched_artist_id,
+        artistId: artistId,
         title: cand.album_title,
         year: typeof body.year === 'number' ? body.year : cand.release_year,
         month: typeof body.month === 'number' ? body.month : (cand.release_month || null),
