@@ -164,6 +164,14 @@ function longestColToken(s: string): string {
   return (toks.sort((a, b) => b.length - a.length)[0] || colNorm(s)).replace(/[%_]/g, '')
 }
 
+/** Ilgiausias RAW (su diakritikais) token'as ilike prefiltrui. SVARBU: Postgres
+ *  `ilike` diakritikams JAUTRUS — deaccentintas 'leidziasi' NEPAGAUNA accentinto
+ *  'Leidžiasi'. Tad ilike prieš raw `title` stulpelį reikia accentinto token'o. */
+function longestRawToken(s: string): string {
+  const toks = (s || '').split(/[^\p{L}\p{N}]+/u).filter(t => t.length >= 2)
+  return (toks.sort((a, b) => b.length - a.length)[0] || (s || '')).replace(/[%_,()]/g, '')
+}
+
 /**
  * Atlikėjo ID kandidatai pagal RAW vardą. Per `name_norm` tikslią lygybę
  * (indeksuota, diakritikai atspari) + token ilike fallback. Grąžina visus
@@ -446,14 +454,22 @@ export async function linkSongAcrossCharts(
     .map((c: any) => c.id)
   if (chartIds.length === 0) return 0
 
-  const tok = longestColToken(opts.rawTitle)
-  if (!tok) return 0
+  // Kandidatų prefiltras — ir RAW (accentintas), ir deaccentintas token'as per
+  // .or(): Postgres ilike diakritikams jautrus, tad be accentinto token'o LT
+  // dainos ('Leidžiasi') niekad nepasigaudavo → cross-chart link tyliai
+  // nesuveikdavo. In-memory normalizeForMatch filtras žemiau patikslina.
+  const tokRaw = longestRawToken(opts.rawTitle)
+  const tokDeacc = longestColToken(opts.rawTitle)
+  const orParts: string[] = []
+  if (tokRaw) orParts.push(`title.ilike.%${tokRaw}%`)
+  if (tokDeacc && tokDeacc !== tokRaw) orParts.push(`title.ilike.%${tokDeacc}%`)
+  if (!orParts.length) return 0
   const { data: cands } = await sb.from('external_chart_entries')
     .select('id, artist_name, title')
     .in('chart_id', chartIds)
     .in('resolve_state', ['pending', 'ambiguous', 'text_only'])
-    .ilike('title', `%${tok}%`)
-    .limit(400)
+    .or(orParts.join(','))
+    .limit(600)
 
   let n = 0
   for (const e of (cands || []) as any[]) {

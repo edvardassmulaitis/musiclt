@@ -1,6 +1,6 @@
 import { NextResponse } from 'next/server'
 import { createAdminClient } from '@/lib/supabase'
-import { findConfidentMatch, findConfidentAlbumMatch } from '@/lib/chart-resolve'
+import { findConfidentMatch, findConfidentAlbumMatch, recallResolution, rememberResolution } from '@/lib/chart-resolve'
 
 export const dynamic = 'force-dynamic'
 export const runtime = 'nodejs'
@@ -48,22 +48,36 @@ export async function POST() {
     processed += batch.length
     await Promise.all(batch.map(async (e: any) => {
       try {
-        if (isAlbumById.get(e.chart_id) === true) {
-          const m = await findConfidentAlbumMatch(sb, e.artist_name, e.title)
+        const kind: 'track' | 'album' = isAlbumById.get(e.chart_id) === true ? 'album' : 'track'
+        // 1) Auto-match — fuzzy ĮJUNGTAS (kaip per-chart resolver'yje; be jo
+        //    „Iš Lėto Leidžiasi Saulė (feat. …)" tipo įrašai likdavo pending).
+        if (kind === 'album') {
+          const m = await findConfidentAlbumMatch(sb, e.artist_name, e.title, { fuzzy: true })
           if (m) {
             await sb.from('external_chart_entries').update({
               album_id: m.albumId, track_id: null, artist_id: m.artistId, resolve_state: 'matched',
             }).eq('id', e.id)
-            matched++
+            await rememberResolution(sb, { rawArtist: e.artist_name, rawTitle: e.title, kind, albumId: m.albumId, artistId: m.artistId })
+            matched++; return
           }
         } else {
-          const m = await findConfidentMatch(sb, e.artist_name, e.title)
+          const m = await findConfidentMatch(sb, e.artist_name, e.title, { fuzzy: true })
           if (m) {
             await sb.from('external_chart_entries').update({
               track_id: m.trackId, album_id: null, artist_id: m.artistId, resolve_state: 'matched',
             }).eq('id', e.id)
-            matched++
+            await rememberResolution(sb, { rawArtist: e.artist_name, rawTitle: e.title, kind, trackId: m.trackId, artistId: m.artistId })
+            matched++; return
           }
+        }
+        // 2) Pastovi atmintis — anksčiau rankiniu būdu sujungta pora (diakritikams
+        //    atspari per norm_key), kad rankinis darbas nepradingtų per re-ingest'ą.
+        const rec = await recallResolution(sb, e.artist_name, e.title, kind)
+        if (rec && (rec.trackId || rec.albumId)) {
+          await sb.from('external_chart_entries').update({
+            track_id: rec.trackId, album_id: rec.albumId, artist_id: rec.artistId, resolve_state: rec.state || 'matched',
+          }).eq('id', e.id)
+          matched++
         }
       } catch { /* praleidžiam — lieka review eilėje */ }
     }))
