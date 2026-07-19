@@ -491,7 +491,14 @@ export default function NewsArticleClient({
   related?: RelatedNews[]   // nebenaudojamas (susijusių straipsnių skiltis pašalinta)
   songs?: SongEntry[]
 }) {
-  const heroImg = news.image_small_url || news.artist?.cover_image_url
+  const rawHero = news.image_small_url || news.artist?.cover_image_url
+  // Straipsnio hero'je rodom TIK realias nuotraukas (manual high-quality arba iš
+  // Wikipedia). Jei vienintelis vizualas — embed/video thumbnail (YouTube
+  // hqdefault fallback / Instagram), NErodom on-top: jis dubliuoja tai, kas jau
+  // yra grotuve, ir yra žemos kokybės. (Feed'o kortelėse thumbnail lieka — kad
+  // ten nebūtų tuščia.) Tokiu atveju rodom švarų tekstinį hero.
+  const isEmbedThumb = !!rawHero && /(?:\.|\/\/)ytimg\.com|img\.youtube\.com|youtube\.com\/vi\/|ggpht\.com|cdninstagram\.com|fbcdn\.net/i.test(rawHero)
+  const heroImg = isEmbedThumb ? undefined : rawHero
   // Hero orientacija — nustatoma kliente iš natūralių nuotraukos matmenų
   // (news lentelė nesaugo W/H). 'cine' = plati (cover kadras), 'split' = vertikali/
   // kvadratinė (rodoma visa ant blur), 'pending' = kol dar nežinom.
