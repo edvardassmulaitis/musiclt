@@ -249,7 +249,13 @@ function MusicPlayer({ songs }: { songs: SongEntry[] }) {
   if (!songs.length) return null
   const placeholder = 'var(--player-placeholder-bg, linear-gradient(135deg, #1a2436 0%, #0f1825 50%, #0a0f1a 100%))'
 
-  const play = (i: number) => { setActiveIdx(i); setPlaying(true) }
+  const play = (i: number) => {
+    setActiveIdx(i)
+    setPlaying(true)
+    // Įrašom play į dainos statistiką (fire-and-forget, kaip atlikėjo psl./topai).
+    const sid = songs[i]?.song_id
+    if (sid) { try { fetch(`/api/tracks/${sid}/play`, { method: 'POST', keepalive: true }).catch(() => {}) } catch {} }
+  }
 
   return (
     <>
@@ -259,7 +265,7 @@ function MusicPlayer({ songs }: { songs: SongEntry[] }) {
         {playing && vid && !isBlocked ? (
           <iframe
             key={vid}
-            src={`https://www.youtube-nocookie.com/embed/${vid}?autoplay=1&rel=0`}
+            src={`https://www.youtube-nocookie.com/embed/${vid}?autoplay=1&rel=0&playsinline=1&modestbranding=1&iv_load_policy=3${typeof window !== 'undefined' ? `&origin=${encodeURIComponent(window.location.origin)}` : ''}`}
             allow="autoplay; encrypted-media" allowFullScreen
             className="absolute inset-0 h-full w-full border-0"
           />
