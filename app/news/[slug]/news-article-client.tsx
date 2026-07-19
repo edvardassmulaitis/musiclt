@@ -383,7 +383,12 @@ function NewsEmbeds({ embeds }: { embeds: NewsEmbed[] }) {
     <div className="na-embeds">
       {embeds.map((e, i) => {
         const src = embedSrc(e)
-        const isAudio = (e.type || '').startsWith('spotify') || e.type === 'soundcloud'
+        const t = (e.type || '').toLowerCase()
+        const isAudio = t.startsWith('spotify') || t === 'soundcloud'
+        // Video (16:9) = YouTube/Vimeo. Social (Instagram/X/TikTok/FB) yra
+        // portretiniai/aukšti — jiems NEtaikom 16:9, kitaip apačia nukerpama.
+        const isVideoEmbed = /youtube|youtu\.be|vimeo/.test(t) || /youtube\.com\/embed|player\.vimeo/.test(src || '')
+        const isSocial = !isAudio && !isVideoEmbed
         if (!src) {
           return (
             <a key={i} href={e.url} target="_blank" rel="noopener noreferrer" className="na-embed-link">
@@ -393,10 +398,11 @@ function NewsEmbeds({ embeds }: { embeds: NewsEmbed[] }) {
           )
         }
         return (
-          <div key={i} className={isAudio ? 'na-embed na-embed-audio' : 'na-embed'}>
+          <div key={i} className={isAudio ? 'na-embed na-embed-audio' : isSocial ? 'na-embed na-embed-social' : 'na-embed'}>
             <iframe
               src={src}
               loading="lazy"
+              scrolling="no"
               allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture; fullscreen"
               allowFullScreen
               title={e.title || 'Įterptas vaizdo įrašas'}
@@ -579,7 +585,10 @@ export default function NewsArticleClient({
         .na-act-count { margin-left:3px; padding-left:8px; border-left:1px solid rgba(255,255,255,0.22); font-weight:800; cursor:pointer; }
 
         /* Foto kreditas — © ženkliukas, hover atskleidžia šaltinį */
-        .na-credit { position:absolute; z-index:4; bottom:10px; right:10px; }
+        .na-credit { position:absolute; z-index:6; bottom:12px; right:14px; }
+        .na-hero--pending .na-credit { display:none; } /* kol foto paslėpta */
+        /* split desktop: © ant dešinės nuotraukos apačios (photo padding ~ dešinė 40 / apačia 30) */
+        .na-hero--split .na-credit { bottom:34px; right:48px; }
         .na-credit-btn { display:inline-flex; align-items:center; justify-content:center; width:28px; height:28px; padding:0; border-radius:50%; background:rgba(0,0,0,0.5); backdrop-filter:blur(6px); border:1px solid rgba(255,255,255,0.22); color:rgba(255,255,255,0.85); cursor:pointer; transition:background .2s,border-color .2s,color .2s; }
         .na-credit-btn:hover { background:rgba(0,0,0,0.78); border-color:rgba(255,255,255,0.4); color:#fff; }
         /* Informacinis modaliukas (atsidaro virš © mygtuko, visada tamsus → įskaitomas) */
@@ -661,6 +670,10 @@ export default function NewsArticleClient({
         .na-embed iframe { position:absolute; inset:0; width:100%; height:100%; border:0; }
         .na-embed-audio { padding-bottom:0; height:auto; background:transparent; box-shadow:none; }
         .na-embed-audio iframe { position:static; height:152px; }
+        /* Social (Instagram/X/TikTok) — natūralus aukštis (portretinis), be 16:9 nukirpimo.
+           Ribojam plotį ~ social embedų natūraliam pločiui, centruojam. */
+        .na-embed-social { padding-bottom:0; height:auto; background:transparent; box-shadow:none; border-radius:0; display:flex; justify-content:center; overflow:visible; }
+        .na-embed-social iframe { position:static; width:100%; max-width:540px; height:720px; border-radius:14px; background:#fff; box-shadow:0 12px 36px -16px rgba(0,0,0,0.5); }
         .na-embed-link { display:inline-flex; align-items:center; gap:8px; padding:12px 16px; border-radius:12px; background:var(--bg-elevated); border:1px solid var(--border-default); color:var(--accent-link); font-size:14px; font-weight:600; text-decoration:none; word-break:break-all; }
         .na-embed-link:hover { border-color:var(--accent-orange); }
 
@@ -704,6 +717,9 @@ export default function NewsArticleClient({
           .na-hero--split .na-artpill-av { color:#fff; }
           .na-hero--split .na-act { background:var(--bg-elevated); border-color:var(--border-default); color:var(--text-primary); }
           .na-hero--split .na-act-liked { color:var(--accent-orange); background:rgba(249,115,22,0.14); border-color:rgba(249,115,22,0.4); }
+          /* split mobile: foto viršuje → © į viršų-dešinę, popover atsidaro žemyn */
+          .na-hero--split .na-credit { top:30px; right:26px; bottom:auto; }
+          .na-hero--split .na-credit-pop { top:38px; bottom:auto; }
         }
         @media(max-width:640px){
           .na-h1 { font-size:1.5rem; }
@@ -739,9 +755,12 @@ export default function NewsArticleClient({
                       }
                     }}
                   />
-                  <PhotoCredit url={heroImg} source={news.source_url || news.source_name} credit={news.heroCredit} />
                 </div>
               </div>
+              {/* © kreditas — TIESIOGINIS .na-hero vaikas (ne frame'e), kad cine
+                  režime nebūtų po antraštės sluoksniu (buvo nespaudžiamas + popover
+                  atsidarydavo už scrim). z-index virš .na-hero-wrap. */}
+              <PhotoCredit url={heroImg} source={news.source_url || news.source_name} credit={news.heroCredit} />
             </>
           ) : (
             <div className="na-hero-noimg" />
