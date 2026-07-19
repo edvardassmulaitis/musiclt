@@ -628,7 +628,12 @@ export default function NewsArticleClient({
 
         /* ── Responsive ── */
         @media(max-width:1024px){
-          .na-grid.has-sb { grid-template-columns:1fr; }
+          /* minmax(0,1fr) — NE plain 1fr: plain 1fr track'o min-width:auto neleidžia
+             stulpeliui susitraukti žemiau turinio min-content, todėl platus vaikas
+             (pvz. „Susijusi muzika" sh-strip) ištempdavo stulpelį >viewport ir tekstas
+             būdavo nukerpamas per .na-root overflow-x:clip (be scrollo). */
+          .na-grid.has-sb { grid-template-columns:minmax(0,1fr); }
+          .na-grid.has-sb > *, .na-prose, .na-sidebar { min-width:0; }
           .na-sidebar { position:static; }
         }
         /* ── MOBILE: tas pats adaptyvus principas, tik vertikaliai ──
