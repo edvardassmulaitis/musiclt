@@ -259,7 +259,7 @@ function MissingRow({ m, onDone, autoSuggest }: { m: Missing; onDone: () => void
         <div className="min-w-0 flex-1">
           <p className="text-sm font-semibold leading-snug text-gray-800">{m.title}</p>
           <p className="mt-0.5 text-xs text-gray-500">
-            <span className="font-medium text-gray-600">{m.artist}</span>
+            <span className={m.artist ? 'font-medium text-gray-600' : 'font-medium italic text-gray-400'}>{m.artist || 'atlikėjas nenustatytas'}</span>
             {hasArtist && <span className="ml-1 rounded bg-orange-100 px-1.5 py-0.5 text-[11px] font-bold text-orange-700" title="Atlikėjas jau kataloge · populiarumo score">🔥 {score ?? '—'}</span>}
             <span className="text-gray-300"> · {m.charts.join(', ')}</span>
           </p>

@@ -64,8 +64,11 @@ export async function GET() {
     for (const d of (disc || []) as any[]) {
       const artist = (d.artist_raw || '').trim()
       const title = (d.title_raw || '').trim()
-      if (!artist || !title) continue
-      const key = normalizeForMatch(primaryArtist(artist)) + '|' + normalizeForMatch(title)
+      // Atlikėjas gali būti tuščias (kai iš video pavadinimo/kanalo jo patikimai
+      // nepavyko nustatyti) — vis tiek rodom peržiūrai (pagal video_id dedupinam
+      // su chartais mažiau, bet svarbiau nerodyt klaidingo playlist-vardo atlikėjo).
+      if (!title) continue
+      const key = (artist ? normalizeForMatch(primaryArtist(artist)) : ('yt:' + (d.video_id || title))) + '|' + normalizeForMatch(title)
       if (!key.replace(/\|/g, '').trim()) continue
       const aInfo = Array.isArray(d.artists) ? d.artists[0] : d.artists
       let m = map.get(key)

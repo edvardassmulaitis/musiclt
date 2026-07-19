@@ -65,6 +65,9 @@ async function fetchPlaylistItemsData(feedUrlOrId: string, maxPages = 6): Promis
         title: sn.title || '',
         published_at: cd.videoPublishedAt || sn.publishedAt || undefined,
         guid: vid,
+        // videoOwnerChannelTitle = tikras video ĮKĖLĖJO kanalas (atlikėjo spėjimui).
+        // sn.channelTitle būtų PLAYLIST'O savininkas — netinka.
+        channel: sn.videoOwnerChannelTitle || undefined,
       })
     }
     if (!data.nextPageToken) break
@@ -97,6 +100,23 @@ function hoursBetween(aIso: string | undefined | null, bMs: number): number | nu
   if (!Number.isFinite(a)) return null
   const h = (bMs - a) / 3600000
   return h > 0 ? h : null
+}
+
+/** Ar „kanalas" iš tikro yra playlist'o/agregatoriaus deskriptorius (ne atlikėjas)?
+ *  Tokių niekad nesaugom kaip artist_raw — geriau palikti tuščią, nei rodyti
+ *  „YouTube: Trending 20 Lithuania" ar „YouTube playlist PL…" kaip atlikėją. */
+function isAggregatorChannel(name: string): boolean {
+  const n = (name || '').trim().toLowerCase()
+  if (!n) return true
+  return /^youtube\b/.test(n)
+    || /\bplaylist\b/.test(n)
+    || /\btrending\b/.test(n)
+    || /\bvarious artists\b/.test(n)
+    || /\btop\s*\d/.test(n)
+    || /\bcharts?\b/.test(n)
+    || /\bmix\b/.test(n)
+    || /\bhits\b/.test(n)
+    || /\bradio\b/.test(n)
 }
 
 function scopeFromMatch(country?: string | null, matched?: boolean): 'lt' | 'foreign' | 'unknown' {
@@ -202,12 +222,18 @@ export async function runYtDiscovery(opts: RunOpts): Promise<RunResult> {
       // Naujas
       if (opts.dryRun) { fresh++; srcFresh++; continue }
 
-      const parsed = parseYtTitle(item.title, src.name || '')
+      // Atlikėjo spėjimui — TIKRAS video kanalas (item.channel), NE src.name
+      // (playlist'o deskriptorius). „Artist - Title" → dash split; be dash'o →
+      // kanalas. Jei kanalas agregatorius („YouTube: Trending…") — artist tuščias.
+      const realChannel = item.channel || ''
+      const parsed = parseYtTitle(item.title, realChannel)
+      let artistRaw = parsed.artist || ''
+      if (isAggregatorChannel(artistRaw)) artistRaw = ''
       let matchedArtistId: number | null = null
       let matchScore: number | null = null
       let country: string | null = null
       try {
-        const matches = await matchArtists([{ name: parsed.artist }], { topPerMention: 1 })
+        const matches = artistRaw ? await matchArtists([{ name: artistRaw }], { topPerMention: 1 }) : []
         if (matches.length && matches[0].score >= 0.5) {
           matchedArtistId = matches[0].artist_id
           matchScore = Number(matches[0].score.toFixed(2))
@@ -242,8 +268,8 @@ export async function runYtDiscovery(opts: RunOpts): Promise<RunResult> {
         video_url: url,
         guid: item.guid || null,
         raw_title: item.title,
-        channel_title: src.name || null,
-        artist_raw: parsed.artist || null,
+        channel_title: item.channel || src.name || null,
+        artist_raw: artistRaw || null,
         title_raw: parsed.title || null,
         published_at: item.published_at || null,
         views_first: typeof item.views === 'number' ? item.views : null,

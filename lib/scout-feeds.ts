@@ -20,6 +20,7 @@ export type FeedItem = {
   published_at?: string
   guid?: string
   views?: number               // (YouTube) <media:statistics views="..."> — velocity skaičiavimui
+  channel?: string             // video ĮKĖLĖJO kanalas (YouTube <author><name> / Data API videoOwnerChannelTitle) — atlikėjo spėjimui
 }
 
 /**
@@ -93,6 +94,9 @@ function parseAtom(xml: string): FeedItem[] {
     // <content> šitiems feed'ams tušti, tad imam media:* jei yra.
     const mediaDesc = extractTag(entry, 'media:description')
     const viewsMatch = entry.match(/<media:statistics\b[^>]*\bviews=["'](\d+)["']/i)
+    // YouTube Atom: <author><name>Kanalas</name>...</author> — video įkėlėjas.
+    const authorBlock = entry.match(/<author\b[\s\S]*?<\/author>/i)?.[0] || ''
+    const channel = extractTag(authorBlock, 'name')
 
     items.push({
       url: url.trim(),
@@ -101,6 +105,7 @@ function parseAtom(xml: string): FeedItem[] {
       published_at: extractTag(entry, 'published') || extractTag(entry, 'updated'),
       guid: extractTag(entry, 'id') || undefined,
       views: viewsMatch ? parseInt(viewsMatch[1], 10) : undefined,
+      channel: channel ? decodeXml(channel.trim()) : undefined,
     })
   }
 
