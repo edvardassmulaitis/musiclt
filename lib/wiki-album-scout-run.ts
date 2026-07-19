@@ -242,13 +242,13 @@ export async function runWikiAlbumScout(opts: { sourceId?: string | null; dryRun
           continue
         }
 
-        // Unmatched BE Wikipedia straipsnio (Tier 3-4) — NEeiliuojam (kad neužterštume
-        // eilės tūkstančiais nekatalogo albumų). Verti dėmesio unmatched turi bent
-        // Wiki straipsnį (Tier 2 — galima sukurti atlikėją+albumą iš jo).
-        if (!matchedId && !e.album_wiki_link) {
+        // Ne-katalogo (unmatched) albumus imam TIK jei ATLIKĖJAS turi Wikipedia
+        // straipsnį (mėlyna nuoroda sąraše) — „top"/notable požymis. Obskuriškus
+        // (be atlikėjo wiki) praleidžiam, kad neužterštume eilės (Edvardo pasirinkimas).
+        if (!matchedId && !e.artist_wiki_link) {
           if (!dryRun) {
             await supabase.from('scout_seen_urls').insert({
-              url_hash: fp, source_id: source.id, candidate_id: null, filter_reason: 'unmatched_no_wiki',
+              url_hash: fp, source_id: source.id, candidate_id: null, filter_reason: 'unmatched_artist_not_notable',
             })
           }
           c.no_artist_match++

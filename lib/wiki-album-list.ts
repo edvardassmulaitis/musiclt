@@ -56,6 +56,7 @@ export type AlbumListEntry = {
   artist_raw: string          // išvalytas atlikėjo vardas (be wikitext'o)
   album_title: string         // išvalytas albumo pavadinimas
   album_wiki_link: string | null   // Wikipedia puslapio title (su _ vietoj tarpų), jei albumas jau turi savo straipsnį
+  artist_wiki_link: string | null  // Wikipedia straipsnis ATLIKĖJUI (jei jis „notable"/mėlyna nuoroda sąraše) — „top" ne-katalogo požymis
   genres: string[]
   label: string | null
   source_line: string         // debug — originali wikitext eilutė (trimmed, max 300 char)
@@ -178,6 +179,7 @@ function parseMonthSection(sectionText: string, year: number, month: number): Al
       const labelRaw = cells[3] !== undefined ? dataCellContent(cells[3]) : ''
 
       const albumWikiTitle = firstWikiLinkTitle(albumRaw)
+      const artistWikiTitle = firstWikiLinkTitle(artistRaw)
       const albumTitle = cleanWikiText(albumRaw)
       // SVARBU: cleanWikiText PIRMA (kol [[...]] dar nepažeisti, teisingai
       // rezolvina piped linkus `[[X (band)|X]]` → "X"), tada cleanArtistName
@@ -201,6 +203,7 @@ function parseMonthSection(sectionText: string, year: number, month: number): Al
         artist_raw: artistName,
         album_title: albumTitle,
         album_wiki_link: albumWikiTitle,
+        artist_wiki_link: artistWikiTitle,
         genres,
         label,
         source_line: `${artistRaw} | ${albumRaw}`.slice(0, 300),

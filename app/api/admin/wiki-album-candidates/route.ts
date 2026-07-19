@@ -30,6 +30,7 @@ export async function GET(req: NextRequest) {
   const { searchParams } = new URL(req.url)
   const status = searchParams.get('status') || 'pending'
   const limit = parseInt(searchParams.get('limit') || '50', 10)
+  const yearParam = searchParams.get('year')
 
   const supabase = createAdminClient()
   const SEL = `
@@ -47,11 +48,23 @@ export async function GET(req: NextRequest) {
     return NextResponse.json({ candidates: data || [], total: (data || []).length })
   }
 
+  // ── Metų suvestinė (tab'ams): kiek pending pagal metus ──
+  const { data: yearRows } = await supabase
+    .from('wiki_album_candidates').select('release_year').eq('status', 'pending').limit(5000)
+  const yearCounts = new Map<number, number>()
+  for (const r of (yearRows || []) as any[]) {
+    const y = r.release_year
+    if (y) yearCounts.set(y, (yearCounts.get(y) || 0) + 1)
+  }
+  const years = Array.from(yearCounts.entries()).map(([year, count]) => ({ year, count })).sort((a, b) => b.year - a.year)
+  // Pasirinkti metai: param arba naujausi turimi.
+  const year = yearParam ? parseInt(yearParam, 10) : (years[0]?.year ?? new Date().getUTCFullYear())
+
   // ── Pending: 2 fetch'ai (matched + unmatched), kad Tier 1 visada būtų viršuje
   //    (matched'ų nedaug — tik katalogo atlikėjai; unmatched gali būti daug). ──
   const [{ data: matchedRows }, { data: unmatchedRows }] = await Promise.all([
-    supabase.from('wiki_album_candidates').select(SEL).eq('status', 'pending').not('matched_artist_id', 'is', null).limit(600),
-    supabase.from('wiki_album_candidates').select(SEL).eq('status', 'pending').is('matched_artist_id', null).limit(400),
+    supabase.from('wiki_album_candidates').select(SEL).eq('status', 'pending').eq('release_year', year).not('matched_artist_id', 'is', null).limit(600),
+    supabase.from('wiki_album_candidates').select(SEL).eq('status', 'pending').eq('release_year', year).is('matched_artist_id', null).limit(400),
   ])
   const matched = (matchedRows || []) as any[]
   const unmatched = (unmatchedRows || []) as any[]
@@ -92,5 +105,5 @@ export async function GET(req: NextRequest) {
   unmatched.sort((a, b) => (tierOf(a) - tierOf(b)) || (dateOf(b) - dateOf(a)))
 
   const combined = [...matchedKept.map(withTier), ...unmatched.map(withTier)]
-  return NextResponse.json({ candidates: combined.slice(0, limit), total: combined.length })
+  return NextResponse.json({ candidates: combined.slice(0, limit), total: combined.length, years, year })
 }

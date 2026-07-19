@@ -69,6 +69,8 @@ export default function WikiAlbumInboxPage() {
   const router = useRouter()
   const [candidates, setCandidates] = useState<WikiAlbumCandidate[]>([])
   const [total, setTotal] = useState(0)
+  const [years, setYears] = useState<{ year: number; count: number }[]>([])
+  const [selectedYear, setSelectedYear] = useState<number | null>(null)
   const [loading, setLoading] = useState(true)
   const [busy, setBusy] = useState<number | null>(null)
   const [errorMsg, setErrorMsg] = useState<Record<number, string>>({})
@@ -82,14 +84,17 @@ export default function WikiAlbumInboxPage() {
   const { counts } = useInboxCounts()
   const grandTotal = counts ? (counts.total - counts.albums + total) : total
 
-  const load = useCallback(async () => {
+  const load = useCallback(async (year?: number) => {
     setLoading(true)
     try {
-      const res = await fetch('/api/admin/wiki-album-candidates?status=pending&limit=40')
+      const qs = year ? `&year=${year}` : ''
+      const res = await fetch(`/api/admin/wiki-album-candidates?status=pending&limit=40${qs}`)
       const j = await res.json()
       const cands: WikiAlbumCandidate[] = j.candidates || []
       setCandidates(cands)
       setTotal(j.total || 0)
+      if (Array.isArray(j.years)) setYears(j.years)
+      if (typeof j.year === 'number') setSelectedYear(j.year)
       // Seed'inam enrichment iš cache (preview_payload) — tie nebus fetch'inami iš naujo.
       const seed: Record<number, EnrichState> = {}
       for (const c of cands) {
@@ -217,6 +222,22 @@ export default function WikiAlbumInboxPage() {
         Būsimi / nauji albumai (atlikėjai jau kataloge). Kiekvienam bandome rasti tracklist’ą, viršelį ir datą
         iš MusicBrainz / Apple Music — <strong>net jei Wikipedia straipsnio dar nėra</strong>. Peržiūrėk ir pridėk vienu paspaudimu.
       </p>
+
+      {/* Metų tab'ai — rodom tik metus, kurie turi laukiančių kandidatų */}
+      {years.length > 1 && (
+        <div className="flex items-center gap-1.5 mb-3 flex-wrap">
+          {years.map(y => (
+            <button key={y.year} onClick={() => load(y.year)}
+              className={`text-sm px-3 py-1 rounded-full border transition-colors ${
+                selectedYear === y.year
+                  ? 'bg-blue-600 text-white border-blue-600'
+                  : 'border-[var(--input-border)] text-[var(--text-secondary)] hover:bg-[var(--bg-elevated)]'
+              }`}>
+              {y.year} <span className="opacity-70">({y.count})</span>
+            </button>
+          ))}
+        </div>
+      )}
 
       <div className="mb-4 p-3 rounded-lg border border-[var(--input-border)] bg-[var(--surface-secondary)]">
         <div className="flex items-center gap-2 flex-wrap">
