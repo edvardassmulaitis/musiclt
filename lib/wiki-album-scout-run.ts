@@ -89,6 +89,7 @@ export async function runWikiAlbumScout(opts: { sourceId?: string | null; dryRun
   // 16k+ atlikėjų → Map<normName, {id, score}>. Pakeičia per-entry matchArtists
   // (trgm fuzzy ~0.8s/eilutei), kuris ir „suvalgydavo" biudžetą iki kovo.
   const nameToArtist = new Map<string, { id: number; score: number }>()
+  const idToArtistName = new Map<number, string>() // dedup: „Atlikėjas – Title" prefikso nuėmimui
   {
     const PAGE = 1000
     let from = 0
@@ -97,6 +98,7 @@ export async function runWikiAlbumScout(opts: { sourceId?: string | null; dryRun
       if (error) return { status: 500, body: { error: `Katalogo įkėlimas nepavyko: ${error.message}` } }
       const rows = (data || []) as any[]
       for (const a of rows) {
+        idToArtistName.set(a.id, a.name || '')
         const n = normName(a.name || '')
         if (!n) continue
         if (!nameToArtist.has(n)) nameToArtist.set(n, { id: a.id, score: typeof a.score === 'number' ? a.score : 0 })
@@ -216,7 +218,15 @@ export async function runWikiAlbumScout(opts: { sourceId?: string | null; dryRun
             let m = artistAlbums.get(a.artist_id)
             if (!m) { m = new Map(); artistAlbums.set(a.artist_id, m) }
             const nt = normalizeAlbumTitle(a.title || '')
-            if (!m.has(nt)) m.set(nt, a.id)
+            if (nt && !m.has(nt)) m.set(nt, a.id)
+            // Kataloge dažnai title'as saugomas su atlikėjo prefiksu („Dua Lipa – Live
+            // from Mexico"), o kandidatas — plikas („Live from Mexico"). Įrašom ir be
+            // prefikso raktą, kad dedup pagautų (net jei esamas albumas — tik „skeletas").
+            const na = normalizeAlbumTitle(idToArtistName.get(a.artist_id) || '')
+            if (na && nt.startsWith(na + ' ')) {
+              const stripped = nt.slice(na.length + 1).trim()
+              if (stripped && !m.has(stripped)) m.set(stripped, a.id)
+            }
           }
         }
       }
@@ -237,7 +247,13 @@ export async function runWikiAlbumScout(opts: { sourceId?: string | null; dryRun
         // Dedup vs katalogas — TIK jei atlikėjas žinomas.
         if (f.matchedId) {
           const m = artistAlbums.get(f.matchedId)
-          const dupId = m ? m.get(normalizeAlbumTitle(f.e.album_title)) : undefined
+          const candNorm = normalizeAlbumTitle(f.e.album_title)
+          let dupId = m ? m.get(candNorm) : undefined
+          // Simetriškai: jei kandidato title'as turi atlikėjo prefiksą, o katalogas — pliką.
+          if (dupId === undefined && m) {
+            const na = normalizeAlbumTitle(f.e.artist_raw)
+            if (na && candNorm.startsWith(na + ' ')) dupId = m.get(candNorm.slice(na.length + 1).trim())
+          }
           if (dupId !== undefined) {
             toInsert.push({ ...baseRow(f), status: 'duplicate', reviewed_at: nowIso, published_album_id: dupId })
             c.skipped_known++

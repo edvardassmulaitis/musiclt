@@ -71,15 +71,35 @@ export async function GET(req: NextRequest) {
 
   // ── Dedupe matched prieš katalogą (albumas jau yra) → pažymim duplicate ──
   const artistIds = Array.from(new Set(matched.map(r => r.matched_artist_id).filter(Boolean)))
+  // Atlikėjo vardas pagal id — „Atlikėjas – Title" prefikso nuėmimui dedup'e.
+  const artistNameById = new Map<number, string>()
+  for (const r of matched) {
+    if (r.matched_artist_id && r.matched_artist?.name) artistNameById.set(r.matched_artist_id, r.matched_artist.name)
+  }
   const existing = new Set<string>()
   if (artistIds.length > 0) {
     const { data: albums } = await supabase.from('albums').select('artist_id, title').in('artist_id', artistIds)
-    for (const a of (albums || []) as any[]) existing.add(`${a.artist_id}::${normalizeAlbumTitle(a.title || '')}`)
+    for (const a of (albums || []) as any[]) {
+      const nt = normalizeAlbumTitle(a.title || '')
+      existing.add(`${a.artist_id}::${nt}`)
+      // Katalogo title'as su atlikėjo prefiksu („Dua Lipa – Live from Mexico") — įrašom
+      // ir be prefikso, kad pagautų pliką kandidatą („Live from Mexico"), net jei esamas
+      // albumas — tik „skeletas" be dainų.
+      const na = normalizeAlbumTitle(artistNameById.get(a.artist_id) || '')
+      if (na && nt.startsWith(na + ' ')) {
+        const stripped = nt.slice(na.length + 1).trim()
+        if (stripped) existing.add(`${a.artist_id}::${stripped}`)
+      }
+    }
   }
   const dupIds: number[] = []
   const matchedKept = matched.filter(r => {
-    const key = `${r.matched_artist_id}::${normalizeAlbumTitle(r.album_title || '')}`
-    if (existing.has(key)) { dupIds.push(r.id); return false }
+    const nt = normalizeAlbumTitle(r.album_title || '')
+    const na = normalizeAlbumTitle(artistNameById.get(r.matched_artist_id) || '')
+    const strippedCand = (na && nt.startsWith(na + ' ')) ? nt.slice(na.length + 1).trim() : ''
+    if (existing.has(`${r.matched_artist_id}::${nt}`) || (strippedCand && existing.has(`${r.matched_artist_id}::${strippedCand}`))) {
+      dupIds.push(r.id); return false
+    }
     return true
   })
   if (dupIds.length > 0) {
