@@ -5,7 +5,7 @@
 // player'is pakeistas į identišką artist-page player'io layout'ą/stilių.
 // Naudoja realius temos token'us (light+dark). Hero band visada tamsus.
 
-import { useState, useEffect } from 'react'
+import { useState, useEffect, useRef } from 'react'
 import Link from 'next/link'
 import { useSession } from 'next-auth/react'
 import EntityCommentsBlock from '@/components/EntityCommentsBlock'
@@ -220,12 +220,20 @@ function MusicPlayer({ songs }: { songs: SongEntry[] }) {
   const [playing, setPlaying]     = useState(false)
   const [thumbAlive, setThumbAlive] = useState<boolean | null>(null)
   const [embedDisabled, setEmbedDisabled] = useState<Set<string>>(new Set())
+  const [apiReady, setApiReady] = useState(false)
 
   const cur = songs[activeIdx]
   const vid = ytId(cur?.youtube_url)
   const hq  = vid ? `https://i.ytimg.com/vi/${vid}/hqdefault.jpg` : null
   const showThumb = thumbAlive === true && !!hq
   const isBlocked = !!vid && embedDisabled.has(vid)
+
+  // YT IFrame API refs — kaip atlikėjo psl. PlayerCard. Būtina 1-tap-su-garsu
+  // grojimui iOS'e (playVideo() gesture'e; plain iframe autoplay iOS'e blokuojamas).
+  const containerRef = useRef<HTMLDivElement | null>(null)
+  const playerRef = useRef<any>(null)
+  const playingRef = useRef(playing)
+  useEffect(() => { playingRef.current = playing }, [playing])
 
   useEffect(() => {
     if (!vid) { setThumbAlive(null); return }
@@ -246,66 +254,133 @@ function MusicPlayer({ songs }: { songs: SongEntry[] }) {
     return () => { cancelled = true }
   }, [vid]) // eslint-disable-line react-hooks/exhaustive-deps
 
+  // Load YT IFrame API script kartą.
+  useEffect(() => {
+    const W = window as any
+    if (W.YT && W.YT.Player) { setApiReady(true); return }
+    if (!document.getElementById('yt-iframe-api')) {
+      const s = document.createElement('script')
+      s.id = 'yt-iframe-api'; s.src = 'https://www.youtube.com/iframe_api'
+      document.head.appendChild(s)
+    }
+    const prev = W.onYouTubeIframeAPIReady
+    W.onYouTubeIframeAPIReady = () => { if (typeof prev === 'function') prev(); setApiReady(true) }
+    const iv = window.setInterval(() => { if (W.YT && W.YT.Player) { setApiReady(true); window.clearInterval(iv) } }, 120)
+    return () => window.clearInterval(iv)
+  }, [])
+
+  // PRE-CREATE cued (autoplay=0) player kai tik turim vid → READY dar prieš tap'ą.
+  // Grojam SINKRONIŠKAI tap handler'yje (play()) → playVideo gesture → 1 tap su garsu.
+  useEffect(() => {
+    const W = window as any
+    if (!apiReady || !vid || !containerRef.current) return
+    if (isBlocked) return
+    if (playerRef.current) return // sukurta kartą; track switch'ai per loadVideoById
+    const inner = document.createElement('div')
+    inner.style.width = '100%'; inner.style.height = '100%'
+    containerRef.current.innerHTML = ''
+    containerRef.current.appendChild(inner)
+    const player = new W.YT.Player(inner, {
+      host: 'https://www.youtube-nocookie.com', // Safari ITP-safe (Klaida 153)
+      videoId: vid, width: '100%', height: '100%',
+      playerVars: { autoplay: 0, controls: 1, modestbranding: 1, rel: 0, playsinline: 1, iv_load_policy: 3, enablejsapi: 1, origin: window.location.origin },
+      events: {
+        onReady: (e: any) => { if (playingRef.current) { try { e.target.playVideo() } catch {} } },
+        onError: (e: any) => {
+          const c = e?.data
+          if (c === 101 || c === 150 || c === 153) {
+            const vn = (player as any)._vid || vid
+            setEmbedDisabled(s => { if (s.has(vn)) return s; const n = new Set(s); n.add(vn); return n })
+            try { playerRef.current?.destroy() } catch {}
+            playerRef.current = null
+            try { if (containerRef.current) containerRef.current.innerHTML = '' } catch {}
+          }
+        },
+      },
+    })
+    ;(player as any)._vid = vid
+    playerRef.current = player
+  }, [apiReady, vid, isBlocked])
+
+  // vid pasikeitė be gesture path'o (backup) — sinchronizuojam player'į.
+  useEffect(() => {
+    if (!playerRef.current || !vid) return
+    if ((playerRef.current as any)._vid === vid) return
+    try {
+      if (playingRef.current) playerRef.current.loadVideoById?.(vid)
+      else playerRef.current.cueVideoById?.(vid)
+      ;(playerRef.current as any)._vid = vid
+    } catch {}
+  }, [vid])
+
+  useEffect(() => () => { try { playerRef.current?.destroy() } catch {}; playerRef.current = null }, [])
+
   if (!songs.length) return null
   const placeholder = 'var(--player-placeholder-bg, linear-gradient(135deg, #1a2436 0%, #0f1825 50%, #0a0f1a 100%))'
 
+  // Grojimas per user-gesture: state + play-count + SINKRONIŠKAS playVideo/loadVideoById.
   const play = (i: number) => {
+    const newVid = ytId(songs[i]?.youtube_url)
     setActiveIdx(i)
     setPlaying(true)
-    // Įrašom play į dainos statistiką (fire-and-forget, kaip atlikėjo psl./topai).
     const sid = songs[i]?.song_id
     if (sid) { try { fetch(`/api/tracks/${sid}/play`, { method: 'POST', keepalive: true }).catch(() => {}) } catch {} }
+    const p = playerRef.current
+    if (p && newVid) {
+      try {
+        if ((p as any)._vid !== newVid) { p.loadVideoById(newVid); (p as any)._vid = newVid }
+        else p.playVideo()
+      } catch {}
+    }
   }
 
   return (
     <>
     <div className="w-full max-w-full overflow-hidden rounded-2xl border border-[var(--border-default)] bg-[var(--bg-elevated)] shadow-[0_20px_60px_-20px_rgba(0,0,0,0.4)]">
-      {/* Player area */}
+      {/* Player area — YT.Player įdedamas į stabilų containerRef; play overlay ant viršaus kol negroja */}
       <div className="relative aspect-video w-full max-w-full overflow-hidden bg-black">
-        {playing && vid && !isBlocked ? (
-          <iframe
-            key={vid}
-            src={`https://www.youtube-nocookie.com/embed/${vid}?autoplay=1&rel=0&playsinline=1&modestbranding=1&iv_load_policy=3${typeof window !== 'undefined' ? `&origin=${encodeURIComponent(window.location.origin)}` : ''}`}
-            allow="autoplay; encrypted-media" allowFullScreen
-            className="absolute inset-0 h-full w-full border-0"
-          />
-        ) : isBlocked && vid ? (
-          <a href={`https://www.youtube.com/watch?v=${vid}`} target="_blank" rel="noopener noreferrer"
-            className="absolute inset-0 flex items-center justify-center overflow-hidden no-underline">
-            {showThumb && <img src={hq!} alt="" referrerPolicy="no-referrer" className="absolute inset-0 h-full w-full object-cover opacity-60" />}
-            <div className="absolute inset-0 bg-gradient-to-t from-black/85 via-black/45 to-black/45" />
-            <span className="relative z-10 flex flex-col items-center gap-2.5 px-6 text-center text-white">
-              <span className="flex h-[60px] w-[60px] items-center justify-center rounded-full bg-red-600 shadow-[0_10px_36px_rgba(0,0,0,0.5)] ring-[5px] ring-white/10">
-                <svg viewBox="0 0 24 24" width="28" height="28" fill="#fff" aria-hidden><path d="M19.615 3.184c-3.604-.246-11.631-.245-15.23 0-3.897.266-4.356 2.62-4.385 8.816.029 6.185.484 8.549 4.385 8.816 3.6.245 11.626.246 15.23 0 3.897-.266 4.356-2.62 4.385-8.816-.029-6.185-.484-8.549-4.385-8.816zm-10.615 12.816v-8l8 3.993-8 4.007z"/></svg>
-              </span>
-              <span className="text-[14px] font-semibold">Žiūrėti YouTube'e</span>
-            </span>
-          </a>
-        ) : (
-          <button
-            type="button"
-            onClick={() => vid && play(activeIdx)}
-            aria-label="Paleisti"
-            className="group absolute inset-0 block cursor-pointer overflow-hidden border-0 p-0"
-            style={{ background: placeholder }}
-          >
-            {showThumb && (
-              <img src={hq!} alt="" referrerPolicy="no-referrer" className="absolute inset-0 h-full w-full object-cover" style={{ filter: 'saturate(1.1) contrast(1.05)' }} />
-            )}
-            {showThumb && <div className="pointer-events-none absolute inset-0 bg-gradient-to-t from-black/60 via-black/20 to-black/30" />}
-            {vid ? (
-              <span className="absolute bottom-3 right-3 flex h-12 w-12 items-center justify-center rounded-full bg-[var(--accent-orange)] shadow-[0_8px_24px_rgba(249,115,22,0.5)] ring-[3px] ring-white/15 transition-transform duration-200 group-hover:scale-110 sm:h-14 sm:w-14">
-                <svg viewBox="0 0 24 24" width="20" height="20" fill="#fff" aria-hidden className="ml-0.5"><path d="M8 5v14l11-7z" /></svg>
-              </span>
-            ) : (
-              <span className="absolute inset-0 flex flex-col items-center justify-center gap-2.5 px-6 text-center">
-                <span className="flex h-14 w-14 items-center justify-center rounded-full bg-white/5 ring-1 ring-white/10">
-                  <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" className="text-white/50"><path d="M23 7l-7 5 7 5V7z" /><rect x="1" y="5" width="15" height="14" rx="2" ry="2" /></svg>
+        {vid ? (
+          <>
+            {/* YT.Player target — React-owned, visada mount'intas kai yra vid; hidden kol negroja/blocked */}
+            <div ref={containerRef} className={`absolute inset-0 h-full w-full ${(!playing || isBlocked) ? 'hidden' : ''}`} />
+            {!playing && !isBlocked && (
+              <button
+                type="button"
+                onClick={() => play(activeIdx)}
+                aria-label="Paleisti"
+                className="group absolute inset-0 block cursor-pointer overflow-hidden border-0 p-0"
+                style={{ background: placeholder }}
+              >
+                {showThumb && (
+                  <img src={hq!} alt="" referrerPolicy="no-referrer" className="absolute inset-0 h-full w-full object-cover" style={{ filter: 'saturate(1.1) contrast(1.05)' }} />
+                )}
+                {showThumb && <div className="pointer-events-none absolute inset-0 bg-gradient-to-t from-black/60 via-black/20 to-black/30" />}
+                <span className="absolute bottom-3 right-3 flex h-12 w-12 items-center justify-center rounded-full bg-[var(--accent-orange)] shadow-[0_8px_24px_rgba(249,115,22,0.5)] ring-[3px] ring-white/15 transition-transform duration-200 group-hover:scale-110 sm:h-14 sm:w-14">
+                  <svg viewBox="0 0 24 24" width="20" height="20" fill="#fff" aria-hidden className="ml-0.5"><path d="M8 5v14l11-7z" /></svg>
                 </span>
-                <span className="font-['Outfit',sans-serif] text-[16px] font-extrabold uppercase tracking-[0.15em] text-white/60">Video dar nėra</span>
-              </span>
+              </button>
             )}
-          </button>
+            {isBlocked && (
+              <a href={`https://www.youtube.com/watch?v=${vid}`} target="_blank" rel="noopener noreferrer"
+                className="absolute inset-0 flex items-center justify-center overflow-hidden no-underline">
+                {showThumb && <img src={hq!} alt="" referrerPolicy="no-referrer" className="absolute inset-0 h-full w-full object-cover opacity-60" />}
+                <div className="absolute inset-0 bg-gradient-to-t from-black/85 via-black/45 to-black/45" />
+                <span className="relative z-10 flex flex-col items-center gap-2.5 px-6 text-center text-white">
+                  <span className="flex h-[60px] w-[60px] items-center justify-center rounded-full bg-red-600 shadow-[0_10px_36px_rgba(0,0,0,0.5)] ring-[5px] ring-white/10">
+                    <svg viewBox="0 0 24 24" width="28" height="28" fill="#fff" aria-hidden><path d="M19.615 3.184c-3.604-.246-11.631-.245-15.23 0-3.897.266-4.356 2.62-4.385 8.816.029 6.185.484 8.549 4.385 8.816 3.6.245 11.626.246 15.23 0 3.897-.266 4.356-2.62 4.385-8.816-.029-6.185-.484-8.549-4.385-8.816zm-10.615 12.816v-8l8 3.993-8 4.007z"/></svg>
+                  </span>
+                  <span className="text-[14px] font-semibold">Žiūrėti YouTube'e</span>
+                </span>
+              </a>
+            )}
+          </>
+        ) : (
+          <div className="absolute inset-0 flex flex-col items-center justify-center gap-2.5 px-6 text-center" style={{ background: placeholder }}>
+            <span className="flex h-14 w-14 items-center justify-center rounded-full bg-white/5 ring-1 ring-white/10">
+              <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" className="text-white/50"><path d="M23 7l-7 5 7 5V7z" /><rect x="1" y="5" width="15" height="14" rx="2" ry="2" /></svg>
+            </span>
+            <span className="font-['Outfit',sans-serif] text-[16px] font-extrabold uppercase tracking-[0.15em] text-white/60">Video dar nėra</span>
+          </div>
         )}
       </div>
 
