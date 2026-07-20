@@ -78,16 +78,31 @@ async function reconcilePendingDuplicates(supabase: any): Promise<{ marked: numb
   }
   // Tik albumai SU DAINOM žymimi dublikatais. Tušti „skeletai" NEslepiami —
   // juos inbox rodo su žyma „jau kataloge — bus papildytas" (kad būtų galima užpildyti).
+  // chunk + range — kad `.in()` 1000-eilučių default'as neapribotų (žr. GET route komentarą).
   const albumRows: any[] = []
-  for (let i = 0; i < artistIds.length; i += 200) {
-    const { data } = await supabase.from('albums').select('id, artist_id, title').in('artist_id', artistIds.slice(i, i + 200))
-    albumRows.push(...((data || []) as any[]))
+  for (let i = 0; i < artistIds.length; i += 100) {
+    const chunk = artistIds.slice(i, i + 100)
+    let from = 0
+    for (;;) {
+      const { data } = await supabase.from('albums').select('id, artist_id, title').in('artist_id', chunk).range(from, from + 999)
+      const rows = (data || []) as any[]
+      albumRows.push(...rows)
+      if (rows.length < 1000) break
+      from += 1000
+    }
   }
   const withTracks = new Set<number>()
   const albumIds = albumRows.map(a => a.id)
-  for (let i = 0; i < albumIds.length; i += 300) {
-    const { data: at } = await supabase.from('album_tracks').select('album_id').in('album_id', albumIds.slice(i, i + 300))
-    for (const r of (at || []) as any[]) withTracks.add(r.album_id)
+  for (let i = 0; i < albumIds.length; i += 100) {
+    const chunk = albumIds.slice(i, i + 100)
+    let from = 0
+    for (;;) {
+      const { data: at } = await supabase.from('album_tracks').select('album_id').in('album_id', chunk).range(from, from + 999)
+      const rows = (at || []) as any[]
+      for (const r of rows) withTracks.add(r.album_id)
+      if (rows.length < 1000) break
+      from += 1000
+    }
   }
   const albumsByArtist = new Map<number, Map<string, number>>()
   for (const a of albumRows) {

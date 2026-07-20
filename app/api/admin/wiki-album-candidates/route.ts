@@ -80,14 +80,34 @@ export async function GET(req: NextRequest) {
   // NEslepiam kaip dublikato, o parodom su žyma „jau yra — bus papildytas".
   const existing = new Map<string, { id: number; empty: boolean }>()
   if (artistIds.length > 0) {
-    const { data: albums } = await supabase.from('albums').select('id, artist_id, title').in('artist_id', artistIds)
-    const albumRows = (albums || []) as any[]
+    // SVARBU: `.in(...)` be range default'ina į 1000 eilučių — su ~400 atlikėjų albumų
+    // būna daugiau, tad dalis albumų iškrisdavo iš dedup ir jų kandidatai vis dar
+    // buvo siūlomi (Future/Dua Lipa/Myles Smith atvejai). Chunk + range → paimam VISUS.
+    const albumRows: any[] = []
+    for (let i = 0; i < artistIds.length; i += 100) {
+      const chunk = artistIds.slice(i, i + 100)
+      let from = 0
+      for (;;) {
+        const { data } = await supabase.from('albums').select('id, artist_id, title').in('artist_id', chunk).range(from, from + 999)
+        const rows = (data || []) as any[]
+        albumRows.push(...rows)
+        if (rows.length < 1000) break
+        from += 1000
+      }
+    }
     // Dainų skaičius per albumą (album_tracks) — track_count stulpelis nepalaikomas.
     const trackCount = new Map<number, number>()
     const albumIds = albumRows.map(a => a.id)
-    for (let i = 0; i < albumIds.length; i += 300) {
-      const { data: at } = await supabase.from('album_tracks').select('album_id').in('album_id', albumIds.slice(i, i + 300))
-      for (const r of (at || []) as any[]) trackCount.set(r.album_id, (trackCount.get(r.album_id) || 0) + 1)
+    for (let i = 0; i < albumIds.length; i += 100) {
+      const chunk = albumIds.slice(i, i + 100)
+      let from = 0
+      for (;;) {
+        const { data: at } = await supabase.from('album_tracks').select('album_id').in('album_id', chunk).range(from, from + 999)
+        const rows = (at || []) as any[]
+        for (const r of rows) trackCount.set(r.album_id, (trackCount.get(r.album_id) || 0) + 1)
+        if (rows.length < 1000) break
+        from += 1000
+      }
     }
     for (const a of albumRows) {
       const nt = normalizeAlbumTitle(a.title || '')
