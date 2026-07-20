@@ -120,47 +120,54 @@ export default function WikiAlbumInboxPage() {
     load()
   }, [status, isAdmin, router, load])
 
-  // ── Praturtinimo eilė (concurrency-limited) — kad neapkrautume MusicBrainz ──
-  // MB serverio pusėje throttle'inamas (500ms/call), tad ~3 lygiagretūs klientai
-  // praktiškai serializuojasi; kortelės atsinaujina po vieną, kai atsakymai ateina.
+  // ── Praturtinimo eilė: STABILUS ref-based pool (concurrency-limited) ──
+  // MB serverio pusėje throttle'inamas; ~3 lygiagretūs klientai serializuojasi.
+  // SVARBU: nebekuriam eilės iš naujo, kai `candidates` keičiasi (pridėjus/atmetus).
+  // Anksčiau tai nutraukdavo vykstančius fetch'us, o „loading" kortelės būdavo
+  // išbrauktos iš naujos eilės (`enrichRef[id]` truthy) → likdavo amžinai „Tikrinama…"
+  // ir kartodavo fetch'us be reikalo. Dabar: kiekvienas ID apdorojamas VIENĄ kartą,
+  // pool'as savaime pumpuoja likusius, o pridėjimas/atmetimas eilės neliečia.
   const enrichRef = useRef(enrich)
   enrichRef.current = enrich
+  const enrichSeenRef = useRef<Set<number>>(new Set())
+  const enrichQueueRef = useRef<number[]>([])
+  const enrichRunningRef = useRef(0)
+
+  const pumpEnrich = useCallback(() => {
+    const CONCURRENCY = 3
+    while (enrichRunningRef.current < CONCURRENCY && enrichQueueRef.current.length > 0) {
+      const id = enrichQueueRef.current.shift()!
+      enrichRunningRef.current++
+      fetch(`/api/admin/wiki-album-candidates/${id}/preview`)
+        .then(r => r.json())
+        .then(j => setEnrich(prev => ({ ...prev, [id]: { loading: false, data: j.enrichment || null } })))
+        .catch(() => setEnrich(prev => ({ ...prev, [id]: { loading: false, data: null } })))
+        .finally(() => { enrichRunningRef.current--; pumpEnrich() })
+    }
+  }, [])
+
   useEffect(() => {
     if (candidates.length === 0) return
-    let cancelled = false
-    const CONCURRENCY = 3
     const FRESH = 14 * 24 * 60 * 60 * 1000
-    // Praleidžiam tuos, kurie jau turi (šviežų) cache — jokių pakartotinių fetch'ų.
-    const queue = candidates.filter(c => {
-      if (enrichRef.current[c.id]) return false
+    const newIds: number[] = []
+    for (const c of candidates) {
+      if (enrichSeenRef.current.has(c.id)) continue // jau apdorotas/eilėje — VIENĄ kartą
+      enrichSeenRef.current.add(c.id)
       const at = c.preview_at ? Date.parse(c.preview_at) : 0
-      if (c.preview_payload && at && (Date.now() - at) < FRESH) return false
-      return true
-    }).map(c => c.id)
-    if (queue.length === 0) return
-    // Pažymim kaip loading iškart (kad nedubliuotume).
-    setEnrich(prev => {
-      const next = { ...prev }
-      for (const id of queue) if (!next[id]) next[id] = { loading: true, data: null }
-      return next
-    })
-    let idx = 0
-    async function worker() {
-      while (!cancelled && idx < queue.length) {
-        const id = queue[idx++]
-        try {
-          const res = await fetch(`/api/admin/wiki-album-candidates/${id}/preview`)
-          const j = await res.json()
-          if (!cancelled) setEnrich(prev => ({ ...prev, [id]: { loading: false, data: j.enrichment || null } }))
-        } catch {
-          if (!cancelled) setEnrich(prev => ({ ...prev, [id]: { loading: false, data: null } }))
-        }
-      }
+      const hasFresh = !!enrichRef.current[c.id]?.data || !!(c.preview_payload && at && (Date.now() - at) < FRESH)
+      if (hasFresh) continue // jau turi šviežų cache — jokio fetch'o
+      enrichQueueRef.current.push(c.id)
+      newIds.push(c.id)
     }
-    const workers = Array.from({ length: Math.min(CONCURRENCY, queue.length) }, () => worker())
-    Promise.all(workers)
-    return () => { cancelled = true }
-  }, [candidates])
+    if (newIds.length > 0) {
+      setEnrich(prev => {
+        const next = { ...prev }
+        for (const id of newIds) if (!next[id]) next[id] = { loading: true, data: null }
+        return next
+      })
+      pumpEnrich()
+    }
+  }, [candidates, pumpEnrich])
 
   async function runScanNow(dryRun: boolean) {
     setScanning(true); setScanError(''); setScanSummary(null)
