@@ -86,13 +86,16 @@ export async function GET(req: NextRequest, { params }: { params: Promise<{ id: 
 
   // „Ar atlikėjas vertas sukūrimo" signalas — TIK kai atlikėjo NĖRA kataloge
   // (Wikipedia peržiūros/mėn + aprašymas, kad admin iškart matytų plius/minus).
+  let artistPv: number | null = null
   if (!cand.matched_artist_id && enrichment) {
     enrichment.artist_signal = await fetchArtistSignal(cand.artist_raw).catch(() => null)
+    artistPv = enrichment.artist_signal?.pageviews_monthly ?? null
   }
 
-  // Įrašom į cache — kad kitą kartą nekartotume išorinių fetch'ų.
+  // Įrašom į cache — kad kitą kartą nekartotume išorinių fetch'ų. artist_pageviews —
+  // atskiras stulpelis (sortinimui pagal populiarumą, žr. GET route).
   supabase.from('wiki_album_candidates')
-    .update({ preview_payload: enrichment, preview_at: new Date().toISOString() })
+    .update({ preview_payload: enrichment, preview_at: new Date().toISOString(), ...(artistPv !== null ? { artist_pageviews: artistPv } : {}) })
     .eq('id', candidateId).then(() => {})
 
   return NextResponse.json({ ok: true, candidate_id: candidateId, artist_name: artistName, enrichment, cached: false })

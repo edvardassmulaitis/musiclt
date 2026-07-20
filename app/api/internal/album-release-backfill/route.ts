@@ -24,6 +24,7 @@ import { NextRequest, NextResponse } from 'next/server'
 import { createAdminClient } from '@/lib/supabase'
 import { searchAlbumByTitle, msToDuration } from '@/lib/musicbrainz'
 import { searchAppleAlbum, fetchAppleTracklist, tracksLookPlaceholder } from '@/lib/apple-music'
+import { fetchArtistSignal } from '@/lib/wiki-artist-signal'
 import { getAlbumById, updateAlbum, type TrackInAlbum } from '@/lib/supabase-albums'
 import { enrichAlbumTracks } from '@/lib/album-commit'
 import { normalizeAlbumTitle } from '@/lib/album-title'
@@ -148,7 +149,7 @@ export async function POST(req: NextRequest) {
 
   const c = {
     considered: 0, released_marked: 0, tracklist_added: 0, tracks_enriched: 0,
-    lyrics_added: 0, pending_tracklist: 0, reconciled_duplicates: 0,
+    lyrics_added: 0, pending_tracklist: 0, reconciled_duplicates: 0, artist_pv_filled: 0,
     errors: 0, error_details: [] as string[], details: [] as any[],
   }
 
@@ -159,6 +160,26 @@ export async function POST(req: NextRequest) {
   } catch (e: any) {
     c.errors++
     c.error_details.push(`Reconcile failed: ${String(e?.message || e).slice(0, 200)}`)
+  }
+
+  // Nesamačių kandidatų Wikipedia peržiūros/mėn (sortinimui „vertas/ne") — bounded.
+  // Užpildo tik dar neturinčius; 0 = nerasta/mažai (kad nekartotume kiekvieną kartą).
+  try {
+    const { data: needPv } = await supabase
+      .from('wiki_album_candidates')
+      .select('id, artist_raw')
+      .eq('status', 'pending').is('matched_artist_id', null).is('artist_pageviews', null)
+      .limit(80)
+    for (const cand of (needPv || []) as any[]) {
+      if (Date.now() - startedAt > RUN_BUDGET_MS) break
+      const sig = await fetchArtistSignal(cand.artist_raw).catch(() => null)
+      const pv = typeof sig?.pageviews_monthly === 'number' ? sig.pageviews_monthly : 0
+      await supabase.from('wiki_album_candidates').update({ artist_pageviews: pv }).eq('id', cand.id)
+      c.artist_pv_filled++
+    }
+  } catch (e: any) {
+    c.errors++
+    c.error_details.push(`Artist pageviews fill failed: ${String(e?.message || e).slice(0, 200)}`)
   }
 
   // Būsimi albumai, kurių data jau atėjo. Upcoming'ų nedaug — filtruojam datą JS'e.

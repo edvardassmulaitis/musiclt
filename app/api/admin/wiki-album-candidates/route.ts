@@ -37,7 +37,7 @@ export async function GET(req: NextRequest) {
     id, source_url, artist_raw, album_title, album_wiki_link,
     release_year, release_month, release_day, genres_raw, label_raw,
     matched_artist_id, match_score, status, created_at, rescanned_at,
-    preview_payload, preview_at,
+    preview_payload, preview_at, artist_pageviews,
     matched_artist:artists!wiki_album_candidates_matched_artist_id_fkey(id, name, slug, cover_image_url, score)
   `
 
@@ -151,10 +151,14 @@ export async function GET(req: NextRequest) {
   }
   const withTier = (r: any) => ({ ...r, tier: tierOf(r) })
 
+  // Wikipedia peržiūros/mėn (nesamačiams — populiarumo proxy „vertas/ne").
+  const pvOf = (r: any) => (typeof r.artist_pageviews === 'number' ? r.artist_pageviews : -1)
+
   // Tier 1 — pagal atlikėjo populiarumą (score) desc, tada data.
   matchedKept.sort((a, b) => (scoreOf(b) - scoreOf(a)) || (dateOf(b) - dateOf(a)))
-  // Unmatched — pagal tier (2→3→4), tada data desc.
-  unmatched.sort((a, b) => (tierOf(a) - tierOf(b)) || (dateOf(b) - dateOf(a)))
+  // Unmatched — PIRMIAUSIA pagal Wikipedia peržiūras/mėn desc (vertingiausi viršuje;
+  // dar neapskaičiuoti = -1 → apačioje), tada tier (2→3→4), tada data desc.
+  unmatched.sort((a, b) => (pvOf(b) - pvOf(a)) || (tierOf(a) - tierOf(b)) || (dateOf(b) - dateOf(a)))
 
   const combined = [...matchedKept.map(withTier), ...unmatched.map(withTier)]
   return NextResponse.json({ candidates: combined.slice(0, limit), total: combined.length, years, year })
