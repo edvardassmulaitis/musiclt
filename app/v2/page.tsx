@@ -1,20 +1,16 @@
 // app/v2/page.tsx — SERVER component. Alternatyvus homepage variantas (/v2).
 //
-// STRUKTŪRA (split, kad skirtųsi nuo dabartinio homepage):
-//   Hero (full) → [ Nauja muzika ~65%  |  Bendruomenės šoninė juosta ~35% ]
+// STRUKTŪRA:
+//   Hero (full) → [ Nauja muzika (kompaktiška, vizuali, su filtrais) ~65%
+//                   |  Bendruomenės šoninė juosta (praturtinta) ~35% ]
 //   → Koncertai (afiša, full, kaip yra) → Šiandien muzikos istorijoje (full).
 //
-// NATIVE stilius + TIKRI duomenys:
-//   • Muzika: readHomeSnapshot() (patikimas, kaip homepage) → muzika-ui kortelės.
-//   • Bendruomenės šoninė: /api/home/community (dienos daina), /api/top/entries
-//     (topų judėjimas), /api/diskusijos/recent — svetainės temos tokenai.
-//   • Koncertai: atkurtas homepage afišos blokas 1:1.
-//   • Hero: HeroV2 kortelės stilius iš naujienų + renginių.
-// Neliečia main page. noindex.
+// NATIVE stilius + TIKRI duomenys. Neliečia main page. noindex.
 
 import Link from 'next/link'
-import { SectionHead, TrackList, AlbumRow, muzikaStyles } from '@/components/muzika-ui'
-import type { HubTrack, HubAlbum } from '@/lib/muzika-hub'
+import { muzikaStyles } from '@/components/muzika-ui'
+import { type HubTrack, type HubAlbum, trackHref, albumHref } from '@/lib/muzika-hub'
+import Scroller from '@/components/ui/Scroller'
 import { readHomeSnapshot } from '@/lib/home-snapshot'
 import {
   getLatestTracksForHome, getLatestAlbumsForHome, getUpcomingAlbumsForHome,
@@ -38,8 +34,7 @@ function isFresh24(input: string | null | undefined): boolean {
   if (!input) return false
   const t = Date.parse(input)
   if (isNaN(t)) return false
-  const age = Date.now() - t
-  return age >= 0 && age < 24 * 60 * 60 * 1000
+  return Date.now() - t >= 0 && Date.now() - t < 24 * 60 * 60 * 1000
 }
 function FreshDot({ right = 8, top = 8 }: { right?: number; top?: number }) {
   return <span className="absolute z-[3] block h-2.5 w-2.5 rounded-full" style={{ right, top, background: '#22c55e', boxShadow: '0 0 0 3px rgba(34,197,94,0.25)' }} aria-hidden />
@@ -55,11 +50,10 @@ async function jget(path: string): Promise<any> {
   } catch { return null }
 }
 
-/* snapshot track/album → Hub tipai (viršeliai iškart proxinami). */
 function toHubTrack(t: any): HubTrack {
   return {
     id: t.id, slug: t.slug ?? null, title: t.title,
-    cover_url: proxyImgResized(t.cover_url || t.artists?.cover_image_url || null, 96) || null,
+    cover_url: proxyImgResized(t.cover_url || t.artists?.cover_image_url || null, 240) || null,
     video_views: t.video_views ?? null,
     artist_id: t.artist_id, artist_name: t.artist_name || t.artists?.name || '', artist_slug: t.artist_slug || t.artists?.slug || '',
   }
@@ -67,7 +61,7 @@ function toHubTrack(t: any): HubTrack {
 function toHubAlbum(a: any): HubAlbum {
   return {
     id: a.id, slug: a.slug ?? null, title: a.title, year: a.year ?? null,
-    cover_image_url: proxyImgResized(a.cover_image_url || a.cover_url || a.artists?.cover_image_url || null, 300) || null,
+    cover_image_url: proxyImgResized(a.cover_image_url || a.cover_url || a.artists?.cover_image_url || null, 240) || null,
     artist_id: a.artist_id, artist_name: a.artist_name || a.artists?.name || '', artist_slug: a.artist_slug || a.artists?.slug || '',
   }
 }
@@ -75,24 +69,46 @@ function toHubAlbum(a: any): HubAlbum {
 async function getMusic() {
   const snap = await readHomeSnapshot()
   if (snap) {
-    return {
-      tLt: snap.tracks.lt.map(toHubTrack), tW: snap.tracks.world.map(toHubTrack),
-      aLt: snap.albums.lt.map(toHubAlbum), aW: snap.albums.world.map(toHubAlbum),
-    }
+    return { tLt: snap.tracks.lt.map(toHubTrack), tW: snap.tracks.world.map(toHubTrack), aLt: snap.albums.lt.map(toHubAlbum), aW: snap.albums.world.map(toHubAlbum) }
   }
   const [t, a] = await Promise.all([
     getLatestTracksForHome().catch(() => ({ lt: [], world: [] } as any)),
     getLatestAlbumsForHome().catch(() => ({ lt: [], world: [] } as any)),
   ])
   return {
-    tLt: (t.lt || []).map(mapTrackForHome).map(toHubTrack),
-    tW: (t.world || []).map(mapTrackForHome).map(toHubTrack),
-    aLt: (a.lt || []).map(mapAlbumForHome).map(toHubAlbum),
-    aW: (a.world || []).map(mapAlbumForHome).map(toHubAlbum),
+    tLt: (t.lt || []).map(mapTrackForHome).map(toHubTrack), tW: (t.world || []).map(mapTrackForHome).map(toHubTrack),
+    aLt: (a.lt || []).map(mapAlbumForHome).map(toHubAlbum), aW: (a.world || []).map(mapAlbumForHome).map(toHubAlbum),
   }
 }
 
-/* ─────────────────────────── HERO ─────────────────────────── */
+/* ─────────────── kompaktiška viršelio kortelė (vizuali, be peržiūrų) ─────────────── */
+function CoverCard({ href, cover, title, sub }: { href: string; cover: string | null; title: string; sub?: string }) {
+  return (
+    <Link href={href} className="v2-cc">
+      <span className="v2-cc-img">{cover
+        // eslint-disable-next-line @next/next/no-img-element
+        ? <img src={cover} alt="" loading="lazy" decoding="async" /> : <span className="v2-cc-ph">♪</span>}</span>
+      <span className="v2-cc-t">{title}</span>
+      {sub ? <span className="v2-cc-s">{sub}</span> : null}
+    </Link>
+  )
+}
+
+/* ─────────────── sekcijos antraštė su filtrais (Viltės pasiūlymas) ─────────────── */
+function MusicHead({ title, browseHref }: { title: string; browseHref: string }) {
+  return (
+    <div className="v2-mh">
+      <h2>{title}</h2>
+      <div className="v2-chips">
+        <span className="v2-chip on">Naujausios</span>
+        <Link href={browseHref} className="v2-chip">Populiariausios</Link>
+        <Link href={browseHref} className="v2-chip">⚙ Filtruoti</Link>
+      </div>
+    </div>
+  )
+}
+
+/* ─────────────── HERO ─────────────── */
 type Slide = { href: string; bgImg: string | null; chip: string | null; chipBg: string; title: string; subtitle?: string | null; fresh?: boolean }
 function HeroCard({ s }: { s: Slide }) {
   return (
@@ -122,23 +138,21 @@ function Hero({ slides }: { slides: Slide[] }) {
   )
 }
 
-/* ─────────────────────────── Bendruomenės šoninė juosta ─────────────────────────── */
-function CommunityRail({ community, top, discussions }: { community: any[]; top: any[]; discussions: any[] }) {
+/* ─────────────── Bendruomenės šoninė juosta (praturtinta) ─────────────── */
+function kindLabel(it: any): string {
+  if (it.editorial_type) return it.editorial_type
+  switch (it.type) {
+    case 'discussion': return 'Diskusija'
+    case 'atradimas': return 'Atradimas'
+    case 'blog': return 'Įrašas'
+    default: return 'Bendruomenė'
+  }
+}
+function CommunityRail({ community, top }: { community: any[]; top: any[] }) {
   const dd = community.find((c) => c.type === 'dd')
   const ddCands: any[] = (dd?.candidates || []).slice(0, 4)
   const movers = (top || []).slice(0, 5)
-  const disc = (discussions || []).slice(0, 4)
-
-  const Row = ({ cover, w, rank, title, sub, right }: { cover: string | null; w: number; rank?: React.ReactNode; title: string; sub?: string; right?: React.ReactNode }) => (
-    <div className="v2-row">
-      {rank != null && <span className="v2-row-rank">{rank}</span>}
-      <span className="v2-row-cov">{cover
-        // eslint-disable-next-line @next/next/no-img-element
-        ? <img src={proxyImgResized(cover, w)} alt="" loading="lazy" /> : null}</span>
-      <span className="v2-row-txt"><b>{title}</b>{sub ? <span>{sub}</span> : null}</span>
-      {right != null && <span className="v2-row-right">{right}</span>}
-    </div>
-  )
+  const highlights = community.filter((c) => c.type !== 'dd').slice(0, 5)
 
   return (
     <aside className="v2-side">
@@ -147,7 +161,14 @@ function CommunityRail({ community, top, discussions }: { community: any[]; top:
           <div className="v2-ch"><span className="v2-ch-bar" style={{ background: 'var(--accent-orange)' }} />Dienos daina</div>
           <div className="v2-csub">{dd?.subtype === 'yesterday_winner' ? 'Vakar laimėjo' : 'Šiandien pirmauja'}</div>
           {ddCands.map((c: any, i: number) => (
-            <Row key={i} cover={c.cover} w={72} rank={c.rank ?? i + 1} title={c.title} sub={c.artist} right={typeof c.votes === 'number' ? `${c.votes}★` : undefined} />
+            <div key={i} className="v2-row">
+              <span className="v2-row-rank">{c.rank ?? i + 1}</span>
+              <span className="v2-row-cov">{c.cover
+                // eslint-disable-next-line @next/next/no-img-element
+                ? <img src={proxyImgResized(c.cover, 72)} alt="" loading="lazy" /> : null}</span>
+              <span className="v2-row-txt"><b>{c.title}</b><span>{c.artist}</span></span>
+              {typeof c.votes === 'number' && <span className="v2-row-right">{c.votes}★</span>}
+            </div>
           ))}
           <Link href="/dienos-daina" className="v2-clink">Balsuoti / siūlyti →</Link>
         </div>
@@ -160,30 +181,44 @@ function CommunityRail({ community, top, discussions }: { community: any[]; top:
             const tr = m.tracks || {}
             const art = Array.isArray(tr.artists) ? tr.artists[0] : tr.artists
             const delta = m.prev_position != null ? m.prev_position - m.position : null
-            const right = delta == null ? <em className="v2-d n">NAUJA</em> : delta > 0 ? <em className="v2-d u">▲{delta}</em> : delta < 0 ? <em className="v2-d d">▼{-delta}</em> : <em className="v2-d z">–</em>
-            return <Row key={m.id} cover={tr.cover_url || art?.cover_image_url || null} w={64} rank={m.position} title={tr.title || ''} sub={art?.name} right={right} />
+            return (
+              <div key={m.id} className="v2-row">
+                <span className="v2-row-rank">{m.position}</span>
+                <span className="v2-row-cov">{(tr.cover_url || art?.cover_image_url)
+                  // eslint-disable-next-line @next/next/no-img-element
+                  ? <img src={proxyImgResized(tr.cover_url || art?.cover_image_url, 64)} alt="" loading="lazy" /> : null}</span>
+                <span className="v2-row-txt"><b>{tr.title}</b><span>{art?.name}</span></span>
+                <span className="v2-row-right">{delta == null ? <em className="v2-d n">NAUJA</em> : delta > 0 ? <em className="v2-d u">▲{delta}</em> : delta < 0 ? <em className="v2-d d">▼{-delta}</em> : <em className="v2-d z">–</em>}</span>
+              </div>
+            )
           })}
           <Link href="/top40" className="v2-clink">Visas topas →</Link>
         </div>
       )}
 
-      {disc.length > 0 && (
+      {highlights.length > 0 && (
         <div className="v2-cw">
-          <div className="v2-ch"><span className="v2-ch-bar" style={{ background: 'var(--accent-blue)' }} />Karštos diskusijos</div>
-          {disc.map((d: any) => (
-            <Link key={d.id} href={`/diskusijos/${d.slug}`} className="v2-drow">
-              <span className="v2-drow-t">{sanitizeTitle(d.title)}</span>
-              <span className="v2-drow-m">{d.artist_name ? `${d.artist_name} · ` : ''}{d.comment_count ?? 0} atsak.</span>
+          <div className="v2-ch"><span className="v2-ch-bar" style={{ background: 'var(--accent-blue)' }} />Bendruomenėje</div>
+          {highlights.map((h: any) => (
+            <Link key={h.id} href={h.href || '/bendruomene'} className="v2-hl">
+              <span className="v2-hl-cov">{h.cover
+                // eslint-disable-next-line @next/next/no-img-element
+                ? <img src={proxyImgResized(h.cover, 96)} alt="" loading="lazy" /> : <span className="v2-hl-ph">♪</span>}</span>
+              <span className="v2-hl-txt">
+                <span className="v2-hl-kind">{kindLabel(h)}</span>
+                <b>{sanitizeTitle(h.title)}</b>
+                {h.author_name ? <span className="v2-hl-author">{h.author_name}</span> : null}
+              </span>
             </Link>
           ))}
-          <Link href="/diskusijos" className="v2-clink">Visos diskusijos →</Link>
+          <Link href="/bendruomene" className="v2-clink">Į bendruomenę →</Link>
         </div>
       )}
     </aside>
   )
 }
 
-/* ─────────────────────────── KONCERTAI (afiša 1:1) ─────────────────────────── */
+/* ─────────────── KONCERTAI (afiša 1:1) ─────────────── */
 function Koncertai({ events, verta }: { events: any[]; verta: any[] }) {
   const filtEvt = events || []
   const cardCls = "group relative flex aspect-[3/4] w-[188px] shrink-0 flex-col overflow-hidden rounded-xl border border-[var(--border-default)] bg-[var(--cover-placeholder)] no-underline shadow-[0_5px_14px_rgba(0,0,0,0.16)] transition-all duration-300 hover:-translate-y-0.5 hover:border-[rgba(249,115,22,0.5)] hover:shadow-[0_14px_30px_rgba(249,115,22,0.18)] lg:w-auto"
@@ -275,13 +310,13 @@ function Koncertai({ events, verta }: { events: any[]; verta: any[] }) {
   )
 }
 
-/* ─────────────────────────── ISTORIJA ─────────────────────────── */
+/* ─────────────── ISTORIJA ─────────────── */
 function Istorija({ items }: { items: any[] }) {
   const list = (items || []).slice(0, 12)
   if (!list.length) return null
   return (
     <section style={{ marginTop: 'var(--page-section-gap)' }}>
-      <SectionHead title="Šiandien muzikos istorijoje" href="/istorija" hrefLabel="Daugiau" />
+      <div className="v2-mh"><h2>Šiandien muzikos istorijoje</h2><Link href="/istorija" className="v2-chip">Daugiau →</Link></div>
       <div className="v2-hist-grid">
         {list.map((h: any) => (
           <Link key={h.id} href={h.href} className="v2-hist-card">
@@ -297,9 +332,9 @@ function Istorija({ items }: { items: any[] }) {
   )
 }
 
-/* ─────────────────────────── PAGE ─────────────────────────── */
+/* ─────────────── PAGE ─────────────── */
 export default async function V2Page() {
-  const [music, upcomingR, newsR, eventsR, vertaR, istorijaR, communityR, topR, discR] = await Promise.all([
+  const [music, upcomingR, newsR, eventsR, vertaR, istorijaR, communityR, topR] = await Promise.all([
     getMusic(),
     getUpcomingAlbumsForHome().catch(() => ({ items: [] as any[] })),
     jget('/api/news?limit=10&include=songs&since_days=21'),
@@ -308,21 +343,17 @@ export default async function V2Page() {
     jget('/api/istorija/today'),
     jget('/api/home/community'),
     jget('/api/top/entries?type=top40'),
-    jget('/api/diskusijos/recent?limit=4'),
   ])
 
-  const upcoming: HubAlbum[] = ((upcomingR?.items ?? []) as any[]).slice(0, 6).map(toHubAlbum)
+  const upcoming: HubAlbum[] = ((upcomingR?.items ?? []) as any[]).slice(0, 8).map(toHubAlbum)
   const events: any[] = eventsR?.events ?? []
   const verta: any[] = vertaR?.concerts ?? []
   const istorija: any[] = istorijaR?.items ?? []
   const community: any[] = communityR?.items ?? []
   const top: any[] = topR?.entries ?? []
-  const discussions: any[] = discR?.items ?? []
 
   const news: any[] = newsR?.news ?? []
-  const newsSlides: Slide[] = news.filter((n) => n.image_title_url || n.image_small_url).slice(0, 6).map((n) => ({
-    href: `/naujienos/${n.slug}`, bgImg: n.image_title_url || n.image_small_url, chip: null, chipBg: 'var(--accent-orange)', title: sanitizeTitle(n.title), fresh: isFresh24(n.published_at),
-  }))
+  const newsSlides: Slide[] = news.filter((n) => n.image_title_url || n.image_small_url).slice(0, 6).map((n) => ({ href: `/naujienos/${n.slug}`, bgImg: n.image_title_url || n.image_small_url, chip: null, chipBg: 'var(--accent-orange)', title: sanitizeTitle(n.title), fresh: isFresh24(n.published_at) }))
   const eventSlides: Slide[] = events.filter((e) => e.cover_image_url || (e.event_artists || []).some((ea: any) => { const a = Array.isArray(ea.artists) ? ea.artists[0] : ea.artists; return a?.cover_image_url })).slice(0, 3).map((e) => {
     const a0 = (e.event_artists || []).map((ea: any) => Array.isArray(ea.artists) ? ea.artists[0] : ea.artists).find((a: any) => a?.cover_image_url)
     const dt = e.start_date ? new Date(e.start_date) : null
@@ -334,53 +365,46 @@ export default async function V2Page() {
   newsSlides.forEach((s, i) => { slides.push(s); if (i === 1 && eventSlides[0]) slides.push(eventSlides[0]); if (i === 3 && eventSlides[1]) slides.push(eventSlides[1]) })
   if (eventSlides[2]) slides.push(eventSlides[2])
 
+  const trackCards = (arr: HubTrack[]) => arr.slice(0, 12).map((t) => <CoverCard key={t.id} href={trackHref(t)} cover={t.cover_url} title={t.title} sub={t.artist_name} />)
+  const albumCards = (arr: HubAlbum[]) => arr.slice(0, 12).map((a) => <CoverCard key={a.id} href={albumHref(a)} cover={a.cover_image_url} title={a.title} sub={a.artist_name} />)
+
   return (
     <div className="v2-shell">
       <style>{muzikaStyles}</style>
       <style>{V2_EXTRA}</style>
 
-      <header className="v2-head">
-        <div>
-          <h1>Music.lt <span className="v2-badge">v2</span></h1>
-          <p>Alternatyvus pagrindinio puslapio variantas — su tikrais duomenimis.</p>
-        </div>
-        <Link href="/" className="v2-headlink">← Į dabartinį puslapį</Link>
-      </header>
-
       <Hero slides={slides} />
 
-      {/* SPLIT: nauja muzika (didesnė zona) + bendruomenės šoninė juosta */}
       <div className="v2-split">
         <div className="v2-main">
           <section>
-            <SectionHead title="Naujos dainos" href="/muzika" hrefLabel="Visos" />
+            <MusicHead title="Naujos dainos" browseHref="/dainos" />
             <div className="v2-msub">Lietuva</div>
-            <TrackList tracks={music.tLt} />
+            <Scroller ariaLabel="Naujos dainos LT">{trackCards(music.tLt)}</Scroller>
             <div className="v2-msub">Pasaulis</div>
-            <TrackList tracks={music.tW} />
+            <Scroller ariaLabel="Naujos dainos pasaulis">{trackCards(music.tW)}</Scroller>
           </section>
+
           <section style={{ marginTop: 'var(--page-section-gap)' }}>
-            <SectionHead title="Nauji albumai" href="/albumai" hrefLabel="Visi" />
+            <MusicHead title="Nauji albumai" browseHref="/albumai" />
             <div className="v2-msub">Lietuva</div>
-            <AlbumRow albums={music.aLt} />
+            <Scroller ariaLabel="Nauji albumai LT">{albumCards(music.aLt)}</Scroller>
             <div className="v2-msub">Pasaulis</div>
-            <AlbumRow albums={music.aW} />
+            <Scroller ariaLabel="Nauji albumai pasaulis">{albumCards(music.aW)}</Scroller>
           </section>
+
           {upcoming.length > 0 && (
             <section style={{ marginTop: 'var(--page-section-gap)' }}>
-              <SectionHead title="Greitai pasirodys" />
-              <AlbumRow albums={upcoming} />
+              <div className="v2-mh"><h2>Greitai pasirodys</h2></div>
+              <Scroller ariaLabel="Greitai pasirodys">{albumCards(upcoming)}</Scroller>
             </section>
           )}
         </div>
 
-        <CommunityRail community={community} top={top} discussions={discussions} />
+        <CommunityRail community={community} top={top} />
       </div>
 
-      {/* Koncertai — afiša kaip yra (full width) */}
       <Koncertai events={events} verta={verta} />
-
-      {/* Šiandien muzikos istorijoje (full width) */}
       <Istorija items={istorija} />
     </div>
   )
@@ -389,15 +413,28 @@ export default async function V2Page() {
 const V2_EXTRA = `
 .v2-shell{max-width:var(--page-max);margin:0 auto;padding:var(--page-pad-top) var(--page-pad-x) var(--page-pad-bottom);}
 .v2-shell a{color:inherit;text-decoration:none}
-.v2-head{display:flex;align-items:flex-end;justify-content:space-between;gap:16px;margin-bottom:20px}
-.v2-head h1{font-family:'Outfit',sans-serif;font-size:var(--page-h1-size);font-weight:var(--page-h1-weight);letter-spacing:var(--page-h1-tracking);line-height:1.05;margin:0;color:var(--text-primary)}
-.v2-badge{font-size:.5em;vertical-align:middle;background:var(--accent-orange);color:#fff;border-radius:var(--radius-pill);padding:.2em .6em;font-weight:800;letter-spacing:0}
-.v2-head p{margin:.35rem 0 0;font-size:var(--page-sub-size);color:var(--page-sub-color)}
-.v2-headlink{font-size:13px;color:var(--text-muted);white-space:nowrap}
-.v2-msub{font-family:'Outfit',sans-serif;font-weight:700;font-size:12px;text-transform:uppercase;letter-spacing:.07em;color:var(--text-faint);margin:16px 0 10px}
+
+/* sekcijos antraštė + filtrai */
+.v2-mh{display:flex;align-items:center;gap:12px;margin-bottom:4px}
+.v2-mh h2{font-family:'Outfit',sans-serif;font-weight:800;letter-spacing:-.02em;font-size:20px;line-height:1.1;color:var(--text-primary);margin:0}
+.v2-chips{margin-left:auto;display:flex;gap:6px;align-items:center}
+.v2-chip{border:1px solid var(--border-default);background:transparent;color:var(--text-secondary);border-radius:var(--radius-pill);padding:5px 12px;font-family:'Outfit',sans-serif;font-size:12.5px;font-weight:700;white-space:nowrap}
+.v2-chip.on{background:var(--text-primary);color:var(--bg-body);border-color:var(--text-primary)}
+.v2-chip:hover{border-color:rgba(249,115,22,.45)}
+.v2-msub{font-family:'Outfit',sans-serif;font-weight:700;font-size:11px;text-transform:uppercase;letter-spacing:.07em;color:var(--text-faint);margin:14px 0 9px}
+
+/* kompaktiška viršelio kortelė */
+.v2-cc{display:block;width:120px;flex:none}
+.v2-cc-img{position:relative;display:flex;align-items:center;justify-content:center;width:120px;height:120px;border-radius:12px;overflow:hidden;background:var(--bg-elevated)}
+.v2-cc-img img{width:100%;height:100%;object-fit:cover;display:block;transition:transform .4s ease}
+.v2-cc:hover .v2-cc-img img{transform:scale(1.05)}
+.v2-cc-ph{font-size:30px;color:rgba(255,255,255,.12)}
+.v2-cc-t{display:block;font-family:'Outfit',sans-serif;font-weight:700;font-size:13px;margin-top:8px;color:var(--text-primary);line-height:1.2;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.v2-cc:hover .v2-cc-t{color:var(--accent-orange)}
+.v2-cc-s{display:block;font-size:12px;color:var(--text-muted);overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
 
 /* split */
-.v2-split{display:grid;grid-template-columns:minmax(0,1.9fr) minmax(0,1fr);gap:26px;align-items:start;margin-top:var(--page-section-gap)}
+.v2-split{display:grid;grid-template-columns:minmax(0,1.9fr) minmax(0,1fr);gap:26px;align-items:start;margin-top:8px}
 .v2-main{min-width:0}
 .v2-side{display:flex;flex-direction:column;gap:16px;position:sticky;top:14px}
 .v2-cw{background:var(--card-surface);border:1px solid var(--card-border-default);border-radius:var(--radius-xl);padding:15px 16px}
@@ -416,11 +453,18 @@ const V2_EXTRA = `
 .v2-d{font-style:normal;font-weight:800;font-size:11.5px}
 .v2-d.u{color:var(--accent-green)} .v2-d.d{color:var(--accent-red)} .v2-d.n{color:var(--accent-orange)} .v2-d.z{color:var(--text-faint)}
 .v2-clink{display:inline-block;margin-top:11px;font-family:'Outfit',sans-serif;font-weight:700;font-size:12.5px;color:var(--accent-orange)}
-.v2-drow{display:block;padding:8px 0;border-bottom:1px solid var(--card-border-subtle)}
-.v2-drow:last-of-type{border-bottom:none}
-.v2-drow-t{display:block;font-family:'Outfit',sans-serif;font-weight:600;font-size:13.5px;color:var(--text-primary);line-height:1.3;display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;overflow:hidden}
-.v2-drow:hover .v2-drow-t{color:var(--accent-orange)}
-.v2-drow-m{display:block;font-size:11.5px;color:var(--text-muted);margin-top:2px}
+
+/* bendruomenės highlight eilutė (su viršeliu + autoriumi) */
+.v2-hl{display:flex;gap:11px;padding:9px 0;border-bottom:1px solid var(--card-border-subtle)}
+.v2-hl:last-of-type{border-bottom:none}
+.v2-hl-cov{width:48px;height:48px;border-radius:8px;overflow:hidden;background:var(--bg-elevated);flex:none;display:flex;align-items:center;justify-content:center}
+.v2-hl-cov img{width:100%;height:100%;object-fit:cover;display:block}
+.v2-hl-ph{font-size:18px;color:rgba(255,255,255,.15)}
+.v2-hl-txt{min-width:0;display:flex;flex-direction:column}
+.v2-hl-kind{font-size:10px;font-weight:800;letter-spacing:.05em;text-transform:uppercase;color:var(--text-faint)}
+.v2-hl-txt b{font-family:'Outfit',sans-serif;font-weight:700;font-size:13px;color:var(--text-primary);line-height:1.3;margin-top:1px;display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;overflow:hidden}
+.v2-hl:hover .v2-hl-txt b{color:var(--accent-orange)}
+.v2-hl-author{font-size:11.5px;color:var(--text-muted);margin-top:2px}
 
 /* istorija */
 .v2-hist-grid{display:grid;grid-template-columns:repeat(6,1fr);gap:14px}
