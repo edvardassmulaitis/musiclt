@@ -114,11 +114,11 @@ function TrackCard({ t }: { t: TrackItem }) {
     </Link>
   )
 }
-/* Šalies juosta iš kairės (taupo vietą vietoj LT/Pasaulis antraščių). */
-function FlagLane({ flag, ariaLabel, children }: { flag: string; ariaLabel: string; children: React.ReactNode }) {
+/* Šalies juostelė iš kairės — siaura spalvų juosta (ne ikona). */
+function FlagLane({ variant, ariaLabel, children }: { variant: 'lt' | 'world' | 'soon'; ariaLabel: string; children: React.ReactNode }) {
   return (
     <div className="v2-lane">
-      <span className="v2-flag" title={ariaLabel}>{flag}</span>
+      <span className={`v2-flagbar ${variant}`} title={ariaLabel} aria-label={ariaLabel} />
       <div className="v2-lane-s"><Scroller ariaLabel={ariaLabel}>{children}</Scroller></div>
     </div>
   )
@@ -178,21 +178,35 @@ function kindLabel(it: any): string {
     default: return 'Bendruomenė'
   }
 }
-function CommunityRail({ community, top }: { community: any[]; top: any[] }) {
+function CommunityRail({ community, top, gilyn }: { community: any[]; top: any[]; gilyn: any[] }) {
   const dd = community.find((c) => c.type === 'dd')
-  const ddCands: any[] = (dd?.candidates || []).slice(0, 4)
+  const cands: any[] = [...(dd?.candidates || [])].sort((a, b) => (a.rank ?? 99) - (b.rank ?? 99))
+  const leader = cands[0]
+  const others = cands.slice(1, 4)
   const movers = (top || []).slice(0, 5)
   const highlights = community.filter((c) => c.type !== 'dd').slice(0, 1)
+  const gLead = gilyn[0]
 
   return (
     <aside className="v2-side">
-      {ddCands.length > 0 && (
+      {leader && (
         <div className="v2-cw">
           <div className="v2-ch"><span className="v2-ch-bar" style={{ background: 'var(--accent-orange)' }} />Dienos daina</div>
-          <div className="v2-csub">{dd?.subtype === 'yesterday_winner' ? 'Vakar laimėjo' : 'Šiandien pirmauja'}</div>
-          {ddCands.map((c: any, i: number) => (
+          <div className="v2-dd-lead">
+            <span className="v2-dd-cov">{leader.cover
+              // eslint-disable-next-line @next/next/no-img-element
+              ? <img src={proxyImgResized(leader.cover, 200)} alt="" loading="lazy" /> : null}
+              <span className="v2-dd-badge">#1</span></span>
+            <span className="v2-dd-info">
+              <span className="v2-dd-tag">{dd?.subtype === 'yesterday_winner' ? 'Vakar laimėjo' : 'Šiandien pirmauja'}</span>
+              <b>{leader.title}</b>
+              <span className="v2-dd-art">{leader.artist}</span>
+              {typeof leader.votes === 'number' && <span className="v2-dd-votes">{leader.votes} ★ balsų</span>}
+            </span>
+          </div>
+          {others.map((c: any, i: number) => (
             <div key={i} className="v2-row">
-              <span className="v2-row-rank">{c.rank ?? i + 1}</span>
+              <span className="v2-row-rank">{c.rank ?? i + 2}</span>
               <span className="v2-row-cov">{c.cover
                 // eslint-disable-next-line @next/next/no-img-element
                 ? <img src={proxyImgResized(c.cover, 72)} alt="" loading="lazy" /> : null}</span>
@@ -230,27 +244,40 @@ function CommunityRail({ community, top }: { community: any[]; top: any[] }) {
         <div className="v2-cw">
           <div className="v2-ch"><span className="v2-ch-bar" style={{ background: 'var(--accent-blue)' }} />Bendruomenėje</div>
           {highlights.map((h: any) => (
-            <Link key={h.id} href={h.href || '/bendruomene'} className="v2-hl">
-              <span className="v2-hl-cov">{h.cover
-                // eslint-disable-next-line @next/next/no-img-element
-                ? <img src={proxyImgResized(h.cover, 96)} alt="" loading="lazy" /> : <span className="v2-hl-ph">♪</span>}</span>
-              <span className="v2-hl-txt">
-                <span className="v2-hl-kind">{kindLabel(h)}</span>
-                <b>{sanitizeTitle(h.title)}</b>
-                {h.author_name ? <span className="v2-hl-author">{h.author_name}</span> : null}
-              </span>
+            <Link key={h.id} href={h.href || '/bendruomene'} className="v2-feat">
+              {h.cover && <span className="v2-feat-cov">{/* eslint-disable-next-line @next/next/no-img-element */}<img src={proxyImgResized(h.cover, 480)} alt="" loading="lazy" /></span>}
+              <span className="v2-feat-kind">{kindLabel(h)}</span>
+              <b className="v2-feat-title">{sanitizeTitle(h.title)}</b>
+              {h.excerpt && <span className="v2-feat-ex">{sanitizeTitle(h.excerpt)}</span>}
+              {h.author_name && <span className="v2-feat-author">{h.author_avatar && <>{/* eslint-disable-next-line @next/next/no-img-element */}<img className="v2-feat-av" src={proxyImgResized(h.author_avatar, 48)} alt="" loading="lazy" /></>}{h.author_name}</span>}
             </Link>
           ))}
-          <Link href="/bendruomene" className="v2-clink">Į bendruomenę →</Link>
+          <Link href="/bendruomene" className="v2-clink">Daugiau bendruomenėje →</Link>
         </div>
       )}
 
-      {/* Gilyn — atradimų žaidimo intro (startas iš homepage) */}
-      <Link href="/zaidimai/gilyn" className="v2-cw v2-gilyn">
-        <div className="v2-ch"><span className="v2-ch-bar" style={{ background: 'var(--accent-blue)' }} />🗺️ Gilyn</div>
-        <div className="v2-gilyn-txt">Muzikos atradimų žaidimas — <b>20 albumų kasdien</b>. Kiek atspėsi negirdėtų?</div>
-        <span className="v2-gilyn-cta">Pradėti →</span>
-      </Link>
+      {/* Gilyn — pirmas albumas + naršymas (iškart prieinama) */}
+      {gLead ? (
+        <div className="v2-cw v2-gilyn">
+          <div className="v2-ch"><span className="v2-ch-bar" style={{ background: 'var(--accent-blue)' }} />Gilyn · atradimų žaidimas</div>
+          <Link href="/zaidimai/gilyn" className="v2-gilyn-lead">
+            <span className="v2-gilyn-cov">{/* eslint-disable-next-line @next/next/no-img-element */}<img src={proxyImgResized(gLead.cover, 240)} alt="" loading="lazy" /></span>
+            <span className="v2-gilyn-info"><span className="v2-dd-tag">1 / 20 · šiandienos dėžė</span><b>{gLead.title}</b><span className="v2-dd-art">{gLead.artist}</span></span>
+          </Link>
+          <div className="v2-gilyn-strip">
+            {gilyn.slice(0, 12).map((g: any, i: number) => (
+              <Link key={i} href="/zaidimai/gilyn" className="v2-gilyn-th" title={`${g.title} — ${g.artist}`}>{/* eslint-disable-next-line @next/next/no-img-element */}<img src={proxyImgResized(g.cover, 120)} alt="" loading="lazy" /></Link>
+            ))}
+          </div>
+          <Link href="/zaidimai/gilyn" className="v2-gilyn-cta">Naršyk 20 albumų · pradėti →</Link>
+        </div>
+      ) : (
+        <Link href="/zaidimai/gilyn" className="v2-cw v2-gilyn">
+          <div className="v2-ch"><span className="v2-ch-bar" style={{ background: 'var(--accent-blue)' }} />🗺️ Gilyn</div>
+          <div className="v2-gilyn-txt">Muzikos atradimų žaidimas — <b>20 albumų kasdien</b>.</div>
+          <span className="v2-gilyn-cta">Pradėti →</span>
+        </Link>
+      )}
     </aside>
   )
 }
@@ -393,12 +420,12 @@ function Istorija({ items }: { items: any[] }) {
 
 /* ─────────────── Žaidimų zona + aktyviausi nariai ─────────────── */
 const GAMES = [
-  { href: '/zaidimai/dienos-issukis', emoji: '🎯', title: 'Dienos iššūkis', sub: 'Kasdienė viktorina · ×2 taškai' },
-  { href: '/zaidimai/gilyn', emoji: '🗺️', title: 'Gilyn', sub: '20 albumų atradimų žaidimas' },
-  { href: '/zaidimai/vadybininkas', emoji: '📈', title: 'Vadybininkas', sub: 'Fantasy — sudaryk komandą' },
-  { href: '/zaidimai/koncertas', emoji: '🎤', title: 'Koncertas', sub: 'Atspėk iš pasirodymo' },
-  { href: '/zaidimai/gaudykle', emoji: '🕹️', title: 'Gaudyklė', sub: 'Refleksų žaidimas' },
-  { href: '/zaidimai', emoji: '🎮', title: 'Visi žaidimai', sub: 'Daugiau →' },
+  { href: '/zaidimai/dienos-issukis', emoji: '🎯', title: 'Dienos iššūkis', sub: 'Kasdienė viktorina · ×2 taškai', grad: 'linear-gradient(135deg,#fb923c,#c2410c)' },
+  { href: '/zaidimai/gilyn', emoji: '🗺️', title: 'Gilyn', sub: '20 albumų atradimų žaidimas', grad: 'linear-gradient(135deg,#60a5fa,#1e40af)' },
+  { href: '/zaidimai/vadybininkas', emoji: '📈', title: 'Vadybininkas', sub: 'Fantasy — sudaryk komandą', grad: 'linear-gradient(135deg,#4ade80,#15803d)' },
+  { href: '/zaidimai/koncertas', emoji: '🎤', title: 'Koncertas', sub: 'Atspėk iš pasirodymo', grad: 'linear-gradient(135deg,#c084fc,#6d28d9)' },
+  { href: '/zaidimai/gaudykle', emoji: '🕹️', title: 'Gaudyklė', sub: 'Refleksų žaidimas', grad: 'linear-gradient(135deg,#f472b6,#be185d)' },
+  { href: '/zaidimai', emoji: '🎮', title: 'Visi žaidimai', sub: 'Daugiau →', grad: 'linear-gradient(135deg,#94a3b8,#334155)' },
 ]
 function GamesZone({ members }: { members: any[] }) {
   const top = (members || []).slice(0, 6)
@@ -409,7 +436,7 @@ function GamesZone({ members }: { members: any[] }) {
         <div className="v2-games-grid">
           {GAMES.map((g) => (
             <Link key={g.href} href={g.href} className="v2-game">
-              <span className="v2-game-emoji">{g.emoji}</span>
+              <span className="v2-game-emoji" style={{ background: g.grad }}>{g.emoji}</span>
               <span className="v2-game-txt"><b>{g.title}</b><span>{g.sub}</span></span>
             </Link>
           ))}
@@ -439,7 +466,7 @@ function GamesZone({ members }: { members: any[] }) {
 
 /* ─────────────── PAGE ─────────────── */
 export default async function V2Page() {
-  const [music, upcomingR, newsR, eventsR, vertaR, istorijaR, communityR, topR, membersR] = await Promise.all([
+  const [music, upcomingR, newsR, eventsR, vertaR, istorijaR, communityR, topR, membersR, gilynR] = await Promise.all([
     getMusic(),
     getUpcomingAlbumsForHome().catch(() => ({ items: [] as any[] })),
     jget('/api/news?limit=10&include=songs&since_days=21'),
@@ -449,10 +476,13 @@ export default async function V2Page() {
     jget('/api/home/community'),
     jget('/api/top/entries?type=top40'),
     jget('/api/atradimai/active-members'),
+    jget('/api/zaidimai/gilyn'),
   ])
   const members: any[] = membersR?.members ?? []
+  const gilynBox: any[] = gilynR?.box ?? []
 
-  const upcoming: HubAlbum[] = ((upcomingR?.items ?? []) as any[]).slice(0, 8).map(toHubAlbum)
+  const upcomingRaw: any[] = (upcomingR?.items ?? []) as any[]
+  const upcomingPhotos: string[] = upcomingRaw.map((a) => a.cover_image_url || a.artists?.cover_image_url).filter(Boolean).slice(0, 6)
   const events: any[] = eventsR?.events ?? []
   const verta: any[] = vertaR?.concerts ?? []
   const istorija: any[] = istorijaR?.items ?? []
@@ -486,25 +516,37 @@ export default async function V2Page() {
         <div className="v2-main">
           <section>
             <MusicHead title="Naujos dainos" browseHref="/dainos" />
-            <FlagLane flag="🇱🇹" ariaLabel="Lietuva">{trackCards(music.tLt)}</FlagLane>
-            <FlagLane flag="🌍" ariaLabel="Pasaulis">{trackCards(music.tW)}</FlagLane>
+            <FlagLane variant="lt" ariaLabel="Lietuva">{trackCards(music.tLt)}</FlagLane>
+            <FlagLane variant="world" ariaLabel="Pasaulis">{trackCards(music.tW)}</FlagLane>
           </section>
 
           <section style={{ marginTop: 'var(--page-section-gap)' }}>
             <MusicHead title="Nauji albumai" browseHref="/albumai" />
-            <FlagLane flag="🇱🇹" ariaLabel="Lietuva">{albumCards(music.aLt)}</FlagLane>
-            <FlagLane flag="🌍" ariaLabel="Pasaulis">{albumCards(music.aW)}</FlagLane>
+            <FlagLane variant="lt" ariaLabel="Lietuva">{albumCards(music.aLt)}</FlagLane>
+            <FlagLane variant="world" ariaLabel="Pasaulis">{albumCards(music.aW)}</FlagLane>
           </section>
 
-          {upcoming.length > 0 && (
+          {upcomingRaw.length > 0 && (
             <section style={{ marginTop: 'var(--page-section-gap)' }}>
-              <div className="v2-mh"><h2>Greitai pasirodys</h2></div>
-              <div className="v2-lane"><span className="v2-flag">🔜</span><div className="v2-lane-s"><Scroller ariaLabel="Greitai pasirodys">{albumCards(upcoming)}</Scroller></div></div>
+              <div className="v2-mh"><h2>Greitai pasirodys</h2><Link href="/albumai" className="v2-chip">Visi →</Link></div>
+              <Link href="/albumai" className="v2-upc">
+                {upcomingPhotos.length > 0 && (
+                  <span className="v2-upc-grid">
+                    {upcomingPhotos.map((p, i) => <span key={i} className="v2-upc-cell" style={{ backgroundImage: `url(${proxyImgResized(p, 200)})` }} />)}
+                  </span>
+                )}
+                <span className="v2-upc-list">
+                  {upcomingRaw.slice(0, 5).map((a, i) => (
+                    <span key={i} className="v2-upc-row"><b>{a.title}</b><span>{a.artists?.name || ''}</span></span>
+                  ))}
+                  {upcomingRaw.length > 5 && <span className="v2-upc-more">+{upcomingRaw.length - 5} daugiau →</span>}
+                </span>
+              </Link>
             </section>
           )}
         </div>
 
-        <CommunityRail community={community} top={top} />
+        <CommunityRail community={community} top={top} gilyn={gilynBox} />
       </div>
 
       <Koncertai events={events} verta={verta} />
@@ -515,16 +557,18 @@ export default async function V2Page() {
 }
 
 const V2_EXTRA = `
-.v2-shell{max-width:var(--page-max);margin:0 auto;padding:var(--page-pad-top) var(--page-pad-x) var(--page-pad-bottom);}
+.v2-shell{max-width:var(--page-max);margin:0 auto;padding:var(--page-pad-top) var(--page-pad-x) var(--page-pad-bottom);overflow-x:clip}
 .v2-shell a{color:inherit;text-decoration:none}
 
 /* sekcijos antraštė + filtrai */
-.v2-mh{display:flex;align-items:center;gap:12px;margin-bottom:4px}
+.v2-mh{display:flex;align-items:center;gap:12px 14px;margin-bottom:4px;flex-wrap:wrap}
 .v2-mh h2{font-family:'Outfit',sans-serif;font-weight:800;letter-spacing:-.02em;font-size:20px;line-height:1.1;color:var(--text-primary);margin:0}
-.v2-chips{margin-left:auto;display:flex;gap:6px;align-items:center}
-.v2-chip{border:1px solid var(--border-default);background:transparent;color:var(--text-secondary);border-radius:var(--radius-pill);padding:5px 12px;font-family:'Outfit',sans-serif;font-size:12.5px;font-weight:700;white-space:nowrap}
+.v2-chips{margin-left:auto;display:flex;gap:6px;align-items:center;max-width:100%;overflow-x:auto;scrollbar-width:none;-webkit-overflow-scrolling:touch}
+.v2-chips::-webkit-scrollbar{display:none}
+.v2-chip{border:1px solid var(--border-default);background:transparent;color:var(--text-secondary);border-radius:var(--radius-pill);padding:5px 12px;font-family:'Outfit',sans-serif;font-size:12.5px;font-weight:700;white-space:nowrap;flex:none}
 .v2-chip.on{background:var(--text-primary);color:var(--bg-body);border-color:var(--text-primary)}
 .v2-chip:hover{border-color:rgba(249,115,22,.45)}
+@media(max-width:560px){.v2-mh{gap:8px}.v2-mh h2{flex:1 0 100%}.v2-chips{margin-left:0;width:100%}}
 .v2-msub{font-family:'Outfit',sans-serif;font-weight:700;font-size:11px;text-transform:uppercase;letter-spacing:.07em;color:var(--text-faint);margin:14px 0 9px}
 
 /* albumo (kvadratas) + dainos (16:9) kortelės — kompaktiškos, responsive */
@@ -539,9 +583,12 @@ const V2_EXTRA = `
 .v2-cc:hover .v2-cc-t,.v2-tc:hover .v2-cc-t{color:var(--accent-orange)}
 .v2-cc-s{display:block;font-size:11.5px;color:var(--text-muted);overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
 
-/* šalies juosta iš kairės */
-.v2-lane{display:flex;align-items:stretch;gap:10px;margin-top:12px}
-.v2-flag{flex:none;width:30px;display:flex;align-items:center;justify-content:center;font-size:17px;border-radius:9px;background:var(--bg-hover);align-self:stretch}
+/* šalies juostelė iš kairės — siaura spalvų juosta */
+.v2-lane{display:flex;align-items:stretch;gap:11px;margin-top:12px}
+.v2-flagbar{flex:none;width:6px;border-radius:3px;align-self:stretch;min-height:60px}
+.v2-flagbar.lt{background:linear-gradient(to bottom,#FDB913 0 33.3%,#006A44 33.3% 66.6%,#C1272D 66.6% 100%)}
+.v2-flagbar.world{background:linear-gradient(to bottom,#3b5b8c,#6b7280)}
+.v2-flagbar.soon{background:var(--accent-orange)}
 .v2-lane-s{flex:1;min-width:0}
 
 /* istorijos tipo žymė ant viršelio */
@@ -591,7 +638,7 @@ const V2_EXTRA = `
 .v2-games-grid{display:grid;grid-template-columns:repeat(3,1fr);gap:12px}
 .v2-game{display:flex;align-items:center;gap:11px;padding:13px 14px;border-radius:var(--radius-xl);border:1px solid var(--card-border-default);background:var(--card-surface);transition:border-color .15s,transform .15s}
 .v2-game:hover{border-color:rgba(249,115,22,.45);transform:translateY(-2px)}
-.v2-game-emoji{font-size:24px;flex:none}
+.v2-game-emoji{flex:none;width:42px;height:42px;border-radius:11px;display:flex;align-items:center;justify-content:center;font-size:21px;box-shadow:0 3px 10px rgba(0,0,0,.18)}
 .v2-game-txt{min-width:0;display:flex;flex-direction:column}
 .v2-game-txt b{font-family:'Outfit',sans-serif;font-weight:700;font-size:14px;color:var(--text-primary)}
 .v2-game-txt span{font-size:12px;color:var(--text-muted);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
@@ -604,6 +651,50 @@ const V2_EXTRA = `
 .v2-mem-txt b{font-family:'Outfit',sans-serif;font-weight:700;font-size:13.5px;color:var(--text-primary);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
 .v2-mem-txt span{font-size:11.5px;color:var(--text-muted);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
 .v2-mem-pts{flex:none;font-family:'Outfit',sans-serif;font-weight:800;font-size:12.5px;color:var(--accent-orange)}
+
+/* dienos daina lyderis (didesnis) */
+.v2-dd-lead{display:flex;gap:12px;margin:11px 0 6px;align-items:center}
+.v2-dd-cov{position:relative;width:78px;height:78px;border-radius:11px;overflow:hidden;flex:none;background:var(--bg-elevated)}
+.v2-dd-cov img{width:100%;height:100%;object-fit:cover;display:block}
+.v2-dd-badge{position:absolute;top:5px;left:5px;background:var(--accent-orange);color:#fff;font-family:'Outfit',sans-serif;font-weight:800;font-size:12px;border-radius:6px;padding:1px 6px;box-shadow:0 2px 6px rgba(0,0,0,.3)}
+.v2-dd-info{min-width:0;display:flex;flex-direction:column}
+.v2-dd-tag{font-size:10px;font-weight:800;letter-spacing:.05em;text-transform:uppercase;color:var(--accent-orange)}
+.v2-dd-info b{font-family:'Outfit',sans-serif;font-weight:800;font-size:16px;color:var(--text-primary);line-height:1.15;margin-top:2px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.v2-dd-art{font-size:12.5px;color:var(--text-muted);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.v2-dd-votes{font-size:11.5px;color:var(--text-secondary);font-weight:700;margin-top:3px}
+
+/* bendruomenės featured — daugiau turinio */
+.v2-feat{display:block;padding-bottom:2px}
+.v2-feat-cov{display:block;width:100%;aspect-ratio:16/9;border-radius:10px;overflow:hidden;background:var(--bg-elevated);margin:10px 0 9px}
+.v2-feat-cov img{width:100%;height:100%;object-fit:cover;display:block}
+.v2-feat-kind{font-size:10px;font-weight:800;letter-spacing:.05em;text-transform:uppercase;color:var(--text-faint)}
+.v2-feat-title{display:block;font-family:'Outfit',sans-serif;font-weight:700;font-size:14.5px;color:var(--text-primary);line-height:1.3;margin-top:3px}
+.v2-feat:hover .v2-feat-title{color:var(--accent-orange)}
+.v2-feat-ex{display:-webkit-box;-webkit-line-clamp:3;-webkit-box-orient:vertical;overflow:hidden;font-size:12.5px;color:var(--text-muted);line-height:1.45;margin-top:5px}
+.v2-feat-author{display:flex;align-items:center;gap:6px;font-size:12px;color:var(--text-secondary);font-weight:600;margin-top:9px}
+.v2-feat-av{width:20px;height:20px;border-radius:50%;object-fit:cover}
+
+/* gilyn — pirmas albumas + juostelė */
+.v2-gilyn-lead{display:flex;gap:12px;align-items:center;margin:11px 0 10px}
+.v2-gilyn-cov{width:66px;height:66px;border-radius:10px;overflow:hidden;flex:none;background:var(--bg-elevated)}
+.v2-gilyn-cov img{width:100%;height:100%;object-fit:cover;display:block}
+.v2-gilyn-info{min-width:0;display:flex;flex-direction:column}
+.v2-gilyn-info b{font-family:'Outfit',sans-serif;font-weight:800;font-size:15px;color:var(--text-primary);line-height:1.15;margin-top:2px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.v2-gilyn-strip{display:flex;gap:6px;overflow-x:auto;scrollbar-width:none;padding-bottom:2px;margin-bottom:10px}
+.v2-gilyn-strip::-webkit-scrollbar{display:none}
+.v2-gilyn-th{flex:none;width:40px;height:40px;border-radius:7px;overflow:hidden;background:var(--bg-elevated)}
+.v2-gilyn-th img{width:100%;height:100%;object-fit:cover;display:block}
+
+/* greitai pasirodys — collage */
+.v2-upc{display:flex;gap:16px;align-items:stretch;margin-top:12px;background:var(--card-surface);border:1px solid var(--card-border-default);border-radius:var(--radius-xl);padding:14px}
+.v2-upc-grid{flex:none;width:174px;display:grid;grid-template-columns:repeat(3,1fr);grid-template-rows:repeat(2,1fr);gap:4px}
+.v2-upc-cell{background-size:cover;background-position:center;aspect-ratio:1;border-radius:6px;background-color:var(--bg-elevated)}
+.v2-upc-list{flex:1;min-width:0;display:flex;flex-direction:column;justify-content:center;gap:7px}
+.v2-upc-row{display:flex;flex-direction:column;min-width:0}
+.v2-upc-row b{font-family:'Outfit',sans-serif;font-weight:700;font-size:13.5px;color:var(--text-primary);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.v2-upc-row span{font-size:12px;color:var(--text-muted);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.v2-upc-more{font-family:'Outfit',sans-serif;font-weight:700;font-size:12.5px;color:var(--accent-orange);margin-top:2px}
+@media(max-width:560px){.v2-upc-grid{width:114px}}
 
 /* istorija */
 .v2-hist-grid{display:grid;grid-template-columns:repeat(6,1fr);gap:14px}
