@@ -215,7 +215,7 @@ export async function runYtDiscovery(opts: RunOpts): Promise<RunResult> {
       // Dedupe
       const { data: existing } = await sb
         .from('yt_discovery_candidates')
-        .select('id, status, views_first, views_first_at, artist_raw')
+        .select('id, status, views_first, views_first_at, artist_raw, title_raw')
         .eq('fingerprint', fingerprint)
         .maybeSingle()
 
@@ -249,6 +249,20 @@ export async function runYtDiscovery(opts: RunOpts): Promise<RunResult> {
             if (tr && (tr as any[]).length) {
               await sb.from('yt_discovery_candidates').update({
                 status: 'duplicate', published_track_id: (tr as any[])[0].id, rescanned_at: nowIso,
+              }).eq('id', (existing as any).id)
+              skippedExisting++
+              continue
+            }
+          }
+          // Retro-clean #2: katalogo re-check pagal ATLIKĖJĄ+PAVADINIMĄ (ne tik
+          // video-id) — pagauna dainas, pridėtas į katalogą PO discovery įrašo, net
+          // jei skiriasi kabutė („That's" vs „That's") ar „feat." (normalizeForMatch
+          // atsparus). Video-id patikra to nepagauna (kitas video URL kataloge).
+          if (!opts.dryRun && (existing as any).artist_raw && (existing as any).title_raw) {
+            const cm = await findConfidentMatch(sb, (existing as any).artist_raw, stripFeatFromTitle((existing as any).title_raw), { fuzzy: true }).catch(() => null)
+            if (cm) {
+              await sb.from('yt_discovery_candidates').update({
+                status: 'duplicate', published_track_id: cm.trackId, rescanned_at: nowIso,
               }).eq('id', (existing as any).id)
               skippedExisting++
               continue
