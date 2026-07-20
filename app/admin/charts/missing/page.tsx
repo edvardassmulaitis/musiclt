@@ -7,7 +7,30 @@ import { openAdminQuickAdd } from '@/components/AdminQuickAddModal'
 /* /admin/charts/missing — agreguotos trūkstamos (nesusietos) dainos per visus
  * dainų topus. Sutvarkius vieną kartą, daina susidėlioja į VISUS topus. */
 
-type Missing = { artist: string; title: string; chartCount: number; charts: string[]; videoId?: string | null; artistId?: number | null; artistScore?: number | null; artistSlug?: string | null }
+type Missing = { artist: string; title: string; chartCount: number; charts: string[]; videoId?: string | null; artistId?: number | null; artistScore?: number | null; artistSlug?: string | null; views?: number | null; velocity?: number | null; publishedAt?: string | null }
+
+/* YouTube discovery vertės matai — kad būtų galima įsivertinti ar verta pridėti. */
+function fmtViews(n?: number | null): string | null {
+  if (n == null) return null
+  if (n >= 1e6) return (n / 1e6).toFixed(n >= 1e7 ? 0 : 1) + 'M'
+  if (n >= 1e3) return (n / 1e3).toFixed(n >= 1e4 ? 0 : 1) + 'k'
+  return String(n)
+}
+function fmtVel(v?: number | null): string | null {
+  if (v == null) return null
+  if (v >= 1000) return (v / 1000).toFixed(1) + 'k/val'
+  if (v >= 1) return Math.round(v) + '/val'
+  return v.toFixed(1) + '/val'
+}
+function fmtAge(iso?: string | null): string | null {
+  if (!iso) return null
+  const d = Date.parse(iso); if (!Number.isFinite(d)) return null
+  const days = Math.floor((Date.now() - d) / 86400000)
+  if (days < 1) return 'šiandien'
+  if (days < 30) return `prieš ${days} d.`
+  if (days < 365) return `prieš ${Math.floor(days / 30)} mėn.`
+  return `prieš ${Math.floor(days / 365)} m.`
+}
 type Hit = { type: string; id: number; slug: string; title: string; artist: string | null; image_url: string | null }
 
 /* Supaprastina netvarkingą topo atlikėjo kreditą iki PIRMO atlikėjo paieškai
@@ -278,6 +301,22 @@ function MissingRow({ m, onDone, autoSuggest }: { m: Missing; onDone: () => void
             {hasArtist && <span className="ml-1 rounded bg-orange-100 px-1.5 py-0.5 text-[11px] font-bold text-orange-700" title="Atlikėjas jau kataloge · populiarumo score">🔥 {score ?? '—'}</span>}
             <span className="text-gray-300"> · {m.charts.join(', ')}</span>
           </p>
+
+          {/* YouTube populiarumo matai — kad būtų galima įsivertinti ar verta pridėti.
+              velocity (views/val) = palyginamas „karštumo" matas tarp dainų. */}
+          {(m.views != null || m.velocity != null || m.publishedAt) && (
+            <div className="mt-1 flex flex-wrap items-center gap-1.5 text-[11px]">
+              {m.velocity != null && (
+                <span className="rounded bg-rose-50 px-1.5 py-0.5 font-semibold text-rose-700" title="Peržiūros per valandą (palyginamas karštumo matas)">⚡ {fmtVel(m.velocity)}</span>
+              )}
+              {m.views != null && (
+                <span className="rounded bg-gray-100 px-1.5 py-0.5 font-medium text-gray-600" title="Viso peržiūrų">👁 {fmtViews(m.views)}</span>
+              )}
+              {m.publishedAt && (
+                <span className="text-gray-400" title={new Date(m.publishedAt).toLocaleDateString('lt-LT')}>{fmtAge(m.publishedAt)}</span>
+              )}
+            </div>
+          )}
 
           {/* Veiksmai — atskira eilutė, wrap'inasi mobile'e */}
           <div className="mt-2 flex flex-wrap items-center gap-1.5">

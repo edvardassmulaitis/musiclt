@@ -74,6 +74,33 @@ async function fetchPlaylistItemsData(feedUrlOrId: string, maxPages = 6): Promis
     if (!data.nextPageToken) break
     pageToken = data.nextPageToken
   }
+
+  // Views — playlistItems jų NEturi. Papildomas videos.list?part=statistics
+  // (50 id/kvietimas, 1 quota unit) → viewCount kiekvienam, kad galėtume rodyti
+  // populiarumo matą (views + views/val velocity) sprendimui „ar verta pridėti".
+  try {
+    const ids = out.map(o => o.guid).filter(Boolean) as string[]
+    const views = await fetchVideoViews(ids, key)
+    for (const o of out) { const v = o.guid ? views.get(o.guid) : undefined; if (typeof v === 'number') o.views = v }
+  } catch { /* stats best-effort — be jų vis tiek turim kandidatus */ }
+
+  return out
+}
+
+/** viewCount kiekvienam video ID per videos.list (batch po 50). */
+async function fetchVideoViews(ids: string[], key: string): Promise<Map<string, number>> {
+  const out = new Map<string, number>()
+  for (let i = 0; i < ids.length; i += 50) {
+    const batch = ids.slice(i, i + 50)
+    const api = `https://www.googleapis.com/youtube/v3/videos?part=statistics&id=${batch.join(',')}&key=${key}`
+    const r = await fetch(api, { signal: AbortSignal.timeout(10000) })
+    if (!r.ok) break
+    const data = await r.json()
+    for (const it of (data.items || [])) {
+      const vc = it?.statistics?.viewCount
+      if (it?.id && vc != null) out.set(it.id, Number(vc))
+    }
+  }
   return out
 }
 
@@ -241,6 +268,10 @@ export async function runYtDiscovery(opts: RunOpts): Promise<RunResult> {
             }
             if (!opts.dryRun) {
               await sb.from('yt_discovery_candidates').update({
+                // Seni įrašai turėjo views_first=null — įrašom dabar, kad kitas
+                // scan skaičiuotų TIKRĄ delta velocity (ne lifetime vidurkį).
+                views_first: vFirst == null ? item.views : vFirst,
+                views_first_at: vFirstAt == null ? nowIso : vFirstAt,
                 views_last: item.views,
                 views_last_at: nowIso,
                 velocity_vph: vph,

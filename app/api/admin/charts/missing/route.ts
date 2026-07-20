@@ -41,13 +41,13 @@ export async function GET() {
     from += 1000
   }
 
-  type MItem = { artist: string; title: string; charts: Set<string>; videoId: string | null; artistId: number | null; artistScore: number | null; artistSlug: string | null }
+  type MItem = { artist: string; title: string; charts: Set<string>; videoId: string | null; artistId: number | null; artistScore: number | null; artistSlug: string | null; views: number | null; velocity: number | null; publishedAt: string | null }
   const map = new Map<string, MItem>()
   for (const e of rows) {
     const key = normalizeForMatch(primaryArtist(e.artist_name)) + '|' + normalizeForMatch(e.title)
     if (!key.replace(/\|/g, '').trim()) continue
     let m = map.get(key)
-    if (!m) { m = { artist: e.artist_name, title: e.title, charts: new Set(), videoId: null, artistId: null, artistScore: null, artistSlug: null }; map.set(key, m) }
+    if (!m) { m = { artist: e.artist_name, title: e.title, charts: new Set(), videoId: null, artistId: null, artistScore: null, artistSlug: null, views: null, velocity: null, publishedAt: null }; map.set(key, m) }
     m.charts.add(titleById.get(e.chart_id) || String(e.chart_id))
   }
 
@@ -57,7 +57,7 @@ export async function GET() {
   try {
     const { data: disc } = await sb
       .from('yt_discovery_candidates')
-      .select('artist_raw, title_raw, video_id, scope, matched_artist_id, artists:matched_artist_id(id, score, slug)')
+      .select('artist_raw, title_raw, video_id, scope, matched_artist_id, views_last, velocity_vph, published_at, artists:matched_artist_id(id, score, slug)')
       .eq('status', 'pending')
       .order('created_at', { ascending: false })
       .limit(400)
@@ -72,17 +72,20 @@ export async function GET() {
       if (!key.replace(/\|/g, '').trim()) continue
       const aInfo = Array.isArray(d.artists) ? d.artists[0] : d.artists
       let m = map.get(key)
-      if (!m) { m = { artist, title, charts: new Set(), videoId: d.video_id || null, artistId: d.matched_artist_id ?? null, artistScore: aInfo?.score ?? null, artistSlug: aInfo?.slug ?? null }; map.set(key, m) }
+      if (!m) { m = { artist, title, charts: new Set(), videoId: d.video_id || null, artistId: d.matched_artist_id ?? null, artistScore: aInfo?.score ?? null, artistSlug: aInfo?.slug ?? null, views: d.views_last ?? null, velocity: d.velocity_vph ?? null, publishedAt: d.published_at ?? null }; map.set(key, m) }
       else {
         if (!m.videoId && d.video_id) m.videoId = d.video_id
         if (m.artistId == null && d.matched_artist_id) { m.artistId = d.matched_artist_id; m.artistScore = aInfo?.score ?? null; m.artistSlug = aInfo?.slug ?? null }
+        if (m.views == null && d.views_last != null) m.views = d.views_last
+        if (m.velocity == null && d.velocity_vph != null) m.velocity = d.velocity_vph
+        if (!m.publishedAt && d.published_at) m.publishedAt = d.published_at
       }
       m.charts.add('YouTube')
     }
   } catch { /* lentelės gali nebūti — praleidžiam */ }
 
   const missing = Array.from(map.values())
-    .map(m => ({ artist: m.artist, title: m.title, chartCount: m.charts.size, charts: Array.from(m.charts).slice(0, 8), videoId: m.videoId, artistId: m.artistId, artistScore: m.artistScore, artistSlug: m.artistSlug }))
+    .map(m => ({ artist: m.artist, title: m.title, chartCount: m.charts.size, charts: Array.from(m.charts).slice(0, 8), videoId: m.videoId, artistId: m.artistId, artistScore: m.artistScore, artistSlug: m.artistSlug, views: m.views, velocity: m.velocity, publishedAt: m.publishedAt }))
     .sort((a, b) => b.chartCount - a.chartCount)
     .slice(0, 400)
   return NextResponse.json({ missing })
