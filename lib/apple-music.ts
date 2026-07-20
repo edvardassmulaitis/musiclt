@@ -65,12 +65,18 @@ export async function searchAppleAlbum(artistName: string, albumTitle: string): 
   } catch {
     return null
   }
-  const wantTitle = foldCompare(albumTitle)
+  // Apple prie pavadinimo prikabina „- EP" / „- Single" / „(Deluxe)" ir pan. — nuimam
+  // prieš lyginant, kad „Beneath the Surface" == „Beneath The Surface - EP".
+  const stripQual = (s: string) => foldCompare(s)
+    .replace(/ (deluxe|expanded|explicit|deluxe edition|bonus track version|remaster\w*|anniversary|edition|version).*/, '')
+    .replace(/ (ep|lp|single)$/, '')
+    .trim()
+  const wantTitle = stripQual(albumTitle)
   const wantArtist = foldCompare(artistName)
   const hit = (json?.results || []).find(
-    (r: any) => foldCompare(r.collectionName || '').replace(/ (deluxe|expanded|explicit).*/,'').trim() === wantTitle && foldCompare(r.artistName || '') === wantArtist
+    (r: any) => stripQual(r.collectionName || '') === wantTitle && foldCompare(r.artistName || '') === wantArtist
   ) || (json?.results || []).find(
-    (r: any) => foldCompare(r.collectionName || '') === wantTitle
+    (r: any) => stripQual(r.collectionName || '') === wantTitle
   )
   if (!hit || !hit.collectionId) return null
   const relDate = hit.releaseDate ? new Date(hit.releaseDate) : null
