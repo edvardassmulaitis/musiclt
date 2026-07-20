@@ -106,13 +106,18 @@ async function albumHasTracks(supabase: any, albumId: number): Promise<boolean> 
 function typeFlagsFrom(primaryType: string | null, types: string[]) {
   const has = (t: string) => (types || []).some(x => (x || '').toLowerCase() === t.toLowerCase())
   const isEp = has('EP') || primaryType === 'EP'
+  const single = primaryType === 'Single' || has('Single')
   const live = has('Live'), remix = has('Remix'), comp = has('Compilation')
   const sound = has('Soundtrack'), demo = has('Demo'), djmix = has('DJ-mix')
   const nonStudio = live || remix || comp || sound || djmix || has('Mixtape/Street')
+  // Nežinomas tipas (nei primaryType, nei EP/Single/live/…) → DEFAULT studijinis,
+  // kad albumas nebūtų „be tipo" (nerodomas prie studijinių). Anksčiau Apple-only
+  // skeletai (be MB primaryType) likdavo visai be tipo.
+  const unknownDefaultsToStudio = !primaryType && !isEp && !single && !nonStudio && !demo
   return {
-    type_studio: primaryType === 'Album' && !isEp && !nonStudio,
+    type_studio: (primaryType === 'Album' && !isEp && !nonStudio) || unknownDefaultsToStudio,
     type_ep: isEp,
-    type_single: primaryType === 'Single',
+    type_single: single,
     type_live: live,
     type_remix: remix,
     type_compilation: comp,

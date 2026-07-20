@@ -318,8 +318,10 @@ export default function WikiAlbumInboxPage() {
                     ) : e ? (
                       <>
                         <span className={`px-1.5 py-0.5 rounded-full font-medium ${badge.cls}`}>{badge.label}</span>
-                        {hasTracks ? (
+                        {full ? (
                           <span className="text-emerald-700">🎵 {e!.track_count} dainos</span>
+                        ) : hasTracks ? (
+                          <span className="text-amber-600" title="Apple/šaltinis rodo dainų skaičių, bet tikro tracklisto neturim — pridės kaip skeletą; dainos užsipildys vėliau (MB) arba rankiniu būdu">🎵 {e!.track_count} d. (be tracklisto)</span>
                         ) : (
                           <span className="text-amber-600">be tracklist’o (skeletas)</span>
                         )}
@@ -346,8 +348,8 @@ export default function WikiAlbumInboxPage() {
                     <button onClick={() => addOneClick(c)} disabled={busy.has(c.id) || enriching}
                       className="text-sm px-3 py-1 rounded bg-emerald-600 text-white disabled:opacity-40 font-medium">
                       {busy.has(c.id) ? '…' : c.existing_album
-                        ? (hasTracks ? `↻ Papildyti (${e!.track_count} d.)` : '↻ Papildyti')
-                        : (hasTracks ? `＋ Pridėti (${e!.track_count} d.)` : '＋ Pridėti (skeletas)')}
+                        ? (full ? `↻ Papildyti (${e!.track_count} d.)` : '↻ Papildyti')
+                        : (full ? `＋ Pridėti (${e!.track_count} d.)` : '＋ Pridėti (skeletas)')}
                     </button>
                     <button onClick={() => reject(c.id)} disabled={busy.has(c.id)}
                       className="text-sm px-3 py-1 rounded border border-[var(--input-border)]">Atmesti</button>

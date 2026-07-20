@@ -75,17 +75,28 @@ async function reconcilePendingDuplicates(supabase: any): Promise<{ marked: numb
     const { data } = await supabase.from('artists').select('id, name').in('id', artistIds.slice(i, i + 300))
     for (const a of (data || []) as any[]) nameById.set(a.id, a.name || '')
   }
-  const albumsByArtist = new Map<number, Map<string, number>>()
+  // Tik albumai SU DAINOM žymimi dublikatais. Tušti „skeletai" NEslepiami —
+  // juos inbox rodo su žyma „jau kataloge — bus papildytas" (kad būtų galima užpildyti).
+  const albumRows: any[] = []
   for (let i = 0; i < artistIds.length; i += 200) {
     const { data } = await supabase.from('albums').select('id, artist_id, title').in('artist_id', artistIds.slice(i, i + 200))
-    for (const a of (data || []) as any[]) {
-      let m = albumsByArtist.get(a.artist_id)
-      if (!m) { m = new Map(); albumsByArtist.set(a.artist_id, m) }
-      const nt = normalizeAlbumTitle(a.title || '')
-      if (nt && !m.has(nt)) m.set(nt, a.id)
-      const na = normalizeAlbumTitle(nameById.get(a.artist_id) || '')
-      if (na && nt.startsWith(na + ' ')) { const s = nt.slice(na.length + 1).trim(); if (s && !m.has(s)) m.set(s, a.id) }
-    }
+    albumRows.push(...((data || []) as any[]))
+  }
+  const withTracks = new Set<number>()
+  const albumIds = albumRows.map(a => a.id)
+  for (let i = 0; i < albumIds.length; i += 300) {
+    const { data: at } = await supabase.from('album_tracks').select('album_id').in('album_id', albumIds.slice(i, i + 300))
+    for (const r of (at || []) as any[]) withTracks.add(r.album_id)
+  }
+  const albumsByArtist = new Map<number, Map<string, number>>()
+  for (const a of albumRows) {
+    if (!withTracks.has(a.id)) continue // skeletas be dainų — praleidžiam (nežymim dublikatu)
+    let m = albumsByArtist.get(a.artist_id)
+    if (!m) { m = new Map(); albumsByArtist.set(a.artist_id, m) }
+    const nt = normalizeAlbumTitle(a.title || '')
+    if (nt && !m.has(nt)) m.set(nt, a.id)
+    const na = normalizeAlbumTitle(nameById.get(a.artist_id) || '')
+    if (na && nt.startsWith(na + ' ')) { const s = nt.slice(na.length + 1).trim(); if (s && !m.has(s)) m.set(s, a.id) }
   }
   const dupIds: number[] = []
   for (const c of cands) {
