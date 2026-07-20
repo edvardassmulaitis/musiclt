@@ -265,7 +265,10 @@ export default function WikiAlbumInboxPage() {
             const dd = e?.day ?? c.release_day
             // TIK realus albumo viršelis (be atlikėjo cover fallback'o — klaidina).
             const cover = e?.cover_url || null
-            const full = !!(e && e.mb_release_id && e.track_count > 0)
+            // „full" = pridedant bus SUKELTAS tikras tracklistas. Wikipedia (wiki
+            // straipsnio tracklistas) IR MusicBrainz — taip; Apple — NE (tik metaduomenys,
+            // placeholder pavadinimai), tad Apple atveju rodom „(be tracklisto)".
+            const full = !!(e && e.track_count > 0 && (e.source === 'wikipedia' || e.source === 'musicbrainz'))
             const hasTracks = !!(e && e.track_count > 0)
             // Title nuoroda: Wikipedia (jei yra) arba šaltinis (MusicBrainz/Apple).
             const titleHref = c.album_wiki_link ? wikiUrl(c.album_wiki_link) : (e?.source_url || null)
