@@ -251,6 +251,7 @@ function MissingRow({ m, onDone, autoSuggest }: { m: Missing; onDone: () => void
   const hasArtist = sug?.artist != null || m.artistId != null
   const score = sug?.artist?.score ?? m.artistScore ?? null
   const artistSlug = sug?.artist?.slug ?? m.artistSlug ?? null
+  const artistId = sug?.artist?.id ?? m.artistId ?? null
   const ytUrl = sug?.video ? `https://www.youtube.com/watch?v=${sug.video.videoId}` : null
 
   return (
@@ -260,9 +261,17 @@ function MissingRow({ m, onDone, autoSuggest }: { m: Missing; onDone: () => void
         <div className="min-w-0 flex-1">
           <p className="text-sm font-semibold leading-snug text-gray-800">{m.title}</p>
           <p className="mt-0.5 text-xs text-gray-500">
-            {artistSlug ? (
-              <a href={`/atlikejai/${artistSlug}`} target="_blank" rel="noreferrer"
-                className="font-medium text-violet-600 hover:underline" title="Atidaryti atlikėją (naujame lange)">{m.artist}</a>
+            {artistId ? (
+              <>
+                <a href={`/admin/artists/${artistId}`} target="_blank" rel="noreferrer"
+                  className="font-medium text-violet-600 hover:underline" title="Atlikėjo redagavimas (admin, naujame lange)">{m.artist}</a>
+                {artistSlug && (
+                  <a href={`/atlikejai/${artistSlug}`} target="_blank" rel="noreferrer"
+                    className="ml-1 inline-flex translate-y-[1px] text-gray-400 hover:text-violet-600" title="Viešas puslapis (naujame lange)">
+                    <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><path d="M18 13v6a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h6" /><polyline points="15 3 21 3 21 9" /><line x1="10" y1="14" x2="21" y2="3" /></svg>
+                  </a>
+                )}
+              </>
             ) : (
               <span className={m.artist ? 'font-medium text-gray-600' : 'font-medium italic text-gray-400'}>{m.artist || 'atlikėjas nenustatytas'}</span>
             )}
