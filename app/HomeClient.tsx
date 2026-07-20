@@ -1967,48 +1967,26 @@ function HeroV2Card({ slide, dk }: { slide: HeroSlide; dk: boolean }) {
       className="group relative block aspect-[16/9] overflow-hidden rounded-2xl border border-[var(--border-default)] no-underline shadow-[var(--hero-card-shadow)] transition-all hover:-translate-y-0.5 hover:shadow-[var(--hero-card-shadow-hover)]"
       style={{ background: 'linear-gradient(135deg,#141b28 0%,#0a0e17 100%)' }}
     >
-      {/* Ambient blur fonas — TA PATI nuotrauka, išblukinta+patamsinta. Aštri foto
-          (dešinėj) kairiuoju kraštu persilieja į šitą blur (ne į baltą bg-surface,
-          kuris light mode'e atrodydavo prastai: baltas→tamsus šuolis). */}
-      {slide.bgImg && (
-        <div
-          className="absolute inset-0"
-          style={{
-            backgroundImage: `url(${proxyImgResized(slide.bgImg, 480)})`,
-            backgroundSize: 'cover',
-            backgroundPosition: 'center',
-            filter: 'blur(34px) brightness(0.44) saturate(1.35)',
-            transform: 'scale(1.25)',
-          }}
+      {/* Nuotrauka užpildo VISĄ kortelę (object-cover) + apatinis scrim antraštei.
+          Anksčiau foto „hug'indavo" dešinę su mask-fade kairėj + ambient blur —
+          bet kairysis faded kraštas atrodydavo kaip juoda tuštuma, kai kortelė iš
+          dalies matoma karuselėje (Edvardo „keistas tamsus elementas"). Full-cover:
+          jokių tuščių kraštų, jokio balto→tamsu šuolio. Portretiniai/kvadratiniai
+          cover'iai apkerpami į 16:9 (object-position viršus) — OK mažai hero kortelei.
+          (loading=lazy sąmoningai NEnaudojam — above-the-fold horizontaliam track'ui
+          native lazy neveikdavo, vizualai likdavo pilki; tik decoding=async.) */}
+      {slide.bgImg ? (
+        // eslint-disable-next-line @next/next/no-img-element
+        <img
+          src={proxyImgResized(slide.bgImg, 1280)}
+          alt=""
+          decoding="async"
+          className="absolute inset-0 h-full w-full object-cover"
+          style={{ objectPosition: 'center 25%' }}
         />
+      ) : (
+        <div className="absolute inset-0" style={{ background: 'linear-gradient(135deg,#141b28 0%,#0a0e17 100%)' }} />
       )}
-      {/* BG image — height-driven, hugs right side for portrait covers */}
-      <div className="absolute inset-0 flex items-stretch justify-end overflow-hidden">
-        {slide.bgImg ? (
-          // eslint-disable-next-line @next/next/no-img-element
-          <img
-            src={proxyImgResized(slide.bgImg, 1280)}
-            alt=""
-            // 2026-07-16: BUVO loading="lazy" — hero kortelės yra above-the-fold
-            // (matomos be scroll'inimo), bet guli horizontaliai slenkančiame
-            // hp-hero-track konteineryje; native lazy-load intersection check
-            // tokiam layout'ui nesuveikdavo TEISINGAI (patikrinta tiesiogiai:
-            // 0 fetch'ų dėl w=1280 nuotraukų, nors kortelės matomos iškart) —
-            // vizualai likdavo tušti/pilki amžinai. Sweep'o (d748b369) principas
-            // ir taip sakė „above-the-fold — tik decoding=async, be lazy" — čia
-            // ta taisyklė tiesiog nebuvo pritaikyta.
-            decoding="async"
-            className="relative h-full w-auto max-w-full object-cover"
-            style={{
-              objectPosition: 'center 25%',
-              WebkitMaskImage: 'linear-gradient(to right, transparent 0%, rgba(0,0,0,0.4) 12%, black 34%)',
-              maskImage: 'linear-gradient(to right, transparent 0%, rgba(0,0,0,0.4) 12%, black 34%)',
-            }}
-          />
-        ) : (
-          <div className="h-full w-full" style={{ background: 'linear-gradient(135deg,#141b28 0%,#0a0e17 100%)' }} />
-        )}
-      </div>
       {/* Badge — viršuj kairėj (kaip /bendruomene feed KindBadge).
           Paprastoms „NAUJIENA" NErodom (jų daugiausia, badge tik kartotųsi);
           paliekam tik prominentiniams tipams (Recenzija, Interviu, Reportažas,
