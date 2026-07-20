@@ -195,7 +195,10 @@ export default function WikiAlbumInboxPage() {
   async function addOneClick(c: WikiAlbumCandidate) {
     startBusy(c.id); setErrorMsg(p => ({ ...p, [c.id]: '' }))
     const e = enrich[c.id]?.data
-    const useFull = !!(e && e.mb_release_id && e.track_count > 0)
+    // „full" MB commit'as TIK kai šaltinis realiai musicbrainz (turi tracklistą).
+    // Apple metaduomenys kartais neša mb_release_id iš MB release'o BE dainų — tada
+    // commitAlbumFromMb mestų „MusicBrainz release be tracklist'o" (Willow atvejis).
+    const useFull = !!(e && e.source === 'musicbrainz' && e.mb_release_id && e.track_count > 0)
     const body: any = {
       action: 'add',
       mode: useFull ? 'full' : 'shell',

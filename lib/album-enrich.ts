@@ -93,7 +93,9 @@ export async function enrichAlbum(
       year: apple.year, month: apple.month, day: apple.day,
       tracks: appleTracks,
       track_count: hasTracks ? appleTracks.length : (apple.trackCount || 0),
-      mb_release_id: mb?.releaseId || null,
+      // NEnešam mb_release_id čia — jei būtume patekę į MB šaką, būtų grąžinta
+      // 'musicbrainz'. Šičia mb (jei yra) neturi tracklist'o, tad commit'ui netinka.
+      mb_release_id: null,
       primary_type: apple.looksLikeSingle ? 'Single' : (isEp ? 'EP' : null),
       types: apple.looksLikeSingle ? ['Single'] : (isEp ? ['EP'] : []),
       is_upcoming: apple.isUpcoming,
