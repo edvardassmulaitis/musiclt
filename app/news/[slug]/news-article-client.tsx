@@ -641,19 +641,28 @@ export default function NewsArticleClient({
         .na-hero--noimg .na-act:hover { background:var(--bg-elevated); }
         .na-hero--noimg .na-act-liked { color:var(--accent-orange); background:rgba(249,115,22,0.14); border-color:rgba(249,115,22,0.4); }
 
-        /* ── PENDING: aštri foto paslėpta, scrim kaip cine ── */
+        /* ── PENDING: aštri foto paslėpta; scrim neutralus (kol nežinom orientacijos) ── */
         .na-hero--pending .na-hero-photo { opacity:0; }
-
-        /* ── CINE (landscape): cover per visą band, antraštė ant jos ── */
-        .na-hero--cine .na-hero-bg   { display:none; }
-        .na-hero--cine .na-hero-photo{ z-index:0; padding:0; }
-        .na-hero--cine .na-hero-frame{ position:absolute; inset:0; border-radius:0; box-shadow:none; }
-        .na-hero--cine .na-hero-img  { width:100%; height:100%; object-fit:cover; object-position:center 28%; }
-        .na-hero--pending .na-hero-scrim,
-        .na-hero--cine .na-hero-scrim{
+        .na-hero--pending .na-hero-scrim{
           background:
             linear-gradient(to top, var(--bg-body) 1%, rgba(8,13,20,0.10) 42%, rgba(8,13,20,0.30) 100%),
             linear-gradient(to right, rgba(8,13,20,0.88) 0%, rgba(8,13,20,0.5) 50%, rgba(8,13,20,0.12) 82%, transparent 100%); }
+
+        /* ── CINE (landscape): TAS PATS principas kaip SPLIT — foto dešinėje + feather
+              kairėj, tekstas kairėj — TIK object-fit:cover (platus kadras užpildo panelį,
+              subjektas matomas, nebeužtemdytas full-width scrim'u). ── */
+        .na-hero--cine .na-hero-bg   { filter:blur(48px) saturate(1.55) brightness(0.66); transform:scale(1.25); }
+        .na-hero--cine .na-hero-photo{ left:auto; right:0; width:62%; padding:0; align-items:stretch; justify-content:flex-end; }
+        .na-hero--cine .na-hero-frame{ position:relative; height:100%; max-width:100%; border-radius:0; box-shadow:none; overflow:hidden; }
+        .na-hero--cine .na-hero-img  { width:100%; height:100%; object-fit:cover; object-position:center;
+          -webkit-mask-image:linear-gradient(to right, transparent 0%, rgba(0,0,0,0.35) 14%, #000 44%);
+          mask-image:linear-gradient(to right, transparent 0%, rgba(0,0,0,0.35) 14%, #000 44%); }
+        .na-hero--cine .na-hero-wrap { align-self:center; }
+        .na-hero--cine .na-hero-inner{ max-width:560px; }
+        .na-hero--cine .na-hero-scrim{
+          background:
+            linear-gradient(to top, var(--bg-body) 1%, transparent 52%),
+            linear-gradient(to right, rgba(8,13,20,0.96) 0%, rgba(8,13,20,0.7) 32%, rgba(8,13,20,0.28) 58%, transparent 86%); }
 
         /* ── SPLIT (portretas/kvadratas): foto VISA dešinėje ant blur, antraštė kairėje ── */
         .na-hero--split { align-items:stretch; }
@@ -808,9 +817,15 @@ export default function NewsArticleClient({
           .na-hero { height:auto; min-height:0; max-height:none; display:block; }
           .na-hero-bg, .na-hero--split .na-hero-bg { filter:blur(38px) saturate(1.5) brightness(0.6); transform:scale(1.28); }
 
+          /* Mobile CINE — full-bleed cover juosta, antraštė apačioje (feather/right-panel
+             tik desktop'e; mobile'e per siaura). */
           .na-hero--pending, .na-hero--cine { position:relative; aspect-ratio:16/10; }
-          .na-hero--pending .na-hero-wrap, .na-hero--cine .na-hero-wrap { position:absolute; left:0; right:0; bottom:0; max-width:100%; }
-          .na-hero--cine .na-hero-photo { position:absolute; inset:0; }
+          .na-hero--pending .na-hero-wrap, .na-hero--cine .na-hero-wrap { position:absolute; left:0; right:0; bottom:0; max-width:100%; align-self:auto; }
+          .na-hero--cine .na-hero-inner { max-width:100%; }
+          .na-hero--cine .na-hero-photo { position:absolute; inset:0; width:auto; }
+          .na-hero--cine .na-hero-frame { height:100%; }
+          .na-hero--cine .na-hero-img { width:100%; height:100%; object-fit:cover; object-position:center 28%; -webkit-mask-image:none; mask-image:none; }
+          .na-hero--cine .na-hero-scrim { background:linear-gradient(to top, var(--bg-body) 1%, rgba(8,13,20,0.62) 10%, rgba(8,13,20,0.4) 52%, rgba(8,13,20,0.15) 78%, transparent 100%); }
 
           .na-hero--split { display:block; }
           .na-hero--split .na-hero-photo { position:relative; inset:auto; width:100%; padding:22px 20px 4px; justify-content:center; }
