@@ -1463,9 +1463,11 @@ export async function commitAlbum(url: string, origin: string, ov: AlbumOverride
     type: (t.type === 'covers' ? 'normal' : (t.type as any)) || 'normal',
     is_single: t.is_single ?? false,
     featuring: t.featuring,
+    // Singlai turi savo (dažnai ankstesnę) datą; ne-singlai paveldi ALBUMO pilną
+    // datą (y+m+d), kad turėtų release_date ir patektų į „naujos muzikos" skiltį.
     release_year: t.release_year ?? year ?? null,
-    release_month: t.release_month ?? null,
-    release_day: t.release_day ?? null,
+    release_month: t.release_month ?? month ?? null,
+    release_day: t.release_day ?? day ?? null,
   }))
 
   const tf = w.typeFlags

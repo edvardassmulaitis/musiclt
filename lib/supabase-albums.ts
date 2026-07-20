@@ -396,10 +396,23 @@ async function findOrCreateArtist(name: string): Promise<number | null> {
  * MUSIC_DISCOVERY_AUTOMATION_PLAN.md punktas C/D): albumo sukūrimas būtų
  * perrašęs jau teisingą (ankstesnę) single'o release datą albumo data.
  */
+/** Sudeda release_date string'ą iš y/m/d, jei yra bent metai. Reikia „naujos
+ *  muzikos" skilčiai (home-latest rikiuoja pagal release_date; be jo trackas
+ *  nukrenta į year-01-01 ir nepatenka į naujienas). */
+function composeReleaseDate(y?: number | null, m?: number | null, d?: number | null): string | null {
+  if (!y) return null
+  if (m && d) return `${y}-${String(m).padStart(2, '0')}-${String(d).padStart(2, '0')}`
+  if (m) return `${y}-${String(m).padStart(2, '0')}-01`
+  return `${y}-01-01`
+}
+
 async function fillReleaseDateIfMissing(trackId: number, t: TrackInAlbum, updateBody: Record<string, any>) {
   if (!t.release_year) return
-  const { data: cur } = await supabase.from('tracks').select('release_year').eq('id', trackId).maybeSingle()
-  if ((cur as any)?.release_year) return // DB jau turi — nieko nedarom
+  const { data: cur } = await supabase.from('tracks').select('release_year, release_date').eq('id', trackId).maybeSingle()
+  const rd = composeReleaseDate(t.release_year, t.release_month, t.release_day)
+  // release_date fill-only — kad naujos muzikos skiltis rodytų ir albumo flow trackus.
+  if (!(cur as any)?.release_date && rd) updateBody.release_date = rd
+  if ((cur as any)?.release_year) return // release_year DB jau turi — jo neperrašom
   updateBody.release_year = t.release_year
   updateBody.release_month = t.release_month
   updateBody.release_day = t.release_day
@@ -503,6 +516,9 @@ async function syncAlbumTracks(albumId: number, artistId: number, tracks: TrackI
           release_year: t.release_year || null,
           release_month: t.release_month || null,
           release_day: t.release_day || null,
+          // release_date — kad naujai per albumo flow'ą sukurtas trackas patektų į
+          // „naujos muzikos" skiltį (home-latest rikiuoja pagal release_date).
+          release_date: composeReleaseDate(t.release_year, t.release_month, t.release_day),
           // Source žymėjimas — Wiki UI importas → 'wikipedia'. Vėliau
           // match_legacy_overlay.py prijungs music.lt likes/comments ir
           // promote'ins source į 'legacy+wikipedia'. Anksčiau source likdavo
