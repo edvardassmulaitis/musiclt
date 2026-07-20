@@ -657,9 +657,13 @@ export default function NewsArticleClient({
 
         /* ── SPLIT (portretas/kvadratas): foto VISA dešinėje ant blur, antraštė kairėje ── */
         .na-hero--split { align-items:stretch; }
-        .na-hero--split .na-hero-photo{ left:auto; right:0; width:44%; padding:26px 40px 30px 12px; }
-        .na-hero--split .na-hero-frame{ max-width:100%; max-height:100%; border-radius:16px; box-shadow:0 24px 60px -22px rgba(0,0,0,0.75), 0 0 0 1px rgba(255,255,255,0.06); }
-        .na-hero--split .na-hero-img  { max-width:100%; max-height:100%; width:auto; height:auto; object-fit:contain; }
+        /* Desktop split — nuotrauka rodoma VISA (contain) per visą band aukštį,
+           flush prie dešinio krašto, BE rėmelio/šešėlio/apvalių kampų (jokio
+           „box in box"). Sėdi tiesiai ant to paties ambient blur fono → integruota,
+           nekerpa (tinka ir portretui, ir kvadratiniam albumo viršeliui). */
+        .na-hero--split .na-hero-photo{ left:auto; right:0; width:46%; padding:0; align-items:stretch; justify-content:flex-end; }
+        .na-hero--split .na-hero-frame{ height:100%; max-width:100%; border-radius:0; box-shadow:none; overflow:hidden; }
+        .na-hero--split .na-hero-img  { height:100%; width:auto; max-width:100%; object-fit:contain; object-position:center; }
         .na-hero--split .na-hero-wrap { align-self:center; }
         .na-hero--split .na-hero-inner{ max-width:600px; }
         .na-hero--split .na-hero-scrim{
@@ -806,9 +810,9 @@ export default function NewsArticleClient({
           .na-hero--cine .na-hero-photo { position:absolute; inset:0; }
 
           .na-hero--split { display:block; }
-          .na-hero--split .na-hero-photo { position:relative; inset:auto; width:100%; padding:22px 20px 4px; }
-          .na-hero--split .na-hero-frame { box-shadow:0 18px 44px -18px rgba(0,0,0,0.8), 0 0 0 1px rgba(255,255,255,0.09); }
-          .na-hero--split .na-hero-img { max-height:56vh; }
+          .na-hero--split .na-hero-photo { position:relative; inset:auto; width:100%; padding:22px 20px 4px; justify-content:center; }
+          .na-hero--split .na-hero-frame { height:auto; border-radius:14px; box-shadow:0 18px 44px -18px rgba(0,0,0,0.8), 0 0 0 1px rgba(255,255,255,0.09); }
+          .na-hero--split .na-hero-img { height:auto; width:auto; max-height:56vh; max-width:100%; }
           .na-hero--split .na-hero-wrap { position:relative; align-self:auto; padding:12px 20px 26px; max-width:100%; }
           .na-hero--split .na-hero-inner { max-width:100%; }
           .na-hero--split .na-hero-scrim { background:linear-gradient(to bottom, transparent 28%, var(--bg-body) 100%); }
