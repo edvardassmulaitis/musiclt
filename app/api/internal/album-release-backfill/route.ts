@@ -163,37 +163,63 @@ export async function POST(req: NextRequest) {
     try {
       let trackCount = realTrackCount.get(a.id) || 0
 
-      // ── Skeletas (be dainų) → bandom rasti tracklist'ą MB (tik AIŠKUS atitikmuo) ──
-      if (trackCount === 0) {
-        const mb = await searchAlbumByTitle(artistName, a.title, a.year).catch(() => null)
-        const yearOk = !!mb && (!a.year || !mb.year || mb.year === a.year)
-        if (mb && mb.tracks.length > 0 && yearOk) {
-          const tracks: TrackInAlbum[] = mb.tracks.map((t) => ({
+      // ── MB tracklist'as (tik AIŠKUS atitikmuo: tikslus title+atlikėjas + metai) ──
+      // Aktualu kai: (a) skeletas be dainų, arba (b) yra TIK keli pre-release singlai
+      // (pvz. 1-2), o albumas jau išleistas ir MB turi pilną sąrašą — užpildom spragą.
+      const mb = await searchAlbumByTitle(artistName, a.title, a.year).catch(() => null)
+      const yearOk = !!mb && (!a.year || !mb.year || mb.year === a.year)
+
+      if (mb && yearOk && mb.tracks.length > trackCount) {
+        // Esamos dainos (pvz. jau išleisti singlai) — kad MERGE išsaugotų jų
+        // YouTube/Spotify (lyrics sync'as ir taip neliečia). Rikiuojam pagal MB,
+        // bet esamiems perduodam track_id + video_url + spotify_id → nepertrina.
+        const { data: exRows } = await supabase
+          .from('album_tracks')
+          .select('track_id, tracks(title, slug, video_url, spotify_id)')
+          .eq('album_id', a.id)
+        const byKey = new Map<string, any>()
+        for (const r of (exRows || []) as any[]) {
+          const t = r.tracks
+          if (!t) continue
+          const rec = { track_id: r.track_id, video_url: t.video_url, spotify_id: t.spotify_id }
+          if (t.title) byKey.set(normalizeAlbumTitle(t.title), rec)
+          if (t.slug) byKey.set(`slug:${t.slug}`, rec)
+        }
+        const tracks: TrackInAlbum[] = mb.tracks.map((t) => {
+          const ex = byKey.get(normalizeAlbumTitle(t.title))
+          const base: TrackInAlbum = {
             title: t.title,
             sort_order: t.position,
             disc_number: t.discNumber,
             duration: msToDuration(t.length),
             type: 'normal',
             release_year: mb.year, release_month: mb.month, release_day: mb.day,
-          }))
-          // Pilnas albumas (kad updateAlbum neužtrintų esamų laukų) + naujas tracklist.
-          const full = await getAlbumById(a.id)
-          full.tracks = tracks
-          full.is_upcoming = false
-          if (!full.cover_image_url && mb.coverUrl) full.cover_image_url = mb.coverUrl
-          await updateAlbum(a.id, full)
-          await supabase.from('albums').update({ track_count: tracks.length }).eq('id', a.id)
-          trackCount = tracks.length
-          c.tracklist_added++
-        } else {
-          // Nėra patikimo tracklist'o — paliekam skeletą (is_upcoming=true), bandysim vėl.
-          c.pending_tracklist++
-          c.details.push({ id: a.id, title: a.title, artist: artistName, status: 'pending_tracklist' })
-          continue
-        }
+          }
+          if (ex) {
+            base.track_id = ex.track_id
+            if (ex.video_url) base.video_url = ex.video_url
+            if (ex.spotify_id) base.spotify_id = ex.spotify_id
+          }
+          return base
+        })
+        const full = await getAlbumById(a.id)
+        full.tracks = tracks
+        full.is_upcoming = false
+        if (!full.cover_image_url && mb.coverUrl) full.cover_image_url = mb.coverUrl
+        await updateAlbum(a.id, full)
+        await supabase.from('albums').update({ track_count: tracks.length }).eq('id', a.id)
+        trackCount = tracks.length
+        c.tracklist_added++
+      } else if (trackCount === 0) {
+        // Tuščias ir nėra patikimo MB → paliekam skeletą (is_upcoming=true), bandysim vėl.
+        c.pending_tracklist++
+        c.details.push({ id: a.id, title: a.title, artist: artistName, status: 'pending_tracklist' })
+        continue
       } else {
-        // Jau turi dainas → tik pažymim, kad išleistas.
-        await supabase.from('albums').update({ is_upcoming: false }).eq('id', a.id)
+        // Turi dainas, MB neturi daugiau → tik pažymim, kad išleistas (+ viršelis jei trūksta).
+        const patch: any = { is_upcoming: false }
+        if (!a.cover_image_url && mb?.coverUrl) patch.cover_image_url = mb.coverUrl
+        await supabase.from('albums').update(patch).eq('id', a.id)
       }
       c.released_marked++
 
