@@ -1363,7 +1363,9 @@ async function fetchAlbumWiki(url: string): Promise<AlbumWiki | { error: string 
   ensureWikiInit()
   const pageTitle = wikiTitleFromUrl(url)
   if (!pageTitle) return { error: 'Neatpažinta Wikipedia nuoroda' }
-  const wikitext = await fetchWikitext(pageTitle)
+  let wikitext: string
+  try { wikitext = await fetchWikitext(pageTitle) }
+  catch (e: any) { return { error: String(e?.message || e).slice(0, 200) } }
   if (!wikitext) return { error: 'Nepavyko gauti Wikipedia turinio' }
 
   const artistRaw = wiki.extractFieldNested(wikitext, 'artist')
