@@ -125,9 +125,9 @@ export async function getMissingFromChartsTotal(sb: SB): Promise<number> {
         .limit(400)
       for (const d of (disc || []) as any[]) {
         const t = (d.title_raw || '').trim()
-        if (!t) continue
         const a = (d.artist_raw || '').trim()
-        const key = (a ? normalizeForMatch(primaryArtist(a)) : ('yt:' + (d.video_id || t))) + '|' + normalizeForMatch(t)
+        if (!t || !a) continue // be atlikėjo nerodom (kaip ir puslapyje)
+        const key = normalizeForMatch(primaryArtist(a)) + '|' + normalizeForMatch(t)
         if (key.replace(/\|/g, '').trim()) seen.add(key)
       }
     } catch { /* lentelės gali nebūti */ }

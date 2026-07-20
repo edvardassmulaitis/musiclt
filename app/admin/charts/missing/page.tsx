@@ -7,7 +7,7 @@ import { openAdminQuickAdd } from '@/components/AdminQuickAddModal'
 /* /admin/charts/missing — agreguotos trūkstamos (nesusietos) dainos per visus
  * dainų topus. Sutvarkius vieną kartą, daina susidėlioja į VISUS topus. */
 
-type Missing = { artist: string; title: string; chartCount: number; charts: string[]; videoId?: string | null; artistId?: number | null; artistScore?: number | null }
+type Missing = { artist: string; title: string; chartCount: number; charts: string[]; videoId?: string | null; artistId?: number | null; artistScore?: number | null; artistSlug?: string | null }
 type Hit = { type: string; id: number; slug: string; title: string; artist: string | null; image_url: string | null }
 
 /* Supaprastina netvarkingą topo atlikėjo kreditą iki PIRMO atlikėjo paieškai
@@ -250,6 +250,7 @@ function MissingRow({ m, onDone, autoSuggest }: { m: Missing; onDone: () => void
   // chart eilutėms — po „suggest" (sug.artist). Rodom 🔥 su populiarumo score.
   const hasArtist = sug?.artist != null || m.artistId != null
   const score = sug?.artist?.score ?? m.artistScore ?? null
+  const artistSlug = sug?.artist?.slug ?? m.artistSlug ?? null
   const ytUrl = sug?.video ? `https://www.youtube.com/watch?v=${sug.video.videoId}` : null
 
   return (
@@ -259,7 +260,12 @@ function MissingRow({ m, onDone, autoSuggest }: { m: Missing; onDone: () => void
         <div className="min-w-0 flex-1">
           <p className="text-sm font-semibold leading-snug text-gray-800">{m.title}</p>
           <p className="mt-0.5 text-xs text-gray-500">
-            <span className={m.artist ? 'font-medium text-gray-600' : 'font-medium italic text-gray-400'}>{m.artist || 'atlikėjas nenustatytas'}</span>
+            {artistSlug ? (
+              <a href={`/atlikejai/${artistSlug}`} target="_blank" rel="noreferrer"
+                className="font-medium text-violet-600 hover:underline" title="Atidaryti atlikėją (naujame lange)">{m.artist}</a>
+            ) : (
+              <span className={m.artist ? 'font-medium text-gray-600' : 'font-medium italic text-gray-400'}>{m.artist || 'atlikėjas nenustatytas'}</span>
+            )}
             {hasArtist && <span className="ml-1 rounded bg-orange-100 px-1.5 py-0.5 text-[11px] font-bold text-orange-700" title="Atlikėjas jau kataloge · populiarumo score">🔥 {score ?? '—'}</span>}
             <span className="text-gray-300"> · {m.charts.join(', ')}</span>
           </p>

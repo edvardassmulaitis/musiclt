@@ -188,12 +188,31 @@ export async function runYtDiscovery(opts: RunOpts): Promise<RunResult> {
       // Dedupe
       const { data: existing } = await sb
         .from('yt_discovery_candidates')
-        .select('id, status, views_first, views_first_at')
+        .select('id, status, views_first, views_first_at, artist_raw')
         .eq('fingerprint', fingerprint)
         .maybeSingle()
 
       if (existing) {
         if ((existing as any).status === 'pending') {
+          // Self-heal: seni kandidatai (prieš „tikras kanalas" fix) turi artist_raw
+          // null (kai video pavadinime nėra „Atlikėjas - "). Dabar turim tikrą
+          // video kanalą — perparsinam ir įrašom atlikėją, kad nustotų kabėti be jo.
+          if (!(existing as any).artist_raw && !opts.dryRun) {
+            const rc = item.channel || ''
+            let aRe = parseYtTitle(item.title, rc).artist || ''
+            if (isAggregatorChannel(aRe)) aRe = ''
+            if (aRe) {
+              let mid: number | null = null, msc: number | null = null, ctry: string | null = null
+              try {
+                const mm = await matchArtists([{ name: aRe }], { topPerMention: 1 })
+                if (mm.length && mm[0].score >= 0.5) { mid = mm[0].artist_id; msc = Number(mm[0].score.toFixed(2)); ctry = mm[0].country ?? null }
+              } catch { /* best-effort */ }
+              await sb.from('yt_discovery_candidates').update({
+                artist_raw: aRe, channel_title: item.channel || null,
+                matched_artist_id: mid, match_score: msc, scope: scopeFromMatch(ctry, mid != null),
+              }).eq('id', (existing as any).id)
+            }
+          }
           // Retro-clean: jei pending kandidato daina JAU atsirado kataloge
           // (pvz. pridėta per topus tuo pačiu video) — pažymim duplicate, kad
           // nebekartotų. Video-id patikra (patikima, tas pats YouTube video).

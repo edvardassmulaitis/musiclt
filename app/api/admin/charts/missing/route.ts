@@ -41,13 +41,13 @@ export async function GET() {
     from += 1000
   }
 
-  type MItem = { artist: string; title: string; charts: Set<string>; videoId: string | null; artistId: number | null; artistScore: number | null }
+  type MItem = { artist: string; title: string; charts: Set<string>; videoId: string | null; artistId: number | null; artistScore: number | null; artistSlug: string | null }
   const map = new Map<string, MItem>()
   for (const e of rows) {
     const key = normalizeForMatch(primaryArtist(e.artist_name)) + '|' + normalizeForMatch(e.title)
     if (!key.replace(/\|/g, '').trim()) continue
     let m = map.get(key)
-    if (!m) { m = { artist: e.artist_name, title: e.title, charts: new Set(), videoId: null, artistId: null, artistScore: null }; map.set(key, m) }
+    if (!m) { m = { artist: e.artist_name, title: e.title, charts: new Set(), videoId: null, artistId: null, artistScore: null, artistSlug: null }; map.set(key, m) }
     m.charts.add(titleById.get(e.chart_id) || String(e.chart_id))
   }
 
@@ -57,32 +57,32 @@ export async function GET() {
   try {
     const { data: disc } = await sb
       .from('yt_discovery_candidates')
-      .select('artist_raw, title_raw, video_id, scope, matched_artist_id, artists:matched_artist_id(id, score)')
+      .select('artist_raw, title_raw, video_id, scope, matched_artist_id, artists:matched_artist_id(id, score, slug)')
       .eq('status', 'pending')
       .order('created_at', { ascending: false })
       .limit(400)
     for (const d of (disc || []) as any[]) {
       const artist = (d.artist_raw || '').trim()
       const title = (d.title_raw || '').trim()
-      // Atlikėjas gali būti tuščias (kai iš video pavadinimo/kanalo jo patikimai
-      // nepavyko nustatyti) — vis tiek rodom peržiūrai (pagal video_id dedupinam
-      // su chartais mažiau, bet svarbiau nerodyt klaidingo playlist-vardo atlikėjo).
-      if (!title) continue
-      const key = (artist ? normalizeForMatch(primaryArtist(artist)) : ('yt:' + (d.video_id || title))) + '|' + normalizeForMatch(title)
+      // Be atlikėjo NErodom — Edvardo pastaba: „jei nėra atlikėjo, kažin ar verta
+      // rodyti". Su tikru video kanalu (parseYtTitle fix) dauguma gauna atlikėją;
+      // likę (title-only + agregatoriaus kanalas) tiesiog triukšmas.
+      if (!title || !artist) continue
+      const key = normalizeForMatch(primaryArtist(artist)) + '|' + normalizeForMatch(title)
       if (!key.replace(/\|/g, '').trim()) continue
       const aInfo = Array.isArray(d.artists) ? d.artists[0] : d.artists
       let m = map.get(key)
-      if (!m) { m = { artist, title, charts: new Set(), videoId: d.video_id || null, artistId: d.matched_artist_id ?? null, artistScore: aInfo?.score ?? null }; map.set(key, m) }
+      if (!m) { m = { artist, title, charts: new Set(), videoId: d.video_id || null, artistId: d.matched_artist_id ?? null, artistScore: aInfo?.score ?? null, artistSlug: aInfo?.slug ?? null }; map.set(key, m) }
       else {
         if (!m.videoId && d.video_id) m.videoId = d.video_id
-        if (m.artistId == null && d.matched_artist_id) { m.artistId = d.matched_artist_id; m.artistScore = aInfo?.score ?? null }
+        if (m.artistId == null && d.matched_artist_id) { m.artistId = d.matched_artist_id; m.artistScore = aInfo?.score ?? null; m.artistSlug = aInfo?.slug ?? null }
       }
       m.charts.add('YouTube')
     }
   } catch { /* lentelės gali nebūti — praleidžiam */ }
 
   const missing = Array.from(map.values())
-    .map(m => ({ artist: m.artist, title: m.title, chartCount: m.charts.size, charts: Array.from(m.charts).slice(0, 8), videoId: m.videoId, artistId: m.artistId, artistScore: m.artistScore }))
+    .map(m => ({ artist: m.artist, title: m.title, chartCount: m.charts.size, charts: Array.from(m.charts).slice(0, 8), videoId: m.videoId, artistId: m.artistId, artistScore: m.artistScore, artistSlug: m.artistSlug }))
     .sort((a, b) => b.chartCount - a.chartCount)
     .slice(0, 400)
   return NextResponse.json({ missing })
