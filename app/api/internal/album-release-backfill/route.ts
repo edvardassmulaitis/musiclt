@@ -25,6 +25,7 @@ import { createAdminClient } from '@/lib/supabase'
 import { searchAlbumByTitle, msToDuration } from '@/lib/musicbrainz'
 import { getAlbumById, updateAlbum, type TrackInAlbum } from '@/lib/supabase-albums'
 import { enrichAlbumTracks } from '@/lib/album-commit'
+import { normalizeAlbumTitle } from '@/lib/album-title'
 
 export const runtime = 'nodejs'
 export const maxDuration = 300
@@ -42,6 +43,71 @@ function isReleased(y: number | null, m: number | null, d: number | null): boole
   return Date.UTC(y, (m || 1) - 1, d || 1) <= Date.now()
 }
 
+/**
+ * Reconcile: pending matched kandidatai, kurių albumas JAU yra kataloge, →
+ * status='duplicate'. GET `/api/admin/wiki-album-candidates` dedup daro TIK
+ * žiūrimiems metams (lazy), tad kai albumas pridedamas kitu keliu (pvz. atlikėjo
+ * puslapio auto-import), o kandidatas jau buvo eilėje — jis lieka „pending" ir
+ * nesamai siūlomas. Čia — kasdien, VISIEMS metams, ta pati normalizacija
+ * (normalizeAlbumTitle + atlikėjo prefikso nuėmimas) kaip inbox dedup'e.
+ */
+async function reconcilePendingDuplicates(supabase: any): Promise<{ marked: number }> {
+  const cands: any[] = []
+  {
+    const PAGE = 1000
+    let from = 0
+    for (;;) {
+      const { data } = await supabase.from('wiki_album_candidates')
+        .select('id, matched_artist_id, album_title')
+        .eq('status', 'pending').not('matched_artist_id', 'is', null)
+        .range(from, from + PAGE - 1)
+      const rows = (data || []) as any[]
+      cands.push(...rows)
+      if (rows.length < PAGE || from > 20000) break
+      from += PAGE
+    }
+  }
+  if (!cands.length) return { marked: 0 }
+
+  const artistIds = Array.from(new Set(cands.map((c) => c.matched_artist_id).filter(Boolean)))
+  const nameById = new Map<number, string>()
+  for (let i = 0; i < artistIds.length; i += 300) {
+    const { data } = await supabase.from('artists').select('id, name').in('id', artistIds.slice(i, i + 300))
+    for (const a of (data || []) as any[]) nameById.set(a.id, a.name || '')
+  }
+  const albumsByArtist = new Map<number, Map<string, number>>()
+  for (let i = 0; i < artistIds.length; i += 200) {
+    const { data } = await supabase.from('albums').select('id, artist_id, title').in('artist_id', artistIds.slice(i, i + 200))
+    for (const a of (data || []) as any[]) {
+      let m = albumsByArtist.get(a.artist_id)
+      if (!m) { m = new Map(); albumsByArtist.set(a.artist_id, m) }
+      const nt = normalizeAlbumTitle(a.title || '')
+      if (nt && !m.has(nt)) m.set(nt, a.id)
+      const na = normalizeAlbumTitle(nameById.get(a.artist_id) || '')
+      if (na && nt.startsWith(na + ' ')) { const s = nt.slice(na.length + 1).trim(); if (s && !m.has(s)) m.set(s, a.id) }
+    }
+  }
+  const dupIds: number[] = []
+  for (const c of cands) {
+    const m = albumsByArtist.get(c.matched_artist_id)
+    if (!m) continue
+    const nt = normalizeAlbumTitle(c.album_title || '')
+    let albumId = m.get(nt)
+    if (albumId === undefined) {
+      const na = normalizeAlbumTitle(nameById.get(c.matched_artist_id) || '')
+      if (na && nt.startsWith(na + ' ')) albumId = m.get(nt.slice(na.length + 1).trim())
+    }
+    if (albumId !== undefined) dupIds.push(c.id)
+  }
+  const nowIso = new Date().toISOString()
+  for (let i = 0; i < dupIds.length; i += 500) {
+    await supabase.from('wiki_album_candidates')
+      .update({ status: 'duplicate', reviewed_at: nowIso })
+      .in('id', dupIds.slice(i, i + 500))
+  }
+  return { marked: dupIds.length }
+}
+
 export async function POST(req: NextRequest) {
   const authHeader = req.headers.get('authorization') || ''
   const token = authHeader.replace(/^Bearer\s+/i, '')
@@ -55,8 +121,17 @@ export async function POST(req: NextRequest) {
 
   const c = {
     considered: 0, released_marked: 0, tracklist_added: 0, tracks_enriched: 0,
-    lyrics_added: 0, pending_tracklist: 0, errors: 0, error_details: [] as string[],
-    details: [] as any[],
+    lyrics_added: 0, pending_tracklist: 0, reconciled_duplicates: 0,
+    errors: 0, error_details: [] as string[], details: [] as any[],
+  }
+
+  // Pirma — nuvalom pending kandidatus, kurių albumas jau kataloge (bet kokiu keliu pridėtas).
+  try {
+    const rec = await reconcilePendingDuplicates(supabase)
+    c.reconciled_duplicates = rec.marked
+  } catch (e: any) {
+    c.errors++
+    c.error_details.push(`Reconcile failed: ${String(e?.message || e).slice(0, 200)}`)
   }
 
   // Būsimi albumai, kurių data jau atėjo. Upcoming'ų nedaug — filtruojam datą JS'e.
