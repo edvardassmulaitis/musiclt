@@ -44,6 +44,7 @@ type Enrichment = {
   types: string[]
   is_upcoming: boolean
   confidence: 'high' | 'medium' | 'low'
+  artist_signal?: { article: string | null; pageviews_monthly: number | null; description: string | null } | null
 }
 
 type EnrichState = { loading: boolean; data: Enrichment | null }
@@ -309,9 +310,30 @@ export default function WikiAlbumInboxPage() {
                         )}
                       </span>
                     ) : (
-                      <span title="Atlikėjo dar nėra kataloge — reikės sukurti">
-                        <span className="text-amber-600 mr-0.5" aria-label="reikia sukurti">➕</span>
+                      <span className="inline-flex items-center gap-1 align-baseline" title="Atlikėjo dar nėra kataloge — reikės sukurti">
+                        <span className="text-amber-600" aria-label="reikia sukurti">➕</span>
                         {c.artist_raw}
+                        {(() => {
+                          const sig = e?.artist_signal
+                          if (!sig) return null
+                          const pv = sig.pageviews_monthly
+                          if (typeof pv !== 'number') return sig.article ? (
+                            <a href={`https://en.wikipedia.org/wiki/${encodeURIComponent(sig.article.replace(/ /g, '_'))}`} target="_blank" rel="noopener noreferrer" className="text-[11px] opacity-50 hover:opacity-100 no-underline" title="Wikipedia straipsnis">🌐</a>
+                          ) : null
+                          // Vertingumo spalva pagal Wikipedia peržiūras/mėn (grubus proxy).
+                          const cls = pv >= 20000 ? 'bg-emerald-100 text-emerald-700'
+                            : pv >= 3000 ? 'bg-sky-100 text-sky-700'
+                            : 'bg-[var(--bg-elevated)] text-[var(--text-muted)]'
+                          const label = pv >= 1000 ? `${Math.round(pv / 1000)}k` : `${pv}`
+                          return (
+                            <a href={sig.article ? `https://en.wikipedia.org/wiki/${encodeURIComponent(sig.article.replace(/ /g, '_'))}` : '#'}
+                              target="_blank" rel="noopener noreferrer"
+                              title={`Wikipedia peržiūros/mėn: ~${pv.toLocaleString()}${sig.description ? ' · ' + sig.description : ''} — populiarumo proxy (vertas/ne)`}
+                              className={`text-[11px] px-1.5 py-0.5 rounded-full font-medium no-underline ${cls}`}>
+                              👁 {label}/mėn
+                            </a>
+                          )
+                        })()}
                       </span>
                     )}
                     {' — '}

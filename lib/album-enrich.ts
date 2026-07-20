@@ -40,6 +40,9 @@ export type AlbumEnrichment = {
    *  metaduomenys (viršelis/data, be tikro tracklist'o). 'low' — nieko išoriško,
    *  tik kandidato title+data (shell). */
   confidence: 'high' | 'medium' | 'low'
+  /** „Ar atlikėjas vertas sukūrimo" signalas — TIK nesamačiam kandidatui (atlikėjo
+   *  nėra kataloge). Wikipedia peržiūros/mėn + trumpas aprašymas. */
+  artist_signal?: { article: string | null; pageviews_monthly: number | null; description: string | null } | null
 }
 
 function isUpcoming(y: number | null, m: number | null, d: number | null): boolean {

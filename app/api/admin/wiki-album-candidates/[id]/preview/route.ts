@@ -15,6 +15,7 @@ import { authOptions } from '@/lib/auth'
 import { createAdminClient } from '@/lib/supabase'
 import { enrichAlbum, type AlbumEnrichment } from '@/lib/album-enrich'
 import { enrichAlbumFromWiki } from '@/lib/quick-add'
+import { fetchArtistSignal } from '@/lib/wiki-artist-signal'
 
 function albumWikiUrl(title: string): string {
   return `https://en.wikipedia.org/wiki/${encodeURIComponent(title.replace(/ /g, '_'))}`
@@ -82,6 +83,12 @@ export async function GET(req: NextRequest, { params }: { params: Promise<{ id: 
     }
   }
   if (!enrichment) enrichment = await enrichAlbum(artistName, cand.album_title, cand.release_year)
+
+  // „Ar atlikėjas vertas sukūrimo" signalas — TIK kai atlikėjo NĖRA kataloge
+  // (Wikipedia peržiūros/mėn + aprašymas, kad admin iškart matytų plius/minus).
+  if (!cand.matched_artist_id && enrichment) {
+    enrichment.artist_signal = await fetchArtistSignal(cand.artist_raw).catch(() => null)
+  }
 
   // Įrašom į cache — kad kitą kartą nekartotume išorinių fetch'ų.
   supabase.from('wiki_album_candidates')
