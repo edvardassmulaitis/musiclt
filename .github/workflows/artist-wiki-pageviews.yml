@@ -1,0 +1,37 @@
+name: Artist wiki pageviews
+
+# Katalogo atlikėjų Wikipedia mėnesinių peržiūrų backfill/refresh
+# (artists.wiki_pageviews) — vidinis žinomumo rodiklis. Backfill'as ~16k
+# atlikėjų per kelias dienas (bounded/run), paskui laiko šviežius.
+# Kas 6 val., kad backfill'as greičiau užsipildytų; vėliau galima retinti.
+on:
+  schedule:
+    - cron: '30 */6 * * *'
+  workflow_dispatch:
+    inputs:
+      limit:
+        description: "Kiek atlikėjų per paleidimą (max 300)"
+        required: false
+        type: string
+
+jobs:
+  run:
+    runs-on: ubuntu-latest
+    timeout-minutes: 6
+    steps:
+      - name: Call artist-wiki-pageviews
+        run: |
+          QUERY=""
+          if [ -n "${{ inputs.limit }}" ]; then QUERY="?limit=${{ inputs.limit }}"; fi
+          echo "Calling: ${{ secrets.MUSICLT_BASE_URL }}/api/internal/artist-wiki-pageviews${QUERY}"
+          response=$(curl -sS -w "\n%{http_code}" \
+            -X POST "${{ secrets.MUSICLT_BASE_URL }}/api/internal/artist-wiki-pageviews${QUERY}" \
+            -H "Authorization: Bearer ${{ secrets.INTERNAL_CRON_TOKEN }}" \
+            --max-time 290)
+          http_code=$(echo "$response" | tail -n1)
+          body=$(echo "$response" | sed '$d')
+          echo "HTTP $http_code"; echo "$body" | head -c 2000; echo
+          if [ "$http_code" != "200" ]; then echo "::error::artist-wiki-pageviews non-200"; exit 1; fi
+          proc=$(echo "$body" | grep -oP '"processed":\K\d+' || echo "?")
+          found=$(echo "$body" | grep -oP '"with_pageviews":\K\d+' || echo "?")
+          echo "::notice::artist-wiki-pageviews → processed: $proc | with views: $found"

@@ -93,3 +93,11 @@ export async function fetchArtistSignal(artistName: string, articleHint?: string
   const [pv, desc] = await Promise.all([fetchPageviews(article), fetchDescription(article)])
   return { article, pageviews_monthly: pv, description: desc }
 }
+
+/** Lengvesnė versija — TIK peržiūros (be aprašymo); katalogo atlikėjų masiniam
+ *  backfill'ui (2 API call'ai vietoj 3). */
+export async function fetchArtistPageviews(artistName: string, articleHint?: string | null): Promise<{ article: string | null; pageviews_monthly: number | null }> {
+  const article = (articleHint && articleHint.trim()) || await resolveArticle(artistName)
+  if (!article) return { article: null, pageviews_monthly: null }
+  return { article, pageviews_monthly: await fetchPageviews(article) }
+}

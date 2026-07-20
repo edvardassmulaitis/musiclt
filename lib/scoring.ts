@@ -8,6 +8,23 @@
  * score_override (±15) allows admin to adjust for cultural impact.
  */
 
+/**
+ * SIŪLOMAS (dar NEįjungtas į score) Wikipedia žinomumo subscore iš mėnesinių
+ * peržiūrų — balansui greta YouTube peržiūrų. Šiuo metu score labiausiai lemia
+ * YouTube (LT: popRecent/13 + popAllTime/12 = 25). Wikipedia peržiūros atspindi
+ * BENDRĄ kultūrinį žinomumą (ne tik YT), tad gerai subalansuoja atlikėjus, kurie
+ * populiarūs, bet ne per YouTube (senesni, ne-vaizdo, tarptautiniai).
+ *
+ * log10 skalė (cap 12): 100/mėn→4, 1k→6, 10k→8, 100k→10, 1M→12.
+ * Prieš įjungiant į computeLTScore/computeINTScore — palyginam realius atlikėjus
+ * (dabartinis score vs +wiki) ir suderinam svorį/cap.
+ */
+export function wikiNotabilityPts(pageviewsMonthly: number | null | undefined, cap = 12): number {
+  const pv = typeof pageviewsMonthly === 'number' ? pageviewsMonthly : 0
+  if (pv <= 0) return 0
+  return Math.min(cap, Math.round(Math.log10(pv + 1) * 2.0))
+}
+
 // ── Types ──────────────────────────────────────────────────────
 
 export type ScoreCategory = {
