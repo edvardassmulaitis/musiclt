@@ -14,7 +14,7 @@ import { getServerSession } from 'next-auth'
 import { authOptions } from '@/lib/auth'
 import { createAdminClient } from '@/lib/supabase'
 import { commitAlbum } from '@/lib/quick-add'
-import { commitAlbumFromMb, commitShellAlbum, enrichAlbumTracks } from '@/lib/album-commit'
+import { commitAlbumFromMb, commitAlbumFromTracks, commitShellAlbum, enrichAlbumTracks } from '@/lib/album-commit'
 import { findOrCreateArtist } from '@/lib/featuring-utils'
 
 export const runtime = 'nodejs'
@@ -100,19 +100,32 @@ export async function PATCH(req: NextRequest, { params }: { params: Promise<{ id
       if (!artistId) return NextResponse.json({ error: `Nepavyko sukurti atlikėjo „${cand.artist_raw}"` }, { status: 500 })
     }
 
+    const yr = typeof body.year === 'number' ? body.year : cand.release_year
+    const mo = typeof body.month === 'number' ? body.month : (cand.release_month || null)
+    const da = typeof body.day === 'number' ? body.day : (cand.release_day || null)
+    const cover = typeof body.cover_url === 'string' ? body.cover_url : null
+    const ptype = typeof body.primary_type === 'string' ? body.primary_type : null
+    // Apple (jau išleisto) tracklistas — iš cache'into preview_payload (serveryje, ne
+    // klientu pasitikint). Yra tik kai enrichAlbum gavo tikrus (ne placeholder) pavadinimus.
+    const pv: any = cand.preview_payload
+    const appleTracks: any[] = (pv && pv.source === 'apple' && Array.isArray(pv.tracks)) ? pv.tracks : []
+
     let result: Awaited<ReturnType<typeof commitShellAlbum>>
     if (mode === 'full' && mbReleaseId) {
       result = await commitAlbumFromMb(mbReleaseId, artistId, types)
+    } else if (appleTracks.length > 0) {
+      result = await commitAlbumFromTracks(artistId, {
+        title: cand.album_title, year: yr, month: mo, day: da,
+        coverUrl: cover ?? pv.cover_url ?? null,
+        primaryType: ptype ?? pv.primary_type ?? null,
+        types: types.length ? types : (Array.isArray(pv.types) ? pv.types : []),
+        source: 'apple',
+        tracks: appleTracks.map((t: any) => ({ title: t.title, position: t.position })),
+      })
     } else {
       result = await commitShellAlbum({
-        artistId: artistId,
-        title: cand.album_title,
-        year: typeof body.year === 'number' ? body.year : cand.release_year,
-        month: typeof body.month === 'number' ? body.month : (cand.release_month || null),
-        day: typeof body.day === 'number' ? body.day : (cand.release_day || null),
-        coverUrl: typeof body.cover_url === 'string' ? body.cover_url : null,
-        primaryType: typeof body.primary_type === 'string' ? body.primary_type : null,
-        types,
+        artistId, title: cand.album_title, year: yr, month: mo, day: da,
+        coverUrl: cover, primaryType: ptype, types,
       })
     }
     if (!result.ok) return NextResponse.json({ error: result.error }, { status: 500 })

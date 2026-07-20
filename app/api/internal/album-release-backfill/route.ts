@@ -23,6 +23,7 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { createAdminClient } from '@/lib/supabase'
 import { searchAlbumByTitle, msToDuration } from '@/lib/musicbrainz'
+import { searchAppleAlbum, fetchAppleTracklist, tracksLookPlaceholder } from '@/lib/apple-music'
 import { getAlbumById, updateAlbum, type TrackInAlbum } from '@/lib/supabase-albums'
 import { enrichAlbumTracks } from '@/lib/album-commit'
 import { normalizeAlbumTitle } from '@/lib/album-title'
@@ -174,15 +175,29 @@ export async function POST(req: NextRequest) {
     try {
       let trackCount = realTrackCount.get(a.id) || 0
 
-      // ── MB tracklist'as (tik AIŠKUS atitikmuo: tikslus title+atlikėjas + metai) ──
-      // Aktualu kai: (a) skeletas be dainų, arba (b) yra TIK keli pre-release singlai
-      // (pvz. 1-2), o albumas jau išleistas ir MB turi pilną sąrašą — užpildom spragą.
+      // ── Tracklist'o šaltinis: MB (pirmenybė) → Apple (jau IŠLEISTAM, tikri pavadinimai).
+      // Aktualu kai: (a) skeletas be dainų, arba (b) yra TIK keli pre-release singlai,
+      // o albumas jau išleistas ir šaltinis turi pilną sąrašą — užpildom spragą.
       const mb = await searchAlbumByTitle(artistName, a.title, a.year).catch(() => null)
-      const yearOk = !!mb && (!a.year || !mb.year || mb.year === a.year)
+      const mbYearOk = !!mb && (!a.year || !mb.year || mb.year === a.year)
 
-      if (mb && yearOk && mb.tracks.length > trackCount) {
+      let src: { tracks: { title: string; position: number; disc: number; ms: number | null }[]; cover: string | null } | null = null
+      if (mb && mbYearOk && mb.tracks.length > trackCount) {
+        src = { tracks: mb.tracks.map(t => ({ title: t.title, position: t.position, disc: t.discNumber, ms: t.length })), cover: mb.coverUrl }
+      } else {
+        const ap = await searchAppleAlbum(artistName, a.title).catch(() => null)
+        const apYearOk = !!ap && (!a.year || !ap.year || ap.year === a.year)
+        if (ap && !ap.isUpcoming && apYearOk && ap.collectionId) {
+          const tl = await fetchAppleTracklist(ap.collectionId).catch(() => null)
+          if (tl && tl.length > trackCount && !tracksLookPlaceholder(tl.map(t => t.title))) {
+            src = { tracks: tl.map(t => ({ title: t.title, position: t.position, disc: t.disc, ms: t.durationMs })), cover: ap.coverUrl }
+          }
+        }
+      }
+
+      if (src) {
         // Esamos dainos (pvz. jau išleisti singlai) — kad MERGE išsaugotų jų
-        // YouTube/Spotify (lyrics sync'as ir taip neliečia). Rikiuojam pagal MB,
+        // YouTube/Spotify (lyrics sync'as ir taip neliečia). Rikiuojam pagal šaltinį,
         // bet esamiems perduodam track_id + video_url + spotify_id → nepertrina.
         const { data: exRows } = await supabase
           .from('album_tracks')
@@ -196,15 +211,15 @@ export async function POST(req: NextRequest) {
           if (t.title) byKey.set(normalizeAlbumTitle(t.title), rec)
           if (t.slug) byKey.set(`slug:${t.slug}`, rec)
         }
-        const tracks: TrackInAlbum[] = mb.tracks.map((t) => {
+        const tracks: TrackInAlbum[] = src.tracks.map((t) => {
           const ex = byKey.get(normalizeAlbumTitle(t.title))
           const base: TrackInAlbum = {
             title: t.title,
             sort_order: t.position,
-            disc_number: t.discNumber,
-            duration: msToDuration(t.length),
+            disc_number: t.disc,
+            duration: typeof t.ms === 'number' ? msToDuration(t.ms) : undefined,
             type: 'normal',
-            release_year: mb.year, release_month: mb.month, release_day: mb.day,
+            release_year: a.year, release_month: a.month, release_day: a.day,
           }
           if (ex) {
             base.track_id = ex.track_id
@@ -216,18 +231,18 @@ export async function POST(req: NextRequest) {
         const full = await getAlbumById(a.id)
         full.tracks = tracks
         full.is_upcoming = false
-        if (!full.cover_image_url && mb.coverUrl) full.cover_image_url = mb.coverUrl
+        if (!full.cover_image_url && src.cover) full.cover_image_url = src.cover
         await updateAlbum(a.id, full)
         await supabase.from('albums').update({ track_count: tracks.length }).eq('id', a.id)
         trackCount = tracks.length
         c.tracklist_added++
       } else if (trackCount === 0) {
-        // Tuščias ir nėra patikimo MB → paliekam skeletą (is_upcoming=true), bandysim vėl.
+        // Tuščias ir nėra patikimo MB/Apple → paliekam skeletą (is_upcoming=true), bandysim vėl.
         c.pending_tracklist++
         c.details.push({ id: a.id, title: a.title, artist: artistName, status: 'pending_tracklist' })
         continue
       } else {
-        // Turi dainas, MB neturi daugiau → tik pažymim, kad išleistas (+ viršelis jei trūksta).
+        // Turi dainas, šaltiniai neturi daugiau → tik pažymim, kad išleistas (+ viršelis jei trūksta).
         const patch: any = { is_upcoming: false }
         if (!a.cover_image_url && mb?.coverUrl) patch.cover_image_url = mb.coverUrl
         await supabase.from('albums').update(patch).eq('id', a.id)

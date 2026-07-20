@@ -15,7 +15,7 @@
  */
 
 import { searchAlbumByTitle } from './musicbrainz'
-import { searchAppleAlbum } from './apple-music'
+import { searchAppleAlbum, fetchAppleTracklist, tracksLookPlaceholder } from './apple-music'
 
 export type EnrichTrack = { position: number; title: string }
 
@@ -73,21 +73,31 @@ export async function enrichAlbum(
     }
   }
 
-  // 2) Apple — viršelis/data/track-count (be tikro tracklist'o).
+  // 2) Apple — viršelis/data/track-count. Jau IŠLEISTAM albumui — IR tikras
+  //    tracklistas (iTunes lookup; pre-release lieka placeholder'iai, tad tik released).
   const apple = await searchAppleAlbum(artistName, albumTitle).catch(() => null)
   if (apple) {
+    let appleTracks: EnrichTrack[] = []
+    if (!apple.isUpcoming && apple.collectionId) {
+      const tl = await fetchAppleTracklist(apple.collectionId).catch(() => null)
+      if (tl && tl.length && !tracksLookPlaceholder(tl.map(t => t.title))) {
+        appleTracks = tl.map((t, i) => ({ position: t.position || i + 1, title: t.title }))
+      }
+    }
+    const hasTracks = appleTracks.length > 0
+    const isEp = !hasTracks ? false : appleTracks.length <= 6 && /(-|\s)ep\b/i.test(apple.title)
     return {
       source: 'apple',
       source_url: apple.collectionId ? `https://music.apple.com/album/${apple.collectionId}` : null,
       cover_url: apple.coverUrl,
       year: apple.year, month: apple.month, day: apple.day,
-      tracks: [],
-      track_count: apple.trackCount || 0,
+      tracks: appleTracks,
+      track_count: hasTracks ? appleTracks.length : (apple.trackCount || 0),
       mb_release_id: mb?.releaseId || null,
-      primary_type: apple.looksLikeSingle ? 'Single' : null,
-      types: apple.looksLikeSingle ? ['Single'] : [],
+      primary_type: apple.looksLikeSingle ? 'Single' : (isEp ? 'EP' : null),
+      types: apple.looksLikeSingle ? ['Single'] : (isEp ? ['EP'] : []),
       is_upcoming: apple.isUpcoming,
-      confidence: 'medium',
+      confidence: hasTracks ? 'high' : 'medium',
     }
   }
 

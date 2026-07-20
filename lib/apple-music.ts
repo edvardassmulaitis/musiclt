@@ -95,6 +95,46 @@ export async function searchAppleAlbum(artistName: string, albumTitle: string): 
   }
 }
 
+export type AppleTrack = { position: number; disc: number; title: string; durationMs: number | null }
+
+/** Ar Apple dainų pavadinimai atrodo kaip placeholder'iai („Track 5", „Track 6") —
+ *  taip būna PRE-RELEASE albumams, kol dainos neatskleistos. Jei pusė+ tokių —
+ *  nepatikima, geriau nenaudoti. */
+export function tracksLookPlaceholder(titles: string[]): boolean {
+  if (!titles.length) return true
+  const ph = titles.filter(t => /^track\s*\d+$/i.test((t || '').trim())).length
+  return ph >= Math.ceil(titles.length / 2)
+}
+
+/** Pilnas albumo tracklist'as iš Apple Music (iTunes lookup entity=song). Naudoti
+ *  TIK jau IŠLEISTIems albumams — tada dainų pavadinimai tikri (ne „Track N"). */
+export async function fetchAppleTracklist(collectionId: number): Promise<AppleTrack[] | null> {
+  if (!collectionId) return null
+  try {
+    const res = await fetch(
+      `https://itunes.apple.com/lookup?id=${collectionId}&entity=song&limit=300&country=US`,
+      { signal: AbortSignal.timeout(9000) }
+    )
+    if (!res.ok) return null
+    const json = await res.json()
+    const songs = (json?.results || []).filter(
+      (r: any) => r.wrapperType === 'track' && r.kind === 'song' && r.collectionId === collectionId
+    )
+    const tracks: AppleTrack[] = songs
+      .map((s: any) => ({
+        position: s.trackNumber || 0,
+        disc: s.discNumber || 1,
+        title: (s.trackName || '').trim(),
+        durationMs: typeof s.trackTimeMillis === 'number' ? s.trackTimeMillis : null,
+      }))
+      .filter((t: AppleTrack) => !!t.title)
+      .sort((a: AppleTrack, b: AppleTrack) => (a.disc - b.disc) || (a.position - b.position))
+    return tracks.length ? tracks : null
+  } catch {
+    return null
+  }
+}
+
 /** Ieško track'o Apple Music kataloge, grąžina jo albumą (jei yra) —
  *  metaduomenims (viršelis/data/track count), NE tracklist'o turiniui.
  *  Best-effort: klaidos/timeout atveju grąžina null, niekad nemeta. */

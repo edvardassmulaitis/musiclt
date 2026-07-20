@@ -185,6 +185,74 @@ export async function commitAlbumFromMb(releaseId: string, artistId: number, typ
   }
 }
 
+/** Sukuria albumą iš PADUOTO tracklist'o (pvz. Apple Music jau išleistam albumui,
+ *  kai MB dar neturi). Ta pati dedup/„skeleto užpildymo" logika kaip commitAlbumFromMb.
+ *  Jei tracks tuščias — nusileidžia į commitShellAlbum. */
+export async function commitAlbumFromTracks(artistId: number, input: {
+  title: string
+  year: number | null; month: number | null; day: number | null
+  coverUrl?: string | null
+  primaryType?: string | null
+  types?: string[]
+  source?: string
+  tracks: { title: string; position?: number; durationMs?: number | null }[]
+}): Promise<AlbumCommitResult> {
+  const title = (input.title || '').trim()
+  if (!title) return { ok: false, error: 'Trūksta albumo pavadinimo' }
+  const clean = (input.tracks || []).filter(t => (t.title || '').trim())
+  if (!clean.length) {
+    return commitShellAlbum({
+      artistId, title, year: input.year, month: input.month, day: input.day,
+      coverUrl: input.coverUrl, primaryType: input.primaryType, types: input.types, source: input.source,
+    })
+  }
+
+  const supabase = createAdminClient()
+  const tracks: TrackInAlbum[] = clean.map((t, i) => ({
+    title: t.title.trim(),
+    sort_order: t.position || i + 1,
+    disc_number: 1,
+    duration: typeof t.durationMs === 'number' ? msToDuration(t.durationMs) : undefined,
+    type: 'normal',
+    release_year: input.year, release_month: input.month, release_day: input.day,
+  }))
+  const allTypes = (input.types && input.types.length) ? input.types : [input.primaryType].filter(Boolean) as string[]
+
+  const existing = await findExistingAlbum(supabase, artistId, title)
+  if (existing) {
+    if (await albumHasTracks(supabase, existing)) {
+      return { ok: true, album_id: existing, title, track_count: tracks.length, existed: true }
+    }
+    try {
+      const full = await getAlbumById(existing)
+      full.title = title
+      full.tracks = tracks
+      full.is_upcoming = isUpcoming(input.year, input.month, input.day)
+      if (!full.cover_image_url && input.coverUrl) full.cover_image_url = input.coverUrl
+      await updateAlbum(existing, full)
+      return { ok: true, album_id: existing, title, track_count: tracks.length, existed: false }
+    } catch (e: any) {
+      return { ok: false, error: `Shell fill failed: ${String(e?.message || e).slice(0, 200)}` }
+    }
+  }
+
+  const albumData: AlbumFull = {
+    title, artist_id: artistId,
+    year: input.year, month: input.month, day: input.day,
+    ...typeFlagsFrom(input.primaryType || (allTypes[0] || null), allTypes),
+    cover_image_url: input.coverUrl || undefined,
+    source: input.source || 'apple',
+    is_upcoming: isUpcoming(input.year, input.month, input.day),
+    tracks,
+  }
+  try {
+    const id = await createAlbum(albumData)
+    return { ok: true, album_id: id, title, track_count: tracks.length, existed: false }
+  } catch (e: any) {
+    return { ok: false, error: `Album create failed: ${String(e?.message || e).slice(0, 200)}` }
+  }
+}
+
 /** Sukuria „skeleto" albumą — tik pavadinimas + data + viršelis, be dainų.
  *  Būsimiems albumams, kurių tracklist'o dar niekur nėra. */
 export async function commitShellAlbum(input: {
