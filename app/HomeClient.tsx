@@ -1964,8 +1964,24 @@ function HeroV2Card({ slide, dk }: { slide: HeroSlide; dk: boolean }) {
   return (
     <Link
       href={slide.href}
-      className="group relative block aspect-[16/9] overflow-hidden rounded-2xl border border-[var(--border-default)] bg-[var(--bg-surface)] no-underline shadow-[var(--hero-card-shadow)] transition-all hover:-translate-y-0.5 hover:shadow-[var(--hero-card-shadow-hover)]"
+      className="group relative block aspect-[16/9] overflow-hidden rounded-2xl border border-[var(--border-default)] no-underline shadow-[var(--hero-card-shadow)] transition-all hover:-translate-y-0.5 hover:shadow-[var(--hero-card-shadow-hover)]"
+      style={{ background: 'linear-gradient(135deg,#141b28 0%,#0a0e17 100%)' }}
     >
+      {/* Ambient blur fonas — TA PATI nuotrauka, išblukinta+patamsinta. Aštri foto
+          (dešinėj) kairiuoju kraštu persilieja į šitą blur (ne į baltą bg-surface,
+          kuris light mode'e atrodydavo prastai: baltas→tamsus šuolis). */}
+      {slide.bgImg && (
+        <div
+          className="absolute inset-0"
+          style={{
+            backgroundImage: `url(${proxyImgResized(slide.bgImg, 480)})`,
+            backgroundSize: 'cover',
+            backgroundPosition: 'center',
+            filter: 'blur(34px) brightness(0.44) saturate(1.35)',
+            transform: 'scale(1.25)',
+          }}
+        />
+      )}
       {/* BG image — height-driven, hugs right side for portrait covers */}
       <div className="absolute inset-0 flex items-stretch justify-end overflow-hidden">
         {slide.bgImg ? (
@@ -1982,15 +1998,15 @@ function HeroV2Card({ slide, dk }: { slide: HeroSlide; dk: boolean }) {
             // ir taip sakė „above-the-fold — tik decoding=async, be lazy" — čia
             // ta taisyklė tiesiog nebuvo pritaikyta.
             decoding="async"
-            className="h-full w-auto max-w-full object-cover"
+            className="relative h-full w-auto max-w-full object-cover"
             style={{
               objectPosition: 'center 25%',
-              WebkitMaskImage: 'linear-gradient(to right, transparent 0%, black 18%, black 100%)',
-              maskImage: 'linear-gradient(to right, transparent 0%, black 18%, black 100%)',
+              WebkitMaskImage: 'linear-gradient(to right, transparent 0%, rgba(0,0,0,0.4) 12%, black 34%)',
+              maskImage: 'linear-gradient(to right, transparent 0%, rgba(0,0,0,0.4) 12%, black 34%)',
             }}
           />
         ) : (
-          <div className="h-full w-full" style={{ background: 'var(--homepage-hero-gradient)' }} />
+          <div className="h-full w-full" style={{ background: 'linear-gradient(135deg,#141b28 0%,#0a0e17 100%)' }} />
         )}
       </div>
       {/* Badge — viršuj kairėj (kaip /bendruomene feed KindBadge).
