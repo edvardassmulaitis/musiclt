@@ -7,7 +7,7 @@ import Link from 'next/link'
 import InboxTabs from '@/components/InboxTabs'
 import { useInboxCounts } from '@/components/useInboxCounts'
 
-type MatchedArtist = { id: number; name: string; slug: string; cover_image_url: string | null }
+type MatchedArtist = { id: number; name: string; slug: string; cover_image_url: string | null; score: number | null }
 
 type WikiAlbumCandidate = {
   id: number
@@ -281,9 +281,13 @@ export default function WikiAlbumInboxPage() {
                   </div>
                   <div className="font-medium leading-tight">
                     {c.matched_artist ? (
-                      <span title="Atlikėjas jau kataloge">
-                        <span className="text-emerald-600 mr-0.5" aria-label="kataloge">✅</span>
-                        <Link href={`/atlikejai/${c.matched_artist.slug}`} className="text-blue-700 hover:underline" target="_blank" rel="noopener noreferrer">{c.matched_artist.name}</Link>
+                      <span title="Atlikėjas jau kataloge" className="inline-flex items-center gap-1 align-baseline">
+                        <span className="text-emerald-600" aria-label="kataloge">✅</span>
+                        <Link href={`/admin/artists/${c.matched_artist.id}`} className="text-blue-700 hover:underline" target="_blank" rel="noopener noreferrer" title="Redaguoti atlikėją (admin)">{c.matched_artist.name}</Link>
+                        <a href={`/atlikejai/${c.matched_artist.slug}`} target="_blank" rel="noopener noreferrer" title="Viešas atlikėjo puslapis" className="text-[11px] opacity-50 hover:opacity-100 no-underline">↗</a>
+                        {typeof c.matched_artist.score === 'number' && (
+                          <span title="Atlikėjo populiarumo score (0–100)" className="text-[11px] text-[var(--text-muted)] font-medium">🔥 {Math.round(c.matched_artist.score)}</span>
+                        )}
                       </span>
                     ) : (
                       <span title="Atlikėjo dar nėra kataloge — reikės sukurti">
