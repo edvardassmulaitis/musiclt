@@ -147,13 +147,21 @@ export async function POST(req: NextRequest) {
 
   const due = (rows || []).filter((a: any) => isReleased(a.year, a.month, a.day)).slice(0, MAX_ALBUMS_PER_RUN)
 
+  // TIKRAS dainų skaičius iš album_tracks (albums.track_count stulpelis NEpalaikomas —
+  // visiems 0, tad juo pasitikėti negalima).
+  const realTrackCount = new Map<number, number>()
+  if (due.length > 0) {
+    const { data: atRows } = await supabase.from('album_tracks').select('album_id').in('album_id', due.map((a: any) => a.id))
+    for (const r of (atRows || []) as any[]) realTrackCount.set(r.album_id, (realTrackCount.get(r.album_id) || 0) + 1)
+  }
+
   for (const a of due as any[]) {
     if (Date.now() - startedAt > RUN_BUDGET_MS) break
     c.considered++
     const artistName = (a.artists?.name || '') as string
 
     try {
-      let trackCount = a.track_count || 0
+      let trackCount = realTrackCount.get(a.id) || 0
 
       // ── Skeletas (be dainų) → bandom rasti tracklist'ą MB (tik AIŠKUS atitikmuo) ──
       if (trackCount === 0) {
