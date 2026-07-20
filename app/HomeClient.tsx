@@ -1975,18 +1975,23 @@ function HeroV2Card({ slide, dk }: { slide: HeroSlide; dk: boolean }) {
           cover'iai apkerpami į 16:9 (object-position viršus) — OK mažai hero kortelei.
           (loading=lazy sąmoningai NEnaudojam — above-the-fold horizontaliam track'ui
           native lazy neveikdavo, vizualai likdavo pilki; tik decoding=async.) */}
-      {slide.bgImg ? (
-        // eslint-disable-next-line @next/next/no-img-element
-        <img
-          src={proxyImgResized(slide.bgImg, 1280)}
-          alt=""
-          decoding="async"
-          className="absolute inset-0 h-full w-full object-cover"
-          style={{ objectPosition: 'center 25%' }}
-        />
-      ) : (
-        <div className="absolute inset-0" style={{ background: 'linear-gradient(135deg,#141b28 0%,#0a0e17 100%)' }} />
-      )}
+      {/* Vidinis overflow-hidden wrapper — kad hover -translate (transform) NEnutrauktų
+          border-radius clip'o (Chrome/Safari bug: transformuotas tėvas → apvalūs kampai
+          virsta kvadratiniais absoliučiai pozicionuotam vaikui). */}
+      <div className="absolute inset-0 overflow-hidden rounded-2xl">
+        {slide.bgImg ? (
+          // eslint-disable-next-line @next/next/no-img-element
+          <img
+            src={proxyImgResized(slide.bgImg, 1280)}
+            alt=""
+            decoding="async"
+            className="absolute inset-0 h-full w-full object-cover"
+            style={{ objectPosition: 'center 25%' }}
+          />
+        ) : (
+          <div className="absolute inset-0" style={{ background: 'linear-gradient(135deg,#141b28 0%,#0a0e17 100%)' }} />
+        )}
+      </div>
       {/* Badge — viršuj kairėj (kaip /bendruomene feed KindBadge).
           Paprastoms „NAUJIENA" NErodom (jų daugiausia, badge tik kartotųsi);
           paliekam tik prominentiniams tipams (Recenzija, Interviu, Reportažas,
