@@ -11,7 +11,7 @@
  */
 
 import { createAdminClient } from '@/lib/supabase'
-import { createAlbum, type AlbumFull, type TrackInAlbum } from '@/lib/supabase-albums'
+import { createAlbum, updateAlbum, getAlbumById, type AlbumFull, type TrackInAlbum } from '@/lib/supabase-albums'
 import { fetchReleaseTracklist, fetchMbCoverUrl, msToDuration } from '@/lib/musicbrainz'
 import { normalizeAlbumTitle } from '@/lib/album-title'
 import { enrichTrack } from '@/lib/yt-enrich'
@@ -71,17 +71,33 @@ function isUpcoming(y: number | null, m: number | null, d: number | null): boole
 }
 
 /** Ar atlikėjas jau turi tokio pavadinimo albumą (normalizuotas palyginimas —
- *  pagauna „Days of Ash" vs „Days of Ash EP"). Grąžina id arba null. */
+ *  pagauna „Days of Ash" vs „Days of Ash EP"). Grąžina id arba null.
+ *  Taip pat nuima atlikėjo prefiksą iš title (katalogas kartais saugo
+ *  „Dua Lipa – Live from Mexico", o mes ieškom „Live from Mexico") — kad
+ *  approve NEsukurtų dublikato prie jau esančio (dažnai skeleto). */
 async function findExistingAlbum(supabase: any, artistId: number, title: string): Promise<number | null> {
   const want = normalizeAlbumTitle(title)
   if (!want) return null
+  const { data: art } = await supabase.from('artists').select('name').eq('id', artistId).maybeSingle()
+  const na = normalizeAlbumTitle(art?.name || '')
+  const strip = (nt: string) => (na && nt.startsWith(na + ' ')) ? nt.slice(na.length + 1).trim() : nt
+  const wantStripped = strip(want)
   const { data } = await supabase
     .from('albums')
     .select('id, title')
     .eq('artist_id', artistId)
     .limit(500)
-  const hit = (data || []).find((a: any) => normalizeAlbumTitle(a.title || '') === want)
+  const hit = (data || []).find((a: any) => {
+    const nt = normalizeAlbumTitle(a.title || '')
+    return nt === want || strip(nt) === want || nt === wantStripped || strip(nt) === wantStripped
+  })
   return hit ? (hit.id as number) : null
+}
+
+/** Ar albumas turi bent vieną dainą (album_tracks). */
+async function albumHasTracks(supabase: any, albumId: number): Promise<boolean> {
+  const { data } = await supabase.from('album_tracks').select('track_id').eq('album_id', albumId).limit(1)
+  return (data || []).length > 0
 }
 
 /** Albumo tipų flag'ai iš MB tipų sąrašo (primary + secondary). Kelios reikšmės
@@ -114,9 +130,6 @@ export async function commitAlbumFromMb(releaseId: string, artistId: number, typ
   if (!rel || !rel.tracks.length) return { ok: false, error: 'MusicBrainz release be tracklist\'o' }
 
   const supabase = createAdminClient()
-  const existing = await findExistingAlbum(supabase, artistId, rel.title)
-  if (existing) return { ok: true, album_id: existing, title: rel.title, track_count: rel.tracks.length, existed: true }
-
   const cover = await fetchMbCoverUrl(releaseId).catch(() => null)
   const tracks: TrackInAlbum[] = rel.tracks.map((t) => ({
     title: t.title,
@@ -126,6 +139,28 @@ export async function commitAlbumFromMb(releaseId: string, artistId: number, typ
     type: 'normal',
     release_year: rel.year, release_month: rel.month, release_day: rel.day,
   }))
+
+  const existing = await findExistingAlbum(supabase, artistId, rel.title)
+  if (existing) {
+    // Jei esamas albumas — „skeletas" (be dainų), o mes turim tracklistą → UŽPILDOM
+    // (ir sutvarkom pavadinimą į švarų MB variantą), o NE dublikuojam. Jei jau turi
+    // dainas — tikras dublikatas, paliekam.
+    if (await albumHasTracks(supabase, existing)) {
+      return { ok: true, album_id: existing, title: rel.title, track_count: rel.tracks.length, existed: true }
+    }
+    try {
+      const full = await getAlbumById(existing)
+      full.title = rel.title
+      full.tracks = tracks
+      full.is_upcoming = isUpcoming(rel.year, rel.month, rel.day)
+      if (!full.cover_image_url && cover) full.cover_image_url = cover
+      if (rel.year && !full.year) { full.year = rel.year; full.month = rel.month; full.day = rel.day }
+      await updateAlbum(existing, full)
+      return { ok: true, album_id: existing, title: rel.title, track_count: tracks.length, existed: false }
+    } catch (e: any) {
+      return { ok: false, error: `Shell fill failed: ${String(e?.message || e).slice(0, 200)}` }
+    }
+  }
 
   const allTypes = types.length ? types : [rel.primaryType].filter(Boolean) as string[]
   const albumData: AlbumFull = {
