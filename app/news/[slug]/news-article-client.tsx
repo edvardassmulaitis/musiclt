@@ -657,19 +657,22 @@ export default function NewsArticleClient({
 
         /* ── SPLIT (portretas/kvadratas): foto VISA dešinėje ant blur, antraštė kairėje ── */
         .na-hero--split { align-items:stretch; }
-        /* Desktop split — nuotrauka rodoma VISA (contain) per visą band aukštį,
-           flush prie dešinio krašto, BE rėmelio/šešėlio/apvalių kampų (jokio
-           „box in box"). Sėdi tiesiai ant to paties ambient blur fono → integruota,
-           nekerpa (tinka ir portretui, ir kvadratiniam albumo viršeliui). */
-        .na-hero--split .na-hero-photo{ left:auto; right:0; width:46%; padding:0; align-items:stretch; justify-content:flex-end; }
+        /* Desktop split — nuotrauka rodoma VISA (contain), flush prie dešinio krašto,
+           BE rėmelio. Kairysis kraštas FEATHER'inamas (mask gradientas) → aštri foto
+           sklandžiai persilieja į savo pačios ambient blur → jokios kietos briaunos,
+           jokio „box in box". Nekerpa (tinka portretui IR kvadratiniam albumui). */
+        .na-hero--split .na-hero-bg   { filter:blur(48px) saturate(1.55) brightness(0.66); transform:scale(1.25); }
+        .na-hero--split .na-hero-photo{ left:auto; right:0; width:54%; padding:0; align-items:stretch; justify-content:flex-end; }
         .na-hero--split .na-hero-frame{ height:100%; max-width:100%; border-radius:0; box-shadow:none; overflow:hidden; }
-        .na-hero--split .na-hero-img  { height:100%; width:auto; max-width:100%; object-fit:contain; object-position:center; }
+        .na-hero--split .na-hero-img  { height:100%; width:auto; max-width:100%; object-fit:contain; object-position:center;
+          -webkit-mask-image:linear-gradient(to right, transparent 0%, rgba(0,0,0,0.35) 12%, #000 40%);
+          mask-image:linear-gradient(to right, transparent 0%, rgba(0,0,0,0.35) 12%, #000 40%); }
         .na-hero--split .na-hero-wrap { align-self:center; }
-        .na-hero--split .na-hero-inner{ max-width:600px; }
+        .na-hero--split .na-hero-inner{ max-width:560px; }
         .na-hero--split .na-hero-scrim{
           background:
-            linear-gradient(to top, var(--bg-body) 1%, transparent 44%),
-            linear-gradient(to right, rgba(8,13,20,0.95) 0%, rgba(8,13,20,0.82) 30%, rgba(8,13,20,0.5) 56%, rgba(8,13,20,0.2) 80%, transparent 100%); }
+            linear-gradient(to top, var(--bg-body) 1%, transparent 50%),
+            linear-gradient(to right, rgba(8,13,20,0.96) 0%, rgba(8,13,20,0.72) 34%, rgba(8,13,20,0.3) 60%, transparent 88%); }
 
         .na-hero-wrap  { position:relative; z-index:3; width:100%; max-width:1240px; margin:0 auto; padding:0 28px 22px; }
         .na-hero-inner { max-width:700px; animation:na-in .7s .05s both; }
@@ -803,7 +806,7 @@ export default function NewsArticleClient({
            PENDING → rezervuojam juostą, antraštė apačioje. */
         @media(max-width:860px){
           .na-hero { height:auto; min-height:0; max-height:none; display:block; }
-          .na-hero-bg { filter:blur(38px) saturate(1.5) brightness(0.6); transform:scale(1.28); }
+          .na-hero-bg, .na-hero--split .na-hero-bg { filter:blur(38px) saturate(1.5) brightness(0.6); transform:scale(1.28); }
 
           .na-hero--pending, .na-hero--cine { position:relative; aspect-ratio:16/10; }
           .na-hero--pending .na-hero-wrap, .na-hero--cine .na-hero-wrap { position:absolute; left:0; right:0; bottom:0; max-width:100%; }
@@ -812,7 +815,7 @@ export default function NewsArticleClient({
           .na-hero--split { display:block; }
           .na-hero--split .na-hero-photo { position:relative; inset:auto; width:100%; padding:22px 20px 4px; justify-content:center; }
           .na-hero--split .na-hero-frame { height:auto; border-radius:14px; box-shadow:0 18px 44px -18px rgba(0,0,0,0.8), 0 0 0 1px rgba(255,255,255,0.09); }
-          .na-hero--split .na-hero-img { height:auto; width:auto; max-height:56vh; max-width:100%; }
+          .na-hero--split .na-hero-img { height:auto; width:auto; max-height:56vh; max-width:100%; -webkit-mask-image:none; mask-image:none; }
           .na-hero--split .na-hero-wrap { position:relative; align-self:auto; padding:12px 20px 26px; max-width:100%; }
           .na-hero--split .na-hero-inner { max-width:100%; }
           .na-hero--split .na-hero-scrim { background:linear-gradient(to bottom, transparent 28%, var(--bg-body) 100%); }
