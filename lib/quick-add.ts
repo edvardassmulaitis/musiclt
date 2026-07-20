@@ -27,6 +27,8 @@ import { extractVideoIdFromUrl, getVideoDetails } from '@/lib/yt-innertube'
 import { enrichTrack } from '@/lib/yt-enrich'
 import { COUNTRIES, SUBSTYLES } from '@/lib/constants'
 import * as wiki from '@/lib/wiki-parser'
+import { searchAppleAlbum } from '@/lib/apple-music'
+import { searchAlbumByTitle } from '@/lib/musicbrainz'
 import { createAlbum, type AlbumFull, type TrackInAlbum } from '@/lib/supabase-albums'
 import { slugify } from '@/lib/slugify'
 import { syncTrackFeaturing } from '@/lib/featuring-utils'
@@ -624,6 +626,20 @@ async function fetchAlbumCover(title: string, wikitext: string, origin: string):
     }
   } catch { /* ignore */ }
   return src
+}
+
+/** Albumo viršelis: pirma Wikipedia (fetchAlbumCover), o jei jos straipsnyje viršelio
+ *  NĖRA (dažna NAUJIEMS albumams — pvz. Soft Cell „Danceteria" 2026), fallback į
+ *  Apple Music, tada MusicBrainz. Taip wiki-linked kandidatai irgi gauna viršelį. */
+async function albumCoverWithFallback(
+  pageTitle: string, wikitext: string, artistName: string, albumTitle: string,
+  year: number | null, origin: string,
+): Promise<string | null> {
+  const wikiCover = await fetchAlbumCover(pageTitle, wikitext, origin).catch(() => null)
+  if (wikiCover) return wikiCover
+  try { const ap = await searchAppleAlbum(artistName, albumTitle); if (ap?.coverUrl) return ap.coverUrl } catch { /* ignore */ }
+  try { const mb = await searchAlbumByTitle(artistName, albumTitle, year); if (mb?.coverUrl) return mb.coverUrl } catch { /* ignore */ }
+  return null
 }
 
 type ArtistWikiMeta = {
@@ -1339,7 +1355,7 @@ export async function enrichAlbumFromWiki(url: string, origin: string): Promise<
 } | null> {
   const w = await fetchAlbumWiki(url)
   if ('error' in w) return null
-  const cover = await fetchAlbumCover(w.pageTitle, w.wikitext, origin).catch(() => null)
+  const cover = await albumCoverWithFallback(w.pageTitle, w.wikitext, w.artistName, w.albumTitle, w.date.year, origin)
   const tf: any = w.typeFlags || {}
   const types: string[] = []
   if (tf.type_ep) types.push('EP')
@@ -1452,7 +1468,7 @@ export async function commitAlbum(url: string, origin: string, ov: AlbumOverride
   const month = ov.month !== undefined ? ov.month : w.date.month
   const day = ov.day !== undefined ? ov.day : w.date.day
 
-  const cover = await fetchAlbumCover(w.pageTitle, w.wikitext, origin)
+  const cover = await albumCoverWithFallback(w.pageTitle, w.wikitext, artistName, albumTitle, year, origin)
   if (!cover) warnings.push('Nerastas albumo viršelis.')
 
   const tracks: TrackInAlbum[] = w.trackEntries.map((t, i) => ({
