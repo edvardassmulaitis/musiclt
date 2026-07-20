@@ -27,6 +27,9 @@ type WikiAlbumCandidate = {
   matched_artist: MatchedArtist | null
   preview_payload?: Enrichment | null
   preview_at?: string | null
+  /** Jei albumas JAU yra kataloge, bet kaip „skeletas" (0 dainų) — pridėjus bus
+   *  papildytas, ne dublikuotas. (Realūs dublikatai su dainom išfiltruojami serveryje.) */
+  existing_album?: { id: number; empty: boolean } | null
 }
 
 type Enrichment = {
@@ -72,7 +75,10 @@ export default function WikiAlbumInboxPage() {
   const [years, setYears] = useState<{ year: number; count: number }[]>([])
   const [selectedYear, setSelectedYear] = useState<number | null>(null)
   const [loading, setLoading] = useState(true)
-  const [busy, setBusy] = useState<number | null>(null)
+  // Set — kad KELIS albumus būtų galima kelti vienu metu (kiekvienas savo spinner'į).
+  const [busy, setBusy] = useState<Set<number>>(new Set())
+  const startBusy = (id: number) => setBusy(prev => { const n = new Set(prev); n.add(id); return n })
+  const endBusy = (id: number) => setBusy(prev => { const n = new Set(prev); n.delete(id); return n })
   const [errorMsg, setErrorMsg] = useState<Record<number, string>>({})
   const [enrich, setEnrich] = useState<Record<number, EnrichState>>({})
   const [scanning, setScanning] = useState(false)
@@ -174,7 +180,7 @@ export default function WikiAlbumInboxPage() {
   }
 
   async function reject(id: number) {
-    setBusy(id)
+    startBusy(id)
     try {
       const res = await fetch(`/api/admin/wiki-album-candidates/${id}`, {
         method: 'PATCH', headers: { 'Content-Type': 'application/json' },
@@ -182,12 +188,12 @@ export default function WikiAlbumInboxPage() {
       })
       if (res.ok) setCandidates(prev => prev.filter(c => c.id !== id))
       else { const j = await res.json().catch(() => ({})); setErrorMsg(p => ({ ...p, [id]: j.error || 'Klaida' })) }
-    } finally { setBusy(null) }
+    } finally { endBusy(id) }
   }
 
   // Vieno-click „Pridėti" — naudoja praturtinimo rezultatą (MB pilnas / shell).
   async function addOneClick(c: WikiAlbumCandidate) {
-    setBusy(c.id); setErrorMsg(p => ({ ...p, [c.id]: '' }))
+    startBusy(c.id); setErrorMsg(p => ({ ...p, [c.id]: '' }))
     const e = enrich[c.id]?.data
     const useFull = !!(e && e.mb_release_id && e.track_count > 0)
     const body: any = {
@@ -206,7 +212,7 @@ export default function WikiAlbumInboxPage() {
       const j = await res.json().catch(() => ({}))
       if (res.ok) { setCandidates(prev => prev.filter(x => x.id !== c.id)); setTotal(t => Math.max(0, t - 1)) }
       else setErrorMsg(p => ({ ...p, [c.id]: j.error || 'Klaida' }))
-    } finally { setBusy(null) }
+    } finally { endBusy(c.id) }
   }
 
   if (status === 'loading' || !isAdmin) return null
@@ -324,17 +330,26 @@ export default function WikiAlbumInboxPage() {
                     ) : (
                       <span className="text-amber-600">nerasta MB/Apple — pridės kaip skeletą</span>
                     )}
+                    {c.existing_album && (
+                      <a href={`/admin/albums/${c.existing_album.id}`} target="_blank" rel="noopener noreferrer"
+                        title="Albumas jau yra kataloge kaip skeletas (0 dainų) — pridėjus bus papildytas, ne dublikuotas"
+                        className="px-1.5 py-0.5 rounded-full bg-sky-100 text-sky-700 font-medium no-underline hover:bg-sky-200">
+                        📀 jau kataloge (skeletas) — bus papildytas ↗
+                      </a>
+                    )}
                   </div>
 
                   {errorMsg[c.id] && <div className="text-xs text-red-600 mt-1">{errorMsg[c.id]}</div>}
 
                   {/* Veiksmai */}
                   <div className="flex gap-2 mt-2 items-center flex-wrap">
-                    <button onClick={() => addOneClick(c)} disabled={busy === c.id || enriching}
+                    <button onClick={() => addOneClick(c)} disabled={busy.has(c.id) || enriching}
                       className="text-sm px-3 py-1 rounded bg-emerald-600 text-white disabled:opacity-40 font-medium">
-                      {busy === c.id ? '…' : hasTracks ? `＋ Pridėti (${e!.track_count} d.)` : '＋ Pridėti (skeletas)'}
+                      {busy.has(c.id) ? '…' : c.existing_album
+                        ? (hasTracks ? `↻ Papildyti (${e!.track_count} d.)` : '↻ Papildyti')
+                        : (hasTracks ? `＋ Pridėti (${e!.track_count} d.)` : '＋ Pridėti (skeletas)')}
                     </button>
-                    <button onClick={() => reject(c.id)} disabled={busy === c.id}
+                    <button onClick={() => reject(c.id)} disabled={busy.has(c.id)}
                       className="text-sm px-3 py-1 rounded border border-[var(--input-border)]">Atmesti</button>
                   </div>
                 </div>

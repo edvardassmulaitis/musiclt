@@ -76,19 +76,29 @@ export async function GET(req: NextRequest) {
   for (const r of matched) {
     if (r.matched_artist_id && r.matched_artist?.name) artistNameById.set(r.matched_artist_id, r.matched_artist.name)
   }
-  const existing = new Set<string>()
+  // Katalogo albumai → key → { id, empty }. „empty" = 0 dainų (skeletas): tokio
+  // NEslepiam kaip dublikato, o parodom su žyma „jau yra — bus papildytas".
+  const existing = new Map<string, { id: number; empty: boolean }>()
   if (artistIds.length > 0) {
-    const { data: albums } = await supabase.from('albums').select('artist_id, title').in('artist_id', artistIds)
-    for (const a of (albums || []) as any[]) {
+    const { data: albums } = await supabase.from('albums').select('id, artist_id, title').in('artist_id', artistIds)
+    const albumRows = (albums || []) as any[]
+    // Dainų skaičius per albumą (album_tracks) — track_count stulpelis nepalaikomas.
+    const trackCount = new Map<number, number>()
+    const albumIds = albumRows.map(a => a.id)
+    for (let i = 0; i < albumIds.length; i += 300) {
+      const { data: at } = await supabase.from('album_tracks').select('album_id').in('album_id', albumIds.slice(i, i + 300))
+      for (const r of (at || []) as any[]) trackCount.set(r.album_id, (trackCount.get(r.album_id) || 0) + 1)
+    }
+    for (const a of albumRows) {
       const nt = normalizeAlbumTitle(a.title || '')
-      existing.add(`${a.artist_id}::${nt}`)
+      const rec = { id: a.id as number, empty: (trackCount.get(a.id) || 0) === 0 }
+      if (!existing.has(`${a.artist_id}::${nt}`)) existing.set(`${a.artist_id}::${nt}`, rec)
       // Katalogo title'as su atlikėjo prefiksu („Dua Lipa – Live from Mexico") — įrašom
-      // ir be prefikso, kad pagautų pliką kandidatą („Live from Mexico"), net jei esamas
-      // albumas — tik „skeletas" be dainų.
+      // ir be prefikso, kad pagautų pliką kandidatą („Live from Mexico").
       const na = normalizeAlbumTitle(artistNameById.get(a.artist_id) || '')
       if (na && nt.startsWith(na + ' ')) {
         const stripped = nt.slice(na.length + 1).trim()
-        if (stripped) existing.add(`${a.artist_id}::${stripped}`)
+        if (stripped && !existing.has(`${a.artist_id}::${stripped}`)) existing.set(`${a.artist_id}::${stripped}`, rec)
       }
     }
   }
@@ -97,8 +107,10 @@ export async function GET(req: NextRequest) {
     const nt = normalizeAlbumTitle(r.album_title || '')
     const na = normalizeAlbumTitle(artistNameById.get(r.matched_artist_id) || '')
     const strippedCand = (na && nt.startsWith(na + ' ')) ? nt.slice(na.length + 1).trim() : ''
-    if (existing.has(`${r.matched_artist_id}::${nt}`) || (strippedCand && existing.has(`${r.matched_artist_id}::${strippedCand}`))) {
-      dupIds.push(r.id); return false
+    const hit = existing.get(`${r.matched_artist_id}::${nt}`) || (strippedCand ? existing.get(`${r.matched_artist_id}::${strippedCand}`) : undefined)
+    if (hit) {
+      if (!hit.empty) { dupIds.push(r.id); return false } // realus dublikatas (turi dainas) → slepiam
+      r.existing_album = { id: hit.id, empty: true }      // skeletas → parodom, bus papildytas
     }
     return true
   })
