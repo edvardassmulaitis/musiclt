@@ -20,7 +20,7 @@ import { proxyImgResized } from '@/lib/img-proxy'
 import { countryFlag } from '@/lib/country-flags'
 import { eventHref } from '@/lib/event-href'
 import { DienosDainaSection } from '@/components/DienosDainaSection'
-import { KindBadge, kindColor, communityItemKind } from '@/components/community/PostKind'
+import { communityItemKind } from '@/components/community/PostKind'
 import CommunityIcons from './CommunityIcons'
 import GilynCrate from './GilynCrate'
 import HeroCarousel from './HeroCarousel'
@@ -34,19 +34,6 @@ export const metadata = {
 const MONTHS_LT = ['Sau', 'Vas', 'Kov', 'Bal', 'Geg', 'Bir', 'Lie', 'Rgp', 'Rgs', 'Spa', 'Lap', 'Gru']
 function sanitizeTitle(raw: string): string {
   return (raw || '').replace(/<[^>]*>/g, '').replace(/&[^;]+;/g, ' ').replace(/\s+/g, ' ').trim()
-}
-function timeAgoLt(iso: string | null | undefined): string {
-  if (!iso) return ''
-  const t = Date.parse(iso)
-  if (isNaN(t)) return ''
-  const m = Math.floor((Date.now() - t) / 60000)
-  if (m < 1) return 'ką tik'
-  if (m < 60) return `prieš ${m} min.`
-  const h = Math.floor(m / 60)
-  if (h < 24) return `prieš ${h} val.`
-  const d = Math.floor(h / 24)
-  if (d < 30) return `prieš ${d} d.`
-  return `prieš ${Math.floor(d / 30)} mėn.`
 }
 function isFresh24(input: string | null | undefined): boolean {
   if (!input) return false
@@ -206,21 +193,54 @@ function Hero({ slides }: { slides: Slide[] }) {
   )
 }
 
-/* ─────────────── Bendruomenės šoninė juosta (praturtinta) ─────────────── */
-function CommunityRail({ community, top }: { community: any[]; top: any[] }) {
-  const movers = (top || []).slice(0, 5)
-  // Įvairūs bendruomenės įrašai — po vieną iš kiekvieno tipo (koncerto apžvalga,
-  // recenzija, diskusija, atradimas…), iki 4, kad būtų įvairovė.
+/* ─────────────── Bendruomenės šoninė juosta (skiltys su antraštėmis) ─────────────── */
+// Kompaktiška bendruomenės įrašo eilutė (be badge'o / intro teksto).
+function CRow({ h, comment }: { h: any; comment?: boolean }) {
+  const lc = h.last_comment
+  return (
+    <Link href={h.href || '/bendruomene'} className="v2-crow group">
+      {h.cover && <span className="v2-crow-cov">{/* eslint-disable-next-line @next/next/no-img-element */}<img src={proxyImgResized(h.cover, 120)} alt="" loading="lazy" /></span>}
+      <span className="v2-crow-body">
+        <b className="v2-crow-title">{sanitizeTitle(h.title)}</b>
+        {comment && lc ? (
+          <span className="v2-crow-cmt">
+            {lc.avatar
+              ? (/* eslint-disable-next-line @next/next/no-img-element */<img className="v2-crow-av" src={proxyImgResized(lc.avatar, 40)} alt="" loading="lazy" />)
+              : <span className="v2-crow-av v2-crow-av-ph">{(lc.author || '?').charAt(0).toUpperCase()}</span>}
+            <span className="v2-crow-cmt-t">{sanitizeTitle(lc.text || '')}</span>
+          </span>
+        ) : h.author_name ? (
+          <span className="v2-crow-au">
+            {h.author_avatar
+              ? (/* eslint-disable-next-line @next/next/no-img-element */<img className="v2-crow-av" src={proxyImgResized(h.author_avatar, 40)} alt="" loading="lazy" />)
+              : <span className="v2-crow-av v2-crow-av-ph">{(h.author_name || '?').charAt(0).toUpperCase()}</span>}
+            <span className="v2-crow-au-n">{h.author_name}</span>
+          </span>
+        ) : null}
+      </span>
+    </Link>
+  )
+}
+function CSection({ title, color, children }: { title: string; color: string; children: React.ReactNode }) {
+  return (
+    <div className="v2-feed-sec v2-csec">
+      <div className="v2-csec-h"><span className="v2-csec-bar" style={{ background: color }} />{title}</div>
+      <div className="v2-csec-rows">{children}</div>
+    </div>
+  )
+}
+function CommunityRail({ community }: { community: any[] }) {
   const nonDd = community.filter((c) => c.type !== 'dd')
-  const kindKey = (h: any) => h.editorial_type || h.type || 'other'
-  const varied: any[] = []
-  const seen = new Set<string>()
-  for (const h of nonDd) { const k = kindKey(h); if (!seen.has(k)) { seen.add(k); varied.push(h) } if (varied.length >= 4) break }
-  if (varied.length < 4) for (const h of nonDd) { if (!varied.includes(h)) varied.push(h); if (varied.length >= 4) break }
+  const byKind: Record<string, any[]> = {}
+  for (const h of nonDd) { const k = communityItemKind(h); (byKind[k] = byKind[k] || []).push(h) }
+  const apzvalgos = [...(byKind.koncertai || []), ...(byKind.apzvalga || [])].slice(0, 3)
+  const topai = (byKind.topas || []).slice(0, 2)
+  const diskusijos = (byKind.diskusija || []).slice(0, 2)
+  const kita = [...(byKind.atradimas || []), ...(byKind.kuryba || []), ...(byKind.vertimas || []), ...(byKind.irasas || [])].slice(0, 2)
 
   return (
     <aside className="v2-side">
-      {/* Viskas viename bokse: Dienos daina + bendruomenės įrašai */}
+      {/* Viename bokse: Dienos daina + bendruomenės skiltys */}
       <div className="v2-comm-panel">
         <div className="v2-side-headrow">
           <div className="v2-side-head"><span className="v2-side-dot" />Kas naujo?</div>
@@ -228,50 +248,26 @@ function CommunityRail({ community, top }: { community: any[]; top: any[] }) {
         </div>
         <div className="v2-dd-embed v2-feed-sec"><DienosDainaSection variant="list" /></div>
 
-        {movers.length > 0 && (
-          <div className="v2-feed-sec">
-            <div className="v2-ch"><span className="v2-ch-bar" style={{ background: 'var(--accent-green)' }} />Topai · kyla</div>
-            {movers.map((m: any) => {
-              const tr = m.tracks || {}
-              const art = Array.isArray(tr.artists) ? tr.artists[0] : tr.artists
-              const delta = m.prev_position != null ? m.prev_position - m.position : null
-              return (
-                <div key={m.id} className="v2-row">
-                  <span className="v2-row-rank">{m.position}</span>
-                  <span className="v2-row-cov">{(tr.cover_url || art?.cover_image_url)
-                    // eslint-disable-next-line @next/next/no-img-element
-                    ? <img src={proxyImgResized(tr.cover_url || art?.cover_image_url, 64)} alt="" loading="lazy" /> : null}</span>
-                  <span className="v2-row-txt"><b>{tr.title}</b><span>{art?.name}</span></span>
-                  <span className="v2-row-right">{delta == null ? <em className="v2-d n">NAUJA</em> : delta > 0 ? <em className="v2-d u">▲{delta}</em> : delta < 0 ? <em className="v2-d d">▼{-delta}</em> : <em className="v2-d z">–</em>}</span>
-                </div>
-              )
-            })}
-            <Link href="/top40" className="v2-clink">Visas topas →</Link>
-          </div>
+        {apzvalgos.length > 0 && (
+          <CSection title="Apžvalgos" color="#ef4444">
+            {apzvalgos.map((h) => <CRow key={h.id} h={h} />)}
+          </CSection>
         )}
-
-        {varied.map((h: any) => {
-          const kind = communityItemKind(h)
-          const meta = timeAgoLt(h.created_at)
-          return (
-            <Link key={h.id} href={h.href || '/bendruomene'} className="v2-bpost group">
-              <span className="v2-bpost-bar" style={{ background: kindColor(kind) }} aria-hidden />
-              {h.cover && <span className="v2-bpost-cov">{/* eslint-disable-next-line @next/next/no-img-element */}<img src={proxyImgResized(h.cover, 320)} alt="" loading="lazy" /></span>}
-              <span className="v2-bpost-body">
-                <KindBadge kind={kind} abs={false} />
-                <b className="v2-bpost-title">{sanitizeTitle(h.title)}</b>
-                {h.excerpt && <span className="v2-bpost-ex">{sanitizeTitle(h.excerpt)}</span>}
-                <span className="v2-bpost-meta">
-                  {h.author_avatar
-                    ? (/* eslint-disable-next-line @next/next/no-img-element */<img className="v2-bpost-av" src={proxyImgResized(h.author_avatar, 40)} alt="" loading="lazy" />)
-                    : <span className="v2-bpost-av v2-bpost-av-ph">{(h.author_name || '?').charAt(0).toUpperCase()}</span>}
-                  {h.author_name && <span className="v2-bpost-au">{h.author_name}</span>}
-                  {meta && <span className="v2-bpost-time">{meta}</span>}
-                </span>
-              </span>
-            </Link>
-          )
-        })}
+        {topai.length > 0 && (
+          <CSection title="Topai" color="#f59e0b">
+            {topai.map((h) => <CRow key={h.id} h={h} />)}
+          </CSection>
+        )}
+        {diskusijos.length > 0 && (
+          <CSection title="Diskusijos" color="#8b5cf6">
+            {diskusijos.map((h) => <CRow key={h.id} h={h} comment />)}
+          </CSection>
+        )}
+        {kita.length > 0 && (
+          <CSection title="Kūryba ir kita" color="#94a3b8">
+            {kita.map((h) => <CRow key={h.id} h={h} />)}
+          </CSection>
+        )}
 
         <Link href="/bendruomene" className="v2-clink v2-feed-more">Daugiau bendruomenėje →</Link>
       </div>
@@ -469,7 +465,7 @@ function GamesZone({ members }: { members: any[] }) {
 
 /* ─────────────── PAGE ─────────────── */
 export default async function V2Page() {
-  const [music, upcomingR, newsR, eventsR, vertaR, istorijaR, communityR, topR, membersR, gilynR] = await Promise.all([
+  const [music, upcomingR, newsR, eventsR, vertaR, istorijaR, communityR, membersR, gilynR] = await Promise.all([
     getMusic(),
     getUpcomingAlbumsForHome().catch(() => ({ items: [] as any[] })),
     jget('/api/news?limit=10&include=songs&since_days=21'),
@@ -477,7 +473,6 @@ export default async function V2Page() {
     jget('/api/verta-keliones'),
     jget('/api/istorija/today'),
     jget('/api/home/community'),
-    jget('/api/top/entries?type=top40'),
     jget('/api/atradimai/active-members'),
     jget('/api/zaidimai/gilyn', 8000),
   ])
@@ -500,7 +495,6 @@ export default async function V2Page() {
   const verta: any[] = vertaR?.concerts ?? []
   const istorija: any[] = istorijaR?.items ?? []
   const community: any[] = communityR?.items ?? []
-  const top: any[] = topR?.entries ?? []
 
   const news: any[] = newsR?.news ?? []
   const newsSlides: Slide[] = news.filter((n) => n.image_title_url || n.image_small_url).slice(0, 6).map((n) => ({ href: `/naujienos/${n.slug}`, bgImg: n.image_title_url || n.image_small_url, chip: null, chipBg: 'var(--accent-orange)', title: sanitizeTitle(n.title), fresh: isFresh24(n.published_at) }))
@@ -567,7 +561,7 @@ export default async function V2Page() {
           )}
         </div>
 
-        <CommunityRail community={community} top={top} />
+        <CommunityRail community={community} />
       </div>
 
       <Koncertai events={events} verta={verta} />
@@ -615,22 +609,23 @@ const V2_EXTRA = `
 /* sekcijos viename „Kas naujo?" bokse — atskirtos plona linija */
 .v2-comm-panel>.v2-feed-sec+.v2-feed-sec{border-top:1px solid var(--card-border-subtle);padding-top:14px}
 .v2-feed-more{display:inline-block;margin-top:2px}
-/* bendruomenės įrašo kortelė — kaip /bendruomene (accent bar + viršelis + badge + meta) */
-.v2-bpost{display:flex;overflow:hidden;border:1px solid var(--card-border-default);border-radius:var(--radius-xl);background:var(--card-surface);text-decoration:none;transition:border-color .15s}
-.v2-bpost:hover{border-color:rgba(249,115,22,.45)}
-.v2-bpost-bar{width:3px;flex:none}
-.v2-bpost-cov{width:74px;flex:none;align-self:stretch;background:var(--bg-elevated);overflow:hidden}
-.v2-bpost-cov img{width:100%;height:100%;object-fit:cover;display:block;transition:transform .4s ease}
-.v2-bpost:hover .v2-bpost-cov img{transform:scale(1.05)}
-.v2-bpost-body{min-width:0;flex:1;display:flex;flex-direction:column;padding:11px 12px}
-.v2-bpost-title{font-family:'Outfit',sans-serif;font-weight:800;font-size:14.5px;line-height:1.25;color:var(--text-primary);margin-top:8px;display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;overflow:hidden}
-.v2-bpost:hover .v2-bpost-title{color:var(--accent-orange)}
-.v2-bpost-ex{font-size:12.5px;color:var(--text-muted);line-height:1.45;margin-top:5px;display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;overflow:hidden}
-.v2-bpost-meta{display:flex;align-items:center;gap:6px;margin-top:9px}
-.v2-bpost-av{width:18px;height:18px;border-radius:50%;object-fit:cover;flex:none}
-.v2-bpost-av-ph{display:flex;align-items:center;justify-content:center;background:var(--bg-active);font-size:10px;font-weight:800;color:var(--text-faint)}
-.v2-bpost-au{font-size:12.5px;font-weight:700;color:var(--text-secondary);min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
-.v2-bpost-time{font-size:11px;color:var(--text-faint);flex:none;white-space:nowrap}
+/* bendruomenės skiltys su antraštėmis (Apžvalgos / Topai / Diskusijos) */
+.v2-csec-h{display:flex;align-items:center;gap:8px;font-family:'Outfit',sans-serif;font-weight:800;font-size:15px;letter-spacing:-.01em;color:var(--text-primary);margin-bottom:10px}
+.v2-csec-bar{width:4px;height:15px;border-radius:3px;flex:none}
+.v2-csec-rows{display:flex;flex-direction:column;gap:11px}
+.v2-crow{display:flex;gap:11px;align-items:flex-start;text-decoration:none}
+.v2-crow-cov{width:46px;height:46px;flex:none;border-radius:9px;overflow:hidden;background:var(--bg-elevated)}
+.v2-crow-cov img{width:100%;height:100%;object-fit:cover;display:block;transition:transform .4s ease}
+.v2-crow:hover .v2-crow-cov img{transform:scale(1.06)}
+.v2-crow-body{min-width:0;flex:1;display:flex;flex-direction:column;gap:4px}
+.v2-crow-title{font-family:'Outfit',sans-serif;font-weight:700;font-size:14px;line-height:1.3;color:var(--text-primary);display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;overflow:hidden}
+.v2-crow:hover .v2-crow-title{color:var(--accent-orange)}
+.v2-crow-au{display:flex;align-items:center;gap:6px;min-width:0}
+.v2-crow-au-n{font-size:12.5px;font-weight:600;color:var(--text-secondary);overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.v2-crow-cmt{display:flex;align-items:center;gap:6px;min-width:0}
+.v2-crow-cmt-t{font-size:12.5px;color:var(--text-muted);overflow:hidden;text-overflow:ellipsis;white-space:nowrap;font-style:italic}
+.v2-crow-av{width:18px;height:18px;border-radius:50%;object-fit:cover;flex:none}
+.v2-crow-av-ph{display:flex;align-items:center;justify-content:center;background:var(--bg-active);font-size:10px;font-weight:800;color:var(--text-faint)}
 /* Atrask muziką — atskira sekcija po koncertais (horizontalus card'as) */
 .v2-atrad{display:flex;align-items:center;gap:26px;padding:18px 20px;border:1px solid var(--border-default);border-radius:var(--radius-2xl);background:var(--bg-elevated)}
 .v2-atrad-txt{flex:1;min-width:0}
