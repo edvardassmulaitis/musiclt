@@ -1,21 +1,25 @@
 'use client'
 // Muzikos pool'as (/v2): vienas bendras rinkinys (LT + pasaulis) su /topai
-// stiliaus filtrų juosta kairėje — visi filtrai vienoje vietoje, mobile telpa
+// stiliaus filtrų juosta kairėje — visi filtrai vienoj vietoj, mobile telpa
 // vienoj eilutėj (horizontalus scroll + žanrų „settings" ikona popover'e).
 //
 // Būsenos:
-//   • Rikiavimas (toggle, default = niekas): default → „most relevant" (tik
-//     populiarūs+švieži = hot, rikiuota pagal relevance). „Nauja" → VISKAS pagal
-//     datą (be populiarumo kartelės) + laiko badge'ai. „Populiariausi" → viskas
-//     pagal atlikėjo score.
-//   • Regionas (toggle, default = niekas = LT+pasaulis mix): LT arba Pasaulis.
-//   • Stilius (žanras) — gear ikona → popover; veikia KARTU su kitais filtrais.
+//   • Rikiavimas (toggle, default = niekas): default → „most relevant" (tik hot =
+//     populiarūs+švieži, pagal relevance). „Nauja" → VISKAS pagal datą + laiko
+//     badge'ai. „Top" → viskas pagal atlikėjo score.
+//   • Regionas (toggle, default = mix): LT / Pasaulis.
+//   • Stilius (žanras) — gear popover; veikia KARTU su kitais filtrais IR platina
+//     pool'ą (pasirinkus žanrą, nebetaikom „hot" apribojimo → matai visą to
+//     stiliaus muziką, ne tik top-10).
+//
+// Admin: ant kiekvienos kortelės rodomas atlikėjo score (threshold tuningui).
 import { useEffect, useRef, useState } from 'react'
 import Link from 'next/link'
+import { useSession } from 'next-auth/react'
 
 type Track = { id: number; href: string; thumb: string | null; title: string; artist: string; score: number; isLt: boolean; dateMs: number; rel: number; hot: boolean; genres: string[] }
 type Album = { id: number; href: string; cover: string | null; title: string; artist: string; score: number; isLt: boolean; dateMs: number; rel: number; hot: boolean; genres: string[] }
-type Upc = { id: number; href: string; cover: string | null; name: string; isLt: boolean }
+type Upc = { id: number; href: string; cover: string | null; name: string; isLt: boolean; genres: string[] }
 
 function agoLabel(ms: number): string | null {
   if (!ms) return null
@@ -29,7 +33,27 @@ function agoLabel(ms: number): string | null {
   return `prieš ${Math.floor(d / 365)} m.`
 }
 
-function TrackCard({ t, badge }: { t: Track; badge: boolean }) {
+// Subtilus sekcijos skirtukas: ikona + mažas užrašas + plona linija (be didelio h2).
+function SecHead({ kind, label }: { kind: 'songs' | 'albums' | 'soon'; label: string }) {
+  const ic = kind === 'songs'
+    ? <path d="M7 4l13 8-13 8z" fill="currentColor" stroke="none" />
+    : kind === 'albums'
+      ? <><circle cx="12" cy="12" r="9" /><circle cx="12" cy="12" r="2.4" fill="currentColor" stroke="none" /></>
+      : <><circle cx="12" cy="12" r="9" /><path d="M12 7v5l3 2" /></>
+  return (
+    <div className="v2-msec">
+      <svg className="v2-msec-ic" width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.9" strokeLinecap="round" strokeLinejoin="round" aria-hidden>{ic}</svg>
+      <span className="v2-msec-lbl">{label}</span>
+      <span className="v2-msec-rule" aria-hidden />
+    </div>
+  )
+}
+
+function ScoreTag({ score, hot }: { score: number; hot: boolean }) {
+  return <span className={`v2-mscore${hot ? ' hot' : ''}`} title="Atlikėjo score (threshold)">{score}</span>
+}
+
+function TrackCard({ t, badge, admin }: { t: Track; badge: boolean; admin: boolean }) {
   const ago = badge ? agoLabel(t.dateMs) : null
   return (
     <Link href={t.href} className="v2-tc">
@@ -38,13 +62,14 @@ function TrackCard({ t, badge }: { t: Track; badge: boolean }) {
           // eslint-disable-next-line @next/next/no-img-element
           ? <img src={t.thumb} alt="" loading="lazy" decoding="async" /> : <span className="v2-cc-ph">♪</span>}
         {ago && <span className="v2-mbadge">{ago}</span>}
+        {admin && <ScoreTag score={t.score} hot={t.hot} />}
       </span>
       <span className="v2-cc-t">{t.title}</span>
       <span className="v2-cc-s">{t.artist}</span>
     </Link>
   )
 }
-function AlbumCard({ a, badge }: { a: Album; badge: boolean }) {
+function AlbumCard({ a, badge, admin }: { a: Album; badge: boolean; admin: boolean }) {
   const ago = badge ? agoLabel(a.dateMs) : null
   return (
     <Link href={a.href} className="v2-cc">
@@ -53,6 +78,7 @@ function AlbumCard({ a, badge }: { a: Album; badge: boolean }) {
           // eslint-disable-next-line @next/next/no-img-element
           ? <img src={a.cover} alt="" loading="lazy" decoding="async" /> : <span className="v2-cc-ph">♪</span>}
         {ago && <span className="v2-mbadge">{ago}</span>}
+        {admin && <ScoreTag score={a.score} hot={a.hot} />}
       </span>
       <span className="v2-cc-t">{a.title}</span>
       <span className="v2-cc-s">{a.artist}</span>
@@ -68,6 +94,9 @@ export default function MusicPool({ tracks, albums, genres, upcoming, upcomingMo
   const [genre, setGenre] = useState<string>('')
   const [gearOpen, setGearOpen] = useState(false)
   const ddRef = useRef<HTMLDivElement>(null)
+  const { data: session } = useSession()
+  const role = (session?.user as any)?.role
+  const admin = role === 'admin' || role === 'super_admin'
 
   useEffect(() => {
     if (!gearOpen) return
@@ -79,19 +108,24 @@ export default function MusicPool({ tracks, albums, genres, upcoming, upcomingMo
   }, [gearOpen])
 
   const tog = <T extends string>(cur: T, next: T, set: (v: T) => void, base: T) => set(cur === next ? base : next)
+  const hasGenre = genre !== ''
 
-  function pick<T extends Track | Album>(items: T[], cap: number): T[] {
+  function pick<T extends Track | Album>(items: T[]): T[] {
     let a = region === 'lt' ? items.filter((x) => x.isLt) : region === 'world' ? items.filter((x) => !x.isLt) : items
     if (genre) a = a.filter((x) => x.genres.includes(genre))
-    if (sort === '') a = a.filter((x) => x.hot).sort((x, y) => y.rel - x.rel)
-    else if (sort === 'new') a = [...a].sort((x, y) => y.dateMs - x.dateMs)
+    if (sort === '') {
+      if (!hasGenre) a = a.filter((x) => x.hot) // curated tik kai nėra žanro filtro
+      a = [...a].sort((x, y) => y.rel - x.rel)
+    } else if (sort === 'new') a = [...a].sort((x, y) => y.dateMs - x.dateMs)
     else a = [...a].sort((x, y) => (y.score - x.score) || (y.dateMs - x.dateMs))
+    const cap = (sort === '' && !hasGenre) ? 10 : 18
     return a.slice(0, cap)
   }
-  const cap = sort === '' ? 10 : 18
-  const tv = pick(tracks, cap)
-  const av = pick(albums, cap)
-  const uv = (region === 'lt' ? upcoming.filter((u) => u.isLt) : region === 'world' ? upcoming.filter((u) => !u.isLt) : upcoming).slice(0, 6)
+  const tv = pick(tracks)
+  const av = pick(albums)
+  let uf = region === 'lt' ? upcoming.filter((u) => u.isLt) : region === 'world' ? upcoming.filter((u) => !u.isLt) : upcoming
+  if (genre) uf = uf.filter((u) => u.genres.includes(genre))
+  const uv = uf.slice(0, 6)
   const badge = sort === 'new'
 
   return (
@@ -99,8 +133,12 @@ export default function MusicPool({ tracks, albums, genres, upcoming, upcomingMo
       <div className="v2-mf">
         <div className="v2-mf-scroll">
           <div className="v2-mf-grp">
-            <button type="button" className={`v2-mf-chip${sort === 'new' ? ' on' : ''}`} onClick={() => tog(sort, 'new', setSort, '')}>Nauja</button>
-            <button type="button" className={`v2-mf-chip${sort === 'pop' ? ' on' : ''}`} onClick={() => tog(sort, 'pop', setSort, '')}>Populiariausi</button>
+            <button type="button" className={`v2-mf-chip${sort === 'new' ? ' on' : ''}`} onClick={() => tog(sort, 'new', setSort, '')}>
+              <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden><circle cx="12" cy="12" r="9" /><path d="M12 7v5l3 2" /></svg>Nauja
+            </button>
+            <button type="button" className={`v2-mf-chip${sort === 'pop' ? ' on' : ''}`} onClick={() => tog(sort, 'pop', setSort, '')}>
+              <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.9" strokeLinecap="round" strokeLinejoin="round" aria-hidden><path d="M8.5 14.5A2.5 2.5 0 0 0 11 12c0-1.4-.5-2-1-3-1.1-2.1-.2-4.1 2-6 .5 2.5 2 4.9 4 6.5 2 1.6 3 3.5 3 5.5a7 7 0 1 1-14 0c0-1.15.43-2.3 1-3a2.5 2.5 0 0 0 2.5 2.5z" /></svg>Top
+            </button>
           </div>
           <span className="v2-mf-divider" aria-hidden />
           <div className="v2-mf-grp">
@@ -129,18 +167,18 @@ export default function MusicPool({ tracks, albums, genres, upcoming, upcomingMo
       </div>
 
       <section>
-        <div className="v2-rub"><h2>Nauja muzika</h2></div>
-        {tv.length ? <div className="v2-mgrid">{tv.map((t) => <TrackCard key={t.id} t={t} badge={badge} />)}</div> : <p className="v2-mempty">Pagal pasirinktus filtrus įrašų nėra.</p>}
+        <SecHead kind="songs" label="Dainos" />
+        {tv.length ? <div className="v2-mgrid">{tv.map((t) => <TrackCard key={t.id} t={t} badge={badge} admin={admin} />)}</div> : <p className="v2-mempty">Pagal pasirinktus filtrus įrašų nėra.</p>}
       </section>
 
       <section style={{ marginTop: 'var(--page-section-gap)' }}>
-        <div className="v2-rub"><h2>Neseniai išleista</h2></div>
-        {av.length ? <div className="v2-mgrid v2-mgrid-cc">{av.map((a) => <AlbumCard key={a.id} a={a} badge={badge} />)}</div> : <p className="v2-mempty">Pagal pasirinktus filtrus įrašų nėra.</p>}
+        <SecHead kind="albums" label="Albumai" />
+        {av.length ? <div className="v2-mgrid v2-mgrid-cc">{av.map((a) => <AlbumCard key={a.id} a={a} badge={badge} admin={admin} />)}</div> : <p className="v2-mempty">Pagal pasirinktus filtrus įrašų nėra.</p>}
       </section>
 
       {uv.length > 0 && (
         <section style={{ marginTop: 'var(--page-section-gap)' }}>
-          <div className="v2-rub"><h2>Greitai pasirodys</h2></div>
+          <SecHead kind="soon" label="Greitai pasirodys" />
           <div className="v2-upc2">
             {uv.map((u, i) => (
               <Link key={u.id} href={u.href} className={`v2-upc2-cell${i === 0 ? ' big' : ''}`} title={u.name}>

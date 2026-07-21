@@ -114,10 +114,10 @@ function releaseMs(r: any, kind: 'track' | 'album'): number {
 }
 async function getMusicPool() {
   const [tl, tw, al, aw] = await Promise.all([
-    jget('/api/home/list?type=tracks&lane=lt&limit=80', 8000),
-    jget('/api/home/list?type=tracks&lane=world&limit=80', 8000),
-    jget('/api/home/list?type=albums&lane=lt&limit=80', 8000),
-    jget('/api/home/list?type=albums&lane=world&limit=80', 8000),
+    jget('/api/home/list?type=tracks&lane=lt&limit=200', 8000),
+    jget('/api/home/list?type=tracks&lane=world&limit=200', 8000),
+    jget('/api/home/list?type=albums&lane=lt&limit=200', 8000),
+    jget('/api/home/list?type=albums&lane=world&limit=200', 8000),
   ])
   const nowMs = Date.now()
   const REL_WIN = 150 * 86_400_000 // relevance: kiek „šviežumas" sveria (150 d. langas)
@@ -128,7 +128,7 @@ async function getMusicPool() {
   }
   const genreCount = new Map<string, number>()
   const addG = (gs: string[]) => { for (const g of gs) genreCount.set(g, (genreCount.get(g) || 0) + 1) }
-  const cap = (arr: any[] | undefined) => (arr || []).slice(0, 40) // 40 naujausių per lane
+  const cap = (arr: any[] | undefined) => (arr || []).slice(0, 120) // platus pool'as (žanro filtrui reikia gylio)
   const mapT = (r: any, isLt: boolean) => {
     const ti = toTrackItem(r), score = r.artists?.score ?? 0, dateMs = releaseMs(r, 'track'), gs = (r.genres || []) as string[]
     addG(gs)
@@ -536,7 +536,7 @@ function GamesZone({ members }: { members: any[] }) {
 export default async function V2Page() {
   const [musicPool, upcomingR, newsR, eventsR, vertaR, istorijaR, feedR, membersR, gilynR, disksR] = await Promise.all([
     getMusicPool(),
-    getUpcomingAlbumsForHome().catch(() => ({ items: [] as any[] })),
+    jget('/api/home/list?type=upcoming&limit=100', 8000),
     jget('/api/news?limit=10&include=songs&since_days=21'),
     jget('/api/events?homepage=1&compact=1&limit=24&period=all&order=asc'),
     jget('/api/verta-keliones'),
@@ -580,12 +580,13 @@ export default async function V2Page() {
   newsSlides.forEach((s, i) => { slides.push(s); if (i === 1 && eventSlides[0]) slides.push(eventSlides[0]); if (i === 3 && eventSlides[1]) slides.push(eventSlides[1]) })
   if (eventSlides[2]) slides.push(eventSlides[2])
 
-  const upcomingItems = upcomingSoon.slice(0, 6).map((a: any) => ({
+  const upcomingItems = upcomingSoon.slice(0, 10).map((a: any) => ({
     id: a.id,
     href: a.slug && a.artists?.slug ? `/albumai/${a.artists.slug}-${a.slug}-${a.id}` : '/albumai',
     cover: proxyImgResized(a.cover_image_url || a.artists?.cover_image_url, 400) || null,
     name: a.artists?.name || a.title,
     isLt: isLtCountry(a.artists?.country),
+    genres: (a.genres || []) as string[],
   }))
 
   return (
@@ -602,7 +603,7 @@ export default async function V2Page() {
             albums={musicPool.albums}
             genres={musicPool.genres}
             upcoming={upcomingItems}
-            upcomingMore={Math.max(1, upcomingRaw.length - 6)}
+            upcomingMore={Math.max(1, (upcomingR?.total ?? upcomingRaw.length) - 6)}
           />
         </div>
 
@@ -753,17 +754,24 @@ const V2_EXTRA = `
 .v2-mf-opt{display:flex;align-items:center;width:100%;padding:8px 11px;border-radius:9px;font-size:13px;font-weight:600;font-family:'Outfit',sans-serif;text-align:left;white-space:nowrap;background:transparent;border:1px solid transparent;color:var(--text-secondary);cursor:pointer}
 .v2-mf-opt:hover{background:var(--bg-hover);color:var(--text-primary)}
 .v2-mf-opt.on{color:var(--accent-orange)}
+/* Subtilus sekcijos skirtukas (vietoj didelio h2): ikona + mažas užrašas + linija */
+.v2-msec{display:flex;align-items:center;gap:9px;margin:0 0 13px}
+.v2-msec-ic{color:var(--accent-orange);flex:none}
+.v2-msec-lbl{font-family:'Outfit',sans-serif;font-weight:700;font-size:12px;letter-spacing:.08em;text-transform:uppercase;color:var(--text-faint);flex:none}
+.v2-msec-rule{flex:1;height:1px;background:var(--card-border-subtle)}
 .v2-mgrid{display:grid;grid-template-columns:repeat(auto-fill,minmax(150px,1fr));gap:18px 14px}
-.v2-mgrid-cc{grid-template-columns:repeat(auto-fill,minmax(112px,1fr))}
+.v2-mgrid-cc{grid-template-columns:repeat(auto-fill,minmax(140px,1fr));gap:18px 16px}
 .v2-mgrid>.v2-tc,.v2-mgrid>.v2-cc{width:auto}
 .v2-mbadge{position:absolute;left:7px;top:7px;z-index:2;padding:3px 7px;border-radius:7px;font-family:'Outfit',sans-serif;font-size:10.5px;font-weight:700;color:#fff;background:rgba(0,0,0,.62);backdrop-filter:blur(3px);-webkit-backdrop-filter:blur(3px);letter-spacing:.01em}
+.v2-mscore{position:absolute;right:7px;top:7px;z-index:2;min-width:20px;text-align:center;padding:2px 6px;border-radius:6px;font-family:'Outfit',sans-serif;font-size:11px;font-weight:800;color:#fff;background:rgba(120,120,130,.85);box-shadow:0 1px 4px rgba(0,0,0,.3)}
+.v2-mscore.hot{background:rgba(22,163,74,.9)}
 .v2-mempty{color:var(--text-muted);font-size:14px;margin:6px 0 0}
 @media(max-width:980px){
   .v2-mf-scroll{flex:1;overflow-x:auto;flex-wrap:nowrap;scrollbar-width:none;-webkit-overflow-scrolling:touch}
   .v2-mf-scroll::-webkit-scrollbar{display:none}
   .v2-mf-grp,.v2-mf-chip,.v2-mf-divider{flex:0 0 auto}
-  .v2-mgrid{grid-template-columns:repeat(auto-fill,minmax(136px,1fr))}
-  .v2-mgrid-cc{grid-template-columns:repeat(auto-fill,minmax(104px,1fr))}
+  .v2-mgrid{grid-template-columns:repeat(auto-fill,minmax(130px,1fr))}
+  .v2-mgrid-cc{grid-template-columns:repeat(auto-fill,minmax(120px,1fr))}
 }
 
 /* šalies juostelė iš kairės — siaura spalvų juosta */
