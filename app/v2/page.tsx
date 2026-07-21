@@ -119,17 +119,30 @@ async function getMusicPool() {
     jget('/api/home/list?type=albums&lane=lt&limit=80', 8000),
     jget('/api/home/list?type=albums&lane=world&limit=80', 8000),
   ])
-  const mapT = (r: any, isLt: boolean) => { const ti = toTrackItem(r); return { id: ti.id, href: ti.href, thumb: ti.thumb, title: ti.title, artist: ti.artist, score: r.artists?.score ?? 0, isLt, dateMs: releaseMs(r, 'track') } }
-  const mapA = (r: any, isLt: boolean) => { const ha = toHubAlbum(r); return { id: ha.id, href: albumHref(ha), cover: ha.cover_image_url, title: ha.title, artist: ha.artist_name, score: r.artists?.score ?? 0, isLt, dateMs: releaseMs(r, 'album') } }
-  const tracks = [
-    ...((tl?.items || []) as any[]).filter((r) => (r.artists?.score ?? 0) >= TRACK_BAR.lt).map((r) => mapT(r, true)),
-    ...((tw?.items || []) as any[]).filter((r) => (r.artists?.score ?? 0) >= TRACK_BAR.world).map((r) => mapT(r, false)),
-  ]
-  const albums = [
-    ...((al?.items || []) as any[]).filter((r) => (r.artists?.score ?? 0) >= ALBUM_BAR.lt).map((r) => mapA(r, true)),
-    ...((aw?.items || []) as any[]).filter((r) => (r.artists?.score ?? 0) >= ALBUM_BAR.world).map((r) => mapA(r, false)),
-  ]
-  return { tracks, albums }
+  const nowMs = Date.now()
+  const REL_WIN = 150 * 86_400_000 // relevance: kiek „šviežumas" sveria (150 d. langas)
+  const relOf = (dateMs: number, score: number) => {
+    const fresh = dateMs ? Math.max(0, Math.min(1, (dateMs - (nowMs - REL_WIN)) / REL_WIN)) : 0
+    const pop = Math.min(1, (score || 0) / 80)
+    return fresh * 0.55 + pop * 0.45
+  }
+  const genreCount = new Map<string, number>()
+  const addG = (gs: string[]) => { for (const g of gs) genreCount.set(g, (genreCount.get(g) || 0) + 1) }
+  const cap = (arr: any[] | undefined) => (arr || []).slice(0, 40) // 40 naujausių per lane
+  const mapT = (r: any, isLt: boolean) => {
+    const ti = toTrackItem(r), score = r.artists?.score ?? 0, dateMs = releaseMs(r, 'track'), gs = (r.genres || []) as string[]
+    addG(gs)
+    return { id: ti.id, href: ti.href, thumb: ti.thumb, title: ti.title, artist: ti.artist, score, isLt, dateMs, rel: relOf(dateMs, score), hot: score >= (isLt ? TRACK_BAR.lt : TRACK_BAR.world), genres: gs }
+  }
+  const mapA = (r: any, isLt: boolean) => {
+    const ha = toHubAlbum(r), score = r.artists?.score ?? 0, dateMs = releaseMs(r, 'album'), gs = (r.genres || []) as string[]
+    addG(gs)
+    return { id: ha.id, href: albumHref(ha), cover: ha.cover_image_url, title: ha.title, artist: ha.artist_name, score, isLt, dateMs, rel: relOf(dateMs, score), hot: score >= (isLt ? ALBUM_BAR.lt : ALBUM_BAR.world), genres: gs }
+  }
+  const tracks = [...cap(tl?.items).map((r) => mapT(r, true)), ...cap(tw?.items).map((r) => mapT(r, false))]
+  const albums = [...cap(al?.items).map((r) => mapA(r, true)), ...cap(aw?.items).map((r) => mapA(r, false))]
+  const genres = [...genreCount.entries()].sort((a, b) => b[1] - a[1] || a[0].localeCompare(b[0], 'lt')).slice(0, 24).map((e) => e[0])
+  return { tracks, albums, genres }
 }
 
 /* ─────────────── kompaktiška viršelio kortelė (vizuali, be peržiūrų) ─────────────── */
@@ -587,6 +600,7 @@ export default async function V2Page() {
           <MusicPool
             tracks={musicPool.tracks}
             albums={musicPool.albums}
+            genres={musicPool.genres}
             upcoming={upcomingItems}
             upcomingMore={Math.max(1, upcomingRaw.length - 6)}
           />
@@ -719,20 +733,38 @@ const V2_EXTRA = `
 .v2-cc-t{display:block;font-family:'Outfit',sans-serif;font-weight:700;font-size:14px;margin-top:7px;color:var(--text-primary);line-height:1.2;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
 .v2-cc:hover .v2-cc-t,.v2-tc:hover .v2-cc-t{color:var(--accent-orange)}
 .v2-cc-s{display:block;font-size:12.5px;color:var(--text-muted);overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
-/* ── Muzikos pool'as: viršaus valdikliai + apsivyniojantis grid (be side-scroll) ── */
+/* ── Muzikos pool'as: /topai stiliaus filtrų juosta + auto-fill grid ── */
 .v2-mpool{min-width:0}
-.v2-mbar{display:flex;align-items:center;justify-content:space-between;gap:10px;flex-wrap:wrap;margin-bottom:16px}
-.v2-mseg{display:inline-flex;background:var(--bg-elevated);border:1px solid var(--border-default);border-radius:999px;padding:3px}
-.v2-mseg button{appearance:none;border:0;background:transparent;cursor:pointer;font-family:'Outfit',sans-serif;font-weight:700;font-size:13px;color:var(--text-muted);padding:6px 15px;border-radius:999px;transition:color .15s,background .15s}
-.v2-mseg button.on{background:var(--accent-orange);color:#fff}
-.v2-mseg button:not(.on):hover{color:var(--text-primary)}
-.v2-mlt{display:inline-flex;align-items:center;gap:7px;cursor:pointer;font-family:'Outfit',sans-serif;font-weight:700;font-size:13px;color:var(--text-muted);background:var(--bg-elevated);border:1px solid var(--border-default);border-radius:999px;padding:6px 14px;transition:color .15s,border-color .15s,background .15s}
-.v2-mlt:hover{color:var(--text-primary);border-color:var(--border-strong)}
-.v2-mlt.on{color:var(--text-primary);border-color:rgba(6,106,68,.55);background:var(--bg-hover)}
-.v2-mlt-flag{width:18px;height:12px;border-radius:2px;flex:none;background:linear-gradient(to bottom,#FDB913 0 33.3%,#006A44 33.3% 66.6%,#C1272D 66.6% 100%);opacity:.45;transition:opacity .15s}
-.v2-mlt.on .v2-mlt-flag{opacity:1}
-.v2-mgrid{display:flex;flex-wrap:wrap;gap:18px 16px}
+.v2-mf{display:flex;align-items:center;gap:10px;margin-bottom:18px;font-family:'Outfit',sans-serif;min-width:0}
+.v2-mf-scroll{display:flex;align-items:center;gap:10px;min-width:0}
+.v2-mf-grp{display:flex;align-items:center;gap:8px}
+.v2-mf-chip{display:inline-flex;align-items:center;gap:7px;padding:6px 14px;border-radius:999px;font-size:13px;font-weight:600;line-height:1;white-space:nowrap;background:var(--bg-hover);border:1px solid var(--border-default);color:var(--text-secondary);cursor:pointer;transition:color .15s,border-color .15s,background .15s}
+.v2-mf-chip:hover{color:var(--text-primary);border-color:var(--accent-orange)}
+.v2-mf-chip.on{background:var(--accent-orange);border-color:var(--accent-orange);color:#fff}
+.v2-mf-chip svg{display:block}
+.v2-mf-flag{width:20px;height:14px;flex:none;border-radius:3px;background-size:cover;background-position:center;box-shadow:0 0 0 1px rgba(0,0,0,.08);background-image:url(https://flagcdn.com/w40/lt.png)}
+.v2-mf-divider{width:1px;height:22px;background:var(--border-default);flex:none;margin:0 2px}
+.v2-mf-dd{position:relative;flex:none}
+.v2-mf-icon{display:inline-flex;align-items:center;justify-content:center;padding:7px 11px;border-radius:999px;background:var(--bg-hover);border:1px solid var(--border-default);color:var(--text-secondary);cursor:pointer;line-height:1;transition:color .15s,border-color .15s}
+.v2-mf-icon:hover{color:var(--text-primary);border-color:var(--accent-orange)}
+.v2-mf-icon.on,.v2-mf-icon.open{color:var(--accent-orange);border-color:var(--accent-orange)}
+.v2-mf-pop{position:absolute;top:calc(100% + 8px);right:0;z-index:50;min-width:190px;max-height:320px;overflow:auto;display:none;flex-direction:column;gap:2px;padding:7px;background:var(--bg-surface);border:1px solid var(--border-default);border-radius:14px;box-shadow:0 14px 40px rgba(0,0,0,.18)}
+.v2-mf-pop.open{display:flex}
+.v2-mf-opt{display:flex;align-items:center;width:100%;padding:8px 11px;border-radius:9px;font-size:13px;font-weight:600;font-family:'Outfit',sans-serif;text-align:left;white-space:nowrap;background:transparent;border:1px solid transparent;color:var(--text-secondary);cursor:pointer}
+.v2-mf-opt:hover{background:var(--bg-hover);color:var(--text-primary)}
+.v2-mf-opt.on{color:var(--accent-orange)}
+.v2-mgrid{display:grid;grid-template-columns:repeat(auto-fill,minmax(150px,1fr));gap:18px 14px}
+.v2-mgrid-cc{grid-template-columns:repeat(auto-fill,minmax(112px,1fr))}
+.v2-mgrid>.v2-tc,.v2-mgrid>.v2-cc{width:auto}
+.v2-mbadge{position:absolute;left:7px;top:7px;z-index:2;padding:3px 7px;border-radius:7px;font-family:'Outfit',sans-serif;font-size:10.5px;font-weight:700;color:#fff;background:rgba(0,0,0,.62);backdrop-filter:blur(3px);-webkit-backdrop-filter:blur(3px);letter-spacing:.01em}
 .v2-mempty{color:var(--text-muted);font-size:14px;margin:6px 0 0}
+@media(max-width:980px){
+  .v2-mf-scroll{flex:1;overflow-x:auto;flex-wrap:nowrap;scrollbar-width:none;-webkit-overflow-scrolling:touch}
+  .v2-mf-scroll::-webkit-scrollbar{display:none}
+  .v2-mf-grp,.v2-mf-chip,.v2-mf-divider{flex:0 0 auto}
+  .v2-mgrid{grid-template-columns:repeat(auto-fill,minmax(136px,1fr))}
+  .v2-mgrid-cc{grid-template-columns:repeat(auto-fill,minmax(104px,1fr))}
+}
 
 /* šalies juostelė iš kairės — siaura spalvų juosta */
 .v2-lane{display:flex;align-items:flex-start;gap:9px;margin-top:12px}
