@@ -194,20 +194,23 @@ function Hero({ slides }: { slides: Slide[] }) {
 }
 
 /* ─────────────── Bendruomenės šoninė juosta (skiltys su antraštėmis) ─────────────── */
-// Kompaktiška bendruomenės įrašo eilutė (be badge'o / intro teksto).
+// Kompaktiška eilutė — tekstas kairėj (tolygus atitraukimas), vizualas dešinėj.
+// `comment` — rodyti komentarą (diskusija: paskutinis komentaras; atradimas: excerpt).
 function CRow({ h, comment }: { h: any; comment?: boolean }) {
   const lc = h.last_comment
+  const cmtText = lc?.text || h.excerpt || null
+  const cmtAv = lc?.avatar || h.author_avatar || null
+  const cmtWho = lc?.author || h.author_name || null
   return (
     <Link href={h.href || '/bendruomene'} className="v2-crow group">
-      {h.cover && <span className="v2-crow-cov">{/* eslint-disable-next-line @next/next/no-img-element */}<img src={proxyImgResized(h.cover, 120)} alt="" loading="lazy" /></span>}
       <span className="v2-crow-body">
         <b className="v2-crow-title">{sanitizeTitle(h.title)}</b>
-        {comment && lc ? (
+        {comment && cmtText ? (
           <span className="v2-crow-cmt">
-            {lc.avatar
-              ? (/* eslint-disable-next-line @next/next/no-img-element */<img className="v2-crow-av" src={proxyImgResized(lc.avatar, 40)} alt="" loading="lazy" />)
-              : <span className="v2-crow-av v2-crow-av-ph">{(lc.author || '?').charAt(0).toUpperCase()}</span>}
-            <span className="v2-crow-cmt-t">{sanitizeTitle(lc.text || '')}</span>
+            {cmtAv
+              ? (/* eslint-disable-next-line @next/next/no-img-element */<img className="v2-crow-av" src={proxyImgResized(cmtAv, 40)} alt="" loading="lazy" />)
+              : <span className="v2-crow-av v2-crow-av-ph">{(cmtWho || '?').charAt(0).toUpperCase()}</span>}
+            <span className="v2-crow-cmt-t">{sanitizeTitle(cmtText)}</span>
           </span>
         ) : h.author_name ? (
           <span className="v2-crow-au">
@@ -218,6 +221,7 @@ function CRow({ h, comment }: { h: any; comment?: boolean }) {
           </span>
         ) : null}
       </span>
+      {h.cover && <span className="v2-crow-cov">{/* eslint-disable-next-line @next/next/no-img-element */}<img src={proxyImgResized(h.cover, 120)} alt="" loading="lazy" /></span>}
     </Link>
   )
 }
@@ -233,10 +237,10 @@ function CommunityRail({ community }: { community: any[] }) {
   const nonDd = community.filter((c) => c.type !== 'dd')
   const byKind: Record<string, any[]> = {}
   for (const h of nonDd) { const k = communityItemKind(h); (byKind[k] = byKind[k] || []).push(h) }
-  const apzvalgos = [...(byKind.koncertai || []), ...(byKind.apzvalga || [])].slice(0, 3)
+  const apzvalgos = [...(byKind.koncertai || []), ...(byKind.apzvalga || [])].slice(0, 2)
   const topai = (byKind.topas || []).slice(0, 2)
-  const diskusijos = (byKind.diskusija || []).slice(0, 2)
-  const kita = [...(byKind.atradimas || []), ...(byKind.kuryba || []), ...(byKind.vertimas || []), ...(byKind.irasas || [])].slice(0, 2)
+  // Diskusijos + komentarai (atradimas = komentaras dainai/albumui) — jiems palot daugiausiai vietos.
+  const pokalbiai = [...(byKind.diskusija || []), ...(byKind.atradimas || [])].slice(0, 5)
 
   return (
     <aside className="v2-side">
@@ -258,14 +262,9 @@ function CommunityRail({ community }: { community: any[] }) {
             {topai.map((h) => <CRow key={h.id} h={h} />)}
           </CSection>
         )}
-        {diskusijos.length > 0 && (
-          <CSection title="Diskusijos" color="#8b5cf6">
-            {diskusijos.map((h) => <CRow key={h.id} h={h} comment />)}
-          </CSection>
-        )}
-        {kita.length > 0 && (
-          <CSection title="Kūryba ir kita" color="#94a3b8">
-            {kita.map((h) => <CRow key={h.id} h={h} />)}
+        {pokalbiai.length > 0 && (
+          <CSection title="Diskusijos ir komentarai" color="#8b5cf6">
+            {pokalbiai.map((h) => <CRow key={h.id} h={h} comment />)}
           </CSection>
         )}
 
