@@ -18,6 +18,8 @@ import {
 } from '@/lib/home-latest'
 import { proxyImgResized } from '@/lib/img-proxy'
 import { countryFlag } from '@/lib/country-flags'
+import { createAdminClient } from '@/lib/supabase'
+import { LT_COUNTRY } from '@/lib/artist-browse'
 import { eventHref } from '@/lib/event-href'
 import { DienosDainaSection } from '@/components/DienosDainaSection'
 import CommunityIcons from './CommunityIcons'
@@ -95,32 +97,80 @@ async function getMusic() {
   }
 }
 
-/* ─────────────── Muzikos pool'as (/v2 nauja logika) ───────────────
-   Vienas bendras rinkinys iš /api/home/list (pilnas, cache'intas pool su
-   artist.score/country/data), sujungtas LT+pasaulis. Aukštesnė populiarumo
-   kartelė — LANE-AWARE (LT balai natūraliai žemesni, ~max 53–60; pasaulio iki
-   ~88), kad LT scena neišnyktų prieš pasaulį. Rikiavimą/filtrą (Nauja/Populiar.,
-   Visi/LT) daro klientas — čia tik atranka + serializuoti laukai. */
+/* ─────────────── Muzikos pool'as (/v2) ───────────────
+   PER-LANE užklausos TIESIAI į DB (kaip /dainos), NE per /api/home/list —
+   home-list naudoja bendrą 250-kandidatų limitą per VISUS lane'us, tad pasaulio
+   releasai užpildo jį iki ~2 sav. senumo ir LT dainos 15–90 d. senumo IŠKRENTA
+   (Edvardo pastebėta: LT eina 1 sav. → šoka į 6 mėn.). Per-lane užklausa duoda
+   PILNĄ 90 d. LT aprėptį (LT scena maža — nenukertama).
+   Kartelė LANE-AWARE (LT balai žemesni). Rikiavimą/filtrą daro klientas. */
 const LT_COUNTRIES = ['Lietuva', 'LT', 'Lithuania']
 const isLtCountry = (c?: string | null) => !!c && LT_COUNTRIES.includes(c)
 const TRACK_BAR = { lt: 35, world: 63 }
 const ALBUM_BAR = { lt: 35, world: 60 }
+const POOL_DAYS = 90        // dainų langas
+const ALBUM_POOL_DAYS = 180 // albumų langas (albumai retesni)
 function releaseMs(r: any, kind: 'track' | 'album'): number {
   const s = kind === 'track'
     ? (r.video_uploaded_at || r.release_date || (r.release_year ? `${r.release_year}-01-01` : null))
-    : (r.release_date || (r.year ? `${r.year}-${String(r.month || 1).padStart(2, '0')}-01` : null))
+    : (r.release_date || (r.year ? `${r.year}-${String(r.month || 1).padStart(2, '0')}-${String(r.day || 1).padStart(2, '0')}` : null))
   const ms = s ? Date.parse(s) : NaN
   return isNaN(ms) ? 0 : ms
 }
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
+async function genreMap(sb: any, artistIds: number[]): Promise<Map<number, string[]>> {
+  const map = new Map<number, string[]>()
+  if (!artistIds.length) return map
+  const { data } = await sb.from('artist_genres').select('artist_id, genres(name)').in('artist_id', artistIds)
+  for (const r of (data || []) as any[]) {
+    const n = r.genres?.name
+    if (!n) continue
+    const l = map.get(r.artist_id) || []
+    if (!l.includes(n)) l.push(n)
+    map.set(r.artist_id, l)
+  }
+  return map
+}
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
+async function fetchLaneTracks(sb: any, lane: 'lt' | 'world', sinceIso: string): Promise<any[]> {
+  let q = sb.from('tracks')
+    .select('id, slug, title, cover_url, video_url, video_uploaded_at, release_date, release_year, video_views, hide_from_homepage, artist_id, artists!tracks_artist_id_fkey!inner(id, name, slug, cover_image_url, country, score)')
+    .not('video_url', 'is', null)
+    .not('video_uploaded_at', 'is', null)
+    .gte('video_uploaded_at', sinceIso)
+    .order('video_uploaded_at', { ascending: false })
+    .limit(lane === 'lt' ? 500 : 300)
+  q = lane === 'lt' ? q.eq('artists.country', LT_COUNTRY) : q.neq('artists.country', LT_COUNTRY)
+  const { data } = await q
+  return ((data || []) as any[]).filter((t) => t.artists && t.title && t.title !== t.artists.name && !t.hide_from_homepage && t.artists.country !== 'Rusija')
+}
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
+async function fetchLaneAlbums(sb: any, lane: 'lt' | 'world', currentYear: number, albumSinceMs: number): Promise<any[]> {
+  let q = sb.from('albums')
+    .select('id, title, slug, cover_image_url, year, month, day, is_upcoming, artist_id, artists!albums_artist_id_fkey!inner(id, name, slug, cover_image_url, country, score)')
+    .not('year', 'is', null).gte('year', currentYear - 1)
+    .order('year', { ascending: false }).order('month', { ascending: false, nullsFirst: false }).order('day', { ascending: false, nullsFirst: false })
+    .limit(lane === 'lt' ? 500 : 300)
+  q = lane === 'lt' ? q.eq('artists.country', LT_COUNTRY) : q.neq('artists.country', LT_COUNTRY)
+  const { data } = await q
+  return ((data || []) as any[]).filter((a) => a.artists && !a.is_upcoming && a.artists.country !== 'Rusija' && releaseMs(a, 'album') >= albumSinceMs)
+}
 async function getMusicPool() {
-  const [tl, tw, al, aw] = await Promise.all([
-    jget('/api/home/list?type=tracks&lane=lt&limit=200', 8000),
-    jget('/api/home/list?type=tracks&lane=world&limit=200', 8000),
-    jget('/api/home/list?type=albums&lane=lt&limit=200', 8000),
-    jget('/api/home/list?type=albums&lane=world&limit=200', 8000),
-  ])
+  const sb = createAdminClient()
   const nowMs = Date.now()
-  const REL_WIN = 150 * 86_400_000 // relevance: kiek „šviežumas" sveria (150 d. langas)
+  const sinceIso = new Date(nowMs - POOL_DAYS * 86_400_000).toISOString()
+  const albumSinceMs = nowMs - ALBUM_POOL_DAYS * 86_400_000
+  const currentYear = new Date().getFullYear()
+  const [tLt, tW, aLt, aW] = await Promise.all([
+    fetchLaneTracks(sb, 'lt', sinceIso).catch(() => []),
+    fetchLaneTracks(sb, 'world', sinceIso).catch(() => []),
+    fetchLaneAlbums(sb, 'lt', currentYear, albumSinceMs).catch(() => []),
+    fetchLaneAlbums(sb, 'world', currentYear, albumSinceMs).catch(() => []),
+  ])
+  const allArtistIds = [...new Set([...tLt, ...tW, ...aLt, ...aW].map((r) => r.artist_id).filter(Boolean))] as number[]
+  const gmap = await genreMap(sb, allArtistIds).catch(() => new Map<number, string[]>())
+
+  const REL_WIN = POOL_DAYS * 86_400_000
   const relOf = (dateMs: number, score: number) => {
     const fresh = dateMs ? Math.max(0, Math.min(1, (dateMs - (nowMs - REL_WIN)) / REL_WIN)) : 0
     const pop = Math.min(1, (score || 0) / 80)
@@ -128,19 +178,18 @@ async function getMusicPool() {
   }
   const genreCount = new Map<string, number>()
   const addG = (gs: string[]) => { for (const g of gs) genreCount.set(g, (genreCount.get(g) || 0) + 1) }
-  const cap = (arr: any[] | undefined) => (arr || []).slice(0, 120) // platus pool'as (žanro filtrui reikia gylio)
   const mapT = (r: any, isLt: boolean) => {
-    const ti = toTrackItem(r), score = r.artists?.score ?? 0, dateMs = releaseMs(r, 'track'), gs = (r.genres || []) as string[]
+    const ti = toTrackItem(r), score = r.artists?.score ?? 0, dateMs = releaseMs(r, 'track'), gs = gmap.get(r.artist_id) || []
     addG(gs)
     return { id: ti.id, href: ti.href, thumb: ti.thumb, title: ti.title, artist: ti.artist, score, isLt, dateMs, rel: relOf(dateMs, score), hot: score >= (isLt ? TRACK_BAR.lt : TRACK_BAR.world), genres: gs }
   }
   const mapA = (r: any, isLt: boolean) => {
-    const ha = toHubAlbum(r), score = r.artists?.score ?? 0, dateMs = releaseMs(r, 'album'), gs = (r.genres || []) as string[]
+    const ha = toHubAlbum(r), score = r.artists?.score ?? 0, dateMs = releaseMs(r, 'album'), gs = gmap.get(r.artist_id) || []
     addG(gs)
     return { id: ha.id, href: albumHref(ha), cover: ha.cover_image_url, title: ha.title, artist: ha.artist_name, score, isLt, dateMs, rel: relOf(dateMs, score), hot: score >= (isLt ? ALBUM_BAR.lt : ALBUM_BAR.world), genres: gs }
   }
-  const tracks = [...cap(tl?.items).map((r) => mapT(r, true)), ...cap(tw?.items).map((r) => mapT(r, false))]
-  const albums = [...cap(al?.items).map((r) => mapA(r, true)), ...cap(aw?.items).map((r) => mapA(r, false))]
+  const tracks = [...tLt.map((r) => mapT(r, true)), ...tW.map((r) => mapT(r, false))]
+  const albums = [...aLt.map((r) => mapA(r, true)), ...aW.map((r) => mapA(r, false))]
   const genres = [...genreCount.entries()].sort((a, b) => b[1] - a[1] || a[0].localeCompare(b[0], 'lt')).slice(0, 24).map((e) => e[0])
   return { tracks, albums, genres }
 }
