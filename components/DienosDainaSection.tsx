@@ -9,6 +9,7 @@
 // modalą; jei ne (atrasti) — komponentas pats valdo vidinį <HomeTrackModal>.
 
 import { useCallback, useEffect, useState } from 'react'
+import { useSession } from 'next-auth/react'
 import { deviceFpSync } from '@/lib/device-fp'
 import { createPortal } from 'react-dom'
 import Link from 'next/link'
@@ -321,6 +322,9 @@ export function DienosDainaSection({ onOpenTrack, variant = 'inline', headerVari
   // Vidinis track modalas — naudojamas tik kai tėvas nepaduoda onOpenTrack.
   const [innerTrack, setInnerTrack] = useState<any | null>(null)
   const openTrack = onOpenTrack || setInnerTrack
+  const { data: session } = useSession()
+  const myAvatar = session?.user?.image || null
+  const myName = session?.user?.name || 'Tu'
 
   const load = useCallback(() => {
     Promise.all([
@@ -355,7 +359,7 @@ export function DienosDainaSection({ onOpenTrack, variant = 'inline', headerVari
   // „stacked" varianto (/atrasti) atveju vakar dienos pasiūlymus įkeliam iškart —
   // jie rodomi atskira juosta po šiandienos kandidatais (ne tik modale).
   useEffect(() => {
-    if (variant !== 'stacked' || !winner?.date) return
+    if ((variant !== 'stacked' && variant !== 'list') || !winner?.date) return
     setYdayLoading(true)
     fetch(`/api/dienos-daina/nominations?date=${winner.date}`)
       .then(r => r.json())
@@ -517,20 +521,56 @@ export function DienosDainaSection({ onOpenTrack, variant = 'inline', headerVari
   // hp-scroll su breathing room viršuje (kad hover'io -translate-y nenukirptų kraštinės).
   const ROW = 'hp-scroll flex items-stretch gap-3 overflow-x-auto pt-1 pb-2 [scrollbar-width:none] [&::-webkit-scrollbar]:hidden'
 
-  // Kompaktiška „Pasiūlyti dainą" eilutė (list variantui).
-  const SuggestRow = !alreadyNominated ? (
-    <button
-      type="button"
-      onClick={() => setSuggestOpen(true)}
-      className="group mt-0.5 flex w-full items-center gap-2.5 rounded-lg border border-dashed border-[var(--border-default)] bg-transparent px-2.5 py-2 text-left transition-colors hover:border-[rgba(249,115,22,0.5)] hover:bg-[rgba(249,115,22,0.05)]"
-    >
-      <span className="flex h-[34px] w-[34px] shrink-0 items-center justify-center rounded-full bg-[rgba(249,115,22,0.12)] font-['Outfit',sans-serif] text-[19px] font-bold leading-none text-[var(--accent-orange)] transition-colors group-hover:bg-[var(--accent-orange)] group-hover:text-white">+</span>
-      <span className="font-['Outfit',sans-serif] text-[13px] font-extrabold text-[var(--text-primary)]">Pasiūlyti savo dainą</span>
-    </button>
-  ) : null
+  // Mini avataras balsuotojų stack'ui.
+  const MiniAv = ({ p, ring }: { p: Proposer; ring?: boolean }) => {
+    const nm = p.full_name || p.username || '?'
+    const ringCls = ring ? 'border-[var(--accent-orange)]' : 'border-[var(--bg-surface)]'
+    return p.avatar_url ? (
+      // eslint-disable-next-line @next/next/no-img-element
+      <img src={proxyImgResized(p.avatar_url, 96)} alt={nm} title={nm} loading="lazy" decoding="async" className={`h-[22px] w-[22px] rounded-full border-2 object-cover ${ringCls}`} />
+    ) : (
+      <span title={nm} className={`flex h-[22px] w-[22px] items-center justify-center rounded-full border-2 text-[10px] font-extrabold ${ringCls}`} style={{ background: `hsl(${strHue(nm)},32%,20%)`, color: `hsl(${strHue(nm)},48%,58%)` }}>{nm.charAt(0).toUpperCase()}</span>
+    )
+  }
 
-  // Viena list-eilutė (šiandienos kandidatas arba laimėtojas).
-  const ListRow = ({ t, level, voteId, own, isVoted, badge }: { t: TrackLite; level: number; voteId?: number; own?: boolean; isVoted?: boolean; badge?: string }) => {
+  // Balsuotojų avatarų stack'as + balsavimo „+" (list variantui).
+  const VoterStack = ({ n }: { n: Nomination }) => {
+    const isVotedThis = votedIds.has(n.id)
+    const isOwn = !!n.own
+    const canVote = !isOwn && !isVotedThis && voting === null
+    const base = n.voters || []
+    const list: Proposer[] = [...base]
+    if (isVotedThis && !isOwn) list.unshift({ username: null, full_name: myName, avatar_url: myAvatar })
+    const shown = list.slice(0, 3)
+    const extra = Math.max(0, list.length - shown.length) + (n.anon_votes || 0)
+    return (
+      <div className="flex shrink-0 items-center gap-1.5 self-center">
+        {shown.length > 0 && (
+          <span className="flex -space-x-2">
+            {shown.map((vp, i) => <MiniAv key={i} p={vp} ring={isVotedThis && !isOwn && i === 0} />)}
+          </span>
+        )}
+        {extra > 0 && <span className="text-[11px] font-bold text-[var(--text-faint)]">+{extra}</span>}
+        {canVote ? (
+          <button
+            type="button"
+            onClick={() => handleVote(n.id)}
+            disabled={voting !== null}
+            aria-label="Balsuoti"
+            title="Balsuoti"
+            className="flex h-[26px] w-[26px] items-center justify-center rounded-full border border-dashed border-[rgba(249,115,22,0.5)] text-[16px] font-bold leading-none text-[var(--accent-orange)] transition-all hover:bg-[rgba(249,115,22,0.12)] disabled:opacity-50"
+          >
+            {voting === n.id ? '…' : '+'}
+          </button>
+        ) : isVotedThis && shown.length === 0 ? (
+          <span className="text-[13px] font-extrabold text-[var(--accent-orange)]" title="Balsuota">✓</span>
+        ) : null}
+      </div>
+    )
+  }
+
+  // Viena list-eilutė. `right` — dešinės pusės elementas (voter stack); `proposer` — „pasiūlė X".
+  const ListRow = ({ t, level, badge, right, proposer }: { t: TrackLite; level: number; badge?: string; right?: React.ReactNode; proposer?: Proposer | null }) => {
     const v = extractYouTubeId(t.video_url)
     const ytThumb = v ? `https://img.youtube.com/vi/${v}/mqdefault.jpg` : null
     const imgSrc = t.cover_url || ytThumb || t.artists?.cover_image_url || null
@@ -551,40 +591,44 @@ export function DienosDainaSection({ onOpenTrack, variant = 'inline', headerVari
         >
           <p className="m-0 truncate font-['Outfit',sans-serif] text-[14px] font-bold text-[var(--text-primary)] transition-colors group-hover:text-[var(--accent-orange)]">{sanitizeTitle(t.title)}</p>
           <p className="m-0 truncate text-[12.5px] text-[var(--text-muted)]">{t.artists?.name}</p>
+          {proposer && proposerName(proposer) && (
+            <span className="mt-1 flex min-w-0 items-center gap-1 text-[11px] text-[var(--text-faint)]"><span className="shrink-0">pasiūlė</span><ProposerLine p={proposer} /></span>
+          )}
           <span className="mt-1 flex items-center gap-[3px]" aria-hidden>
             {Array.from({ length: 5 }).map((_, i) => (
               <span key={i} className={`h-[3px] w-[11px] rounded-[2px] ${i < level ? 'bg-[var(--accent-orange)]' : 'bg-[var(--border-default)]'}`} />
             ))}
           </span>
         </button>
-        {voteId != null && (own ? (
-          <span className="shrink-0 self-center rounded-md border border-dashed border-[var(--border-default)] px-2 py-1 font-['Outfit',sans-serif] text-[11px] font-bold text-[var(--text-faint)]">Tavo</span>
-        ) : (
-          <button
-            type="button"
-            onClick={() => handleVote(voteId)}
-            disabled={isVoted || voting !== null}
-            aria-label={isVoted ? 'Balsuota' : 'Balsuoti'}
-            className={`flex h-8 w-8 shrink-0 items-center justify-center self-center rounded-full text-[14px] font-extrabold transition-all ${isVoted ? 'cursor-default' : voting !== null ? 'opacity-60' : 'hover:-translate-y-px'}`}
-            style={{ background: isVoted ? 'rgba(249,115,22,0.15)' : 'transparent', color: 'var(--accent-orange)', border: '1px solid rgba(249,115,22,0.4)' }}
-          >
-            {voting === voteId ? '…' : isVoted ? '✓' : '♥'}
-          </button>
-        ))}
+        {right}
       </div>
     )
   }
 
   return (
     <>
-      {SectionHeader}
+      {variant !== 'list' && SectionHeader}
 
       {variant === 'list' ? (
         // ── /v2 šoninė juosta: vertikalus sąrašas (viskas matosi, be horizontalaus scroll'o) ──
         <>
-          <div className="mb-2 flex items-center justify-between gap-2">
-            <span className="font-['Outfit',sans-serif] text-[11px] font-extrabold uppercase tracking-[0.1em] text-[var(--text-faint)]">Šiandien siūloma</span>
-            {voteErr && <span className="text-[12px] font-bold text-[var(--accent-red,#ef4444)]">{voteErr}</span>}
+          {/* Antraštė su „+" (pasiūlyti savo dainą) dešinėje */}
+          <div className="mb-2.5 flex items-center justify-between gap-2">
+            <h3 className="m-0 font-['Outfit',sans-serif] text-[16px] font-extrabold tracking-[-0.01em] text-[var(--text-primary)]">Dienos daina</h3>
+            <div className="flex items-center gap-2">
+              {voteErr && <span className="text-[12px] font-bold text-[var(--accent-red,#ef4444)]">{voteErr}</span>}
+              {!alreadyNominated && (
+                <button
+                  type="button"
+                  onClick={() => setSuggestOpen(true)}
+                  aria-label="Pasiūlyti savo dainą"
+                  title="Pasiūlyti savo dainą"
+                  className="flex h-[26px] items-center gap-1 rounded-full bg-[rgba(249,115,22,0.12)] px-2.5 font-['Outfit',sans-serif] text-[12px] font-extrabold text-[var(--accent-orange)] transition-colors hover:bg-[var(--accent-orange)] hover:text-white"
+                >
+                  <span className="text-[15px] leading-none">+</span>Siūlyti
+                </button>
+              )}
+            </div>
           </div>
           <div className="flex flex-col gap-2.5">
             {sorted.length === 0 && (
@@ -593,20 +637,26 @@ export function DienosDainaSection({ onOpenTrack, variant = 'inline', headerVari
             {sorted.slice(0, 5).map((n) => {
               const votes = n.weighted_votes || n.votes || 0
               const level = votes > 0 ? Math.max(1, Math.round((votes / maxVotes) * 5)) : 0
-              return <ListRow key={n.id} t={n.tracks!} level={level} voteId={n.id} own={n.own} isVoted={votedIds.has(n.id)} />
+              return <ListRow key={n.id} t={n.tracks!} level={level} right={<VoterStack n={n} />} />
             })}
-            {SuggestRow}
           </div>
 
           {winner?.tracks && (
             <div className="mt-3 border-t border-[var(--border-default)] pt-3">
               <div className="mb-2 flex items-center justify-between gap-2">
-                <span className="min-w-0 truncate">
-                  <span className="font-['Outfit',sans-serif] text-[11px] font-extrabold uppercase tracking-[0.1em] text-[var(--accent-orange)]">Vakar laimėjo</span>
-                </span>
-                <button type="button" onClick={openYesterday} className="shrink-0 cursor-pointer border-0 bg-transparent p-0 font-['Outfit',sans-serif] text-[12px] font-bold text-[var(--accent-orange)] no-underline transition-opacity hover:opacity-70">Visi →</button>
+                <span className="font-['Outfit',sans-serif] text-[11px] font-extrabold uppercase tracking-[0.1em] text-[var(--accent-orange)]">Vakar laimėjo</span>
+                {ydayBest.length > 0 && (
+                  <button type="button" onClick={openYesterday} className="shrink-0 cursor-pointer border-0 bg-transparent p-0 font-['Outfit',sans-serif] text-[12px] font-bold text-[var(--accent-orange)] no-underline transition-opacity hover:opacity-70">Visi →</button>
+                )}
               </div>
-              <ListRow t={winner.tracks} level={5} badge="1" />
+              <div className="flex flex-col gap-2.5">
+                <ListRow t={winner.tracks} level={5} badge="1" proposer={winner.proposer} />
+                {ydayBest.slice(0, 2).map((n) => {
+                  const votes = n.weighted_votes || n.votes || 0
+                  const level = votes > 0 ? Math.max(1, Math.round((votes / ydayMax) * 5)) : 0
+                  return <ListRow key={n.id} t={n.tracks!} level={level} proposer={n.proposer} />
+                })}
+              </div>
             </div>
           )}
         </>
