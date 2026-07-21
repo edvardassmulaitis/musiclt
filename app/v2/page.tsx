@@ -19,7 +19,7 @@ import {
 import { proxyImgResized } from '@/lib/img-proxy'
 import { countryFlag } from '@/lib/country-flags'
 import { eventHref } from '@/lib/event-href'
-import DienosDainaCard from './DienosDainaCard'
+import { DienosDainaSection } from '@/components/DienosDainaSection'
 import GilynCrate from './GilynCrate'
 import HeroCarousel from './HeroCarousel'
 
@@ -180,7 +180,7 @@ function kindLabel(it: any): string {
     default: return 'Bendruomenė'
   }
 }
-function CommunityRail({ community, top, nominations, ddFallback, ddSubtitle, gilyn }: { community: any[]; top: any[]; nominations: any[]; ddFallback: any[]; ddSubtitle: string; gilyn: any[] }) {
+function CommunityRail({ community, top, gilyn }: { community: any[]; top: any[]; gilyn: any[] }) {
   const movers = (top || []).slice(0, 5)
   const highlights = community.filter((c) => c.type !== 'dd').slice(0, 1)
 
@@ -189,7 +189,7 @@ function CommunityRail({ community, top, nominations, ddFallback, ddSubtitle, gi
       {/* Bendruomenės panelis (tintuotas, atskirtas) */}
       <div className="v2-comm-panel">
         <div className="v2-side-head"><span className="v2-side-dot" />Bendruomenė</div>
-        <DienosDainaCard nominations={nominations} fallback={ddFallback} subtitle={ddSubtitle} />
+        <div className="v2-dd-embed"><DienosDainaSection variant="stacked" /></div>
 
         {movers.length > 0 && (
           <div className="v2-cw">
@@ -433,7 +433,7 @@ function GamesZone({ members }: { members: any[] }) {
 
 /* ─────────────── PAGE ─────────────── */
 export default async function V2Page() {
-  const [music, upcomingR, newsR, eventsR, vertaR, istorijaR, communityR, topR, membersR, gilynR, nomsR] = await Promise.all([
+  const [music, upcomingR, newsR, eventsR, vertaR, istorijaR, communityR, topR, membersR, gilynR] = await Promise.all([
     getMusic(),
     getUpcomingAlbumsForHome().catch(() => ({ items: [] as any[] })),
     jget('/api/news?limit=10&include=songs&since_days=21'),
@@ -444,14 +444,9 @@ export default async function V2Page() {
     jget('/api/top/entries?type=top40'),
     jget('/api/atradimai/active-members'),
     jget('/api/zaidimai/gilyn', 8000),
-    jget('/api/dienos-daina/nominations'),
   ])
   const members: any[] = membersR?.members ?? []
   const gilynBox: any[] = gilynR?.box ?? []
-  const noms: any[] = nomsR?.nominations ?? []
-  const ddItem = (communityR?.items || []).find((c: any) => c?.type === 'dd')
-  const ddSub = ddItem?.subtype === 'yesterday_winner' ? 'Vakar laimėjo' : 'Šiandien pirmauja'
-  const ddFallback: any[] = ddItem?.candidates || []
 
   const upcomingRaw: any[] = (upcomingR?.items ?? []) as any[]
   const daysUntil = (a: any) => { if (!a.year || !a.month) return 9999; const d = new Date(a.year, a.month - 1, a.day ?? 15); return Math.round((d.getTime() - Date.now()) / 86_400_000) }
@@ -536,7 +531,7 @@ export default async function V2Page() {
           )}
         </div>
 
-        <CommunityRail community={community} top={top} nominations={noms} ddFallback={ddFallback} ddSubtitle={ddSub} gilyn={gilynBox} />
+        <CommunityRail community={community} top={top} gilyn={gilynBox} />
       </div>
 
       <Koncertai events={events} verta={verta} />
@@ -644,6 +639,9 @@ const V2_EXTRA = `
   background:var(--bg-elevated);border:1px solid var(--border-default)}
 .v2-side-head{display:flex;align-items:center;gap:8px;font-family:'Outfit',sans-serif;font-weight:800;font-size:12px;letter-spacing:.08em;text-transform:uppercase;color:var(--text-faint);margin:-2px 0 0;padding-bottom:12px;border-bottom:1px solid var(--card-border-subtle)}
 .v2-side-dot{width:7px;height:7px;border-radius:50%;background:var(--accent-green);flex:none}
+/* įdėtas tikrasis v1 „Dienos daina" komponentas (stacked/compact) — neišsiplečia už panelio */
+.v2-dd-embed{min-width:0}
+.v2-dd-embed h2{font-size:16px!important}
 .v2-gilyn-card{border-color:var(--border-default);background:var(--bg-elevated)}
 .v2-gilyn-sub{font-size:12px;color:var(--text-muted);margin:7px 0 6px;line-height:1.4}
 .v2-dd-empty{font-size:13px;color:var(--text-muted);padding:8px 2px}
