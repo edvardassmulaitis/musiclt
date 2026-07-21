@@ -1,25 +1,23 @@
 'use client'
 // Muzikos pool'as (/v2): vienas bendras rinkinys (LT + pasaulis) su /topai
 // stiliaus filtrų juosta kairėje — visi filtrai vienoj vietoj, mobile telpa
-// vienoj eilutėj (horizontalus scroll + žanrų „settings" ikona popover'e).
+// vienoj eilutėj (sumažinti chip'ai + horizontalus scroll + žanrų gear popover).
 //
 // Būsenos:
-//   • Rikiavimas (toggle, default = niekas): default → „most relevant" (tik hot =
-//     populiarūs+švieži, pagal relevance). „Nauja" → VISKAS pagal datą + laiko
-//     badge'ai. „Top" → viskas pagal atlikėjo score.
+//   • Rikiavimas (toggle, default = niekas): default → „most relevant" (tik hot);
+//     „Nauja" → viskas pagal datą + laiko badge'ai; „Top" → pagal atlikėjo score.
 //   • Regionas (toggle, default = mix): LT / Pasaulis.
-//   • Stilius (žanras) — gear popover; veikia KARTU su kitais filtrais IR platina
-//     pool'ą (pasirinkus žanrą, nebetaikom „hot" apribojimo → matai visą to
-//     stiliaus muziką, ne tik top-10).
+//   • Stilius (žanras) — gear popover; kombinuojasi + platina pool'ą.
+//   • „Rodyti daugiau" po kiekvienu grid'u — atskleidžia likusį pool'ą.
 //
-// Admin: ant kiekvienos kortelės rodomas atlikėjo score (threshold tuningui).
+// Admin: ant kortelės rodomas atlikėjo score (threshold tuningui).
 import { useEffect, useRef, useState } from 'react'
 import Link from 'next/link'
 import { useSession } from 'next-auth/react'
 
 type Track = { id: number; href: string; thumb: string | null; title: string; artist: string; score: number; isLt: boolean; dateMs: number; rel: number; hot: boolean; genres: string[] }
 type Album = { id: number; href: string; cover: string | null; title: string; artist: string; score: number; isLt: boolean; dateMs: number; rel: number; hot: boolean; genres: string[] }
-type Upc = { id: number; href: string; cover: string | null; name: string; isLt: boolean; genres: string[] }
+type Upc = { id: number; href: string; cover: string | null; name: string; isLt: boolean; genres: string[]; score: number }
 
 function agoLabel(ms: number): string | null {
   if (!ms) return null
@@ -33,7 +31,6 @@ function agoLabel(ms: number): string | null {
   return `prieš ${Math.floor(d / 365)} m.`
 }
 
-// Subtilus sekcijos skirtukas: ikona + mažas užrašas + plona linija (be didelio h2).
 function SecHead({ kind, label }: { kind: 'songs' | 'albums' | 'soon'; label: string }) {
   const ic = kind === 'songs'
     ? <path d="M7 4l13 8-13 8z" fill="currentColor" stroke="none" />
@@ -93,10 +90,15 @@ export default function MusicPool({ tracks, albums, genres, upcoming, upcomingMo
   const [region, setRegion] = useState<'' | 'lt' | 'world'>('')
   const [genre, setGenre] = useState<string>('')
   const [gearOpen, setGearOpen] = useState(false)
+  const [extraT, setExtraT] = useState(0)
+  const [extraA, setExtraA] = useState(0)
   const ddRef = useRef<HTMLDivElement>(null)
   const { data: session } = useSession()
   const role = (session?.user as any)?.role
   const admin = role === 'admin' || role === 'super_admin'
+
+  // Pasikeitus filtrams — atstatom „Rodyti daugiau" skaitiklius.
+  useEffect(() => { setExtraT(0); setExtraA(0) }, [sort, region, genre])
 
   useEffect(() => {
     if (!gearOpen) return
@@ -109,24 +111,28 @@ export default function MusicPool({ tracks, albums, genres, upcoming, upcomingMo
 
   const tog = <T extends string>(cur: T, next: T, set: (v: T) => void, base: T) => set(cur === next ? base : next)
   const hasGenre = genre !== ''
+  const baseCap = (sort === '' && !hasGenre) ? 10 : 18
 
-  function pick<T extends Track | Album>(items: T[]): T[] {
+  function filtered<T extends Track | Album>(items: T[]): T[] {
     let a = region === 'lt' ? items.filter((x) => x.isLt) : region === 'world' ? items.filter((x) => !x.isLt) : items
     if (genre) a = a.filter((x) => x.genres.includes(genre))
     if (sort === '') {
-      if (!hasGenre) a = a.filter((x) => x.hot) // curated tik kai nėra žanro filtro
+      if (!hasGenre) a = a.filter((x) => x.hot)
       a = [...a].sort((x, y) => y.rel - x.rel)
     } else if (sort === 'new') a = [...a].sort((x, y) => y.dateMs - x.dateMs)
     else a = [...a].sort((x, y) => (y.score - x.score) || (y.dateMs - x.dateMs))
-    const cap = (sort === '' && !hasGenre) ? 10 : 18
-    return a.slice(0, cap)
+    return a
   }
-  const tv = pick(tracks)
-  const av = pick(albums)
+  const tFull = filtered(tracks)
+  const aFull = filtered(albums)
+  const tv = tFull.slice(0, baseCap + extraT)
+  const av = aFull.slice(0, baseCap + extraA)
+  const badge = sort === 'new'
+
   let uf = region === 'lt' ? upcoming.filter((u) => u.isLt) : region === 'world' ? upcoming.filter((u) => !u.isLt) : upcoming
   if (genre) uf = uf.filter((u) => u.genres.includes(genre))
-  const uv = uf.slice(0, 6)
-  const badge = sort === 'new'
+  uf = [...uf].sort((x, y) => y.score - x.score) // populiarumas
+  const uv = uf.slice(0, 7)
 
   return (
     <div className="v2-mpool">
@@ -169,19 +175,21 @@ export default function MusicPool({ tracks, albums, genres, upcoming, upcomingMo
       <section>
         <SecHead kind="songs" label="Dainos" />
         {tv.length ? <div className="v2-mgrid">{tv.map((t) => <TrackCard key={t.id} t={t} badge={badge} admin={admin} />)}</div> : <p className="v2-mempty">Pagal pasirinktus filtrus įrašų nėra.</p>}
+        {tFull.length > tv.length && <button type="button" className="v2-mmore" onClick={() => setExtraT((e) => e + 12)}>Rodyti daugiau <span>({tFull.length - tv.length})</span></button>}
       </section>
 
       <section style={{ marginTop: 'var(--page-section-gap)' }}>
         <SecHead kind="albums" label="Albumai" />
         {av.length ? <div className="v2-mgrid v2-mgrid-cc">{av.map((a) => <AlbumCard key={a.id} a={a} badge={badge} admin={admin} />)}</div> : <p className="v2-mempty">Pagal pasirinktus filtrus įrašų nėra.</p>}
+        {aFull.length > av.length && <button type="button" className="v2-mmore" onClick={() => setExtraA((e) => e + 12)}>Rodyti daugiau <span>({aFull.length - av.length})</span></button>}
       </section>
 
       {uv.length > 0 && (
         <section style={{ marginTop: 'var(--page-section-gap)' }}>
           <SecHead kind="soon" label="Greitai pasirodys" />
           <div className="v2-upc2">
-            {uv.map((u, i) => (
-              <Link key={u.id} href={u.href} className={`v2-upc2-cell${i === 0 ? ' big' : ''}`} title={u.name}>
+            {uv.map((u) => (
+              <Link key={u.id} href={u.href} className="v2-upc2-cell" title={u.name}>
                 {u.cover && (/* eslint-disable-next-line @next/next/no-img-element */<img src={u.cover} alt="" loading="lazy" />)}
                 <span className="v2-upc2-grad" />
                 <span className="v2-upc2-name">{u.name}</span>

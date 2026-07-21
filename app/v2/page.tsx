@@ -587,6 +587,7 @@ export default async function V2Page() {
     name: a.artists?.name || a.title,
     isLt: isLtCountry(a.artists?.country),
     genres: (a.genres || []) as string[],
+    score: a.artists?.score ?? 0,
   }))
 
   return (
@@ -766,12 +767,26 @@ const V2_EXTRA = `
 .v2-mscore{position:absolute;right:7px;top:7px;z-index:2;min-width:20px;text-align:center;padding:2px 6px;border-radius:6px;font-family:'Outfit',sans-serif;font-size:11px;font-weight:800;color:#fff;background:rgba(120,120,130,.85);box-shadow:0 1px 4px rgba(0,0,0,.3)}
 .v2-mscore.hot{background:rgba(22,163,74,.9)}
 .v2-mempty{color:var(--text-muted);font-size:14px;margin:6px 0 0}
+.v2-mmore{display:inline-flex;align-items:center;gap:6px;margin-top:14px;padding:9px 18px;border-radius:999px;font-family:'Outfit',sans-serif;font-weight:700;font-size:13px;color:var(--text-secondary);background:var(--bg-hover);border:1px solid var(--border-default);cursor:pointer;transition:color .15s,border-color .15s}
+.v2-mmore:hover{color:var(--accent-orange);border-color:var(--accent-orange)}
+.v2-mmore span{color:var(--text-faint);font-weight:600}
 @media(max-width:980px){
   .v2-mf-scroll{flex:1;overflow-x:auto;flex-wrap:nowrap;scrollbar-width:none;-webkit-overflow-scrolling:touch}
   .v2-mf-scroll::-webkit-scrollbar{display:none}
   .v2-mf-grp,.v2-mf-chip,.v2-mf-divider{flex:0 0 auto}
   .v2-mgrid{grid-template-columns:repeat(auto-fill,minmax(130px,1fr))}
   .v2-mgrid-cc{grid-template-columns:repeat(auto-fill,minmax(120px,1fr))}
+}
+/* Mobile: sumažinti filtrai, kad viskas tilptų vienoj eilutėj be spūsties */
+@media(max-width:560px){
+  .v2-mf{gap:7px}
+  .v2-mf-scroll{gap:7px}
+  .v2-mf-grp{gap:6px}
+  .v2-mf-chip{padding:6px 10px;font-size:12px;gap:5px}
+  .v2-mf-chip svg{width:13px;height:13px}
+  .v2-mf-flag{width:16px;height:11px}
+  .v2-mf-divider{height:19px;margin:0}
+  .v2-mf-icon{padding:6px 9px}
 }
 
 /* šalies juostelė iš kairės — siaura spalvų juosta */
@@ -830,7 +845,7 @@ const V2_EXTRA = `
 @media(max-width:600px){.v2-qf-txt{display:none}.v2-qf-link{padding:5px}}
 
 /* greitai pasirodys — collage su pavadinimu ant nuotraukos */
-.v2-upc2{display:grid;grid-template-columns:repeat(5,1fr);gap:8px}
+.v2-upc2{display:grid;grid-template-columns:repeat(4,1fr);gap:8px}
 .v2-upc2-cell{position:relative;display:block;border-radius:11px;overflow:hidden;aspect-ratio:1;background:var(--bg-elevated)}
 .v2-upc2-cell.big{grid-column:span 2;grid-row:span 2}
 .v2-upc2-cell img{width:100%;height:100%;object-fit:cover;display:block;transition:transform .4s ease}
@@ -840,7 +855,7 @@ const V2_EXTRA = `
 .v2-upc2-cell.big .v2-upc2-name{font-size:16px;white-space:normal;display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical}
 .v2-upc2-more{display:flex;align-items:center;justify-content:center;background:var(--bg-hover);border:1px dashed var(--border-default)}
 .v2-upc2-more span{font-family:'Outfit',sans-serif;font-weight:800;font-size:12.5px;color:var(--accent-orange);text-align:center;padding:6px;line-height:1.2}
-@media(max-width:560px){.v2-upc2{grid-template-columns:repeat(4,1fr)}}
+@media(max-width:560px){.v2-upc2{grid-template-columns:repeat(3,1fr)}}
 
 /* interaktyvus hero */
 .v2-hero{margin-bottom:2px}
