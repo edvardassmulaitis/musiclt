@@ -33,6 +33,25 @@ const PLAY_D = 'M8 5v14l11-7z'
 function Ic({ d, size = 14, filled = false }: { d: string; size?: number; filled?: boolean }) {
   return <svg width={size} height={size} viewBox="0 0 24 24" fill={filled ? 'currentColor' : 'none'} stroke={filled ? 'none' : 'currentColor'} strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="shrink-0"><path d={d} /></svg>
 }
+// Numatytieji avatarai yra reliatyvūs SVG (pvz. /avatars/av-09.svg) — jų NEGALIMA
+// leisti per weserv proxy (lūžta). Reliatyvius / .svg naudojam tiesiogiai.
+function avatarSrc(url: string | null | undefined): string | null {
+  if (!url) return null
+  if (url.startsWith('/') || url.endsWith('.svg')) return url
+  if (url.startsWith('http')) return proxyImgResized(url, 96)
+  return url
+}
+function MiniAv({ p, ring, size = 22 }: { p: { avatar_url?: string | null; full_name?: string | null; username?: string | null }; ring?: boolean; size?: number }) {
+  const [err, setErr] = useState(false)
+  const nm = p.full_name || p.username || '?'
+  const src = !err && p.avatar_url ? avatarSrc(p.avatar_url) : null
+  const ringCls = ring ? 'border-[var(--accent-orange)]' : 'border-[var(--bg-surface)]'
+  if (src) {
+    // eslint-disable-next-line @next/next/no-img-element
+    return <img src={src} onError={() => setErr(true)} alt={nm} title={nm} loading="lazy" decoding="async" className={`shrink-0 rounded-full border-2 object-cover ${ringCls}`} style={{ width: size, height: size }} />
+  }
+  return <span title={nm} className={`flex shrink-0 items-center justify-center rounded-full border-2 font-extrabold ${ringCls}`} style={{ width: size, height: size, fontSize: size * 0.42, background: `hsl(${strHue(nm)},32%,20%)`, color: `hsl(${strHue(nm)},48%,58%)` }}>{nm.charAt(0).toUpperCase()}</span>
+}
 
 function Cover({ src, alt, size = 44, radius = 10, ytId, artistSrc }: { src?: string | null; alt: string; size?: number; radius?: number; ytId?: string | null; artistSrc?: string | null }) {
   const h = strHue(alt)
@@ -328,6 +347,7 @@ export function DienosDainaSection({ onOpenTrack, variant = 'inline', headerVari
   // Vidinis track modalas — naudojamas tik kai tėvas nepaduoda onOpenTrack.
   const [innerTrack, setInnerTrack] = useState<any | null>(null)
   const [winnerPlaying, setWinnerPlaying] = useState(false)
+  const [votersOf, setVotersOf] = useState<{ title: string; voters: Proposer[]; anon: number } | null>(null)
   const openTrack = onOpenTrack || setInnerTrack
   const { data: session } = useSession()
   const myAvatar = session?.user?.image || null
@@ -528,35 +548,40 @@ export function DienosDainaSection({ onOpenTrack, variant = 'inline', headerVari
   // hp-scroll su breathing room viršuje (kad hover'io -translate-y nenukirptų kraštinės).
   const ROW = 'hp-scroll flex items-stretch gap-3 overflow-x-auto pt-1 pb-2 [scrollbar-width:none] [&::-webkit-scrollbar]:hidden'
 
-  // Mini avataras balsuotojų stack'ui.
-  const MiniAv = ({ p, ring }: { p: Proposer; ring?: boolean }) => {
-    const nm = p.full_name || p.username || '?'
-    const ringCls = ring ? 'border-[var(--accent-orange)]' : 'border-[var(--bg-surface)]'
-    return p.avatar_url ? (
-      // eslint-disable-next-line @next/next/no-img-element
-      <img src={proxyImgResized(p.avatar_url, 96)} alt={nm} title={nm} loading="lazy" decoding="async" className={`h-[22px] w-[22px] rounded-full border-2 object-cover ${ringCls}`} />
-    ) : (
-      <span title={nm} className={`flex h-[22px] w-[22px] items-center justify-center rounded-full border-2 text-[10px] font-extrabold ${ringCls}`} style={{ background: `hsl(${strHue(nm)},32%,20%)`, color: `hsl(${strHue(nm)},48%,58%)` }}>{nm.charAt(0).toUpperCase()}</span>
-    )
-  }
-
-  // Balsuotojų avatarai (be tuščių „?") + širdelės balsavimo mygtukas (list variantui).
-  const VoteControl = ({ n, big }: { n: Nomination; big?: boolean }) => {
-    const isVotedThis = votedIds.has(n.id)
-    const isOwn = !!n.own
-    const clean = (n.voters || []).filter((v) => v.avatar_url || v.full_name || v.username)
+  // Balsuotojų avatarų stack'as — paspaudus atidaro visą sąrašą (mini modalą).
+  const AvatarStack = ({ title, voters, anon, meFirst }: { title: string; voters: Proposer[]; anon: number; meFirst?: boolean }) => {
+    const clean = voters.filter((v) => v.avatar_url || v.full_name || v.username)
     const list: Proposer[] = [...clean]
-    if (isVotedThis || isOwn) list.unshift({ username: null, full_name: myName, avatar_url: myAvatar })
+    if (meFirst) list.unshift({ username: null, full_name: myName, avatar_url: myAvatar })
     const shown = list.slice(0, 3)
-    const extra = Math.max(0, (clean.length + ((isVotedThis || isOwn) ? 1 : 0)) - shown.length) + (n.anon_votes || 0)
+    const total = list.length + anon
+    const extra = Math.max(0, total - shown.length)
+    if (shown.length === 0 && extra === 0) return null
     return (
-      <div className="flex shrink-0 items-center gap-1.5 self-center">
+      <button
+        type="button"
+        onClick={(e) => { e.preventDefault(); e.stopPropagation(); setVotersOf({ title, voters: meFirst ? list : clean, anon }) }}
+        aria-label="Rodyti balsuotojus"
+        title="Rodyti balsuotojus"
+        className="flex shrink-0 items-center gap-1.5 self-center rounded-full px-0.5 py-0.5 transition-colors hover:bg-[var(--bg-hover)]"
+      >
         {shown.length > 0 && (
           <span className="flex -space-x-2">
-            {shown.map((vp, i) => <MiniAv key={i} p={vp} ring={(isVotedThis || isOwn) && i === 0} />)}
+            {shown.map((vp, i) => <MiniAv key={i} p={vp} ring={meFirst && i === 0} />)}
           </span>
         )}
         {extra > 0 && <span className="text-[11px] font-bold text-[var(--text-faint)]">+{extra}</span>}
+      </button>
+    )
+  }
+
+  // Balsuotojų stack'as + širdelės balsavimo mygtukas (šiandienos eilutėms).
+  const VoteControl = ({ n, big }: { n: Nomination; big?: boolean }) => {
+    const isVotedThis = votedIds.has(n.id)
+    const isOwn = !!n.own
+    return (
+      <div className="flex shrink-0 items-center gap-1.5 self-center">
+        <AvatarStack title={sanitizeTitle(n.tracks?.title || '')} voters={n.voters || []} anon={n.anon_votes || 0} meFirst={isVotedThis || isOwn} />
         {!isOwn && (
           <button
             type="button"
@@ -564,9 +589,9 @@ export function DienosDainaSection({ onOpenTrack, variant = 'inline', headerVari
             disabled={isVotedThis || voting !== null}
             aria-label={isVotedThis ? 'Balsuota' : 'Balsuoti'}
             title={isVotedThis ? 'Balsuota' : 'Balsuoti'}
-            className={`flex ${big ? 'h-9 w-9' : 'h-[30px] w-[30px]'} items-center justify-center rounded-full border transition-colors ${isVotedThis ? 'cursor-default border-[rgba(249,115,22,0.5)] bg-[rgba(249,115,22,0.16)] text-[var(--accent-orange)]' : voting !== null ? 'border-[var(--border-strong)] text-[var(--text-muted)] opacity-60' : 'border-[var(--border-strong)] text-[var(--text-secondary)] hover:border-[var(--accent-orange)] hover:text-[var(--accent-orange)]'}`}
+            className={`flex ${big ? 'h-11 w-11' : 'h-[30px] w-[30px]'} items-center justify-center rounded-full border transition-colors ${isVotedThis ? 'cursor-default border-[rgba(249,115,22,0.5)] bg-[rgba(249,115,22,0.16)] text-[var(--accent-orange)]' : voting !== null ? 'border-[var(--border-strong)] text-[var(--text-muted)] opacity-60' : 'border-[var(--border-strong)] text-[var(--text-secondary)] hover:border-[var(--accent-orange)] hover:text-[var(--accent-orange)]'}`}
           >
-            {voting === n.id ? '…' : <Ic d={HEART_D} size={big ? 16 : 14} filled={isVotedThis} />}
+            {voting === n.id ? '…' : <Ic d={HEART_D} size={big ? 20 : 14} filled={isVotedThis} />}
           </button>
         )}
       </div>
@@ -580,7 +605,7 @@ export function DienosDainaSection({ onOpenTrack, variant = 'inline', headerVari
     const ytThumb = v ? `https://img.youtube.com/vi/${v}/mqdefault.jpg` : null
     const imgSrc = t.cover_url || ytThumb || t.artists?.cover_image_url || null
     return (
-      <div className={`group flex items-center gap-2.5 ${big ? 'rounded-xl bg-[rgba(249,115,22,0.06)] p-2' : ''}`}>
+      <div className="group flex items-center gap-2.5">
         <button
           type="button"
           onClick={() => openTrack({ id: t.id, title: t.title, slug: t.slug, cover_url: t.cover_url, video_url: t.video_url, artists: t.artists })}
@@ -653,6 +678,7 @@ export function DienosDainaSection({ onOpenTrack, variant = 'inline', headerVari
             const wt = winner.tracks!
             const wyt = extractYouTubeId(wt.video_url)
             const wImg = wt.cover_url || (wyt ? `https://img.youtube.com/vi/${wyt}/mqdefault.jpg` : null) || wt.artists?.cover_image_url || null
+            const winnerNom = ydaySorted.find((n) => n.tracks?.id === wt.id)
             return (
               <div className="mt-3.5 border-t border-[var(--border-default)] pt-3.5">
                 <div className="mb-2 font-['Outfit',sans-serif] text-[11px] font-extrabold uppercase tracking-[0.1em] text-[var(--accent-orange)]">Vakar laimėjo</div>
@@ -681,14 +707,17 @@ export function DienosDainaSection({ onOpenTrack, variant = 'inline', headerVari
                     )}
                   </div>
                   <div className="px-3 py-2.5">
-                    <button
-                      type="button"
-                      onClick={() => openTrack({ id: wt.id, title: wt.title, slug: wt.slug, cover_url: wt.cover_url, video_url: wt.video_url, artists: wt.artists })}
-                      className="block w-full cursor-pointer border-0 bg-transparent p-0 text-left"
-                    >
-                      <p className="m-0 truncate font-['Outfit',sans-serif] text-[16px] font-extrabold text-[var(--text-primary)] transition-colors hover:text-[var(--accent-orange)]">{sanitizeTitle(wt.title)}</p>
-                      <p className="m-0 truncate text-[13px] text-[var(--text-muted)]">{wt.artists?.name}</p>
-                    </button>
+                    <div className="flex items-start justify-between gap-2">
+                      <button
+                        type="button"
+                        onClick={() => openTrack({ id: wt.id, title: wt.title, slug: wt.slug, cover_url: wt.cover_url, video_url: wt.video_url, artists: wt.artists })}
+                        className="min-w-0 flex-1 cursor-pointer border-0 bg-transparent p-0 text-left"
+                      >
+                        <p className="m-0 truncate font-['Outfit',sans-serif] text-[16px] font-extrabold text-[var(--text-primary)] transition-colors hover:text-[var(--accent-orange)]">{sanitizeTitle(wt.title)}</p>
+                        <p className="m-0 truncate text-[13px] text-[var(--text-muted)]">{wt.artists?.name}</p>
+                      </button>
+                      {winnerNom && <AvatarStack title={sanitizeTitle(wt.title)} voters={winnerNom.voters || []} anon={winnerNom.anon_votes || 0} />}
+                    </div>
                     {winner.proposer && proposerName(winner.proposer) && (
                       <span className="mt-1 flex min-w-0 items-center gap-1 text-[11px] text-[var(--text-faint)]"><span className="shrink-0">pasiūlė</span><ProposerLine p={winner.proposer} /></span>
                     )}
@@ -935,6 +964,40 @@ export function DienosDainaSection({ onOpenTrack, variant = 'inline', headerVari
       )}
 
       {suggestOpen && <DainaSuggestModal onClose={() => setSuggestOpen(false)} onDone={load} />}
+
+      {/* Balsuotojų mini modalas (paspaudus avatarų stack'ą). */}
+      {votersOf && typeof document !== 'undefined' && createPortal(
+        <div onClick={(e) => { if (e.target === e.currentTarget) setVotersOf(null) }} className="fixed inset-0 z-[1300] flex items-end justify-center bg-black/60 backdrop-blur-sm sm:items-center">
+          <div className="flex w-full max-w-[380px] flex-col overflow-hidden rounded-t-2xl bg-[var(--bg-surface)] shadow-[0_24px_60px_-10px_rgba(0,0,0,0.5)] sm:mx-4 sm:rounded-2xl" style={{ maxHeight: 'min(70vh, 520px)' }}>
+            <div className="flex shrink-0 items-center justify-between border-b border-[var(--border-subtle)] px-4 py-3">
+              <span className="min-w-0 truncate font-['Outfit',sans-serif] text-[15px] font-extrabold text-[var(--text-primary)]">Balsavo · {sanitizeTitle(votersOf.title)}</span>
+              <button onClick={() => setVotersOf(null)} aria-label="Uždaryti" className="flex h-7 w-7 shrink-0 items-center justify-center rounded-full bg-[var(--bg-active)] text-[var(--text-secondary)]">✕</button>
+            </div>
+            <div className="flex-1 overflow-y-auto p-2">
+              {votersOf.voters.length === 0 && votersOf.anon === 0 ? (
+                <p className="m-0 px-2 py-6 text-center text-[14px] text-[var(--text-muted)]">Dar niekas nebalsavo.</p>
+              ) : (
+                <>
+                  {votersOf.voters.map((v, i) => (
+                    <div key={i} className="flex items-center gap-2.5 rounded-lg px-2 py-1.5">
+                      <MiniAv p={v} size={30} />
+                      <span className="min-w-0 truncate text-[14px] font-semibold text-[var(--text-primary)]">{v.full_name || v.username || 'Narys'}</span>
+                    </div>
+                  ))}
+                  {votersOf.anon > 0 && (
+                    <div className="flex items-center gap-2.5 rounded-lg px-2 py-1.5">
+                      <span className="flex h-[30px] w-[30px] shrink-0 items-center justify-center rounded-full border-2 border-[var(--bg-surface)] bg-[var(--bg-active)] text-[13px] font-extrabold text-[var(--text-faint)]">?</span>
+                      <span className="text-[14px] text-[var(--text-muted)]">ir {votersOf.anon} {votersOf.anon === 1 ? 'svečias' : 'svečiai'}</span>
+                    </div>
+                  )}
+                </>
+              )}
+            </div>
+          </div>
+        </div>,
+        document.body,
+      )}
+
       {/* Vidinis track modalas (tik kai tėvas nepaduoda onOpenTrack — pvz. /atrasti). */}
       {!onOpenTrack && innerTrack && <HomeTrackModal track={innerTrack} onClose={() => setInnerTrack(null)} />}
     </>
