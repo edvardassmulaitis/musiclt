@@ -540,7 +540,8 @@ export function DienosDainaSection({ onOpenTrack, variant = 'inline', headerVari
     const canVote = !isOwn && !isVotedThis && voting === null
     const base = n.voters || []
     const list: Proposer[] = [...base]
-    if (isVotedThis && !isOwn) list.unshift({ username: null, full_name: myName, avatar_url: myAvatar })
+    if (isOwn) list.unshift({ username: null, full_name: myName, avatar_url: myAvatar })
+    else if (isVotedThis) list.unshift({ username: null, full_name: myName, avatar_url: myAvatar })
     const shown = list.slice(0, 3)
     const extra = Math.max(0, list.length - shown.length) + (n.anon_votes || 0)
     return (
@@ -617,7 +618,7 @@ export function DienosDainaSection({ onOpenTrack, variant = 'inline', headerVari
             <h3 className="m-0 font-['Outfit',sans-serif] text-[16px] font-extrabold tracking-[-0.01em] text-[var(--text-primary)]">Dienos daina</h3>
             <div className="flex items-center gap-2">
               {voteErr && <span className="text-[12px] font-bold text-[var(--accent-red,#ef4444)]">{voteErr}</span>}
-              {!alreadyNominated && (
+              {!alreadyNominated ? (
                 <button
                   type="button"
                   onClick={() => setSuggestOpen(true)}
@@ -627,6 +628,8 @@ export function DienosDainaSection({ onOpenTrack, variant = 'inline', headerVari
                 >
                   <span className="text-[15px] leading-none">+</span>Siūlyti
                 </button>
+              ) : (
+                <span className="flex h-[26px] items-center gap-1 rounded-full bg-[var(--bg-hover)] px-2.5 font-['Outfit',sans-serif] text-[12px] font-bold text-[var(--text-faint)]" title="Šiandien jau pasiūlei dainą">✓ Pasiūlei</span>
               )}
             </div>
           </div>
