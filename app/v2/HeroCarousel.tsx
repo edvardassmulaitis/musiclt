@@ -18,6 +18,12 @@ export default function HeroCarousel({ slides }: { slides: Slide[] }) {
   const onScroll = useCallback(() => {
     const el = ref.current
     if (!el) return
+    const maxScroll = el.scrollWidth - el.clientWidth
+    // Kraštiniai kortelės niekada nepatenka į matomos srities centrą (jų centras
+    // lieka už maksimalaus scroll'o), todėl prie kraštų fiksuojam pirmą/paskutinį —
+    // kitaip paskutinis („Daugiau naujienų") taškas neaktyvuojasi.
+    if (el.scrollLeft >= maxScroll - 8) { setActive(count - 1); return }
+    if (el.scrollLeft <= 8) { setActive(0); return }
     const center = el.scrollLeft + el.clientWidth / 2
     let best = 0, bestD = Infinity
     slots().forEach((s, i) => {
@@ -26,7 +32,7 @@ export default function HeroCarousel({ slides }: { slides: Slide[] }) {
       if (d < bestD) { bestD = d; best = i }
     })
     setActive(best)
-  }, [])
+  }, [count])
   const go = (i: number) => {
     const el = ref.current
     if (!el) return
