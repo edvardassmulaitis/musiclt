@@ -139,7 +139,7 @@ async function fetchLaneTracks(sb: any, lane: 'lt' | 'world', sinceIso: string):
     .not('video_uploaded_at', 'is', null)
     .gte('video_uploaded_at', sinceIso)
     .order('video_uploaded_at', { ascending: false })
-    .limit(lane === 'lt' ? 500 : 300)
+    .limit(lane === 'lt' ? 400 : 150)
   q = lane === 'lt' ? q.eq('artists.country', LT_COUNTRY) : q.neq('artists.country', LT_COUNTRY)
   const { data } = await q
   return ((data || []) as any[]).filter((t) => t.artists && t.title && t.title !== t.artists.name && !t.hide_from_homepage && t.artists.country !== 'Rusija')
@@ -150,7 +150,7 @@ async function fetchLaneAlbums(sb: any, lane: 'lt' | 'world', currentYear: numbe
     .select('id, title, slug, cover_image_url, year, month, day, is_upcoming, artist_id, artists!albums_artist_id_fkey!inner(id, name, slug, cover_image_url, country, score)')
     .not('year', 'is', null).gte('year', currentYear - 1)
     .order('year', { ascending: false }).order('month', { ascending: false, nullsFirst: false }).order('day', { ascending: false, nullsFirst: false })
-    .limit(lane === 'lt' ? 500 : 300)
+    .limit(lane === 'lt' ? 400 : 150)
   q = lane === 'lt' ? q.eq('artists.country', LT_COUNTRY) : q.neq('artists.country', LT_COUNTRY)
   const { data } = await q
   return ((data || []) as any[]).filter((a) => a.artists && !a.is_upcoming && a.artists.country !== 'Rusija' && releaseMs(a, 'album') >= albumSinceMs)
