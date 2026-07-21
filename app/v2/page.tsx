@@ -234,8 +234,8 @@ function CommunityRail({ community, top, nominations, ddFallback, ddSubtitle, gi
       {/* Gilyn — muzikos atradimai (atskira nuo bendruomenės, bet šalia muzikos) */}
       {gilyn.length > 0 && (
         <div className="v2-cw v2-gilyn-card">
-          <div className="v2-ch"><span className="v2-ch-bar" style={{ background: 'var(--accent-blue)' }} />Gilyn · muzikos atradimai</div>
-          <p className="v2-gilyn-sub">Kasdien nauja 20 albumų dėžė — versk ir atrask.</p>
+          <div className="v2-ch"><span className="v2-ch-bar" style={{ background: 'var(--accent-blue)' }} />Atrask muziką</div>
+          <p className="v2-gilyn-sub">Šios dienos pasiūlymai — versk plokšteles ir pasirink nuo ko pradėti.</p>
           <GilynCrate box={gilyn} />
         </div>
       )}
@@ -419,8 +419,8 @@ function GamesZone({ members }: { members: any[] }) {
                 <span className="v2-mem-av">{m.avatar
                   // eslint-disable-next-line @next/next/no-img-element
                   ? <img src={proxyImgResized(m.avatar, 72)} alt="" loading="lazy" /> : <span>{(m.name || m.username || '?')[0]}</span>}</span>
-                <span className="v2-mem-txt"><b>{m.name || m.username}</b>{m.username && m.name && <span>@{m.username}</span>}</span>
-                {typeof m.total === 'number' && <span className="v2-mem-pts">{m.total} tšk.</span>}
+                <span className="v2-mem-txt"><b>{m.username ? `@${m.username}` : m.name}</b></span>
+                {typeof m.total === 'number' && <span className="v2-mem-pts">{m.total}</span>}
               </Link>
             ))}
             <Link href="/nariai" className="v2-clink">Visi nariai →</Link>
@@ -455,9 +455,16 @@ export default async function V2Page() {
 
   const upcomingRaw: any[] = (upcomingR?.items ?? []) as any[]
   const daysUntil = (a: any) => { if (!a.year || !a.month) return 9999; const d = new Date(a.year, a.month - 1, a.day ?? 15); return Math.round((d.getTime() - Date.now()) / 86_400_000) }
-  let upcomingSoon: any[] = upcomingRaw.map((a) => ({ ...a, _d: daysUntil(a) })).filter((a) => a._d >= 0 && a._d <= 45).sort((x, y) => (y.artists?.score ?? 0) - (x.artists?.score ?? 0))
-  if (upcomingSoon.length < 4) upcomingSoon = upcomingRaw.map((a) => ({ ...a, _d: daysUntil(a) })).sort((x, y) => (y.artists?.score ?? 0) - (x.artists?.score ?? 0))
-  upcomingSoon = upcomingSoon.filter((a) => a.artists?.cover_image_url || a.cover_image_url).slice(0, 12)
+  const hasCov = (a: any) => a.cover_image_url || a.artists?.cover_image_url
+  let upcomingSoon: any[] = upcomingRaw.map((a) => ({ ...a, _d: daysUntil(a) }))
+    .filter((a) => a._d >= 0 && a._d <= 30 && (a.artists?.score ?? 0) >= 20 && hasCov(a))
+    .sort((x, y) => (y.artists?.score ?? 0) - (x.artists?.score ?? 0))
+  if (upcomingSoon.length < 4) {
+    upcomingSoon = upcomingRaw.map((a) => ({ ...a, _d: daysUntil(a) }))
+      .filter((a) => a._d >= 0 && a._d <= 60 && hasCov(a))
+      .sort((x, y) => (y.artists?.score ?? 0) - (x.artists?.score ?? 0))
+  }
+  upcomingSoon = upcomingSoon.slice(0, 10)
   const events: any[] = eventsR?.events ?? []
   const verta: any[] = vertaR?.concerts ?? []
   const istorija: any[] = istorijaR?.items ?? []
@@ -491,37 +498,42 @@ export default async function V2Page() {
         <div className="v2-main">
           {/* ── Lietuvos muzika ── */}
           <section>
-            <div className="v2-rub"><h2><span className="v2-rub-flag lt" />Lietuvos muzika</h2>
-              <Link href="/dainos" className="v2-mh-filter"><svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M3 6h18M6 12h12M10 18h4" /></svg>Filtruoti</Link></div>
-            <div className="v2-subrow">Dainos</div>
+            <div className="v2-rub"><h2>Lietuvos muzika</h2></div>
+            <div className="v2-subrow"><span>Dainos</span><Link href="/dainos" className="v2-sublink">Daugiau →</Link></div>
             <Scroller ariaLabel="LT dainos">{trackCards(music.tLt)}</Scroller>
-            <div className="v2-subrow">Albumai</div>
+            <div className="v2-subrow"><span>Albumai</span><Link href="/albumai" className="v2-sublink">Daugiau →</Link></div>
             <Scroller ariaLabel="LT albumai">{albumCards(music.aLt)}</Scroller>
           </section>
 
           {/* ── Pasaulio muzika ── */}
           <section style={{ marginTop: 'var(--page-section-gap)' }}>
-            <div className="v2-rub"><h2><span className="v2-rub-flag world" />Pasaulio muzika</h2>
-              <Link href="/dainos" className="v2-mh-filter"><svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M3 6h18M6 12h12M10 18h4" /></svg>Filtruoti</Link></div>
-            <div className="v2-subrow">Dainos</div>
+            <div className="v2-rub"><h2>Pasaulio muzika</h2></div>
+            <div className="v2-subrow"><span>Dainos</span><Link href="/dainos" className="v2-sublink">Daugiau →</Link></div>
             <Scroller ariaLabel="Pasaulio dainos">{trackCards(music.tW)}</Scroller>
-            <div className="v2-subrow">Albumai</div>
+            <div className="v2-subrow"><span>Albumai</span><Link href="/albumai" className="v2-sublink">Daugiau →</Link></div>
             <Scroller ariaLabel="Pasaulio albumai">{albumCards(music.aW)}</Scroller>
-            {upcomingSoon.length > 0 && (
-              <>
-                <div className="v2-subrow">Greitai pasirodys</div>
-                <div className="v2-upc2">
-                  {upcomingSoon.slice(0, 8).map((a, i) => (
-                    <Link key={a.id} href={a.artists?.slug ? `/atlikejai/${a.artists.slug}` : '/albumai'} className={`v2-upc2-cell${i === 0 ? ' big' : ''}`} title={`${a.artists?.name || a.title}`}>
-                      {/* eslint-disable-next-line @next/next/no-img-element */}<img src={proxyImgResized(a.artists?.cover_image_url || a.cover_image_url, i === 0 ? 400 : 260)} alt="" loading="lazy" />
-                      <span className="v2-upc2-grad" />
-                      <span className="v2-upc2-name">{a.artists?.name || a.title}<em>{a._d <= 45 ? `Po ${a._d} d.` : 'Netrukus'}</em></span>
-                    </Link>
-                  ))}
-                </div>
-              </>
-            )}
           </section>
+
+          {/* ── Greitai pasirodys (atskira — LT + pasaulis) ── */}
+          {upcomingSoon.length > 0 && (
+            <section style={{ marginTop: 'var(--page-section-gap)' }}>
+              <div className="v2-rub"><h2>Greitai pasirodys</h2></div>
+              <div className="v2-upc2">
+                {upcomingSoon.slice(0, 6).map((a, i) => {
+                  const href = a.slug && a.artists?.slug ? `/albumai/${a.artists.slug}-${a.slug}-${a.id}` : '/albumai'
+                  const cover = a.cover_image_url || a.artists?.cover_image_url
+                  return (
+                    <Link key={a.id} href={href} className={`v2-upc2-cell${i === 0 ? ' big' : ''}`} title={`${a.title} — ${a.artists?.name || ''}`}>
+                      {/* eslint-disable-next-line @next/next/no-img-element */}<img src={proxyImgResized(cover, i === 0 ? 400 : 260)} alt="" loading="lazy" />
+                      <span className="v2-upc2-grad" />
+                      <span className="v2-upc2-name">{a.artists?.name || a.title}</span>
+                    </Link>
+                  )
+                })}
+                <Link href="/albumai" className="v2-upc2-cell v2-upc2-more"><span>+{Math.max(1, upcomingRaw.length - 6)} daugiau</span></Link>
+              </div>
+            </section>
+          )}
         </div>
 
         <CommunityRail community={community} top={top} nominations={noms} ddFallback={ddFallback} ddSubtitle={ddSub} gilyn={gilynBox} />
@@ -572,20 +584,18 @@ const V2_EXTRA = `
 /* Gilyn atradimų zona + interaktyvi dėžė */
 .v2-gilyn-zone{display:grid;grid-template-columns:1fr 1fr;gap:26px;align-items:center;background:linear-gradient(135deg,rgba(59,130,246,.08),transparent 60%),var(--card-surface);border:1px solid var(--card-border-default);border-radius:var(--radius-2xl);padding:22px 24px}
 .v2-gz-lead{color:var(--text-secondary);font-size:14px;line-height:1.5;margin:6px 0 14px;max-width:38ch}
-.v2-gc{display:flex;flex-direction:column;align-items:center}
-.v2-gc-stage{display:flex;align-items:center;gap:10px;width:100%;justify-content:center}
-.v2-gc-nav{flex:none;width:38px;height:38px;border-radius:50%;border:1px solid var(--border-default);background:var(--card-surface);color:var(--text-secondary);font-size:22px;line-height:1;cursor:pointer;display:flex;align-items:center;justify-content:center}
+.v2-gc{margin-top:2px}
+.v2-gc-stage{display:flex;align-items:center;gap:8px;justify-content:space-between}
+.v2-gc-nav{flex:none;width:30px;height:30px;border-radius:50%;border:1px solid var(--border-default);background:var(--card-surface);color:var(--text-secondary);font-size:18px;line-height:1;cursor:pointer;display:flex;align-items:center;justify-content:center}
 .v2-gc-nav:hover{border-color:var(--accent-orange);color:var(--accent-orange)}
-.v2-gc-crate{position:relative;width:190px;height:190px;flex:none}
-.v2-gc-front,.v2-gc-behind{position:absolute;inset:0;border-radius:12px;overflow:hidden;box-shadow:0 10px 26px rgba(0,0,0,.32)}
-.v2-gc-front{z-index:5;border:2px solid var(--card-surface)}
-.v2-gc-behind{opacity:.9}
-.v2-gc-front img,.v2-gc-behind img{width:100%;height:100%;object-fit:cover;display:block}
-.v2-gc-cap{text-align:center;margin-top:12px}
-.v2-gc-cap b{font-family:'Outfit',sans-serif;font-weight:800;font-size:16px;color:var(--text-primary);display:block}
-.v2-gc-cap span{font-size:13px;color:var(--text-muted)}
-.v2-gc-meta{font-size:11.5px;color:var(--text-faint);margin-top:4px}
-.v2-gc-cta{display:inline-block;margin-top:12px;font-family:'Outfit',sans-serif;font-weight:800;font-size:13px;color:var(--accent-link)}
+.v2-gc-cover{flex:1;max-width:132px;margin:0 auto;aspect-ratio:1;border-radius:10px;overflow:hidden;display:block;box-shadow:0 8px 20px rgba(0,0,0,.28)}
+.v2-gc-cover img{width:100%;height:100%;object-fit:cover;display:block}
+.v2-gc-cap{margin-top:10px;text-align:center;font-size:13px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.v2-gc-cap b{font-family:'Outfit',sans-serif;font-weight:700;color:var(--text-primary)}
+.v2-gc-cap span{color:var(--text-muted)}
+.v2-gc-row{display:flex;align-items:center;justify-content:space-between;margin-top:8px}
+.v2-gc-meta{font-size:11.5px;color:var(--text-faint)}
+.v2-gc-cta{font-family:'Outfit',sans-serif;font-weight:800;font-size:12.5px;color:var(--accent-link)}
 
 /* istorija — 3 skiltys, po 2 didesniu formatu */
 .v2-hcols3{display:grid;grid-template-columns:repeat(3,1fr);gap:22px}
@@ -602,7 +612,7 @@ const V2_EXTRA = `
 .v2-msub{font-family:'Outfit',sans-serif;font-weight:700;font-size:11px;text-transform:uppercase;letter-spacing:.07em;color:var(--text-faint);margin:14px 0 9px}
 
 /* albumo (kvadratas) + dainos (16:9) kortelės — kompaktiškos, responsive */
-.v2-cc{display:block;width:clamp(94px,26vw,112px);flex:none}
+.v2-cc{display:block;width:clamp(116px,32vw,136px);flex:none}
 .v2-cc-img{position:relative;display:flex;align-items:center;justify-content:center;width:100%;aspect-ratio:1;border-radius:11px;overflow:hidden;background:var(--bg-elevated)}
 .v2-tc{display:block;width:clamp(150px,44vw,176px);flex:none}
 .v2-tc-img{position:relative;display:flex;align-items:center;justify-content:center;width:100%;aspect-ratio:16/9;border-radius:10px;overflow:hidden;background:var(--bg-elevated)}
@@ -628,15 +638,14 @@ const V2_EXTRA = `
 /* split */
 .v2-split{display:grid;grid-template-columns:minmax(0,1.9fr) minmax(0,1fr);gap:26px;align-items:start;margin-top:26px;padding-top:22px;border-top:1px solid var(--border-subtle)}
 .v2-main{min-width:0}
-.v2-side{display:flex;flex-direction:column;gap:16px;position:sticky;top:14px}
-/* bendruomenės panelis — atskirtas (tintuotas + krašto akcentas) */
+.v2-side{display:flex;flex-direction:column;gap:16px}
+/* bendruomenės panelis — neutralus atskyrimas (be oranžinio tint'o) */
 .v2-comm-panel{display:flex;flex-direction:column;gap:14px;padding:16px 15px;border-radius:var(--radius-2xl);
-  background:linear-gradient(180deg,rgba(249,115,22,.06),rgba(249,115,22,.015) 22%,transparent 60%),var(--bg-elevated);
-  border:1px solid var(--card-border-default);box-shadow:inset 3px 0 0 var(--accent-orange)}
-.v2-side-head{display:flex;align-items:center;gap:8px;font-family:'Outfit',sans-serif;font-weight:800;font-size:13px;letter-spacing:.06em;text-transform:uppercase;color:var(--text-secondary);margin:-2px 0 2px}
-.v2-side-dot{width:8px;height:8px;border-radius:50%;background:var(--accent-orange);flex:none}
-.v2-gilyn-card{border-color:rgba(59,130,246,.28);background:linear-gradient(180deg,rgba(59,130,246,.06),transparent 55%),var(--card-surface)}
-.v2-gilyn-sub{font-size:12px;color:var(--text-muted);margin:8px 0 4px}
+  background:var(--bg-elevated);border:1px solid var(--border-default)}
+.v2-side-head{display:flex;align-items:center;gap:8px;font-family:'Outfit',sans-serif;font-weight:800;font-size:12px;letter-spacing:.08em;text-transform:uppercase;color:var(--text-faint);margin:-2px 0 0;padding-bottom:12px;border-bottom:1px solid var(--card-border-subtle)}
+.v2-side-dot{width:7px;height:7px;border-radius:50%;background:var(--accent-green);flex:none}
+.v2-gilyn-card{border-color:var(--border-default);background:var(--bg-elevated)}
+.v2-gilyn-sub{font-size:12px;color:var(--text-muted);margin:7px 0 6px;line-height:1.4}
 .v2-dd-empty{font-size:13px;color:var(--text-muted);padding:8px 2px}
 
 /* rubrikos antraštė (Lietuva / Pasaulis) */
@@ -645,19 +654,23 @@ const V2_EXTRA = `
 .v2-rub-flag{width:16px;height:12px;border-radius:2px;flex:none;display:inline-block}
 .v2-rub-flag.lt{background:linear-gradient(to bottom,#FDB913 0 33.3%,#006A44 33.3% 66.6%,#C1272D 66.6% 100%)}
 .v2-rub-flag.world{background:radial-gradient(circle at 40% 40%,#60a5fa,#1e40af)}
-.v2-subrow{font-family:'Outfit',sans-serif;font-weight:700;font-size:12px;text-transform:uppercase;letter-spacing:.07em;color:var(--text-faint);margin:16px 0 9px}
+.v2-subrow{display:flex;align-items:baseline;gap:10px;margin:16px 0 9px}
+.v2-subrow>span{font-family:'Outfit',sans-serif;font-weight:700;font-size:12px;text-transform:uppercase;letter-spacing:.07em;color:var(--text-faint)}
+.v2-sublink{margin-left:auto;font-family:'Outfit',sans-serif;font-weight:700;font-size:12.5px;color:var(--accent-orange)}
+.v2-sublink:hover{opacity:.75}
 
 /* greitai pasirodys — collage su pavadinimu ant nuotraukos */
-.v2-upc2{display:grid;grid-template-columns:repeat(4,1fr);gap:8px}
-.v2-upc2-cell{position:relative;display:block;border-radius:12px;overflow:hidden;aspect-ratio:1;background:var(--bg-elevated)}
+.v2-upc2{display:grid;grid-template-columns:repeat(5,1fr);gap:8px}
+.v2-upc2-cell{position:relative;display:block;border-radius:11px;overflow:hidden;aspect-ratio:1;background:var(--bg-elevated)}
 .v2-upc2-cell.big{grid-column:span 2;grid-row:span 2}
 .v2-upc2-cell img{width:100%;height:100%;object-fit:cover;display:block;transition:transform .4s ease}
 .v2-upc2-cell:hover img{transform:scale(1.05)}
-.v2-upc2-grad{position:absolute;inset:0;background:linear-gradient(to top,rgba(0,0,0,.82) 0%,rgba(0,0,0,.25) 40%,transparent 65%)}
-.v2-upc2-name{position:absolute;left:10px;right:10px;bottom:9px;color:#fff;font-family:'Outfit',sans-serif;font-weight:800;font-size:14px;line-height:1.15}
-.v2-upc2-name em{display:block;font-style:normal;font-weight:700;font-size:11px;color:#ffca9a;margin-top:2px}
-.v2-upc2-cell.big .v2-upc2-name{font-size:18px}
-@media(max-width:560px){.v2-upc2{grid-template-columns:repeat(3,1fr)}}
+.v2-upc2-grad{position:absolute;inset:0;background:linear-gradient(to top,rgba(0,0,0,.8) 0%,rgba(0,0,0,.22) 42%,transparent 66%)}
+.v2-upc2-name{position:absolute;left:9px;right:9px;bottom:8px;color:#fff;font-family:'Outfit',sans-serif;font-weight:800;font-size:12px;line-height:1.15;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.v2-upc2-cell.big .v2-upc2-name{font-size:16px;white-space:normal;display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical}
+.v2-upc2-more{display:flex;align-items:center;justify-content:center;background:var(--bg-hover);border:1px dashed var(--border-default)}
+.v2-upc2-more span{font-family:'Outfit',sans-serif;font-weight:800;font-size:12.5px;color:var(--accent-orange);text-align:center;padding:6px;line-height:1.2}
+@media(max-width:560px){.v2-upc2{grid-template-columns:repeat(4,1fr)}}
 
 /* interaktyvus hero */
 .v2-hero{margin-bottom:2px}

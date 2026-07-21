@@ -1,5 +1,6 @@
 'use client'
-// Interaktyvi Gilyn dėžė — verti albumus (‹ ›) kaip vinilų dėžėje.
+// Kompaktiška albumų naršyklė — versk plokšteles (‹ ›). Rodyklės šonuose,
+// neužeina ant viršelio.
 import { useState } from 'react'
 import Link from 'next/link'
 import { proxyImgResized } from '@/lib/img-proxy'
@@ -11,28 +12,17 @@ export default function GilynCrate({ box }: { box: BoxItem[] }) {
   if (!box.length) return null
   const cur = box[i]
   const go = (d: number) => setI((p) => (p + d + box.length) % box.length)
-  // Aplinkinės plokštelės „dėžės" efektui
-  const behind = [box[(i + 1) % box.length], box[(i + 2) % box.length]].filter(Boolean)
-
   return (
     <div className="v2-gc">
       <div className="v2-gc-stage">
         <button className="v2-gc-nav" onClick={() => go(-1)} aria-label="Ankstesnis">‹</button>
-        <div className="v2-gc-crate">
-          {behind.map((b, k) => (
-            <span key={k} className="v2-gc-behind" style={{ transform: `translateX(${(k + 1) * 14}px) rotate(${(k + 1) * 3}deg)`, zIndex: 1 - k }}>
-              {/* eslint-disable-next-line @next/next/no-img-element */}<img src={proxyImgResized(b.cover, 200)} alt="" loading="lazy" />
-            </span>
-          ))}
-          <span className="v2-gc-front">
-            {/* eslint-disable-next-line @next/next/no-img-element */}<img src={proxyImgResized(cur.cover, 400)} alt="" />
-          </span>
-        </div>
+        <Link href="/zaidimai/gilyn" className="v2-gc-cover">
+          {/* eslint-disable-next-line @next/next/no-img-element */}<img src={proxyImgResized(cur.cover, 320)} alt="" />
+        </Link>
         <button className="v2-gc-nav" onClick={() => go(1)} aria-label="Kitas">›</button>
       </div>
-      <div className="v2-gc-cap"><b>{cur.title}</b><span>{cur.artist}</span></div>
-      <div className="v2-gc-meta">{i + 1} / {box.length} · šiandienos dėžė</div>
-      <Link href="/zaidimai/gilyn" className="v2-gc-cta">Pradėti žaisti →</Link>
+      <div className="v2-gc-cap"><b>{cur.title}</b><span> · {cur.artist}</span></div>
+      <div className="v2-gc-row"><span className="v2-gc-meta">{i + 1} / {box.length}</span><Link href="/zaidimai/gilyn" className="v2-gc-cta">Pradėti →</Link></div>
     </div>
   )
 }

@@ -1,7 +1,8 @@
 'use client'
 // Interaktyvus hero: slankiojama juosta + taškų indikatorius + rodyklės.
-// Hover efektas TIK kortelės viduje (nuotraukos zoom), be kampų glitch'o
-// (nekeičiam kortelės transform, todėl border-radius nesikapoja).
+// Paskutinis elementas — „Daugiau naujienų" (kaip v1). Aktyvus taškas
+// skaičiuojamas pagal artimiausią centrą (kad paskutinis, prisiglaudęs prie
+// dešinės, irgi būtų pasiekiamas). Hover efektas TIK viduje (be kampų glitch'o).
 import { useRef, useState, useEffect, useCallback } from 'react'
 import Link from 'next/link'
 import { proxyImgResized } from '@/lib/img-proxy'
@@ -11,25 +12,29 @@ type Slide = { href: string; bgImg: string | null; chip: string | null; chipBg: 
 export default function HeroCarousel({ slides }: { slides: Slide[] }) {
   const ref = useRef<HTMLDivElement>(null)
   const [active, setActive] = useState(0)
+  const count = slides.length + 1 // + „Daugiau naujienų"
 
-  const slotW = () => {
-    const el = ref.current
-    const slot = el?.querySelector('.v2-hslot') as HTMLElement | null
-    return slot ? slot.offsetWidth + 16 : (el?.clientWidth || 1)
-  }
+  const slots = () => Array.from(ref.current?.querySelectorAll('.v2-hslot') || []) as HTMLElement[]
   const onScroll = useCallback(() => {
     const el = ref.current
     if (!el) return
-    setActive(Math.round(el.scrollLeft / slotW()))
+    const center = el.scrollLeft + el.clientWidth / 2
+    let best = 0, bestD = Infinity
+    slots().forEach((s, i) => {
+      const c = s.offsetLeft + s.offsetWidth / 2
+      const d = Math.abs(c - center)
+      if (d < bestD) { bestD = d; best = i }
+    })
+    setActive(best)
   }, [])
   const go = (i: number) => {
     const el = ref.current
     if (!el) return
-    const n = Math.max(0, Math.min(slides.length - 1, i))
-    el.scrollTo({ left: n * slotW(), behavior: 'smooth' })
+    const n = Math.max(0, Math.min(count - 1, i))
+    const s = slots()[n]
+    if (s) el.scrollTo({ left: s.offsetLeft - 4, behavior: 'smooth' })
   }
 
-  // Švelnus autoplay — sustoja ties užvedimu; nekliūva jei vartotojas slankioja.
   useEffect(() => {
     const el = ref.current
     if (!el || slides.length < 2) return
@@ -40,12 +45,12 @@ export default function HeroCarousel({ slides }: { slides: Slide[] }) {
     el.addEventListener('pointerleave', leave)
     const id = setInterval(() => {
       if (paused) return
-      const w = slotW()
-      const next = (Math.round(el.scrollLeft / w) + 1) % slides.length
-      el.scrollTo({ left: next * w, behavior: 'smooth' })
+      const cur = active
+      go(cur + 1 >= slides.length ? 0 : cur + 1)
     }, 6000)
     return () => { clearInterval(id); el.removeEventListener('pointerenter', enter); el.removeEventListener('pointerleave', leave) }
-  }, [slides.length])
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [slides.length, active])
 
   if (!slides.length) return null
   return (
@@ -73,12 +78,20 @@ export default function HeroCarousel({ slides }: { slides: Slide[] }) {
               </Link>
             </div>
           ))}
+          {/* Daugiau naujienų (kaip v1) */}
+          <div className="v2-hslot v2-hslot-more">
+            <Link href="/naujienos" className="v2-hmore">
+              <span className="v2-hmore-ic">→</span>
+              <span className="v2-hmore-t">Daugiau naujienų</span>
+              <span className="v2-hmore-s">Visos muzikos naujienos</span>
+            </Link>
+          </div>
         </div>
         <button className="v2-hero-arrow right" onClick={() => go(active + 1)} aria-label="Kitas">›</button>
       </div>
       <div className="v2-hdots">
-        {slides.map((_, i) => (
-          <button key={i} className={`v2-hdot${i === active ? ' on' : ''}`} onClick={() => go(i)} aria-label={`Slide ${i + 1}`} />
+        {Array.from({ length: count }).map((_, i) => (
+          <button key={i} className={`v2-hdot${i === active ? ' on' : ''}`} onClick={() => go(i)} aria-label={`${i + 1}`} />
         ))}
       </div>
     </section>
