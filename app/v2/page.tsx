@@ -217,52 +217,55 @@ function CommunityRail({ community, top, gilyn }: { community: any[]; top: any[]
         <div className="v2-dd-embed"><DienosDainaSection variant="list" /></div>
       </div>
 
-      {/* Bendruomenės įrašai — atskiri kortelės (ne suplakti su dienos daina) */}
-      {movers.length > 0 && (
-          <div className="v2-cw">
-            <div className="v2-ch"><span className="v2-ch-bar" style={{ background: 'var(--accent-green)' }} />Topai · kyla</div>
-            {movers.map((m: any) => {
-              const tr = m.tracks || {}
-              const art = Array.isArray(tr.artists) ? tr.artists[0] : tr.artists
-              const delta = m.prev_position != null ? m.prev_position - m.position : null
-              return (
-                <div key={m.id} className="v2-row">
-                  <span className="v2-row-rank">{m.position}</span>
-                  <span className="v2-row-cov">{(tr.cover_url || art?.cover_image_url)
-                    // eslint-disable-next-line @next/next/no-img-element
-                    ? <img src={proxyImgResized(tr.cover_url || art?.cover_image_url, 64)} alt="" loading="lazy" /> : null}</span>
-                  <span className="v2-row-txt"><b>{tr.title}</b><span>{art?.name}</span></span>
-                  <span className="v2-row-right">{delta == null ? <em className="v2-d n">NAUJA</em> : delta > 0 ? <em className="v2-d u">▲{delta}</em> : delta < 0 ? <em className="v2-d d">▼{-delta}</em> : <em className="v2-d z">–</em>}</span>
-                </div>
-              )
-            })}
-            <Link href="/top40" className="v2-clink">Visas topas →</Link>
-          </div>
-        )}
-
-        {highlights.length > 0 && highlights.map((h: any) => (
-          <Link key={h.id} href={h.href || '/bendruomene'} className="v2-cw v2-feat2">
-            <div className="v2-feat2-top">
-              <span className="v2-feat2-kind">{kindLabel(h)}</span>
-              {h.author_name && <span className="v2-feat2-author">{h.author_avatar && (/* eslint-disable-next-line @next/next/no-img-element */<img className="v2-feat2-av" src={proxyImgResized(h.author_avatar, 40)} alt="" loading="lazy" />)}{h.author_name}</span>}
+      {/* Vienas boksas: bendruomenės įrašai + topai + muzikos atradimai (Gilyn) */}
+      {(movers.length > 0 || highlights.length > 0 || gilyn.length > 0) && (
+        <div className="v2-comm-panel">
+          {movers.length > 0 && (
+            <div className="v2-feed-sec">
+              <div className="v2-ch"><span className="v2-ch-bar" style={{ background: 'var(--accent-green)' }} />Topai · kyla</div>
+              {movers.map((m: any) => {
+                const tr = m.tracks || {}
+                const art = Array.isArray(tr.artists) ? tr.artists[0] : tr.artists
+                const delta = m.prev_position != null ? m.prev_position - m.position : null
+                return (
+                  <div key={m.id} className="v2-row">
+                    <span className="v2-row-rank">{m.position}</span>
+                    <span className="v2-row-cov">{(tr.cover_url || art?.cover_image_url)
+                      // eslint-disable-next-line @next/next/no-img-element
+                      ? <img src={proxyImgResized(tr.cover_url || art?.cover_image_url, 64)} alt="" loading="lazy" /> : null}</span>
+                    <span className="v2-row-txt"><b>{tr.title}</b><span>{art?.name}</span></span>
+                    <span className="v2-row-right">{delta == null ? <em className="v2-d n">NAUJA</em> : delta > 0 ? <em className="v2-d u">▲{delta}</em> : delta < 0 ? <em className="v2-d d">▼{-delta}</em> : <em className="v2-d z">–</em>}</span>
+                  </div>
+                )
+              })}
+              <Link href="/top40" className="v2-clink">Visas topas →</Link>
             </div>
-            <div className="v2-feat2-body">
-              {h.cover && <span className="v2-feat2-cov">{/* eslint-disable-next-line @next/next/no-img-element */}<img src={proxyImgResized(h.cover, 160)} alt="" loading="lazy" /></span>}
-              <span className="v2-feat2-txt">
-                <b>{sanitizeTitle(h.title)}</b>
-                {h.excerpt && <span className="v2-feat2-ex">{sanitizeTitle(h.excerpt)}</span>}
-              </span>
-            </div>
-            <span className="v2-clink">Daugiau bendruomenėje →</span>
-          </Link>
-        ))}
+          )}
 
-      {/* Gilyn — muzikos atradimai (atskira nuo bendruomenės, bet šalia muzikos) */}
-      {gilyn.length > 0 && (
-        <div className="v2-cw v2-gilyn-card">
-          <div className="v2-ch"><span className="v2-ch-bar" style={{ background: 'var(--accent-blue)' }} />Atrask muziką</div>
-          <p className="v2-gilyn-sub">Šios dienos pasiūlymai — versk plokšteles ir pasirink nuo ko pradėti.</p>
-          <GilynCrate box={gilyn} />
+          {highlights.length > 0 && highlights.map((h: any) => (
+            <Link key={h.id} href={h.href || '/bendruomene'} className="v2-feat2 v2-feed-sec">
+              <div className="v2-feat2-top">
+                <span className="v2-feat2-kind">{kindLabel(h)}</span>
+                {h.author_name && <span className="v2-feat2-author">{h.author_avatar && (/* eslint-disable-next-line @next/next/no-img-element */<img className="v2-feat2-av" src={proxyImgResized(h.author_avatar, 40)} alt="" loading="lazy" />)}{h.author_name}</span>}
+              </div>
+              <div className="v2-feat2-body">
+                {h.cover && <span className="v2-feat2-cov">{/* eslint-disable-next-line @next/next/no-img-element */}<img src={proxyImgResized(h.cover, 160)} alt="" loading="lazy" /></span>}
+                <span className="v2-feat2-txt">
+                  <b>{sanitizeTitle(h.title)}</b>
+                  {h.excerpt && <span className="v2-feat2-ex">{sanitizeTitle(h.excerpt)}</span>}
+                </span>
+              </div>
+              <span className="v2-clink">Daugiau bendruomenėje →</span>
+            </Link>
+          ))}
+
+          {gilyn.length > 0 && (
+            <div className="v2-feed-sec">
+              <div className="v2-ch"><span className="v2-ch-bar" style={{ background: 'var(--accent-blue)' }} />Atrask muziką</div>
+              <p className="v2-gilyn-sub">Šios dienos pasiūlymai — versk plokšteles ir pasirink nuo ko pradėti.</p>
+              <GilynCrate box={gilyn} />
+            </div>
+          )}
         </div>
       )}
     </aside>
@@ -590,6 +593,8 @@ const V2_EXTRA = `
 
 /* bendruomenės įrašas — kompaktiškas (badge+username eilutėj) */
 .v2-feat2{display:block}
+/* sekcijos viename „Kas naujo?" bokse — atskirtos plona linija */
+.v2-comm-panel>.v2-feed-sec+.v2-feed-sec{border-top:1px solid var(--card-border-subtle);padding-top:14px}
 .v2-feat2-top{display:flex;align-items:center;gap:8px;margin-bottom:9px}
 .v2-feat2-kind{font-size:10px;font-weight:800;letter-spacing:.05em;text-transform:uppercase;color:#fff;background:var(--accent-blue);border-radius:5px;padding:2px 7px}
 .v2-feat2-author{display:inline-flex;align-items:center;gap:6px;font-size:12px;font-weight:600;color:var(--text-secondary);margin-left:auto}
