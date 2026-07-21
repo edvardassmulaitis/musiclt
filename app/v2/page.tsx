@@ -23,6 +23,7 @@ import { DienosDainaSection } from '@/components/DienosDainaSection'
 import CommunityIcons from './CommunityIcons'
 import GilynCrate from './GilynCrate'
 import HeroCarousel from './HeroCarousel'
+import MusicPool from './MusicPool'
 
 export const revalidate = 300
 export const metadata = {
@@ -92,6 +93,43 @@ async function getMusic() {
     tLt: (t.lt || []).map(mapTrackForHome).map(toTrackItem), tW: (t.world || []).map(mapTrackForHome).map(toTrackItem),
     aLt: (a.lt || []).map(mapAlbumForHome).map(toHubAlbum), aW: (a.world || []).map(mapAlbumForHome).map(toHubAlbum),
   }
+}
+
+/* ─────────────── Muzikos pool'as (/v2 nauja logika) ───────────────
+   Vienas bendras rinkinys iš /api/home/list (pilnas, cache'intas pool su
+   artist.score/country/data), sujungtas LT+pasaulis. Aukštesnė populiarumo
+   kartelė — LANE-AWARE (LT balai natūraliai žemesni, ~max 53–60; pasaulio iki
+   ~88), kad LT scena neišnyktų prieš pasaulį. Rikiavimą/filtrą (Nauja/Populiar.,
+   Visi/LT) daro klientas — čia tik atranka + serializuoti laukai. */
+const LT_COUNTRIES = ['Lietuva', 'LT', 'Lithuania']
+const isLtCountry = (c?: string | null) => !!c && LT_COUNTRIES.includes(c)
+const TRACK_BAR = { lt: 35, world: 63 }
+const ALBUM_BAR = { lt: 35, world: 60 }
+function releaseMs(r: any, kind: 'track' | 'album'): number {
+  const s = kind === 'track'
+    ? (r.video_uploaded_at || r.release_date || (r.release_year ? `${r.release_year}-01-01` : null))
+    : (r.release_date || (r.year ? `${r.year}-${String(r.month || 1).padStart(2, '0')}-01` : null))
+  const ms = s ? Date.parse(s) : NaN
+  return isNaN(ms) ? 0 : ms
+}
+async function getMusicPool() {
+  const [tl, tw, al, aw] = await Promise.all([
+    jget('/api/home/list?type=tracks&lane=lt&limit=80', 8000),
+    jget('/api/home/list?type=tracks&lane=world&limit=80', 8000),
+    jget('/api/home/list?type=albums&lane=lt&limit=80', 8000),
+    jget('/api/home/list?type=albums&lane=world&limit=80', 8000),
+  ])
+  const mapT = (r: any, isLt: boolean) => { const ti = toTrackItem(r); return { id: ti.id, href: ti.href, thumb: ti.thumb, title: ti.title, artist: ti.artist, score: r.artists?.score ?? 0, isLt, dateMs: releaseMs(r, 'track') } }
+  const mapA = (r: any, isLt: boolean) => { const ha = toHubAlbum(r); return { id: ha.id, href: albumHref(ha), cover: ha.cover_image_url, title: ha.title, artist: ha.artist_name, score: r.artists?.score ?? 0, isLt, dateMs: releaseMs(r, 'album') } }
+  const tracks = [
+    ...((tl?.items || []) as any[]).filter((r) => (r.artists?.score ?? 0) >= TRACK_BAR.lt).map((r) => mapT(r, true)),
+    ...((tw?.items || []) as any[]).filter((r) => (r.artists?.score ?? 0) >= TRACK_BAR.world).map((r) => mapT(r, false)),
+  ]
+  const albums = [
+    ...((al?.items || []) as any[]).filter((r) => (r.artists?.score ?? 0) >= ALBUM_BAR.lt).map((r) => mapA(r, true)),
+    ...((aw?.items || []) as any[]).filter((r) => (r.artists?.score ?? 0) >= ALBUM_BAR.world).map((r) => mapA(r, false)),
+  ]
+  return { tracks, albums }
 }
 
 /* ─────────────── kompaktiška viršelio kortelė (vizuali, be peržiūrų) ─────────────── */
@@ -483,8 +521,8 @@ function GamesZone({ members }: { members: any[] }) {
 
 /* ─────────────── PAGE ─────────────── */
 export default async function V2Page() {
-  const [music, upcomingR, newsR, eventsR, vertaR, istorijaR, feedR, membersR, gilynR, disksR] = await Promise.all([
-    getMusic(),
+  const [musicPool, upcomingR, newsR, eventsR, vertaR, istorijaR, feedR, membersR, gilynR, disksR] = await Promise.all([
+    getMusicPool(),
     getUpcomingAlbumsForHome().catch(() => ({ items: [] as any[] })),
     jget('/api/news?limit=10&include=songs&since_days=21'),
     jget('/api/events?homepage=1&compact=1&limit=24&period=all&order=asc'),
@@ -529,8 +567,13 @@ export default async function V2Page() {
   newsSlides.forEach((s, i) => { slides.push(s); if (i === 1 && eventSlides[0]) slides.push(eventSlides[0]); if (i === 3 && eventSlides[1]) slides.push(eventSlides[1]) })
   if (eventSlides[2]) slides.push(eventSlides[2])
 
-  const trackCards = (arr: TrackItem[]) => arr.slice(0, 12).map((t) => <TrackCard key={t.id} t={t} />)
-  const albumCards = (arr: HubAlbum[]) => arr.slice(0, 12).map((a) => <AlbumCard key={a.id} href={albumHref(a)} cover={a.cover_image_url} title={a.title} sub={a.artist_name} />)
+  const upcomingItems = upcomingSoon.slice(0, 6).map((a: any) => ({
+    id: a.id,
+    href: a.slug && a.artists?.slug ? `/albumai/${a.artists.slug}-${a.slug}-${a.id}` : '/albumai',
+    cover: proxyImgResized(a.cover_image_url || a.artists?.cover_image_url, 400) || null,
+    name: a.artists?.name || a.title,
+    isLt: isLtCountry(a.artists?.country),
+  }))
 
   return (
     <div className="v2-shell">
@@ -541,44 +584,12 @@ export default async function V2Page() {
 
       <div className="v2-split">
         <div className="v2-main">
-          {/* ── Lietuvoje ── */}
-          <section>
-            <div className="v2-rub"><h2>Lietuvoje</h2></div>
-            <div className="v2-subrow"><span>Dainos</span><QuickFilters base="/dainos" country="lt" /></div>
-            <Scroller ariaLabel="LT dainos">{trackCards(music.tLt)}</Scroller>
-            <div className="v2-subrow"><span>Albumai</span><QuickFilters base="/albumai" country="lt" /></div>
-            <Scroller ariaLabel="LT albumai">{albumCards(music.aLt)}</Scroller>
-          </section>
-
-          {/* ── Pasaulyje ── */}
-          <section style={{ marginTop: 'var(--page-section-gap)' }}>
-            <div className="v2-rub"><h2>Pasaulyje</h2></div>
-            <div className="v2-subrow"><span>Dainos</span><QuickFilters base="/dainos" country="world" /></div>
-            <Scroller ariaLabel="Pasaulio dainos">{trackCards(music.tW)}</Scroller>
-            <div className="v2-subrow"><span>Albumai</span><QuickFilters base="/albumai" country="world" /></div>
-            <Scroller ariaLabel="Pasaulio albumai">{albumCards(music.aW)}</Scroller>
-          </section>
-
-          {/* ── Greitai pasirodys (atskira — LT + pasaulis) ── */}
-          {upcomingSoon.length > 0 && (
-            <section style={{ marginTop: 'var(--page-section-gap)' }}>
-              <div className="v2-rub"><h2>Greitai pasirodys</h2></div>
-              <div className="v2-upc2">
-                {upcomingSoon.slice(0, 6).map((a, i) => {
-                  const href = a.slug && a.artists?.slug ? `/albumai/${a.artists.slug}-${a.slug}-${a.id}` : '/albumai'
-                  const cover = a.cover_image_url || a.artists?.cover_image_url
-                  return (
-                    <Link key={a.id} href={href} className={`v2-upc2-cell${i === 0 ? ' big' : ''}`} title={`${a.title} — ${a.artists?.name || ''}`}>
-                      {/* eslint-disable-next-line @next/next/no-img-element */}<img src={proxyImgResized(cover, i === 0 ? 400 : 260)} alt="" loading="lazy" />
-                      <span className="v2-upc2-grad" />
-                      <span className="v2-upc2-name">{a.artists?.name || a.title}</span>
-                    </Link>
-                  )
-                })}
-                <Link href="/albumai" className="v2-upc2-cell v2-upc2-more"><span>+{Math.max(1, upcomingRaw.length - 6)} daugiau</span></Link>
-              </div>
-            </section>
-          )}
+          <MusicPool
+            tracks={musicPool.tracks}
+            albums={musicPool.albums}
+            upcoming={upcomingItems}
+            upcomingMore={Math.max(1, upcomingRaw.length - 6)}
+          />
         </div>
 
         <CommunityRail posts={feedPosts} disks={disks} />
@@ -708,6 +719,20 @@ const V2_EXTRA = `
 .v2-cc-t{display:block;font-family:'Outfit',sans-serif;font-weight:700;font-size:14px;margin-top:7px;color:var(--text-primary);line-height:1.2;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
 .v2-cc:hover .v2-cc-t,.v2-tc:hover .v2-cc-t{color:var(--accent-orange)}
 .v2-cc-s{display:block;font-size:12.5px;color:var(--text-muted);overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+/* ── Muzikos pool'as: viršaus valdikliai + apsivyniojantis grid (be side-scroll) ── */
+.v2-mpool{min-width:0}
+.v2-mbar{display:flex;align-items:center;justify-content:space-between;gap:10px;flex-wrap:wrap;margin-bottom:16px}
+.v2-mseg{display:inline-flex;background:var(--bg-elevated);border:1px solid var(--border-default);border-radius:999px;padding:3px}
+.v2-mseg button{appearance:none;border:0;background:transparent;cursor:pointer;font-family:'Outfit',sans-serif;font-weight:700;font-size:13px;color:var(--text-muted);padding:6px 15px;border-radius:999px;transition:color .15s,background .15s}
+.v2-mseg button.on{background:var(--accent-orange);color:#fff}
+.v2-mseg button:not(.on):hover{color:var(--text-primary)}
+.v2-mlt{display:inline-flex;align-items:center;gap:7px;cursor:pointer;font-family:'Outfit',sans-serif;font-weight:700;font-size:13px;color:var(--text-muted);background:var(--bg-elevated);border:1px solid var(--border-default);border-radius:999px;padding:6px 14px;transition:color .15s,border-color .15s,background .15s}
+.v2-mlt:hover{color:var(--text-primary);border-color:var(--border-strong)}
+.v2-mlt.on{color:var(--text-primary);border-color:rgba(6,106,68,.55);background:var(--bg-hover)}
+.v2-mlt-flag{width:18px;height:12px;border-radius:2px;flex:none;background:linear-gradient(to bottom,#FDB913 0 33.3%,#006A44 33.3% 66.6%,#C1272D 66.6% 100%);opacity:.45;transition:opacity .15s}
+.v2-mlt.on .v2-mlt-flag{opacity:1}
+.v2-mgrid{display:flex;flex-wrap:wrap;gap:18px 16px}
+.v2-mempty{color:var(--text-muted);font-size:14px;margin:6px 0 0}
 
 /* šalies juostelė iš kairės — siaura spalvų juosta */
 .v2-lane{display:flex;align-items:flex-start;gap:9px;margin-top:12px}
