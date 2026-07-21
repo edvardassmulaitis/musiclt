@@ -154,7 +154,7 @@ export default async function SongsIndexPage({ searchParams }: PageProps) {
             <Chip href={f.country.mode === 'lt' ? reset({ country: undefined }) : reset({ country: 'lt' })} active={f.country.mode === 'lt'}>🇱🇹 Lietuva</Chip>
             <Chip href={f.country.mode === 'world' ? reset({ country: undefined }) : reset({ country: 'world' })} active={f.country.mode === 'world'}>🌍 Pasaulis</Chip>
           </div>
-          <div className="mz-frow">
+          <div className="mz-frow" id="stiliai" style={{ scrollMarginTop: 80 }}>
             <span className="mz-flbl">Stilius</span>
             {topGenres.map((g) => (
               <Chip key={g.genre_id} href={f.genreId === g.genre_id ? reset({ genre: undefined }) : reset({ genre: ltSlugify(g.name) })} active={f.genreId === g.genre_id}>

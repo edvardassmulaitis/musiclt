@@ -178,7 +178,7 @@ export default async function AlbumsIndexPage({ searchParams }: PageProps) {
             <span className="mz-flbl">Tipas</span>
             {TYPE_OPTS.map((t) => <Chip key={t.key} href={f.type === t.key ? reset({ type: undefined }) : reset({ type: t.key })} active={f.type === t.key}>{t.label}</Chip>)}
           </div>
-          <div className="mz-frow">
+          <div className="mz-frow" id="stiliai" style={{ scrollMarginTop: 80 }}>
             <span className="mz-flbl">Stilius</span>
             {topGenres.map((g) => (
               <Chip key={g.genre_id} href={f.genreId === g.genre_id ? reset({ genre: undefined }) : reset({ genre: ltSlugify(g.name) })} active={f.genreId === g.genre_id}>

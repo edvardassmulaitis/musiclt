@@ -117,6 +117,27 @@ function TrackCard({ t }: { t: TrackItem }) {
     </Link>
   )
 }
+/* Greiti filtrai prie „Dainos"/„Albumai" — populiariausi / naujausi / stilius.
+   Nuorodos į realų /dainos|/albumai katalogą su ?country + ?sort + #stiliai. */
+function QuickFilters({ base, country }: { base: string; country: 'lt' | 'world' }) {
+  const c = `country=${country}`
+  return (
+    <span className="v2-qf">
+      <Link href={`${base}?${c}`} className="v2-qf-link" title="Populiariausi">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round"><polyline points="23 6 13.5 15.5 8.5 10.5 1 18" /><polyline points="17 6 23 6 23 12" /></svg>
+        <span className="v2-qf-txt">Populiarūs</span>
+      </Link>
+      <Link href={`${base}?${c}&sort=newest`} className="v2-qf-link" title="Naujausi">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round"><circle cx="12" cy="12" r="9" /><path d="M12 7v5l3 2" /></svg>
+        <span className="v2-qf-txt">Naujausi</span>
+      </Link>
+      <Link href={`${base}?${c}#stiliai`} className="v2-qf-link" title="Filtruoti pagal stilių">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round"><line x1="4" y1="21" x2="4" y2="14" /><line x1="4" y1="10" x2="4" y2="3" /><line x1="12" y1="21" x2="12" y2="12" /><line x1="12" y1="8" x2="12" y2="3" /><line x1="20" y1="21" x2="20" y2="16" /><line x1="20" y1="12" x2="20" y2="3" /><line x1="1" y1="14" x2="7" y2="14" /><line x1="9" y1="8" x2="15" y2="8" /><line x1="17" y1="16" x2="23" y2="16" /></svg>
+        <span className="v2-qf-txt">Stilius</span>
+      </Link>
+    </span>
+  )
+}
 /* Šalies juostelė iš kairės — siaura spalvų juosta (ne ikona). */
 function FlagLane({ variant, ariaLabel, children }: { variant: 'lt' | 'world' | 'soon'; ariaLabel: string; children: React.ReactNode }) {
   return (
@@ -491,21 +512,21 @@ export default async function V2Page() {
 
       <div className="v2-split">
         <div className="v2-main">
-          {/* ── Lietuvos muzika ── */}
+          {/* ── Lietuvoje ── */}
           <section>
-            <div className="v2-rub"><h2>Lietuvos muzika</h2></div>
-            <div className="v2-subrow"><span>Dainos</span><Link href="/dainos" className="v2-sublink">Daugiau →</Link></div>
+            <div className="v2-rub"><h2>Lietuvoje</h2></div>
+            <div className="v2-subrow"><span>Dainos</span><QuickFilters base="/dainos" country="lt" /></div>
             <Scroller ariaLabel="LT dainos">{trackCards(music.tLt)}</Scroller>
-            <div className="v2-subrow"><span>Albumai</span><Link href="/albumai" className="v2-sublink">Daugiau →</Link></div>
+            <div className="v2-subrow"><span>Albumai</span><QuickFilters base="/albumai" country="lt" /></div>
             <Scroller ariaLabel="LT albumai">{albumCards(music.aLt)}</Scroller>
           </section>
 
-          {/* ── Pasaulio muzika ── */}
+          {/* ── Pasaulyje ── */}
           <section style={{ marginTop: 'var(--page-section-gap)' }}>
-            <div className="v2-rub"><h2>Pasaulio muzika</h2></div>
-            <div className="v2-subrow"><span>Dainos</span><Link href="/dainos" className="v2-sublink">Daugiau →</Link></div>
+            <div className="v2-rub"><h2>Pasaulyje</h2></div>
+            <div className="v2-subrow"><span>Dainos</span><QuickFilters base="/dainos" country="world" /></div>
             <Scroller ariaLabel="Pasaulio dainos">{trackCards(music.tW)}</Scroller>
-            <div className="v2-subrow"><span>Albumai</span><Link href="/albumai" className="v2-sublink">Daugiau →</Link></div>
+            <div className="v2-subrow"><span>Albumai</span><QuickFilters base="/albumai" country="world" /></div>
             <Scroller ariaLabel="Pasaulio albumai">{albumCards(music.aW)}</Scroller>
           </section>
 
@@ -656,6 +677,12 @@ const V2_EXTRA = `
 .v2-subrow>span{font-family:'Outfit',sans-serif;font-weight:700;font-size:12px;text-transform:uppercase;letter-spacing:.07em;color:var(--text-faint)}
 .v2-sublink{margin-left:auto;font-family:'Outfit',sans-serif;font-weight:700;font-size:12.5px;color:var(--accent-orange)}
 .v2-sublink:hover{opacity:.75}
+/* greiti filtrai (populiarūs / naujausi / stilius) */
+.v2-qf{margin-left:auto;display:flex;gap:6px;align-items:center;flex-wrap:wrap;justify-content:flex-end}
+.v2-qf-link{display:inline-flex;align-items:center;gap:5px;font-family:'Outfit',sans-serif;font-weight:700;font-size:11.5px;color:var(--text-muted);padding:3px 9px;border-radius:999px;border:1px solid var(--border-subtle);background:var(--bg-surface);transition:color .15s,border-color .15s,background .15s;white-space:nowrap}
+.v2-qf-link:hover{color:var(--accent-orange);border-color:var(--accent-orange);background:var(--bg-hover)}
+.v2-qf-link svg{width:12px;height:12px;flex:none}
+@media(max-width:600px){.v2-qf-txt{display:none}.v2-qf-link{padding:5px}}
 
 /* greitai pasirodys — collage su pavadinimu ant nuotraukos */
 .v2-upc2{display:grid;grid-template-columns:repeat(5,1fr);gap:8px}
