@@ -20,6 +20,7 @@ import { proxyImgResized } from '@/lib/img-proxy'
 import { countryFlag } from '@/lib/country-flags'
 import { eventHref } from '@/lib/event-href'
 import { DienosDainaSection } from '@/components/DienosDainaSection'
+import CommunityIcons from './CommunityIcons'
 import GilynCrate from './GilynCrate'
 import HeroCarousel from './HeroCarousel'
 
@@ -207,12 +208,17 @@ function CommunityRail({ community, top, gilyn }: { community: any[]; top: any[]
 
   return (
     <aside className="v2-side">
-      {/* Bendruomenės panelis (tintuotas, atskirtas) */}
+      {/* Dienos dainos panelis (atskirtas nuo bendruomenės įrašų) */}
       <div className="v2-comm-panel">
-        <div className="v2-side-head"><span className="v2-side-dot" />Bendruomenė</div>
+        <div className="v2-side-headrow">
+          <div className="v2-side-head"><span className="v2-side-dot" />Bendruomenė</div>
+          <CommunityIcons />
+        </div>
         <div className="v2-dd-embed"><DienosDainaSection variant="list" /></div>
+      </div>
 
-        {movers.length > 0 && (
+      {/* Bendruomenės įrašai — atskiri kortelės (ne suplakti su dienos daina) */}
+      {movers.length > 0 && (
           <div className="v2-cw">
             <div className="v2-ch"><span className="v2-ch-bar" style={{ background: 'var(--accent-green)' }} />Topai · kyla</div>
             {movers.map((m: any) => {
@@ -250,7 +256,6 @@ function CommunityRail({ community, top, gilyn }: { community: any[]; top: any[]
             <span className="v2-clink">Daugiau bendruomenėje →</span>
           </Link>
         ))}
-      </div>
 
       {/* Gilyn — muzikos atradimai (atskira nuo bendruomenės, bet šalia muzikos) */}
       {gilyn.length > 0 && (
@@ -658,8 +663,15 @@ const V2_EXTRA = `
 /* bendruomenės panelis — neutralus atskyrimas (be oranžinio tint'o) */
 .v2-comm-panel{display:flex;flex-direction:column;gap:14px;padding:16px 15px;border-radius:var(--radius-2xl);
   background:var(--bg-elevated);border:1px solid var(--border-default)}
-.v2-side-head{display:flex;align-items:center;gap:8px;font-family:'Outfit',sans-serif;font-weight:800;font-size:12px;letter-spacing:.08em;text-transform:uppercase;color:var(--text-faint);margin:-2px 0 0;padding-bottom:12px;border-bottom:1px solid var(--card-border-subtle)}
+.v2-side-headrow{display:flex;align-items:center;justify-content:space-between;gap:8px;margin:-2px 0 0;padding-bottom:12px;border-bottom:1px solid var(--card-border-subtle)}
+.v2-side-head{display:flex;align-items:center;gap:8px;font-family:'Outfit',sans-serif;font-weight:800;font-size:12px;letter-spacing:.08em;text-transform:uppercase;color:var(--text-faint)}
 .v2-side-dot{width:7px;height:7px;border-radius:50%;background:var(--accent-green);flex:none}
+/* bendruomenės antraštės ikonos (chat + kas vyksta) */
+.v2-cicons{display:flex;align-items:center;gap:6px}
+.v2-cic{position:relative;display:flex;align-items:center;justify-content:center;width:30px;height:30px;border-radius:9px;border:1px solid var(--border-default);background:var(--bg-surface);color:var(--text-muted);cursor:pointer;transition:color .15s,border-color .15s,background .15s}
+.v2-cic:hover{color:var(--accent-orange);border-color:var(--accent-orange);background:var(--bg-hover)}
+.v2-cic-dot{position:absolute;top:-3px;right:-3px;width:9px;height:9px;border-radius:50%;background:var(--accent-orange);border:2px solid var(--bg-elevated)}
+.v2-cic-live{position:absolute;top:-3px;right:-3px;width:8px;height:8px;border-radius:50%;background:#22c55e;border:2px solid var(--bg-elevated)}
 /* įdėtas tikrasis v1 „Dienos daina" komponentas (stacked/compact) — neišsiplečia už panelio */
 .v2-dd-embed{min-width:0}
 .v2-dd-embed h2{font-size:16px!important}
