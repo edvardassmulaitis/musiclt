@@ -481,10 +481,10 @@ export default async function V2Page() {
     jget('/api/events?homepage=1&compact=1&limit=24&period=all&order=asc'),
     jget('/api/verta-keliones'),
     jget('/api/istorija/today'),
-    jget('/api/atradimai/feed?nodedup=1&exclude_type=creation,translation,quick&limit=30'),
+    jget('/api/atradimai/feed?nodedup=1&exclude_type=creation,translation,quick&limit=20', 8000),
     jget('/api/atradimai/active-members'),
     jget('/api/zaidimai/gilyn', 8000),
-    jget('/api/diskusijos/recent?limit=15'),
+    jget('/api/diskusijos/recent?limit=15', 6000),
   ])
   const members: any[] = membersR?.members ?? []
   const gilynBox: any[] = gilynR?.box ?? []
