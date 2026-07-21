@@ -1,11 +1,13 @@
 /**
- * Wikipedia „ar atlikėjas vertas sukūrimo" signalas — nesamačiam (be katalogo
- * atlikėjo) kandidatui. Pagrindinis rodiklis: Wikipedia straipsnio VIDUTINIS
- * mėnesinis peržiūrų skaičius (pageviews) — geriausias populiarumo proxy „plius/minus".
- * Papildomai: trumpas aprašymas (kas per atlikėjas).
+ * Wikipedia „ar atlikėjas vertas / kiek žinomas" signalas iš mėnesinių peržiūrų
+ * (pageviews) — populiarumo proxy. Papildomai: trumpas aprašymas.
  *
- * Viskas — vieši Wikipedia/Wikimedia API (veikia serveryje). Best-effort: klaidos
- * negriauna — grąžina null laukus.
+ * KALBA svarbi: LT atlikėjams naudojam lt.wikipedia (EN peržiūros LT atlikėjams
+ * beveik nulinės ir iškraipytų), tarptautiniams — en.wikipedia.
+ *
+ * Skirtumas tarp „nėra straipsnio" (article=null → tikra 0) ir „nepavyko gauti
+ * peržiūrų" (article yra, bet pageviews=null → throttle/klaida, VĖLIAU bandom):
+ * cron'as pagal tai NEsaugo klaidingo 0.
  */
 
 const WIKI_UA: Record<string, string> = {
@@ -13,91 +15,85 @@ const WIKI_UA: Record<string, string> = {
   Accept: 'application/json',
 }
 
-const MUSIC_QUALIFIER = /\((band|musician|singer|rapper|duo|group|dj|record producer|singer-songwriter|musical group|drummer|guitarist|producer)\)/i
+const MUSIC_QUALIFIER = /\((band|musician|singer|rapper|duo|group|dj|record producer|singer-songwriter|musical group|drummer|guitarist|producer|atlikėjas|grupė|dainininkas|dainininkė)\)/i
+
+async function fetchJsonRetry(url: string, timeoutMs = 9000): Promise<any | null> {
+  for (let attempt = 0; attempt < 2; attempt++) {
+    if (attempt > 0) await new Promise((r) => setTimeout(r, 500))
+    try {
+      const res = await fetch(url, { headers: WIKI_UA, signal: AbortSignal.timeout(timeoutMs) })
+      if (res.status === 429 || res.status >= 500) continue // throttle/serverio klaida → retry
+      if (!res.ok) return null // 404 ir pan. — nėra ką bandyti
+      return await res.json()
+    } catch {
+      // timeout/tinklas → retry
+    }
+  }
+  return null
+}
 
 export type ArtistSignal = {
   article: string | null
-  /** Vidutinis mėnesinis Wikipedia peržiūrų skaičius (paskutiniai pilni mėnesiai). */
   pageviews_monthly: number | null
   description: string | null
 }
 
-/** Suranda tinkamiausią atlikėjo straipsnio pavadinimą (vengiant disambiguation
- *  puslapių — pirmenybė „(band)/(musician)/…" variantui). */
-async function resolveArticle(artistName: string): Promise<string | null> {
+/** Suranda tinkamiausią straipsnio pavadinimą (vengiant disambiguation). */
+async function resolveArticle(artistName: string, lang: string): Promise<string | null> {
   const name = (artistName || '').trim()
   if (!name) return null
-  try {
-    const url = `https://en.wikipedia.org/w/api.php?action=query&list=search&srsearch=${encodeURIComponent(name)}&srlimit=8&format=json&origin=*`
-    const r = await fetch(url, { headers: WIKI_UA, signal: AbortSignal.timeout(8000) })
-    if (!r.ok) return null
-    const j = await r.json()
-    const hits: any[] = j?.query?.search || []
-    if (!hits.length) return null
-    const low = name.toLowerCase()
-    // 1) „Vardas (band/musician/…)" — muzikinis kvalifikatorius (apeina disambiguation).
-    const qualified = hits.find(h => (h.title || '').toLowerCase().startsWith(low) && MUSIC_QUALIFIER.test(h.title || ''))
-    if (qualified) return qualified.title
-    // 2) Tikslus vardo atitikmuo.
-    const exact = hits.find(h => (h.title || '').toLowerCase() === low)
-    if (exact) return exact.title
-    // 3) Prasideda vardu.
-    const starts = hits.find(h => (h.title || '').toLowerCase().startsWith(low))
-    if (starts) return starts.title
-    // 4) Pirmas.
-    return hits[0].title || null
-  } catch {
-    return null
-  }
+  const url = `https://${lang}.wikipedia.org/w/api.php?action=query&list=search&srsearch=${encodeURIComponent(name)}&srlimit=8&format=json&origin=*`
+  const j = await fetchJsonRetry(url, 8000)
+  const hits: any[] = j?.query?.search || []
+  if (!hits.length) return null
+  const low = name.toLowerCase()
+  const qualified = hits.find(h => (h.title || '').toLowerCase().startsWith(low) && MUSIC_QUALIFIER.test(h.title || ''))
+  if (qualified) return qualified.title
+  const exact = hits.find(h => (h.title || '').toLowerCase() === low)
+  if (exact) return exact.title
+  const starts = hits.find(h => (h.title || '').toLowerCase().startsWith(low))
+  if (starts) return starts.title
+  return hits[0].title || null
 }
 
-/** Vidutinis mėnesinis peržiūrų skaičius (paskutiniai pilni mėnesiai). */
-async function fetchPageviews(title: string): Promise<number | null> {
+/** Vidutinis mėnesinis peržiūrų skaičius (paskutiniai pilni mėnesiai). null =
+ *  nepavyko gauti (throttle/klaida) — NE tas pats kaip 0. */
+async function fetchPageviews(title: string, lang: string): Promise<number | null> {
   const now = new Date()
-  const end = new Date(Date.UTC(now.getUTCFullYear(), now.getUTCMonth(), 1)) // šio mėn. 1 d.
+  const end = new Date(Date.UTC(now.getUTCFullYear(), now.getUTCMonth(), 1))
   const start = new Date(Date.UTC(now.getUTCFullYear(), now.getUTCMonth() - 4, 1))
   const fmt = (d: Date) => `${d.getUTCFullYear()}${String(d.getUTCMonth() + 1).padStart(2, '0')}${String(d.getUTCDate()).padStart(2, '0')}`
   const art = encodeURIComponent(title.replace(/ /g, '_'))
-  try {
-    const url = `https://wikimedia.org/api/rest_v1/metrics/pageviews/per-article/en.wikipedia/all-access/all-agents/${art}/monthly/${fmt(start)}/${fmt(end)}`
-    const r = await fetch(url, { headers: WIKI_UA, signal: AbortSignal.timeout(9000) })
-    if (!r.ok) return null
-    const j = await r.json()
-    const items: any[] = j?.items || []
-    if (!items.length) return null
-    const vals = items.map((it) => it.views || 0)
-    return Math.round(vals.reduce((a: number, b: number) => a + b, 0) / vals.length)
-  } catch {
-    return null
-  }
+  const url = `https://wikimedia.org/api/rest_v1/metrics/pageviews/per-article/${lang}.wikipedia/all-access/all-agents/${art}/monthly/${fmt(start)}/${fmt(end)}`
+  const j = await fetchJsonRetry(url, 9000)
+  if (!j) return null
+  const items: any[] = j?.items || []
+  if (!items.length) return null
+  const vals = items.map((it) => it.views || 0)
+  return Math.round(vals.reduce((a: number, b: number) => a + b, 0) / vals.length)
 }
 
-/** Trumpas aprašymas (kas per atlikėjas) iš REST summary. */
-async function fetchDescription(title: string): Promise<string | null> {
-  try {
-    const url = `https://en.wikipedia.org/api/rest_v1/page/summary/${encodeURIComponent(title.replace(/ /g, '_'))}`
-    const r = await fetch(url, { headers: WIKI_UA, signal: AbortSignal.timeout(8000) })
-    if (!r.ok) return null
-    const j = await r.json()
-    if (j?.description) return String(j.description).slice(0, 120)
-    if (j?.extract) return String(j.extract).split('. ')[0].slice(0, 120)
-    return null
-  } catch {
-    return null
-  }
+async function fetchDescription(title: string, lang: string): Promise<string | null> {
+  const url = `https://${lang}.wikipedia.org/api/rest_v1/page/summary/${encodeURIComponent(title.replace(/ /g, '_'))}`
+  const j = await fetchJsonRetry(url, 8000)
+  if (!j) return null
+  if (j?.description) return String(j.description).slice(0, 120)
+  if (j?.extract) return String(j.extract).split('. ')[0].slice(0, 120)
+  return null
 }
 
-export async function fetchArtistSignal(artistName: string, articleHint?: string | null): Promise<ArtistSignal> {
-  const article = (articleHint && articleHint.trim()) || await resolveArticle(artistName)
+export async function fetchArtistSignal(artistName: string, opts?: { lang?: string; articleHint?: string | null }): Promise<ArtistSignal> {
+  const lang = opts?.lang || 'en'
+  const article = (opts?.articleHint && opts.articleHint.trim()) || await resolveArticle(artistName, lang)
   if (!article) return { article: null, pageviews_monthly: null, description: null }
-  const [pv, desc] = await Promise.all([fetchPageviews(article), fetchDescription(article)])
+  const [pv, desc] = await Promise.all([fetchPageviews(article, lang), fetchDescription(article, lang)])
   return { article, pageviews_monthly: pv, description: desc }
 }
 
-/** Lengvesnė versija — TIK peržiūros (be aprašymo); katalogo atlikėjų masiniam
- *  backfill'ui (2 API call'ai vietoj 3). */
-export async function fetchArtistPageviews(artistName: string, articleHint?: string | null): Promise<{ article: string | null; pageviews_monthly: number | null }> {
-  const article = (articleHint && articleHint.trim()) || await resolveArticle(artistName)
+/** Lengvesnė versija — TIK peržiūros (be aprašymo); masiniam backfill'ui. */
+export async function fetchArtistPageviews(artistName: string, opts?: { lang?: string; articleHint?: string | null }): Promise<{ article: string | null; pageviews_monthly: number | null }> {
+  const lang = opts?.lang || 'en'
+  const article = (opts?.articleHint && opts.articleHint.trim()) || await resolveArticle(artistName, lang)
   if (!article) return { article: null, pageviews_monthly: null }
-  return { article, pageviews_monthly: await fetchPageviews(article) }
+  return { article, pageviews_monthly: await fetchPageviews(article, lang) }
 }

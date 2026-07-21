@@ -18,7 +18,12 @@ export const runtime = 'nodejs'
 export const maxDuration = 300
 
 const RUN_BUDGET_MS = 240000
-const CONCURRENCY = 5
+const CONCURRENCY = 3 // mandagumas Wikimedia API (per greitai → 429, klaidingi 0)
+
+/** LT atlikėjams — lt.wikipedia (EN peržiūros LT atlikėjams beveik nulinės). */
+function langForCountry(country: string | null | undefined): string {
+  return /lietuv/i.test(country || '') ? 'lt' : 'en'
+}
 
 export async function POST(req: NextRequest) {
   const token = (req.headers.get('authorization') || '').replace(/^Bearer\s+/i, '')
@@ -32,14 +37,14 @@ export async function POST(req: NextRequest) {
 
   const { data: rows, error } = await supabase
     .from('artists')
-    .select('id, name')
+    .select('id, name, country')
     .order('wiki_pageviews_at', { ascending: true, nullsFirst: true })
     .order('score', { ascending: false, nullsFirst: false })
     .limit(limit)
   if (error) return NextResponse.json({ error: error.message }, { status: 500 })
 
   const artists = (rows || []) as any[]
-  let updated = 0, found = 0, errors = 0
+  let updated = 0, found = 0, noArticle = 0, retryLater = 0
   const nowIso = new Date().toISOString()
 
   let idx = 0
@@ -47,20 +52,23 @@ export async function POST(req: NextRequest) {
     while (idx < artists.length) {
       if (Date.now() - startedAt > RUN_BUDGET_MS) return
       const a = artists[idx++]
-      try {
-        const r = await fetchArtistPageviews(a.name || '')
-        const pv = typeof r.pageviews_monthly === 'number' ? r.pageviews_monthly : 0
-        if (pv > 0) found++
-        await supabase.from('artists').update({ wiki_pageviews: pv, wiki_pageviews_at: nowIso }).eq('id', a.id)
-        updated++
-      } catch {
-        errors++
-        // Vis tiek pažymim laiką, kad nekartotume iškart (retry per kitą ciklą po visų).
-        await supabase.from('artists').update({ wiki_pageviews_at: nowIso }).eq('id', a.id).then(() => {}, () => {})
+      await new Promise((r) => setTimeout(r, 120)) // stagger — mandagumas API
+      const r = await fetchArtistPageviews(a.name || '', { lang: langForCountry(a.country) }).catch(() => ({ article: null, pageviews_monthly: null }))
+      if (typeof r.pageviews_monthly === 'number') {
+        // Gavom peržiūras → įrašom.
+        await supabase.from('artists').update({ wiki_pageviews: r.pageviews_monthly, wiki_pageviews_at: nowIso }).eq('id', a.id)
+        updated++; if (r.pageviews_monthly > 0) found++
+      } else if (r.article === null) {
+        // Nėra straipsnio → tikra „nėra wiki": 0 + timestamp (neretry'inam).
+        await supabase.from('artists').update({ wiki_pageviews: 0, wiki_pageviews_at: nowIso }).eq('id', a.id)
+        updated++; noArticle++
+      } else {
+        // Straipsnis yra, bet peržiūrų negavom (throttle/klaida) → NEsaugom, bandom vėliau.
+        retryLater++
       }
     }
   }
   await Promise.all(Array.from({ length: Math.min(CONCURRENCY, artists.length) }, () => worker()))
 
-  return NextResponse.json({ ok: true, processed: updated, with_pageviews: found, errors, batch: artists.length })
+  return NextResponse.json({ ok: true, processed: updated, with_pageviews: found, no_article: noArticle, retry_later: retryLater, batch: artists.length })
 }
