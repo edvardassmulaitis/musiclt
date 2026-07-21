@@ -7,6 +7,12 @@ import { useSession } from 'next-auth/react'
 import { ShoutboxPanel } from '@/components/chat/ShoutboxPanel'
 import { useActivity, ActivityModal } from '@/components/ActivityWidget'
 
+function avUrl(av: string): string {
+  return av.startsWith('/') || av.endsWith('.svg')
+    ? av
+    : `https://images.weserv.nl/?url=${encodeURIComponent(av.replace(/^https?:\/\//, ''))}&w=40&h=40&fit=cover&output=webp`
+}
+
 function shortAgo(iso?: string | null): string {
   if (!iso) return ''
   const ms = Date.now() - new Date(iso).getTime()
@@ -24,6 +30,7 @@ export default function CommunityIcons() {
   const [actOpen, setActOpen] = useState(false)
   const [unread, setUnread] = useState(0)
   const [chatAgo, setChatAgo] = useState<string>('')
+  const [chatAv, setChatAv] = useState<string | null>(null)
   const { events } = useActivity()
   const { data: session } = useSession()
   const viewerId = (session?.user as any)?.id || null
@@ -37,7 +44,7 @@ export default function CommunityIcons() {
         .catch(() => {})
       fetch('/api/live/shoutbox?limit=1', { cache: 'no-store' })
         .then((r) => (r.ok ? r.json() : null))
-        .then((d) => { if (on && d?.messages?.[0]?.created_at) setChatAgo(shortAgo(d.messages[0].created_at)) })
+        .then((d) => { if (on && d?.messages?.[0]) { const m = d.messages[0]; if (m.created_at) setChatAgo(shortAgo(m.created_at)); setChatAv(m.author_avatar || null) } })
         .catch(() => {})
     }
     load()
@@ -51,6 +58,7 @@ export default function CommunityIcons() {
   return (
     <div className="v2-cicons">
       <button type="button" onClick={() => setChatOpen(true)} className="v2-cic v2-cic-chat" aria-label="Bendra pokalbių dėžutė" title="Bendra pokalbių dėžutė · pokalbiai">
+        {chatAv && (/* eslint-disable-next-line @next/next/no-img-element */<img className="v2-cic-av" src={avUrl(chatAv)} alt="" loading="lazy" />)}
         <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M21 11.5a8.38 8.38 0 0 1-.9 3.8 8.5 8.5 0 0 1-7.6 4.7 8.38 8.38 0 0 1-3.8-.9L3 21l1.9-5.7a8.38 8.38 0 0 1-.9-3.8 8.5 8.5 0 0 1 4.7-7.6 8.38 8.38 0 0 1 3.8-.9h.5a8.48 8.48 0 0 1 8 8v.5z" /></svg>
         {chatAgo && <span className="v2-cic-time">{chatAgo}</span>}
         {unread > 0 && <span className="v2-cic-dot" aria-label={`${unread} naujų`} />}

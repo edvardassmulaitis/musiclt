@@ -195,15 +195,17 @@ function Hero({ slides }: { slides: Slide[] }) {
 /* ─────────────── Bendruomenės šoninė juosta (vientisas srautas) ─────────────── */
 // Tipo ikonos (vietoj spalvotų pavadinimų) + engagement ikonos.
 const CO_ICON: Record<string, string> = {
-  apzvalga: 'M12 17.3l-6.18 3.7 1.64-7.03L4 9.24l7.19-.61L12 2l0.81 6.63 7.19.61-3.46 4.73 1.64 7.03z', // žvaigždė (apžvalga)
-  topas: 'M4 20h16M7.5 20V11M12 20V5M16.5 20v-6', // stulpeliai (topas)
-  diskusija: 'M21 11.5a8.38 8.38 0 0 1-.9 3.8 8.5 8.5 0 0 1-7.6 4.7 8.38 8.38 0 0 1-3.8-.9L3 21l1.9-5.7a8.38 8.38 0 0 1-.9-3.8 8.5 8.5 0 0 1 4.7-7.6 8.38 8.38 0 0 1 3.8-.9h.5a8.48 8.48 0 0 1 8 8v.5z', // pokalbis
+  muzika: 'M12 17.3l-6.18 3.7 1.64-7.03L4 9.24l7.19-.61L12 2l0.81 6.63 7.19.61-3.46 4.73 1.64 7.03z', // žvaigždė (muzikos apžvalga)
+  koncertas: 'M12 2a3 3 0 0 0-3 3v7a3 3 0 0 0 6 0V5a3 3 0 0 0-3-3zM19 10v2a7 7 0 0 1-14 0v-2M12 19v3', // mikrofonas (koncerto apžvalga)
+  topas: 'M6 9H4.5a2.5 2.5 0 0 1 0-5H6M18 9h1.5a2.5 2.5 0 0 0 0-5H18M4 22h16M10 14.66V17c0 .55-.47.98-.97 1.21C7.85 18.75 7 20.24 7 22M14 14.66V17c0 .55.47.98.97 1.21C16.15 18.75 17 20.24 17 22M18 2H6v7a6 6 0 0 0 12 0V2z', // taurė (topas)
+  diskusija: 'M21 11.5a8.38 8.38 0 0 1-.9 3.8 8.5 8.5 0 0 1-7.6 4.7 8.38 8.38 0 0 1-3.8-.9L3 21l1.9-5.7a8.38 8.38 0 0 1-.9-3.8 8.5 8.5 0 0 1 4.7-7.6 8.38 8.38 0 0 1 3.8-.9h.5a8.48 8.48 0 0 1 8 8v.5z', // pokalbis (diskusija)
 }
-const CO_COLOR: Record<string, string> = { apzvalga: '#ef4444', topas: '#f59e0b', diskusija: '#8b5cf6' }
+const CO_COLOR: Record<string, string> = { muzika: '#ef4444', koncertas: '#06b6d4', topas: '#f59e0b', diskusija: '#8b5cf6' }
+const CO_LABEL: Record<string, string> = { muzika: 'Muzikos apžvalga', koncertas: 'Koncerto apžvalga', topas: 'Topas', diskusija: 'Diskusija' }
 function COIc({ kind }: { kind: string }) {
-  const d = CO_ICON[kind] || CO_ICON.apzvalga
-  const filled = kind === 'apzvalga'
-  return <svg width="13" height="13" viewBox="0 0 24 24" fill={filled ? 'currentColor' : 'none'} stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" style={{ color: CO_COLOR[kind] || 'var(--text-faint)', flex: 'none' }}><path d={d} /></svg>
+  const d = CO_ICON[kind] || CO_ICON.muzika
+  const filled = kind === 'muzika'
+  return <svg width="13" height="13" viewBox="0 0 24 24" fill={filled ? 'currentColor' : 'none'} stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" style={{ color: CO_COLOR[kind] || 'var(--text-faint)', flex: 'none' }} aria-label={CO_LABEL[kind]}><path d={d} /></svg>
 }
 function coAvatar(av: string | null, nm: string | null) {
   return av
@@ -216,7 +218,7 @@ function CRow({ n }: { n: any }) {
       <span className="v2-crow-cov">{/* eslint-disable-next-line @next/next/no-img-element */}<img src={proxyImgResized(n.cover, 200)} alt="" loading="lazy" /></span>
       <span className="v2-crow-body">
         <b className="v2-crow-title">{n.title}</b>
-        {n.kind === 'diskusija' && n.cmt && <span className="v2-crow-cmt2">{n.cmt}</span>}
+        {(n.kind === 'diskusija' ? n.cmt : n.intro) && <span className="v2-crow-cmt2">{n.kind === 'diskusija' ? n.cmt : n.intro}</span>}
         <span className="v2-crow-meta">
           <COIc kind={n.kind} />
           {coAvatar(n.avatar, n.author)}
@@ -248,9 +250,10 @@ function CommunityRail({ posts, disks }: { posts: any[]; disks: any[] }) {
   for (const p of posts) {
     if (!p.cover) continue // reikia vizualo (nepriskirta grupė → nerodom)
     const ed = p.editorial_type, pt = p.post_type
-    const kind = ed === 'koncertai' ? 'apzvalga' : (ed === 'recenzija' || pt === 'review') ? 'apzvalga' : pt === 'topas' ? 'topas' : null
+    const kind = ed === 'koncertai' ? 'koncertas' : (ed === 'recenzija' || pt === 'review') ? 'muzika' : pt === 'topas' ? 'topas' : null
     if (!kind) continue
-    norm.push({ kind, title: cleanCoTitle(p.title), href: feedHref(p), cover: p.cover, author: p.author?.username || p.author?.full_name || null, avatar: p.author?.avatar_url || null, likes: p.like_count || 0, comments: p.comment_count || 0, date: p.published_at })
+    const intro = p.excerpt ? sanitizeTitle(p.excerpt).slice(0, 160) : null
+    norm.push({ kind, title: cleanCoTitle(p.title), href: feedHref(p), cover: p.cover, intro, author: p.author?.username || p.author?.full_name || null, avatar: p.author?.avatar_url || null, likes: p.like_count || 0, comments: p.comment_count || 0, date: p.published_at })
   }
   for (const d of disks) {
     if (!d.artist_image) continue // reikia vizualo
@@ -259,11 +262,12 @@ function CommunityRail({ posts, disks }: { posts: any[]; disks: any[] }) {
     if (!cmt) continue // reikia prasmingo komentaro (ne URL / ne per trumpo)
     norm.push({ kind: 'diskusija', title: cleanCoTitle(d.title), href: `/diskusijos/${d.slug || d.id}`, cover: d.artist_image, author: cmtA, avatar: cmtAv, cmt, comments: d.comment_count || 0, likes: null, date: d.last_comment_at || d.created_at })
   }
-  // Mažiau, bet įvairiai: 2 apžvalgos + 1 topas + 2 diskusijos, rikiuota pagal datą.
-  const apz = norm.filter((n) => n.kind === 'apzvalga').slice(0, 2)
+  // Įvairiai: 1 muzikos apžvalga + 1 koncerto apžvalga + 1 topas + 2 diskusijos, rikiuota pagal datą.
+  const muz = norm.filter((n) => n.kind === 'muzika').slice(0, 1)
+  const konc = norm.filter((n) => n.kind === 'koncertas').slice(0, 1)
   const top = norm.filter((n) => n.kind === 'topas').slice(0, 1)
   const dis = norm.filter((n) => n.kind === 'diskusija').slice(0, 2)
-  const stream = [...apz, ...top, ...dis].sort((a, b) => (Date.parse(b.date || '') || 0) - (Date.parse(a.date || '') || 0)).slice(0, 5)
+  const stream = [...muz, ...konc, ...top, ...dis].sort((a, b) => (Date.parse(b.date || '') || 0) - (Date.parse(a.date || '') || 0)).slice(0, 5)
 
   return (
     <aside className="v2-side">
@@ -275,8 +279,11 @@ function CommunityRail({ posts, disks }: { posts: any[]; disks: any[] }) {
         <div className="v2-dd-embed v2-feed-sec"><DienosDainaSection variant="list" /></div>
 
         {stream.length > 0 && (
-          <div className="v2-feed-sec v2-cstream">
-            {stream.map((n, i) => <CRow key={i} n={n} />)}
+          <div className="v2-feed-sec">
+            <h3 className="v2-cstream-head">Naujausi įrašai</h3>
+            <div className="v2-cstream">
+              {stream.map((n, i) => <CRow key={i} n={n} />)}
+            </div>
           </div>
         )}
 
@@ -623,6 +630,7 @@ const V2_EXTRA = `
 .v2-comm-panel>.v2-feed-sec+.v2-feed-sec{border-top:1px solid var(--card-border-subtle);padding-top:14px}
 .v2-feed-more{display:inline-block;margin-top:2px}
 /* bendruomenės kortelės — erdvios, su rėmeliu, didesnis viršelis */
+.v2-cstream-head{margin:0 0 12px;font-family:'Outfit',sans-serif;font-weight:800;font-size:16px;letter-spacing:-.01em;color:var(--text-primary)}
 .v2-cstream{display:flex;flex-direction:column;gap:12px}
 .v2-crow{display:flex;gap:13px;align-items:flex-start;padding:13px;border:1px solid var(--card-border-default);border-radius:14px;background:var(--card-surface);text-decoration:none;transition:border-color .15s}
 .v2-crow:hover{border-color:rgba(249,115,22,.4)}

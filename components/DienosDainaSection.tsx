@@ -562,12 +562,17 @@ export function DienosDainaSection({ onOpenTrack, variant = 'inline', headerVari
         title="Rodyti balsuotojus"
         className="flex shrink-0 items-center gap-1.5 self-center rounded-full px-0.5 py-0.5 transition-colors hover:bg-[var(--bg-hover)]"
       >
-        {shown.length > 0 && (
+        {(shown.length > 0 || extra > 0) && (
           <span className="flex -space-x-2">
             {shown.map((vp, i) => <MiniAv key={i} p={vp} />)}
+            {extra > 0 && (
+              <span
+                className="flex shrink-0 items-center justify-center rounded-full border-2 border-[var(--bg-surface)] bg-[var(--bg-active)] font-extrabold text-[var(--text-muted)]"
+                style={{ width: 22, height: 22, fontSize: 9.5 }}
+              >+{extra}</span>
+            )}
           </span>
         )}
-        {extra > 0 && <span className="text-[11px] font-bold text-[var(--text-faint)]">+{extra}</span>}
       </button>
     )
   }
