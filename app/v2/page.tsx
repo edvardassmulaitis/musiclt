@@ -210,7 +210,7 @@ function CommunityRail({ community, top, gilyn }: { community: any[]; top: any[]
       {/* Bendruomenės panelis (tintuotas, atskirtas) */}
       <div className="v2-comm-panel">
         <div className="v2-side-head"><span className="v2-side-dot" />Bendruomenė</div>
-        <div className="v2-dd-embed"><DienosDainaSection variant="stacked" /></div>
+        <div className="v2-dd-embed"><DienosDainaSection variant="list" /></div>
 
         {movers.length > 0 && (
           <div className="v2-cw">
@@ -635,9 +635,9 @@ const V2_EXTRA = `
 .v2-cc-img img,.v2-tc-img img{width:100%;height:100%;object-fit:cover;display:block;transition:transform .4s ease}
 .v2-cc:hover .v2-cc-img img,.v2-tc:hover .v2-tc-img img{transform:scale(1.05)}
 .v2-cc-ph{font-size:26px;color:rgba(255,255,255,.14)}
-.v2-cc-t{display:block;font-family:'Outfit',sans-serif;font-weight:700;font-size:12.5px;margin-top:7px;color:var(--text-primary);line-height:1.2;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.v2-cc-t{display:block;font-family:'Outfit',sans-serif;font-weight:700;font-size:14px;margin-top:7px;color:var(--text-primary);line-height:1.2;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
 .v2-cc:hover .v2-cc-t,.v2-tc:hover .v2-cc-t{color:var(--accent-orange)}
-.v2-cc-s{display:block;font-size:11.5px;color:var(--text-muted);overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.v2-cc-s{display:block;font-size:12.5px;color:var(--text-muted);overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
 
 /* šalies juostelė iš kairės — siaura spalvų juosta */
 .v2-lane{display:flex;align-items:flex-start;gap:9px;margin-top:12px}

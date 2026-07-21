@@ -305,7 +305,7 @@ function PastNomCard({ n, onOpenTrack, maxVotes = 1, compact = false }: { n: Nom
 }
 
 // ───────────────────────── main section ─────────────────────────
-export function DienosDainaSection({ onOpenTrack, variant = 'inline', headerVariant = 'plain' }: { onOpenTrack?: (t: any) => void; variant?: 'inline' | 'stacked'; headerVariant?: 'plain' | 'row' }) {
+export function DienosDainaSection({ onOpenTrack, variant = 'inline', headerVariant = 'plain' }: { onOpenTrack?: (t: any) => void; variant?: 'inline' | 'stacked' | 'list'; headerVariant?: 'plain' | 'row' }) {
   const [noms, setNoms] = useState<Nomination[]>([])
   const [winner, setWinner] = useState<DainaWinner | null>(null)
   const [loading, setLoading] = useState(true)
@@ -517,11 +517,100 @@ export function DienosDainaSection({ onOpenTrack, variant = 'inline', headerVari
   // hp-scroll su breathing room viršuje (kad hover'io -translate-y nenukirptų kraštinės).
   const ROW = 'hp-scroll flex items-stretch gap-3 overflow-x-auto pt-1 pb-2 [scrollbar-width:none] [&::-webkit-scrollbar]:hidden'
 
+  // Kompaktiška „Pasiūlyti dainą" eilutė (list variantui).
+  const SuggestRow = !alreadyNominated ? (
+    <button
+      type="button"
+      onClick={() => setSuggestOpen(true)}
+      className="group mt-0.5 flex w-full items-center gap-2.5 rounded-lg border border-dashed border-[var(--border-default)] bg-transparent px-2.5 py-2 text-left transition-colors hover:border-[rgba(249,115,22,0.5)] hover:bg-[rgba(249,115,22,0.05)]"
+    >
+      <span className="flex h-[34px] w-[34px] shrink-0 items-center justify-center rounded-full bg-[rgba(249,115,22,0.12)] font-['Outfit',sans-serif] text-[19px] font-bold leading-none text-[var(--accent-orange)] transition-colors group-hover:bg-[var(--accent-orange)] group-hover:text-white">+</span>
+      <span className="font-['Outfit',sans-serif] text-[13px] font-extrabold text-[var(--text-primary)]">Pasiūlyti savo dainą</span>
+    </button>
+  ) : null
+
+  // Viena list-eilutė (šiandienos kandidatas arba laimėtojas).
+  const ListRow = ({ t, level, voteId, own, isVoted, badge }: { t: TrackLite; level: number; voteId?: number; own?: boolean; isVoted?: boolean; badge?: string }) => {
+    const v = extractYouTubeId(t.video_url)
+    const ytThumb = v ? `https://img.youtube.com/vi/${v}/mqdefault.jpg` : null
+    const imgSrc = t.cover_url || ytThumb || t.artists?.cover_image_url || null
+    return (
+      <div className="group flex items-center gap-2.5">
+        <button
+          type="button"
+          onClick={() => openTrack({ id: t.id, title: t.title, slug: t.slug, cover_url: t.cover_url, video_url: t.video_url, artists: t.artists })}
+          className="relative shrink-0 cursor-pointer border-0 bg-transparent p-0"
+        >
+          <Cover src={imgSrc} alt={sanitizeTitle(t.title)} size={46} radius={9} />
+          {badge && <span className="absolute -left-1.5 -top-1.5 flex h-5 min-w-[20px] items-center justify-center rounded-full bg-[var(--accent-orange)] px-1 text-[11px] font-black text-white">{badge}</span>}
+        </button>
+        <button
+          type="button"
+          onClick={() => openTrack({ id: t.id, title: t.title, slug: t.slug, cover_url: t.cover_url, video_url: t.video_url, artists: t.artists })}
+          className="min-w-0 flex-1 cursor-pointer border-0 bg-transparent p-0 text-left"
+        >
+          <p className="m-0 truncate font-['Outfit',sans-serif] text-[14px] font-bold text-[var(--text-primary)] transition-colors group-hover:text-[var(--accent-orange)]">{sanitizeTitle(t.title)}</p>
+          <p className="m-0 truncate text-[12.5px] text-[var(--text-muted)]">{t.artists?.name}</p>
+          <span className="mt-1 flex items-center gap-[3px]" aria-hidden>
+            {Array.from({ length: 5 }).map((_, i) => (
+              <span key={i} className={`h-[3px] w-[11px] rounded-[2px] ${i < level ? 'bg-[var(--accent-orange)]' : 'bg-[var(--border-default)]'}`} />
+            ))}
+          </span>
+        </button>
+        {voteId != null && (own ? (
+          <span className="shrink-0 self-center rounded-md border border-dashed border-[var(--border-default)] px-2 py-1 font-['Outfit',sans-serif] text-[11px] font-bold text-[var(--text-faint)]">Tavo</span>
+        ) : (
+          <button
+            type="button"
+            onClick={() => handleVote(voteId)}
+            disabled={isVoted || voting !== null}
+            aria-label={isVoted ? 'Balsuota' : 'Balsuoti'}
+            className={`flex h-8 w-8 shrink-0 items-center justify-center self-center rounded-full text-[14px] font-extrabold transition-all ${isVoted ? 'cursor-default' : voting !== null ? 'opacity-60' : 'hover:-translate-y-px'}`}
+            style={{ background: isVoted ? 'rgba(249,115,22,0.15)' : 'transparent', color: 'var(--accent-orange)', border: '1px solid rgba(249,115,22,0.4)' }}
+          >
+            {voting === voteId ? '…' : isVoted ? '✓' : '♥'}
+          </button>
+        ))}
+      </div>
+    )
+  }
+
   return (
     <>
       {SectionHeader}
 
-      {variant === 'stacked' ? (
+      {variant === 'list' ? (
+        // ── /v2 šoninė juosta: vertikalus sąrašas (viskas matosi, be horizontalaus scroll'o) ──
+        <>
+          <div className="mb-2 flex items-center justify-between gap-2">
+            <span className="font-['Outfit',sans-serif] text-[11px] font-extrabold uppercase tracking-[0.1em] text-[var(--text-faint)]">Šiandien siūloma</span>
+            {voteErr && <span className="text-[12px] font-bold text-[var(--accent-red,#ef4444)]">{voteErr}</span>}
+          </div>
+          <div className="flex flex-col gap-2.5">
+            {sorted.length === 0 && (
+              <p className="m-0 px-0.5 py-1 text-[13px] text-[var(--text-muted)]">Šiandien dar nėra pasiūlymų — būk pirmas.</p>
+            )}
+            {sorted.slice(0, 5).map((n) => {
+              const votes = n.weighted_votes || n.votes || 0
+              const level = votes > 0 ? Math.max(1, Math.round((votes / maxVotes) * 5)) : 0
+              return <ListRow key={n.id} t={n.tracks!} level={level} voteId={n.id} own={n.own} isVoted={votedIds.has(n.id)} />
+            })}
+            {SuggestRow}
+          </div>
+
+          {winner?.tracks && (
+            <div className="mt-3 border-t border-[var(--border-default)] pt-3">
+              <div className="mb-2 flex items-center justify-between gap-2">
+                <span className="min-w-0 truncate">
+                  <span className="font-['Outfit',sans-serif] text-[11px] font-extrabold uppercase tracking-[0.1em] text-[var(--accent-orange)]">Vakar laimėjo</span>
+                </span>
+                <button type="button" onClick={openYesterday} className="shrink-0 cursor-pointer border-0 bg-transparent p-0 font-['Outfit',sans-serif] text-[12px] font-bold text-[var(--accent-orange)] no-underline transition-opacity hover:opacity-70">Visi →</button>
+              </div>
+              <ListRow t={winner.tracks} level={5} badge="1" />
+            </div>
+          )}
+        </>
+      ) : variant === 'stacked' ? (
         // ── /atrasti: dvi atskiros juostos — šiandien siūloma + vakar ──
         <>
           <div className="mb-1.5 flex items-center justify-between gap-3">
