@@ -211,7 +211,7 @@ function CommunityRail({ community, top, gilyn }: { community: any[]; top: any[]
       {/* Dienos dainos panelis (atskirtas nuo bendruomenės įrašų) */}
       <div className="v2-comm-panel">
         <div className="v2-side-headrow">
-          <div className="v2-side-head"><span className="v2-side-dot" />Bendruomenė</div>
+          <div className="v2-side-head"><span className="v2-side-dot" />Kas naujo?</div>
           <CommunityIcons />
         </div>
         <div className="v2-dd-embed"><DienosDainaSection variant="list" /></div>
@@ -668,6 +668,7 @@ const V2_EXTRA = `
 .v2-side-dot{width:7px;height:7px;border-radius:50%;background:var(--accent-green);flex:none}
 /* bendruomenės antraštės ikonos (chat + kas vyksta) */
 .v2-cicons{display:flex;align-items:center;gap:6px}
+.v2-cupd{font-family:'Outfit',sans-serif;font-size:10.5px;font-weight:600;color:var(--text-faint);white-space:nowrap;margin-right:2px;text-transform:none;letter-spacing:0}
 .v2-cic{position:relative;display:flex;align-items:center;justify-content:center;width:30px;height:30px;border-radius:9px;border:1px solid var(--border-default);background:var(--bg-surface);color:var(--text-muted);cursor:pointer;transition:color .15s,border-color .15s,background .15s}
 .v2-cic:hover{color:var(--accent-orange);border-color:var(--accent-orange);background:var(--bg-hover)}
 .v2-cic-dot{position:absolute;top:-3px;right:-3px;width:9px;height:9px;border-radius:50%;background:var(--accent-orange);border:2px solid var(--bg-elevated)}

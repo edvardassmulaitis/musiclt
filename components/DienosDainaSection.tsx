@@ -9,7 +9,6 @@
 // modalą; jei ne (atrasti) — komponentas pats valdo vidinį <HomeTrackModal>.
 
 import { useCallback, useEffect, useState } from 'react'
-import { useSession } from 'next-auth/react'
 import { deviceFpSync } from '@/lib/device-fp'
 import { createPortal } from 'react-dom'
 import Link from 'next/link'
@@ -349,9 +348,6 @@ export function DienosDainaSection({ onOpenTrack, variant = 'inline', headerVari
   const [winnerPlaying, setWinnerPlaying] = useState(false)
   const [votersOf, setVotersOf] = useState<{ title: string; voters: Proposer[]; anon: number } | null>(null)
   const openTrack = onOpenTrack || setInnerTrack
-  const { data: session } = useSession()
-  const myAvatar = session?.user?.image || null
-  const myName = session?.user?.name || 'Tu'
 
   const load = useCallback(() => {
     Promise.all([
@@ -408,6 +404,8 @@ export function DienosDainaSection({ onOpenTrack, variant = 'inline', headerVari
         const wt = d.weight || 1
         setVotedIds(prev => { const next = new Set(prev); next.add(id); return next })
         setNoms(prev => prev.map(n => n.id === id ? { ...n, votes: (n.votes || 0) + 1, weighted_votes: (n.weighted_votes || 0) + wt } : n))
+        // Perkraunam, kad balsuotojų avatarų stack'e atsirastų tavo tikras avataras.
+        load()
       } else {
         setVoteErr(d.error || 'Klaida'); setTimeout(() => setVoteErr(''), 3000)
       }
@@ -416,7 +414,7 @@ export function DienosDainaSection({ onOpenTrack, variant = 'inline', headerVari
     } finally {
       setVoting(null)
     }
-  }, [votedIds, voting])
+  }, [votedIds, voting, load])
 
   const sorted = [...noms].filter(n => n.tracks).sort((a, b) => (b.weighted_votes || b.votes || 0) - (a.weighted_votes || a.votes || 0))
   const maxVotes = Math.max(1, ...sorted.map(n => n.weighted_votes || n.votes || 0))
@@ -549,25 +547,22 @@ export function DienosDainaSection({ onOpenTrack, variant = 'inline', headerVari
   const ROW = 'hp-scroll flex items-stretch gap-3 overflow-x-auto pt-1 pb-2 [scrollbar-width:none] [&::-webkit-scrollbar]:hidden'
 
   // Balsuotojų avatarų stack'as — paspaudus atidaro visą sąrašą (mini modalą).
-  const AvatarStack = ({ title, voters, anon, meFirst }: { title: string; voters: Proposer[]; anon: number; meFirst?: boolean }) => {
+  const AvatarStack = ({ title, voters, anon }: { title: string; voters: Proposer[]; anon: number }) => {
     const clean = voters.filter((v) => v.avatar_url || v.full_name || v.username)
-    const list: Proposer[] = [...clean]
-    if (meFirst) list.unshift({ username: null, full_name: myName, avatar_url: myAvatar })
-    const shown = list.slice(0, 3)
-    const total = list.length + anon
-    const extra = Math.max(0, total - shown.length)
+    const shown = clean.slice(0, 3)
+    const extra = Math.max(0, (clean.length + anon) - shown.length)
     if (shown.length === 0 && extra === 0) return null
     return (
       <button
         type="button"
-        onClick={(e) => { e.preventDefault(); e.stopPropagation(); setVotersOf({ title, voters: meFirst ? list : clean, anon }) }}
+        onClick={(e) => { e.preventDefault(); e.stopPropagation(); setVotersOf({ title, voters: clean, anon }) }}
         aria-label="Rodyti balsuotojus"
         title="Rodyti balsuotojus"
         className="flex shrink-0 items-center gap-1.5 self-center rounded-full px-0.5 py-0.5 transition-colors hover:bg-[var(--bg-hover)]"
       >
         {shown.length > 0 && (
           <span className="flex -space-x-2">
-            {shown.map((vp, i) => <MiniAv key={i} p={vp} ring={meFirst && i === 0} />)}
+            {shown.map((vp, i) => <MiniAv key={i} p={vp} />)}
           </span>
         )}
         {extra > 0 && <span className="text-[11px] font-bold text-[var(--text-faint)]">+{extra}</span>}
@@ -581,7 +576,7 @@ export function DienosDainaSection({ onOpenTrack, variant = 'inline', headerVari
     const isOwn = !!n.own
     return (
       <div className="flex shrink-0 items-center gap-1.5 self-center">
-        <AvatarStack title={sanitizeTitle(n.tracks?.title || '')} voters={n.voters || []} anon={n.anon_votes || 0} meFirst={isVotedThis || isOwn} />
+        <AvatarStack title={sanitizeTitle(n.tracks?.title || '')} voters={n.voters || []} anon={n.anon_votes || 0} />
         {!isOwn && (
           <button
             type="button"
