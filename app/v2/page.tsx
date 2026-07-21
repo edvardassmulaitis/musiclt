@@ -142,7 +142,12 @@ async function fetchLaneTracks(sb: any, lane: 'lt' | 'world', sinceIso: string):
     .limit(lane === 'lt' ? 400 : 150)
   q = lane === 'lt' ? q.eq('artists.country', LT_COUNTRY) : q.neq('artists.country', LT_COUNTRY)
   const { data } = await q
-  return ((data || []) as any[]).filter((t) => t.artists && t.title && t.title !== t.artists.name && !t.hide_from_homepage && t.artists.country !== 'Rusija')
+  const rows = ((data || []) as any[]).filter((t) => t.artists && t.title && t.title !== t.artists.name && !t.hide_from_homepage && t.artists.country !== 'Rusija')
+  // Tik NAUJAUSIAS singlas vieno atlikėjo (rows jau pagal video_uploaded_at desc).
+  const seen = new Set<number>()
+  const out: any[] = []
+  for (const t of rows) { if (seen.has(t.artist_id)) continue; seen.add(t.artist_id); out.push(t) }
+  return out
 }
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
 async function fetchLaneAlbums(sb: any, lane: 'lt' | 'world', currentYear: number, albumSinceMs: number): Promise<any[]> {
@@ -153,7 +158,17 @@ async function fetchLaneAlbums(sb: any, lane: 'lt' | 'world', currentYear: numbe
     .limit(lane === 'lt' ? 400 : 150)
   q = lane === 'lt' ? q.eq('artists.country', LT_COUNTRY) : q.neq('artists.country', LT_COUNTRY)
   const { data } = await q
-  return ((data || []) as any[]).filter((a) => a.artists && !a.is_upcoming && a.artists.country !== 'Rusija' && releaseMs(a, 'album') >= albumSinceMs)
+  const nowMs = Date.now()
+  const rows = ((data || []) as any[]).filter((a) => {
+    if (!a.artists || a.is_upcoming || a.artists.country === 'Rusija') return false
+    const ms = releaseMs(a, 'album')
+    return ms >= albumSinceMs && ms <= nowMs // JAU išleisti (ne ateities) per langą
+  })
+  // Tik naujausias albumas vieno atlikėjo (rows jau pagal metus/mėn/d desc).
+  const seen = new Set<number>()
+  const out: any[] = []
+  for (const a of rows) { if (seen.has(a.artist_id)) continue; seen.add(a.artist_id); out.push(a) }
+  return out
 }
 async function getMusicPool() {
   const sb = createAdminClient()
