@@ -15,7 +15,7 @@ import { useEffect, useRef, useState } from 'react'
 import Link from 'next/link'
 import { useSession } from 'next-auth/react'
 
-type Track = { id: number; href: string; thumb: string | null; title: string; artist: string; score: number; isLt: boolean; dateMs: number; rel: number; hot: boolean; genres: string[] }
+type Track = { id: number; href: string; thumb: string | null; fallback: string | null; title: string; artist: string; score: number; isLt: boolean; dateMs: number; rel: number; hot: boolean; genres: string[] }
 type Album = { id: number; href: string; cover: string | null; title: string; artist: string; score: number; isLt: boolean; dateMs: number; rel: number; hot: boolean; genres: string[] }
 type Upc = { id: number; href: string; cover: string | null; name: string; isLt: boolean; genres: string[]; score: number }
 
@@ -57,7 +57,7 @@ function TrackCard({ t, badge, admin }: { t: Track; badge: boolean; admin: boole
       <span className="v2-tc-img">
         {t.thumb
           // eslint-disable-next-line @next/next/no-img-element
-          ? <img src={t.thumb} alt="" loading="lazy" decoding="async" /> : <span className="v2-cc-ph">♪</span>}
+          ? <img src={t.thumb} alt="" loading="lazy" decoding="async" onError={(e) => { const el = e.currentTarget; if (t.fallback && el.src !== t.fallback) el.src = t.fallback }} /> : <span className="v2-cc-ph">♪</span>}
         {ago && <span className="v2-mbadge">{ago}</span>}
         {admin && <ScoreTag score={t.score} hot={t.hot} />}
       </span>
@@ -110,21 +110,30 @@ export default function MusicPool({ tracks, albums, genres, upcoming, upcomingMo
   }, [gearOpen])
 
   const tog = <T extends string>(cur: T, next: T, set: (v: T) => void, base: T) => set(cur === next ? base : next)
-  const hasGenre = genre !== ''
-  const baseCap = (sort === '' && !hasGenre) ? 10 : 18
+  const baseCap = 16
 
-  function filtered<T extends Track | Album>(items: T[]): T[] {
-    let a = region === 'lt' ? items.filter((x) => x.isLt) : region === 'world' ? items.filter((x) => !x.isLt) : items
-    if (genre) a = a.filter((x) => x.genres.includes(genre))
-    if (sort === '') {
-      if (!hasGenre) a = a.filter((x) => x.hot)
-      a = [...a].sort((x, y) => y.rel - x.rel)
-    } else if (sort === 'new') a = [...a].sort((x, y) => y.dateMs - x.dateMs)
-    else a = [...a].sort((x, y) => (y.score - x.score) || (y.dateMs - x.dateMs))
+  // Žanro filtras + rikiavimas (default=relevance, new=data, pop=score).
+  function sortLane<T extends Track | Album>(arr: T[]): T[] {
+    let a = genre ? arr.filter((x) => x.genres.includes(genre)) : arr
+    if (sort === 'new') a = [...a].sort((x, y) => y.dateMs - x.dateMs)
+    else if (sort === 'pop') a = [...a].sort((x, y) => (y.score - x.score) || (y.dateMs - x.dateMs))
+    else a = [...a].sort((x, y) => y.rel - x.rel)
     return a
   }
-  const tFull = filtered(tracks)
-  const aFull = filtered(albums)
+  // „Visi": alternuojam viena užsienio / viena LT (kad LT patektų į mišrų sąrašą).
+  function interleave<T>(a: T[], b: T[]): T[] {
+    const out: T[] = []
+    for (let i = 0; i < Math.max(a.length, b.length); i++) { if (i < a.length) out.push(a[i]); if (i < b.length) out.push(b[i]) }
+    return out
+  }
+  function build<T extends Track | Album>(items: T[]): T[] {
+    if (region === 'lt') return sortLane(items.filter((x) => x.isLt))
+    if (region === 'world') return sortLane(items.filter((x) => !x.isLt))
+    if (sort === 'new') return sortLane(items) // chronologiškai (globalus merge)
+    return interleave(sortLane(items.filter((x) => !x.isLt)), sortLane(items.filter((x) => x.isLt)))
+  }
+  const tFull = build(tracks)
+  const aFull = build(albums)
   const tv = tFull.slice(0, baseCap + extraT)
   const av = aFull.slice(0, baseCap + extraA)
   const badge = sort === 'new'
