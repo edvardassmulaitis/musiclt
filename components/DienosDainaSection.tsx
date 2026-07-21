@@ -27,6 +27,12 @@ function extractYouTubeId(url: string | null | undefined): string | null {
   return m?.[1] || null
 }
 function strHue(s: string) { let h = 0; for (let i = 0; i < (s || '').length; i++) h = (h * 31 + s.charCodeAt(i)) % 360; return h }
+// Svetainės širdelės / play ikonos (kaip DienosDainaHero).
+const HEART_D = 'M20.8 4.6a5.5 5.5 0 0 0-7.8 0L12 5.7l-1-1.1a5.5 5.5 0 0 0-7.8 7.8l8.8 8.9 8.8-8.9a5.5 5.5 0 0 0 0-7.8z'
+const PLAY_D = 'M8 5v14l11-7z'
+function Ic({ d, size = 14, filled = false }: { d: string; size?: number; filled?: boolean }) {
+  return <svg width={size} height={size} viewBox="0 0 24 24" fill={filled ? 'currentColor' : 'none'} stroke={filled ? 'none' : 'currentColor'} strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="shrink-0"><path d={d} /></svg>
+}
 
 function Cover({ src, alt, size = 44, radius = 10, ytId, artistSrc }: { src?: string | null; alt: string; size?: number; radius?: number; ytId?: string | null; artistSrc?: string | null }) {
   const h = strHue(alt)
@@ -321,6 +327,7 @@ export function DienosDainaSection({ onOpenTrack, variant = 'inline', headerVari
   const [voteErr, setVoteErr] = useState('')
   // Vidinis track modalas — naudojamas tik kai tėvas nepaduoda onOpenTrack.
   const [innerTrack, setInnerTrack] = useState<any | null>(null)
+  const [winnerPlaying, setWinnerPlaying] = useState(false)
   const openTrack = onOpenTrack || setInnerTrack
   const { data: session } = useSession()
   const myAvatar = session?.user?.image || null
@@ -533,73 +540,71 @@ export function DienosDainaSection({ onOpenTrack, variant = 'inline', headerVari
     )
   }
 
-  // Balsuotojų avatarų stack'as + balsavimo „+" (list variantui).
-  const VoterStack = ({ n }: { n: Nomination }) => {
+  // Balsuotojų avatarai (be tuščių „?") + širdelės balsavimo mygtukas (list variantui).
+  const VoteControl = ({ n, big }: { n: Nomination; big?: boolean }) => {
     const isVotedThis = votedIds.has(n.id)
     const isOwn = !!n.own
-    const canVote = !isOwn && !isVotedThis && voting === null
-    const base = n.voters || []
-    const list: Proposer[] = [...base]
-    if (isOwn) list.unshift({ username: null, full_name: myName, avatar_url: myAvatar })
-    else if (isVotedThis) list.unshift({ username: null, full_name: myName, avatar_url: myAvatar })
+    const clean = (n.voters || []).filter((v) => v.avatar_url || v.full_name || v.username)
+    const list: Proposer[] = [...clean]
+    if (isVotedThis || isOwn) list.unshift({ username: null, full_name: myName, avatar_url: myAvatar })
     const shown = list.slice(0, 3)
-    const extra = Math.max(0, list.length - shown.length) + (n.anon_votes || 0)
+    const extra = Math.max(0, (clean.length + ((isVotedThis || isOwn) ? 1 : 0)) - shown.length) + (n.anon_votes || 0)
     return (
       <div className="flex shrink-0 items-center gap-1.5 self-center">
         {shown.length > 0 && (
           <span className="flex -space-x-2">
-            {shown.map((vp, i) => <MiniAv key={i} p={vp} ring={isVotedThis && !isOwn && i === 0} />)}
+            {shown.map((vp, i) => <MiniAv key={i} p={vp} ring={(isVotedThis || isOwn) && i === 0} />)}
           </span>
         )}
         {extra > 0 && <span className="text-[11px] font-bold text-[var(--text-faint)]">+{extra}</span>}
-        {canVote ? (
+        {!isOwn && (
           <button
             type="button"
             onClick={() => handleVote(n.id)}
-            disabled={voting !== null}
-            aria-label="Balsuoti"
-            title="Balsuoti"
-            className="flex h-[26px] w-[26px] items-center justify-center rounded-full border border-dashed border-[rgba(249,115,22,0.5)] text-[16px] font-bold leading-none text-[var(--accent-orange)] transition-all hover:bg-[rgba(249,115,22,0.12)] disabled:opacity-50"
+            disabled={isVotedThis || voting !== null}
+            aria-label={isVotedThis ? 'Balsuota' : 'Balsuoti'}
+            title={isVotedThis ? 'Balsuota' : 'Balsuoti'}
+            className={`flex ${big ? 'h-9 w-9' : 'h-[30px] w-[30px]'} items-center justify-center rounded-full border transition-colors ${isVotedThis ? 'cursor-default border-[rgba(249,115,22,0.5)] bg-[rgba(249,115,22,0.16)] text-[var(--accent-orange)]' : voting !== null ? 'border-[var(--border-strong)] text-[var(--text-muted)] opacity-60' : 'border-[var(--border-strong)] text-[var(--text-secondary)] hover:border-[var(--accent-orange)] hover:text-[var(--accent-orange)]'}`}
           >
-            {voting === n.id ? '…' : '+'}
+            {voting === n.id ? '…' : <Ic d={HEART_D} size={big ? 16 : 14} filled={isVotedThis} />}
           </button>
-        ) : isVotedThis && shown.length === 0 ? (
-          <span className="text-[13px] font-extrabold text-[var(--accent-orange)]" title="Balsuota">✓</span>
-        ) : null}
+        )}
       </div>
     )
   }
 
-  // Viena list-eilutė. `right` — dešinės pusės elementas (voter stack); `proposer` — „pasiūlė X".
-  const ListRow = ({ t, level, badge, right, proposer }: { t: TrackLite; level: number; badge?: string; right?: React.ReactNode; proposer?: Proposer | null }) => {
+  // Viena list-eilutė. `big` — pirmaujanti (lyderė) didesnė; `right` — balsavimas;
+  // `proposer` — „pasiūlė X"; `level` — pop brūkšneliai (tik šiandienos eilutėms).
+  const ListRow = ({ t, big, right, proposer, level }: { t: TrackLite; big?: boolean; right?: React.ReactNode; proposer?: Proposer | null; level?: number }) => {
     const v = extractYouTubeId(t.video_url)
     const ytThumb = v ? `https://img.youtube.com/vi/${v}/mqdefault.jpg` : null
     const imgSrc = t.cover_url || ytThumb || t.artists?.cover_image_url || null
     return (
-      <div className="group flex items-center gap-2.5">
+      <div className={`group flex items-center gap-2.5 ${big ? 'rounded-xl bg-[rgba(249,115,22,0.06)] p-2' : ''}`}>
         <button
           type="button"
           onClick={() => openTrack({ id: t.id, title: t.title, slug: t.slug, cover_url: t.cover_url, video_url: t.video_url, artists: t.artists })}
           className="relative shrink-0 cursor-pointer border-0 bg-transparent p-0"
         >
-          <Cover src={imgSrc} alt={sanitizeTitle(t.title)} size={46} radius={9} />
-          {badge && <span className="absolute -left-1.5 -top-1.5 flex h-5 min-w-[20px] items-center justify-center rounded-full bg-[var(--accent-orange)] px-1 text-[11px] font-black text-white">{badge}</span>}
+          <Cover src={imgSrc} alt={sanitizeTitle(t.title)} size={big ? 60 : 44} radius={big ? 11 : 9} />
         </button>
         <button
           type="button"
           onClick={() => openTrack({ id: t.id, title: t.title, slug: t.slug, cover_url: t.cover_url, video_url: t.video_url, artists: t.artists })}
           className="min-w-0 flex-1 cursor-pointer border-0 bg-transparent p-0 text-left"
         >
-          <p className="m-0 truncate font-['Outfit',sans-serif] text-[14px] font-bold text-[var(--text-primary)] transition-colors group-hover:text-[var(--accent-orange)]">{sanitizeTitle(t.title)}</p>
-          <p className="m-0 truncate text-[12.5px] text-[var(--text-muted)]">{t.artists?.name}</p>
+          <p className={`m-0 truncate font-['Outfit',sans-serif] font-bold text-[var(--text-primary)] transition-colors group-hover:text-[var(--accent-orange)] ${big ? 'text-[16px]' : 'text-[14px]'}`}>{sanitizeTitle(t.title)}</p>
+          <p className={`m-0 truncate text-[var(--text-muted)] ${big ? 'text-[13px]' : 'text-[12.5px]'}`}>{t.artists?.name}</p>
           {proposer && proposerName(proposer) && (
             <span className="mt-1 flex min-w-0 items-center gap-1 text-[11px] text-[var(--text-faint)]"><span className="shrink-0">pasiūlė</span><ProposerLine p={proposer} /></span>
           )}
-          <span className="mt-1 flex items-center gap-[3px]" aria-hidden>
-            {Array.from({ length: 5 }).map((_, i) => (
-              <span key={i} className={`h-[3px] w-[11px] rounded-[2px] ${i < level ? 'bg-[var(--accent-orange)]' : 'bg-[var(--border-default)]'}`} />
-            ))}
-          </span>
+          {typeof level === 'number' && (
+            <span className="mt-1 flex items-center gap-[3px]" aria-hidden>
+              {Array.from({ length: 5 }).map((_, i) => (
+                <span key={i} className={`h-[3px] ${big ? 'w-[13px]' : 'w-[11px]'} rounded-[2px] ${i < level ? 'bg-[var(--accent-orange)]' : 'bg-[var(--border-default)]'}`} />
+              ))}
+            </span>
+          )}
         </button>
         {right}
       </div>
@@ -637,31 +642,61 @@ export function DienosDainaSection({ onOpenTrack, variant = 'inline', headerVari
             {sorted.length === 0 && (
               <p className="m-0 px-0.5 py-1 text-[13px] text-[var(--text-muted)]">Šiandien dar nėra pasiūlymų — būk pirmas.</p>
             )}
-            {sorted.slice(0, 5).map((n) => {
+            {sorted.slice(0, 5).map((n, idx) => {
               const votes = n.weighted_votes || n.votes || 0
               const level = votes > 0 ? Math.max(1, Math.round((votes / maxVotes) * 5)) : 0
-              return <ListRow key={n.id} t={n.tracks!} level={level} right={<VoterStack n={n} />} />
+              return <ListRow key={n.id} t={n.tracks!} big={idx === 0} level={level} right={<VoteControl n={n} big={idx === 0} />} />
             })}
           </div>
 
-          {winner?.tracks && (
-            <div className="mt-3 border-t border-[var(--border-default)] pt-3">
-              <div className="mb-2 flex items-center justify-between gap-2">
-                <span className="font-['Outfit',sans-serif] text-[11px] font-extrabold uppercase tracking-[0.1em] text-[var(--accent-orange)]">Vakar laimėjo</span>
-                {ydayBest.length > 0 && (
-                  <button type="button" onClick={openYesterday} className="shrink-0 cursor-pointer border-0 bg-transparent p-0 font-['Outfit',sans-serif] text-[12px] font-bold text-[var(--accent-orange)] no-underline transition-opacity hover:opacity-70">Visi →</button>
-                )}
+          {winner?.tracks && (() => {
+            const wt = winner.tracks!
+            const wyt = extractYouTubeId(wt.video_url)
+            const wImg = wt.cover_url || (wyt ? `https://img.youtube.com/vi/${wyt}/mqdefault.jpg` : null) || wt.artists?.cover_image_url || null
+            return (
+              <div className="mt-3.5 border-t border-[var(--border-default)] pt-3.5">
+                <div className="mb-2 font-['Outfit',sans-serif] text-[11px] font-extrabold uppercase tracking-[0.1em] text-[var(--accent-orange)]">Vakar laimėjo</div>
+                <div className="overflow-hidden rounded-xl border border-[rgba(249,115,22,0.35)] bg-[var(--bg-surface)]">
+                  <div className="relative aspect-video w-full bg-[var(--cover-placeholder)]">
+                    {winnerPlaying && wyt ? (
+                      <iframe
+                        src={`https://www.youtube.com/embed/${wyt}?autoplay=1&rel=0`}
+                        title={sanitizeTitle(wt.title)}
+                        allow="autoplay; encrypted-media; picture-in-picture"
+                        allowFullScreen
+                        className="absolute inset-0 h-full w-full border-0"
+                      />
+                    ) : (
+                      <button
+                        type="button"
+                        onClick={() => { if (wyt) setWinnerPlaying(true); else openTrack({ id: wt.id, title: wt.title, slug: wt.slug, cover_url: wt.cover_url, video_url: wt.video_url, artists: wt.artists }) }}
+                        className="group absolute inset-0 h-full w-full cursor-pointer border-0 bg-transparent p-0"
+                        aria-label="Groti"
+                      >
+                        {wImg && (/* eslint-disable-next-line @next/next/no-img-element */<img src={proxyImgResized(wImg, 480)} alt={sanitizeTitle(wt.title)} loading="lazy" decoding="async" className="h-full w-full object-cover" />)}
+                        <span className="absolute inset-0 flex items-center justify-center bg-black/25 transition-colors group-hover:bg-black/40">
+                          <span className="flex h-12 w-12 items-center justify-center rounded-full bg-[var(--accent-orange)] text-white shadow-[0_8px_24px_rgba(249,115,22,0.5)]"><Ic d={PLAY_D} size={20} filled /></span>
+                        </span>
+                      </button>
+                    )}
+                  </div>
+                  <div className="px-3 py-2.5">
+                    <button
+                      type="button"
+                      onClick={() => openTrack({ id: wt.id, title: wt.title, slug: wt.slug, cover_url: wt.cover_url, video_url: wt.video_url, artists: wt.artists })}
+                      className="block w-full cursor-pointer border-0 bg-transparent p-0 text-left"
+                    >
+                      <p className="m-0 truncate font-['Outfit',sans-serif] text-[16px] font-extrabold text-[var(--text-primary)] transition-colors hover:text-[var(--accent-orange)]">{sanitizeTitle(wt.title)}</p>
+                      <p className="m-0 truncate text-[13px] text-[var(--text-muted)]">{wt.artists?.name}</p>
+                    </button>
+                    {winner.proposer && proposerName(winner.proposer) && (
+                      <span className="mt-1 flex min-w-0 items-center gap-1 text-[11px] text-[var(--text-faint)]"><span className="shrink-0">pasiūlė</span><ProposerLine p={winner.proposer} /></span>
+                    )}
+                  </div>
+                </div>
               </div>
-              <div className="flex flex-col gap-2.5">
-                <ListRow t={winner.tracks} level={5} badge="1" proposer={winner.proposer} />
-                {ydayBest.slice(0, 2).map((n) => {
-                  const votes = n.weighted_votes || n.votes || 0
-                  const level = votes > 0 ? Math.max(1, Math.round((votes / ydayMax) * 5)) : 0
-                  return <ListRow key={n.id} t={n.tracks!} level={level} proposer={n.proposer} />
-                })}
-              </div>
-            </div>
-          )}
+            )
+          })()}
         </>
       ) : variant === 'stacked' ? (
         // ── /atrasti: dvi atskiros juostos — šiandien siūloma + vakar ──
