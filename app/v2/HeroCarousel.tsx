@@ -78,12 +78,13 @@ export default function HeroCarousel({ slides }: { slides: Slide[] }) {
               </Link>
             </div>
           ))}
-          {/* Daugiau naujienų (kaip v1) */}
+          {/* Daugiau naujienų — dashed kortelė kaip v1 (viena eilutė, apskritas rodyklės ženklas) */}
           <div className="v2-hslot v2-hslot-more">
             <Link href="/naujienos" className="v2-hmore">
-              <span className="v2-hmore-ic">→</span>
+              <span className="v2-hmore-ic">
+                <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round"><path d="M5 12h14M12 5l7 7-7 7" /></svg>
+              </span>
               <span className="v2-hmore-t">Daugiau naujienų</span>
-              <span className="v2-hmore-s">Visos muzikos naujienos</span>
             </Link>
           </div>
         </div>

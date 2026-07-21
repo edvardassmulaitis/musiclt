@@ -689,6 +689,13 @@ const V2_EXTRA = `
 .v2-hero-wrap:hover .v2-hero-arrow{opacity:1}
 .v2-hero-arrow.left{left:8px} .v2-hero-arrow.right{right:8px}
 .v2-hero-arrow:hover{background:rgba(0,0,0,.8)}
+/* „Daugiau naujienų" dashed kortelė (kaip v1) */
+.v2-hslot-more .v2-hmore{aspect-ratio:16/9;width:100%;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:12px;border:1px dashed var(--border-strong);border-radius:16px;background:var(--bg-surface);text-decoration:none;transition:border-color .2s}
+.v2-hslot-more .v2-hmore:hover{border-color:var(--accent-orange)}
+.v2-hmore-ic{display:flex;align-items:center;justify-content:center;width:48px;height:48px;border-radius:50%;border:1px solid var(--border-strong);color:var(--text-muted);transition:color .2s,border-color .2s}
+.v2-hslot-more .v2-hmore:hover .v2-hmore-ic{color:var(--accent-orange);border-color:var(--accent-orange)}
+.v2-hmore-t{font-family:'Outfit',sans-serif;font-weight:800;font-size:16px;color:var(--text-primary);transition:color .2s}
+.v2-hslot-more .v2-hmore:hover .v2-hmore-t{color:var(--accent-orange)}
 .v2-hdots{display:flex;gap:6px;justify-content:center;margin-top:12px}
 .v2-hdot{width:7px;height:7px;border-radius:50%;background:var(--border-strong);border:none;padding:0;cursor:pointer;transition:all .2s}
 .v2-hdot.on{width:22px;border-radius:4px;background:var(--accent-orange)}
