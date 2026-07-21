@@ -202,72 +202,67 @@ function kindLabel(it: any): string {
     default: return 'Bendruomenė'
   }
 }
-function CommunityRail({ community, top, gilyn }: { community: any[]; top: any[]; gilyn: any[] }) {
+function CommunityRail({ community, top }: { community: any[]; top: any[] }) {
   const movers = (top || []).slice(0, 5)
-  const highlights = community.filter((c) => c.type !== 'dd').slice(0, 1)
+  // Įvairūs bendruomenės įrašai — po vieną iš kiekvieno tipo (koncerto apžvalga,
+  // recenzija, diskusija, atradimas…), iki 4, kad būtų įvairovė.
+  const nonDd = community.filter((c) => c.type !== 'dd')
+  const kindKey = (h: any) => h.editorial_type || h.type || 'other'
+  const varied: any[] = []
+  const seen = new Set<string>()
+  for (const h of nonDd) { const k = kindKey(h); if (!seen.has(k)) { seen.add(k); varied.push(h) } if (varied.length >= 4) break }
+  if (varied.length < 4) for (const h of nonDd) { if (!varied.includes(h)) varied.push(h); if (varied.length >= 4) break }
 
   return (
     <aside className="v2-side">
-      {/* Dienos dainos panelis (atskirtas nuo bendruomenės įrašų) */}
+      {/* Viskas viename bokse: Dienos daina + bendruomenės įrašai */}
       <div className="v2-comm-panel">
         <div className="v2-side-headrow">
           <div className="v2-side-head"><span className="v2-side-dot" />Kas naujo?</div>
           <CommunityIcons />
         </div>
-        <div className="v2-dd-embed"><DienosDainaSection variant="list" /></div>
+        <div className="v2-dd-embed v2-feed-sec"><DienosDainaSection variant="list" /></div>
+
+        {movers.length > 0 && (
+          <div className="v2-feed-sec">
+            <div className="v2-ch"><span className="v2-ch-bar" style={{ background: 'var(--accent-green)' }} />Topai · kyla</div>
+            {movers.map((m: any) => {
+              const tr = m.tracks || {}
+              const art = Array.isArray(tr.artists) ? tr.artists[0] : tr.artists
+              const delta = m.prev_position != null ? m.prev_position - m.position : null
+              return (
+                <div key={m.id} className="v2-row">
+                  <span className="v2-row-rank">{m.position}</span>
+                  <span className="v2-row-cov">{(tr.cover_url || art?.cover_image_url)
+                    // eslint-disable-next-line @next/next/no-img-element
+                    ? <img src={proxyImgResized(tr.cover_url || art?.cover_image_url, 64)} alt="" loading="lazy" /> : null}</span>
+                  <span className="v2-row-txt"><b>{tr.title}</b><span>{art?.name}</span></span>
+                  <span className="v2-row-right">{delta == null ? <em className="v2-d n">NAUJA</em> : delta > 0 ? <em className="v2-d u">▲{delta}</em> : delta < 0 ? <em className="v2-d d">▼{-delta}</em> : <em className="v2-d z">–</em>}</span>
+                </div>
+              )
+            })}
+            <Link href="/top40" className="v2-clink">Visas topas →</Link>
+          </div>
+        )}
+
+        {varied.map((h: any) => (
+          <Link key={h.id} href={h.href || '/bendruomene'} className="v2-feat2 v2-feed-sec">
+            <div className="v2-feat2-top">
+              <span className="v2-feat2-kind">{kindLabel(h)}</span>
+              {h.author_name && <span className="v2-feat2-author">{h.author_avatar && (/* eslint-disable-next-line @next/next/no-img-element */<img className="v2-feat2-av" src={proxyImgResized(h.author_avatar, 40)} alt="" loading="lazy" />)}{h.author_name}</span>}
+            </div>
+            <div className="v2-feat2-body">
+              {h.cover && <span className="v2-feat2-cov">{/* eslint-disable-next-line @next/next/no-img-element */}<img src={proxyImgResized(h.cover, 160)} alt="" loading="lazy" /></span>}
+              <span className="v2-feat2-txt">
+                <b>{sanitizeTitle(h.title)}</b>
+                {h.excerpt && <span className="v2-feat2-ex">{sanitizeTitle(h.excerpt)}</span>}
+              </span>
+            </div>
+          </Link>
+        ))}
+
+        <Link href="/bendruomene" className="v2-clink v2-feed-more">Daugiau bendruomenėje →</Link>
       </div>
-
-      {/* Vienas boksas: bendruomenės įrašai + topai + muzikos atradimai (Gilyn) */}
-      {(movers.length > 0 || highlights.length > 0 || gilyn.length > 0) && (
-        <div className="v2-comm-panel">
-          {movers.length > 0 && (
-            <div className="v2-feed-sec">
-              <div className="v2-ch"><span className="v2-ch-bar" style={{ background: 'var(--accent-green)' }} />Topai · kyla</div>
-              {movers.map((m: any) => {
-                const tr = m.tracks || {}
-                const art = Array.isArray(tr.artists) ? tr.artists[0] : tr.artists
-                const delta = m.prev_position != null ? m.prev_position - m.position : null
-                return (
-                  <div key={m.id} className="v2-row">
-                    <span className="v2-row-rank">{m.position}</span>
-                    <span className="v2-row-cov">{(tr.cover_url || art?.cover_image_url)
-                      // eslint-disable-next-line @next/next/no-img-element
-                      ? <img src={proxyImgResized(tr.cover_url || art?.cover_image_url, 64)} alt="" loading="lazy" /> : null}</span>
-                    <span className="v2-row-txt"><b>{tr.title}</b><span>{art?.name}</span></span>
-                    <span className="v2-row-right">{delta == null ? <em className="v2-d n">NAUJA</em> : delta > 0 ? <em className="v2-d u">▲{delta}</em> : delta < 0 ? <em className="v2-d d">▼{-delta}</em> : <em className="v2-d z">–</em>}</span>
-                  </div>
-                )
-              })}
-              <Link href="/top40" className="v2-clink">Visas topas →</Link>
-            </div>
-          )}
-
-          {highlights.length > 0 && highlights.map((h: any) => (
-            <Link key={h.id} href={h.href || '/bendruomene'} className="v2-feat2 v2-feed-sec">
-              <div className="v2-feat2-top">
-                <span className="v2-feat2-kind">{kindLabel(h)}</span>
-                {h.author_name && <span className="v2-feat2-author">{h.author_avatar && (/* eslint-disable-next-line @next/next/no-img-element */<img className="v2-feat2-av" src={proxyImgResized(h.author_avatar, 40)} alt="" loading="lazy" />)}{h.author_name}</span>}
-              </div>
-              <div className="v2-feat2-body">
-                {h.cover && <span className="v2-feat2-cov">{/* eslint-disable-next-line @next/next/no-img-element */}<img src={proxyImgResized(h.cover, 160)} alt="" loading="lazy" /></span>}
-                <span className="v2-feat2-txt">
-                  <b>{sanitizeTitle(h.title)}</b>
-                  {h.excerpt && <span className="v2-feat2-ex">{sanitizeTitle(h.excerpt)}</span>}
-                </span>
-              </div>
-              <span className="v2-clink">Daugiau bendruomenėje →</span>
-            </Link>
-          ))}
-
-          {gilyn.length > 0 && (
-            <div className="v2-feed-sec">
-              <div className="v2-ch"><span className="v2-ch-bar" style={{ background: 'var(--accent-blue)' }} />Atrask muziką</div>
-              <p className="v2-gilyn-sub">Šios dienos pasiūlymai — versk plokšteles ir pasirink nuo ko pradėti.</p>
-              <GilynCrate box={gilyn} />
-            </div>
-          )}
-        </div>
-      )}
     </aside>
   )
 }
@@ -560,10 +555,22 @@ export default async function V2Page() {
           )}
         </div>
 
-        <CommunityRail community={community} top={top} gilyn={gilynBox} />
+        <CommunityRail community={community} top={top} />
       </div>
 
       <Koncertai events={events} verta={verta} />
+      {gilynBox.length > 0 && (
+        <section style={{ marginTop: 'var(--page-section-gap)' }}>
+          <div className="v2-rub"><h2>Atrask muziką</h2></div>
+          <div className="v2-atrad">
+            <div className="v2-atrad-txt">
+              <p className="v2-atrad-lead">Šios dienos pasiūlymai — versk plokšteles ir pasirink, nuo ko pradėti klausytis.</p>
+              <Link href="/zaidimai/gilyn" className="v2-atrad-cta">Atrasti visas →</Link>
+            </div>
+            <div className="v2-atrad-crate"><GilynCrate box={gilynBox} /></div>
+          </div>
+        </section>
+      )}
       <Istorija items={istorija} />
       <GamesZone members={members} />
     </div>
@@ -595,6 +602,15 @@ const V2_EXTRA = `
 .v2-feat2{display:block}
 /* sekcijos viename „Kas naujo?" bokse — atskirtos plona linija */
 .v2-comm-panel>.v2-feed-sec+.v2-feed-sec{border-top:1px solid var(--card-border-subtle);padding-top:14px}
+.v2-feed-more{display:inline-block;margin-top:2px}
+/* Atrask muziką — atskira sekcija po koncertais (horizontalus card'as) */
+.v2-atrad{display:flex;align-items:center;gap:26px;padding:18px 20px;border:1px solid var(--border-default);border-radius:var(--radius-2xl);background:var(--bg-elevated)}
+.v2-atrad-txt{flex:1;min-width:0}
+.v2-atrad-lead{font-size:14px;color:var(--text-secondary);line-height:1.5;margin:0 0 10px;max-width:440px}
+.v2-atrad-cta{font-family:'Outfit',sans-serif;font-weight:800;font-size:13.5px;color:var(--accent-orange)}
+.v2-atrad-cta:hover{opacity:.75}
+.v2-atrad-crate{flex:none;width:min(320px,50%)}
+@media(max-width:640px){.v2-atrad{flex-direction:column;align-items:stretch;gap:16px}.v2-atrad-crate{width:100%}}
 .v2-feat2-top{display:flex;align-items:center;gap:8px;margin-bottom:9px}
 .v2-feat2-kind{font-size:10px;font-weight:800;letter-spacing:.05em;text-transform:uppercase;color:#fff;background:var(--accent-blue);border-radius:5px;padding:2px 7px}
 .v2-feat2-author{display:inline-flex;align-items:center;gap:6px;font-size:12px;font-weight:600;color:var(--text-secondary);margin-left:auto}
@@ -673,8 +689,9 @@ const V2_EXTRA = `
 .v2-side-dot{width:7px;height:7px;border-radius:50%;background:var(--accent-green);flex:none}
 /* bendruomenės antraštės ikonos (chat + kas vyksta) */
 .v2-cicons{display:flex;align-items:center;gap:6px}
-.v2-cupd{font-family:'Outfit',sans-serif;font-size:10.5px;font-weight:600;color:var(--text-faint);white-space:nowrap;margin-right:2px;text-transform:none;letter-spacing:0}
-.v2-cic{position:relative;display:flex;align-items:center;justify-content:center;width:30px;height:30px;border-radius:9px;border:1px solid var(--border-default);background:var(--bg-surface);color:var(--text-muted);cursor:pointer;transition:color .15s,border-color .15s,background .15s}
+.v2-cic{position:relative;display:flex;align-items:center;justify-content:center;gap:5px;width:30px;height:30px;border-radius:9px;border:1px solid var(--border-default);background:var(--bg-surface);color:var(--text-muted);cursor:pointer;transition:color .15s,border-color .15s,background .15s}
+.v2-cic-chat{width:auto;padding:0 9px}
+.v2-cic-time{font-family:'Outfit',sans-serif;font-size:11px;font-weight:700;color:var(--text-secondary);letter-spacing:0;text-transform:none}
 .v2-cic:hover{color:var(--accent-orange);border-color:var(--accent-orange);background:var(--bg-hover)}
 .v2-cic-dot{position:absolute;top:-3px;right:-3px;width:9px;height:9px;border-radius:50%;background:var(--accent-orange);border:2px solid var(--bg-elevated)}
 .v2-cic-live{position:absolute;top:-3px;right:-3px;width:8px;height:8px;border-radius:50%;background:#22c55e;border:2px solid var(--bg-elevated)}

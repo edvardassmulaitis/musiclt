@@ -547,15 +547,17 @@ export function DienosDainaSection({ onOpenTrack, variant = 'inline', headerVari
   const ROW = 'hp-scroll flex items-stretch gap-3 overflow-x-auto pt-1 pb-2 [scrollbar-width:none] [&::-webkit-scrollbar]:hidden'
 
   // Balsuotojų avatarų stack'as — paspaudus atidaro visą sąrašą (mini modalą).
-  const AvatarStack = ({ title, voters, anon }: { title: string; voters: Proposer[]; anon: number }) => {
+  // `self` — priverstinai priekyje rodomas avataras (tavo, kai balsavai / tai tavo daina).
+  const AvatarStack = ({ title, voters, anon, self }: { title: string; voters: Proposer[]; anon: number; self?: Proposer | null }) => {
     const clean = voters.filter((v) => v.avatar_url || v.full_name || v.username)
-    const shown = clean.slice(0, 3)
-    const extra = Math.max(0, (clean.length + anon) - shown.length)
+    const withSelf = self && !clean.some((v) => v.username && self.username && v.username === self.username) ? [self, ...clean] : clean
+    const shown = withSelf.slice(0, 3)
+    const extra = Math.max(0, (withSelf.length + anon) - shown.length)
     if (shown.length === 0 && extra === 0) return null
     return (
       <button
         type="button"
-        onClick={(e) => { e.preventDefault(); e.stopPropagation(); setVotersOf({ title, voters: clean, anon }) }}
+        onClick={(e) => { e.preventDefault(); e.stopPropagation(); setVotersOf({ title, voters: withSelf, anon }) }}
         aria-label="Rodyti balsuotojus"
         title="Rodyti balsuotojus"
         className="flex shrink-0 items-center gap-1.5 self-center rounded-full px-0.5 py-0.5 transition-colors hover:bg-[var(--bg-hover)]"
@@ -571,22 +573,25 @@ export function DienosDainaSection({ onOpenTrack, variant = 'inline', headerVari
   }
 
   // Balsuotojų stack'as + širdelės balsavimo mygtukas (šiandienos eilutėms).
-  const VoteControl = ({ n, big }: { n: Nomination; big?: boolean }) => {
+  // Jei jau balsavai arba tai tavo daina — širdelės NEBERODOM, tik avatarų stack'ą su tavo avataru.
+  const VoteControl = ({ n }: { n: Nomination; big?: boolean }) => {
     const isVotedThis = votedIds.has(n.id)
     const isOwn = !!n.own
+    const self = (isOwn || isVotedThis) ? (n.proposer || null) : null
+    const canVote = !isOwn && !isVotedThis
     return (
       <div className="flex shrink-0 items-center gap-1.5 self-center">
-        <AvatarStack title={sanitizeTitle(n.tracks?.title || '')} voters={n.voters || []} anon={n.anon_votes || 0} />
-        {!isOwn && (
+        <AvatarStack title={sanitizeTitle(n.tracks?.title || '')} voters={n.voters || []} anon={n.anon_votes || 0} self={isOwn ? self : null} />
+        {canVote && (
           <button
             type="button"
             onClick={() => handleVote(n.id)}
-            disabled={isVotedThis || voting !== null}
-            aria-label={isVotedThis ? 'Balsuota' : 'Balsuoti'}
-            title={isVotedThis ? 'Balsuota' : 'Balsuoti'}
-            className={`flex ${big ? 'h-11 w-11' : 'h-[30px] w-[30px]'} items-center justify-center rounded-full border transition-colors ${isVotedThis ? 'cursor-default border-[rgba(249,115,22,0.5)] bg-[rgba(249,115,22,0.16)] text-[var(--accent-orange)]' : voting !== null ? 'border-[var(--border-strong)] text-[var(--text-muted)] opacity-60' : 'border-[var(--border-strong)] text-[var(--text-secondary)] hover:border-[var(--accent-orange)] hover:text-[var(--accent-orange)]'}`}
+            disabled={voting !== null}
+            aria-label="Balsuoti"
+            title="Balsuoti"
+            className={`flex h-[30px] w-[30px] items-center justify-center rounded-full border transition-colors ${voting !== null ? 'border-[var(--border-strong)] text-[var(--text-muted)] opacity-60' : 'border-[var(--border-strong)] text-[var(--text-secondary)] hover:border-[var(--accent-orange)] hover:text-[var(--accent-orange)]'}`}
           >
-            {voting === n.id ? '…' : <Ic d={HEART_D} size={big ? 20 : 14} filled={isVotedThis} />}
+            {voting === n.id ? '…' : <Ic d={HEART_D} size={14} filled={false} />}
           </button>
         )}
       </div>
@@ -615,8 +620,8 @@ export function DienosDainaSection({ onOpenTrack, variant = 'inline', headerVari
         >
           <p className={`m-0 truncate font-['Outfit',sans-serif] font-bold text-[var(--text-primary)] transition-colors group-hover:text-[var(--accent-orange)] ${big ? 'text-[16px]' : 'text-[14px]'}`}>{sanitizeTitle(t.title)}</p>
           <p className={`m-0 truncate text-[var(--text-muted)] ${big ? 'text-[13px]' : 'text-[12.5px]'}`}>{t.artists?.name}</p>
-          {proposer && proposerName(proposer) && (
-            <span className="mt-1 flex min-w-0 items-center gap-1 text-[11px] text-[var(--text-faint)]"><span className="shrink-0">pasiūlė</span><ProposerLine p={proposer} /></span>
+          {proposer && (proposer.username || proposer.full_name) && (
+            <span className="mt-1 flex min-w-0 items-center gap-1 text-[11px] text-[var(--text-faint)]"><span className="shrink-0">pasiūlė</span><MiniAv p={proposer} size={15} /><span className="truncate font-semibold text-[var(--text-secondary)]">{proposer.username || proposer.full_name}</span></span>
           )}
           {typeof level === 'number' && (
             <span className="mt-1 flex items-center gap-[3px]" aria-hidden>
@@ -713,8 +718,8 @@ export function DienosDainaSection({ onOpenTrack, variant = 'inline', headerVari
                       </button>
                       {winnerNom && <AvatarStack title={sanitizeTitle(wt.title)} voters={winnerNom.voters || []} anon={winnerNom.anon_votes || 0} />}
                     </div>
-                    {winner.proposer && proposerName(winner.proposer) && (
-                      <span className="mt-1 flex min-w-0 items-center gap-1 text-[11px] text-[var(--text-faint)]"><span className="shrink-0">pasiūlė</span><ProposerLine p={winner.proposer} /></span>
+                    {winner.proposer && (winner.proposer.username || winner.proposer.full_name) && (
+                      <span className="mt-1 flex min-w-0 items-center gap-1 text-[11px] text-[var(--text-faint)]"><span className="shrink-0">pasiūlė</span><MiniAv p={winner.proposer} size={15} /><span className="truncate font-semibold text-[var(--text-secondary)]">{winner.proposer.username || winner.proposer.full_name}</span></span>
                     )}
                   </div>
                 </div>
