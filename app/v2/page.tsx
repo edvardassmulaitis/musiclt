@@ -213,14 +213,14 @@ function coAvatar(av: string | null, nm: string | null) {
 function CRow({ n }: { n: any }) {
   return (
     <Link href={n.href} className="v2-crow group">
-      <span className="v2-crow-cov">{/* eslint-disable-next-line @next/next/no-img-element */}<img src={proxyImgResized(n.cover, 120)} alt="" loading="lazy" /></span>
+      <span className="v2-crow-cov">{/* eslint-disable-next-line @next/next/no-img-element */}<img src={proxyImgResized(n.cover, 200)} alt="" loading="lazy" /></span>
       <span className="v2-crow-body">
         <b className="v2-crow-title">{n.title}</b>
+        {n.kind === 'diskusija' && n.cmt && <span className="v2-crow-cmt2">{n.cmt}</span>}
         <span className="v2-crow-meta">
           <COIc kind={n.kind} />
-          {n.kind === 'diskusija'
-            ? <>{coAvatar(n.avatar, n.author)}<span className="v2-crow-cmt-t">{n.cmt}</span></>
-            : <>{coAvatar(n.avatar, n.author)}<span className="v2-crow-au-n">{n.author}</span></>}
+          {coAvatar(n.avatar, n.author)}
+          <span className="v2-crow-au-n">{n.author}</span>
           <span className="v2-crow-eng">
             {n.comments > 0 && (
               <span className="v2-crow-eng-i"><svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z" /></svg>{n.comments}</span>
@@ -234,6 +234,8 @@ function CRow({ n }: { n: any }) {
     </Link>
   )
 }
+// Nukerpa senų forumo temų ID galūnę („Rush l317152" → „Rush").
+function cleanCoTitle(t: string): string { return sanitizeTitle(t).replace(/\s+[lI]\s?\d{4,}$/, '').replace(/\s*[|\-–]\s*$/, '').trim() }
 function feedHref(p: any): string { return p.blog_slug ? `/blogas/${p.blog_slug}/${p.slug || p.id}` : '/blogas' }
 function meaningfulCmt(t: string | null | undefined): boolean {
   const s = sanitizeTitle(t || '')
@@ -248,20 +250,20 @@ function CommunityRail({ posts, disks }: { posts: any[]; disks: any[] }) {
     const ed = p.editorial_type, pt = p.post_type
     const kind = ed === 'koncertai' ? 'apzvalga' : (ed === 'recenzija' || pt === 'review') ? 'apzvalga' : pt === 'topas' ? 'topas' : null
     if (!kind) continue
-    norm.push({ kind, title: sanitizeTitle(p.title), href: feedHref(p), cover: p.cover, author: p.author?.username || p.author?.full_name || null, avatar: p.author?.avatar_url || null, likes: p.like_count || 0, comments: p.comment_count || 0, date: p.published_at })
+    norm.push({ kind, title: cleanCoTitle(p.title), href: feedHref(p), cover: p.cover, author: p.author?.username || p.author?.full_name || null, avatar: p.author?.avatar_url || null, likes: p.like_count || 0, comments: p.comment_count || 0, date: p.published_at })
   }
   for (const d of disks) {
     if (!d.artist_image) continue // reikia vizualo
     let cmt: string | null = null, cmtA: string | null = null, cmtAv: string | null = null
-    for (const c of (d.latest_comments || [])) { if (meaningfulCmt(c.excerpt)) { cmt = sanitizeTitle(c.excerpt).slice(0, 90); cmtA = c.author; cmtAv = c.avatar; break } }
+    for (const c of (d.latest_comments || [])) { if (meaningfulCmt(c.excerpt)) { cmt = sanitizeTitle(c.excerpt).slice(0, 150); cmtA = c.author; cmtAv = c.avatar; break } }
     if (!cmt) continue // reikia prasmingo komentaro (ne URL / ne per trumpo)
-    norm.push({ kind: 'diskusija', title: sanitizeTitle(d.title), href: `/diskusijos/${d.slug || d.id}`, cover: d.artist_image, author: cmtA, avatar: cmtAv, cmt, comments: d.comment_count || 0, likes: null, date: d.last_comment_at || d.created_at })
+    norm.push({ kind: 'diskusija', title: cleanCoTitle(d.title), href: `/diskusijos/${d.slug || d.id}`, cover: d.artist_image, author: cmtA, avatar: cmtAv, cmt, comments: d.comment_count || 0, likes: null, date: d.last_comment_at || d.created_at })
   }
-  // Įvairovė + naujumas: po kelis iš kiekvieno tipo, tada rikiuojam pagal datą.
-  const apz = norm.filter((n) => n.kind === 'apzvalga').slice(0, 3)
-  const top = norm.filter((n) => n.kind === 'topas').slice(0, 2)
-  const dis = norm.filter((n) => n.kind === 'diskusija').slice(0, 3)
-  const stream = [...apz, ...top, ...dis].sort((a, b) => (Date.parse(b.date || '') || 0) - (Date.parse(a.date || '') || 0)).slice(0, 7)
+  // Mažiau, bet įvairiai: 2 apžvalgos + 1 topas + 2 diskusijos, rikiuota pagal datą.
+  const apz = norm.filter((n) => n.kind === 'apzvalga').slice(0, 2)
+  const top = norm.filter((n) => n.kind === 'topas').slice(0, 1)
+  const dis = norm.filter((n) => n.kind === 'diskusija').slice(0, 2)
+  const stream = [...apz, ...top, ...dis].sort((a, b) => (Date.parse(b.date || '') || 0) - (Date.parse(a.date || '') || 0)).slice(0, 5)
 
   return (
     <aside className="v2-side">
@@ -620,22 +622,23 @@ const V2_EXTRA = `
 /* sekcijos viename „Kas naujo?" bokse — atskirtos plona linija */
 .v2-comm-panel>.v2-feed-sec+.v2-feed-sec{border-top:1px solid var(--card-border-subtle);padding-top:14px}
 .v2-feed-more{display:inline-block;margin-top:2px}
-/* bendruomenės vientisas srautas — vienoda eilutė: viršelis, pavadinimas, meta (tipo ikona + autorius/komentaras + engagement) */
-.v2-cstream{display:flex;flex-direction:column;gap:13px}
-.v2-crow{display:flex;gap:11px;align-items:flex-start;text-decoration:none}
-.v2-crow-cov{width:46px;height:46px;flex:none;border-radius:9px;overflow:hidden;background:var(--bg-elevated)}
+/* bendruomenės kortelės — erdvios, su rėmeliu, didesnis viršelis */
+.v2-cstream{display:flex;flex-direction:column;gap:12px}
+.v2-crow{display:flex;gap:13px;align-items:flex-start;padding:13px;border:1px solid var(--card-border-default);border-radius:14px;background:var(--card-surface);text-decoration:none;transition:border-color .15s}
+.v2-crow:hover{border-color:rgba(249,115,22,.4)}
+.v2-crow-cov{width:72px;height:72px;flex:none;border-radius:11px;overflow:hidden;background:var(--bg-elevated)}
 .v2-crow-cov img{width:100%;height:100%;object-fit:cover;display:block;transition:transform .4s ease}
-.v2-crow:hover .v2-crow-cov img{transform:scale(1.06)}
-.v2-crow-body{min-width:0;flex:1;display:flex;flex-direction:column;gap:5px}
-.v2-crow-title{font-family:'Outfit',sans-serif;font-weight:700;font-size:14px;line-height:1.3;color:var(--text-primary);display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;overflow:hidden}
+.v2-crow:hover .v2-crow-cov img{transform:scale(1.05)}
+.v2-crow-body{min-width:0;flex:1;display:flex;flex-direction:column}
+.v2-crow-title{font-family:'Outfit',sans-serif;font-weight:800;font-size:15px;line-height:1.3;color:var(--text-primary);display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;overflow:hidden}
 .v2-crow:hover .v2-crow-title{color:var(--accent-orange)}
-.v2-crow-meta{display:flex;align-items:center;gap:6px;min-width:0}
+.v2-crow-cmt2{font-size:13px;line-height:1.45;color:var(--text-muted);margin-top:6px;display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;overflow:hidden}
+.v2-crow-meta{display:flex;align-items:center;gap:6px;min-width:0;margin-top:9px}
 .v2-crow-au-n{font-size:12.5px;font-weight:600;color:var(--text-secondary);overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
-.v2-crow-cmt-t{font-size:12.5px;color:var(--text-muted);overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
-.v2-crow-av{width:16px;height:16px;border-radius:50%;object-fit:cover;flex:none}
-.v2-crow-av-ph{display:flex;align-items:center;justify-content:center;width:16px;height:16px;border-radius:50%;background:var(--bg-active);font-size:9px;font-weight:800;color:var(--text-faint);flex:none}
-.v2-crow-eng{margin-left:auto;display:flex;align-items:center;gap:9px;flex:none;padding-left:6px}
-.v2-crow-eng-i{display:flex;align-items:center;gap:3px;font-size:11.5px;font-weight:700;color:var(--text-faint)}
+.v2-crow-av{width:17px;height:17px;border-radius:50%;object-fit:cover;flex:none}
+.v2-crow-av-ph{display:flex;align-items:center;justify-content:center;width:17px;height:17px;border-radius:50%;background:var(--bg-active);font-size:9px;font-weight:800;color:var(--text-faint);flex:none}
+.v2-crow-eng{margin-left:auto;display:flex;align-items:center;gap:10px;flex:none;padding-left:8px}
+.v2-crow-eng-i{display:flex;align-items:center;gap:3px;font-size:12px;font-weight:700;color:var(--text-faint)}
 /* Atrask muziką — atskira sekcija po koncertais (horizontalus card'as) */
 .v2-atrad{display:flex;align-items:center;gap:26px;padding:18px 20px;border:1px solid var(--border-default);border-radius:var(--radius-2xl);background:var(--bg-elevated)}
 .v2-atrad-txt{flex:1;min-width:0}
@@ -947,7 +950,7 @@ const V2_EXTRA = `
 .v2-hist-title{display:block;font-family:'Outfit',sans-serif;font-weight:700;font-size:13px;margin-top:8px;color:var(--text-primary);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
 .v2-hist-sub{display:block;color:var(--text-muted);font-size:12px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
 
-@media(max-width:980px){.v2-split,.v2-gz{grid-template-columns:1fr}.v2-side{position:static;flex-direction:row;flex-wrap:wrap}.v2-cw,.v2-gilyn{flex:1;min-width:250px}}
+@media(max-width:980px){.v2-split,.v2-gz{grid-template-columns:1fr}.v2-side{position:static}.v2-comm-panel{min-width:0}}
 @media(max-width:560px){.v2-games-grid{grid-template-columns:1fr}}
 @media(max-width:900px){.v2-hist-grid{grid-template-columns:repeat(3,1fr)}}
 @media(max-width:640px){.v2-shell{padding-left:var(--page-pad-x-sm);padding-right:var(--page-pad-x-sm)}.v2-hist-grid{grid-template-columns:repeat(2,1fr)}}
