@@ -31,6 +31,7 @@ import { HomeTrackModal } from '@/components/HomeTrackModal'
 import AlbumInfoModal from '@/components/AlbumInfoModal'
 import { GroupPlayModal } from '@/components/GroupPlayModal'
 import { LikePill } from '@/components/LikePill'
+import { KIND_META, kindColor, KindBadge } from '@/components/community/PostKind'
 import LikesModal, { type LikeUser } from '@/components/LikesModal'
 
 // ───────────────────────── helpers ─────────────────────────
@@ -176,25 +177,7 @@ function postKind(p: FeedPost): string {
   if (p.post_type === 'translation') return 'vertimas'
   return 'irasas'
 }
-const KIND_META: Record<string, { label: string; color: string }> = {
-  apzvalga: { label: 'Muzikos apžvalga', color: '#ef4444' },
-  koncertai: { label: 'Koncertų įspūdžiai', color: '#3b82f6' },
-  topas: { label: 'Topas', color: '#f59e0b' },
-  atradimas: { label: 'Atradimas', color: 'var(--accent-orange)' },
-  diskusija: { label: 'Diskusija', color: '#8b5cf6' },
-  kuryba: { label: 'Kūryba', color: '#ec4899' },
-  vertimas: { label: 'Vertimas', color: '#10b981' },
-  irasas: { label: 'Įrašas', color: '#94a3b8' },
-}
-
-function KindBadge({ kind, abs = true, label }: { kind: string; abs?: boolean; label?: string }) {
-  const m = KIND_META[kind] || KIND_META.irasas
-  // !abs — inline-flex + self-start, kad flex-col tėvas neištemptų per visą plotį.
-  return (
-    <span className={`${abs ? 'absolute left-3 top-3 z-[2]' : 'inline-flex self-start'} rounded-[7px] px-2 py-1 font-['Outfit',sans-serif] text-[12px] font-extrabold uppercase tracking-[0.08em] text-white`}
-      style={{ background: m.color }}>{label || m.label}</span>
-  )
-}
+// KIND_META / KindBadge / kindColor iškelti į bendrą modulį (naudoja ir /v2).
 
 // Topo etiketė: „Top N" pagal tikrą topo dydį (entry_count); fallback „Topas".
 function topLabel(p: FeedPost): string {
@@ -917,9 +900,6 @@ const ROW_THUMB = 'relative w-[112px] shrink-0 self-stretch overflow-hidden bg-[
 const ROW_MINH = 'min-h-[176px] sm:min-h-[228px]'
 const ROW_PAD = 'flex min-w-0 flex-1 flex-col px-5 py-4'
 
-function kindColor(kind: string): string {
-  return (KIND_META[kind] || KIND_META.irasas).color
-}
 function AccentBar({ color }: { color: string }) {
   return <span aria-hidden className="w-[3px] shrink-0" style={{ background: color }} />
 }

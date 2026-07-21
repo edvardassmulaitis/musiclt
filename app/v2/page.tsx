@@ -20,6 +20,7 @@ import { proxyImgResized } from '@/lib/img-proxy'
 import { countryFlag } from '@/lib/country-flags'
 import { eventHref } from '@/lib/event-href'
 import { DienosDainaSection } from '@/components/DienosDainaSection'
+import { KindBadge, kindColor, communityItemKind } from '@/components/community/PostKind'
 import CommunityIcons from './CommunityIcons'
 import GilynCrate from './GilynCrate'
 import HeroCarousel from './HeroCarousel'
@@ -33,6 +34,19 @@ export const metadata = {
 const MONTHS_LT = ['Sau', 'Vas', 'Kov', 'Bal', 'Geg', 'Bir', 'Lie', 'Rgp', 'Rgs', 'Spa', 'Lap', 'Gru']
 function sanitizeTitle(raw: string): string {
   return (raw || '').replace(/<[^>]*>/g, '').replace(/&[^;]+;/g, ' ').replace(/\s+/g, ' ').trim()
+}
+function timeAgoLt(iso: string | null | undefined): string {
+  if (!iso) return ''
+  const t = Date.parse(iso)
+  if (isNaN(t)) return ''
+  const m = Math.floor((Date.now() - t) / 60000)
+  if (m < 1) return 'ką tik'
+  if (m < 60) return `prieš ${m} min.`
+  const h = Math.floor(m / 60)
+  if (h < 24) return `prieš ${h} val.`
+  const d = Math.floor(h / 24)
+  if (d < 30) return `prieš ${d} d.`
+  return `prieš ${Math.floor(d / 30)} mėn.`
 }
 function isFresh24(input: string | null | undefined): boolean {
   if (!input) return false
@@ -193,15 +207,6 @@ function Hero({ slides }: { slides: Slide[] }) {
 }
 
 /* ─────────────── Bendruomenės šoninė juosta (praturtinta) ─────────────── */
-function kindLabel(it: any): string {
-  if (it.editorial_type) return it.editorial_type
-  switch (it.type) {
-    case 'discussion': return 'Diskusija'
-    case 'atradimas': return 'Atradimas'
-    case 'blog': return 'Įrašas'
-    default: return 'Bendruomenė'
-  }
-}
 function CommunityRail({ community, top }: { community: any[]; top: any[] }) {
   const movers = (top || []).slice(0, 5)
   // Įvairūs bendruomenės įrašai — po vieną iš kiekvieno tipo (koncerto apžvalga,
@@ -245,21 +250,28 @@ function CommunityRail({ community, top }: { community: any[]; top: any[] }) {
           </div>
         )}
 
-        {varied.map((h: any) => (
-          <Link key={h.id} href={h.href || '/bendruomene'} className="v2-feat2 v2-feed-sec">
-            <div className="v2-feat2-top">
-              <span className="v2-feat2-kind">{kindLabel(h)}</span>
-              {h.author_name && <span className="v2-feat2-author">{h.author_avatar && (/* eslint-disable-next-line @next/next/no-img-element */<img className="v2-feat2-av" src={proxyImgResized(h.author_avatar, 40)} alt="" loading="lazy" />)}{h.author_name}</span>}
-            </div>
-            <div className="v2-feat2-body">
-              {h.cover && <span className="v2-feat2-cov">{/* eslint-disable-next-line @next/next/no-img-element */}<img src={proxyImgResized(h.cover, 160)} alt="" loading="lazy" /></span>}
-              <span className="v2-feat2-txt">
-                <b>{sanitizeTitle(h.title)}</b>
-                {h.excerpt && <span className="v2-feat2-ex">{sanitizeTitle(h.excerpt)}</span>}
+        {varied.map((h: any) => {
+          const kind = communityItemKind(h)
+          const meta = timeAgoLt(h.created_at)
+          return (
+            <Link key={h.id} href={h.href || '/bendruomene'} className="v2-bpost group">
+              <span className="v2-bpost-bar" style={{ background: kindColor(kind) }} aria-hidden />
+              {h.cover && <span className="v2-bpost-cov">{/* eslint-disable-next-line @next/next/no-img-element */}<img src={proxyImgResized(h.cover, 320)} alt="" loading="lazy" /></span>}
+              <span className="v2-bpost-body">
+                <KindBadge kind={kind} abs={false} />
+                <b className="v2-bpost-title">{sanitizeTitle(h.title)}</b>
+                {h.excerpt && <span className="v2-bpost-ex">{sanitizeTitle(h.excerpt)}</span>}
+                <span className="v2-bpost-meta">
+                  {h.author_avatar
+                    ? (/* eslint-disable-next-line @next/next/no-img-element */<img className="v2-bpost-av" src={proxyImgResized(h.author_avatar, 40)} alt="" loading="lazy" />)
+                    : <span className="v2-bpost-av v2-bpost-av-ph">{(h.author_name || '?').charAt(0).toUpperCase()}</span>}
+                  {h.author_name && <span className="v2-bpost-au">{h.author_name}</span>}
+                  {meta && <span className="v2-bpost-time">{meta}</span>}
+                </span>
               </span>
-            </div>
-          </Link>
-        ))}
+            </Link>
+          )
+        })}
 
         <Link href="/bendruomene" className="v2-clink v2-feed-more">Daugiau bendruomenėje →</Link>
       </div>
@@ -603,6 +615,22 @@ const V2_EXTRA = `
 /* sekcijos viename „Kas naujo?" bokse — atskirtos plona linija */
 .v2-comm-panel>.v2-feed-sec+.v2-feed-sec{border-top:1px solid var(--card-border-subtle);padding-top:14px}
 .v2-feed-more{display:inline-block;margin-top:2px}
+/* bendruomenės įrašo kortelė — kaip /bendruomene (accent bar + viršelis + badge + meta) */
+.v2-bpost{display:flex;overflow:hidden;border:1px solid var(--card-border-default);border-radius:var(--radius-xl);background:var(--card-surface);text-decoration:none;transition:border-color .15s}
+.v2-bpost:hover{border-color:rgba(249,115,22,.45)}
+.v2-bpost-bar{width:3px;flex:none}
+.v2-bpost-cov{width:74px;flex:none;align-self:stretch;background:var(--bg-elevated);overflow:hidden}
+.v2-bpost-cov img{width:100%;height:100%;object-fit:cover;display:block;transition:transform .4s ease}
+.v2-bpost:hover .v2-bpost-cov img{transform:scale(1.05)}
+.v2-bpost-body{min-width:0;flex:1;display:flex;flex-direction:column;padding:11px 12px}
+.v2-bpost-title{font-family:'Outfit',sans-serif;font-weight:800;font-size:14.5px;line-height:1.25;color:var(--text-primary);margin-top:8px;display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;overflow:hidden}
+.v2-bpost:hover .v2-bpost-title{color:var(--accent-orange)}
+.v2-bpost-ex{font-size:12.5px;color:var(--text-muted);line-height:1.45;margin-top:5px;display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;overflow:hidden}
+.v2-bpost-meta{display:flex;align-items:center;gap:6px;margin-top:9px}
+.v2-bpost-av{width:18px;height:18px;border-radius:50%;object-fit:cover;flex:none}
+.v2-bpost-av-ph{display:flex;align-items:center;justify-content:center;background:var(--bg-active);font-size:10px;font-weight:800;color:var(--text-faint)}
+.v2-bpost-au{font-size:12.5px;font-weight:700;color:var(--text-secondary);min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.v2-bpost-time{font-size:11px;color:var(--text-faint);flex:none;white-space:nowrap}
 /* Atrask muziką — atskira sekcija po koncertais (horizontalus card'as) */
 .v2-atrad{display:flex;align-items:center;gap:26px;padding:18px 20px;border:1px solid var(--border-default);border-radius:var(--radius-2xl);background:var(--bg-elevated)}
 .v2-atrad-txt{flex:1;min-width:0}
@@ -692,6 +720,7 @@ const V2_EXTRA = `
 .v2-cic{position:relative;display:flex;align-items:center;justify-content:center;gap:5px;width:30px;height:30px;border-radius:9px;border:1px solid var(--border-default);background:var(--bg-surface);color:var(--text-muted);cursor:pointer;transition:color .15s,border-color .15s,background .15s}
 .v2-cic-chat{width:auto;padding:0 9px}
 .v2-cic-time{font-family:'Outfit',sans-serif;font-size:11px;font-weight:700;color:var(--text-secondary);letter-spacing:0;text-transform:none}
+.v2-cic-av{width:16px;height:16px;border-radius:50%;object-fit:cover;flex:none}
 .v2-cic:hover{color:var(--accent-orange);border-color:var(--accent-orange);background:var(--bg-hover)}
 .v2-cic-dot{position:absolute;top:-3px;right:-3px;width:9px;height:9px;border-radius:50%;background:var(--accent-orange);border:2px solid var(--bg-elevated)}
 .v2-cic-live{position:absolute;top:-3px;right:-3px;width:8px;height:8px;border-radius:50%;background:#22c55e;border:2px solid var(--bg-elevated)}
