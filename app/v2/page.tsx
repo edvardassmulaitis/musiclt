@@ -137,12 +137,13 @@ async function genreMap(sb: any, artistIds: number[]): Promise<Map<number, strin
   return map
 }
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
-async function fetchLaneTracks(sb: any, lane: 'lt' | 'world', sinceIso: string, currentYear: number): Promise<any[]> {
+async function fetchLaneTracks(sb: any, lane: 'lt' | 'world', sinceIso: string, nowIso: string, currentYear: number): Promise<any[]> {
   let q = sb.from('tracks')
     .select('id, slug, title, cover_url, video_url, video_uploaded_at, release_date, release_year, video_views, hide_from_homepage, artist_id, artists!tracks_artist_id_fkey!inner(id, name, slug, cover_image_url, country, score)')
     .not('video_url', 'is', null)
     .not('video_uploaded_at', 'is', null)
     .gte('video_uploaded_at', sinceIso)
+    .lte('video_uploaded_at', nowIso) // NE ateities (blogi duomenys — pvz. album date perrašo)
     .order('video_uploaded_at', { ascending: false })
     .limit(lane === 'lt' ? 600 : 250)
   q = lane === 'lt' ? q.eq('artists.country', LT_COUNTRY) : q.neq('artists.country', LT_COUNTRY)
@@ -180,11 +181,12 @@ async function getMusicPool() {
   const sb = createAdminClient()
   const nowMs = Date.now()
   const sinceIso = new Date(nowMs - POOL_DAYS * 86_400_000).toISOString()
+  const nowIso = new Date(nowMs).toISOString()
   const albumSinceMs = nowMs - ALBUM_POOL_DAYS * 86_400_000
   const currentYear = new Date().getFullYear()
   const [tLt, tW, aLt, aW] = await Promise.all([
-    fetchLaneTracks(sb, 'lt', sinceIso, currentYear).catch(() => []),
-    fetchLaneTracks(sb, 'world', sinceIso, currentYear).catch(() => []),
+    fetchLaneTracks(sb, 'lt', sinceIso, nowIso, currentYear).catch(() => []),
+    fetchLaneTracks(sb, 'world', sinceIso, nowIso, currentYear).catch(() => []),
     fetchLaneAlbums(sb, 'lt', currentYear, albumSinceMs, nowMs).catch(() => []),
     fetchLaneAlbums(sb, 'world', currentYear, albumSinceMs, nowMs).catch(() => []),
   ])
