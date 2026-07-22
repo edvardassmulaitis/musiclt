@@ -883,7 +883,13 @@ const V2_EXTRA = `
 
 /* split */
 .v2-split{display:grid;grid-template-columns:minmax(0,1.9fr) minmax(0,1fr);gap:26px;align-items:start;margin-top:26px;padding-top:22px;border-top:1px solid var(--border-subtle)}
-.v2-main{min-width:0}
+.v2-main{min-width:0;background:var(--bg-elevated);border:1px solid var(--border-default);border-radius:var(--radius-2xl);padding:16px 18px}
+/* kairės muzikos header'is — veidrodinis dešinės „Kas naujo?" (• LABEL + valdikliai + linija) */
+.v2-mhead{display:flex;align-items:center;justify-content:space-between;gap:14px;padding-bottom:12px;margin-bottom:16px;border-bottom:1px solid var(--card-border-subtle)}
+.v2-mhead-label{display:flex;align-items:center;gap:8px;font-family:'Outfit',sans-serif;font-weight:800;font-size:12px;letter-spacing:.08em;text-transform:uppercase;color:var(--text-faint);flex:none}
+.v2-mhead-dot{width:7px;height:7px;border-radius:50%;background:var(--accent-orange);flex:none}
+.v2-mhead>.v2-mf{margin:0;flex:0 1 auto;min-width:0}
+@media(max-width:640px){.v2-mhead{flex-wrap:wrap}.v2-mhead>.v2-mf{flex:1 1 100%}}
 .v2-side{display:flex;flex-direction:column;gap:16px}
 /* bendruomenės panelis — neutralus atskyrimas (be oranžinio tint'o) */
 .v2-comm-panel{display:flex;flex-direction:column;gap:14px;padding:16px 15px;border-radius:var(--radius-2xl);

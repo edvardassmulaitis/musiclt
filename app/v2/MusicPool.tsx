@@ -145,7 +145,9 @@ export default function MusicPool({ tracks, albums, genres, upcoming, upcomingMo
 
   return (
     <div className="v2-mpool">
-      <div className="v2-mf">
+      <div className="v2-mhead">
+        <span className="v2-mhead-label"><span className="v2-mhead-dot" />Muzika</span>
+        <div className="v2-mf">
         <div className="v2-mf-scroll">
           <div className="v2-mf-grp">
             <button type="button" className={`v2-mf-chip${sort === 'new' ? ' on' : ''}`} onClick={() => tog(sort, 'new', setSort, '')}>
@@ -179,6 +181,7 @@ export default function MusicPool({ tracks, albums, genres, upcoming, upcomingMo
             </div>
           </div>
         )}
+        </div>
       </div>
 
       <section>
