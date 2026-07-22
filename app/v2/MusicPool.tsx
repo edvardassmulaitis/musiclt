@@ -41,7 +41,6 @@ function SecHead({ kind, label }: { kind: 'songs' | 'albums' | 'soon'; label: st
     <div className="v2-msec">
       <svg className="v2-msec-ic" width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.9" strokeLinecap="round" strokeLinejoin="round" aria-hidden>{ic}</svg>
       <span className="v2-msec-lbl">{label}</span>
-      <span className="v2-msec-rule" aria-hidden />
     </div>
   )
 }

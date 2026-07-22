@@ -835,11 +835,11 @@ const V2_EXTRA = `
 .v2-mf-opt{display:flex;align-items:center;width:100%;padding:8px 11px;border-radius:9px;font-size:13px;font-weight:600;font-family:'Outfit',sans-serif;text-align:left;white-space:nowrap;background:transparent;border:1px solid transparent;color:var(--text-secondary);cursor:pointer}
 .v2-mf-opt:hover{background:var(--bg-hover);color:var(--text-primary)}
 .v2-mf-opt.on{color:var(--accent-orange)}
-/* Subtilus sekcijos skirtukas (vietoj didelio h2): ikona + mažas užrašas + linija */
-.v2-msec{display:flex;align-items:center;gap:9px;margin:0 0 13px}
+/* Sekcijos antraštė: maža ikona + užrašas — vienodo stiliaus su dešiniuoju paneliu
+   („Naujausi įrašai"), be linijų, kad nesikirstų su „Muzika" antrašte. */
+.v2-msec{display:flex;align-items:center;gap:8px;margin:0 0 12px}
 .v2-msec-ic{color:var(--accent-orange);flex:none}
-.v2-msec-lbl{font-family:'Outfit',sans-serif;font-weight:700;font-size:12px;letter-spacing:.08em;text-transform:uppercase;color:var(--text-faint);flex:none}
-.v2-msec-rule{flex:1;height:1px;background:var(--card-border-subtle)}
+.v2-msec-lbl{font-family:'Outfit',sans-serif;font-weight:800;font-size:15px;letter-spacing:-.01em;color:var(--text-primary);flex:none}
 .v2-mgrid{display:grid;grid-template-columns:repeat(auto-fill,minmax(150px,1fr));gap:18px 14px}
 .v2-mgrid-cc{grid-template-columns:repeat(auto-fill,minmax(140px,1fr));gap:18px 16px}
 .v2-mgrid>.v2-tc,.v2-mgrid>.v2-cc{width:auto}
@@ -885,7 +885,7 @@ const V2_EXTRA = `
 .v2-split{display:grid;grid-template-columns:minmax(0,1.9fr) minmax(0,1fr);gap:26px;align-items:start;margin-top:26px;padding-top:22px;border-top:1px solid var(--border-subtle)}
 .v2-main{min-width:0;background:var(--bg-elevated);border:1px solid var(--border-default);border-radius:var(--radius-2xl);padding:16px 18px}
 /* kairės muzikos header'is — veidrodinis dešinės „Kas naujo?" (• LABEL + valdikliai + linija) */
-.v2-mhead{display:flex;align-items:center;justify-content:space-between;gap:14px;padding-bottom:12px;margin-bottom:16px;border-bottom:1px solid var(--card-border-subtle)}
+.v2-mhead{display:flex;align-items:center;justify-content:space-between;gap:14px;margin-bottom:18px}
 .v2-mhead-label{display:flex;align-items:center;gap:8px;font-family:'Outfit',sans-serif;font-weight:800;font-size:12px;letter-spacing:.08em;text-transform:uppercase;color:var(--text-faint);flex:none}
 .v2-mhead-dot{width:7px;height:7px;border-radius:50%;background:var(--accent-orange);flex:none}
 .v2-mhead>.v2-mf{margin:0;flex:0 1 auto;min-width:0}
