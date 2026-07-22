@@ -32,6 +32,7 @@ export type HubArtist = {
   cover_image_position: string | null
   is_verified: boolean | null
   score: number | null
+  score_trending: number | null
 }
 
 export type HubAlbum = {
@@ -64,7 +65,7 @@ export type CountryCount = { country: string; n: number }
 export type HubScope = 'all' | 'lt' | 'world'
 
 const ARTIST_COLS =
-  'id, slug, name, country, type, cover_image_url, cover_image_position, is_verified, score'
+  'id, slug, name, country, type, cover_image_url, cover_image_position, is_verified, score, score_trending'
 
 const LT_COUNTRIES = [LT_COUNTRY, 'LT', 'Lithuania']
 function isLT(country: string | null | undefined): boolean {
@@ -207,6 +208,11 @@ export const getTrendingArtists = cache(
       const fill = await fetchArtistsByIds(fillIds)
       artists = [...artists, ...fill]
     }
+    // RIKIAVIMAS pagal `score_trending` (subalansuota: chartai + peržiūros/d + šviežumas),
+    // NE pagal žalią chart poziciją — kitaip niekinio chart'o #1 (pvz. Future, mésh)
+    // iššoka virš tikrų trending žvaigždžių (Taylor, Jessica Shy). Kandidatų pool'as
+    // lieka „chartuose ∪ neseniai išleidę", tik tvarka teisinga.
+    artists.sort((a, b) => (b.score_trending ?? 0) - (a.score_trending ?? 0))
     return artists.slice(0, limit)
   }
 )
