@@ -8,9 +8,10 @@ import { ShoutboxPanel } from '@/components/chat/ShoutboxPanel'
 import { useActivity, ActivityModal } from '@/components/ActivityWidget'
 
 function avUrl(av: string): string {
-  return av.startsWith('/') || av.endsWith('.svg')
-    ? av
-    : `https://images.weserv.nl/?url=${encodeURIComponent(av.replace(/^https?:\/\//, ''))}&w=40&h=40&fit=cover&output=webp`
+  // Reliatyvūs / .svg / Google avatarai (weserv juos 404'ina — Google blokuoja
+  // hotlink'ą) → tiesiogiai. Kiti — per weserv resize.
+  if (av.startsWith('/') || av.endsWith('.svg') || av.includes('googleusercontent.com')) return av
+  return `https://images.weserv.nl/?url=${encodeURIComponent(av.replace(/^https?:\/\//, ''))}&w=40&h=40&fit=cover&output=webp`
 }
 
 function shortAgo(iso?: string | null): string {
@@ -58,13 +59,13 @@ export default function CommunityIcons() {
   return (
     <div className="v2-cicons">
       <button type="button" onClick={() => setChatOpen(true)} className="v2-cic v2-cic-chat" aria-label="Bendra pokalbių dėžutė" title="Bendra pokalbių dėžutė · pokalbiai">
-        {chatAv && (/* eslint-disable-next-line @next/next/no-img-element */<img className="v2-cic-av" src={avUrl(chatAv)} alt="" loading="lazy" />)}
+        {chatAv && (/* eslint-disable-next-line @next/next/no-img-element */<img className="v2-cic-av" src={avUrl(chatAv)} alt="" loading="lazy" onError={(e) => { e.currentTarget.style.display = 'none' }} />)}
         <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M21 11.5a8.38 8.38 0 0 1-.9 3.8 8.5 8.5 0 0 1-7.6 4.7 8.38 8.38 0 0 1-3.8-.9L3 21l1.9-5.7a8.38 8.38 0 0 1-.9-3.8 8.5 8.5 0 0 1 4.7-7.6 8.38 8.38 0 0 1 3.8-.9h.5a8.48 8.48 0 0 1 8 8v.5z" /></svg>
         {chatAgo && <span className="v2-cic-time">{chatAgo}</span>}
         {unread > 0 && <span className="v2-cic-dot" aria-label={`${unread} naujų`} />}
       </button>
       <button type="button" onClick={() => setActOpen(true)} className="v2-cic v2-cic-chat" aria-label="Kas vyksta" title="Kas vyksta · paskutinis aktyvumas">
-        {lastActorAv && (/* eslint-disable-next-line @next/next/no-img-element */<img className="v2-cic-av" src={lastActorAv.startsWith('/') || lastActorAv.endsWith('.svg') ? lastActorAv : `https://images.weserv.nl/?url=${encodeURIComponent(lastActorAv.replace(/^https?:\/\//, ''))}&w=40&h=40&fit=cover&output=webp`} alt="" loading="lazy" />)}
+        {lastActorAv && (/* eslint-disable-next-line @next/next/no-img-element */<img className="v2-cic-av" src={avUrl(lastActorAv)} alt="" loading="lazy" onError={(e) => { e.currentTarget.style.display = 'none' }} />)}
         <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round"><path d="M22 12h-4l-3 9L9 3l-3 9H2" /></svg>
         {actAgo && <span className="v2-cic-time">{actAgo}</span>}
       </button>
