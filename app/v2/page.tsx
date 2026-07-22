@@ -139,7 +139,7 @@ async function genreMap(sb: any, artistIds: number[]): Promise<Map<number, strin
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
 async function fetchLaneTracks(sb: any, lane: 'lt' | 'world', sinceIso: string, nowIso: string, currentYear: number): Promise<any[]> {
   let q = sb.from('tracks')
-    .select('id, slug, title, cover_url, video_url, video_uploaded_at, release_date, release_year, video_views, hide_from_homepage, artist_id, artists!tracks_artist_id_fkey!inner(id, name, slug, cover_image_url, country, score)')
+    .select('id, slug, title, cover_url, video_url, video_uploaded_at, release_date, release_year, video_views, hide_from_homepage, artist_id, artists!tracks_artist_id_fkey!inner(id, name, slug, cover_image_url, country, score, score_trending)')
     .not('video_url', 'is', null)
     .not('video_uploaded_at', 'is', null)
     .gte('video_uploaded_at', sinceIso)
@@ -165,7 +165,7 @@ async function fetchLaneTracks(sb: any, lane: 'lt' | 'world', sinceIso: string, 
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
 async function fetchLaneAlbums(sb: any, lane: 'lt' | 'world', currentYear: number, albumSinceMs: number, nowMs: number): Promise<any[]> {
   let q = sb.from('albums')
-    .select('id, title, slug, cover_image_url, year, month, day, is_upcoming, artist_id, artists!albums_artist_id_fkey!inner(id, name, slug, cover_image_url, country, score)')
+    .select('id, title, slug, cover_image_url, year, month, day, is_upcoming, artist_id, artists!albums_artist_id_fkey!inner(id, name, slug, cover_image_url, country, score, score_trending)')
     .not('year', 'is', null).gte('year', currentYear - 1)
     .order('year', { ascending: false }).order('month', { ascending: false, nullsFirst: false }).order('day', { ascending: false, nullsFirst: false })
     .limit(lane === 'lt' ? 500 : 250)
@@ -201,13 +201,21 @@ async function getMusicPool() {
   }
   const genreCount = new Map<string, number>()
   const addG = (gs: string[]) => { for (const g of gs) genreCount.set(g, (genreCount.get(g) || 0) + 1) }
+  // /v2 populiarumas = MIŠINYS: 0.5 all-time (score) + 0.5 trending (score_trending).
+  // /v2 = nauja muzika → grynas all-time keldavo legendas virš dabartinių žvaigždžių
+  // (Baumila > Jessica Shy); trending vienas keltų naujokų iššokimus. Mišinys balansuoja.
+  const popMix = (a: any) => {
+    const at = a?.score ?? 0
+    const tr = a?.score_trending
+    return Math.round(typeof tr === 'number' ? 0.5 * at + 0.5 * tr : at)
+  }
   const mapT = (r: any, isLt: boolean) => {
-    const ti = toTrackItem(r), score = r.artists?.score ?? 0, dateMs = trkUploadMs(r), gs = gmap.get(r.artist_id) || []
+    const ti = toTrackItem(r), score = popMix(r.artists), dateMs = trkUploadMs(r), gs = gmap.get(r.artist_id) || []
     addG(gs)
     return { id: ti.id, href: ti.href, thumb: ti.thumb, fallback: proxyImgResized(r.artists?.cover_image_url || r.cover_url || null, 320) || null, title: ti.title, artist: ti.artist, score, isLt, dateMs, rel: relOf(dateMs, score), hot: score >= (isLt ? TRACK_BAR.lt : TRACK_BAR.world), genres: gs }
   }
   const mapA = (r: any, isLt: boolean) => {
-    const ha = toHubAlbum(r), score = r.artists?.score ?? 0, dateMs = albumDateMs(r), gs = gmap.get(r.artist_id) || []
+    const ha = toHubAlbum(r), score = popMix(r.artists), dateMs = albumDateMs(r), gs = gmap.get(r.artist_id) || []
     addG(gs)
     return { id: ha.id, href: albumHref(ha), cover: ha.cover_image_url, title: ha.title, artist: ha.artist_name, score, isLt, dateMs, rel: relOf(dateMs, score), hot: score >= (isLt ? ALBUM_BAR.lt : ALBUM_BAR.world), genres: gs }
   }
