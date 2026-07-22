@@ -8,9 +8,29 @@ import { createAdminClient } from '@/lib/supabase'
 export const revalidate = 0
 
 export async function GET(req: Request) {
-  const id = Number(new URL(req.url).searchParams.get('id') || 0)
-  if (!id) return NextResponse.json({ error: 'id required' }, { status: 400 })
+  const sp = new URL(req.url).searchParams
   const sb = createAdminClient()
+
+  // Top trending leaderboard: ?top=1&scope=world|lt&limit=25
+  if (sp.get('top')) {
+    const scope = sp.get('scope') === 'lt' ? 'lt' : 'world'
+    const limit = Math.min(40, Number(sp.get('limit') || 25))
+    let q = sb.from('artists')
+      .select('id, name, country, score, score_trending, score_trending_breakdown')
+      .not('score_trending', 'is', null)
+      .order('score_trending', { ascending: false })
+      .limit(limit)
+    q = scope === 'lt' ? q.eq('country', 'Lietuva') : q.neq('country', 'Lietuva')
+    const { data } = await q
+    const rows = ((data || []) as any[]).map((a) => {
+      const c = (a.score_trending_breakdown?.categories) || {}
+      return { id: a.id, name: a.name, country: a.country, alltime: a.score, trending: a.score_trending, charts: c.charts?.points ?? null, perday: c.pop_perday?.points ?? null, fresh: c.freshness?.points ?? null, chartDetail: c.charts?.details ?? null }
+    })
+    return NextResponse.json({ scope, rows })
+  }
+
+  const id = Number(sp.get('id') || 0)
+  if (!id) return NextResponse.json({ error: 'id or top required' }, { status: 400 })
   const [{ data: artist }, { data: tracks }] = await Promise.all([
     sb.from('artists').select('id, name, country, score, score_trending, legacy_likes, wiki_pageviews').eq('id', id).single(),
     sb.from('tracks').select('video_views, video_uploaded_at, release_year').eq('artist_id', id).not('video_views', 'is', null),
