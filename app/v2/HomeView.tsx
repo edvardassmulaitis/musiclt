@@ -373,8 +373,8 @@ function buildHeroSlides(input: {
     // Cap 40 — albumo/diskografijos naujienose gali būti 100+ dainų (payload
     // svoris); 40 pakanka playlist'ui reader'yje.
     const songList = songs
-      .map((s: any) => ({ videoId: extractYouTubeId(s.youtube_url || null), title: sanitizeTitle(s.title || '') || s.artist_name || 'Daina', artist: s.artist_name || null, songId: s.song_id ?? s.id ?? null, score: s.score ?? 0 }))
-      .filter((s: any): s is { videoId: string; title: string; artist: string | null; songId: number | null; score: number } => !!s.videoId)
+      .map((s: any) => ({ videoId: extractYouTubeId(s.youtube_url || null), title: sanitizeTitle(s.title || '') || s.artist_name || 'Daina', artist: s.artist_name || null, songId: s.song_id ?? s.id ?? null, score: s.score ?? 0, video_views: s.video_views ?? 0 }))
+      .filter((s: any): s is { videoId: string; title: string; artist: string | null; songId: number | null; score: number; video_views: number } => !!s.videoId)
       .slice(0, 40)
     dated.push({ sortMs: ms(n.published_at), slide: {
       type: 'news', chip: typeLT.toUpperCase(), chipBg: '#1d4ed8',

@@ -128,11 +128,11 @@ export async function GET(req: NextRequest) {
       .filter((s: any) => s.song_id)
       .map((s: any) => s.song_id as number)
 
-    let tracksMap: Record<number, { title: string; artist_name: string; video_url: string; score: number }> = {}
+    let tracksMap: Record<number, { title: string; artist_name: string; video_url: string; score: number; video_views: number }> = {}
     if (trackIds.length > 0) {
       const { data: tracks } = await supabase
         .from('tracks')
-        .select('id, title, video_url, score, artists!tracks_artist_id_fkey(name)')
+        .select('id, title, video_url, score, video_views, artists!tracks_artist_id_fkey(name)')
         .in('id', trackIds)
       for (const t of (tracks as any[]) || []) {
         tracksMap[t.id] = {
@@ -140,6 +140,7 @@ export async function GET(req: NextRequest) {
           artist_name: (t.artists as any)?.name || '',
           video_url: t.video_url || '',
           score: (t as any).score ?? 0,
+          video_views: (t as any).video_views ?? 0,
         }
       }
     }
@@ -154,6 +155,7 @@ export async function GET(req: NextRequest) {
         artist_name: track?.artist_name || s.artist_name || '',
         youtube_url: track?.video_url || s.youtube_url || '',
         score: track?.score ?? 0,
+        video_views: track?.video_views ?? 0,
       }
       ;(songsByNews[s.news_id] = songsByNews[s.news_id] || []).push(merged)
     }
@@ -369,11 +371,11 @@ async function fetchHomeNewsRaw(sinceIso: string, limit: number) {
       .filter((s: any) => s.song_id)
       .map((s: any) => s.song_id as number)
 
-    let tracksMap: Record<number, { title: string; artist_name: string; video_url: string; score: number }> = {}
+    let tracksMap: Record<number, { title: string; artist_name: string; video_url: string; score: number; video_views: number }> = {}
     if (trackIds.length > 0) {
       const { data: tracks } = await supabase
         .from('tracks')
-        .select('id, title, video_url, score, artists!tracks_artist_id_fkey(name)')
+        .select('id, title, video_url, score, video_views, artists!tracks_artist_id_fkey(name)')
         .in('id', trackIds)
       for (const t of (tracks as any[]) || []) {
         tracksMap[t.id] = {
@@ -381,6 +383,7 @@ async function fetchHomeNewsRaw(sinceIso: string, limit: number) {
           artist_name: (t.artists as any)?.name || '',
           video_url: t.video_url || '',
           score: (t as any).score ?? 0,
+          video_views: (t as any).video_views ?? 0,
         }
       }
     }
@@ -395,6 +398,7 @@ async function fetchHomeNewsRaw(sinceIso: string, limit: number) {
         artist_name: track?.artist_name || s.artist_name || '',
         youtube_url: track?.video_url || s.youtube_url || '',
         score: track?.score ?? 0,
+        video_views: track?.video_views ?? 0,
       }
       ;(songsByNews[s.news_id] = songsByNews[s.news_id] || []).push(merged)
     }

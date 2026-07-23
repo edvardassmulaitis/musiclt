@@ -664,10 +664,11 @@ function ReaderSlide({ slide, active, seen, dk, scrollTopSignal, onScrolledChang
   // ≤3 (atskirai parinktos dainos) → atskiri grotuvai (kaip anksčiau).
   const nativeAll = (slide.songs || []).filter(s => !!s.songId)
   const isPlaylist = nativeAll.length > 3
-  // Playlist (albumas/grupė) → rikiuojam pagal populiarumą (track score desc), kaip
-  // atlikėjo psl. Atskirai parinktos dainos (≤3) → paliekam redaktoriaus tvarką.
+  // Playlist (albumas/grupė) → rikiuojam pagal populiarumą: score desc, tada
+  // video_views desc (kaip atlikėjo psl. — dažnai score=0, tad YouTube peržiūros
+  // duoda tikrą tvarką). Atskirai parinktos dainos (≤3) → redaktoriaus tvarka.
   const nativeSongs = isPlaylist
-    ? [...nativeAll].sort((a, b) => (b.score ?? 0) - (a.score ?? 0))
+    ? [...nativeAll].sort((a, b) => ((b.score ?? 0) - (a.score ?? 0)) || ((b.video_views ?? 0) - (a.video_views ?? 0)))
     : nativeAll.slice(0, 3)
   // Raw embed'ai (news `embeds` YouTube, chart/daily videoId, songs be songId) → paprastas iframe.
   const embeds: { videoId: string; title: string | null; artist?: string | null }[] = []
