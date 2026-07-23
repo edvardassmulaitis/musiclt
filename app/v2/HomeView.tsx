@@ -442,8 +442,11 @@ function buildHeroSlides(input: {
       const wVid = extractYouTubeId(tr.video_url || null)
       // Desktop koliažas: VAKAR laimėtojas (didelis, su trofėjumi) + ŠIANDIEN
       // pirmaujantys kandidatai (iš gyvų nominacijų). ISR (5 min) atnaujina per dieną.
-      const trkCover = (t: any) => t?.cover_url || t?.artists?.cover_image_url || (extractYouTubeId(t?.video_url || null) ? ytThumb(extractYouTubeId(t?.video_url || null)) : null)
-      const winnerCover = tr.artists?.cover_image_url || tr.cover_url || (wVid ? ytThumb(wVid) : null)
+      // Vizualo prioritetas: dainos cover (tikras artwork) → tos dainos YouTube
+      // maxres kadras (susijęs su daina, gera kokybė) → atlikėjo profilio foto.
+      const ytHi = (vid?: string | null) => vid ? `https://img.youtube.com/vi/${vid}/maxresdefault.jpg` : null
+      const trkCover = (t: any) => t?.cover_url || ytHi(extractYouTubeId(t?.video_url || null)) || t?.artists?.cover_image_url || null
+      const winnerCover = tr.cover_url || ytHi(wVid) || tr.artists?.cover_image_url || null
       const todayLeaders = (todayNoms || [])
         .filter((n: any) => n?.tracks && n.tracks.id !== tr.id)
         .slice(0, 3)
@@ -462,9 +465,9 @@ function buildHeroSlides(input: {
         subtitle: '',
         excerpt: w.winning_comment || '',
         metaLine: [wonLabel, tr.artists?.name].filter(Boolean).join(' · '),
-        // Hero kortelės vizualas: pirma atlikėjo profilio nuotrauka (švaresnis
-        // portretas tai aukštai story kortelei), tada dainos cover, tada YouTube.
-        bgImg: tr.artists?.cover_image_url || tr.cover_url || (wVid ? ytThumb(wVid) : null),
+        // Hero kortelės vizualas (mobile juosta) = tas pats winnerCover:
+        // dainos cover → dainos YouTube maxres kadras → atlikėjo foto.
+        bgImg: winnerCover,
         songTitle: tr.title || null,
         songArtist: tr.artists?.name || null,
         artist: tr.artists ? { name: tr.artists.name, slug: tr.artists.slug || '', image: tr.artists.cover_image_url || null } : null,

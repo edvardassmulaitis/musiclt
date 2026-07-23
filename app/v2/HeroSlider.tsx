@@ -237,29 +237,34 @@ function HeroV2Card({ slide, unseen, onOpen }: { slide: HeroSlide; unseen: boole
   )
 }
 
-/* Dienos daina — kandidatų koliažas (laimėtojas didžiausias). */
+/* Dienos daina — du kvadratai greta: VAKAR laimėtojas + ŠIANDIEN pirmaujantis.
+   Kiekvienas su etikete viršuje ir daina (title/artist) overlay'uje apačioje. */
 function HeroDailyCard({ slide, unseen, onOpen }: { slide: HeroSlide; unseen: boolean; onOpen: () => void }) {
   const items = slide.collage || []
   const winner = items.find(i => i.isWinner) || items[0]
-  const others = items.filter(i => i !== winner)
+  const today = items.find(i => !i.isWinner) // šiandien pirmaujantis kandidatas
   const accent = '#f59e0b'
   const accentSoft = 'rgba(245,158,11,0.22)'
   const wonLabel = (slide.metaLine || '').split(' · ')[0] || 'Laimėjo'
   const Trophy = ({ s = 11 }: { s?: number }) => (
     <svg width={s} height={s} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round"><path d="M8 21h8M12 17v4M7 4h10v5a5 5 0 0 1-10 0V4zM5 9a2 2 0 0 1-2-2V5h4M19 9a2 2 0 0 0 2-2V5h-4" /></svg>
   )
-  const Tile = ({ item, big }: { item?: { cover: string; title: string; artist: string; isWinner: boolean }; big?: boolean }) => {
-    if (!item) return <div className="rounded-lg" style={{ background: 'rgba(255,255,255,0.05)', height: '100%', width: '100%' }} />
-    return (
-      <div className="relative h-full w-full overflow-hidden rounded-lg" style={{ boxShadow: big ? '0 6px 22px rgba(0,0,0,0.5)' : '0 4px 14px rgba(0,0,0,0.4)', outline: item.isWinner ? `2px solid ${accent}` : 'none', outlineOffset: -2 }}>
-        {/* eslint-disable-next-line @next/next/no-img-element */}
-        <img src={proxyImgResized(item.cover, big ? 480 : 320)} alt="" loading="lazy" decoding="async" className="absolute inset-0 h-full w-full object-cover transition-transform duration-300 group-hover:scale-[1.04]" />
-        {item.isWinner && (
-          <span className="absolute left-2 top-2 inline-flex items-center justify-center rounded-md text-white" style={{ background: accent, height: big ? 24 : 20, minWidth: big ? 24 : 20, padding: '0 5px', boxShadow: '0 2px 8px rgba(0,0,0,0.5)' }}><Trophy s={big ? 13 : 11} /></span>
-        )}
+  const Square = ({ item, label, icon, winner: isW }: { item?: { cover: string; title: string; artist: string }; label: string; icon: React.ReactNode; winner?: boolean }) => (
+    <div className="flex min-w-0 flex-1 flex-col gap-2">
+      <span className="inline-flex items-center gap-1.5 font-['Outfit',sans-serif] text-[11px] font-extrabold uppercase tracking-[0.06em]" style={{ color: isW ? '#fcd34d' : 'rgba(255,255,255,0.72)' }}>{icon}{label}</span>
+      <div className="relative aspect-square w-full overflow-hidden rounded-xl" style={{ outline: isW ? `2px solid ${accent}` : '1px solid rgba(255,255,255,0.12)', outlineOffset: -1, boxShadow: '0 6px 20px rgba(0,0,0,0.45)' }}>
+        {item?.cover
+          // eslint-disable-next-line @next/next/no-img-element
+          ? <img src={proxyImgResized(item.cover, 560)} alt="" loading="lazy" decoding="async" className="absolute inset-0 h-full w-full object-cover transition-transform duration-300 group-hover:scale-[1.04]" />
+          : <div className="absolute inset-0" style={{ background: 'rgba(255,255,255,0.06)' }} />}
+        <div className="pointer-events-none absolute inset-0 bg-gradient-to-t from-black/85 via-black/15 to-transparent" />
+        <div className="absolute inset-x-0 bottom-0 p-2.5">
+          <p className="m-0 truncate font-['Outfit',sans-serif] text-[15px] font-extrabold leading-tight text-white">{item?.title}</p>
+          {item?.artist && <p className="m-0 mt-0.5 truncate font-['Outfit',sans-serif] text-[12px] font-semibold text-white/70">{item.artist}</p>}
+        </div>
       </div>
-    )
-  }
+    </div>
+  )
   return (
     <Link
       href={slide.href}
@@ -267,29 +272,12 @@ function HeroDailyCard({ slide, unseen, onOpen }: { slide: HeroSlide; unseen: bo
       className="group relative block aspect-[16/9] overflow-hidden rounded-2xl no-underline shadow-[var(--hero-card-shadow)] transition-all hover:-translate-y-0.5 hover:shadow-[var(--hero-card-shadow-hover)]"
       style={{ background: `radial-gradient(ellipse at top left, ${accentSoft}, rgba(10,14,26,0.98) 60%), linear-gradient(135deg, #1c1710 0%, #0a0e17 100%)`, ...unseenBorder(unseen) }}
     >
-      <div className="relative z-[1] flex h-full flex-col justify-between p-6 pt-3" style={{ width: '42%' }}>
-        <span className="inline-flex w-fit items-center rounded-md px-2 py-0.5 font-['Outfit',sans-serif] text-[12px] font-bold uppercase tracking-[0.03em] text-white" style={{ background: accent, alignSelf: 'flex-start' }}>DIENOS DAINA</span>
-        <div style={{ minWidth: 0 }}>
-          <span className="mb-2 inline-flex items-center gap-1.5 rounded-[6px] bg-white/12 px-2 py-[3px] font-['Outfit',sans-serif] text-[12px] font-bold uppercase tracking-[0.06em] text-amber-300"><Trophy />{wonLabel}</span>
-          <h3 className="m-0 font-['Outfit',sans-serif] text-[26px] font-black leading-[1.06] tracking-tight text-white" style={{ display: '-webkit-box', WebkitLineClamp: 2, WebkitBoxOrient: 'vertical', overflow: 'hidden' }}>{slide.title}</h3>
-          {slide.songArtist && <p className="m-0 mt-1.5 truncate font-['Outfit',sans-serif] text-[15px] font-bold text-white/85">{slide.songArtist}</p>}
+      <div className="relative z-[1] flex h-full flex-col p-4">
+        <span className="inline-flex w-fit items-center rounded-md px-2 py-0.5 font-['Outfit',sans-serif] text-[12px] font-bold uppercase tracking-[0.03em] text-white" style={{ background: accent }}>DIENOS DAINA</span>
+        <div className="mt-3 flex min-h-0 flex-1 items-stretch gap-3">
+          <Square item={winner} label={wonLabel} icon={<Trophy s={12} />} winner />
+          {today && <Square item={today} label="Šiandien pirmauja" icon={<span className="inline-block h-1.5 w-1.5 rounded-full" style={{ background: accent, boxShadow: `0 0 6px ${accent}` }} />} />}
         </div>
-      </div>
-      <div className="absolute right-4 top-4 bottom-4 flex flex-col gap-2.5" style={{ width: '58%' }}>
-        {/* Vakar laimėtojas — didelis kadras su trofėjumi */}
-        <div className="min-h-0 flex-[3]"><Tile item={winner} big /></div>
-        {/* Šiandien pirmauja — gyvi kandidatai (ISR 5 min) */}
-        {others.length > 0 && (
-          <div className="flex min-h-0 flex-[2] flex-col gap-1.5">
-            <span className="inline-flex items-center gap-1.5 font-['Outfit',sans-serif] text-[10px] font-extrabold uppercase tracking-[0.08em] text-white/70">
-              <span className="inline-block h-1.5 w-1.5 rounded-full" style={{ background: accent, boxShadow: `0 0 6px ${accent}` }} />
-              Šiandien pirmauja
-            </span>
-            <div className="grid min-h-0 flex-1 gap-1.5" style={{ gridTemplateColumns: `repeat(${Math.min(3, others.length)}, 1fr)` }}>
-              {others.slice(0, 3).map((it, i) => <Tile key={i} item={it} />)}
-            </div>
-          </div>
-        )}
       </div>
     </Link>
   )
