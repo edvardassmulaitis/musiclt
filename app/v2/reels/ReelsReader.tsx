@@ -516,47 +516,85 @@ function ReaderSlide({ slide, active, seen, dk, scrollTopSignal, onScrolledChang
  *  mažas chip'as kairėj (jei yra). */
 function NewsActions({ slide, onNavLink }: { slide: HeroSlide; onNavLink: () => void }) {
   const { data: session } = useSession()
+  const artistId = slide.artist?.id ?? null
+  // Naujienos „patinka" (like turinį).
   const [liked, setLiked] = useState(false)
-  const [count, setCount] = useState(0)
+  const [likeCount, setLikeCount] = useState(0)
   const [copied, setCopied] = useState(false)
+  // Atlikėjo sekimas (prenumerata) — ATSKIRAS nuo like (žmogus+ ikona, ne širdelė).
+  const [following, setFollowing] = useState(false)
+  const [followBusy, setFollowBusy] = useState(false)
+
   useEffect(() => {
     if (!slide.newsId) return
     let on = true
     fetch(`/api/likes/news/${slide.newsId}`).then(r => r.json()).then(d => {
       if (!on) return
-      setCount(d.count || 0)
+      setLikeCount(d.count || 0)
       const me = (session?.user as any)?.name || (session?.user as any)?.email
       if (me) setLiked((d.users || []).some((u: any) => (u.user_username || '').toLowerCase() === String(me).toLowerCase()))
     }).catch(() => {})
     return () => { on = false }
   }, [slide.newsId, session?.user])
-  const toggle = async () => {
+
+  useEffect(() => {
+    if (!artistId) return
+    let on = true
+    fetch(`/api/studija/follow?artistId=${artistId}`).then(r => r.json()).then(d => { if (on) setFollowing(!!d.following) }).catch(() => {})
+    return () => { on = false }
+  }, [artistId, session?.user])
+
+  const toggleLike = async () => {
     if (!session?.user || !slide.newsId) return
-    const n = !liked; setLiked(n); setCount(c => n ? c + 1 : Math.max(0, c - 1))
+    const n = !liked; setLiked(n); setLikeCount(c => n ? c + 1 : Math.max(0, c - 1))
     try { await fetch(`/api/news/${slide.newsId}/like`, { method: 'POST' }) } catch { /* ignore */ }
+  }
+  const toggleFollow = async () => {
+    if (!session?.user || !artistId || followBusy) return
+    setFollowBusy(true)
+    const prev = following; setFollowing(!prev)
+    try {
+      const r = await fetch('/api/studija/follow', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ artistId, follow: !prev }) })
+      const d = await r.json()
+      if (typeof d.following === 'boolean') setFollowing(d.following)
+    } catch { setFollowing(prev) } finally { setFollowBusy(false) }
   }
   const share = async () => {
     const url = (typeof location !== 'undefined' ? location.origin : '') + slide.href
     try { if (typeof navigator !== 'undefined' && (navigator as any).share) { await (navigator as any).share({ title: slide.title, url }); return } } catch { /* fallback */ }
     try { await navigator.clipboard.writeText(url); setCopied(true); setTimeout(() => setCopied(false), 1600) } catch { /* ignore */ }
   }
+
   return (
     <div className="rdr-foot rdr-foot-news" onClick={(e) => e.stopPropagation()}>
-      {slide.artist ? (
-        <Link href={`/atlikejai/${slide.artist.slug}`} onClick={onNavLink} className="rdr-na-artist">
-          {slide.artist.image
-            // eslint-disable-next-line @next/next/no-img-element
-            ? <img src={proxyImgResized(slide.artist.image, 96)} alt="" loading="lazy" decoding="async" />
-            : <span className="rdr-na-artist-ph">{slide.artist.name[0]}</span>}
-          <span>{slide.artist.name}</span>
-        </Link>
-      ) : <span />}
+      {/* KAIRĖJ — atlikėjas + „Sekti" (prenumerata atlikėjui) */}
+      <div className="rdr-na-left">
+        {slide.artist && (
+          <Link href={`/atlikejai/${slide.artist.slug}`} onClick={onNavLink} className="rdr-na-artist">
+            {slide.artist.image
+              // eslint-disable-next-line @next/next/no-img-element
+              ? <img src={proxyImgResized(slide.artist.image, 96)} alt="" loading="lazy" decoding="async" />
+              : <span className="rdr-na-artist-ph">{slide.artist.name[0]}</span>}
+            <span>{slide.artist.name}</span>
+          </Link>
+        )}
+        {artistId && (
+          <button type="button" className={`rdr-na-follow${following ? ' on' : ''}`} onClick={toggleFollow} disabled={!session?.user || followBusy} title={session?.user ? (following ? 'Nebesekti atlikėjo' : 'Sekti atlikėją') : 'Prisijunk, kad sektum'}>
+            {following ? (
+              <><svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.4"><path d="M20 6 9 17l-5-5" /></svg>Sekama</>
+            ) : (
+              <><svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M16 21v-2a4 4 0 0 0-4-4H6a4 4 0 0 0-4 4v2" /><circle cx="9" cy="7" r="4" /><line x1="19" y1="8" x2="19" y2="14" /><line x1="22" y1="11" x2="16" y2="11" /></svg>Sekti</>
+            )}
+          </button>
+        )}
+      </div>
+      {/* DEŠINĖJ — naujienos veiksmai: ♥ like naujieną, ↗ share, ⤢ open */}
       <div className="rdr-na-actions">
-        <button type="button" className={`rdr-na-btn${liked ? ' on' : ''}`} onClick={toggle} disabled={!session?.user} title={session?.user ? (liked ? 'Nebepatinka' : 'Patinka') : 'Prisijunk, kad pamėgtum'} aria-label="Patinka">
+        <button type="button" className={`rdr-na-btn${liked ? ' on' : ''}`} onClick={toggleLike} disabled={!session?.user} title={session?.user ? (liked ? 'Nebepatinka' : 'Patinka ši naujiena') : 'Prisijunk, kad pamėgtum'} aria-label="Patinka naujiena">
           <svg width="18" height="18" viewBox="0 0 24 24" fill={liked ? 'currentColor' : 'none'} stroke="currentColor" strokeWidth="2"><path d="M20.84 4.61a5.5 5.5 0 0 0-7.78 0L12 5.67l-1.06-1.06a5.5 5.5 0 0 0-7.78 7.78l1.06 1.06L12 21.23l7.78-7.78 1.06-1.06a5.5 5.5 0 0 0 0-7.78z" /></svg>
-          {count > 0 && <span>{count}</span>}
+          {likeCount > 0 && <span>{likeCount}</span>}
         </button>
-        <button type="button" className="rdr-na-btn" onClick={share} title="Dalintis" aria-label="Dalintis">
+        <button type="button" className="rdr-na-btn" onClick={share} title="Dalintis naujiena" aria-label="Dalintis">
           {copied
             ? <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.4"><path d="M20 6 9 17l-5-5" /></svg>
             : <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><circle cx="18" cy="5" r="3" /><circle cx="6" cy="12" r="3" /><circle cx="18" cy="19" r="3" /><path d="m8.59 13.51 6.83 3.98M15.41 6.51 8.59 10.49" /></svg>}
@@ -1330,11 +1368,15 @@ const REELS_CSS = `
         .rdr-mos-badge{position:absolute;top:6px;left:6px;min-width:22px;height:22px;padding:0 5px;border-radius:7px;display:flex;align-items:center;justify-content:center;font-family:'Outfit',sans-serif;font-weight:900;font-size:12.5px;color:#fff;box-shadow:0 2px 8px rgba(0,0,0,0.5)}
         .rdr-media-mosaic .rdr-media-fade{display:none}
         /* News greitų veiksmų footer (♥ / ↗ / ⤢) */
-        .rdr-foot-news{display:flex;align-items:center;justify-content:space-between;gap:10px;padding:8px 10px}
+        .rdr-foot-news{display:flex;align-items:center;justify-content:space-between;gap:8px;padding:8px 10px}
+        .rdr-na-left{display:flex;align-items:center;gap:7px;min-width:0;flex:1 1 auto}
         .rdr-na-artist{display:inline-flex;align-items:center;gap:8px;min-width:0;text-decoration:none;color:#fff}
         .rdr-na-artist img,.rdr-na-artist-ph{width:32px;height:32px;border-radius:50%;object-fit:cover;flex-shrink:0;background:var(--accent-orange);display:flex;align-items:center;justify-content:center;color:#fff;font-weight:800;font-size:14px;text-transform:uppercase;font-family:'Outfit',sans-serif}
         .rdr-na-artist span{font-family:'Outfit',sans-serif;font-weight:700;font-size:14px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
-        .rdr-na-actions{display:flex;align-items:center;gap:8px;flex-shrink:0}
+        .rdr-na-follow{display:inline-flex;align-items:center;gap:5px;flex-shrink:0;height:32px;padding:0 12px;border-radius:999px;border:1px solid var(--accent-orange);background:transparent;color:var(--accent-orange);font-family:'Outfit',sans-serif;font-weight:800;font-size:12.5px;cursor:pointer;white-space:nowrap}
+        .rdr-na-follow.on{background:var(--accent-orange);color:#fff}
+        .rdr-na-follow:disabled{opacity:0.5;cursor:not-allowed}
+        .rdr-na-actions{display:flex;align-items:center;gap:6px;flex-shrink:0}
         .rdr-na-btn{display:inline-flex;align-items:center;justify-content:center;gap:5px;height:38px;min-width:38px;padding:0 11px;border-radius:11px;background:rgba(255,255,255,0.08);border:1px solid rgba(255,255,255,0.14);color:#fff;font-family:'Outfit',sans-serif;font-weight:800;font-size:13px;cursor:pointer;text-decoration:none}
         .rdr-na-btn.on{color:#fff;border-color:var(--accent-orange);background:var(--accent-orange)}
         .rdr-na-btn.on svg{fill:#fff}

@@ -20,7 +20,7 @@ export type HeroSlide = {
   subtitleShort?: string  // kompaktiška meta mobile kortelei (be venue/metų)
   href: string; bgImg?: string | null; videoId?: string | null
   songTitle?: string | null; songArtist?: string | null; songCover?: string | null
-  artist?: { name: string; slug: string; image?: string | null } | null
+  artist?: { id?: number | null; name: string; slug: string; image?: string | null } | null
   chartTops?: TopEntry[]
   collage?: { cover: string; title: string; artist: string; isWinner: boolean }[]
   // ── Reader v3 papildomi laukai ──

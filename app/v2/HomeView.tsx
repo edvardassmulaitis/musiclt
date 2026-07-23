@@ -390,7 +390,7 @@ function buildHeroSlides(input: {
       songTitle: song?.title || null,
       songArtist: song?.artist_name || n.artist?.name || null,
       songCover: null,
-      artist: n.artist ? { name: n.artist.name, slug: n.artist.slug, image: n.artist.cover_image_url || null } : null,
+      artist: n.artist ? { id: n.artist.id ?? null, name: n.artist.name, slug: n.artist.slug, image: n.artist.cover_image_url || null } : null,
     } })
   })
   heroPosts
