@@ -238,14 +238,40 @@ function RdrMosaic({ items, accent }: { items: { cover: string; badge?: number |
   )
 }
 
-/** Native „susijusios muzikos" grotuvas — vietoj YouTube embedo su YT chrome:
- *  cover + oranžinis play mygtukas, po juo pavadinimas/atlikėjas + ♥ (track like).
- *  Paspaudus play — skaičiuojam INTERNAL paleidimą (/api/tracks/[id]/play) ir
- *  paleidžiam video (YT iframe autoplay, modestbranding — be YT thumbnail/„Watch
- *  on YouTube" pradžios). */
-function SongPlayer({ song }: { song: { videoId: string; title: string; artist?: string | null; songId?: number | null } }) {
+// YouTube IFrame Player API — įkeliam vieną kartą. Reikalinga iOS play'inimui:
+// playVideo() paspaudimo gesture'e ant JAU paruošto player'io (autoplay=1 URL'e
+// iOS neveikia — rodo YT native ir reikia antro paspaudimo).
+let ytApiPromise: Promise<any> | null = null
+function loadYT(): Promise<any> {
+  if (typeof window === 'undefined') return Promise.reject(new Error('no window'))
+  const w = window as any
+  if (w.YT && w.YT.Player) return Promise.resolve(w.YT)
+  if (ytApiPromise) return ytApiPromise
+  ytApiPromise = new Promise((resolve) => {
+    const prev = w.onYouTubeIframeAPIReady
+    w.onYouTubeIframeAPIReady = () => { if (typeof prev === 'function') prev(); resolve(w.YT) }
+    if (!document.getElementById('yt-iframe-api')) {
+      const s = document.createElement('script'); s.id = 'yt-iframe-api'; s.src = 'https://www.youtube.com/iframe_api'; document.head.appendChild(s)
+    }
+    const iv = setInterval(() => { if (w.YT && w.YT.Player) { clearInterval(iv); resolve(w.YT) } }, 150)
+  })
+  return ytApiPromise
+}
+function trackSlugify(s: string): string {
+  return (s || '').toLowerCase()
+    .replace(/[ąä]/g, 'a').replace(/[čç]/g, 'c').replace(/[ęè]/g, 'e').replace(/[ėé]/g, 'e')
+    .replace(/[į]/g, 'i').replace(/[š]/g, 's').replace(/[ų]/g, 'u').replace(/[ū]/g, 'u').replace(/[ž]/g, 'z')
+    .replace(/[^a-z0-9]+/g, '-').replace(/^-+|-+$/g, '') || 'daina'
+}
+
+/** Native „susijusios muzikos" grotuvas — cover + oranžinis play mygtukas apatiniam
+ *  dešiniam kampe (kaip atlikėjo psl.), oranžinis borderis (kaip „Vakar laimėjo").
+ *  Play → skaičiuojam INTERNAL paleidimą (/api/tracks/[id]/play) + playVideo() per
+ *  YT IFrame API (kad iOS paleistų iškart). Pavadinimas — nuoroda į dainos psl. */
+function SongPlayer({ song, onNavLink }: { song: { videoId: string; title: string; artist?: string | null; songId?: number | null }; onNavLink: () => void }) {
   const { data: session } = useSession()
-  const iframeRef = useRef<HTMLIFrameElement>(null)
+  const holderRef = useRef<HTMLDivElement>(null)
+  const playerRef = useRef<any>(null)
   const [started, setStarted] = useState(false)
   const [liked, setLiked] = useState(false)
   const [likeCount, setLikeCount] = useState(0)
@@ -255,12 +281,23 @@ function SongPlayer({ song }: { song: { videoId: string; title: string; artist?:
     fetch(`/api/tracks/${song.songId}/like`).then(r => r.json()).then(d => { if (!on) return; setLikeCount(d.count || 0); if (typeof d.liked === 'boolean') setLiked(d.liked) }).catch(() => {})
     return () => { on = false }
   }, [song.songId, session?.user])
+  // Paruošiam YT player'į iš anksto (kol slide aktyvi) — kad paspaudus playVideo()
+  // suveiktų iOS'e (player jau ready, gesture tiesiogiai paleidžia).
+  useEffect(() => {
+    let dead = false
+    loadYT().then((YT) => {
+      if (dead || !holderRef.current || playerRef.current) return
+      playerRef.current = new YT.Player(holderRef.current, {
+        videoId: song.videoId, width: '100%', height: '100%',
+        playerVars: { playsinline: 1, rel: 0, modestbranding: 1 },
+      })
+    }).catch(() => {})
+    return () => { dead = true; try { playerRef.current?.destroy?.() } catch { /* ignore */ } playerRef.current = null }
+  }, [song.videoId])
   const play = () => {
     if (started) return
     if (song.songId) fetch(`/api/tracks/${song.songId}/play`, { method: 'POST', keepalive: true }).catch(() => {})
-    // iOS AUTOPLAY: src nustatom TIESIOGIAI paspaudimo gesture'e (per iframe ref),
-    // NE per async React re-render — kitaip iOS nepaleidžia iškart (rodo YT native).
-    if (iframeRef.current) iframeRef.current.src = `https://www.youtube.com/embed/${song.videoId}?autoplay=1&playsinline=1&rel=0&modestbranding=1`
+    try { playerRef.current?.playVideo?.() } catch { /* ignore */ }
     setStarted(true)
   }
   const toggleLike = async () => {
@@ -269,21 +306,24 @@ function SongPlayer({ song }: { song: { videoId: string; title: string; artist?:
     try { await fetch(`/api/tracks/${song.songId}/like`, { method: 'POST' }) } catch { /* ignore */ }
   }
   const cover = `https://i.ytimg.com/vi/${song.videoId}/hqdefault.jpg`
+  const href = song.songId ? `/dainos/${trackSlugify([song.artist, song.title].filter(Boolean).join('-'))}-${song.songId}` : null
   return (
     <div className="rdr-song">
       <div className="rdr-song-video">
-        {/* iframe VISADA DOM'e (be src) — kad play() gesture'e galėtų sinchroniškai
-            nustatyti src ir iOS leistų autoplay. Iki play — uždengtas posteriu. */}
-        <iframe ref={iframeRef} className="rdr-song-iframe" allow="autoplay; encrypted-media; fullscreen; picture-in-picture" allowFullScreen title={song.title} />
+        <div className="rdr-song-ytwrap"><div ref={holderRef} /></div>
         {!started && (
           <button type="button" className="rdr-song-poster" onClick={play} style={{ backgroundImage: `url(${cover})` }} aria-label={`Groti: ${song.title}`}>
-            {/* Play mygtukas APATINIAM DEŠINIAM kampe (kaip atlikėjo psl.) — neuždengia vizualo */}
             <span className="rdr-song-play"><svg width="22" height="22" viewBox="0 0 24 24" fill="#fff" aria-hidden><path d="M8 5v14l11-7z" /></svg></span>
           </button>
         )}
       </div>
       <div className="rdr-song-bar">
-        <span className="rdr-song-info"><b>{song.title}</b>{song.artist ? <i>{song.artist}</i> : null}</span>
+        <span className="rdr-song-info">
+          {href
+            ? <Link href={href} onClick={onNavLink} className="rdr-song-title"><b>{song.title}</b></Link>
+            : <b>{song.title}</b>}
+          {song.artist ? <i>{song.artist}</i> : null}
+        </span>
         <button type="button" className={`rdr-song-like${liked ? ' on' : ''}`} onClick={toggleLike} disabled={!session?.user} title={session?.user ? (liked ? 'Nebepatinka' : 'Patinka daina') : 'Prisijunk, kad pamėgtum'} aria-label="Patinka daina">
           <svg width="16" height="16" viewBox="0 0 24 24" fill={liked ? 'currentColor' : 'none'} stroke="currentColor" strokeWidth="2"><path d="M20.84 4.61a5.5 5.5 0 0 0-7.78 0L12 5.67l-1.06-1.06a5.5 5.5 0 0 0-7.78 7.78l1.06 1.06L12 21.23l7.78-7.78 1.06-1.06a5.5 5.5 0 0 0 0-7.78z" /></svg>
           {likeCount > 0 && <span>{likeCount}</span>}
@@ -549,7 +589,7 @@ function ReaderSlide({ slide, active, seen, dk, scrollTopSignal, onScrolledChang
           <div className="rdr-embeds" ref={embedsRef}>
             {/* Susijusi muzika → native grotuvas (be pasikartojančio title, su like
                 + internal play skaičiavimu). Kiti (raw YouTube) → paprastas iframe. */}
-            {nativeSongs.map(s => <SongPlayer key={s.videoId} song={s} />)}
+            {nativeSongs.map(s => <SongPlayer key={s.videoId} song={s} onNavLink={onNavLink} />)}
             {embeds.map(e => (
               <div key={e.videoId} className="rdr-embed">
                 {e.title && (
@@ -1545,7 +1585,10 @@ const REELS_CSS = `
            (oranžinis borderis), play mygtukas apatiniam dešiniam kampe (kaip atlikėjo psl.) */
         .rdr-song{border-radius:14px;overflow:hidden;background:var(--bg-surface);border:1px solid rgba(249,115,22,0.35)}
         .rdr-song-video{position:relative;width:100%;aspect-ratio:16/9;background:#000}
-        .rdr-song-iframe{position:absolute;inset:0;width:100%;height:100%;border:0}
+        .rdr-song-ytwrap{position:absolute;inset:0}
+        .rdr-song-ytwrap iframe{position:absolute;inset:0;width:100%;height:100%;border:0;display:block}
+        .rdr-song-title{text-decoration:none;color:inherit}
+        .rdr-song-title:hover b{color:var(--accent-orange)}
         .rdr-song-poster{position:absolute;inset:0;width:100%;height:100%;border:0;padding:0;cursor:pointer;background-size:cover;background-position:center}
         .rdr-song-play{position:absolute;bottom:10px;right:10px;display:flex;align-items:center;justify-content:center;width:48px;height:48px;border-radius:50%;background:var(--accent-orange);box-shadow:0 8px 24px rgba(249,115,22,0.5);border:3px solid rgba(255,255,255,0.15);padding-left:2px;transition:transform .2s}
         .rdr-song-poster:hover .rdr-song-play{transform:scale(1.08)}
