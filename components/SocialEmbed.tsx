@@ -54,7 +54,10 @@ export default function SocialEmbed({ url, caption }: { url: string; caption?: s
   if (platform === 'instagram') {
     return (
       <div ref={ref}>
-        <blockquote className="instagram-media" data-instgrm-permalink={url} data-instgrm-version="14"
+        {/* data-instgrm-captioned — BŪTINA, kad embed.js atvaizduotų PILNĄ įrašą
+            su antrašte (caption) ir komentarais, ne tik nuotrauką+like'us. Be jo
+            renderindavo sutrumpintą versiją (matėsi tik vaizdas). */}
+        <blockquote className="instagram-media" data-instgrm-captioned data-instgrm-permalink={url} data-instgrm-version="14"
           style={{ background: '#fff', border: 0, borderRadius: 12, margin: 0, padding: 0, width: '100%' }}>
           <a href={url} target="_blank" rel="noreferrer">Žiūrėti Instagram</a>
         </blockquote>
