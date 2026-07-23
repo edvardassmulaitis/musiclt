@@ -13,8 +13,9 @@ interface FieldDiff { field: string; label: string; old: any; new: any; changed:
 interface LinkDiff { index: number; platform: string; column: string | null; oldUrl: string | null; newUrl: string; action: string }
 interface ContactPlan { index: number; name: string; type: string; email: string | null; phone: string | null; url: string | null; confidence: string; action: string; isPotential: boolean }
 interface AlbumPlan { index: number; title: string; type: string | null; year: number | null; action: string; existingId: number | null; description: string | null; descriptionOld: string | null; descriptionChanged: boolean; descriptionOnly: boolean; notFound: boolean; coverUrl: string | null; coverWillApply: boolean }
-interface TrackPlan { index: number; title: string; albumTitle: string | null; type: string | null; action: string; existingId: number | null; albumFound: boolean; featuring: string[]; featuringNew: string[] }
-interface ImagePlan { index: number; url: string; type: string | null; license: string | null; hasLicense: boolean; action: string }
+interface TrackPlan { index: number; title: string; albumTitle: string | null; type: string | null; action: string; existingId: number | null; albumFound: boolean; featuring: string[]; featuringNew: string[]; year: number | null; duration: string | null }
+interface ImagePlan { index: number; url: string; type: string | null; source: string | null; author: string | null; license: string | null; credit: string | null; hasLicense: boolean; isDuplicate: boolean; action: string }
+interface ExistingPhoto { url: string; author: string | null; license: string | null }
 interface Preview {
   match: { status: string; artist?: MatchCandidate; candidates: MatchCandidate[] }
   willCreateArtist: boolean
@@ -25,12 +26,14 @@ interface Preview {
   albumPlans: AlbumPlan[]
   trackPlans: TrackPlan[]
   imagePlans: ImagePlan[]
+  existingPhotos: ExistingPhoto[]
   warnings: string[]
 }
 interface Summary {
   artist_id: number; created: boolean; fields_updated: number; links_updated: number
   contacts_added: number; contacts_updated: number; albums_created: number; albums_updated: number
   tracks_created: number; tracks_updated: number; featuring_linked: number; images_logged: number
+  images_added: number; images_skipped: number
   warnings: string[]
 }
 
@@ -214,6 +217,7 @@ export default function ArtistImportPage() {
   const [selContacts, setSelContacts] = useState<Set<number>>(new Set())
   const [selAlbums, setSelAlbums] = useState<Set<number>>(new Set())
   const [selTracks, setSelTracks] = useState<Set<number>>(new Set())
+  const [selImages, setSelImages] = useState<Set<number>>(new Set())
 
   function initSelection(p: Preview) {
     setSelFields(new Set(p.fieldDiffs.filter(f => f.selectable).map(f => f.field)))
@@ -221,6 +225,8 @@ export default function ArtistImportPage() {
     setSelContacts(new Set(p.contactPlans.map(c => c.index)))
     setSelAlbums(new Set(p.albumPlans.filter(a => !a.notFound).map(a => a.index)))
     setSelTracks(new Set(p.trackPlans.map(t => t.index)))
+    // Numatytai pažymim tik pridedamas nuotraukas (ne dublikatus / netinkamus URL).
+    setSelImages(new Set((p.imagePlans || []).filter(im => im.action === 'add').map(im => im.index)))
   }
 
   function toggle<T>(setter: React.Dispatch<React.SetStateAction<Set<T>>>, key: T) {
@@ -249,6 +255,7 @@ export default function ArtistImportPage() {
             contacts: [...selContacts],
             albums: [...selAlbums],
             tracks: [...selTracks],
+            images: [...selImages],
           } : undefined,
         }),
       })
@@ -405,6 +412,7 @@ export default function ArtistImportPage() {
               <span>Albumai: +{summary.albums_created} / ~{summary.albums_updated}</span>
               <span>Dainos: +{summary.tracks_created} / ~{summary.tracks_updated}</span>
               <span>Featuring: {summary.featuring_linked}</span>
+              <span>Nuotraukos: +{summary.images_added ?? 0}{(summary.images_skipped ?? 0) > 0 ? ` (${summary.images_skipped} praleista)` : ''}</span>
             </div>
             {summary.warnings.length > 0 && (
               <details className="mt-2 text-xs text-orange-700">
@@ -620,7 +628,11 @@ export default function ArtistImportPage() {
                       <Check checked={selTracks.has(t.index)} onChange={() => toggle(setSelTracks, t.index)} />
                       <Pill text={t.action === 'create' ? 'nauja' : 'update'} color={t.action === 'create' ? 'green' : 'blue'} />
                       <span className="text-[var(--text-primary)]">{t.title}</span>
-                      {t.albumTitle && <span className={t.albumFound ? 'text-[var(--text-muted)]' : 'text-orange-600'}>💿 {t.albumTitle}{!t.albumFound && ' (nerastas)'}</span>}
+                      {t.year ? <span className="text-[var(--text-muted)]">{t.year}</span> : <span className="text-orange-600">be metų</span>}
+                      {t.duration && <span className="text-[var(--text-faint)]">{t.duration}</span>}
+                      {t.albumTitle
+                        ? <span className={t.albumFound ? 'text-[var(--text-muted)]' : 'text-orange-600'}>💿 {t.albumTitle}{!t.albumFound && ' (nerastas)'}</span>
+                        : <span className="text-[var(--text-faint)]">singlas</span>}
                       {t.featuring.length > 0 && <span className="text-[var(--text-faint)]">feat. {t.featuring.join(', ')}</span>}
                       {t.featuringNew.length > 0 && <Pill text={`+${t.featuringNew.length} nauji`} color="orange" />}
                     </div>
@@ -629,19 +641,62 @@ export default function ArtistImportPage() {
               </Section>
             )}
 
-            {/* Images */}
-            {preview.imagePlans.length > 0 && (
-              <Section title="Paveikslėliai" count={preview.imagePlans.length}>
-                <div className="space-y-1">
-                  {preview.imagePlans.map((img, i) => (
-                    <div key={i} className="flex items-center gap-2 text-xs">
-                      <Pill text={img.hasLicense ? 'peržiūrai' : 'skip'} color={img.hasLicense ? 'blue' : 'red'} />
-                      <span className="truncate text-[var(--text-muted)]">{img.url}</span>
-                      {img.license && <span className="text-[var(--text-faint)]">{img.license}</span>}
+            {/* Nuotraukos (galerija) */}
+            {(preview.imagePlans.length > 0 || (preview.existingPhotos?.length ?? 0) > 0) && (
+              <Section
+                title="Nuotraukos"
+                count={preview.imagePlans.length}
+                onAll={() => setSelImages(new Set(preview.imagePlans.filter(im => im.action === 'add').map(im => im.index)))}
+                onNone={() => setSelImages(new Set())}
+              >
+                {/* Naujos nuotraukos iš JSON */}
+                {preview.imagePlans.length > 0 ? (
+                  <div className="space-y-2">
+                    <p className="text-[13px] font-medium text-[var(--text-muted)]">Bus pridėta ({preview.imagePlans.filter(im => im.action === 'add').length} iš {preview.imagePlans.length})</p>
+                    {preview.imagePlans.map((img, i) => (
+                      <div key={i} className="flex items-start gap-2 text-xs">
+                        <Check
+                          checked={img.action === 'add' && selImages.has(img.index)}
+                          disabled={img.action !== 'add'}
+                          onChange={() => toggle(setSelImages, img.index)}
+                        />
+                        {/* eslint-disable-next-line @next/next/no-img-element */}
+                        <img src={img.url} alt="" className="h-14 w-14 shrink-0 rounded object-cover border border-[var(--input-border)] bg-[var(--input-bg)]" loading="lazy" />
+                        <div className="min-w-0 flex-1">
+                          <div className="flex flex-wrap items-center gap-1.5">
+                            {img.action === 'duplicate' && <Pill text="jau yra" color="orange" />}
+                            {img.action === 'skip' && <Pill text="netinkamas URL" color="red" />}
+                            {img.action === 'add' && <Pill text="nauja" color="green" />}
+                            {img.type && <span className="text-[var(--text-faint)]">{img.type}</span>}
+                            {!img.hasLicense && img.action === 'add' && <Pill text="be licencijos" color="red" />}
+                          </div>
+                          <div className="mt-0.5 flex flex-wrap gap-x-3 gap-y-0.5 text-[var(--text-faint)]">
+                            {img.author && <span>👤 {img.author}</span>}
+                            {img.license && <span>© {img.license}</span>}
+                            {img.source && <span className="truncate max-w-[220px]">🔗 {img.source}</span>}
+                            {img.credit && <span>{img.credit}</span>}
+                          </div>
+                          <div className="mt-0.5 truncate text-[var(--text-faint)]">{img.url}</div>
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                ) : (
+                  <p className="text-xs text-[var(--text-faint)]">JSON'e nuotraukų nėra (images: []).</p>
+                )}
+
+                {/* Esamos galerijos nuotraukos — dublikatų vengimui */}
+                {(preview.existingPhotos?.length ?? 0) > 0 && (
+                  <div className="mt-4 border-t border-[var(--input-border)] pt-3">
+                    <p className="text-[13px] font-medium text-[var(--text-muted)]">Esamos galerijoje ({preview.existingPhotos.length}) — dublikatai automatiškai praleidžiami</p>
+                    <div className="mt-2 flex flex-wrap gap-1.5">
+                      {preview.existingPhotos.map((ph, i) => (
+                        // eslint-disable-next-line @next/next/no-img-element
+                        <img key={i} src={ph.url} alt="" title={[ph.author, ph.license].filter(Boolean).join(' · ')} className="h-12 w-12 rounded object-cover border border-[var(--input-border)] bg-[var(--input-bg)]" loading="lazy" />
+                      ))}
                     </div>
-                  ))}
-                </div>
-                <p className="mt-2 text-[14px] text-[var(--text-faint)]">Paveikslėliai neaplikuojami automatiškai — įkelk cover'į rankiniu būdu atlikėjo redagavime.</p>
+                  </div>
+                )}
               </Section>
             )}
 

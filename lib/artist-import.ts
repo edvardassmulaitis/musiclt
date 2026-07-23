@@ -15,6 +15,7 @@ import type { SupabaseClient } from '@supabase/supabase-js'
 import { slugify } from './slugify'
 import { findOrCreateArtist } from './featuring-utils'
 import { loadSubstyleRows, resolveSubstyle } from './substyle-resolve'
+import { resolvePhotographerId, splitAuthorLicense } from './photographers'
 
 // ── Tipai ─────────────────────────────────────────────────────────────────────
 export interface ImportLink { platform: string; url: string }
@@ -36,6 +37,8 @@ export interface ImportTrack {
   album_title?: string | null; source_album_title?: string | null
   type?: string; track_number?: number | null
   release_date?: string | null
+  release_year?: number | null; release_month?: number | null; release_day?: number | null
+  duration?: string | null
   featured_artists?: ImportFeatured[]
   primary_artists?: ImportFeatured[]
   spotify_url?: string | null
@@ -78,6 +81,7 @@ export interface ApplySelection {
   contacts?: number[]    // indeksai payload.contacts masyve
   albums?: number[]      // indeksai payload.albums masyve
   tracks?: number[]      // indeksai payload.tracks masyve
+  images?: number[]      // indeksai payload.images masyve
 }
 
 // ── Konstantos / enums ────────────────────────────────────────────────────────
@@ -173,6 +177,19 @@ function parseDateParts(d?: string | null): { year: number | null; month: number
 
 function albumSlug(title: string, year?: number | null): string {
   return slugify(title) + (year ? `-${year}` : '')
+}
+
+/** Trukmė „M:SS" / „MM:SS" / „H:MM:SS" (kaip saugoma tracks.duration stulpelyje).
+ *  Grąžina normalizuotą string arba null jei formatas netinkamas. */
+function normalizeDuration(d?: string | null): string | null {
+  if (!d || typeof d !== 'string') return null
+  const s = d.trim()
+  const m = s.match(/^(?:(\d{1,2}):)?(\d{1,2}):(\d{2})$/)
+  if (!m) return null
+  const [, h, min, sec] = m
+  if (+sec > 59) return null
+  if (h !== undefined) return `${+h}:${min.padStart(2, '0')}:${sec}`
+  return `${+min}:${sec}`
 }
 
 /** Ar atlikėjas lietuviškas? null/tuščia šalis = nežinoma → laikom LT (neskipinam vadybos).
@@ -308,8 +325,16 @@ export interface FieldDiff { field: string; label: string; old: any; new: any; c
 export interface LinkDiff { index: number; platform: string; column: string | null; oldUrl: string | null; newUrl: string; action: 'add' | 'update' | 'unchanged' | 'unsupported' }
 export interface ContactPlan { index: number; name: string; type: string; email: string | null; phone: string | null; url: string | null; confidence: string; action: 'add' | 'update'; isPotential: boolean }
 export interface AlbumPlan { index: number; title: string; type: string | null; year: number | null; action: 'create' | 'update'; existingId: number | null; description: string | null; descriptionOld: string | null; descriptionChanged: boolean; descriptionOnly: boolean; notFound: boolean; coverUrl: string | null; coverWillApply: boolean }
-export interface TrackPlan { index: number; title: string; albumTitle: string | null; type: string | null; action: 'create' | 'update'; existingId: number | null; albumFound: boolean; featuring: string[]; featuringNew: string[] }
-export interface ImagePlan { index: number; url: string; type: string | null; license: string | null; hasLicense: boolean; action: 'review' | 'skip' }
+export interface TrackPlan { index: number; title: string; albumTitle: string | null; type: string | null; action: 'create' | 'update'; existingId: number | null; albumFound: boolean; featuring: string[]; featuringNew: string[]; year: number | null; duration: string | null }
+export interface ImagePlan {
+  index: number; url: string; type: string | null
+  source: string | null; author: string | null; license: string | null; credit: string | null
+  hasLicense: boolean; isDuplicate: boolean
+  /** add = bus pridėta; duplicate = jau yra galerijoje (praleidžiama); skip = netinkamas URL */
+  action: 'add' | 'duplicate' | 'skip'
+}
+/** Esama atlikėjo galerijos nuotrauka (rodoma review'e dublikatų vengimui). */
+export interface ExistingPhoto { url: string; author: string | null; license: string | null }
 
 export interface ImportPreview {
   match: ArtistMatch
@@ -321,6 +346,7 @@ export interface ImportPreview {
   albumPlans: AlbumPlan[]
   trackPlans: TrackPlan[]
   imagePlans: ImagePlan[]
+  existingPhotos: ExistingPhoto[]
   warnings: string[]
 }
 
@@ -531,30 +557,66 @@ export async function buildPreview(
       const { data: faRows } = await sb.from('artists').select('id').or(`slug.eq.${slugify(fn)},name.ilike.${fn}`).limit(1)
       if (!faRows || faRows.length === 0) { featuringNew.push(fn); warnings.push(`Featuring "${fn}" (${t.title}) nerastas — bus sukurtas naujas atlikėjas.`) }
     }
+    const trackYear = t.release_year ?? parseDateParts(t.release_date).year
     trackPlans.push({
       index: ti, title: t.title, albumTitle, type: t.type || null,
       action: existingId ? 'update' : 'create', existingId, albumFound, featuring, featuringNew,
+      year: trackYear, duration: normalizeDuration(t.duration),
     })
   }
 
-  // ── Image plans ──
+  // ── Esamos galerijos nuotraukos (review'ui + dublikatų aptikimui) ──
+  const existingPhotos: ExistingPhoto[] = []
+  const existingPhotoUrls = new Set<string>()
+  if (targetArtistId) {
+    const { data: photoRows } = await sb
+      .from('artist_photos')
+      .select('url, caption, license')
+      .eq('artist_id', targetArtistId)
+      .order('sort_order')
+    for (const p of (photoRows || []) as any[]) {
+      if (!p?.url) continue
+      existingPhotoUrls.add(p.url)
+      existingPhotos.push({ url: p.url, author: decodePhotoAuthor(p.caption), license: p.license ?? null })
+    }
+  }
+
+  // ── Image plans (galerijos nuotraukos) ──
   const imagePlans: ImagePlan[] = []
   const imagesArr = payload.images || []
   for (let ii = 0; ii < imagesArr.length; ii++) {
     const img = imagesArr[ii]
     if (!img?.url) continue
+    const url = String(img.url).trim()
+    const validUrl = /^https?:\/\//i.test(url) && !url.startsWith('data:')
+    const isDuplicate = existingPhotoUrls.has(url)
     const hasLicense = !!(img.license && img.license.trim())
-    imagePlans.push({ index: ii, url: img.url, type: img.type || null, license: img.license || null, hasLicense, action: hasLicense ? 'review' : 'skip' })
-    if (!hasLicense) warnings.push(`Paveikslėlis be aiškios licencijos — praleidžiamas: ${img.url}`)
-  }
-  if ((payload.images || []).length) {
-    warnings.push('Paveikslėliai NĖRA automatiškai nustatomi kaip cover (Wikimedia „File:" puslapiai nėra tiesioginiai image URL) — peržiūrėk ir įkelk rankiniu būdu.')
+    const action: ImagePlan['action'] = !validUrl ? 'skip' : (isDuplicate ? 'duplicate' : 'add')
+    imagePlans.push({
+      index: ii, url, type: img.type || null,
+      source: img.source || null, author: img.author || null,
+      license: img.license || null, credit: img.credit || null,
+      hasLicense, isDuplicate, action,
+    })
+    if (!validUrl) warnings.push(`Nuotrauka praleidžiama — netinkamas URL: ${url}`)
+    else if (isDuplicate) warnings.push(`Nuotrauka jau yra galerijoje (dublikatas) — praleidžiama: ${url}`)
+    else if (!hasLicense) warnings.push(`Nuotrauka be aiškios licencijos — patikrink autorystę prieš pridedant: ${url}`)
   }
 
   return {
     match, willCreateArtist, targetArtistId,
-    fieldDiffs, linkDiffs, contactPlans, albumPlans, trackPlans, imagePlans, warnings,
+    fieldDiffs, linkDiffs, contactPlans, albumPlans, trackPlans, imagePlans, existingPhotos, warnings,
   }
+}
+
+/** Ištraukia autorių iš artist_photos.caption (saugoma kaip JSON {a,s} arba plika). */
+function decodePhotoAuthor(caption: string | null): string | null {
+  if (!caption) return null
+  try {
+    const parsed = JSON.parse(caption)
+    if (parsed && typeof parsed === 'object' && 'a' in parsed) return parsed.a || null
+  } catch { /* plain string */ }
+  return caption || null
 }
 
 // ── Apply ─────────────────────────────────────────────────────────────────────
@@ -571,6 +633,8 @@ export interface ApplySummary {
   tracks_updated: number
   featuring_linked: number
   images_logged: number
+  images_added: number
+  images_skipped: number
   warnings: string[]
 }
 
@@ -584,7 +648,8 @@ export async function applyImport(
   const summary: ApplySummary = {
     artist_id: 0, created: false, fields_updated: 0, links_updated: 0,
     contacts_added: 0, contacts_updated: 0, albums_created: 0, albums_updated: 0,
-    tracks_created: 0, tracks_updated: 0, featuring_linked: 0, images_logged: 0, warnings,
+    tracks_created: 0, tracks_updated: 0, featuring_linked: 0, images_logged: 0,
+    images_added: 0, images_skipped: 0, warnings,
   }
 
   // ── Pasirinkimo filtras (varnelės iš preview). undefined laukas → taikoma viskas. ──
@@ -594,6 +659,7 @@ export async function applyImport(
   const contactOn = (i: number) => !sel?.contacts || sel.contacts.includes(i)
   const albumOn = (i: number) => !sel?.albums || sel.albums.includes(i)
   const trackOn = (i: number) => !sel?.tracks || sel.tracks.includes(i)
+  const imageOn = (i: number) => !sel?.images || sel.images.includes(i)
   const descriptionOnly = payload.mode === 'album_description'
 
   // ── Resolve / create artist ──
@@ -799,6 +865,13 @@ export async function applyImport(
     if (!t?.title) continue
     const map = (t.type && TRACK_TYPE_MAP[t.type]) || TRACK_TYPE_MAP.album_track
     const parts = parseDateParts(t.release_date)
+    // Leidybos info: pirmenybė aiškiems laukams (release_year/month/day), fallback
+    // — iš release_date išparsinta data. Anksčiau būdavo naudojama TIK release_date,
+    // todėl singlai (be release_date, tik su release_year) prarasdavo metus.
+    const relYear = t.release_year ?? parts.year
+    const relMonth = t.release_month ?? parts.month
+    const relDay = t.release_day ?? parts.day
+    const duration = normalizeDuration(t.duration)
     const spotifyId = t.spotify_url?.match(/track\/([A-Za-z0-9]+)/)?.[1] || null
     const trackCover = await fetchSpotifyThumb(t.spotify_url)
 
@@ -815,16 +888,17 @@ export async function applyImport(
 
     // Find/insert track
     let trackId: number | null = null
-    const { data: existingTr } = await sb.from('tracks').select('id, release_date, release_year, spotify_id, cover_url').eq('artist_id', artistId).eq('slug', slugify(t.title)).maybeSingle()
+    const { data: existingTr } = await sb.from('tracks').select('id, release_date, release_year, spotify_id, cover_url, duration').eq('artist_id', artistId).eq('slug', slugify(t.title)).maybeSingle()
     if (existingTr) {
       trackId = existingTr.id
       const upd: Record<string, any> = {}
       if (!existingTr.release_date && t.release_date) upd.release_date = t.release_date
-      if (!existingTr.release_year && parts.year) upd.release_year = parts.year
-      if (parts.month) upd.release_month = parts.month
-      if (parts.day) upd.release_day = parts.day
+      if (!existingTr.release_year && relYear) upd.release_year = relYear
+      if (relMonth) upd.release_month = relMonth
+      if (relDay) upd.release_day = relDay
       if (!existingTr.spotify_id && spotifyId) upd.spotify_id = spotifyId
       if (!existingTr.cover_url && trackCover) upd.cover_url = trackCover
+      if (!existingTr.duration && duration) upd.duration = duration
       if (map.is_single) upd.is_single = true
       if (Object.keys(upd).length) {
         const { error } = await sb.from('tracks').update(upd).eq('id', trackId)
@@ -842,7 +916,8 @@ export async function applyImport(
       const insert: Record<string, any> = {
         title: t.title, slug, artist_id: artistId, type: map.type, is_single: map.is_single,
         release_date: t.release_date || null,
-        release_year: parts.year, release_month: parts.month, release_day: parts.day,
+        release_year: relYear, release_month: relMonth, release_day: relDay,
+        duration,
         cover_url: trackCover,
         spotify_id: spotifyId, source: 'json_import',
       }
@@ -882,8 +957,44 @@ export async function applyImport(
     }
   }
 
-  // ── Images — tik suskaičiuojam (logged į source_json), neaplikuojam ──
-  summary.images_logged = (payload.images || []).filter(i => i?.license).length
+  // ── Galerijos nuotraukos (artist_photos) ──
+  // Įrašom pasirinktas nuotraukas NENAIKINDAMI esamų (append + dedup pagal url),
+  // tvarkydami fotografą/licenciją kaip photos-append endpoint'e. Sort_order —
+  // po esamų. is_active=true (admin sąmoningai importuoja).
+  summary.images_logged = (payload.images || []).length
+  const imagesArr = payload.images || []
+  if (imagesArr.length) {
+    const { data: existingPh } = await sb.from('artist_photos').select('url, sort_order').eq('artist_id', artistId)
+    const seenUrls = new Set<string>((existingPh || []).map((r: any) => r.url))
+    let nextSort = (existingPh || []).reduce((mx: number, r: any) => Math.max(mx, r.sort_order ?? 0), -1) + 1
+    for (let ii = 0; ii < imagesArr.length; ii++) {
+      if (!imageOn(ii)) continue
+      const img = imagesArr[ii]
+      const url = (img?.url || '').trim()
+      if (!/^https?:\/\//i.test(url) || url.startsWith('data:')) { summary.images_skipped++; continue }
+      if (seenUrls.has(url)) { summary.images_skipped++; continue }
+      seenUrls.add(url)
+      const fromAuthor = splitAuthorLicense(typeof img.author === 'string' ? img.author : '')
+      const name = fromAuthor.name
+      const license = (typeof img.license === 'string' && img.license.trim()) ? img.license.trim() : fromAuthor.license
+      const sourceUrl = typeof img.source === 'string' && img.source.trim() ? img.source.trim() : null
+      let photographerId: number | null = null
+      try { photographerId = name ? await resolvePhotographerId(sb, name, sourceUrl) : null } catch { photographerId = null }
+      const caption = (name || sourceUrl) ? JSON.stringify({ a: name || '', s: sourceUrl || '' }) : (img.credit || null)
+      const { error } = await sb.from('artist_photos').insert({
+        artist_id: artistId,
+        url,
+        caption,
+        photographer_id: photographerId,
+        license: license || null,
+        source_url: sourceUrl,
+        sort_order: nextSort++,
+        is_active: true,
+      })
+      if (!error) summary.images_added++
+      else { summary.images_skipped++; warnings.push(`Nuotrauka insert nepavyko (${url}): ${error.message}`) }
+    }
+  }
 
   // ── Audit log ──
   try {
