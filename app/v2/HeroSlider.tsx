@@ -169,7 +169,7 @@ function HeroV2Card({ slide, unseen, onOpen }: { slide: HeroSlide; unseen: boole
     <Link
       href={slide.href}
       onClick={onOpen}
-      className="group relative block aspect-[16/9] overflow-hidden rounded-2xl no-underline shadow-[var(--hero-card-shadow)] transition-all hover:-translate-y-0.5 hover:shadow-[var(--hero-card-shadow-hover)]"
+      className="group relative block aspect-[16/9] overflow-hidden rounded-2xl no-underline shadow-[var(--hero-card-shadow)] transition-all hover:-translate-y-0.5 hover:shadow-[var(--hero-card-shadow-hover)] [will-change:transform]"
       style={{ background: 'linear-gradient(135deg,#141b28 0%,#0a0e17 100%)', ...unseenBorder(unseen) }}
     >
       <div className="absolute inset-0">
@@ -179,7 +179,7 @@ function HeroV2Card({ slide, unseen, onOpen }: { slide: HeroSlide; unseen: boole
             src={proxyImgResized(slide.bgImg, 1280)}
             alt=""
             decoding="async"
-            className="absolute inset-0 h-full w-full object-cover"
+            className="absolute inset-0 h-full w-full rounded-2xl object-cover"
             style={{ objectPosition: 'center 25%' }}
           />
         ) : (
@@ -210,7 +210,7 @@ function HeroV2Card({ slide, unseen, onOpen }: { slide: HeroSlide; unseen: boole
           )}
         </div>
       )}
-      <div className="pointer-events-none absolute inset-0 bg-gradient-to-t from-black/85 via-black/30 to-transparent" />
+      <div className="pointer-events-none absolute inset-0 rounded-2xl bg-gradient-to-t from-black/85 via-black/30 to-transparent" />
       <div className="absolute inset-0 flex flex-col justify-end p-5">
         <h3 className="m-0 max-w-[440px] font-['Outfit',sans-serif] text-[23px] font-extrabold leading-[1.12] tracking-tight text-white transition-opacity group-hover:opacity-90">
           {slide.title}
@@ -269,7 +269,7 @@ function HeroDailyCard({ slide, unseen, onOpen }: { slide: HeroSlide; unseen: bo
     <Link
       href={slide.href}
       onClick={onOpen}
-      className="group relative block aspect-[16/9] overflow-hidden rounded-2xl no-underline shadow-[var(--hero-card-shadow)] transition-all hover:-translate-y-0.5 hover:shadow-[var(--hero-card-shadow-hover)]"
+      className="group relative block aspect-[16/9] overflow-hidden rounded-2xl no-underline shadow-[var(--hero-card-shadow)] transition-all hover:-translate-y-0.5 hover:shadow-[var(--hero-card-shadow-hover)] [will-change:transform]"
       style={{ background: `radial-gradient(ellipse at top left, ${accentSoft}, rgba(10,14,26,0.98) 60%), linear-gradient(135deg, #1c1710 0%, #0a0e17 100%)`, ...unseenBorder(unseen) }}
     >
       <div className="relative z-[1] flex h-full flex-col p-4">
@@ -351,7 +351,7 @@ function HeroChartCard({ slide, unseen, onOpen }: { slide: HeroSlide; unseen: bo
     <Link
       href={slide.href}
       onClick={onOpen}
-      className="group relative block aspect-[16/9] overflow-hidden rounded-2xl no-underline shadow-[var(--hero-card-shadow)] transition-all hover:-translate-y-0.5 hover:shadow-[var(--hero-card-shadow-hover)]"
+      className="group relative block aspect-[16/9] overflow-hidden rounded-2xl no-underline shadow-[var(--hero-card-shadow)] transition-all hover:-translate-y-0.5 hover:shadow-[var(--hero-card-shadow-hover)] [will-change:transform]"
       style={{
         background: isLT
           ? `radial-gradient(ellipse at top left, ${accentSoft}, rgba(10,14,26,0.98) 60%), linear-gradient(135deg, #1a1426 0%, #0a0e1a 100%)`
