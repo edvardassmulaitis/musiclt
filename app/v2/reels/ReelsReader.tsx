@@ -272,6 +272,7 @@ function SongPlayer({ song, onNavLink }: { song: { videoId: string; title: strin
   const { data: session } = useSession()
   const holderRef = useRef<HTMLDivElement>(null)
   const playerRef = useRef<any>(null)
+  const playingRef = useRef(false)
   const [started, setStarted] = useState(false)
   const [liked, setLiked] = useState(false)
   const [likeCount, setLikeCount] = useState(0)
@@ -281,21 +282,31 @@ function SongPlayer({ song, onNavLink }: { song: { videoId: string; title: strin
     fetch(`/api/tracks/${song.songId}/like`).then(r => r.json()).then(d => { if (!on) return; setLikeCount(d.count || 0); if (typeof d.liked === 'boolean') setLiked(d.liked) }).catch(() => {})
     return () => { on = false }
   }, [song.songId, session?.user])
-  // Paruošiam YT player'į iš anksto (kol slide aktyvi) — kad paspaudus playVideo()
-  // suveiktų iOS'e (player jau ready, gesture tiesiogiai paleidžia).
+  // Player PRE-CREATE (cued, autoplay=0) — kaip atlikėjo psl.: paruošiam iš anksto,
+  // o grojam per playVideo() gesture'e. host=youtube-nocookie (Safari ITP blokuoja
+  // youtube.com cookie → klaida 153; nocookie veikia). Jei user'is paspaudė dar
+  // player'iui kuriantis — onReady paleidžia.
   useEffect(() => {
     let dead = false
     loadYT().then((YT) => {
       if (dead || !holderRef.current || playerRef.current) return
-      playerRef.current = new YT.Player(holderRef.current, {
-        videoId: song.videoId, width: '100%', height: '100%',
-        playerVars: { playsinline: 1, rel: 0, modestbranding: 1 },
+      const inner = document.createElement('div')
+      inner.style.width = '100%'; inner.style.height = '100%'
+      holderRef.current.innerHTML = ''
+      holderRef.current.appendChild(inner)
+      playerRef.current = new YT.Player(inner, {
+        host: 'https://www.youtube-nocookie.com',
+        videoId: song.videoId,
+        width: '100%', height: '100%',
+        playerVars: { autoplay: 0, controls: 1, modestbranding: 1, rel: 0, playsinline: 1, iv_load_policy: 3, enablejsapi: 1, origin: typeof window !== 'undefined' ? window.location.origin : undefined },
+        events: { onReady: (e: any) => { if (playingRef.current) { try { e.target.playVideo() } catch { /* ignore */ } } } },
       })
     }).catch(() => {})
     return () => { dead = true; try { playerRef.current?.destroy?.() } catch { /* ignore */ } playerRef.current = null }
   }, [song.videoId])
   const play = () => {
     if (started) return
+    playingRef.current = true
     if (song.songId) fetch(`/api/tracks/${song.songId}/play`, { method: 'POST', keepalive: true }).catch(() => {})
     try { playerRef.current?.playVideo?.() } catch { /* ignore */ }
     setStarted(true)

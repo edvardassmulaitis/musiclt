@@ -789,10 +789,17 @@ function GamesZone({ members }: { members: any[] }) {
 
 /* ─────────────── PAGE ─────────────── */
 export default async function V2Page() {
+  // Naujienos — hero juostos pagrindas. Ilgesnis timeout + retry, kad
+  // regeneracijos metu (šalta DB / song joins) neišnyktų iš hero (bug 2026-07-23).
+  const newsFetch = async () => {
+    let r = await jget('/api/news?limit=10&include=songs&since_days=21', 9000)
+    if (!r?.news?.length) r = await jget('/api/news?limit=10&include=songs&since_days=21', 9000)
+    return r
+  }
   const [musicPool, upcomingR, newsR, eventsR, vertaR, istorijaR, feedR, membersR, gilynR, disksR, ltTopR, worldTopR, blogHeroR, dailyWinR] = await Promise.all([
     getMusicPool(),
     jget('/api/home/list?type=upcoming&limit=100', 8000),
-    jget('/api/news?limit=10&include=songs&since_days=21'),
+    newsFetch(),
     jget('/api/events?homepage=1&compact=1&limit=24&period=all&order=asc'),
     jget('/api/verta-keliones'),
     jget('/api/istorija/today'),
