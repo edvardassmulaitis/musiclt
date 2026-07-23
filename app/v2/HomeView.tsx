@@ -371,8 +371,8 @@ function buildHeroSlides(input: {
     const song = songs.find((s: any) => s.youtube_url)
     // VISOS straipsnio dainos (ne tik pirma) → mini-playlist reader'yje.
     const songList = songs
-      .map((s: any) => ({ videoId: extractYouTubeId(s.youtube_url || null), title: sanitizeTitle(s.title || '') || s.artist_name || 'Daina', artist: s.artist_name || null }))
-      .filter((s: any): s is { videoId: string; title: string; artist: string | null } => !!s.videoId)
+      .map((s: any) => ({ videoId: extractYouTubeId(s.youtube_url || null), title: sanitizeTitle(s.title || '') || s.artist_name || 'Daina', artist: s.artist_name || null, songId: s.song_id ?? s.id ?? null }))
+      .filter((s: any): s is { videoId: string; title: string; artist: string | null; songId: number | null } => !!s.videoId)
     dated.push({ sortMs: ms(n.published_at), slide: {
       type: 'news', chip: typeLT.toUpperCase(), chipBg: '#1d4ed8',
       title: sanitizeTitle(n.title),

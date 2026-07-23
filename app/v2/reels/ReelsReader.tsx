@@ -238,6 +238,55 @@ function RdrMosaic({ items, accent }: { items: { cover: string; badge?: number |
   )
 }
 
+/** Native „susijusios muzikos" grotuvas — vietoj YouTube embedo su YT chrome:
+ *  cover + oranžinis play mygtukas, po juo pavadinimas/atlikėjas + ♥ (track like).
+ *  Paspaudus play — skaičiuojam INTERNAL paleidimą (/api/tracks/[id]/play) ir
+ *  paleidžiam video (YT iframe autoplay, modestbranding — be YT thumbnail/„Watch
+ *  on YouTube" pradžios). */
+function SongPlayer({ song }: { song: { videoId: string; title: string; artist?: string | null; songId?: number | null } }) {
+  const { data: session } = useSession()
+  const [playing, setPlaying] = useState(false)
+  const [liked, setLiked] = useState(false)
+  const [likeCount, setLikeCount] = useState(0)
+  useEffect(() => {
+    if (!song.songId) return
+    let on = true
+    fetch(`/api/tracks/${song.songId}/like`).then(r => r.json()).then(d => { if (!on) return; setLikeCount(d.count || 0); if (typeof d.liked === 'boolean') setLiked(d.liked) }).catch(() => {})
+    return () => { on = false }
+  }, [song.songId, session?.user])
+  const play = () => {
+    if (song.songId) fetch(`/api/tracks/${song.songId}/play`, { method: 'POST', keepalive: true }).catch(() => {})
+    setPlaying(true)
+  }
+  const toggleLike = async () => {
+    if (!session?.user || !song.songId) return
+    const n = !liked; setLiked(n); setLikeCount(c => n ? c + 1 : Math.max(0, c - 1))
+    try { await fetch(`/api/tracks/${song.songId}/like`, { method: 'POST' }) } catch { /* ignore */ }
+  }
+  const cover = `https://i.ytimg.com/vi/${song.videoId}/hqdefault.jpg`
+  return (
+    <div className="rdr-song">
+      <div className="rdr-song-video">
+        {playing ? (
+          <iframe className="rdr-song-iframe" src={`https://www.youtube.com/embed/${song.videoId}?autoplay=1&playsinline=1&rel=0&modestbranding=1`} allow="autoplay; encrypted-media; fullscreen; picture-in-picture" allowFullScreen title={song.title} />
+        ) : (
+          <button type="button" className="rdr-song-poster" onClick={play} style={{ backgroundImage: `url(${cover})` }} aria-label={`Groti: ${song.title}`}>
+            <span className="rdr-song-scrim" />
+            <span className="rdr-song-play"><svg width="24" height="24" viewBox="0 0 24 24" fill="#fff" aria-hidden><path d="M8 5v14l11-7z" /></svg></span>
+          </button>
+        )}
+      </div>
+      <div className="rdr-song-bar">
+        <span className="rdr-song-info"><b>{song.title}</b>{song.artist ? <i>{song.artist}</i> : null}</span>
+        <button type="button" className={`rdr-song-like${liked ? ' on' : ''}`} onClick={toggleLike} disabled={!session?.user} title={session?.user ? (liked ? 'Nebepatinka' : 'Patinka daina') : 'Prisijunk, kad pamėgtum'} aria-label="Patinka daina">
+          <svg width="16" height="16" viewBox="0 0 24 24" fill={liked ? 'currentColor' : 'none'} stroke="currentColor" strokeWidth="2"><path d="M20.84 4.61a5.5 5.5 0 0 0-7.78 0L12 5.67l-1.06-1.06a5.5 5.5 0 0 0-7.78 7.78l1.06 1.06L12 21.23l7.78-7.78 1.06-1.06a5.5 5.5 0 0 0 0-7.78z" /></svg>
+          {likeCount > 0 && <span>{likeCount}</span>}
+        </button>
+      </div>
+    </div>
+  )
+}
+
 /** Viena istorija reader'yje. Pati valdo savo VERTIKALŲ scroll'ą (pauzina
  *  auto-advance kai nuscrollinta žemyn — „skaitymo režimas"), news pilno body
  *  lazy-fetch'ą, ♥ ir apatinę veiksmų juostą. Muzika — STANDARTINIAI YouTube
@@ -384,13 +433,18 @@ function ReaderSlide({ slide, active, seen, dk, scrollTopSignal, onScrolledChang
     const s = (t || '').trim()
     return s && s.toLowerCase() !== 'daina' ? s : null
   }
+  // „Susijusi muzika" — tikri track'ai (turi songId) → NATIVE grotuvas (play skaičius).
+  const nativeSongs = (slide.songs || []).filter(s => !!s.songId).slice(0, 3)
+  // Raw embed'ai (news `embeds` YouTube, chart/daily videoId, songs be songId) → paprastas iframe.
   const embeds: { videoId: string; title: string | null; artist?: string | null }[] = []
-  if (slide.songs && slide.songs.length) {
-    for (const s of slide.songs.slice(0, 3)) embeds.push({ videoId: s.videoId, title: realTitle(s.title), artist: s.artist || null })
-  } else if (slide.videoId) {
-    embeds.push({ videoId: slide.videoId, title: realTitle(slide.songTitle), artist: slide.songArtist || null })
-  } else if (extraEmbeds.length) {
-    for (const e of extraEmbeds) embeds.push({ videoId: e.videoId, title: realTitle(e.title), artist: null })
+  if (!nativeSongs.length) {
+    if (slide.songs && slide.songs.length) {
+      for (const s of slide.songs.slice(0, 3)) embeds.push({ videoId: s.videoId, title: realTitle(s.title), artist: s.artist || null })
+    } else if (slide.videoId) {
+      embeds.push({ videoId: slide.videoId, title: realTitle(slide.songTitle), artist: slide.songArtist || null })
+    } else if (extraEmbeds.length) {
+      for (const e of extraEmbeds) embeds.push({ videoId: e.videoId, title: realTitle(e.title), artist: null })
+    }
   }
   if (reqVideoId && !embeds.some(e => e.videoId === reqVideoId)) {
     embeds.unshift({ videoId: reqVideoId, title: null })
@@ -485,10 +539,11 @@ function ReaderSlide({ slide, active, seen, dk, scrollTopSignal, onScrolledChang
             pats YouTube mygtukas iframe'e (vienas tap'as visur, jokio custom
             grotuvo). Mount'inam tik aktyvioj kortelėj (perf — sunkūs iframe'ai).
             Iš topo/kandidatų eilutės paprašytas video (reqVideoId) gauna autoplay=1. ── */}
-        {active && embeds.length > 0 && (
+        {active && (nativeSongs.length > 0 || embeds.length > 0) && (
           <div className="rdr-embeds" ref={embedsRef}>
-            {/* Be „Muzika" antraštės — embed'as ir taip aiškus, be to gali būti ne
-                daina, o interviu/klipas. */}
+            {/* Susijusi muzika → native grotuvas (be pasikartojančio title, su like
+                + internal play skaičiavimu). Kiti (raw YouTube) → paprastas iframe. */}
+            {nativeSongs.map(s => <SongPlayer key={s.videoId} song={s} />)}
             {embeds.map(e => (
               <div key={e.videoId} className="rdr-embed">
                 {e.title && (
@@ -1478,6 +1533,27 @@ const REELS_CSS = `
         .hp-reels.light .rdr-relart-follow.on{color:#fff}
         .hp-reels.light .rdr-cmt-meta b{color:var(--text-primary)}
         .hp-reels.light .rdr-cmt-body{color:var(--text-secondary)}
+        /* Native „susijusios muzikos" grotuvas */
+        .rdr-song{border-radius:14px;overflow:hidden;background:#000;border:1px solid rgba(255,255,255,0.10)}
+        .rdr-song-video{position:relative;width:100%;aspect-ratio:16/9;background:#000}
+        .rdr-song-iframe{position:absolute;inset:0;width:100%;height:100%;border:0}
+        .rdr-song-poster{position:absolute;inset:0;width:100%;height:100%;border:0;padding:0;cursor:pointer;background-size:cover;background-position:center;display:flex;align-items:center;justify-content:center}
+        .rdr-song-scrim{position:absolute;inset:0;background:linear-gradient(to top,rgba(0,0,0,0.5),rgba(0,0,0,0.12) 45%,rgba(0,0,0,0.3))}
+        .rdr-song-play{position:relative;z-index:1;display:flex;align-items:center;justify-content:center;width:60px;height:60px;border-radius:50%;background:var(--accent-orange);box-shadow:0 6px 20px rgba(0,0,0,0.5);padding-left:3px;transition:transform .15s}
+        .rdr-song-poster:hover .rdr-song-play{transform:scale(1.06)}
+        .rdr-song-bar{display:flex;align-items:center;justify-content:space-between;gap:10px;padding:10px 12px;background:rgba(255,255,255,0.05)}
+        .rdr-song-info{display:flex;flex-direction:column;min-width:0}
+        .rdr-song-info b{font-family:'Outfit',sans-serif;font-weight:800;font-size:14.5px;color:#fff;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+        .rdr-song-info i{font-style:normal;font-size:12.5px;color:rgba(255,255,255,0.62);white-space:nowrap;overflow:hidden;text-overflow:ellipsis;margin-top:1px}
+        .rdr-song-like{display:inline-flex;align-items:center;gap:5px;flex-shrink:0;height:34px;padding:0 12px;border-radius:999px;border:1px solid rgba(255,255,255,0.18);background:transparent;color:#fff;font-family:'Outfit',sans-serif;font-weight:800;font-size:13px;cursor:pointer}
+        .rdr-song-like.on{color:#fff;background:var(--accent-orange);border-color:var(--accent-orange)}
+        .rdr-song-like:disabled{opacity:.55;cursor:not-allowed}
+        .hp-reels.light .rdr-song{border-color:var(--border-default)}
+        .hp-reels.light .rdr-song-bar{background:var(--bg-elevated)}
+        .hp-reels.light .rdr-song-info b{color:var(--text-primary)}
+        .hp-reels.light .rdr-song-info i{color:var(--text-muted)}
+        .hp-reels.light .rdr-song-like{color:var(--text-primary);border-color:var(--border-default)}
+        .hp-reels.light .rdr-song-like.on{color:#fff}
         .hp-reels.light .rdr-na-artist,.hp-reels.light .rdr-na-artist span{color:var(--text-primary)}
         .hp-reels.light .rdr-na-btn{background:var(--bg-hover);border-color:var(--border-default);color:var(--text-primary)}
         .hp-reels.light .rdr-na-btn.on{color:#fff;border-color:var(--accent-orange);background:var(--accent-orange)}

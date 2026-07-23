@@ -35,7 +35,7 @@ export type HeroSlide = {
   authorAvatar?: string | null
   likeable?: boolean                // ar rodyti ♥ (news kol kas)
   fresh24?: boolean                 // pridėtas/paskelbtas DB per pask. 24h → žalias taškas
-  songs?: { videoId: string; title: string; artist?: string | null }[]  // news su KELIOM dainom → mini-playlist
+  songs?: { videoId: string; title: string; artist?: string | null; songId?: number | null }[]  // news „susijusi muzika" (tikri track'ai su song_id → native grotuvas)
   lineup?: { name: string; slug: string; image?: string | null }[]      // event — pilnas lineup (avatarai + nuorodos)
 }
 
