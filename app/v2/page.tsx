@@ -151,7 +151,7 @@ async function fetchLaneTracks(sb: any, lane: 'lt' | 'world', sinceIso: string, 
     .gte('video_uploaded_at', sinceIso)
     .lte('video_uploaded_at', nowIso) // NE ateities (blogi duomenys — pvz. album date perrašo)
     .order('video_uploaded_at', { ascending: false })
-    .limit(lane === 'lt' ? 600 : 250)
+    .limit(lane === 'lt' ? 300 : 250)
   q = lane === 'lt' ? q.eq('artists.country', LT_COUNTRY) : q.neq('artists.country', LT_COUNTRY)
   const { data } = await q
   const FRESH = currentYear - 1
@@ -174,7 +174,7 @@ async function fetchLaneAlbums(sb: any, lane: 'lt' | 'world', currentYear: numbe
     .select('id, title, slug, cover_image_url, year, month, day, is_upcoming, artist_id, artists!albums_artist_id_fkey!inner(id, name, slug, cover_image_url, country, score, score_trending)')
     .not('year', 'is', null).gte('year', currentYear - 1)
     .order('year', { ascending: false }).order('month', { ascending: false, nullsFirst: false }).order('day', { ascending: false, nullsFirst: false })
-    .limit(lane === 'lt' ? 500 : 250)
+    .limit(lane === 'lt' ? 300 : 250)
   q = lane === 'lt' ? q.eq('artists.country', LT_COUNTRY) : q.neq('artists.country', LT_COUNTRY)
   const { data } = await q
   return ((data || []) as any[]).filter((a) => {
@@ -190,10 +190,18 @@ async function getMusicPool() {
   const nowIso = new Date(nowMs).toISOString()
   const albumSinceMs = nowMs - ALBUM_POOL_DAYS * 86_400_000
   const currentYear = new Date().getFullYear()
+  // LT lane'ai kartais grąžindavo tuščią rezultatą (sunkesnė užklausa retkarčiais
+  // nukrisdavo → .catch([]) → homepage be LT). Retry x1 jei tuščia — LT niekada
+  // neturi „dingti" (žr. Edvardo bug 2026-07-23).
+  const withRetry = async (fn: () => Promise<any[]>): Promise<any[]> => {
+    let r = await fn().catch(() => [])
+    if (!r.length) r = await fn().catch(() => [])
+    return r
+  }
   const [tLt, tW, aLt, aW] = await Promise.all([
-    fetchLaneTracks(sb, 'lt', sinceIso, nowIso, currentYear).catch(() => []),
+    withRetry(() => fetchLaneTracks(sb, 'lt', sinceIso, nowIso, currentYear)),
     fetchLaneTracks(sb, 'world', sinceIso, nowIso, currentYear).catch(() => []),
-    fetchLaneAlbums(sb, 'lt', currentYear, albumSinceMs, nowMs).catch(() => []),
+    withRetry(() => fetchLaneAlbums(sb, 'lt', currentYear, albumSinceMs, nowMs)),
     fetchLaneAlbums(sb, 'world', currentYear, albumSinceMs, nowMs).catch(() => []),
   ])
   const allArtistIds = [...new Set([...tLt, ...tW, ...aLt, ...aW].map((r) => r.artist_id).filter(Boolean))] as number[]
@@ -906,9 +914,11 @@ const V2_EXTRA = `
 .v2-mf-flag{width:20px;height:14px;flex:none;border-radius:3px;background-size:cover;background-position:center;box-shadow:0 0 0 1px rgba(0,0,0,.08);background-image:url(https://flagcdn.com/w40/lt.png)}
 .v2-mf-divider{width:1px;height:22px;background:var(--border-default);flex:none;margin:0 2px}
 .v2-mf-dd{position:relative;flex:none}
-.v2-mf-icon{display:inline-flex;align-items:center;justify-content:center;padding:7px 11px;border-radius:999px;background:var(--bg-hover);border:1px solid var(--border-default);color:var(--text-secondary);cursor:pointer;line-height:1;transition:color .15s,border-color .15s}
+.v2-mf-icon{position:relative;display:inline-flex;align-items:center;justify-content:center;padding:7px 11px;border-radius:999px;background:var(--bg-hover);border:1px solid var(--border-default);color:var(--text-secondary);cursor:pointer;line-height:1;transition:color .15s,border-color .15s}
 .v2-mf-icon:hover{color:var(--text-primary);border-color:var(--accent-orange)}
 .v2-mf-icon.on,.v2-mf-icon.open{color:var(--accent-orange);border-color:var(--accent-orange)}
+.v2-mf-icon-badge{position:absolute;top:-5px;right:-5px;min-width:16px;height:16px;padding:0 4px;border-radius:999px;background:var(--accent-orange);color:#fff;font-family:'Outfit',sans-serif;font-size:10px;font-weight:800;line-height:1;display:flex;align-items:center;justify-content:center;box-shadow:0 0 0 2px var(--bg-elevated)}
+.v2-mf-check{display:inline-flex;justify-content:center;width:15px;flex:none;margin-right:4px;color:var(--accent-orange);font-weight:800}
 .v2-mf-pop{position:absolute;top:calc(100% + 8px);right:0;z-index:50;min-width:190px;max-height:320px;overflow:auto;display:none;flex-direction:column;gap:2px;padding:7px;background:var(--bg-surface);border:1px solid var(--border-default);border-radius:14px;box-shadow:0 14px 40px rgba(0,0,0,.18)}
 .v2-mf-pop.open{display:flex}
 .v2-mf-opt{display:flex;align-items:center;width:100%;padding:8px 11px;border-radius:9px;font-size:13px;font-weight:600;font-family:'Outfit',sans-serif;text-align:left;white-space:nowrap;background:transparent;border:1px solid transparent;color:var(--text-secondary);cursor:pointer}
@@ -936,15 +946,16 @@ const V2_EXTRA = `
   .v2-mgrid{grid-template-columns:repeat(auto-fill,minmax(130px,1fr))}
   .v2-mgrid-cc{grid-template-columns:repeat(auto-fill,minmax(120px,1fr))}
 }
-/* Mobile: sumažinti filtrai, kad viskas tilptų vienoj eilutėj be spūsties */
-@media(max-width:560px){
-  .v2-mf{gap:7px}
-  .v2-mf-scroll{gap:7px}
+/* Mobile: filtrai LŪŽTA (wrap) į kitą eilutę, o ne slenka horizontaliai —
+   kitaip „Pasaulis" būdavo nukirptas (Edvardo bug 2026-07-23). Nieko nekerpam. */
+@media(max-width:640px){
+  .v2-mf{flex-wrap:wrap;gap:7px}
+  .v2-mf-scroll{flex:1 1 auto;flex-wrap:wrap;overflow:visible;gap:7px 7px}
   .v2-mf-grp{gap:6px}
-  .v2-mf-chip{padding:6px 10px;font-size:12px;gap:5px}
+  .v2-mf-divider{display:none}
+  .v2-mf-chip{padding:6px 11px;font-size:12px;gap:5px}
   .v2-mf-chip svg{width:13px;height:13px}
   .v2-mf-flag{width:16px;height:11px}
-  .v2-mf-divider{height:19px;margin:0}
   .v2-mf-icon{padding:6px 9px}
 }
 

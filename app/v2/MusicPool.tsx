@@ -87,7 +87,7 @@ export default function MusicPool({ tracks, albums, genres, upcoming, upcomingMo
 }) {
   const [sort, setSort] = useState<'' | 'new' | 'pop'>('')
   const [region, setRegion] = useState<'' | 'lt' | 'world'>('')
-  const [genre, setGenre] = useState<string>('')
+  const [picked, setPicked] = useState<string[]>([]) // keli stiliai (multi-select)
   const [gearOpen, setGearOpen] = useState(false)
   const [extraT, setExtraT] = useState(0)
   const [extraA, setExtraA] = useState(0)
@@ -96,8 +96,26 @@ export default function MusicPool({ tracks, albums, genres, upcoming, upcomingMo
   const role = (session?.user as any)?.role
   const admin = role === 'admin' || role === 'super_admin'
 
+  // Įsimenam vartotojo filtrus (localStorage) — kitą kartą užsikrauna tokie patys.
+  const persistReady = useRef(false)
+  useEffect(() => {
+    try {
+      const raw = localStorage.getItem('v2-music-filters')
+      if (raw) {
+        const s = JSON.parse(raw)
+        if (s.sort === '' || s.sort === 'new' || s.sort === 'pop') setSort(s.sort)
+        if (s.region === '' || s.region === 'lt' || s.region === 'world') setRegion(s.region)
+        if (Array.isArray(s.genres)) setPicked(s.genres.filter((g: any) => typeof g === 'string'))
+      }
+    } catch { /* ignore */ }
+  }, [])
+  useEffect(() => {
+    if (!persistReady.current) { persistReady.current = true; return } // praleidžiam pirmą (mount) — kad neperrašytų prieš load
+    try { localStorage.setItem('v2-music-filters', JSON.stringify({ sort, region, genres: picked })) } catch { /* ignore */ }
+  }, [sort, region, picked])
+
   // Pasikeitus filtrams — atstatom „Rodyti daugiau" skaitiklius.
-  useEffect(() => { setExtraT(0); setExtraA(0) }, [sort, region, genre])
+  useEffect(() => { setExtraT(0); setExtraA(0) }, [sort, region, picked])
 
   useEffect(() => {
     if (!gearOpen) return
@@ -111,15 +129,15 @@ export default function MusicPool({ tracks, albums, genres, upcoming, upcomingMo
   const tog = <T extends string>(cur: T, next: T, set: (v: T) => void, base: T) => set(cur === next ? base : next)
   const baseCap = 16
 
-  // Žanro filtras + rikiavimas (default=relevance, new=data, pop=score).
+  // Žanro filtras (keli stiliai — OR) + rikiavimas (default=relevance, new=data, pop=score).
   function sortLane<T extends Track | Album>(arr: T[]): T[] {
-    let a = genre ? arr.filter((x) => x.genres.includes(genre)) : arr
+    let a = picked.length ? arr.filter((x) => x.genres.some((g) => picked.includes(g))) : arr
     if (sort === 'new') a = [...a].sort((x, y) => y.dateMs - x.dateMs)
     else if (sort === 'pop') a = [...a].sort((x, y) => (y.score - x.score) || (y.dateMs - x.dateMs))
     else a = [...a].sort((x, y) => y.rel - x.rel)
     return a
   }
-  // „Visi": alternuojam viena užsienio / viena LT (kad LT patektų į mišrų sąrašą).
+  // „Visi": alternuojam viena LT / viena užsienio — LT pirma (LT svetainė → LT matomi iškart).
   function interleave<T>(a: T[], b: T[]): T[] {
     const out: T[] = []
     for (let i = 0; i < Math.max(a.length, b.length); i++) { if (i < a.length) out.push(a[i]); if (i < b.length) out.push(b[i]) }
@@ -129,7 +147,7 @@ export default function MusicPool({ tracks, albums, genres, upcoming, upcomingMo
     if (region === 'lt') return sortLane(items.filter((x) => x.isLt))
     if (region === 'world') return sortLane(items.filter((x) => !x.isLt))
     if (sort === 'new') return sortLane(items) // chronologiškai (globalus merge)
-    return interleave(sortLane(items.filter((x) => !x.isLt)), sortLane(items.filter((x) => x.isLt)))
+    return interleave(sortLane(items.filter((x) => x.isLt)), sortLane(items.filter((x) => !x.isLt)))
   }
   const tFull = build(tracks)
   const aFull = build(albums)
@@ -138,7 +156,7 @@ export default function MusicPool({ tracks, albums, genres, upcoming, upcomingMo
   const badge = sort === 'new'
 
   let uf = region === 'lt' ? upcoming.filter((u) => u.isLt) : region === 'world' ? upcoming.filter((u) => !u.isLt) : upcoming
-  if (genre) uf = uf.filter((u) => u.genres.includes(genre))
+  if (picked.length) uf = uf.filter((u) => u.genres.some((g) => picked.includes(g)))
   uf = [...uf].sort((x, y) => y.score - x.score) // populiarumas
   const uv = uf.slice(0, 7)
 
@@ -169,14 +187,21 @@ export default function MusicPool({ tracks, albums, genres, upcoming, upcomingMo
 
         {genres.length > 0 && (
           <div className="v2-mf-dd" ref={ddRef}>
-            <button type="button" className={`v2-mf-icon${genre ? ' on' : ''}${gearOpen ? ' open' : ''}`} aria-label="Stilius" aria-expanded={gearOpen} aria-haspopup="menu" onClick={() => setGearOpen((v) => !v)}>
-              <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden><circle cx="12" cy="12" r="3" /><path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 1 1-2.83 2.83l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-4 0v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 1 1-2.83-2.83l.06-.06a1.65 1.65 0 0 0 .33-1.82 1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1 0-4h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 1 1 2.83-2.83l.06.06a1.65 1.65 0 0 0 1.82.33H9a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 4 0v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 1 1 2.83 2.83l-.06.06a1.65 1.65 0 0 0-.33 1.82V9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 0 4h-.09a1.65 1.65 0 0 0-1.51 1z" /></svg>
+            <button type="button" className={`v2-mf-icon${picked.length ? ' on' : ''}${gearOpen ? ' open' : ''}`} aria-label="Stilius" aria-expanded={gearOpen} aria-haspopup="menu" onClick={() => setGearOpen((v) => !v)}>
+              {/* Mikšerio/„sliders" ikona (filtrų nustatymai) vietoj krumpliaračio */}
+              <svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden><line x1="4" y1="21" x2="4" y2="14"/><line x1="4" y1="10" x2="4" y2="3"/><line x1="12" y1="21" x2="12" y2="12"/><line x1="12" y1="8" x2="12" y2="3"/><line x1="20" y1="21" x2="20" y2="16"/><line x1="20" y1="12" x2="20" y2="3"/><line x1="1" y1="14" x2="7" y2="14"/><line x1="9" y1="8" x2="15" y2="8"/><line x1="17" y1="16" x2="23" y2="16"/></svg>
+              {picked.length > 0 && <span className="v2-mf-icon-badge">{picked.length}</span>}
             </button>
             <div className={`v2-mf-pop${gearOpen ? ' open' : ''}`} role="menu">
-              <button type="button" role="menuitemradio" aria-checked={!genre} className={`v2-mf-opt${!genre ? ' on' : ''}`} onClick={() => { setGenre(''); setGearOpen(false) }}>Visi stiliai</button>
-              {genres.map((g) => (
-                <button key={g} type="button" role="menuitemradio" aria-checked={genre === g} className={`v2-mf-opt${genre === g ? ' on' : ''}`} onClick={() => { setGenre((cur) => cur === g ? '' : g); setGearOpen(false) }}>{g}</button>
-              ))}
+              <button type="button" role="menuitemcheckbox" aria-checked={picked.length === 0} className={`v2-mf-opt${picked.length === 0 ? ' on' : ''}`} onClick={() => setPicked([])}>Visi stiliai</button>
+              {genres.map((g) => {
+                const on = picked.includes(g)
+                return (
+                  <button key={g} type="button" role="menuitemcheckbox" aria-checked={on} className={`v2-mf-opt${on ? ' on' : ''}`} onClick={() => setPicked((cur) => cur.includes(g) ? cur.filter((x) => x !== g) : [...cur, g])}>
+                    <span className="v2-mf-check" aria-hidden>{on ? '✓' : ''}</span>{g}
+                  </button>
+                )
+              })}
             </div>
           </div>
         )}
@@ -184,7 +209,6 @@ export default function MusicPool({ tracks, albums, genres, upcoming, upcomingMo
       </div>
 
       <section>
-        <SecHead kind="songs" label="Dainos" />
         {tv.length ? <div className="v2-mgrid">{tv.map((t) => <TrackCard key={t.id} t={t} badge={badge} admin={admin} />)}</div> : <p className="v2-mempty">Pagal pasirinktus filtrus įrašų nėra.</p>}
         {tFull.length > tv.length && <button type="button" className="v2-mmore" onClick={() => setExtraT((e) => e + 12)}>Rodyti daugiau <span>({tFull.length - tv.length})</span></button>}
       </section>
