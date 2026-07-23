@@ -321,7 +321,7 @@ function SongPlayer({ song, onNavLink }: { song: { videoId: string; title: strin
   return (
     <div className="rdr-song">
       <div className="rdr-song-video">
-        <div className="rdr-song-ytwrap"><div ref={holderRef} /></div>
+        <div className={`rdr-song-ytwrap${started ? ' on' : ''}`}><div ref={holderRef} /></div>
         {!started && (
           <button type="button" className="rdr-song-poster" onClick={play} style={{ backgroundImage: `url(${cover})` }} aria-label={`Groti: ${song.title}`}>
             <span className="rdr-song-play"><svg width="22" height="22" viewBox="0 0 24 24" fill="#fff" aria-hidden><path d="M8 5v14l11-7z" /></svg></span>
@@ -1594,13 +1594,14 @@ const REELS_CSS = `
         .hp-reels.light .rdr-cmt-body{color:var(--text-secondary)}
         /* Native „susijusios muzikos" grotuvas — stilius kaip homepage „Vakar laimėjo"
            (oranžinis borderis), play mygtukas apatiniam dešiniam kampe (kaip atlikėjo psl.) */
-        .rdr-song{border-radius:14px;overflow:hidden;background:var(--bg-surface);border:1px solid rgba(249,115,22,0.35)}
+        .rdr-song{border-radius:14px;overflow:hidden;background:var(--bg-surface);border:2px solid var(--accent-orange)}
         .rdr-song-video{position:relative;width:100%;aspect-ratio:16/9;background:#000}
-        .rdr-song-ytwrap{position:absolute;inset:0}
+        .rdr-song-ytwrap{position:absolute;inset:0;display:none}
+        .rdr-song-ytwrap.on{display:block}
         .rdr-song-ytwrap iframe{position:absolute;inset:0;width:100%;height:100%;border:0;display:block}
         .rdr-song-title{text-decoration:none;color:inherit}
         .rdr-song-title:hover b{color:var(--accent-orange)}
-        .rdr-song-poster{position:absolute;inset:0;width:100%;height:100%;border:0;padding:0;cursor:pointer;background-size:cover;background-position:center}
+        .rdr-song-poster{position:absolute;inset:0;z-index:2;width:100%;height:100%;border:0;padding:0;cursor:pointer;background-color:#000;background-size:cover;background-position:center}
         .rdr-song-play{position:absolute;bottom:10px;right:10px;display:flex;align-items:center;justify-content:center;width:48px;height:48px;border-radius:50%;background:var(--accent-orange);box-shadow:0 8px 24px rgba(249,115,22,0.5);border:3px solid rgba(255,255,255,0.15);padding-left:2px;transition:transform .2s}
         .rdr-song-poster:hover .rdr-song-play{transform:scale(1.08)}
         .rdr-song-bar{display:flex;align-items:center;justify-content:space-between;gap:10px;padding:10px 12px;background:rgba(255,255,255,0.05)}
