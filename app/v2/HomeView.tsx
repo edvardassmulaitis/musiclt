@@ -370,12 +370,17 @@ function buildHeroSlides(input: {
     const songs: any[] = n.songs || []
     const song = songs.find((s: any) => s.youtube_url)
     // VISOS straipsnio dainos (ne tik pirma) → mini-playlist reader'yje.
-    // Cap 40 — albumo/diskografijos naujienose gali būti 100+ dainų (payload
-    // svoris); 40 pakanka playlist'ui reader'yje.
-    const songList = songs
+    let songList = songs
       .map((s: any) => ({ videoId: extractYouTubeId(s.youtube_url || null), title: sanitizeTitle(s.title || '') || s.artist_name || 'Daina', artist: s.artist_name || null, songId: s.song_id ?? s.id ?? null, score: s.score ?? 0, video_views: s.video_views ?? 0 }))
       .filter((s: any): s is { videoId: string; title: string; artist: string | null; songId: number | null; score: number; video_views: number } => !!s.videoId)
-      .slice(0, 40)
+    // Albumas/diskografija (>3, gali būti 100+) → rikiuojam pagal populiarumą
+    // (score desc, tada video_views desc) IR cap 40, kad į payload'ą patektų TOP
+    // dainos (ne pirmos 40 pagal įkėlimo tvarką). ≤3 parinktos → redaktoriaus tvarka.
+    if (songList.length > 3) {
+      songList = songList
+        .sort((a, b) => (b.score - a.score) || (b.video_views - a.video_views))
+        .slice(0, 40)
+    }
     dated.push({ sortMs: ms(n.published_at), slide: {
       type: 'news', chip: typeLT.toUpperCase(), chipBg: '#1d4ed8',
       title: sanitizeTitle(n.title),
