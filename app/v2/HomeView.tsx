@@ -322,10 +322,10 @@ function MusicHead({ title, browseHref }: { title: string; browseHref: string })
 
 /* ─────────────── HERO slide builder (v1 hero logika, server-side) ─────────────── */
 function buildHeroSlides(input: {
-  news: any[]; events: any[]; heroPosts: any[]; dailyWinners: any[]
+  news: any[]; events: any[]; heroPosts: any[]; dailyWinners: any[]; todayNoms?: any[]
   ltTop: any; worldTop: any
 }): HeroSlide[] {
-  const { news, events, heroPosts, dailyWinners } = input
+  const { news, events, heroPosts, dailyWinners, todayNoms } = input
   const ms = (s: string | null | undefined) => { const t = s ? Date.parse(s) : NaN; return isNaN(t) ? 0 : t }
   const ytThumb = (vid?: string | null) => vid ? `https://img.youtube.com/vi/${vid}/hqdefault.jpg` : null
   const cap = (s: string) => s ? s[0].toUpperCase() + s.slice(1) : s
@@ -440,6 +440,18 @@ function buildHeroSlides(input: {
     if (tr && ageDays <= 2.5) {
       const wonLabel = isYesterday ? 'Vakar laimėjo' : (wDate ? `${cap(MONTHS_FULL_LT[wDate.getMonth()])} ${wDate.getDate()} d. laimėjo` : 'Laimėjo')
       const wVid = extractYouTubeId(tr.video_url || null)
+      // Desktop koliažas: VAKAR laimėtojas (didelis, su trofėjumi) + ŠIANDIEN
+      // pirmaujantys kandidatai (iš gyvų nominacijų). ISR (5 min) atnaujina per dieną.
+      const trkCover = (t: any) => t?.cover_url || t?.artists?.cover_image_url || (extractYouTubeId(t?.video_url || null) ? ytThumb(extractYouTubeId(t?.video_url || null)) : null)
+      const winnerCover = tr.artists?.cover_image_url || tr.cover_url || (wVid ? ytThumb(wVid) : null)
+      const todayLeaders = (todayNoms || [])
+        .filter((n: any) => n?.tracks && n.tracks.id !== tr.id)
+        .slice(0, 3)
+        .map((n: any) => ({ cover: trkCover(n.tracks) || '', title: sanitizeTitle(n.tracks.title || ''), artist: n.tracks.artists?.name || '', isWinner: false }))
+        .filter((c: any) => c.cover)
+      const dailyCollage = winnerCover
+        ? [{ cover: winnerCover, title: sanitizeTitle(tr.title || ''), artist: tr.artists?.name || '', isWinner: true }, ...todayLeaders]
+        : []
       // NB: reader'yje dienos daina renderinama per DienosDainaSection variant='reel'
       // (vakar laimėjo → runner-ups → šiandien balsuok). Jokio collage — jis painiojo
       // vakar laimėtoją su ANKSTESNIŲ dienų laimėtojais. bgImg/title lieka mobile
@@ -450,11 +462,15 @@ function buildHeroSlides(input: {
         subtitle: '',
         excerpt: w.winning_comment || '',
         metaLine: [wonLabel, tr.artists?.name].filter(Boolean).join(' · '),
-        bgImg: tr.cover_url || tr.artists?.cover_image_url || (wVid ? ytThumb(wVid) : null),
+        // Hero kortelės vizualas: pirma atlikėjo profilio nuotrauka (švaresnis
+        // portretas tai aukštai story kortelei), tada dainos cover, tada YouTube.
+        bgImg: tr.artists?.cover_image_url || tr.cover_url || (wVid ? ytThumb(wVid) : null),
         songTitle: tr.title || null,
         songArtist: tr.artists?.name || null,
         artist: tr.artists ? { name: tr.artists.name, slug: tr.artists.slug || '', image: tr.artists.cover_image_url || null } : null,
         ctaLabel: 'Dienos daina',
+        // Koliažą rodom desktop'e tik jei turim ≥1 šiandienos lyderį (kitaip — paprasta kortelė).
+        collage: dailyCollage.length >= 2 ? dailyCollage : undefined,
       })
     }
   }
@@ -798,7 +814,7 @@ export default async function V2Page() {
     if (!r?.news?.length) r = await jget('/api/news?limit=10&include=songs&since_days=21', 9000)
     return r
   }
-  const [musicPool, upcomingR, newsR, eventsR, vertaR, istorijaR, feedR, membersR, gilynR, disksR, ltTopR, worldTopR, blogHeroR, dailyWinR] = await Promise.all([
+  const [musicPool, upcomingR, newsR, eventsR, vertaR, istorijaR, feedR, membersR, gilynR, disksR, ltTopR, worldTopR, blogHeroR, dailyWinR, dailyNomsR] = await Promise.all([
     getMusicPool(),
     jget('/api/home/list?type=upcoming&limit=100', 8000),
     newsFetch(),
@@ -813,6 +829,7 @@ export default async function V2Page() {
     jget('/api/top/entries?type=top40'),
     jget('/api/blog/home-hero'),
     jget('/api/dienos-daina/winners?limit=7'),
+    jget('/api/dienos-daina/nominations', 6000),
   ])
   const members: any[] = membersR?.members ?? []
   const gilynBox: any[] = gilynR?.box ?? []
@@ -841,6 +858,7 @@ export default async function V2Page() {
     events,
     heroPosts: (blogHeroR?.posts ?? []) as any[],
     dailyWinners: (dailyWinR?.winners ?? []) as any[],
+    todayNoms: (dailyNomsR?.nominations ?? []) as any[],
     ltTop: ltTopR,
     worldTop: worldTopR,
   })

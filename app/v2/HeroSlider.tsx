@@ -162,7 +162,7 @@ function HeroV2Card({ slide, unseen, onOpen }: { slide: HeroSlide; unseen: boole
   if (slide.type === 'chart_lt' || slide.type === 'chart_world') {
     return <HeroChartCard slide={slide} unseen={unseen} onOpen={onOpen} />
   }
-  if (slide.type === 'daily_winner' && slide.collage && slide.collage.length >= 3) {
+  if (slide.type === 'daily_winner' && slide.collage && slide.collage.length >= 2) {
     return <HeroDailyCard slide={slide} unseen={unseen} onOpen={onOpen} />
   }
   return (
@@ -275,14 +275,21 @@ function HeroDailyCard({ slide, unseen, onOpen }: { slide: HeroSlide; unseen: bo
           {slide.songArtist && <p className="m-0 mt-1.5 truncate font-['Outfit',sans-serif] text-[15px] font-bold text-white/85">{slide.songArtist}</p>}
         </div>
       </div>
-      <div className="absolute right-4 top-4 bottom-4" style={{ width: '58%', display: 'grid', gridTemplateColumns: '3fr 2fr', gridTemplateRows: '3fr 2fr', gap: 7 }}>
-        <div style={{ gridColumn: 1, gridRow: 1 }}><Tile item={winner} big /></div>
-        <div style={{ gridColumn: 2, gridRow: 1 }}><Tile item={others[0]} /></div>
-        <div style={{ gridColumn: '1 / -1', gridRow: 2, display: 'grid', gridTemplateColumns: '1fr 1fr 1fr', gap: 7 }}>
-          <Tile item={others[1]} />
-          <Tile item={others[2]} />
-          <Tile item={others[3]} />
-        </div>
+      <div className="absolute right-4 top-4 bottom-4 flex flex-col gap-2.5" style={{ width: '58%' }}>
+        {/* Vakar laimėtojas — didelis kadras su trofėjumi */}
+        <div className="min-h-0 flex-[3]"><Tile item={winner} big /></div>
+        {/* Šiandien pirmauja — gyvi kandidatai (ISR 5 min) */}
+        {others.length > 0 && (
+          <div className="flex min-h-0 flex-[2] flex-col gap-1.5">
+            <span className="inline-flex items-center gap-1.5 font-['Outfit',sans-serif] text-[10px] font-extrabold uppercase tracking-[0.08em] text-white/70">
+              <span className="inline-block h-1.5 w-1.5 rounded-full" style={{ background: accent, boxShadow: `0 0 6px ${accent}` }} />
+              Šiandien pirmauja
+            </span>
+            <div className="grid min-h-0 flex-1 gap-1.5" style={{ gridTemplateColumns: `repeat(${Math.min(3, others.length)}, 1fr)` }}>
+              {others.slice(0, 3).map((it, i) => <Tile key={i} item={it} />)}
+            </div>
+          </div>
+        )}
       </div>
     </Link>
   )
