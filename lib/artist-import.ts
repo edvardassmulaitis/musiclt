@@ -183,7 +183,8 @@ function albumSlug(title: string, year?: number | null): string {
   return slugify(title) + (year ? `-${year}` : '')
 }
 
-/** Trukmė „M:SS" / „MM:SS" / „H:MM:SS" (kaip saugoma tracks.duration stulpelyje).
+/** Trukmė „M:SS" / „MM:SS" / „H:MM:SS" — normalizuojama TIK preview rodymui
+ *  (tracks lentelė neturi duration stulpelio, tad į DB nerašoma).
  *  Grąžina normalizuotą string arba null jei formatas netinkamas. */
 function normalizeDuration(d?: string | null): string | null {
   if (!d || typeof d !== 'string') return null
@@ -904,7 +905,8 @@ export async function applyImport(
     const relYear = t.release_year ?? parts.year
     const relMonth = t.release_month ?? parts.month
     const relDay = t.release_day ?? parts.day
-    const duration = normalizeDuration(t.duration)
+    // NB: tracks lentelė NETURI 'duration' stulpelio (net albumų flow jo nesaugo),
+    // todėl trukmės į DB nerašom — tik rodom preview'e informacijai.
     const spotifyId = t.spotify_url?.match(/track\/([A-Za-z0-9]+)/)?.[1] || null
     const trackCover = await fetchSpotifyThumb(t.spotify_url)
 
@@ -921,7 +923,7 @@ export async function applyImport(
 
     // Find/insert track
     let trackId: number | null = null
-    const { data: existingTr } = await sb.from('tracks').select('id, release_date, release_year, spotify_id, cover_url, duration').eq('artist_id', artistId).eq('slug', slugify(t.title)).maybeSingle()
+    const { data: existingTr } = await sb.from('tracks').select('id, release_date, release_year, spotify_id, cover_url').eq('artist_id', artistId).eq('slug', slugify(t.title)).maybeSingle()
     if (existingTr) {
       trackId = existingTr.id
       const upd: Record<string, any> = {}
@@ -931,7 +933,6 @@ export async function applyImport(
       if (relDay) upd.release_day = relDay
       if (!existingTr.spotify_id && spotifyId) upd.spotify_id = spotifyId
       if (!existingTr.cover_url && trackCover) upd.cover_url = trackCover
-      if (!existingTr.duration && duration) upd.duration = duration
       if (map.is_single) upd.is_single = true
       if (Object.keys(upd).length) {
         const { error } = await sb.from('tracks').update(upd).eq('id', trackId)
@@ -950,7 +951,6 @@ export async function applyImport(
         title: t.title, slug, artist_id: artistId, type: map.type, is_single: map.is_single,
         release_date: t.release_date || null,
         release_year: relYear, release_month: relMonth, release_day: relDay,
-        duration,
         cover_url: trackCover,
         spotify_id: spotifyId, source: 'json_import',
       }
