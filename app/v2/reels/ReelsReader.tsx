@@ -82,7 +82,7 @@ const REELS_DURATION = 13000
  * trumpos vizualinės kortelės — mažiau. Interaktyvios (chart/daily) auto
  * neturi iš viso (žr. `interactive`). */
 function slideDuration(s: HeroSlide): number {
-  if (s.type === 'news' || s.type === 'blog') return 18000
+  if (s.type === 'news' || s.type === 'blog' || s.type === 'community') return 18000
   if (s.type === 'daily_winner' || s.type === 'event' || s.type === 'verta' || s.type === 'discovery' || s.type === 'recording' || s.type === 'promo' || s.type === 'custom') return 9000
   return REELS_DURATION
 }
@@ -129,6 +129,9 @@ function ChartVoteList({ topType, accent, onPlay }: { topType: 'lt_top30' | 'top
   const [counts, setCounts] = useState<Record<number, number>>({})
   const [busy, setBusy] = useState(false)
   const [loading, setLoading] = useState(true)
+  // Finalizuota savaitė → balsavimas uždarytas (serveris grąžintų 400). Tada
+  // rodom sąrašą read-only, be „+" mygtukų (kaip topo psl. archyvo režime).
+  const [finalized, setFinalized] = useState(false)
 
   useEffect(() => {
     let c = false
@@ -138,6 +141,7 @@ function ChartVoteList({ topType, accent, onPlay }: { topType: 'lt_top30' | 'top
       .then(d => {
         if (c) return
         setWeekId(d.week?.id ?? null)
+        setFinalized(!!d.week?.is_finalized)
         setEntries((d.entries || []).map((e: any, i: number) => ({
           pos: e.position ?? (i + 1),
           track_id: e.track_id,
@@ -156,7 +160,7 @@ function ChartVoteList({ topType, accent, onPlay }: { topType: 'lt_top30' | 'top
   }, [topType])
 
   const vote = async (track_id: number) => {
-    if (!weekId || busy) return
+    if (!weekId || busy || finalized) return
     if ((counts[track_id] || 0) >= WEEKLY) return
     setBusy(true)
     setCounts(p => ({ ...p, [track_id]: (p[track_id] || 0) + 1 }))
@@ -170,7 +174,7 @@ function ChartVoteList({ topType, accent, onPlay }: { topType: 'lt_top30' | 'top
   if (loading) return <div className="rdr-load"><span /><span /><span /></div>
   return (
     <div className="rdr-cvl">
-      <div className="rdr-cvl-head">Balsuok už mėgstamas</div>
+      <div className="rdr-cvl-head">{finalized ? 'Savaitės rezultatai' : 'Balsuok už mėgstamas'}</div>
       {entries.map(e => {
         const n = counts[e.track_id] || 0
         const maxed = n >= WEEKLY
@@ -182,12 +186,16 @@ function ChartVoteList({ topType, accent, onPlay }: { topType: 'lt_top30' | 'top
               {e.videoId && <span className="rdr-cvl-play"><svg width="13" height="13" viewBox="0 0 24 24" fill="#fff"><path d="M8 5v14l11-7z" /></svg></span>}
             </button>
             <span className="rdr-chart-info"><b>{e.title}</b><i>{e.artist}</i></span>
-            <button className={`rdr-cvl-vote${n > 0 ? ' voted' : ''}`} disabled={maxed} onClick={() => vote(e.track_id)}
-              aria-label="Balsuoti" title={maxed ? 'Pasiektas maks. balsų' : 'Spausk tiek kartų, kiek nori'}>
-              {n > 0
-                ? <span className="rdr-cvl-mine">{n}</span>
-                : <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="3" strokeLinecap="round"><line x1="12" y1="5" x2="12" y2="19" /><line x1="5" y1="12" x2="19" y2="12" /></svg>}
-            </button>
+            {finalized
+              ? (n > 0 ? <span className="rdr-cvl-vote voted"><span className="rdr-cvl-mine">{n}</span></span> : null)
+              : (
+                <button className={`rdr-cvl-vote${n > 0 ? ' voted' : ''}`} disabled={maxed} onClick={() => vote(e.track_id)}
+                  aria-label="Balsuoti" title={maxed ? 'Pasiektas maks. balsų' : 'Spausk tiek kartų, kiek nori'}>
+                  {n > 0
+                    ? <span className="rdr-cvl-mine">{n}</span>
+                    : <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="3" strokeLinecap="round"><line x1="12" y1="5" x2="12" y2="19" /><line x1="5" y1="12" x2="19" y2="12" /></svg>}
+                </button>
+              )}
           </div>
         )
       })}
@@ -1104,6 +1112,8 @@ function CardFooter({ slide, onNavLink }: {
     : slide.type === 'daily' || slide.type === 'daily_winner' ? 'Dienos daina'
     : slide.type === 'event' ? 'Apie renginį'
     : slide.type === 'verta' ? 'Apie kelionę'
+    : slide.type === 'recording' ? 'Žiūrėti įrašą'
+    : slide.type === 'community' ? 'Skaityti diskusiją'
     : slide.ctaLabel || 'Skaityti'
   return (
     <div className="rdr-foot" onClick={(e) => e.stopPropagation()}>

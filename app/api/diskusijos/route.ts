@@ -46,17 +46,22 @@ export async function GET(req: Request) {
   // News persikėlę į /naujienos, events — į /renginiai. Be šito filter'o
   // visi music.lt scraped news threads (legacy_kind='news') lįsdavo į
   // diskusijų sąrašą ir maišydavo realų pokalbio turinį.
+  // „Dėmesio centre" (aktyvuota admin'e) temas VISADA įsileidžiam, net jei
+  // legacy stub'as be komentarų — kitaip admin aktyvuotas įrašas niekur
+  // nesirodydavo (/admin/feed „nerodo community įrašų", Edvardas 2026-07-23).
+  const nowIso = new Date().toISOString()
   let query = supabase
     .from('discussions')
-    .select('id, slug, title, body, user_id, author_name, author_avatar, tag, tags, is_pinned, is_locked, comment_count, like_count, view_count, last_comment_at, created_at, artist:artist_id(name, slug, cover_image_url)', { count: 'exact' })
+    .select('id, slug, title, body, user_id, author_name, author_avatar, tag, tags, is_pinned, is_locked, comment_count, like_count, view_count, last_comment_at, created_at, featured_until, artist:artist_id(name, slug, cover_image_url)', { count: 'exact' })
     .eq('is_deleted', false)
     .or('legacy_kind.is.null,legacy_kind.eq.discussion')
     // Slepiam tuščius legacy stub'us: forum_discover atranda temos antraštę
     // (created_at = importo laikas), bet komentarai/turinys dar nenuscrapinti
     // → rodo „0 komentarų" ir užteršia „Naujos". Rodom tik temas su realiu
-    // turiniu (komentaras) ARBA nario sukurtas (user_id). Self-healing:
-    // nuscrapinus komentarus tema vėl atsiranda.
-    .or('comment_count.gt.0,user_id.not.is.null')
+    // turiniu (komentaras) ARBA nario sukurtas (user_id) ARBA aktyviai
+    // aktyvuotas admin'e (featured_until ateity). Self-healing: nuscrapinus
+    // komentarus tema vėl atsiranda.
+    .or(`comment_count.gt.0,user_id.not.is.null,featured_until.gt.${nowIso}`)
     .range(offset, offset + limit - 1)
 
   // Kategorija saugoma `tag` (text) stulpelyje — backfill'inta heuristiškai

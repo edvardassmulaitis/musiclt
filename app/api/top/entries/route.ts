@@ -37,14 +37,28 @@ export async function GET(req: Request) {
   // taip homepage'ui bus ką rodyti, o voting'as vis tiek bus prikabintas
   // prie current week'o per /api/top/vote (kuris naudoja week_id atskirai).
   if (!week) {
-    const { data: latest } = await supabase
+    // Pirmenybė NEfinalizuotai savaitei — kad balsavimas (reels + topo psl.)
+    // liktų atviras, jei cron'as nesukūrė einamosios savaitės įrašo. Tik jei
+    // tokios nėra — imam naujausią (galbūt finalizuotą, read-only display'ui).
+    const { data: liveWk } = await supabase
       .from('top_weeks')
       .select('*')
       .eq('top_type', topType)
+      .eq('is_finalized', false)
       .order('week_start', { ascending: false })
       .limit(1)
       .maybeSingle()
-    week = latest
+    if (liveWk) week = liveWk
+    else {
+      const { data: latest } = await supabase
+        .from('top_weeks')
+        .select('*')
+        .eq('top_type', topType)
+        .order('week_start', { ascending: false })
+        .limit(1)
+        .maybeSingle()
+      week = latest
+    }
   }
   if (!week) return NextResponse.json({ entries: [], week: null })
 

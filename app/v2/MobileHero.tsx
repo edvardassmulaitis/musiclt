@@ -38,7 +38,7 @@ export default function MobileHero({ slides }: { slides: HeroSlide[] }) {
           const bg = s.bgImg || (isChart ? (s.chartTops?.[0]?.cover_url || s.chartTops?.[0]?.artist_image || null) : null)
           const artistName = s.type === 'event' ? null : (s.artist?.name || null)
           const showArtist = !!artistName && !s.title.toLowerCase().includes(artistName.toLowerCase())
-          const showExcerpt = s.type === 'event' && !!s.subtitle && s.subtitle.length > 5
+          const showExcerpt = (s.type === 'event' || s.type === 'verta' || s.type === 'recording' || s.type === 'community') && !!s.subtitle && s.subtitle.length > 5
           // Border = „neskaityta" indikatorius: oranžinis kol vartotojas
           // neatidarė (peržiūrėta žymima per reels_seen su slideKey — TAS PAT
           // raktas kaip ReelsOverlay onSeen ir desktop), neutralus po to.

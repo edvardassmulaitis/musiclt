@@ -215,9 +215,14 @@ function HeroV2Card({ slide, unseen, onOpen }: { slide: HeroSlide; unseen: boole
         <h3 className="m-0 max-w-[440px] font-['Outfit',sans-serif] text-[23px] font-extrabold leading-[1.12] tracking-tight text-white transition-opacity group-hover:opacity-90">
           {slide.title}
         </h3>
-        {slide.type === 'event' && slide.subtitle && (
+        {(slide.type === 'event' || slide.type === 'verta') && slide.subtitle && (
           <p className="m-0 mt-2 flex items-center gap-1.5 font-['Outfit',sans-serif] text-[14px] font-semibold text-white/85">
             <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><rect x="3" y="5" width="18" height="16" rx="2"/><path d="M16 3v4M8 3v4M3 11h18"/></svg>
+            {slide.subtitle}
+          </p>
+        )}
+        {(slide.type === 'recording' || slide.type === 'community') && slide.subtitle && (
+          <p className="m-0 mt-2 line-clamp-2 font-['Outfit',sans-serif] text-[14px] font-medium leading-snug text-white/80">
             {slide.subtitle}
           </p>
         )}

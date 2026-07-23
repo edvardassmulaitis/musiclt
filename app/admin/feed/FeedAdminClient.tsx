@@ -117,13 +117,16 @@ export default function FeedAdminClient() {
   const load = useCallback(async () => {
     setLoading(true)
     const j = (u: string) => fetch(u).then(r => r.json()).catch(() => ({}))
-    const [lt, w, news, blog, winners, noms, disc, recs, verta, events, hev, ov, disk] = await Promise.all([
+    const [lt, w, news, blog, winners, noms, disc, recs, verta, events, hev, ov, disk, featDisk] = await Promise.all([
       j('/api/top/entries?type=lt_top30'), j('/api/top/entries?type=top40'),
       j('/api/news?limit=12&include=songs&since_days=7'), j('/api/blog/home-hero'),
       j('/api/dienos-daina/winners?limit=7'), j('/api/dienos-daina/nominations'),
       j('/api/muzikos-atradimai?featured=1&limit=6'), j('/api/koncertu-irasai?limit=6'),
       j('/api/verta-keliones'), j('/api/events?limit=24&homepage=1'), j('/api/events?home_hero=1&limit=8'),
       j('/api/feed/overrides'), j('/api/diskusijos?sort=activity&limit=8'),
+      // ★ „Dėmesio centre" (admin aktyvuotos) temos — VISADA įtraukiam, net jei
+      // be komentarų (kitaip aktyvuotas įrašas /admin/feed nesirodydavo).
+      j('/api/diskusijos/recent?featured=1&limit=20'),
     ])
 
     const list: Cand[] = []
@@ -181,7 +184,18 @@ export default function FeedAdminClient() {
     // valdomos iš /admin/feed (rodėsi atskirame homepage widget'e be jokio
     // hide/pin). Dabar bent pin/slėpti galima kaip ir kitiems tipams —
     // HomeClient „Žmonės" sekcija gerbia tuos pačius override'us.
-    ;(disk.discussions || []).slice(0, 6).forEach((d: any) => push(`discussion::/diskusijos/${d.slug || d.id}`, 'Diskusija', strip(d.title || ''), null, `/diskusijos/${d.slug || d.id}`, d.created_at || d.last_activity_at || null))
+    // ★ Featured (aktyvuotos) temos VIRŠUJ + naujausios pagal aktyvumą.
+    // Dedup pagal slug/id, kad ta pati tema nesidubliuotų. Featured įrašai turi
+    // artist_image vizualą (jei atlikėjas pririštas); paprastos — be vizualo.
+    const seenDisc = new Set<string>()
+    const discRows: any[] = [...(featDisk?.items || []), ...(disk.discussions || [])]
+    for (const d of discRows) {
+      const key = String(d.slug || d.id)
+      if (seenDisc.has(key)) continue
+      seenDisc.add(key)
+      if (seenDisc.size > 8) break
+      push(`discussion::/diskusijos/${d.slug || d.id}`, 'Diskusija', strip(d.title || ''), d.artist_image || null, `/diskusijos/${d.slug || d.id}`, d.featured_until || d.last_comment_at || d.created_at || null)
+    }
 
     // apply overrides — TIKSLIAI kaip homepage: TIK pin'as kelia į viršų; sort_order
     // vienas nedominuoja (paslėpti įrašai lieka rodomi pilki, kad būtų galima atstatyti).
