@@ -205,6 +205,37 @@ function DailyCandidates({ onPlay }: { onPlay: (videoId: string, meta?: { title?
   )
 }
 
+/** Viršutinis koliažas (mosaic) — čartams ir dienos dainai vietoj vieno grainy
+ *  YouTube thumbnail'o. Tas pats vizualinis modelis kaip hero kortelės (didelis
+ *  #1/laimėtojas + mažesni), tik horizontalus (reader'is vertikalus). Aukštos
+ *  kokybės cover'iai (ne YT thumb) → nuoseklu su news/blog/event posteriais. */
+function RdrMosaic({ items, accent }: { items: { cover: string; badge?: number | null; winner?: boolean }[]; accent: string }) {
+  const big = items[0]
+  const rest = items.slice(1, 5)
+  const Tile = ({ it, big: isBig }: { it?: { cover: string; badge?: number | null; winner?: boolean }; big?: boolean }) => {
+    if (!it) return <span className="rdr-mos-cell rdr-mos-ph" />
+    return (
+      <span className="rdr-mos-cell" style={it.winner ? { outline: `2px solid ${accent}`, outlineOffset: -2 } : undefined}>
+        {/* eslint-disable-next-line @next/next/no-img-element */}
+        <img src={proxyImgResized(it.cover, isBig ? 480 : 320)} alt="" loading="lazy" decoding="async" />
+        {it.badge != null && <span className="rdr-mos-badge" style={{ background: it.badge === 1 ? accent : 'rgba(0,0,0,0.78)' }}>{it.badge}</span>}
+        {it.winner && <span className="rdr-mos-badge" style={{ background: accent }}>
+          <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="#fff" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round"><path d="M8 21h8M12 17v4M7 4h10v5a5 5 0 0 1-10 0V4zM5 9a2 2 0 0 1-2-2V5h4M19 9a2 2 0 0 0 2-2V5h-4" /></svg>
+        </span>}
+      </span>
+    )
+  }
+  return (
+    <div className="rdr-mosaic">
+      <div className="rdr-mos-big"><Tile it={big} big /></div>
+      <div className="rdr-mos-side"><Tile it={rest[0]} /></div>
+      <div className="rdr-mos-bottom">
+        <Tile it={rest[1]} /><Tile it={rest[2]} /><Tile it={rest[3]} />
+      </div>
+    </div>
+  )
+}
+
 /** Viena istorija reader'yje. Pati valdo savo VERTIKALŲ scroll'ą (pauzina
  *  auto-advance kai nuscrollinta žemyn — „skaitymo režimas"), news pilno body
  *  lazy-fetch'ą, ♥ ir apatinę veiksmų juostą. Muzika — STANDARTINIAI YouTube
@@ -315,8 +346,19 @@ function ReaderSlide({ slide, active, seen, dk, scrollTopSignal, onScrolledChang
 
   const place = slide.metaLine || (isChart ? '' : slide.subtitle) || ''
   // Trumpo turinio kortelės (be body teksto) — aukštesnis posteris, kad kortelė
-  // neatrodytų pustuštė (daily_winner/event/verta/discovery/recording).
-  const tallPoster = !body && !bodyLoading && !isChart && !isDaily && !isNews && !isBlog
+  // neatrodytų pustuštė (event/verta/discovery/recording).
+  const tallPoster = !body && !bodyLoading && !isChart && !isDaily && !isNews && !isBlog && slide.type !== 'daily_winner'
+
+  // Koliažas (mosaic) vietoj vieno grainy YT-thumb — čartams ir dienos dainos
+  // laimėtojui. Aukštos kokybės cover'iai, tas pats modelis kaip hero kortelės.
+  const mosaicAccent = slide.type === 'chart_world' ? '#3b82f6' : 'var(--accent-orange)'
+  const mosaicItems: { cover: string; badge?: number | null; winner?: boolean }[] = isChart
+    ? (slide.chartTops || []).slice(0, 5)
+        .map(t => ({ cover: (t.cover_url || t.artist_image) as string, badge: t.pos }))
+        .filter(x => !!x.cover)
+    : slide.type === 'daily_winner' && slide.collage
+      ? slide.collage.slice(0, 5).map(c => ({ cover: c.cover, winner: c.isWinner }))
+      : []
 
   /* „Muzika" sekcijos embed'ai (max 3): slide.songs arba vienas slide.videoId.
    * Jei iš sąrašo paprašytas video nėra tarp jų — įterpiam pirmu. Antraštė
@@ -338,9 +380,14 @@ function ReaderSlide({ slide, active, seen, dk, scrollTopSignal, onScrolledChang
 
   return (
     <div ref={scrollRef} className="rdr-slide" onScroll={onScroll}>
-      {/* ── Viršuje VISADA tik statinė nuotrauka (blur-fill posteris). Muzika —
-          standartiniai YouTube embed'ai „Muzika" sekcijoje po tekstu. ── */}
-      {slide.bgImg ? (
+      {/* ── Viršus: čartams/dienos dainai — cover koliažas (mosaic); kitiems —
+          statinė nuotrauka (blur-fill posteris). Muzika — YouTube embed'ai žemiau. ── */}
+      {mosaicItems.length >= 3 ? (
+        <div className="rdr-media rdr-media-mosaic">
+          <RdrMosaic items={mosaicItems} accent={mosaicAccent} />
+          <div className="rdr-media-fade" />
+        </div>
+      ) : slide.bgImg ? (
         <div className={`rdr-media${tallPoster ? ' rdr-media-tall' : ''}`}>
           <span className="rdr-poster-bg" style={{ backgroundImage: `url(${proxyImgResized(slide.bgImg, 64)})` }} />
           <img className="rdr-poster-img" src={proxyImgResized(slide.bgImg, 1080)} alt="" draggable={false} decoding="async" />
@@ -1190,6 +1237,17 @@ const REELS_CSS = `
         .rdr-media-tall{aspect-ratio:4/5;max-height:60vh}
         .rdr-poster-bg{position:absolute;inset:0;background-size:cover;background-position:center;filter:blur(26px) brightness(0.55);transform:scale(1.18)}
         .rdr-poster-img{position:absolute;inset:0;width:100%;height:100%;object-fit:contain;z-index:1}
+        /* Čartų / dienos dainos koliažas (mosaic) — vietoj grainy YT thumb. */
+        .rdr-media-mosaic{aspect-ratio:16/10;max-height:52vh;background:#0a0a0a;padding:12px;display:grid;grid-template-columns:2.4fr 1fr;grid-template-rows:1.7fr 1fr;gap:7px}
+        .rdr-mosaic{display:contents}
+        .rdr-mos-big{grid-column:1;grid-row:1}
+        .rdr-mos-side{grid-column:2;grid-row:1}
+        .rdr-mos-bottom{grid-column:1 / -1;grid-row:2;display:grid;grid-template-columns:1fr 1fr 1fr;gap:7px}
+        .rdr-mos-cell{position:relative;display:block;width:100%;height:100%;border-radius:9px;overflow:hidden;background:#1a1a1a;box-shadow:0 4px 14px rgba(0,0,0,0.4)}
+        .rdr-mos-cell img{width:100%;height:100%;object-fit:cover;display:block}
+        .rdr-mos-ph{background:rgba(255,255,255,0.05)}
+        .rdr-mos-badge{position:absolute;top:6px;left:6px;min-width:22px;height:22px;padding:0 5px;border-radius:7px;display:flex;align-items:center;justify-content:center;font-family:'Outfit',sans-serif;font-weight:900;font-size:12.5px;color:#fff;box-shadow:0 2px 8px rgba(0,0,0,0.5)}
+        .rdr-media-mosaic .rdr-media-fade{display:none}
         /* Antraštės galvutė: badge + data vienoj eilutėj (kompaktiška) */
         .rdr-head{display:flex;align-items:center;gap:8px;flex-wrap:wrap;margin-bottom:10px}
         .rdr-date{font-size:14px;font-weight:600;color:rgba(255,255,255,0.62);font-family:'Outfit',sans-serif}
