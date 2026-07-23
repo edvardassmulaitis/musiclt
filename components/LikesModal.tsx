@@ -193,10 +193,12 @@ export default function LikesModal({
                 <div
                   style={{
                     fontFamily: 'Outfit,sans-serif',
-                    fontSize: 16, fontWeight: 800,
+                    fontSize: 15, fontWeight: 800,
                     color: 'var(--text-primary)',
-                    overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap',
-                    minWidth: 0,
+                    // Ilgiems news pavadinimams — iki 2 eilučių (ne kietas 1-eilutės
+                    // nukirpimas), kad matytųsi kas palaikinta.
+                    display: '-webkit-box', WebkitLineClamp: 2, WebkitBoxOrient: 'vertical',
+                    overflow: 'hidden', lineHeight: 1.25, minWidth: 0,
                   }}
                   title={subjectName}
                 >

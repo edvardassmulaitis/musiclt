@@ -95,6 +95,7 @@ export const slideKey = (s: HeroSlide) => `${s.type}::${s.href}`
 const newsBodyCache = new Map<number, string>()
 const newsEmbedCache = new Map<number, { videoId: string; title: string | null }[]>()
 const newsSocialCache = new Map<number, { url: string; caption?: string | null }[]>()
+const newsGalleryCache = new Map<number, { url: string; caption?: string | null }[]>()
 const blogPostCache = new Map<string, any>()
 
 /** Legacy blog turinio valymas reader'iui: nukerpa scraper'io „mėgstamų" lentelės
@@ -495,21 +496,74 @@ function SongPlaylist({ songs, onNavLink }: { songs: PlSong[]; onNavLink: () => 
         {cur?.songId ? <EntityLikePill key={cur.songId} entityType="track" entityId={cur.songId} subjectName={cur.title} subjectPhoto={cover} /> : null}
       </div>
       <div className="rdr-plist-list">
-        {visible.map((s) => {
+        {visible.map((s, vi) => {
           const realI = songs.indexOf(s)
           const on = realI === idx
           return (
             <button key={`${s.videoId}-${realI}`} type="button" className={`rdr-plist-row${on ? ' on' : ''}`} onClick={() => play(realI)}>
-              <span className="rdr-plist-ic">
-                {on && started
-                  ? <svg width="13" height="13" viewBox="0 0 24 24" fill="currentColor" aria-hidden><path d="M6 5h4v14H6zM14 5h4v14h-4z" /></svg>
-                  : <svg width="13" height="13" viewBox="0 0 24 24" fill="currentColor" aria-hidden><path d="M8 5v14l11-7z" /></svg>}
-              </span>
+              <span className="rdr-plist-num">{vi + 1}</span>
               <span className="rdr-plist-tx"><b>{s.title}</b>{s.artist ? <i>{s.artist}</i> : null}</span>
+              <span className="rdr-plist-play">
+                {on && started
+                  ? <svg width="12" height="12" viewBox="0 0 24 24" fill="currentColor" aria-hidden><path d="M6 5h4v14H6zM14 5h4v14h-4z" /></svg>
+                  : <svg width="12" height="12" viewBox="0 0 24 24" fill="currentColor" aria-hidden><path d="M8 5v14l11-7z" /></svg>}
+              </span>
             </button>
           )
         })}
       </div>
+    </div>
+  )
+}
+
+/** Naujienos nuotraukų galerija reader'yje — grid + fullscreen lightbox su
+ *  prev/next. Viena nuotrauka → didesnė; kelios → 2 stulpelių grid'as. */
+function RdrGallery({ photos }: { photos: { url: string; caption?: string | null }[] }) {
+  const [lb, setLb] = useState<number | null>(null)
+  const single = photos.length === 1
+  useEffect(() => {
+    if (lb === null) return
+    const onKey = (e: KeyboardEvent) => {
+      if (e.key === 'Escape') setLb(null)
+      else if (e.key === 'ArrowRight') setLb(i => (i === null ? i : (i + 1) % photos.length))
+      else if (e.key === 'ArrowLeft') setLb(i => (i === null ? i : (i - 1 + photos.length) % photos.length))
+    }
+    window.addEventListener('keydown', onKey)
+    return () => window.removeEventListener('keydown', onKey)
+  }, [lb, photos.length])
+  const cur = lb !== null ? photos[lb] : null
+  return (
+    <div className="rdr-gal" onClick={(e) => e.stopPropagation()}>
+      <div className={`rdr-gal-grid${single ? ' one' : ''}`}>
+        {photos.map((p, i) => (
+          <button key={i} type="button" className="rdr-gal-cell" onClick={() => setLb(i)} aria-label="Peržiūrėti nuotrauką">
+            {/* eslint-disable-next-line @next/next/no-img-element */}
+            <img src={proxyImgResized(p.url, single ? 1080 : 480)} alt={p.caption || ''} loading="lazy" decoding="async" />
+          </button>
+        ))}
+      </div>
+      {cur !== null && lb !== null && createPortal(
+        <div className="rdr-gal-lb" onClick={() => setLb(null)}>
+          <button type="button" className="rdr-gal-x" onClick={(e) => { e.stopPropagation(); setLb(null) }} aria-label="Uždaryti">
+            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.4" strokeLinecap="round"><path d="M6 6l12 12M18 6L6 18" /></svg>
+          </button>
+          {photos.length > 1 && (
+            <button type="button" className="rdr-gal-nav prev" onClick={(e) => { e.stopPropagation(); setLb((lb - 1 + photos.length) % photos.length) }} aria-label="Ankstesnė">
+              <svg width="26" height="26" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.4" strokeLinecap="round" strokeLinejoin="round"><path d="M15 18l-6-6 6-6" /></svg>
+            </button>
+          )}
+          {/* eslint-disable-next-line @next/next/no-img-element */}
+          <img className="rdr-gal-lb-img" src={proxyImgResized(cur.url, 1600)} alt={cur.caption || ''} onClick={(e) => e.stopPropagation()} decoding="async" />
+          {photos.length > 1 && (
+            <button type="button" className="rdr-gal-nav next" onClick={(e) => { e.stopPropagation(); setLb((lb + 1) % photos.length) }} aria-label="Kita">
+              <svg width="26" height="26" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.4" strokeLinecap="round" strokeLinejoin="round"><path d="M9 6l6 6-6 6" /></svg>
+            </button>
+          )}
+          {cur.caption ? <p className="rdr-gal-cap">{cur.caption}</p> : null}
+          {photos.length > 1 && <span className="rdr-gal-count">{lb + 1} / {photos.length}</span>}
+        </div>,
+        document.body,
+      )}
     </div>
   )
 }
@@ -544,6 +598,9 @@ function ReaderSlide({ slide, active, seen, dk, scrollTopSignal, onScrolledChang
   // ištraukiam iš /api/news/[id] atsakymo ir rodom „Muzika" sekcijoj.
   const [socialEmbeds, setSocialEmbeds] = useState<{ url: string; caption?: string | null }[]>(
     () => (slide.newsId ? newsSocialCache.get(slide.newsId) || [] : [])
+  )
+  const [gallery, setGallery] = useState<{ url: string; caption?: string | null }[]>(
+    () => (slide.newsId ? newsGalleryCache.get(slide.newsId) || [] : [])
   )
   const [extraEmbeds, setExtraEmbeds] = useState<{ videoId: string; title: string | null }[]>(
     () => (slide.newsId ? newsEmbedCache.get(slide.newsId) || [] : [])
@@ -602,6 +659,18 @@ function ReaderSlide({ slide, active, seen, dk, scrollTopSignal, onScrolledChang
           .slice(0, 5)
         newsSocialCache.set(slide.newsId!, socials)
         if (socials.length) setSocialEmbeds(socials)
+        // Nuotraukų galerija — iš `gallery` lauko arba image1..5_url (kaip news psl.).
+        let gal: { url: string; caption?: string | null }[] = Array.isArray(d?.gallery) && d.gallery.length
+          ? d.gallery.filter((g: any) => g?.url).map((g: any) => ({ url: g.url as string, caption: g.caption || null }))
+          : []
+        if (!gal.length) {
+          for (let i = 1; i <= 5; i++) {
+            const url = d?.[`image${i}_url`]
+            if (url) gal.push({ url, caption: d?.[`image${i}_caption`] || null })
+          }
+        }
+        newsGalleryCache.set(slide.newsId!, gal)
+        if (gal.length) setGallery(gal)
       })
       .catch(() => {})
       .finally(() => setBodyLoading(false))
@@ -824,6 +893,9 @@ function ReaderSlide({ slide, active, seen, dk, scrollTopSignal, onScrolledChang
             {socialEmbeds.map((s, i) => <SocialEmbed key={`${s.url}-${i}`} url={s.url} caption={s.caption} />)}
           </div>
         )}
+
+        {/* ── Nuotraukų galerija (news) — grid + fullscreen lightbox ── */}
+        {active && isNews && gallery.length > 0 && <RdrGallery photos={gallery} />}
 
         {slide.authorName && <p className="rdr-author">— {slide.authorName}</p>}
 
@@ -1807,19 +1879,23 @@ const REELS_CSS = `
         .rdr-plist-row{display:flex;align-items:center;gap:10px;width:100%;padding:9px 12px;background:transparent;border:0;border-bottom:1px solid rgba(255,255,255,0.05);cursor:pointer;text-align:left;color:#fff}
         .rdr-plist-row:last-child{border-bottom:0}
         .rdr-plist-row.on{background:rgba(249,115,22,0.14)}
-        .rdr-plist-ic{display:inline-flex;align-items:center;justify-content:center;width:26px;height:26px;flex-shrink:0;border-radius:50%;background:rgba(255,255,255,0.1);color:#fff}
-        .rdr-plist-row.on .rdr-plist-ic{background:var(--accent-orange)}
-        .rdr-plist-tx{display:flex;flex-direction:column;min-width:0}
+        .rdr-plist-num{width:20px;flex-shrink:0;text-align:center;font-family:'Outfit',sans-serif;font-weight:800;font-size:13px;font-variant-numeric:tabular-nums;color:rgba(255,255,255,0.5)}
+        .rdr-plist-row.on .rdr-plist-num{color:var(--accent-orange)}
+        .rdr-plist-tx{display:flex;flex-direction:column;min-width:0;flex:1 1 auto}
         .rdr-plist-tx b{font-family:'Outfit',sans-serif;font-weight:700;font-size:13.5px;color:#fff;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
         .rdr-plist-tx i{font-style:normal;font-size:12px;color:rgba(255,255,255,0.6);white-space:nowrap;overflow:hidden;text-overflow:ellipsis;margin-top:1px}
         .rdr-plist-row.on .rdr-plist-tx b{color:var(--accent-orange)}
+        /* Play mygtukas DEŠINĖJ — aktyvus oranžinis (kaip PlayerCard), kiti neutralūs */
+        .rdr-plist-play{display:inline-flex;align-items:center;justify-content:center;width:30px;height:30px;flex-shrink:0;border-radius:50%;background:rgba(255,255,255,0.1);color:#fff;padding-left:1px}
+        .rdr-plist-row.on .rdr-plist-play{background:var(--accent-orange);color:#fff;box-shadow:0 4px 14px rgba(249,115,22,0.35)}
         .hp-reels.light .rdr-plist-list{border-top-color:var(--border-default)}
         .hp-reels.light .rdr-plist-row{border-bottom-color:var(--border-subtle);color:var(--text-primary)}
+        .hp-reels.light .rdr-plist-num{color:var(--text-muted)}
         .hp-reels.light .rdr-plist-tx b{color:var(--text-primary)}
         .hp-reels.light .rdr-plist-tx i{color:var(--text-muted)}
-        .hp-reels.light .rdr-plist-ic{background:var(--bg-hover);color:var(--text-primary)}
+        .hp-reels.light .rdr-plist-play{background:var(--card-bg);color:var(--text-primary);border:1px solid var(--border-default)}
         .hp-reels.light .rdr-plist-row.on{background:rgba(249,115,22,0.12)}
-        .hp-reels.light .rdr-plist-row.on .rdr-plist-ic{color:#fff}
+        .hp-reels.light .rdr-plist-row.on .rdr-plist-play{background:var(--accent-orange);color:#fff;border-color:var(--accent-orange)}
         .hp-reels.light .rdr-song{border-color:var(--border-default)}
         .hp-reels.light .rdr-song-bar{background:var(--bg-elevated)}
         .hp-reels.light .rdr-song-info b{color:var(--text-primary)}
@@ -1934,6 +2010,21 @@ const REELS_CSS = `
         .rdr-social>div{width:100%;max-width:400px}
         .rdr-social iframe{max-width:100%!important}
         .rdr-social .instagram-media,.rdr-social .twitter-tweet,.rdr-social .tiktok-embed{margin:0 auto!important;max-width:100%!important;min-width:0!important}
+        /* Nuotraukų galerija */
+        .rdr-gal{margin:20px 0 0}
+        .rdr-gal-grid{display:grid;grid-template-columns:1fr 1fr;gap:6px}
+        .rdr-gal-grid.one{grid-template-columns:1fr}
+        .rdr-gal-cell{position:relative;display:block;width:100%;aspect-ratio:1;border:0;padding:0;border-radius:12px;overflow:hidden;background:rgba(255,255,255,0.06);cursor:pointer}
+        .rdr-gal-grid.one .rdr-gal-cell{aspect-ratio:4/3}
+        .rdr-gal-cell img{width:100%;height:100%;object-fit:cover;display:block}
+        .rdr-gal-lb{position:fixed;inset:0;z-index:10000;background:rgba(0,0,0,0.94);display:flex;align-items:center;justify-content:center;padding:24px}
+        .rdr-gal-lb-img{max-width:96vw;max-height:86vh;object-fit:contain;border-radius:8px}
+        .rdr-gal-x{position:absolute;top:16px;right:16px;width:40px;height:40px;border-radius:50%;border:0;background:rgba(255,255,255,0.14);color:#fff;display:flex;align-items:center;justify-content:center;cursor:pointer}
+        .rdr-gal-nav{position:absolute;top:50%;transform:translateY(-50%);width:44px;height:44px;border-radius:50%;border:0;background:rgba(255,255,255,0.14);color:#fff;display:flex;align-items:center;justify-content:center;cursor:pointer}
+        .rdr-gal-nav.prev{left:10px}
+        .rdr-gal-nav.next{right:10px}
+        .rdr-gal-cap{position:absolute;left:0;right:0;bottom:52px;margin:0 auto;max-width:90vw;text-align:center;color:#fff;font-size:13px;font-family:'Outfit',sans-serif;padding:0 16px}
+        .rdr-gal-count{position:absolute;bottom:20px;left:0;right:0;text-align:center;color:rgba(255,255,255,0.7);font-size:13px;font-weight:700;font-family:'Outfit',sans-serif}
         .rdr-embeds-head{font-family:'Outfit',sans-serif;font-size:12px;font-weight:700;letter-spacing:0.08em;color:rgba(255,255,255,0.6);text-transform:uppercase}
         .rdr-embed-cap{margin:0 0 5px;font-size:14px;font-weight:600;color:rgba(255,255,255,0.74);line-height:1.35;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
         .rdr-embed-frame{position:relative;width:100%;aspect-ratio:16/9;border-radius:14px;overflow:hidden;background:#000}
