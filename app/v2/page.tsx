@@ -24,7 +24,7 @@ import { eventHref } from '@/lib/event-href'
 import { DienosDainaSection } from '@/components/DienosDainaSection'
 import CommunityIcons from './CommunityIcons'
 import GilynCrate from './GilynCrate'
-import HeroCarousel from './HeroCarousel'
+import HeroSlider, { type HeroSlide } from './HeroSlider'
 import MusicPool from './MusicPool'
 
 export const revalidate = 300
@@ -34,6 +34,12 @@ export const metadata = {
 }
 
 const MONTHS_LT = ['Sau', 'Vas', 'Kov', 'Bal', 'Geg', 'Bir', 'Lie', 'Rgp', 'Rgs', 'Spa', 'Lap', 'Gru']
+const MONTHS_FULL_LT = ['sausio', 'vasario', 'kovo', 'balandžio', 'gegužės', 'birželio', 'liepos', 'rugpjūčio', 'rugsėjo', 'spalio', 'lapkričio', 'gruodžio']
+function extractYouTubeId(url: string | null | undefined): string | null {
+  if (!url) return null
+  const m = url.match(/(?:youtu\.be\/|youtube\.com\/(?:embed\/|v\/|watch\?v=|watch\?.+&v=))([^&?\s]{11})/)
+  return m?.[1] || null
+}
 function sanitizeTitle(raw: string): string {
   return (raw || '').replace(/<[^>]*>/g, '').replace(/&[^;]+;/g, ' ').replace(/\s+/g, ' ').trim()
 }
@@ -293,34 +299,106 @@ function MusicHead({ title, browseHref }: { title: string; browseHref: string })
   )
 }
 
-/* ─────────────── HERO ─────────────── */
-type Slide = { href: string; bgImg: string | null; chip: string | null; chipBg: string; title: string; subtitle?: string | null; fresh?: boolean }
-function HeroCard({ s }: { s: Slide }) {
-  return (
-    <Link href={s.href} className="group relative block aspect-[16/9] overflow-hidden rounded-2xl border border-[var(--border-default)] no-underline shadow-[var(--hero-card-shadow)] transition-all hover:-translate-y-0.5 hover:shadow-[var(--hero-card-shadow-hover)]" style={{ background: 'linear-gradient(135deg,#141b28 0%,#0a0e17 100%)' }}>
-      <div className="absolute inset-0 overflow-hidden rounded-2xl">
-        {s.bgImg
-          // eslint-disable-next-line @next/next/no-img-element
-          ? <img src={proxyImgResized(s.bgImg, 1280)} alt="" decoding="async" className="absolute inset-0 h-full w-full object-cover" style={{ objectPosition: 'center 25%' }} />
-          : <div className="absolute inset-0" style={{ background: 'linear-gradient(135deg,#141b28 0%,#0a0e17 100%)' }} />}
-      </div>
-      {s.chip && <span className="absolute left-3 top-3 z-[2] inline-flex rounded-md px-2 py-0.5 font-['Outfit',sans-serif] text-[12px] font-bold uppercase tracking-[0.03em] text-white" style={{ background: s.chipBg }}>{s.chip}</span>}
-      {s.fresh && <FreshDot right={12} top={12} />}
-      <div className="pointer-events-none absolute inset-0 bg-gradient-to-t from-black/85 via-black/30 to-transparent" />
-      <div className="absolute inset-0 flex flex-col justify-end p-5">
-        <h3 className="m-0 max-w-[460px] font-['Outfit',sans-serif] text-[28px] font-black leading-[1.08] tracking-tight text-white transition-opacity group-hover:opacity-90">{s.title}</h3>
-        {s.subtitle && <p className="m-0 mt-2 flex items-center gap-1.5 font-['Outfit',sans-serif] text-[14px] font-semibold text-white/85"><svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><rect x="3" y="5" width="18" height="16" rx="2" /><path d="M16 3v4M8 3v4M3 11h18" /></svg>{s.subtitle}</p>}
-      </div>
-    </Link>
-  )
-}
-function Hero({ slides }: { slides: Slide[] }) {
-  if (!slides.length) return null
-  return (
-    <section className="hp-scroll -mx-1 mb-1 flex snap-x snap-mandatory items-stretch gap-4 overflow-x-auto px-1 pb-1 [scrollbar-width:none] [&::-webkit-scrollbar]:hidden">
-      {slides.map((s, i) => <div key={i} className="w-[86vw] shrink-0 snap-start sm:w-[520px]"><HeroCard s={s} /></div>)}
-    </section>
-  )
+/* ─────────────── HERO slide builder (v1 hero logika, server-side) ─────────────── */
+function buildHeroSlides(input: {
+  news: any[]; events: any[]; heroPosts: any[]; dailyWinners: any[]
+  ltTop: any; worldTop: any
+}): HeroSlide[] {
+  const { news, events, heroPosts, dailyWinners } = input
+  const ms = (s: string | null | undefined) => { const t = s ? Date.parse(s) : NaN; return isNaN(t) ? 0 : t }
+  const ytThumb = (vid?: string | null) => vid ? `https://img.youtube.com/vi/${vid}/hqdefault.jpg` : null
+  const cap = (s: string) => s ? s[0].toUpperCase() + s.slice(1) : s
+
+  // Čartų parse — kaip v1 parseTop (tik hero kortelei reikalingi laukai).
+  const parseTop = (r: any) => ((r?.entries ?? []) as any[]).slice(0, 7).map((e) => {
+    const prev = e.prev_position, cur = e.position
+    const trend = e.is_new ? 'new' : !prev ? 'same' : cur < prev ? 'up' : cur > prev ? 'down' : 'same'
+    return { pos: e.position, title: sanitizeTitle(e.tracks?.title || ''), artist: e.tracks?.artists?.name || '', cover_url: e.tracks?.cover_url || null, artist_image: e.tracks?.artists?.cover_image_url || null, trend }
+  })
+  const ltTop = parseTop(input.ltTop)
+  const ltTopDate = input.ltTop?.week?.created_at || input.ltTop?.week?.week_start || ''
+  const worldTop = parseTop(input.worldTop)
+  const worldTopDate = input.worldTop?.week?.created_at || input.worldTop?.week?.week_start || ''
+
+  const dated: { sortMs: number; slide: HeroSlide }[] = []
+  if (ltTop.length > 0) dated.push({ sortMs: ms(ltTopDate), slide: { type: 'chart_lt', chip: 'LT TOP 30', chipBg: '#ea580c', title: 'LT TOP 30', href: '/top30', chartTops: ltTop.slice(0, 5) } })
+  if (worldTop.length > 0) dated.push({ sortMs: ms(worldTopDate), slide: { type: 'chart_world', chip: 'TOP 40', chipBg: '#1d4ed8', title: 'TOP 40', href: '/top40', chartTops: worldTop.slice(0, 5) } })
+
+  news.slice(0, 8).forEach((n) => {
+    const typeLT = n.type === 'review' ? 'Recenzija' : n.type === 'interview' ? 'Interviu' : n.type === 'report' ? 'Reportažas' : 'Naujiena'
+    dated.push({ sortMs: ms(n.published_at), slide: {
+      type: 'news', chip: typeLT.toUpperCase(), chipBg: '#1d4ed8',
+      title: sanitizeTitle(n.title), href: `/news/${n.slug}`,
+      bgImg: n.image_title_url || n.image_small_url, fresh24: isFresh24(n.published_at),
+    } })
+  })
+  heroPosts
+    .filter((p) => { if (!p.published_at) return true; const d = new Date(p.published_at); return isNaN(d.getTime()) || (Date.now() - d.getTime()) < 14 * 86400000 })
+    .slice(0, 4)
+    .forEach((p) => {
+      dated.push({ sortMs: ms(p.published_at), slide: {
+        type: 'blog', chip: (p.chip || 'Įrašas').toUpperCase(), chipBg: p.chipBg || '#94a3b8',
+        title: sanitizeTitle(p.title), href: p.href, bgImg: p.cover, fresh24: isFresh24(p.published_at),
+      } })
+    })
+  dated.sort((a, b) => b.sortMs - a.sortMs)
+  const slides: HeroSlide[] = dated.map((x) => x.slide)
+
+  // Dienos daina — koliažas (laimėtojas + naujausi laimėtojai), įterpiama po ~3 įrašų.
+  const dailySlides: HeroSlide[] = []
+  if (dailyWinners.length > 0) {
+    const w = dailyWinners[0]
+    const tr = w?.tracks
+    const wDate = w?.date ? new Date(w.date) : null
+    const ageDays = wDate && !isNaN(wDate.getTime()) ? (Date.now() - wDate.getTime()) / 86400000 : Infinity
+    const isYesterday = ageDays < 1.5
+    if (tr && ageDays <= 2.5) {
+      const wonLabel = isYesterday ? 'Vakar laimėjo' : (wDate ? `${cap(MONTHS_FULL_LT[wDate.getMonth()])} ${wDate.getDate()} d. laimėjo` : 'Laimėjo')
+      const coverOf = (t: any): string | null => t?.cover_url || t?.artists?.cover_image_url || ytThumb(extractYouTubeId(t?.video_url || null))
+      const collage: { cover: string; title: string; artist: string; isWinner: boolean }[] = []
+      const pushTrack = (t: any, isWinner: boolean) => {
+        if (!t) return
+        const c = coverOf(t); if (!c) return
+        const title = sanitizeTitle(t.title || '')
+        if (collage.some((x) => x.title === title && x.artist === (t.artists?.name || ''))) return
+        collage.push({ cover: c, title, artist: t.artists?.name || '', isWinner })
+      }
+      pushTrack(tr, true)
+      for (const w2 of dailyWinners) { if (collage.length >= 5) break; pushTrack(w2?.tracks, false) }
+      dailySlides.push({
+        type: 'daily_winner', chip: 'DIENOS DAINA', chipBg: '#f59e0b',
+        title: sanitizeTitle(tr.title || ''), href: '/dienos-daina',
+        metaLine: [wonLabel, tr.artists?.name].filter(Boolean).join(' · '),
+        collage: collage.length >= 3 ? collage.slice(0, 5) : undefined,
+        songArtist: tr.artists?.name || null,
+        artist: tr.artists ? { name: tr.artists.name, slug: tr.artists.slug || '', image: tr.artists.cover_image_url || null } : null,
+      })
+    }
+  }
+  slides.splice(Math.min(3, slides.length), 0, ...dailySlides)
+
+  // Renginiai gale (max 3, tik su vizualu).
+  const evSeen = new Set<number>()
+  const evList: any[] = []
+  for (const ev of events) { if (evList.length >= 3) break; if (!evSeen.has(ev.id)) { evSeen.add(ev.id); evList.push(ev) } }
+  evList.forEach((ev) => {
+    const evImg = ev.image_small_url || ev.cover_image_url || ((ev.event_artists || []).map((ea: any) => Array.isArray(ea.artists) ? ea.artists[0] : ea.artists).find((a: any) => a?.cover_image_url)?.cover_image_url) || null
+    if (!evImg) return
+    const dateRaw = ev.start_date || ev.event_date
+    const d = dateRaw ? new Date(dateRaw) : null
+    const dateStr = d && !isNaN(d.getTime()) ? `${d.getDate()} ${MONTHS_LT[d.getMonth()]}` : ''
+    const city = ev.city || ev.venues?.city || ''
+    const artistList = (ev.event_artists || []).filter((ea: any) => (Array.isArray(ea.artists) ? ea.artists[0] : ea.artists)?.name).map((ea: any) => (Array.isArray(ea.artists) ? ea.artists[0] : ea.artists).name)
+    const artistText = ev.is_festival ? sanitizeTitle(ev.title) : artistList.length > 0 ? artistList.slice(0, 2).join(', ') + (artistList.length > 2 ? ` +${artistList.length - 2}` : '') : sanitizeTitle(ev.title)
+    slides.push({
+      type: 'event', chip: 'RENGINYS', chipBg: '#047857',
+      title: artistText, subtitle: [city, dateStr].filter(Boolean).join(' · '),
+      href: `/renginiai/${ev.slug}`, bgImg: evImg, fresh24: isFresh24(ev.created_at),
+    })
+  })
+
+  if (!slides.length) slides.push({ type: 'promo', chip: '🇱🇹 LIETUVIŠKA MUZIKA', chipBg: 'var(--accent-orange)', title: 'music.lt', subtitle: 'Visi Lietuvos atlikėjai vienoje vietoje', href: '/atlikejai' })
+  return slides
 }
 
 /* ─────────────── Bendruomenės šoninė juosta (vientisas srautas) ─────────────── */
@@ -614,7 +692,7 @@ function GamesZone({ members }: { members: any[] }) {
 
 /* ─────────────── PAGE ─────────────── */
 export default async function V2Page() {
-  const [musicPool, upcomingR, newsR, eventsR, vertaR, istorijaR, feedR, membersR, gilynR, disksR] = await Promise.all([
+  const [musicPool, upcomingR, newsR, eventsR, vertaR, istorijaR, feedR, membersR, gilynR, disksR, ltTopR, worldTopR, blogHeroR, dailyWinR] = await Promise.all([
     getMusicPool(),
     jget('/api/home/list?type=upcoming&limit=100', 8000),
     jget('/api/news?limit=10&include=songs&since_days=21'),
@@ -625,6 +703,10 @@ export default async function V2Page() {
     jget('/api/atradimai/active-members'),
     jget('/api/zaidimai/gilyn', 8000),
     jget('/api/diskusijos/recent?limit=15', 6000),
+    jget('/api/top/entries?type=lt_top30'),
+    jget('/api/top/entries?type=top40'),
+    jget('/api/blog/home-hero'),
+    jget('/api/dienos-daina/winners?limit=7'),
   ])
   const members: any[] = membersR?.members ?? []
   const gilynBox: any[] = gilynR?.box ?? []
@@ -648,17 +730,14 @@ export default async function V2Page() {
   const disks: any[] = disksR?.items ?? []
 
   const news: any[] = newsR?.news ?? []
-  const newsSlides: Slide[] = news.filter((n) => n.image_title_url || n.image_small_url).slice(0, 6).map((n) => ({ href: `/naujienos/${n.slug}`, bgImg: n.image_title_url || n.image_small_url, chip: null, chipBg: 'var(--accent-orange)', title: sanitizeTitle(n.title), fresh: isFresh24(n.published_at) }))
-  const eventSlides: Slide[] = events.filter((e) => e.cover_image_url || (e.event_artists || []).some((ea: any) => { const a = Array.isArray(ea.artists) ? ea.artists[0] : ea.artists; return a?.cover_image_url })).slice(0, 3).map((e) => {
-    const a0 = (e.event_artists || []).map((ea: any) => Array.isArray(ea.artists) ? ea.artists[0] : ea.artists).find((a: any) => a?.cover_image_url)
-    const dt = e.start_date ? new Date(e.start_date) : null
-    const dateLbl = dt && !isNaN(dt.getTime()) ? `${dt.getDate()} ${MONTHS_LT[dt.getMonth()]}` : ''
-    const city = e.city || e.venues?.city || ''
-    return { href: eventHref({ title: e.title, slug: e.slug, legacy_id: e.legacy_id }), bgImg: e.cover_image_url || a0?.cover_image_url || null, chip: 'Renginys', chipBg: 'var(--accent-blue)', title: sanitizeTitle(e.title), subtitle: [city, dateLbl].filter(Boolean).join(' · ') }
+  const heroSlides: HeroSlide[] = buildHeroSlides({
+    news,
+    events,
+    heroPosts: (blogHeroR?.posts ?? []) as any[],
+    dailyWinners: (dailyWinR?.winners ?? []) as any[],
+    ltTop: ltTopR,
+    worldTop: worldTopR,
   })
-  const slides: Slide[] = []
-  newsSlides.forEach((s, i) => { slides.push(s); if (i === 1 && eventSlides[0]) slides.push(eventSlides[0]); if (i === 3 && eventSlides[1]) slides.push(eventSlides[1]) })
-  if (eventSlides[2]) slides.push(eventSlides[2])
 
   const upcomingItems = upcomingSoon.slice(0, 10).map((a: any) => ({
     id: a.id,
@@ -675,7 +754,7 @@ export default async function V2Page() {
       <style>{muzikaStyles}</style>
       <style>{V2_EXTRA}</style>
 
-      <HeroCarousel slides={slides} />
+      <HeroSlider slides={heroSlides} />
 
       <div className="v2-split">
         <div className="v2-main">
