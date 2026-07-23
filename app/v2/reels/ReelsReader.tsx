@@ -6,6 +6,7 @@
 import { useState, useEffect, useCallback, useRef } from 'react'
 import { createPortal } from 'react-dom'
 import Link from 'next/link'
+import { useSession } from 'next-auth/react'
 import { proxyImgResized } from '@/lib/img-proxy'
 import { sanitizeRichHtml } from '@/lib/sanitize-html'
 import { deviceFpSync } from '@/lib/device-fp'
@@ -44,6 +45,7 @@ const slideKey = (s: HeroSlide) => `${s.type}::${s.href}`
 /** Pilno news straipsnio body cache — modulio lygyje, kad keičiant slide'us
  *  nereiktų perkrauti to paties straipsnio iš naujo. */
 const newsBodyCache = new Map<number, string>()
+const newsEmbedCache = new Map<number, { videoId: string; title: string | null }[]>()
 const blogPostCache = new Map<string, any>()
 
 /** Legacy blog turinio valymas reader'iui: nukerpa scraper'io „mėgstamų" lentelės
@@ -262,6 +264,11 @@ function ReaderSlide({ slide, active, seen, dk, scrollTopSignal, onScrolledChang
     slide.body || (slide.newsId ? newsBodyCache.get(slide.newsId) || null : null)
   )
   const [bodyLoading, setBodyLoading] = useState(false)
+  // News video: dažnai NE `songs`, o `embeds` lauke (pvz. Chelsea Wolfe) — jį
+  // ištraukiam iš /api/news/[id] atsakymo ir rodom „Muzika" sekcijoj.
+  const [extraEmbeds, setExtraEmbeds] = useState<{ videoId: string; title: string | null }[]>(
+    () => (slide.newsId ? newsEmbedCache.get(slide.newsId) || [] : [])
+  )
   const [blogTopas, setBlogTopas] = useState<any[] | null>(null)
   const [blogIntro, setBlogIntro] = useState<string | null>(null)
   const [blogOutro, setBlogOutro] = useState<string | null>(null)
@@ -288,15 +295,25 @@ function ReaderSlide({ slide, active, seen, dk, scrollTopSignal, onScrolledChang
     if (active && scrollTopSignal > 0) scrollRef.current?.scrollTo({ top: 0, behavior: 'smooth' })
   }, [scrollTopSignal]) // eslint-disable-line
 
-  /* Pilno news body lazy-fetch. */
+  /* Pilno news body + embed'ų (YouTube) lazy-fetch. */
   useEffect(() => {
-    if (!active || !slide.newsId || body || bodyLoading) return
+    if (!active || !slide.newsId) return
+    if (body && extraEmbeds.length) return // jau turim viską
     setBodyLoading(true)
     fetch(`/api/news/${slide.newsId}`)
       .then(r => r.json())
       .then(d => {
         const html: string = d?.body || d?.news?.body || ''
         if (html) { newsBodyCache.set(slide.newsId!, html); setBody(html) }
+        // embeds → „Muzika" (kai news neturi `songs`, bet turi įdėtą YouTube).
+        const ems = (Array.isArray(d?.embeds) ? d.embeds : [])
+          .filter((e: any) => (e?.type === 'youtube' || /youtu/.test(e?.url || '')))
+          .map((e: any) => extractYouTubeId(e?.embedUrl || e?.url || null))
+          .filter((v: any): v is string => !!v)
+          .slice(0, 3)
+          .map((v: string) => ({ videoId: v, title: null }))
+        newsEmbedCache.set(slide.newsId!, ems)
+        if (ems.length) setExtraEmbeds(ems)
       })
       .catch(() => {})
       .finally(() => setBodyLoading(false))
@@ -372,6 +389,8 @@ function ReaderSlide({ slide, active, seen, dk, scrollTopSignal, onScrolledChang
     for (const s of slide.songs.slice(0, 3)) embeds.push({ videoId: s.videoId, title: realTitle(s.title), artist: s.artist || null })
   } else if (slide.videoId) {
     embeds.push({ videoId: slide.videoId, title: realTitle(slide.songTitle), artist: slide.songArtist || null })
+  } else if (extraEmbeds.length) {
+    for (const e of extraEmbeds) embeds.push({ videoId: e.videoId, title: realTitle(e.title), artist: null })
   }
   if (reqVideoId && !embeds.some(e => e.videoId === reqVideoId)) {
     embeds.unshift({ videoId: reqVideoId, title: null })
@@ -490,6 +509,65 @@ function ReaderSlide({ slide, active, seen, dk, scrollTopSignal, onScrolledChang
   )
 }
 
+/** News kortelės pabaiga — vietoj didelio „Pilna versija" CTA: kompaktiškas
+ *  greitų veiksmų blokas — ♥ patinka, ↗ dalintis (native/kopijuoti), ⤢ atidaryti
+ *  naujieną naujame lange (retai reikia — todėl tik maža ikona). Atlikėjas —
+ *  mažas chip'as kairėj (jei yra). */
+function NewsActions({ slide, onNavLink }: { slide: HeroSlide; onNavLink: () => void }) {
+  const { data: session } = useSession()
+  const [liked, setLiked] = useState(false)
+  const [count, setCount] = useState(0)
+  const [copied, setCopied] = useState(false)
+  useEffect(() => {
+    if (!slide.newsId) return
+    let on = true
+    fetch(`/api/likes/news/${slide.newsId}`).then(r => r.json()).then(d => {
+      if (!on) return
+      setCount(d.count || 0)
+      const me = (session?.user as any)?.name || (session?.user as any)?.email
+      if (me) setLiked((d.users || []).some((u: any) => (u.user_username || '').toLowerCase() === String(me).toLowerCase()))
+    }).catch(() => {})
+    return () => { on = false }
+  }, [slide.newsId, session?.user])
+  const toggle = async () => {
+    if (!session?.user || !slide.newsId) return
+    const n = !liked; setLiked(n); setCount(c => n ? c + 1 : Math.max(0, c - 1))
+    try { await fetch(`/api/news/${slide.newsId}/like`, { method: 'POST' }) } catch { /* ignore */ }
+  }
+  const share = async () => {
+    const url = (typeof location !== 'undefined' ? location.origin : '') + slide.href
+    try { if (typeof navigator !== 'undefined' && (navigator as any).share) { await (navigator as any).share({ title: slide.title, url }); return } } catch { /* fallback */ }
+    try { await navigator.clipboard.writeText(url); setCopied(true); setTimeout(() => setCopied(false), 1600) } catch { /* ignore */ }
+  }
+  return (
+    <div className="rdr-foot rdr-foot-news" onClick={(e) => e.stopPropagation()}>
+      {slide.artist ? (
+        <Link href={`/atlikejai/${slide.artist.slug}`} onClick={onNavLink} className="rdr-na-artist">
+          {slide.artist.image
+            // eslint-disable-next-line @next/next/no-img-element
+            ? <img src={proxyImgResized(slide.artist.image, 96)} alt="" loading="lazy" decoding="async" />
+            : <span className="rdr-na-artist-ph">{slide.artist.name[0]}</span>}
+          <span>{slide.artist.name}</span>
+        </Link>
+      ) : <span />}
+      <div className="rdr-na-actions">
+        <button type="button" className={`rdr-na-btn${liked ? ' on' : ''}`} onClick={toggle} disabled={!session?.user} title={session?.user ? (liked ? 'Nebepatinka' : 'Patinka') : 'Prisijunk, kad pamėgtum'} aria-label="Patinka">
+          <svg width="18" height="18" viewBox="0 0 24 24" fill={liked ? 'currentColor' : 'none'} stroke="currentColor" strokeWidth="2"><path d="M20.84 4.61a5.5 5.5 0 0 0-7.78 0L12 5.67l-1.06-1.06a5.5 5.5 0 0 0-7.78 7.78l1.06 1.06L12 21.23l7.78-7.78 1.06-1.06a5.5 5.5 0 0 0 0-7.78z" /></svg>
+          {count > 0 && <span>{count}</span>}
+        </button>
+        <button type="button" className="rdr-na-btn" onClick={share} title="Dalintis" aria-label="Dalintis">
+          {copied
+            ? <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.4"><path d="M20 6 9 17l-5-5" /></svg>
+            : <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><circle cx="18" cy="5" r="3" /><circle cx="6" cy="12" r="3" /><circle cx="18" cy="19" r="3" /><path d="m8.59 13.51 6.83 3.98M15.41 6.51 8.59 10.49" /></svg>}
+        </button>
+        <a className="rdr-na-btn" href={slide.href} target="_blank" rel="noopener noreferrer" title="Atidaryti naujieną naujame lange" aria-label="Atidaryti naujame lange">
+          <svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M15 3h6v6M10 14 21 3M18 13v6a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h6" /></svg>
+        </a>
+      </div>
+    </div>
+  )
+}
+
 /** Vieningas kortelės pabaigos blokas (footer) — VIENODAS visiems slide tipams,
  *  PASKUTINIS kortelės elementas (scrollinasi su turiniu, po jo tik nedidelis
  *  tarpas). Eilutė 1 (TIK jei yra konteksto): atlikėjo avataras+vardas ARBA
@@ -500,6 +578,8 @@ function CardFooter({ slide, onNavLink }: {
   onNavLink: () => void
 }) {
   const isNews = slide.type === 'news'
+  // News → kompaktiški greiti veiksmai (♥/↗/⤢) vietoj didelio CTA.
+  if (isNews) return <NewsActions slide={slide} onNavLink={onNavLink} />
   const isChart = slide.type === 'chart_lt' || slide.type === 'chart_world'
   const showLineup = !!(slide.lineup && slide.lineup.length)
   const showArtist = !showLineup && !!slide.artist && slide.type !== 'event' && !isChart && slide.type !== 'daily'
@@ -1248,6 +1328,18 @@ const REELS_CSS = `
         .rdr-mos-ph{background:rgba(255,255,255,0.05)}
         .rdr-mos-badge{position:absolute;top:6px;left:6px;min-width:22px;height:22px;padding:0 5px;border-radius:7px;display:flex;align-items:center;justify-content:center;font-family:'Outfit',sans-serif;font-weight:900;font-size:12.5px;color:#fff;box-shadow:0 2px 8px rgba(0,0,0,0.5)}
         .rdr-media-mosaic .rdr-media-fade{display:none}
+        /* News greitų veiksmų footer (♥ / ↗ / ⤢) */
+        .rdr-foot-news{display:flex;align-items:center;justify-content:space-between;gap:10px;padding:8px 10px}
+        .rdr-na-artist{display:inline-flex;align-items:center;gap:8px;min-width:0;text-decoration:none;color:#fff}
+        .rdr-na-artist img,.rdr-na-artist-ph{width:32px;height:32px;border-radius:50%;object-fit:cover;flex-shrink:0;background:var(--accent-orange);display:flex;align-items:center;justify-content:center;color:#fff;font-weight:800;font-size:14px;text-transform:uppercase;font-family:'Outfit',sans-serif}
+        .rdr-na-artist span{font-family:'Outfit',sans-serif;font-weight:700;font-size:14px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+        .rdr-na-actions{display:flex;align-items:center;gap:8px;flex-shrink:0}
+        .rdr-na-btn{display:inline-flex;align-items:center;justify-content:center;gap:5px;height:38px;min-width:38px;padding:0 11px;border-radius:11px;background:rgba(255,255,255,0.08);border:1px solid rgba(255,255,255,0.14);color:#fff;font-family:'Outfit',sans-serif;font-weight:800;font-size:13px;cursor:pointer;text-decoration:none}
+        .rdr-na-btn.on{color:#ff5a7a;border-color:rgba(255,90,122,0.5);background:rgba(255,90,122,0.14)}
+        .rdr-na-btn:disabled{opacity:0.5;cursor:not-allowed}
+        .hp-reels.light .rdr-na-artist,.hp-reels.light .rdr-na-artist span{color:var(--text-primary)}
+        .hp-reels.light .rdr-na-btn{background:var(--bg-hover);border-color:var(--border-default);color:var(--text-primary)}
+        .hp-reels.light .rdr-na-btn.on{color:#e11d48;border-color:rgba(225,29,72,0.4);background:rgba(225,29,72,0.08)}
         /* Antraštės galvutė: badge + data vienoj eilutėj (kompaktiška) */
         .rdr-head{display:flex;align-items:center;gap:8px;flex-wrap:wrap;margin-bottom:10px}
         .rdr-date{font-size:14px;font-weight:600;color:rgba(255,255,255,0.62);font-family:'Outfit',sans-serif}
