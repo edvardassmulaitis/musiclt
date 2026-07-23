@@ -807,7 +807,10 @@ export default function NewsArticleClient({
         /* Social (Instagram/X/TikTok) — natūralus aukštis (portretinis), be 16:9 nukirpimo.
            Ribojam plotį ~ social embedų natūraliam pločiui, centruojam. */
         .na-embed-social { padding-bottom:0; height:auto; background:transparent; box-shadow:none; border-radius:0; display:flex; justify-content:center; overflow:visible; }
-        .na-embed-social iframe { position:static; width:100%; max-width:540px; height:720px; border-radius:14px; background:#fff; box-shadow:0 12px 36px -16px rgba(0,0,0,0.5); }
+        /* Height NEnustatom — Instagram/X embed.js pats nustato iframe height
+           (per HTML atributą); fiksuotas CSS height jį perrašydavo → didelė tuščia
+           erdvė po turiniu. Paliekam widget'ui susiskaičiuoti. */
+        .na-embed-social iframe { position:static; width:100%; max-width:540px; min-height:320px; border-radius:14px; background:#fff; box-shadow:0 12px 36px -16px rgba(0,0,0,0.5); }
         .na-embed-link { display:inline-flex; align-items:center; gap:8px; padding:12px 16px; border-radius:12px; background:var(--bg-elevated); border:1px solid var(--border-default); color:var(--accent-link); font-size:14px; font-weight:600; text-decoration:none; word-break:break-all; }
         .na-embed-link:hover { border-color:var(--accent-orange); }
 
