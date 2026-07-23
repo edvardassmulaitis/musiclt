@@ -25,6 +25,25 @@ export default function SocialEmbed({ url, caption }: { url: string; caption?: s
 
   useEffect(() => {
     let cancelled = false
+
+    // Instagram embed'as praneša savo tikrą aukštį per postMessage
+    // ({type:'MEASURE', details:{height}}). Oficialus embed.js kartais to
+    // NEpritaiko (iframe lieka height=24 → antraštė/komentarai nukerpami), tad
+    // resize'inam PATYS iš Instagram'o MEASURE žinutės.
+    function onMessage(e: MessageEvent) {
+      if (platform !== 'instagram' || !ref.current) return
+      let host = ''
+      try { host = new URL(e.origin).hostname } catch { return }
+      if (!/(^|\.)instagram\.com$/.test(host)) return
+      let data: any = e.data
+      if (typeof data === 'string') { try { data = JSON.parse(data) } catch { return } }
+      const h = data?.type === 'MEASURE' ? Number(data?.details?.height) : NaN
+      if (!h) return
+      const iframe = ref.current.querySelector('iframe') as HTMLIFrameElement | null
+      if (iframe && e.source === iframe.contentWindow) iframe.style.height = `${h}px`
+    }
+    if (platform === 'instagram') window.addEventListener('message', onMessage)
+
     async function go() {
       if (platform === 'instagram') {
         await loadScript('https://www.instagram.com/embed.js', 'ig-embed-js')
@@ -37,7 +56,7 @@ export default function SocialEmbed({ url, caption }: { url: string; caption?: s
       }
     }
     go()
-    return () => { cancelled = true }
+    return () => { cancelled = true; window.removeEventListener('message', onMessage) }
   }, [platform, url])
 
   if (platform === 'youtube') {
