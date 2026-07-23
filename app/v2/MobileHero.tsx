@@ -18,7 +18,7 @@ export default function MobileHero({ slides }: { slides: HeroSlide[] }) {
   const [reelsIdx, setReelsIdx] = useState(0)
   // „peržiūrėta" žymėjimas — prisijungusiems SURIŠTA per įrenginius (server),
   // svečiams localStorage. Tas pats hook'as kaip desktop HeroSlider.
-  const { seen: seenSlides, markSeen } = useHeroSeen()
+  const { seen: seenSlides, ready: seenReady, markSeen } = useHeroSeen()
   const [chartSheet, setChartSheet] = useState<{ topType: 'lt_top30' | 'top40'; title: string; accent: string } | null>(null)
   const [dailySheetOpen, setDailySheetOpen] = useState(false)
 
@@ -42,7 +42,9 @@ export default function MobileHero({ slides }: { slides: HeroSlide[] }) {
           // Border = „neskaityta" indikatorius: oranžinis kol vartotojas
           // neatidarė (peržiūrėta žymima per reels_seen su slideKey — TAS PAT
           // raktas kaip ReelsOverlay onSeen ir desktop), neutralus po to.
-          const isSeen = seenSlides.has(slideKey(s))
+          // Kol seen dar neužkrautas (seenReady=false) — traktuojam kaip „seen"
+          // (neutralus borderis), kad neblyksėtų oranžinis ant jau skaitytų.
+          const isSeen = !seenReady || seenSlides.has(slideKey(s))
           return (
             <button
               key={`${s.type}-${s.href}`}

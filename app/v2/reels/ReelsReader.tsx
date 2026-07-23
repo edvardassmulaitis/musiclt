@@ -2129,7 +2129,8 @@ const REELS_CSS = `
         .rdr-nav-l{left:12px}.rdr-nav-r{right:12px}
         @media(min-width:900px){.rdr-nav{display:flex}.rdr-media,.rdr-content{max-width:560px;margin-left:auto;margin-right:auto}}
         /* Vienkartinis swipe hint — dešinės briaunos chevron + tekstas, pulsuoja */
-        .rdr-hint{position:fixed;right:16px;top:50%;transform:translateY(-50%);z-index:320;display:flex;flex-direction:column;align-items:center;gap:8px;pointer-events:auto;animation:rdrHintFade .3s ease}
+        /* Hint — ANT foto srities (viršuje), ne ant teksto (~hero vidurys) */
+        .rdr-hint{position:fixed;right:16px;top:25%;transform:translateY(-50%);z-index:320;display:flex;flex-direction:column;align-items:center;gap:8px;pointer-events:auto;animation:rdrHintFade .3s ease}
         .rdr-hint-chev{display:flex;align-items:center;justify-content:center;width:56px;height:56px;border-radius:50%;background:rgba(0,0,0,0.6);color:#fff;backdrop-filter:blur(8px);box-shadow:0 6px 20px rgba(0,0,0,0.4);animation:rdrHintSwipe 1.25s ease-in-out infinite}
         .rdr-hint-txt{font-family:'Outfit',sans-serif;font-size:12px;font-weight:800;color:#fff;background:rgba(0,0,0,0.6);padding:5px 10px;border-radius:999px;backdrop-filter:blur(8px);white-space:nowrap;letter-spacing:.01em}
         @keyframes rdrHintSwipe{0%,100%{transform:translateX(6px)}50%{transform:translateX(-8px)}}

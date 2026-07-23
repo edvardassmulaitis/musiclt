@@ -56,7 +56,7 @@ export default function HeroSlider({ slides }: { slides: HeroSlide[] }) {
   const [atEnd, setAtEnd] = useState(false)
   // „Neskaityta" žymėjimas — border rodomas kol vartotojas neatidarė kortelės.
   // Prisijungusiems SURIŠTA per įrenginius (server), svečiams — localStorage.
-  const { seen, markSeen } = useHeroSeen()
+  const { seen, ready, markSeen } = useHeroSeen()
   useEffect(() => {
     const el = trackRef.current
     if (!el) return
@@ -105,7 +105,7 @@ export default function HeroSlider({ slides }: { slides: HeroSlide[] }) {
         <div ref={trackRef} className="hp-scroll hp-hero-track flex items-stretch gap-4 py-1 snap-x snap-mandatory">
           {slides.map((slide) => (
             <div key={`${slide.type}-${slide.href}`} className="hp-hero-slot shrink-0 snap-start">
-              <HeroV2Card slide={slide} unseen={!seen.has(slideKey(slide))} onOpen={() => markSeen(slideKey(slide))} />
+              <HeroV2Card slide={slide} unseen={ready && !seen.has(slideKey(slide))} onOpen={() => markSeen(slideKey(slide))} />
             </div>
           ))}
           {/* Paskutinė kortelė — „Daugiau naujienų" → /naujienos. */}

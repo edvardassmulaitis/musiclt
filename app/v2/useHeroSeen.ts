@@ -29,6 +29,11 @@ export function useHeroSeen() {
   // Pradžioj tuščia — kad SSR ir pirmas client render'is sutaptų (be hydration
   // mismatch); užpildom po mount effect'e pagal auth būseną.
   const [seen, setSeen] = useState<Set<string>>(new Set())
+  // `ready` — ar jau užkrautas „peržiūrėta" rinkinys. Kol NEready, borderių
+  // NErodom (unseen=false), kad neblyksėtų oranžinis ant jau skaitytų kortelių:
+  // anksčiau pradžioj seen=tuščias → visos „neskaitytos" (oranžinės) → po load
+  // dalis dingdavo (blyksnis). Dabar borderis atsiranda iškart teisingas.
+  const [ready, setReady] = useState(false)
 
   useEffect(() => {
     if (status === 'loading') return
@@ -37,12 +42,13 @@ export function useHeroSeen() {
       let on = true
       fetch('/api/hero/seen', { cache: 'no-store' })
         .then(r => r.json())
-        .then((d) => { if (on && Array.isArray(d?.keys)) setSeen(new Set(d.keys)) })
-        .catch(() => {})
+        .then((d) => { if (on) { if (Array.isArray(d?.keys)) setSeen(new Set(d.keys)); setReady(true) } })
+        .catch(() => { if (on) setReady(true) })
       return () => { on = false }
     }
-    // Svečias → localStorage.
+    // Svečias → localStorage (sinchroniškai).
     setSeen(new Set(readLocal()))
+    setReady(true)
   }, [status])
 
   const markSeen = useCallback((key: string) => {
@@ -60,5 +66,5 @@ export function useHeroSeen() {
     }
   }, [authed])
 
-  return { seen, markSeen }
+  return { seen, ready, markSeen }
 }
