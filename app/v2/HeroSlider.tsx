@@ -34,20 +34,12 @@ export type HeroSlide = {
   authorName?: string | null        // user content — autorius
   authorAvatar?: string | null
   likeable?: boolean                // ar rodyti ♥ (news kol kas)
-  fresh24?: boolean                 // pridėtas/paskelbtas DB per pask. 24h → žalias taškas
+  publishedAt?: string | null       // ISO data — reader'yje rodom santykiškai („prieš X d.")
+  likeCount?: number                // ♥ skaičius kortelei (neįėjus į naujieną)
+  commentCount?: number             // 💬 skaičius kortelei
+  fresh24?: boolean                 // (deprecated — nebenaudojam; border rodo „neskaityta")
   songs?: { videoId: string; title: string; artist?: string | null; songId?: number | null }[]  // news „susijusi muzika" (tikri track'ai su song_id → native grotuvas)
   lineup?: { name: string; slug: string; image?: string | null }[]      // event — pilnas lineup (avatarai + nuorodos)
-}
-
-function FreshDot({ right = 8, top = 8 }: { right?: number; top?: number }) {
-  return (
-    <span
-      aria-label="Nauja"
-      title="Pridėta per pastarąsias 24 val."
-      className="hp-freshdot"
-      style={{ position: 'absolute', top, right, zIndex: 4, pointerEvents: 'none' }}
-    />
-  )
 }
 
 /* ─────────────── Hero v2 karuselė (rodyklės + taškai) ─────────────── */
@@ -56,6 +48,19 @@ export default function HeroSlider({ slides }: { slides: HeroSlide[] }) {
   const [activeIdx, setActiveIdx] = useState(0)
   const [atStart, setAtStart] = useState(true)
   const [atEnd, setAtEnd] = useState(false)
+  // „Neskaityta" žymėjimas — border rodomas kol vartotojas neatidarė kortelės.
+  // Tas pats localStorage raktas kaip mobile reels ('reels_seen'). Hydratacijos
+  // saugumui — pradžioj tuščia (SSR==client), užpildom po mount.
+  const [seen, setSeen] = useState<Set<string>>(new Set())
+  useEffect(() => {
+    try { setSeen(new Set(JSON.parse(localStorage.getItem('reels_seen') || '[]') as string[])) } catch { /* SSR/no storage */ }
+  }, [])
+  const markSeen = (href: string) => setSeen(prev => {
+    if (prev.has(href)) return prev
+    const next = new Set(prev); next.add(href)
+    try { localStorage.setItem('reels_seen', JSON.stringify(Array.from(next))) } catch { /* ignore */ }
+    return next
+  })
   useEffect(() => {
     const el = trackRef.current
     if (!el) return
@@ -97,8 +102,6 @@ export default function HeroSlider({ slides }: { slides: HeroSlide[] }) {
         .hp-hero-slot{width:580px;flex-shrink:0;min-width:0}
         @media(min-width:1400px){.hp-hero-slot{width:calc((100% - 64px) / 2.3)}}
         @media(max-width:768px){.hp-hero-slot{width:88vw}}
-        .hp-freshdot{width:10px;height:10px;border-radius:50%;background:var(--accent-green);box-shadow:0 0 6px 1.5px rgba(34,197,94,0.85);animation:hp-blip 2.4s ease-in-out infinite}
-        @keyframes hp-blip{0%,100%{box-shadow:0 0 4px 1px rgba(34,197,94,0.5);transform:scale(.9)}50%{box-shadow:0 0 9px 2.5px rgba(34,197,94,1);transform:scale(1)}}
         @media(pointer:fine){.hp-hero-arrow{opacity:0;transition:opacity .2s}}
         .hp-hero-wrap:hover .hp-hero-arrow{opacity:1}
       `}</style>
@@ -106,7 +109,7 @@ export default function HeroSlider({ slides }: { slides: HeroSlide[] }) {
         <div ref={trackRef} className="hp-scroll hp-hero-track flex items-stretch gap-4 pb-1 snap-x snap-mandatory">
           {slides.map((slide) => (
             <div key={`${slide.type}-${slide.href}`} className="hp-hero-slot shrink-0 snap-start">
-              <HeroV2Card slide={slide} />
+              <HeroV2Card slide={slide} unseen={!seen.has(slide.href)} onOpen={() => markSeen(slide.href)} />
             </div>
           ))}
           {/* Paskutinė kortelė — „Daugiau naujienų" → /naujienos. */}
@@ -152,18 +155,25 @@ export default function HeroSlider({ slides }: { slides: HeroSlide[] }) {
   )
 }
 
-function HeroV2Card({ slide }: { slide: HeroSlide }) {
+// „Neskaityta" border: oranžinis 2px kol neatidaryta, po to neutralus (kaip
+// className default). Grąžinam inline stiliaus fragmentą.
+function unseenBorder(unseen: boolean): React.CSSProperties {
+  return unseen ? { borderColor: 'var(--accent-orange)', borderWidth: 2 } : {}
+}
+
+function HeroV2Card({ slide, unseen, onOpen }: { slide: HeroSlide; unseen: boolean; onOpen: () => void }) {
   if (slide.type === 'chart_lt' || slide.type === 'chart_world') {
-    return <HeroChartCard slide={slide} />
+    return <HeroChartCard slide={slide} unseen={unseen} onOpen={onOpen} />
   }
   if (slide.type === 'daily_winner' && slide.collage && slide.collage.length >= 3) {
-    return <HeroDailyCard slide={slide} />
+    return <HeroDailyCard slide={slide} unseen={unseen} onOpen={onOpen} />
   }
   return (
     <Link
       href={slide.href}
+      onClick={onOpen}
       className="group relative block aspect-[16/9] overflow-hidden rounded-2xl border border-[var(--border-default)] no-underline shadow-[var(--hero-card-shadow)] transition-all hover:-translate-y-0.5 hover:shadow-[var(--hero-card-shadow-hover)]"
-      style={{ background: 'linear-gradient(135deg,#141b28 0%,#0a0e17 100%)' }}
+      style={{ background: 'linear-gradient(135deg,#141b28 0%,#0a0e17 100%)', ...unseenBorder(unseen) }}
     >
       <div className="absolute inset-0 overflow-hidden rounded-2xl">
         {slide.bgImg ? (
@@ -187,12 +197,27 @@ function HeroV2Card({ slide }: { slide: HeroSlide }) {
           {slide.chip}
         </span>
       )}
-      {slide.fresh24 && <FreshDot right={12} top={12} />}
       <div className="pointer-events-none absolute inset-0 bg-gradient-to-t from-black/85 via-black/30 to-transparent" />
       <div className="absolute inset-0 flex flex-col justify-end p-5">
         <h3 className="m-0 max-w-[460px] font-['Outfit',sans-serif] text-[28px] font-black leading-[1.08] tracking-tight text-white transition-opacity group-hover:opacity-90">
           {slide.title}
         </h3>
+        {slide.type === 'news' && (!!slide.likeCount || !!slide.commentCount) && (
+          <div className="m-0 mt-2 flex items-center gap-3.5">
+            {!!slide.likeCount && (
+              <span className="inline-flex items-center gap-1 font-['Outfit',sans-serif] text-[13px] font-bold text-white/90">
+                <svg width="14" height="14" viewBox="0 0 24 24" fill="var(--accent-orange)" aria-hidden><path d="M20.84 4.61a5.5 5.5 0 0 0-7.78 0L12 5.67l-1.06-1.06a5.5 5.5 0 0 0-7.78 7.78l1.06 1.06L12 21.23l7.78-7.78 1.06-1.06a5.5 5.5 0 0 0 0-7.78z" /></svg>
+                {slide.likeCount}
+              </span>
+            )}
+            {!!slide.commentCount && (
+              <span className="inline-flex items-center gap-1 font-['Outfit',sans-serif] text-[13px] font-bold text-white/90">
+                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round" aria-hidden><path d="M21 11.5a8.38 8.38 0 0 1-.9 3.8 8.5 8.5 0 0 1-7.6 4.7 8.38 8.38 0 0 1-3.8-.9L3 21l1.9-5.7a8.38 8.38 0 0 1-.9-3.8 8.5 8.5 0 0 1 4.7-7.6 8.38 8.38 0 0 1 3.8-.9h.5a8.48 8.48 0 0 1 8 8v.5z" /></svg>
+                {slide.commentCount}
+              </span>
+            )}
+          </div>
+        )}
         {slide.type === 'event' && slide.subtitle && (
           <p className="m-0 mt-2 flex items-center gap-1.5 font-['Outfit',sans-serif] text-[14px] font-semibold text-white/85">
             <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><rect x="3" y="5" width="18" height="16" rx="2"/><path d="M16 3v4M8 3v4M3 11h18"/></svg>
@@ -216,7 +241,7 @@ function HeroV2Card({ slide }: { slide: HeroSlide }) {
 }
 
 /* Dienos daina — kandidatų koliažas (laimėtojas didžiausias). */
-function HeroDailyCard({ slide }: { slide: HeroSlide }) {
+function HeroDailyCard({ slide, unseen, onOpen }: { slide: HeroSlide; unseen: boolean; onOpen: () => void }) {
   const items = slide.collage || []
   const winner = items.find(i => i.isWinner) || items[0]
   const others = items.filter(i => i !== winner)
@@ -241,8 +266,9 @@ function HeroDailyCard({ slide }: { slide: HeroSlide }) {
   return (
     <Link
       href={slide.href}
+      onClick={onOpen}
       className="group relative block aspect-[16/9] overflow-hidden rounded-2xl border border-[var(--border-default)] no-underline shadow-[var(--hero-card-shadow)] transition-all hover:-translate-y-0.5 hover:shadow-[var(--hero-card-shadow-hover)]"
-      style={{ background: `radial-gradient(ellipse at top left, ${accentSoft}, rgba(10,14,26,0.98) 60%), linear-gradient(135deg, #1c1710 0%, #0a0e17 100%)` }}
+      style={{ background: `radial-gradient(ellipse at top left, ${accentSoft}, rgba(10,14,26,0.98) 60%), linear-gradient(135deg, #1c1710 0%, #0a0e17 100%)`, ...unseenBorder(unseen) }}
     >
       <div className="relative z-[1] flex h-full flex-col justify-between p-6 pt-3" style={{ width: '42%' }}>
         <span className="inline-flex w-fit items-center rounded-md px-2 py-0.5 font-['Outfit',sans-serif] text-[12px] font-bold uppercase tracking-[0.03em] text-white" style={{ background: accent, alignSelf: 'flex-start' }}>DIENOS DAINA</span>
@@ -265,7 +291,7 @@ function HeroDailyCard({ slide }: { slide: HeroSlide }) {
   )
 }
 
-function HeroChartCard({ slide }: { slide: HeroSlide }) {
+function HeroChartCard({ slide, unseen, onOpen }: { slide: HeroSlide; unseen: boolean; onOpen: () => void }) {
   const isLT = slide.type === 'chart_lt'
   const tops = slide.chartTops || []
   const accent = isLT ? 'var(--accent-orange)' : '#3b82f6'
@@ -332,11 +358,13 @@ function HeroChartCard({ slide }: { slide: HeroSlide }) {
   return (
     <Link
       href={slide.href}
+      onClick={onOpen}
       className="group relative block aspect-[16/9] overflow-hidden rounded-2xl border border-[var(--border-default)] no-underline shadow-[var(--hero-card-shadow)] transition-all hover:-translate-y-0.5 hover:shadow-[var(--hero-card-shadow-hover)]"
       style={{
         background: isLT
           ? `radial-gradient(ellipse at top left, ${accentSoft}, rgba(10,14,26,0.98) 60%), linear-gradient(135deg, #1a1426 0%, #0a0e1a 100%)`
           : `radial-gradient(ellipse at top left, ${accentSoft}, rgba(8,13,20,0.98) 60%), linear-gradient(135deg, #14182a 0%, #080d14 100%)`,
+        ...unseenBorder(unseen),
       }}
     >
       <div

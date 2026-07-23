@@ -494,7 +494,9 @@ function ReaderSlide({ slide, active, seen, dk, scrollTopSignal, onScrolledChang
     requestAnimationFrame(() => embedsRef.current?.scrollIntoView({ behavior: 'smooth', block: 'center' }))
   }
 
-  const place = slide.metaLine || (isChart ? '' : slide.subtitle) || ''
+  // Naujienoms — santykinė data („prieš X d.") vietoj metų formato. Kitiems —
+  // metaLine (renginiams: vieta · data; blog: autorius · data).
+  const place = (isNews && slide.publishedAt ? relDate(slide.publishedAt) : '') || slide.metaLine || (isChart ? '' : slide.subtitle) || ''
   // Trumpo turinio kortelės (be body teksto) — aukštesnis posteris, kad kortelė
   // neatrodytų pustuštė (event/verta/discovery/recording).
   const tallPoster = !body && !bodyLoading && !isChart && !isDaily && !isNews && !isBlog && slide.type !== 'daily_winner'
@@ -720,6 +722,24 @@ function cmtAgo(iso: string): string {
   const d = Math.floor(h / 24)
   if (d < 30) return `prieš ${d} d.`
   return new Date(iso).toLocaleDateString('lt-LT')
+}
+
+// Santykinė data reels header'iui (naujienoms) — „ką tik / prieš X min./val./
+// d./sav./mėn./m." (santrumpos → be linksniavimo problemų). Lengviau skaityti
+// nei pilna metų data.
+function relDate(iso?: string | null): string {
+  if (!iso) return ''
+  const t = new Date(iso).getTime()
+  if (isNaN(t)) return ''
+  const s = Math.max(0, Math.floor((Date.now() - t) / 1000))
+  const m = Math.floor(s / 60), h = Math.floor(m / 60), d = Math.floor(h / 24)
+  if (s < 60) return 'ką tik'
+  if (m < 60) return `prieš ${m} min.`
+  if (h < 24) return `prieš ${h} val.`
+  if (d < 7) return `prieš ${d} d.`
+  if (d < 30) return `prieš ${Math.floor(d / 7)} sav.`
+  if (d < 365) return `prieš ${Math.floor(d / 30)} mėn.`
+  return `prieš ${Math.floor(d / 365)} m.`
 }
 
 type RelArtist = { id: number; name: string; slug: string; image: string | null }

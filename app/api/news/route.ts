@@ -398,6 +398,31 @@ async function fetchHomeNewsRaw(sinceIso: string, limit: number) {
     news = news.map((n: any) => ({ ...n, songs: songsByNews[n.id] || [] }))
   }
 
+  // ── Like + komentarų skaičiai (batched) — kortelės indikatoriams (♥ / 💬)
+  //    NEĮĖJUS į naujieną. Likes: `likes` (entity_type='news'). Komentarai:
+  //    modern news → `comments.news_id`, legacy → `comments.discussion_id`.
+  //    Tik top-level (parent_id IS NULL), ne-ištrinti. Vienas batch per lentelę. ──
+  if (news.length > 0) {
+    const allIds = news.map((n: any) => n.id)
+    const modernIds = news.filter((n: any) => n._source !== 'legacy').map((n: any) => n.id)
+    const legacyIds = news.filter((n: any) => n._source === 'legacy').map((n: any) => n.id)
+    const [likeRes, cmtModernRes, cmtLegacyRes] = await Promise.all([
+      supabase.from('likes').select('entity_id').eq('entity_type', 'news').in('entity_id', allIds),
+      modernIds.length
+        ? supabase.from('comments').select('news_id').in('news_id', modernIds).is('parent_id', null).eq('is_deleted', false)
+        : Promise.resolve({ data: [] as any[] }),
+      legacyIds.length
+        ? supabase.from('comments').select('discussion_id').in('discussion_id', legacyIds).is('parent_id', null).eq('is_deleted', false)
+        : Promise.resolve({ data: [] as any[] }),
+    ])
+    const likeCnt: Record<number, number> = {}
+    for (const r of (likeRes.data as any[]) || []) likeCnt[r.entity_id] = (likeCnt[r.entity_id] || 0) + 1
+    const cmtCnt: Record<number, number> = {}
+    for (const r of (cmtModernRes.data as any[]) || []) cmtCnt[r.news_id] = (cmtCnt[r.news_id] || 0) + 1
+    for (const r of (cmtLegacyRes.data as any[]) || []) cmtCnt[r.discussion_id] = (cmtCnt[r.discussion_id] || 0) + 1
+    news = news.map((n: any) => ({ ...n, like_count: likeCnt[n.id] || 0, comment_count: cmtCnt[n.id] || 0 }))
+  }
+
   return { news, total: news.length }
 }
 

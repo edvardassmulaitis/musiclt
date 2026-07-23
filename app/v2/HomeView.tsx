@@ -379,6 +379,9 @@ function buildHeroSlides(input: {
       subtitle: n.excerpt ? smartTruncate(n.excerpt, 180) : '',
       excerpt: n.excerpt || '',
       metaLine: dateLT(n.published_at),
+      publishedAt: n.published_at || null,
+      likeCount: n.like_count || 0,
+      commentCount: n.comment_count || 0,
       newsId: n.id,
       likeable: true,
       fresh24: isFresh24(n.published_at),
@@ -1073,6 +1076,9 @@ const V2_EXTRA = `
 
 /* split */
 .v2-split{display:grid;grid-template-columns:minmax(0,1.9fr) minmax(0,1fr);gap:26px;align-items:start;margin-top:26px;padding-top:22px;border-top:1px solid var(--border-subtle)}
+/* Mobile: po hero reels juostos nereikia atskiriančios linijos — kito bloko
+   („Muzika" panelė) borderis jau atskiria. Nuimam border-top + padding. */
+@media(max-width:768px){.v2-split{margin-top:12px;padding-top:0;border-top:none}}
 .v2-main{min-width:0;background:var(--bg-elevated);border:1px solid var(--border-default);border-radius:var(--radius-2xl);padding:16px 18px}
 /* kairės muzikos header'is — veidrodinis dešinės „Kas naujo?" (• LABEL + valdikliai + linija) */
 .v2-mhead{display:flex;align-items:center;justify-content:space-between;gap:14px;margin-bottom:18px}
