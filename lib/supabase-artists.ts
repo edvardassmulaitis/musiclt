@@ -67,16 +67,21 @@ import { slugify } from './slugify'
 function encodeCaption(photo: any): string {
   const a = photo.author || photo.a || ''
   const s = photo.sourceUrl || photo.s || ''
-  if (!a && !s) return photo.caption || ''
-  return JSON.stringify({ a, s })
+  const c = photo.caption || photo.c || ''
+  if (!a && !s && !c) return ''
+  // Tik aprašymas (be autoriaus/šaltinio) — saugom plika string (backward compat).
+  if (!a && !s) return c
+  // Autorius/šaltinis (+ nebūtinai aprašymas) — JSON. `c` pridedam tik jei yra,
+  // kad seni {a,s} įrašai nesikeistų.
+  return JSON.stringify(c ? { a, s, c } : { a, s })
 }
 
 function decodeCaption(caption: string | null): { author?: string; sourceUrl?: string; caption?: string } {
   if (!caption) return {}
   try {
     const parsed = JSON.parse(caption)
-    if (parsed.a !== undefined || parsed.s !== undefined) {
-      return { author: parsed.a || undefined, sourceUrl: parsed.s || undefined }
+    if (parsed.a !== undefined || parsed.s !== undefined || parsed.c !== undefined) {
+      return { author: parsed.a || undefined, sourceUrl: parsed.s || undefined, caption: parsed.c || undefined }
     }
   } catch {}
   return { caption }

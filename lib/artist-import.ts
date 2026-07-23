@@ -44,8 +44,12 @@ export interface ImportTrack {
   spotify_url?: string | null
 }
 export interface ImportImage {
-  type?: string; url: string; source?: string
-  author?: string; license?: string; credit?: string
+  type?: string
+  url: string; image_url?: string
+  source?: string; source_url?: string
+  author?: string; credit?: string
+  license?: string; caption?: string
+  is_primary?: boolean
 }
 export interface ImportArtistPatch {
   name: string
@@ -192,6 +196,34 @@ function normalizeDuration(d?: string | null): string | null {
   return `${+min}:${sec}`
 }
 
+/** Suvienodina JSON nuotraukos objektą (laukų pavadinimai skiriasi tarp šaltinių):
+ *  url|image_url, source(žymė)|source_url(nuoroda), author|credit(atribucija),
+ *  license, caption(aprašymas). Grąžina normalizuotus laukus + ar URL tinkamas. */
+function normalizeImportImage(img: ImportImage): {
+  url: string; validUrl: boolean
+  sourceLabel: string | null; sourceUrl: string | null
+  author: string | null; credit: string | null
+  license: string | null; caption: string | null; isPrimary: boolean
+} {
+  const url = String(img?.url || img?.image_url || '').trim()
+  const validUrl = /^https?:\/\//i.test(url) && !url.startsWith('data:')
+  const rawSource = (img?.source || '').trim()
+  // source gali būti žymė ("official_website") arba nuoroda — atskiriam.
+  const sourceIsUrl = /^https?:\/\//i.test(rawSource)
+  const sourceUrl = (img?.source_url && img.source_url.trim()) || (sourceIsUrl ? rawSource : null)
+  const sourceLabel = sourceIsUrl ? null : (rawSource || null)
+  const author = (img?.author || '').trim() || null
+  const credit = (img?.credit || '').trim() || null
+  return {
+    url, validUrl,
+    sourceLabel, sourceUrl,
+    author, credit,
+    license: (img?.license || '').trim() || null,
+    caption: (img?.caption || '').trim() || null,
+    isPrimary: !!img?.is_primary,
+  }
+}
+
 /** Ar atlikėjas lietuviškas? null/tuščia šalis = nežinoma → laikom LT (neskipinam vadybos).
  *  Vadybos/kontaktų dalis taikoma tik LT atlikėjams (vadybininkų bazė LT scenai). */
 export function isNonLithuanian(country?: string | null): boolean {
@@ -328,8 +360,9 @@ export interface AlbumPlan { index: number; title: string; type: string | null; 
 export interface TrackPlan { index: number; title: string; albumTitle: string | null; type: string | null; action: 'create' | 'update'; existingId: number | null; albumFound: boolean; featuring: string[]; featuringNew: string[]; year: number | null; duration: string | null }
 export interface ImagePlan {
   index: number; url: string; type: string | null
-  source: string | null; author: string | null; license: string | null; credit: string | null
-  hasLicense: boolean; isDuplicate: boolean
+  sourceLabel: string | null; sourceUrl: string | null
+  author: string | null; credit: string | null; license: string | null; caption: string | null
+  isPrimary: boolean; hasLicense: boolean; isDuplicate: boolean
   /** add = bus pridėta; duplicate = jau yra galerijoje (praleidžiama); skip = netinkamas URL */
   action: 'add' | 'duplicate' | 'skip'
 }
@@ -586,21 +619,21 @@ export async function buildPreview(
   const imagesArr = payload.images || []
   for (let ii = 0; ii < imagesArr.length; ii++) {
     const img = imagesArr[ii]
-    if (!img?.url) continue
-    const url = String(img.url).trim()
-    const validUrl = /^https?:\/\//i.test(url) && !url.startsWith('data:')
-    const isDuplicate = existingPhotoUrls.has(url)
-    const hasLicense = !!(img.license && img.license.trim())
-    const action: ImagePlan['action'] = !validUrl ? 'skip' : (isDuplicate ? 'duplicate' : 'add')
+    if (!img?.url && !img?.image_url) continue
+    const n = normalizeImportImage(img)
+    if (!n.url) continue
+    const isDuplicate = existingPhotoUrls.has(n.url)
+    const hasLicense = !!n.license
+    const action: ImagePlan['action'] = !n.validUrl ? 'skip' : (isDuplicate ? 'duplicate' : 'add')
     imagePlans.push({
-      index: ii, url, type: img.type || null,
-      source: img.source || null, author: img.author || null,
-      license: img.license || null, credit: img.credit || null,
-      hasLicense, isDuplicate, action,
+      index: ii, url: n.url, type: img.type || null,
+      sourceLabel: n.sourceLabel, sourceUrl: n.sourceUrl,
+      author: n.author, credit: n.credit, license: n.license, caption: n.caption,
+      isPrimary: n.isPrimary, hasLicense, isDuplicate, action,
     })
-    if (!validUrl) warnings.push(`Nuotrauka praleidžiama — netinkamas URL: ${url}`)
-    else if (isDuplicate) warnings.push(`Nuotrauka jau yra galerijoje (dublikatas) — praleidžiama: ${url}`)
-    else if (!hasLicense) warnings.push(`Nuotrauka be aiškios licencijos — patikrink autorystę prieš pridedant: ${url}`)
+    if (!n.validUrl) warnings.push(`Nuotrauka praleidžiama — netinkamas URL: ${n.url}`)
+    else if (isDuplicate) warnings.push(`Nuotrauka jau yra galerijoje (dublikatas) — praleidžiama: ${n.url}`)
+    else if (!hasLicense) warnings.push(`Nuotrauka be aiškios licencijos — patikrink autorystę prieš pridedant: ${n.url}`)
   }
 
   return {
@@ -969,30 +1002,37 @@ export async function applyImport(
     let nextSort = (existingPh || []).reduce((mx: number, r: any) => Math.max(mx, r.sort_order ?? 0), -1) + 1
     for (let ii = 0; ii < imagesArr.length; ii++) {
       if (!imageOn(ii)) continue
-      const img = imagesArr[ii]
-      const url = (img?.url || '').trim()
-      if (!/^https?:\/\//i.test(url) || url.startsWith('data:')) { summary.images_skipped++; continue }
-      if (seenUrls.has(url)) { summary.images_skipped++; continue }
-      seenUrls.add(url)
-      const fromAuthor = splitAuthorLicense(typeof img.author === 'string' ? img.author : '')
-      const name = fromAuthor.name
-      const license = (typeof img.license === 'string' && img.license.trim()) ? img.license.trim() : fromAuthor.license
-      const sourceUrl = typeof img.source === 'string' && img.source.trim() ? img.source.trim() : null
+      const n = normalizeImportImage(imagesArr[ii])
+      if (!n.validUrl) { summary.images_skipped++; continue }
+      if (seenUrls.has(n.url)) { summary.images_skipped++; continue }
+      seenUrls.add(n.url)
+      // Atribucija: author, kitaip credit (pvz. „Katarsis"). Iš jos atskiriam
+      // vardą + galimą licenciją („Vardas · CC BY"). Aiški license laukas nugali.
+      const attribution = n.author || n.credit || ''
+      const fromAuthor = splitAuthorLicense(attribution)
+      const authorName = fromAuthor.name
+      const license = n.license || fromAuthor.license || null
       let photographerId: number | null = null
-      try { photographerId = name ? await resolvePhotographerId(sb, name, sourceUrl) : null } catch { photographerId = null }
-      const caption = (name || sourceUrl) ? JSON.stringify({ a: name || '', s: sourceUrl || '' }) : (img.credit || null)
+      try { photographerId = authorName ? await resolvePhotographerId(sb, authorName, n.sourceUrl) : null } catch { photographerId = null }
+      // caption stulpelis: JSON {a:autorius, s:šaltinio nuoroda, c:aprašymas} —
+      // encodeCaption/decodeCaption formatas (žr. lib/supabase-artists.ts).
+      const capObj: Record<string, string> = {}
+      if (authorName) capObj.a = authorName
+      if (n.sourceUrl) capObj.s = n.sourceUrl
+      if (n.caption) capObj.c = n.caption
+      const caption = Object.keys(capObj).length ? JSON.stringify(capObj) : null
       const { error } = await sb.from('artist_photos').insert({
         artist_id: artistId,
-        url,
+        url: n.url,
         caption,
         photographer_id: photographerId,
-        license: license || null,
-        source_url: sourceUrl,
+        license,
+        source_url: n.sourceUrl,
         sort_order: nextSort++,
         is_active: true,
       })
       if (!error) summary.images_added++
-      else { summary.images_skipped++; warnings.push(`Nuotrauka insert nepavyko (${url}): ${error.message}`) }
+      else { summary.images_skipped++; warnings.push(`Nuotrauka insert nepavyko (${n.url}): ${error.message}`) }
     }
   }
 

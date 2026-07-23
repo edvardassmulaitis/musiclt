@@ -14,7 +14,7 @@ interface LinkDiff { index: number; platform: string; column: string | null; old
 interface ContactPlan { index: number; name: string; type: string; email: string | null; phone: string | null; url: string | null; confidence: string; action: string; isPotential: boolean }
 interface AlbumPlan { index: number; title: string; type: string | null; year: number | null; action: string; existingId: number | null; description: string | null; descriptionOld: string | null; descriptionChanged: boolean; descriptionOnly: boolean; notFound: boolean; coverUrl: string | null; coverWillApply: boolean }
 interface TrackPlan { index: number; title: string; albumTitle: string | null; type: string | null; action: string; existingId: number | null; albumFound: boolean; featuring: string[]; featuringNew: string[]; year: number | null; duration: string | null }
-interface ImagePlan { index: number; url: string; type: string | null; source: string | null; author: string | null; license: string | null; credit: string | null; hasLicense: boolean; isDuplicate: boolean; action: string }
+interface ImagePlan { index: number; url: string; type: string | null; sourceLabel: string | null; sourceUrl: string | null; author: string | null; credit: string | null; license: string | null; caption: string | null; isPrimary: boolean; hasLicense: boolean; isDuplicate: boolean; action: string }
 interface ExistingPhoto { url: string; author: string | null; license: string | null }
 interface Preview {
   match: { status: string; artist?: MatchCandidate; candidates: MatchCandidate[] }
@@ -651,32 +651,40 @@ export default function ArtistImportPage() {
               >
                 {/* Naujos nuotraukos iš JSON */}
                 {preview.imagePlans.length > 0 ? (
-                  <div className="space-y-2">
+                  <div className="space-y-3">
                     <p className="text-[13px] font-medium text-[var(--text-muted)]">Bus pridėta ({preview.imagePlans.filter(im => im.action === 'add').length} iš {preview.imagePlans.length})</p>
                     {preview.imagePlans.map((img, i) => (
-                      <div key={i} className="flex items-start gap-2 text-xs">
+                      <div key={i} className="flex items-start gap-3 rounded-lg border border-[var(--input-border)] bg-[var(--input-bg)] p-2.5 text-xs">
                         <Check
                           checked={img.action === 'add' && selImages.has(img.index)}
                           disabled={img.action !== 'add'}
                           onChange={() => toggle(setSelImages, img.index)}
                         />
-                        {/* eslint-disable-next-line @next/next/no-img-element */}
-                        <img src={img.url} alt="" className="h-14 w-14 shrink-0 rounded object-cover border border-[var(--input-border)] bg-[var(--input-bg)]" loading="lazy" />
-                        <div className="min-w-0 flex-1">
+                        <a href={img.url} target="_blank" rel="noreferrer" className="shrink-0">
+                          {/* eslint-disable-next-line @next/next/no-img-element */}
+                          <img src={img.url} alt="" className="h-28 w-28 rounded-md object-cover border border-[var(--input-border)] bg-black/5 hover:opacity-90" loading="lazy" />
+                        </a>
+                        <div className="min-w-0 flex-1 space-y-1">
                           <div className="flex flex-wrap items-center gap-1.5">
                             {img.action === 'duplicate' && <Pill text="jau yra" color="orange" />}
                             {img.action === 'skip' && <Pill text="netinkamas URL" color="red" />}
                             {img.action === 'add' && <Pill text="nauja" color="green" />}
-                            {img.type && <span className="text-[var(--text-faint)]">{img.type}</span>}
+                            {img.isPrimary && <Pill text="pagrindinė" color="blue" />}
+                            {img.type && <span className="rounded bg-black/5 px-1.5 py-0.5 text-[var(--text-muted)]">{img.type}</span>}
                             {!img.hasLicense && img.action === 'add' && <Pill text="be licencijos" color="red" />}
                           </div>
-                          <div className="mt-0.5 flex flex-wrap gap-x-3 gap-y-0.5 text-[var(--text-faint)]">
-                            {img.author && <span>👤 {img.author}</span>}
+                          {(img.credit || img.author) && (
+                            <div className="text-[var(--text-primary)]"><span className="text-[var(--text-faint)]">Kreditas:</span> {img.credit || img.author}</div>
+                          )}
+                          {img.caption && (
+                            <div className="text-[var(--text-muted)]"><span className="text-[var(--text-faint)]">Aprašymas:</span> {img.caption}</div>
+                          )}
+                          <div className="flex flex-wrap gap-x-3 gap-y-0.5 text-[var(--text-faint)]">
                             {img.license && <span>© {img.license}</span>}
-                            {img.source && <span className="truncate max-w-[220px]">🔗 {img.source}</span>}
-                            {img.credit && <span>{img.credit}</span>}
+                            {img.sourceLabel && <span>Šaltinis: {img.sourceLabel}</span>}
+                            {img.sourceUrl && <a href={img.sourceUrl} target="_blank" rel="noreferrer" className="truncate max-w-[240px] text-blue-600 hover:underline">🔗 {img.sourceUrl}</a>}
                           </div>
-                          <div className="mt-0.5 truncate text-[var(--text-faint)]">{img.url}</div>
+                          <div className="truncate text-[11px] text-[var(--text-faint)]">{img.url}</div>
                         </div>
                       </div>
                     ))}
@@ -689,10 +697,12 @@ export default function ArtistImportPage() {
                 {(preview.existingPhotos?.length ?? 0) > 0 && (
                   <div className="mt-4 border-t border-[var(--input-border)] pt-3">
                     <p className="text-[13px] font-medium text-[var(--text-muted)]">Esamos galerijoje ({preview.existingPhotos.length}) — dublikatai automatiškai praleidžiami</p>
-                    <div className="mt-2 flex flex-wrap gap-1.5">
+                    <div className="mt-2 flex flex-wrap gap-2">
                       {preview.existingPhotos.map((ph, i) => (
-                        // eslint-disable-next-line @next/next/no-img-element
-                        <img key={i} src={ph.url} alt="" title={[ph.author, ph.license].filter(Boolean).join(' · ')} className="h-12 w-12 rounded object-cover border border-[var(--input-border)] bg-[var(--input-bg)]" loading="lazy" />
+                        <a key={i} href={ph.url} target="_blank" rel="noreferrer" title={[ph.author, ph.license].filter(Boolean).join(' · ')}>
+                          {/* eslint-disable-next-line @next/next/no-img-element */}
+                          <img src={ph.url} alt="" className="h-20 w-20 rounded-md object-cover border border-[var(--input-border)] bg-black/5 hover:opacity-90" loading="lazy" />
+                        </a>
                       ))}
                     </div>
                   </div>
