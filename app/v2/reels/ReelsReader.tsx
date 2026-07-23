@@ -417,8 +417,16 @@ function ReaderSlide({ slide, active, seen, dk, scrollTopSignal, onScrolledChang
       {/* ── Tekstinė dalis ── */}
       <div className="rdr-content">
         <div className="rdr-head">
-          <span className="rdr-chip" style={{ background: seen ? (dk ? 'rgba(255,255,255,0.16)' : 'rgba(0,0,0,0.12)') : slide.chipBg, color: seen && !dk ? 'var(--text-primary)' : '#fff' }}>{slide.chip}</span>
+          {/* „NAUJIENA" chip nereikalingas (ir taip aišku) — rodom tik prasmingus
+              tipus (Recenzija/Interviu/Renginys/Dienos daina/Top ir pan.). */}
+          {slide.chip && slide.chip !== 'NAUJIENA' && (
+            <span className="rdr-chip" style={{ background: seen ? (dk ? 'rgba(255,255,255,0.16)' : 'rgba(0,0,0,0.12)') : slide.chipBg, color: seen && !dk ? 'var(--text-primary)' : '#fff' }}>{slide.chip}</span>
+          )}
           {place && <span className="rdr-date">{place}</span>}
+          {/* News veiksmai (♥ like naujieną / ↗ share / ⤢ open) — VIRŠUJ prie datos/
+              antraštės, ne footeryje. Atlikėjo sekimas ČIA neberodomas (jis prie
+              atlikėjo — širdele, atlikėjo psl.), kad nebūtų painiavos ir tilptų keli atlikėjai. */}
+          {isNews && <NewsQuickActions slide={slide} />}
         </div>
         {isRecording
           ? <Link href={slide.href} onClick={onNavLink} className="rdr-title rdr-title-link">{slide.title}</Link>
@@ -510,20 +518,15 @@ function ReaderSlide({ slide, active, seen, dk, scrollTopSignal, onScrolledChang
   )
 }
 
-/** News kortelės pabaiga — vietoj didelio „Pilna versija" CTA: kompaktiškas
- *  greitų veiksmų blokas — ♥ patinka, ↗ dalintis (native/kopijuoti), ⤢ atidaryti
- *  naujieną naujame lange (retai reikia — todėl tik maža ikona). Atlikėjas —
- *  mažas chip'as kairėj (jei yra). */
-function NewsActions({ slide, onNavLink }: { slide: HeroSlide; onNavLink: () => void }) {
+/** News greiti veiksmai — VIRŠUJ, prie datos/antraštės (ne footeryje): ♥ patinka
+ *  naujieną, ↗ dalintis, ⤢ atidaryti naujame lange. JOKIO atlikėjo/sekimo čia —
+ *  atlikėjų gali būti keli, o sekimas gyvena atlikėjo puslapyje (širdele), kad
+ *  nebūtų painiavos ir nekonkuruotų ikonos. */
+function NewsQuickActions({ slide }: { slide: HeroSlide }) {
   const { data: session } = useSession()
-  const artistId = slide.artist?.id ?? null
-  // Naujienos „patinka" (like turinį).
   const [liked, setLiked] = useState(false)
   const [likeCount, setLikeCount] = useState(0)
   const [copied, setCopied] = useState(false)
-  // Atlikėjo sekimas (prenumerata) — ATSKIRAS nuo like (žmogus+ ikona, ne širdelė).
-  const [following, setFollowing] = useState(false)
-  const [followBusy, setFollowBusy] = useState(false)
 
   useEffect(() => {
     if (!slide.newsId) return
@@ -537,27 +540,10 @@ function NewsActions({ slide, onNavLink }: { slide: HeroSlide; onNavLink: () => 
     return () => { on = false }
   }, [slide.newsId, session?.user])
 
-  useEffect(() => {
-    if (!artistId) return
-    let on = true
-    fetch(`/api/studija/follow?artistId=${artistId}`).then(r => r.json()).then(d => { if (on) setFollowing(!!d.following) }).catch(() => {})
-    return () => { on = false }
-  }, [artistId, session?.user])
-
   const toggleLike = async () => {
     if (!session?.user || !slide.newsId) return
     const n = !liked; setLiked(n); setLikeCount(c => n ? c + 1 : Math.max(0, c - 1))
     try { await fetch(`/api/news/${slide.newsId}/like`, { method: 'POST' }) } catch { /* ignore */ }
-  }
-  const toggleFollow = async () => {
-    if (!session?.user || !artistId || followBusy) return
-    setFollowBusy(true)
-    const prev = following; setFollowing(!prev)
-    try {
-      const r = await fetch('/api/studija/follow', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ artistId, follow: !prev }) })
-      const d = await r.json()
-      if (typeof d.following === 'boolean') setFollowing(d.following)
-    } catch { setFollowing(prev) } finally { setFollowBusy(false) }
   }
   const share = async () => {
     const url = (typeof location !== 'undefined' ? location.origin : '') + slide.href
@@ -566,43 +552,19 @@ function NewsActions({ slide, onNavLink }: { slide: HeroSlide; onNavLink: () => 
   }
 
   return (
-    <div className="rdr-foot rdr-foot-news" onClick={(e) => e.stopPropagation()}>
-      {/* KAIRĖJ — atlikėjas + „Sekti" (prenumerata atlikėjui) */}
-      <div className="rdr-na-left">
-        {slide.artist && (
-          <Link href={`/atlikejai/${slide.artist.slug}`} onClick={onNavLink} className="rdr-na-artist">
-            {slide.artist.image
-              // eslint-disable-next-line @next/next/no-img-element
-              ? <img src={proxyImgResized(slide.artist.image, 96)} alt="" loading="lazy" decoding="async" />
-              : <span className="rdr-na-artist-ph">{slide.artist.name[0]}</span>}
-            <span>{slide.artist.name}</span>
-          </Link>
-        )}
-        {artistId && (
-          <button type="button" className={`rdr-na-follow${following ? ' on' : ''}`} onClick={toggleFollow} disabled={!session?.user || followBusy} title={session?.user ? (following ? 'Nebesekti atlikėjo' : 'Sekti atlikėją') : 'Prisijunk, kad sektum'}>
-            {following ? (
-              <><svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.4"><path d="M20 6 9 17l-5-5" /></svg>Sekama</>
-            ) : (
-              <><svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M16 21v-2a4 4 0 0 0-4-4H6a4 4 0 0 0-4 4v2" /><circle cx="9" cy="7" r="4" /><line x1="19" y1="8" x2="19" y2="14" /><line x1="22" y1="11" x2="16" y2="11" /></svg>Sekti</>
-            )}
-          </button>
-        )}
-      </div>
-      {/* DEŠINĖJ — naujienos veiksmai: ♥ like naujieną, ↗ share, ⤢ open */}
-      <div className="rdr-na-actions">
-        <button type="button" className={`rdr-na-btn${liked ? ' on' : ''}`} onClick={toggleLike} disabled={!session?.user} title={session?.user ? (liked ? 'Nebepatinka' : 'Patinka ši naujiena') : 'Prisijunk, kad pamėgtum'} aria-label="Patinka naujiena">
-          <svg width="18" height="18" viewBox="0 0 24 24" fill={liked ? 'currentColor' : 'none'} stroke="currentColor" strokeWidth="2"><path d="M20.84 4.61a5.5 5.5 0 0 0-7.78 0L12 5.67l-1.06-1.06a5.5 5.5 0 0 0-7.78 7.78l1.06 1.06L12 21.23l7.78-7.78 1.06-1.06a5.5 5.5 0 0 0 0-7.78z" /></svg>
-          {likeCount > 0 && <span>{likeCount}</span>}
-        </button>
-        <button type="button" className="rdr-na-btn" onClick={share} title="Dalintis naujiena" aria-label="Dalintis">
-          {copied
-            ? <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.4"><path d="M20 6 9 17l-5-5" /></svg>
-            : <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><circle cx="18" cy="5" r="3" /><circle cx="6" cy="12" r="3" /><circle cx="18" cy="19" r="3" /><path d="m8.59 13.51 6.83 3.98M15.41 6.51 8.59 10.49" /></svg>}
-        </button>
-        <a className="rdr-na-btn" href={slide.href} target="_blank" rel="noopener noreferrer" title="Atidaryti naujieną naujame lange" aria-label="Atidaryti naujame lange">
-          <svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M15 3h6v6M10 14 21 3M18 13v6a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h6" /></svg>
-        </a>
-      </div>
+    <div className="rdr-head-acts" onClick={(e) => e.stopPropagation()}>
+      <button type="button" className={`rdr-na-btn${liked ? ' on' : ''}`} onClick={toggleLike} disabled={!session?.user} title={session?.user ? (liked ? 'Nebepatinka' : 'Patinka ši naujiena') : 'Prisijunk, kad pamėgtum'} aria-label="Patinka naujiena">
+        <svg width="17" height="17" viewBox="0 0 24 24" fill={liked ? 'currentColor' : 'none'} stroke="currentColor" strokeWidth="2"><path d="M20.84 4.61a5.5 5.5 0 0 0-7.78 0L12 5.67l-1.06-1.06a5.5 5.5 0 0 0-7.78 7.78l1.06 1.06L12 21.23l7.78-7.78 1.06-1.06a5.5 5.5 0 0 0 0-7.78z" /></svg>
+        {likeCount > 0 && <span>{likeCount}</span>}
+      </button>
+      <button type="button" className="rdr-na-btn" onClick={share} title="Dalintis naujiena" aria-label="Dalintis">
+        {copied
+          ? <svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.4"><path d="M20 6 9 17l-5-5" /></svg>
+          : <svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><circle cx="18" cy="5" r="3" /><circle cx="6" cy="12" r="3" /><circle cx="18" cy="19" r="3" /><path d="m8.59 13.51 6.83 3.98M15.41 6.51 8.59 10.49" /></svg>}
+      </button>
+      <a className="rdr-na-btn" href={slide.href} target="_blank" rel="noopener noreferrer" title="Atidaryti naujieną naujame lange" aria-label="Atidaryti naujame lange">
+        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M15 3h6v6M10 14 21 3M18 13v6a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h6" /></svg>
+      </a>
     </div>
   )
 }
@@ -617,8 +579,8 @@ function CardFooter({ slide, onNavLink }: {
   onNavLink: () => void
 }) {
   const isNews = slide.type === 'news'
-  // News → kompaktiški greiti veiksmai (♥/↗/⤢) vietoj didelio CTA.
-  if (isNews) return <NewsActions slide={slide} onNavLink={onNavLink} />
+  // News → veiksmai perkelti į viršų (prie datos, žr. NewsQuickActions), footerio nerodom.
+  if (isNews) return null
   const isChart = slide.type === 'chart_lt' || slide.type === 'chart_world'
   const showLineup = !!(slide.lineup && slide.lineup.length)
   const showArtist = !showLineup && !!slide.artist && slide.type !== 'event' && !isChart && slide.type !== 'daily'
@@ -1381,6 +1343,9 @@ const REELS_CSS = `
         .rdr-na-btn.on{color:#fff;border-color:var(--accent-orange);background:var(--accent-orange)}
         .rdr-na-btn.on svg{fill:#fff}
         .rdr-na-btn:disabled{opacity:0.5;cursor:not-allowed}
+        /* News veiksmai header'yje (prie datos) — dešinėj, kiek mažesni */
+        .rdr-head-acts{display:flex;align-items:center;gap:6px;margin-left:auto}
+        .rdr-head-acts .rdr-na-btn{height:34px;min-width:34px;padding:0 9px;font-size:12.5px}
         .hp-reels.light .rdr-na-artist,.hp-reels.light .rdr-na-artist span{color:var(--text-primary)}
         .hp-reels.light .rdr-na-btn{background:var(--bg-hover);border-color:var(--border-default);color:var(--text-primary)}
         .hp-reels.light .rdr-na-btn.on{color:#fff;border-color:var(--accent-orange);background:var(--accent-orange)}
