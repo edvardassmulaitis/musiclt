@@ -150,9 +150,12 @@ async function fetchLaneTracks(sb: any, lane: 'lt' | 'world', sinceIso: string, 
     .not('video_uploaded_at', 'is', null)
     .gte('video_uploaded_at', sinceIso)
     .lte('video_uploaded_at', nowIso) // NE ateities (blogi duomenys — pvz. album date perrašo)
-    .order('video_uploaded_at', { ascending: false })
-    .limit(lane === 'lt' ? 300 : 250)
-  q = lane === 'lt' ? q.eq('artists.country', LT_COUNTRY) : q.neq('artists.country', LT_COUNTRY)
+  // LT lane: JOKIO ORDER BY — ordered scan pagal datą retoms LT eilutėms buvo
+  // brangus ir retkarčiais nukrisdavo (→ LT dingdavo). Imam VISKĄ per 90d langą
+  // (LT jų nedaug), o JS vėliau surikiuoja. World: naujausi 250 (per daug imti visus).
+  q = lane === 'lt'
+    ? q.eq('artists.country', LT_COUNTRY).limit(1000)
+    : q.neq('artists.country', LT_COUNTRY).order('video_uploaded_at', { ascending: false }).limit(250)
   const { data } = await q
   const FRESH = currentYear - 1
   const valid = ((data || []) as any[]).filter((t) => {
@@ -173,9 +176,10 @@ async function fetchLaneAlbums(sb: any, lane: 'lt' | 'world', currentYear: numbe
   let q = sb.from('albums')
     .select('id, title, slug, cover_image_url, year, month, day, is_upcoming, artist_id, artists!albums_artist_id_fkey!inner(id, name, slug, cover_image_url, country, score, score_trending)')
     .not('year', 'is', null).gte('year', currentYear - 1)
-    .order('year', { ascending: false }).order('month', { ascending: false, nullsFirst: false }).order('day', { ascending: false, nullsFirst: false })
-    .limit(lane === 'lt' ? 300 : 250)
-  q = lane === 'lt' ? q.eq('artists.country', LT_COUNTRY) : q.neq('artists.country', LT_COUNTRY)
+  // LT: be ORDER BY (kaip ir tracks) — imam visus recent metų, JS/MusicPool surikiuoja.
+  q = lane === 'lt'
+    ? q.eq('artists.country', LT_COUNTRY).limit(1000)
+    : q.neq('artists.country', LT_COUNTRY).order('year', { ascending: false }).order('month', { ascending: false, nullsFirst: false }).order('day', { ascending: false, nullsFirst: false }).limit(250)
   const { data } = await q
   return ((data || []) as any[]).filter((a) => {
     if (!(a.artists && !a.is_upcoming && (a.cover_image_url || a.artists?.cover_image_url) && a.artists.country !== 'Rusija')) return false
