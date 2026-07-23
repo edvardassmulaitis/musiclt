@@ -30,8 +30,8 @@ function strHue(s: string) { let h = 0; for (let i = 0; i < (s || '').length; i+
 const HEART_D = 'M20.8 4.6a5.5 5.5 0 0 0-7.8 0L12 5.7l-1-1.1a5.5 5.5 0 0 0-7.8 7.8l8.8 8.9 8.8-8.9a5.5 5.5 0 0 0 0-7.8z'
 const PLAY_D = 'M8 5v14l11-7z'
 const PLUS_D = 'M12 5v14M5 12h14'
-// „pasiūlė" ikona — user-plus (pridėjo/pasiūlė dainą)
-const SUGG_D = 'M16 21v-2a4 4 0 0 0-4-4H6a4 4 0 0 0-4 4v2M9 11a4 4 0 1 0 0-8 4 4 0 0 0 0 8M19 8v6M22 11h-6'
+// „pasiūlė" ikona — rodyklė į pasiūliusįjį (mažiau teksto nei žodis „pasiūlė")
+const SUGG_D = 'M5 12h14M13 6l6 6-6 6'
 function Ic({ d, size = 14, filled = false }: { d: string; size?: number; filled?: boolean }) {
   return <svg width={size} height={size} viewBox="0 0 24 24" fill={filled ? 'currentColor' : 'none'} stroke={filled ? 'none' : 'currentColor'} strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="shrink-0"><path d={d} /></svg>
 }

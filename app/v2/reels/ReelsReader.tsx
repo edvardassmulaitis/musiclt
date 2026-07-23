@@ -827,7 +827,8 @@ function ReaderSlide({ slide, active, seen, dk, scrollTopSignal, onScrolledChang
         <div className="rdr-head">
           {/* „NAUJIENA" chip nereikalingas (ir taip aišku) — rodom tik prasmingus
               tipus (Recenzija/Interviu/Renginys/Dienos daina/Top ir pan.). */}
-          {slide.chip && slide.chip !== 'NAUJIENA' && (
+          {/* Dienos dainai chip nereikalingas — antraštė ir taip sako „Dienos daina" (nedubliuojam). */}
+          {slide.chip && slide.chip !== 'NAUJIENA' && !isDailyWinner && (
             <span className="rdr-chip" style={{ background: seen ? (dk ? 'rgba(255,255,255,0.16)' : 'rgba(0,0,0,0.12)') : slide.chipBg, color: seen && !dk ? 'var(--text-primary)' : '#fff' }}>{slide.chip}</span>
           )}
           {place && !isDailyWinner && <span className="rdr-date">{place}</span>}
@@ -835,13 +836,6 @@ function ReaderSlide({ slide, active, seen, dk, scrollTopSignal, onScrolledChang
               antraštės, ne footeryje. Atlikėjo sekimas ČIA neberodomas (jis prie
               atlikėjo — širdele, atlikėjo psl.), kad nebūtų painiavos ir tilptų keli atlikėjai. */}
           {isNews && <NewsQuickActions slide={slide} />}
-          {isDailyWinner && (
-            <div className="rdr-head-acts">
-              <a className="rdr-na-btn" href="/dienos-daina" target="_blank" rel="noopener noreferrer" title="Atidaryti dienos dainos puslapį" aria-label="Atidaryti naujame lange">
-                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M15 3h6v6M10 14 21 3M18 13v6a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h6" /></svg>
-              </a>
-            </div>
-          )}
         </div>
         {isRecording
           ? <Link href={slide.href} onClick={onNavLink} className="rdr-title rdr-title-link">{slide.title}</Link>
@@ -1140,10 +1134,18 @@ function CardFooter({ slide, onNavLink }: {
         </>
       )}
       <div className="rdr-foot-actions">
-        <Link href={slide.href} onClick={onNavLink} className="rdr-foot-cta">
-          {ctaLabel}
-          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.4" strokeLinecap="round" strokeLinejoin="round"><path d="M5 12h14M12 5l7 7-7 7" /></svg>
-        </Link>
+        {slide.type === 'daily_winner' ? (
+          // Dienos dainai — vietoj CTA rodom nuorodą į pilną istoriją (atsidaro naujame lange).
+          <a href="/dienos-daina" target="_blank" rel="noopener noreferrer" className="rdr-foot-cta rdr-foot-cta-ghost">
+            Dienos dainų istorija
+            <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M15 3h6v6M10 14 21 3M18 13v6a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h6" /></svg>
+          </a>
+        ) : (
+          <Link href={slide.href} onClick={onNavLink} className="rdr-foot-cta">
+            {ctaLabel}
+            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.4" strokeLinecap="round" strokeLinejoin="round"><path d="M5 12h14M12 5l7 7-7 7" /></svg>
+          </Link>
+        )}
         {slide.ticketUrl && (
           <a href={slide.ticketUrl} target="_blank" rel="noopener noreferrer" className="rdr-foot-ticket">
             <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M3 7v3a2 2 0 0 1 0 4v3a1 1 0 0 0 1 1h16a1 1 0 0 0 1-1v-3a2 2 0 0 1 0-4V7a1 1 0 0 0-1-1H4a1 1 0 0 0-1 1z" /></svg>
@@ -2131,6 +2133,8 @@ const REELS_CSS = `
         .rdr-foot-actions{display:flex;gap:8px;padding:10px}
         .rdr-foot-cta{flex:1;display:flex;align-items:center;justify-content:center;gap:7px;height:48px;border-radius:12px;background:var(--accent-orange);color:#fff;font-family:'Outfit',sans-serif;font-size:16px;font-weight:800;letter-spacing:-0.01em;text-decoration:none;min-width:0}
         .rdr-foot-cta:active{opacity:0.85}
+        .rdr-foot-cta-ghost{height:44px;background:transparent;border:1px solid rgba(255,255,255,0.22);color:#eef1f6;font-size:14px;font-weight:700}
+        .hp-reels.light .rdr-foot-cta-ghost{border-color:var(--border-default);color:var(--text-primary)}
         .rdr-foot-ticket{flex:1;display:flex;align-items:center;justify-content:center;gap:6px;height:48px;border-radius:12px;background:transparent;border:1px solid rgba(255,255,255,0.25);color:#fff;font-family:'Outfit',sans-serif;font-size:14px;font-weight:800;text-decoration:none;min-width:0}
 
         /* Progreso juostelės + kontrolės */
