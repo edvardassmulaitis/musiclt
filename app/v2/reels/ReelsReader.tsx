@@ -1203,9 +1203,11 @@ export function ReelsOverlay({ slides, initialIdx, seenSlides, onSeen, onClose, 
   const draggingRef = useRef(false)
 
   const slide = slides[idx]
-  // Interaktyvios kortelės (topai, dienos daina) — auto-advance IŠ VISO neveikia
-  // (kad nepradingtų bebalsuojant/beklausant). Kitur — stoja skaitant/grojant.
-  const interactive = !!slide && (slide.type === 'chart_lt' || slide.type === 'chart_world' || slide.type === 'daily' || slide.type === 'daily_winner')
+  // Topų kortelės — auto-advance IŠ VISO neveikia (turi atskirą balsavimo sheet'ą).
+  // Dienos daina — auto-advance VEIKIA kaip naujienoms: viršuje progress bar'as
+  // užsipildo ir pereina toliau; vos nuscrollinus į widget'ą (balsuoti) — sustoja
+  // (scrolled), tad balsavimo nenutraukia.
+  const interactive = !!slide && (slide.type === 'chart_lt' || slide.type === 'chart_world')
   const autoOff = interactive || scrolled || playing
   // Braukimas į šoną veikia VISADA (ir skaitant) — pagal gesto kryptį (h vs v).
 
