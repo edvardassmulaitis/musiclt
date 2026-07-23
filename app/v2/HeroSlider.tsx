@@ -11,15 +11,32 @@ import { proxyImgResized } from '@/lib/img-proxy'
 
 export type TopEntry = { pos: number; track_id?: number; title: string; artist: string; cover_url: string | null; artist_image: string | null; trend: string; prevPos?: number | null; wks?: number; slug?: string; artist_slug?: string; videoId?: string | null }
 
+// PILNAS v1 HeroSlide tipas (app/HomeClient.tsx) — vienas bendras šaltinis
+// HeroSlider (desktop), MobileHero (mobile strip) ir reels reader'iui. Visi
+// papildomi (reader v3) laukai OPTIONAL, kad esamas server-side slide builder
+// (HomeView.buildHeroSlides) toliau kompiliuotųsi be pakeitimų.
 export type HeroSlide = {
   type: string; chip: string; chipBg: string; title: string; subtitle?: string
-  href: string; bgImg?: string | null
-  songArtist?: string | null
+  subtitleShort?: string  // kompaktiška meta mobile kortelei (be venue/metų)
+  href: string; bgImg?: string | null; videoId?: string | null
+  songTitle?: string | null; songArtist?: string | null; songCover?: string | null
   artist?: { name: string; slug: string; image?: string | null } | null
   chartTops?: TopEntry[]
   collage?: { cover: string; title: string; artist: string; isWinner: boolean }[]
-  metaLine?: string | null
-  fresh24?: boolean
+  // ── Reader v3 papildomi laukai ──
+  newsId?: number | null            // pilno body lazy-fetch'ui (/api/news/[id])
+  blogId?: string | null            // bendruomenės įrašo pilno body lazy-fetch'ui (/api/blog/posts/[id])
+  body?: string | null              // jau turimas pilnas/preview HTML (be fetch'o)
+  excerpt?: string | null           // ilgesnis preview tekstas (verta/discovery/recording)
+  metaLine?: string | null          // vieta · data / trukmė ir pan.
+  ctaLabel?: string | null          // pirminis veiksmas: „Skaityti" / „Žiūrėti" / „Žemėlapis"
+  ticketUrl?: string | null         // renginiams — „Pirkti bilietą"
+  authorName?: string | null        // user content — autorius
+  authorAvatar?: string | null
+  likeable?: boolean                // ar rodyti ♥ (news kol kas)
+  fresh24?: boolean                 // pridėtas/paskelbtas DB per pask. 24h → žalias taškas
+  songs?: { videoId: string; title: string; artist?: string | null }[]  // news su KELIOM dainom → mini-playlist
+  lineup?: { name: string; slug: string; image?: string | null }[]      // event — pilnas lineup (avatarai + nuorodos)
 }
 
 function FreshDot({ right = 8, top = 8 }: { right?: number; top?: number }) {

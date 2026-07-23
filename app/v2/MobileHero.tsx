@@ -2,12 +2,27 @@
 // /v2 MOBILE hero — v1 „story/reels" juostos vizualas: horizontaliai slenkanti
 // 156×236 istorijų juosta (chip + antraštė + „nauja per 24h" taškas). Rodoma TIK
 // ant mobile (≤768px); desktop rodo HeroSlider korteles. Paspaudus — atidaro
-// straipsnį/puslapį (pilno ekrano swipe reader'is — kitas žingsnis).
+// pilno ekrano v1 reels reader'į (horizontalus swipe + vertikalus skaitymas +
+// čartų/dienos dainos balsavimo sheet'ai).
+import { useState } from 'react'
 import Link from 'next/link'
 import { proxyImgResized } from '@/lib/img-proxy'
+import { useSite } from '@/components/SiteContext'
 import type { HeroSlide } from './HeroSlider'
+import { ReelsOverlay, ChartBottomSheet, DailyVoteSheet } from './reels/ReelsReader'
 
 export default function MobileHero({ slides }: { slides: HeroSlide[] }) {
+  const { dk } = useSite()
+  const [reelsOpen, setReelsOpen] = useState(false)
+  const [reelsIdx, setReelsIdx] = useState(0)
+  // „peržiūrėta" žymėjimas — persistuojamas per localStorage 'reels_seen'.
+  const [seenSlides, setSeenSlides] = useState<Set<string>>(() => {
+    try { return new Set(JSON.parse(localStorage.getItem('reels_seen') || '[]') as string[]) }
+    catch { return new Set() }
+  })
+  const [chartSheet, setChartSheet] = useState<{ topType: 'lt_top30' | 'top40'; title: string; accent: string } | null>(null)
+  const [dailySheetOpen, setDailySheetOpen] = useState(false)
+
   if (!slides.length) return null
   return (
     <div className="v2-mhero">
@@ -16,20 +31,21 @@ export default function MobileHero({ slides }: { slides: HeroSlide[] }) {
         @media(max-width:768px){.v2-mhero{display:block;margin:0 0 2px}}
         .v2-mhero-strip{display:flex;gap:12px;height:240px;align-items:stretch;overflow-x:auto;padding:2px 0;scrollbar-width:none;-webkit-overflow-scrolling:touch;scroll-snap-type:x mandatory}
         .v2-mhero-strip::-webkit-scrollbar{display:none}
-        .v2-mhero-card{flex-shrink:0;position:relative;width:156px;height:236px;border-radius:16px;overflow:hidden;background:#000;display:block;scroll-snap-align:start;box-shadow:var(--hero-card-shadow);text-decoration:none}
+        .v2-mhero-card{flex-shrink:0;position:relative;width:156px;height:236px;border-radius:16px;overflow:hidden;background:#000;display:block;scroll-snap-align:start;box-shadow:var(--hero-card-shadow);text-decoration:none;padding:0;text-align:left;cursor:pointer}
         .v2-mhero-freshdot{width:8px;height:8px;border-radius:50%;background:var(--accent-green);box-shadow:0 0 0 2px #000,0 0 6px 1.5px rgba(34,197,94,.85)}
       `}</style>
       <div className="v2-mhero-strip">
-        {slides.map((s) => {
+        {slides.map((s, i) => {
           const isChart = s.type === 'chart_lt' || s.type === 'chart_world'
           const bg = s.bgImg || (isChart ? (s.chartTops?.[0]?.cover_url || s.chartTops?.[0]?.artist_image || null) : null)
           const artistName = s.type === 'event' ? null : (s.artist?.name || null)
           const showArtist = !!artistName && !s.title.toLowerCase().includes(artistName.toLowerCase())
           const showExcerpt = s.type === 'event' && !!s.subtitle && s.subtitle.length > 5
           return (
-            <Link
+            <button
               key={`${s.type}-${s.href}`}
-              href={s.href}
+              type="button"
+              onClick={() => { setReelsIdx(i); setReelsOpen(true) }}
               className="v2-mhero-card"
               style={{ border: s.fresh24 ? '2px solid var(--accent-green)' : '2px solid var(--accent-orange)' }}
             >
@@ -41,7 +57,7 @@ export default function MobileHero({ slides }: { slides: HeroSlide[] }) {
               <div style={{ position: 'absolute', bottom: 0, left: 0, right: 0, padding: '10px 12px 12px', textAlign: 'left' }}>
                 <p style={{ fontSize: 14, fontWeight: 800, color: '#fff', margin: 0, lineHeight: 1.2, fontFamily: 'Outfit,sans-serif', display: '-webkit-box', WebkitLineClamp: 3, WebkitBoxOrient: 'vertical', overflow: 'hidden', textOverflow: 'ellipsis', letterSpacing: '-0.01em' } as React.CSSProperties}>{s.title}</p>
                 {showExcerpt && (
-                  <p style={{ fontSize: 12, fontWeight: 500, color: 'rgba(255,255,255,0.82)', margin: '5px 0 0', lineHeight: 1.3, display: '-webkit-box', WebkitLineClamp: 2, WebkitBoxOrient: 'vertical', overflow: 'hidden', textOverflow: 'ellipsis' } as React.CSSProperties}>{s.subtitle}</p>
+                  <p style={{ fontSize: 12, fontWeight: 500, color: 'rgba(255,255,255,0.82)', margin: '5px 0 0', lineHeight: 1.3, display: '-webkit-box', WebkitLineClamp: 2, WebkitBoxOrient: 'vertical', overflow: 'hidden', textOverflow: 'ellipsis' } as React.CSSProperties}>{s.subtitleShort || s.subtitle}</p>
                 )}
                 {showArtist && (
                   <p style={{ fontSize: 12, fontWeight: 700, color: 'rgba(255,255,255,0.78)', margin: '4px 0 0', lineHeight: 1.2, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{artistName}</p>
@@ -53,7 +69,7 @@ export default function MobileHero({ slides }: { slides: HeroSlide[] }) {
                 </div>
               )}
               {s.fresh24 && <span className="v2-mhero-freshdot" style={{ position: 'absolute', top: 10, right: 10, zIndex: 3 }} />}
-            </Link>
+            </button>
           )
         })}
         <Link href="/naujienos" className="v2-mhero-card" style={{ border: '2px dashed var(--border-strong)', background: 'var(--bg-surface)', display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', gap: 10 }}>
@@ -63,6 +79,40 @@ export default function MobileHero({ slides }: { slides: HeroSlide[] }) {
           <span style={{ fontFamily: 'Outfit,sans-serif', fontSize: 14, fontWeight: 800, color: 'var(--text-primary)' }}>Daugiau naujienų</span>
         </Link>
       </div>
+
+      {/* ═══════════ REELS OVERLAY — horizontal stories (v1 verbatim) ═══════════ */}
+      {reelsOpen && (
+        <ReelsOverlay
+          slides={slides}
+          initialIdx={reelsIdx}
+          seenSlides={seenSlides}
+          onSeen={(href) => setSeenSlides(prev => {
+            const next = new Set(prev); next.add(href)
+            try { localStorage.setItem('reels_seen', JSON.stringify(Array.from(next))) } catch {}
+            return next
+          })}
+          onClose={() => setReelsOpen(false)}
+          onChartVote={(s) => setChartSheet({
+            topType: s.type === 'chart_lt' ? 'lt_top30' : 'top40',
+            title: s.title,
+            accent: s.type === 'chart_lt' ? 'var(--accent-orange)' : '#3b82f6',
+          })}
+          onDailyVote={() => setDailySheetOpen(true)}
+          dk={dk}
+        />
+      )}
+
+      {/* ═══════════ CHART BOTTOM SHEET ═══════════ */}
+      <ChartBottomSheet
+        open={chartSheet != null}
+        onClose={() => setChartSheet(null)}
+        topType={chartSheet?.topType || 'lt_top30'}
+        title={chartSheet?.title || 'TOPAS'}
+        accent={chartSheet?.accent || 'var(--accent-orange)'}
+      />
+
+      {/* ═══════════ DIENOS DAINA — balsavimas + siūlymas (sheet) ═══════════ */}
+      {dailySheetOpen && <DailyVoteSheet onClose={() => setDailySheetOpen(false)} />}
     </div>
   )
 }

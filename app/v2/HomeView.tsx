@@ -49,6 +49,15 @@ function isFresh24(input: string | null | undefined): boolean {
   if (isNaN(t)) return false
   return Date.now() - t >= 0 && Date.now() - t < 24 * 60 * 60 * 1000
 }
+// v1 smartTruncate — sakinio ribose apkerpa preview tekstą (reader excerpt/subtitle).
+function smartTruncate(text: string, maxLen: number): string {
+  if (!text || text.length <= maxLen) return text
+  const cut = text.slice(0, maxLen)
+  const lastEnd = Math.max(cut.lastIndexOf('. '), cut.lastIndexOf('! '), cut.lastIndexOf('? '), cut.lastIndexOf('.„'), cut.lastIndexOf('."'))
+  if (lastEnd > maxLen * 0.4) return cut.slice(0, lastEnd + 1)
+  const lastSpace = cut.lastIndexOf(' ')
+  return lastSpace > 0 ? cut.slice(0, lastSpace) + '…' : cut + '…'
+}
 function FreshDot({ right = 8, top = 8 }: { right?: number; top?: number }) {
   return <span className="absolute z-[3] block h-2.5 w-2.5 rounded-full" style={{ right, top, background: '#22c55e', boxShadow: '0 0 0 3px rgba(34,197,94,0.25)' }} aria-hidden />
 }
@@ -320,12 +329,16 @@ function buildHeroSlides(input: {
   const ms = (s: string | null | undefined) => { const t = s ? Date.parse(s) : NaN; return isNaN(t) ? 0 : t }
   const ytThumb = (vid?: string | null) => vid ? `https://img.youtube.com/vi/${vid}/hqdefault.jpg` : null
   const cap = (s: string) => s ? s[0].toUpperCase() + s.slice(1) : s
+  const dateLT = (s: string | null | undefined) => {
+    const d = s ? new Date(s) : null
+    return d && !isNaN(d.getTime()) ? `${d.getFullYear()} m. ${MONTHS_FULL_LT[d.getMonth()]} ${d.getDate()} d.` : ''
+  }
 
-  // Čartų parse — kaip v1 parseTop (tik hero kortelei reikalingi laukai).
+  // Čartų parse — kaip v1 parseTop (+ videoId #1 dainos „Muzika" embed'ui reader'yje).
   const parseTop = (r: any) => ((r?.entries ?? []) as any[]).slice(0, 7).map((e) => {
     const prev = e.prev_position, cur = e.position
     const trend = e.is_new ? 'new' : !prev ? 'same' : cur < prev ? 'up' : cur > prev ? 'down' : 'same'
-    return { pos: e.position, title: sanitizeTitle(e.tracks?.title || ''), artist: e.tracks?.artists?.name || '', cover_url: e.tracks?.cover_url || null, artist_image: e.tracks?.artists?.cover_image_url || null, trend }
+    return { pos: e.position, title: sanitizeTitle(e.tracks?.title || ''), artist: e.tracks?.artists?.name || '', cover_url: e.tracks?.cover_url || null, artist_image: e.tracks?.artists?.cover_image_url || null, trend, prevPos: typeof prev === 'number' ? prev : null, videoId: extractYouTubeId(e.tracks?.video_url || null) }
   })
   const ltTop = parseTop(input.ltTop)
   const ltTopDate = input.ltTop?.week?.created_at || input.ltTop?.week?.week_start || ''
@@ -333,15 +346,51 @@ function buildHeroSlides(input: {
   const worldTopDate = input.worldTop?.week?.created_at || input.worldTop?.week?.week_start || ''
 
   const dated: { sortMs: number; slide: HeroSlide }[] = []
-  if (ltTop.length > 0) dated.push({ sortMs: ms(ltTopDate), slide: { type: 'chart_lt', chip: 'LT TOP 30', chipBg: '#ea580c', title: 'LT TOP 30', href: '/top30', chartTops: ltTop.slice(0, 5) } })
-  if (worldTop.length > 0) dated.push({ sortMs: ms(worldTopDate), slide: { type: 'chart_world', chip: 'TOP 40', chipBg: '#1d4ed8', title: 'TOP 40', href: '/top40', chartTops: worldTop.slice(0, 5) } })
+  if (ltTop.length > 0) dated.push({ sortMs: ms(ltTopDate), slide: {
+    type: 'chart_lt', chip: 'LT TOP 30', chipBg: '#ea580c', title: 'LT TOP 30',
+    subtitle: ltTop.slice(0, 3).map((t) => `${t.pos}. ${t.title}`).join(' · '),
+    href: '/top30', videoId: ltTop[0]?.videoId || null,
+    bgImg: ytThumb(ltTop[0]?.videoId) || ltTop[0]?.cover_url || ltTop[0]?.artist_image || null,
+    songTitle: ltTop[0]?.title || null, songArtist: ltTop[0]?.artist || null,
+    songCover: ltTop[0]?.cover_url || ltTop[0]?.artist_image || null,
+    chartTops: ltTop.slice(0, 5),
+  } })
+  if (worldTop.length > 0) dated.push({ sortMs: ms(worldTopDate), slide: {
+    type: 'chart_world', chip: 'TOP 40', chipBg: '#1d4ed8', title: 'TOP 40',
+    subtitle: worldTop.slice(0, 3).map((t) => `${t.pos}. ${t.title}`).join(' · '),
+    href: '/top40', videoId: worldTop[0]?.videoId || null,
+    bgImg: ytThumb(worldTop[0]?.videoId) || worldTop[0]?.cover_url || worldTop[0]?.artist_image || null,
+    songTitle: worldTop[0]?.title || null, songArtist: worldTop[0]?.artist || null,
+    songCover: worldTop[0]?.cover_url || worldTop[0]?.artist_image || null,
+    chartTops: worldTop.slice(0, 5),
+  } })
 
   news.slice(0, 8).forEach((n) => {
     const typeLT = n.type === 'review' ? 'Recenzija' : n.type === 'interview' ? 'Interviu' : n.type === 'report' ? 'Reportažas' : 'Naujiena'
+    const songs: any[] = n.songs || []
+    const song = songs.find((s: any) => s.youtube_url)
+    // VISOS straipsnio dainos (ne tik pirma) → mini-playlist reader'yje.
+    const songList = songs
+      .map((s: any) => ({ videoId: extractYouTubeId(s.youtube_url || null), title: sanitizeTitle(s.title || '') || s.artist_name || 'Daina', artist: s.artist_name || null }))
+      .filter((s: any): s is { videoId: string; title: string; artist: string | null } => !!s.videoId)
     dated.push({ sortMs: ms(n.published_at), slide: {
       type: 'news', chip: typeLT.toUpperCase(), chipBg: '#1d4ed8',
-      title: sanitizeTitle(n.title), href: `/news/${n.slug}`,
-      bgImg: n.image_title_url || n.image_small_url, fresh24: isFresh24(n.published_at),
+      title: sanitizeTitle(n.title),
+      subtitle: n.excerpt ? smartTruncate(n.excerpt, 180) : '',
+      excerpt: n.excerpt || '',
+      metaLine: dateLT(n.published_at),
+      newsId: n.id,
+      likeable: true,
+      fresh24: isFresh24(n.published_at),
+      ctaLabel: 'Skaityti straipsnį',
+      bgImg: n.image_title_url || n.image_small_url,
+      href: `/news/${n.slug}`,
+      videoId: extractYouTubeId(song?.youtube_url || null),
+      songs: songList.length ? songList : undefined,
+      songTitle: song?.title || null,
+      songArtist: song?.artist_name || n.artist?.name || null,
+      songCover: null,
+      artist: n.artist ? { name: n.artist.name, slug: n.artist.slug, image: n.artist.cover_image_url || null } : null,
     } })
   })
   heroPosts
@@ -350,7 +399,20 @@ function buildHeroSlides(input: {
     .forEach((p) => {
       dated.push({ sortMs: ms(p.published_at), slide: {
         type: 'blog', chip: (p.chip || 'Įrašas').toUpperCase(), chipBg: p.chipBg || '#94a3b8',
-        title: sanitizeTitle(p.title), href: p.href, bgImg: p.cover, fresh24: isFresh24(p.published_at),
+        title: sanitizeTitle(p.title),
+        subtitle: '',
+        excerpt: p.excerpt || '',
+        metaLine: [p.author, dateLT(p.published_at)].filter(Boolean).join(' · '),
+        authorName: p.author || null,
+        ctaLabel: 'Skaityti',
+        fresh24: isFresh24(p.published_at),
+        bgImg: p.cover,
+        href: p.href,
+        blogId: p.id || null,
+        videoId: p.videoId || null,
+        songTitle: p.songTitle || null,
+        songArtist: p.songArtist || null,
+        artist: null,
       } })
     })
   dated.sort((a, b) => b.sortMs - a.sortMs)
@@ -377,13 +439,20 @@ function buildHeroSlides(input: {
       }
       pushTrack(tr, true)
       for (const w2 of dailyWinners) { if (collage.length >= 5) break; pushTrack(w2?.tracks, false) }
+      const wVid = extractYouTubeId(tr.video_url || null)
       dailySlides.push({
         type: 'daily_winner', chip: 'DIENOS DAINA', chipBg: '#f59e0b',
         title: sanitizeTitle(tr.title || ''), href: '/dienos-daina',
-        metaLine: [wonLabel, tr.artists?.name].filter(Boolean).join(' · '),
+        subtitle: '',
+        excerpt: w.winning_comment || '',
+        metaLine: [wonLabel, tr.artists?.name, w.proposer ? `siūlė ${w.proposer.full_name || w.proposer.username}` : ''].filter(Boolean).join(' · '),
+        bgImg: wVid ? ytThumb(wVid) : (tr.cover_url || tr.artists?.cover_image_url || null),
         collage: collage.length >= 3 ? collage.slice(0, 5) : undefined,
+        videoId: wVid,
+        songTitle: tr.title || null,
         songArtist: tr.artists?.name || null,
         artist: tr.artists ? { name: tr.artists.name, slug: tr.artists.slug || '', image: tr.artists.cover_image_url || null } : null,
+        ctaLabel: 'Dienos daina',
       })
     }
   }
@@ -393,19 +462,35 @@ function buildHeroSlides(input: {
   const evSeen = new Set<number>()
   const evList: any[] = []
   for (const ev of events) { if (evList.length >= 3) break; if (!evSeen.has(ev.id)) { evSeen.add(ev.id); evList.push(ev) } }
+  const artOf = (ea: any) => Array.isArray(ea.artists) ? ea.artists[0] : ea.artists
   evList.forEach((ev) => {
-    const evImg = ev.image_small_url || ev.cover_image_url || ((ev.event_artists || []).map((ea: any) => Array.isArray(ea.artists) ? ea.artists[0] : ea.artists).find((a: any) => a?.cover_image_url)?.cover_image_url) || null
+    const evImg = ev.image_small_url || ev.cover_image_url || ((ev.event_artists || []).map(artOf).find((a: any) => a?.cover_image_url)?.cover_image_url) || null
     if (!evImg) return
     const dateRaw = ev.start_date || ev.event_date
     const d = dateRaw ? new Date(dateRaw) : null
+    // Trumpa data (juostos/desktop kortelė — NEkeičiama) + pilna data (reader metaLine).
     const dateStr = d && !isNaN(d.getTime()) ? `${d.getDate()} ${MONTHS_LT[d.getMonth()]}` : ''
+    const dateFull = d && !isNaN(d.getTime()) ? `${d.getFullYear()} m. ${MONTHS_FULL_LT[d.getMonth()]} ${d.getDate()} d.` : ''
     const city = ev.city || ev.venues?.city || ''
-    const artistList = (ev.event_artists || []).filter((ea: any) => (Array.isArray(ea.artists) ? ea.artists[0] : ea.artists)?.name).map((ea: any) => (Array.isArray(ea.artists) ? ea.artists[0] : ea.artists).name)
+    const artistList = (ev.event_artists || []).map(artOf).filter((a: any) => a?.name).map((a: any) => a.name)
     const artistText = ev.is_festival ? sanitizeTitle(ev.title) : artistList.length > 0 ? artistList.slice(0, 2).join(', ') + (artistList.length > 2 ? ` +${artistList.length - 2}` : '') : sanitizeTitle(ev.title)
+    const venueName = ev.venues?.name || ev.venue_name || ev.venue_custom || ''
+    const evMeta = [venueName, city, dateFull].filter(Boolean).join(' · ')
+    const evDesc = ev.description ? sanitizeTitle(ev.description) : ''
+    // Pilnas lineup'as (max 6) — avatarų eilutė su nuorodom į atlikėjų puslapius.
+    const lineup = (ev.event_artists || []).map(artOf).filter((a: any) => a?.name && a?.slug).slice(0, 6).map((a: any) => ({ name: a.name, slug: a.slug, image: a.cover_image_url || null }))
+    const firstArtist = (ev.event_artists || []).map(artOf).find((a: any) => a?.cover_image_url)
     slides.push({
       type: 'event', chip: 'RENGINYS', chipBg: '#047857',
-      title: artistText, subtitle: [city, dateStr].filter(Boolean).join(' · '),
+      title: artistText,
+      subtitle: [city, dateStr].filter(Boolean).join(' · '),  // NEkeičiama (desktop + juostos vizualas)
+      metaLine: evMeta,       // reader — vieta · miestas · pilna data
+      excerpt: evDesc,
+      lineup: lineup.length ? lineup : undefined,
+      ticketUrl: ev.ticket_url || null,
+      ctaLabel: 'Apie renginį',
       href: `/renginiai/${ev.slug}`, bgImg: evImg, fresh24: isFresh24(ev.created_at),
+      artist: firstArtist ? { name: firstArtist.name, slug: firstArtist.slug, image: firstArtist.cover_image_url || null } : null,
     })
   })
 
