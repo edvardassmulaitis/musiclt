@@ -245,7 +245,8 @@ function RdrMosaic({ items, accent }: { items: { cover: string; badge?: number |
  *  on YouTube" pradžios). */
 function SongPlayer({ song }: { song: { videoId: string; title: string; artist?: string | null; songId?: number | null } }) {
   const { data: session } = useSession()
-  const [playing, setPlaying] = useState(false)
+  const iframeRef = useRef<HTMLIFrameElement>(null)
+  const [started, setStarted] = useState(false)
   const [liked, setLiked] = useState(false)
   const [likeCount, setLikeCount] = useState(0)
   useEffect(() => {
@@ -255,8 +256,12 @@ function SongPlayer({ song }: { song: { videoId: string; title: string; artist?:
     return () => { on = false }
   }, [song.songId, session?.user])
   const play = () => {
+    if (started) return
     if (song.songId) fetch(`/api/tracks/${song.songId}/play`, { method: 'POST', keepalive: true }).catch(() => {})
-    setPlaying(true)
+    // iOS AUTOPLAY: src nustatom TIESIOGIAI paspaudimo gesture'e (per iframe ref),
+    // NE per async React re-render — kitaip iOS nepaleidžia iškart (rodo YT native).
+    if (iframeRef.current) iframeRef.current.src = `https://www.youtube.com/embed/${song.videoId}?autoplay=1&playsinline=1&rel=0&modestbranding=1`
+    setStarted(true)
   }
   const toggleLike = async () => {
     if (!session?.user || !song.songId) return
@@ -267,12 +272,13 @@ function SongPlayer({ song }: { song: { videoId: string; title: string; artist?:
   return (
     <div className="rdr-song">
       <div className="rdr-song-video">
-        {playing ? (
-          <iframe className="rdr-song-iframe" src={`https://www.youtube.com/embed/${song.videoId}?autoplay=1&playsinline=1&rel=0&modestbranding=1`} allow="autoplay; encrypted-media; fullscreen; picture-in-picture" allowFullScreen title={song.title} />
-        ) : (
+        {/* iframe VISADA DOM'e (be src) — kad play() gesture'e galėtų sinchroniškai
+            nustatyti src ir iOS leistų autoplay. Iki play — uždengtas posteriu. */}
+        <iframe ref={iframeRef} className="rdr-song-iframe" allow="autoplay; encrypted-media; fullscreen; picture-in-picture" allowFullScreen title={song.title} />
+        {!started && (
           <button type="button" className="rdr-song-poster" onClick={play} style={{ backgroundImage: `url(${cover})` }} aria-label={`Groti: ${song.title}`}>
-            <span className="rdr-song-scrim" />
-            <span className="rdr-song-play"><svg width="24" height="24" viewBox="0 0 24 24" fill="#fff" aria-hidden><path d="M8 5v14l11-7z" /></svg></span>
+            {/* Play mygtukas APATINIAM DEŠINIAM kampe (kaip atlikėjo psl.) — neuždengia vizualo */}
+            <span className="rdr-song-play"><svg width="22" height="22" viewBox="0 0 24 24" fill="#fff" aria-hidden><path d="M8 5v14l11-7z" /></svg></span>
           </button>
         )}
       </div>
@@ -645,16 +651,17 @@ type RelArtist = { id: number; name: string; slug: string; image: string | null 
 function ArtistFollowRow({ artist, onNavLink }: { artist: RelArtist; onNavLink: () => void }) {
   const { data: session } = useSession()
   const [liked, setLiked] = useState(false)
+  const [count, setCount] = useState(0)
   const [busy, setBusy] = useState(false)
   useEffect(() => {
     let on = true
-    fetch(`/api/artists/${artist.id}/like`, { cache: 'no-store' }).then(r => r.json()).then(d => { if (on && typeof d.liked === 'boolean') setLiked(d.liked) }).catch(() => {})
+    fetch(`/api/artists/${artist.id}/like`, { cache: 'no-store' }).then(r => r.json()).then(d => { if (!on) return; if (typeof d.count === 'number') setCount(d.count); if (typeof d.liked === 'boolean') setLiked(d.liked) }).catch(() => {})
     return () => { on = false }
   }, [artist.id, session?.user])
   const toggle = async () => {
     if (!session?.user || busy) return
-    setBusy(true); const prev = liked; setLiked(!prev)
-    try { const r = await fetch(`/api/artists/${artist.id}/like`, { method: 'POST' }); const d = await r.json(); if (typeof d.liked === 'boolean') setLiked(d.liked) } catch { setLiked(prev) } finally { setBusy(false) }
+    setBusy(true); const prev = liked; setLiked(!prev); setCount(c => prev ? Math.max(0, c - 1) : c + 1)
+    try { const r = await fetch(`/api/artists/${artist.id}/like`, { method: 'POST' }); const d = await r.json(); if (typeof d.liked === 'boolean') setLiked(d.liked); if (typeof d.count === 'number') setCount(d.count) } catch { setLiked(prev) } finally { setBusy(false) }
   }
   return (
     <div className="rdr-relart">
@@ -666,7 +673,8 @@ function ArtistFollowRow({ artist, onNavLink }: { artist: RelArtist; onNavLink: 
         <span>{artist.name}</span>
       </Link>
       <button type="button" className={`rdr-relart-follow${liked ? ' on' : ''}`} onClick={toggle} disabled={!session?.user || busy} title={session?.user ? (liked ? 'Nebesekti' : 'Sekti šį atlikėją') : 'Prisijunk, kad sektum'} aria-label={liked ? 'Nebesekti' : 'Sekti'} aria-pressed={liked}>
-        <svg width="17" height="17" viewBox="0 0 24 24" fill={liked ? '#fff' : 'currentColor'} aria-hidden><path d="M20.84 4.61a5.5 5.5 0 0 0-7.78 0L12 5.67l-1.06-1.06a5.5 5.5 0 0 0-7.78 7.78l1.06 1.06L12 21.23l7.78-7.78 1.06-1.06a5.5 5.5 0 0 0 0-7.78z" /></svg>
+        <svg width="16" height="16" viewBox="0 0 24 24" fill={liked ? '#fff' : 'currentColor'} aria-hidden><path d="M20.84 4.61a5.5 5.5 0 0 0-7.78 0L12 5.67l-1.06-1.06a5.5 5.5 0 0 0-7.78 7.78l1.06 1.06L12 21.23l7.78-7.78 1.06-1.06a5.5 5.5 0 0 0 0-7.78z" /></svg>
+        {count > 0 && <span>{count}</span>}
       </button>
     </div>
   )
@@ -1512,7 +1520,7 @@ const REELS_CSS = `
         .rdr-relart-link{display:inline-flex;align-items:center;gap:9px;min-width:0;text-decoration:none;color:#fff}
         .rdr-relart-link img,.rdr-relart-ph{width:36px;height:36px;border-radius:50%;object-fit:cover;flex-shrink:0;background:var(--accent-orange);display:flex;align-items:center;justify-content:center;color:#fff;font-weight:800;font-size:15px;font-family:'Outfit',sans-serif;text-transform:uppercase}
         .rdr-relart-link span{font-family:'Outfit',sans-serif;font-weight:700;font-size:14px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
-        .rdr-relart-follow{display:inline-flex;align-items:center;justify-content:center;flex-shrink:0;width:38px;height:38px;border-radius:50%;border:1px solid var(--accent-orange);background:transparent;color:var(--accent-orange);cursor:pointer}
+        .rdr-relart-follow{display:inline-flex;align-items:center;justify-content:center;gap:5px;flex-shrink:0;min-width:38px;height:38px;padding:0 13px;border-radius:999px;border:1px solid var(--accent-orange);background:transparent;color:var(--accent-orange);font-family:'Outfit',sans-serif;font-weight:800;font-size:13px;cursor:pointer}
         .rdr-relart-follow.on{background:var(--accent-orange);color:#fff}
         .rdr-relart-follow:disabled{opacity:.5;cursor:not-allowed}
         .rdr-cmt-list{display:flex;flex-direction:column;gap:13px}
@@ -1533,14 +1541,14 @@ const REELS_CSS = `
         .hp-reels.light .rdr-relart-follow.on{color:#fff}
         .hp-reels.light .rdr-cmt-meta b{color:var(--text-primary)}
         .hp-reels.light .rdr-cmt-body{color:var(--text-secondary)}
-        /* Native „susijusios muzikos" grotuvas */
-        .rdr-song{border-radius:14px;overflow:hidden;background:#000;border:1px solid rgba(255,255,255,0.10)}
+        /* Native „susijusios muzikos" grotuvas — stilius kaip homepage „Vakar laimėjo"
+           (oranžinis borderis), play mygtukas apatiniam dešiniam kampe (kaip atlikėjo psl.) */
+        .rdr-song{border-radius:14px;overflow:hidden;background:var(--bg-surface);border:1px solid rgba(249,115,22,0.35)}
         .rdr-song-video{position:relative;width:100%;aspect-ratio:16/9;background:#000}
         .rdr-song-iframe{position:absolute;inset:0;width:100%;height:100%;border:0}
-        .rdr-song-poster{position:absolute;inset:0;width:100%;height:100%;border:0;padding:0;cursor:pointer;background-size:cover;background-position:center;display:flex;align-items:center;justify-content:center}
-        .rdr-song-scrim{position:absolute;inset:0;background:linear-gradient(to top,rgba(0,0,0,0.5),rgba(0,0,0,0.12) 45%,rgba(0,0,0,0.3))}
-        .rdr-song-play{position:relative;z-index:1;display:flex;align-items:center;justify-content:center;width:60px;height:60px;border-radius:50%;background:var(--accent-orange);box-shadow:0 6px 20px rgba(0,0,0,0.5);padding-left:3px;transition:transform .15s}
-        .rdr-song-poster:hover .rdr-song-play{transform:scale(1.06)}
+        .rdr-song-poster{position:absolute;inset:0;width:100%;height:100%;border:0;padding:0;cursor:pointer;background-size:cover;background-position:center}
+        .rdr-song-play{position:absolute;bottom:10px;right:10px;display:flex;align-items:center;justify-content:center;width:48px;height:48px;border-radius:50%;background:var(--accent-orange);box-shadow:0 8px 24px rgba(249,115,22,0.5);border:3px solid rgba(255,255,255,0.15);padding-left:2px;transition:transform .2s}
+        .rdr-song-poster:hover .rdr-song-play{transform:scale(1.08)}
         .rdr-song-bar{display:flex;align-items:center;justify-content:space-between;gap:10px;padding:10px 12px;background:rgba(255,255,255,0.05)}
         .rdr-song-info{display:flex;flex-direction:column;min-width:0}
         .rdr-song-info b{font-family:'Outfit',sans-serif;font-weight:800;font-size:14.5px;color:#fff;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
