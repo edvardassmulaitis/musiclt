@@ -835,6 +835,13 @@ function ReaderSlide({ slide, active, seen, dk, scrollTopSignal, onScrolledChang
               antraštės, ne footeryje. Atlikėjo sekimas ČIA neberodomas (jis prie
               atlikėjo — širdele, atlikėjo psl.), kad nebūtų painiavos ir tilptų keli atlikėjai. */}
           {isNews && <NewsQuickActions slide={slide} />}
+          {isDailyWinner && (
+            <div className="rdr-head-acts">
+              <a className="rdr-na-btn" href="/dienos-daina" target="_blank" rel="noopener noreferrer" title="Atidaryti dienos dainos puslapį" aria-label="Atidaryti naujame lange">
+                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M15 3h6v6M10 14 21 3M18 13v6a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h6" /></svg>
+              </a>
+            </div>
+          )}
         </div>
         {isRecording
           ? <Link href={slide.href} onClick={onNavLink} className="rdr-title rdr-title-link">{slide.title}</Link>
@@ -1846,7 +1853,7 @@ const REELS_CSS = `
         .hp-reels-slide{height:100dvh;width:100vw;flex-shrink:0;position:relative;overflow:hidden;background:#101319}
 
         /* Vertikaliai scrollinama istorija */
-        .rdr-slide{height:100%;overflow-y:auto;overflow-x:hidden;-webkit-overflow-scrolling:touch;touch-action:pan-y;scrollbar-width:none}
+        .rdr-slide{height:100%;overflow-y:auto;overflow-x:hidden;-webkit-overflow-scrolling:touch;touch-action:pan-y;overscroll-behavior:contain;scrollbar-width:none}
         .rdr-slide::-webkit-scrollbar{display:none}
 
         /* Media viršuje — VISADA tik statinė nuotrauka (contain + blur fonas) */

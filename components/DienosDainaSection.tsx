@@ -29,6 +29,9 @@ function strHue(s: string) { let h = 0; for (let i = 0; i < (s || '').length; i+
 // Svetainės širdelės / play ikonos (kaip DienosDainaHero).
 const HEART_D = 'M20.8 4.6a5.5 5.5 0 0 0-7.8 0L12 5.7l-1-1.1a5.5 5.5 0 0 0-7.8 7.8l8.8 8.9 8.8-8.9a5.5 5.5 0 0 0 0-7.8z'
 const PLAY_D = 'M8 5v14l11-7z'
+const PLUS_D = 'M12 5v14M5 12h14'
+// „pasiūlė" ikona — user-plus (pridėjo/pasiūlė dainą)
+const SUGG_D = 'M16 21v-2a4 4 0 0 0-4-4H6a4 4 0 0 0-4 4v2M9 11a4 4 0 1 0 0-8 4 4 0 0 0 0 8M19 8v6M22 11h-6'
 function Ic({ d, size = 14, filled = false }: { d: string; size?: number; filled?: boolean }) {
   return <svg width={size} height={size} viewBox="0 0 24 24" fill={filled ? 'currentColor' : 'none'} stroke={filled ? 'none' : 'currentColor'} strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="shrink-0"><path d={d} /></svg>
 }
@@ -625,15 +628,15 @@ export function DienosDainaSection({ onOpenTrack, variant = 'inline', headerVari
         >
           <p className={`m-0 truncate font-['Outfit',sans-serif] font-bold text-[var(--text-primary)] transition-colors group-hover:text-[var(--accent-orange)] ${big ? 'text-[16px]' : 'text-[14px]'}`}>{sanitizeTitle(t.title)}</p>
           <p className={`m-0 truncate text-[var(--text-muted)] ${big ? 'text-[13px]' : 'text-[12.5px]'}`}>{t.artists?.name}</p>
-          {proposer && (proposer.username || proposer.full_name) && (
-            <span className="mt-1 flex min-w-0 items-center gap-1 text-[11px] text-[var(--text-faint)]"><span className="shrink-0">pasiūlė</span><MiniAv p={proposer} size={15} /><span className="truncate font-semibold text-[var(--text-secondary)]">{proposer.username || proposer.full_name}</span></span>
-          )}
           {typeof level === 'number' && (
-            <span className="mt-1 flex items-center gap-[3px]" aria-hidden>
+            <span className="mt-1.5 flex items-center gap-[3px]" aria-hidden>
               {Array.from({ length: 5 }).map((_, i) => (
                 <span key={i} className={`h-[3px] ${big ? 'w-[13px]' : 'w-[11px]'} rounded-[2px] ${i < level ? 'bg-[var(--accent-orange)]' : 'bg-[var(--border-default)]'}`} />
               ))}
             </span>
+          )}
+          {proposer && (proposer.username || proposer.full_name) && (
+            <span className="mt-1 flex min-w-0 items-center gap-1 text-[11px] text-[var(--text-faint)]"><span className="shrink-0 text-[var(--text-faint)]" title="pasiūlė"><Ic d={SUGG_D} size={12} /></span><MiniAv p={proposer} size={15} /><span className="truncate font-semibold text-[var(--text-secondary)]">{proposer.username || proposer.full_name}</span></span>
           )}
         </button>
         {right}
@@ -643,7 +646,7 @@ export function DienosDainaSection({ onOpenTrack, variant = 'inline', headerVari
 
   return (
     <>
-      {variant !== 'list' && SectionHeader}
+      {variant !== 'list' && variant !== 'reel' && SectionHeader}
 
       {variant === 'list' ? (
         // ── /v2 šoninė juosta: vertikalus sąrašas (viskas matosi, be horizontalaus scroll'o) ──
@@ -705,9 +708,8 @@ export function DienosDainaSection({ onOpenTrack, variant = 'inline', headerVari
                         aria-label="Groti"
                       >
                         {wImg && (/* eslint-disable-next-line @next/next/no-img-element */<img src={proxyImgResized(wImg, 480)} alt={sanitizeTitle(wt.title)} loading="lazy" decoding="async" className="h-full w-full object-cover" />)}
-                        <span className="absolute inset-0 flex items-center justify-center bg-black/25 transition-colors group-hover:bg-black/40">
-                          <span className="flex h-12 w-12 items-center justify-center rounded-full bg-[var(--accent-orange)] text-white shadow-[0_8px_24px_rgba(249,115,22,0.5)]"><Ic d={PLAY_D} size={20} filled /></span>
-                        </span>
+                        <span className="absolute inset-0 bg-gradient-to-t from-black/35 to-transparent transition-colors group-hover:from-black/45" />
+                        <span className="absolute bottom-2.5 right-2.5 flex h-11 w-11 items-center justify-center rounded-full bg-[var(--accent-orange)] text-white shadow-[0_8px_24px_rgba(249,115,22,0.5)] transition-transform group-hover:scale-105"><Ic d={PLAY_D} size={18} filled /></span>
                       </button>
                     )}
                   </div>
@@ -724,7 +726,7 @@ export function DienosDainaSection({ onOpenTrack, variant = 'inline', headerVari
                       {winnerNom && <AvatarStack title={sanitizeTitle(wt.title)} voters={winnerNom.voters || []} anon={winnerNom.anon_votes || 0} />}
                     </div>
                     {winner.proposer && (winner.proposer.username || winner.proposer.full_name) && (
-                      <span className="mt-1 flex min-w-0 items-center gap-1 text-[11px] text-[var(--text-faint)]"><span className="shrink-0">pasiūlė</span><MiniAv p={winner.proposer} size={15} /><span className="truncate font-semibold text-[var(--text-secondary)]">{winner.proposer.username || winner.proposer.full_name}</span></span>
+                      <span className="mt-1 flex min-w-0 items-center gap-1 text-[11px] text-[var(--text-faint)]"><span className="shrink-0 text-[var(--text-faint)]" title="pasiūlė"><Ic d={SUGG_D} size={12} /></span><MiniAv p={winner.proposer} size={15} /><span className="truncate font-semibold text-[var(--text-secondary)]">{winner.proposer.username || winner.proposer.full_name}</span></span>
                     )}
                   </div>
                 </div>
@@ -752,9 +754,8 @@ export function DienosDainaSection({ onOpenTrack, variant = 'inline', headerVari
                     ) : (
                       <button type="button" onClick={() => { if (wyt) setWinnerPlaying(true); else openTrack({ id: wt.id, title: wt.title, slug: wt.slug, cover_url: wt.cover_url, video_url: wt.video_url, artists: wt.artists }) }} className="group absolute inset-0 h-full w-full cursor-pointer border-0 bg-transparent p-0" aria-label="Groti">
                         {wImg && (/* eslint-disable-next-line @next/next/no-img-element */<img src={proxyImgResized(wImg, 640)} alt={sanitizeTitle(wt.title)} loading="lazy" decoding="async" className="h-full w-full object-cover" />)}
-                        <span className="absolute inset-0 flex items-center justify-center bg-black/25 transition-colors group-hover:bg-black/40">
-                          <span className="flex h-14 w-14 items-center justify-center rounded-full bg-[var(--accent-orange)] text-white shadow-[0_8px_24px_rgba(249,115,22,0.5)]"><Ic d={PLAY_D} size={22} filled /></span>
-                        </span>
+                        <span className="absolute inset-0 bg-gradient-to-t from-black/35 to-transparent transition-colors group-hover:from-black/45" />
+                        <span className="absolute bottom-3 right-3 flex h-12 w-12 items-center justify-center rounded-full bg-[var(--accent-orange)] text-white shadow-[0_8px_24px_rgba(249,115,22,0.5)] transition-transform group-hover:scale-105"><Ic d={PLAY_D} size={20} filled /></span>
                       </button>
                     )}
                   </div>
@@ -767,7 +768,7 @@ export function DienosDainaSection({ onOpenTrack, variant = 'inline', headerVari
                       {winnerNom && <AvatarStack title={sanitizeTitle(wt.title)} voters={winnerNom.voters || []} anon={winnerNom.anon_votes || 0} />}
                     </div>
                     {winner.proposer && (winner.proposer.username || winner.proposer.full_name) && (
-                      <span className="mt-1.5 flex min-w-0 items-center gap-1 text-[11px] text-[var(--text-faint)]"><span className="shrink-0">pasiūlė</span><MiniAv p={winner.proposer} size={15} /><span className="truncate font-semibold text-[var(--text-secondary)]">{winner.proposer.username || winner.proposer.full_name}</span></span>
+                      <span className="mt-1.5 flex min-w-0 items-center gap-1 text-[11px] text-[var(--text-faint)]"><span className="shrink-0 text-[var(--text-faint)]" title="pasiūlė"><Ic d={SUGG_D} size={12} /></span><MiniAv p={winner.proposer} size={15} /><span className="truncate font-semibold text-[var(--text-secondary)]">{winner.proposer.username || winner.proposer.full_name}</span></span>
                     )}
                     {winner.winning_comment && <p className="m-0 mt-1.5 line-clamp-2 text-[12.5px] italic text-[var(--text-muted)]">„{winner.winning_comment}"</p>}
                   </div>
@@ -790,18 +791,11 @@ export function DienosDainaSection({ onOpenTrack, variant = 'inline', headerVari
             </div>
           )}
 
-          {/* 3. Šiandien — balsuok */}
+          {/* 3. Šiandien siūloma — kandidatai + balsavimas + MAIN CTA */}
           <div>
             <div className="mb-2.5 flex items-center justify-between gap-2">
-              <div className="font-['Outfit',sans-serif] text-[11px] font-extrabold uppercase tracking-[0.1em] text-[var(--accent-orange)]">Šiandien — balsuok</div>
-              <div className="flex items-center gap-2">
-                {voteErr && <span className="text-[12px] font-bold text-[var(--accent-red,#ef4444)]">{voteErr}</span>}
-                {!alreadyNominated ? (
-                  <button type="button" onClick={() => setSuggestOpen(true)} aria-label="Pasiūlyti savo dainą" title="Pasiūlyti savo dainą" className="flex h-[26px] items-center gap-1 rounded-full bg-[rgba(249,115,22,0.12)] px-2.5 font-['Outfit',sans-serif] text-[12px] font-extrabold text-[var(--accent-orange)] transition-colors hover:bg-[var(--accent-orange)] hover:text-white"><span className="text-[15px] leading-none">+</span>Siūlyti</button>
-                ) : (
-                  <span className="flex h-[26px] items-center gap-1 rounded-full bg-[var(--bg-hover)] px-2.5 font-['Outfit',sans-serif] text-[12px] font-bold text-[var(--text-faint)]" title="Šiandien jau pasiūlei dainą">✓ Pasiūlei</span>
-                )}
-              </div>
+              <div className="font-['Outfit',sans-serif] text-[11px] font-extrabold uppercase tracking-[0.1em] text-[var(--accent-orange)]">Šiandien siūloma</div>
+              {voteErr && <span className="text-[12px] font-bold text-[var(--accent-red,#ef4444)]">{voteErr}</span>}
             </div>
             <div className="flex flex-col gap-3">
               {sorted.length === 0 && (
@@ -813,6 +807,17 @@ export function DienosDainaSection({ onOpenTrack, variant = 'inline', headerVari
                 return <ListRow key={n.id} t={n.tracks!} big={idx === 0} level={level} proposer={n.proposer} right={<VoteControl n={n} big={idx === 0} />} />
               })}
             </div>
+            {!alreadyNominated ? (
+              <button
+                type="button"
+                onClick={() => setSuggestOpen(true)}
+                className="mt-4 flex w-full items-center justify-center gap-2 rounded-full bg-[var(--accent-orange)] px-4 py-3 font-['Outfit',sans-serif] text-[14px] font-extrabold text-white shadow-[0_6px_20px_rgba(249,115,22,0.35)] transition-[filter] hover:brightness-110"
+              >
+                <Ic d={PLUS_D} size={17} />Siūlyti savo dainą
+              </button>
+            ) : (
+              <div className="mt-4 flex w-full items-center justify-center gap-2 rounded-full bg-[var(--bg-hover)] px-4 py-3 font-['Outfit',sans-serif] text-[13px] font-bold text-[var(--text-faint)]">✓ Šiandien jau pasiūlei dainą</div>
+            )}
           </div>
         </div>
       ) : variant === 'stacked' ? (
