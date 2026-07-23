@@ -11,7 +11,51 @@ import { proxyImgResized } from '@/lib/img-proxy'
 import { sanitizeRichHtml } from '@/lib/sanitize-html'
 import { deviceFpSync } from '@/lib/device-fp'
 import { DienosDainaHero } from '@/components/DienosDainaHero'
+import { LikePill } from '@/components/LikePill'
+import LikesModal, { type LikeUser } from '@/components/LikesModal'
 import type { HeroSlide, TopEntry } from '../HeroSlider'
+
+/** Vieningas „patinka" elementas — TAS PATS kaip atlikėjo psl. (LikePill):
+ *  širdelė (toggle) + count zona (atidaro „kam patinka" modalą su vartotojų
+ *  sąrašu). Naudojam ir dainoms (entity_type='track') ir atlikėjams
+ *  (entity_type='artist') — vienodas komponentas visur, be atskirų stilių. */
+function EntityLikePill({
+  entityType, entityId, subjectName, subjectPhoto, size = 'sm', variant = 'surface',
+}: {
+  entityType: 'track' | 'artist'; entityId: number
+  subjectName?: string; subjectPhoto?: string | null
+  size?: 'sm' | 'md'; variant?: 'light' | 'surface'
+}) {
+  const { data: session } = useSession()
+  const authed = !!session?.user
+  const [liked, setLiked] = useState(false)
+  const [count, setCount] = useState(0)
+  const [pending, setPending] = useState(false)
+  const [modalOpen, setModalOpen] = useState(false)
+  const [users, setUsers] = useState<LikeUser[]>([])
+  const [loadingUsers, setLoadingUsers] = useState(false)
+  const base = entityType === 'track' ? `/api/tracks/${entityId}/like` : `/api/artists/${entityId}/like`
+  useEffect(() => {
+    let on = true
+    fetch(base, { cache: 'no-store' }).then(r => r.json()).then(d => { if (!on) return; if (typeof d.count === 'number') setCount(d.count); if (typeof d.liked === 'boolean') setLiked(d.liked) }).catch(() => {})
+    return () => { on = false }
+  }, [base, session?.user])
+  const toggle = async () => {
+    if (!authed || pending) return
+    setPending(true); const prev = liked; setLiked(!prev); setCount(c => prev ? Math.max(0, c - 1) : c + 1)
+    try { const r = await fetch(base, { method: 'POST' }); const d = await r.json(); if (typeof d.liked === 'boolean') setLiked(d.liked); if (typeof d.count === 'number') setCount(d.count) } catch { setLiked(prev) } finally { setPending(false) }
+  }
+  const openModal = () => {
+    setModalOpen(true); setLoadingUsers(true)
+    fetch(`/api/likes/${entityType}/${entityId}`, { cache: 'no-store' }).then(r => r.json()).then(d => { setUsers(Array.isArray(d?.users) ? d.users : []) }).catch(() => setUsers([])).finally(() => setLoadingUsers(false))
+  }
+  return (
+    <span onClick={(e) => e.stopPropagation()}>
+      <LikePill likes={count} selfLiked={liked} onToggle={toggle} onOpenModal={openModal} pending={pending} variant={variant} size={size} />
+      <LikesModal open={modalOpen} onClose={() => setModalOpen(false)} title="" count={count} users={users} loading={loadingUsers} subjectName={subjectName} subjectPhoto={subjectPhoto || null} selfLiked={liked} authed={authed} onToggleSelfLike={toggle} selfLikePending={pending} />
+    </span>
+  )
+}
 
 /* ────────────────────────────── Helpers (v1 verbatim) ────────────────────────────── */
 function sanitizeTitle(raw: string): string {
@@ -269,19 +313,10 @@ function trackSlugify(s: string): string {
  *  Play → skaičiuojam INTERNAL paleidimą (/api/tracks/[id]/play) + playVideo() per
  *  YT IFrame API (kad iOS paleistų iškart). Pavadinimas — nuoroda į dainos psl. */
 function SongPlayer({ song, onNavLink }: { song: { videoId: string; title: string; artist?: string | null; songId?: number | null }; onNavLink: () => void }) {
-  const { data: session } = useSession()
   const holderRef = useRef<HTMLDivElement>(null)
   const playerRef = useRef<any>(null)
   const playingRef = useRef(false)
   const [started, setStarted] = useState(false)
-  const [liked, setLiked] = useState(false)
-  const [likeCount, setLikeCount] = useState(0)
-  useEffect(() => {
-    if (!song.songId) return
-    let on = true
-    fetch(`/api/tracks/${song.songId}/like`).then(r => r.json()).then(d => { if (!on) return; setLikeCount(d.count || 0); if (typeof d.liked === 'boolean') setLiked(d.liked) }).catch(() => {})
-    return () => { on = false }
-  }, [song.songId, session?.user])
   // Player PRE-CREATE (cued, autoplay=0) — kaip atlikėjo psl.: paruošiam iš anksto,
   // o grojam per playVideo() gesture'e. host=youtube-nocookie (Safari ITP blokuoja
   // youtube.com cookie → klaida 153; nocookie veikia). Jei user'is paspaudė dar
@@ -311,11 +346,6 @@ function SongPlayer({ song, onNavLink }: { song: { videoId: string; title: strin
     try { playerRef.current?.playVideo?.() } catch { /* ignore */ }
     setStarted(true)
   }
-  const toggleLike = async () => {
-    if (!session?.user || !song.songId) return
-    const n = !liked; setLiked(n); setLikeCount(c => n ? c + 1 : Math.max(0, c - 1))
-    try { await fetch(`/api/tracks/${song.songId}/like`, { method: 'POST' }) } catch { /* ignore */ }
-  }
   const cover = `https://i.ytimg.com/vi/${song.videoId}/hqdefault.jpg`
   const href = song.songId ? `/dainos/${trackSlugify([song.artist, song.title].filter(Boolean).join('-'))}-${song.songId}` : null
   return (
@@ -335,10 +365,7 @@ function SongPlayer({ song, onNavLink }: { song: { videoId: string; title: strin
             : <b>{song.title}</b>}
           {song.artist ? <i>{song.artist}</i> : null}
         </span>
-        <button type="button" className={`rdr-song-like${liked ? ' on' : ''}`} onClick={toggleLike} disabled={!session?.user} title={session?.user ? (liked ? 'Nebepatinka' : 'Patinka daina') : 'Prisijunk, kad pamėgtum'} aria-label="Patinka daina">
-          <svg width="16" height="16" viewBox="0 0 24 24" fill={liked ? 'currentColor' : 'none'} stroke="currentColor" strokeWidth="2"><path d="M20.84 4.61a5.5 5.5 0 0 0-7.78 0L12 5.67l-1.06-1.06a5.5 5.5 0 0 0-7.78 7.78l1.06 1.06L12 21.23l7.78-7.78 1.06-1.06a5.5 5.5 0 0 0 0-7.78z" /></svg>
-          {likeCount > 0 && <span>{likeCount}</span>}
-        </button>
+        {song.songId ? <EntityLikePill entityType="track" entityId={song.songId} subjectName={song.title} subjectPhoto={cover} /> : null}
       </div>
     </div>
   )
@@ -700,20 +727,6 @@ type RelArtist = { id: number; name: string; slug: string; image: string | null 
 /** Vieno susijusio atlikėjo eilutė — avataras + vardas + „Sekti" ŠIRDELĖ (tas
  *  pats mechanizmas kaip atlikėjo psl. FollowPill: /api/artists/[id]/like). */
 function ArtistFollowRow({ artist, onNavLink }: { artist: RelArtist; onNavLink: () => void }) {
-  const { data: session } = useSession()
-  const [liked, setLiked] = useState(false)
-  const [count, setCount] = useState(0)
-  const [busy, setBusy] = useState(false)
-  useEffect(() => {
-    let on = true
-    fetch(`/api/artists/${artist.id}/like`, { cache: 'no-store' }).then(r => r.json()).then(d => { if (!on) return; if (typeof d.count === 'number') setCount(d.count); if (typeof d.liked === 'boolean') setLiked(d.liked) }).catch(() => {})
-    return () => { on = false }
-  }, [artist.id, session?.user])
-  const toggle = async () => {
-    if (!session?.user || busy) return
-    setBusy(true); const prev = liked; setLiked(!prev); setCount(c => prev ? Math.max(0, c - 1) : c + 1)
-    try { const r = await fetch(`/api/artists/${artist.id}/like`, { method: 'POST' }); const d = await r.json(); if (typeof d.liked === 'boolean') setLiked(d.liked); if (typeof d.count === 'number') setCount(d.count) } catch { setLiked(prev) } finally { setBusy(false) }
-  }
   return (
     <div className="rdr-relart">
       <Link href={`/atlikejai/${artist.slug}`} onClick={onNavLink} className="rdr-relart-link">
@@ -723,10 +736,7 @@ function ArtistFollowRow({ artist, onNavLink }: { artist: RelArtist; onNavLink: 
           : <span className="rdr-relart-ph">{artist.name[0]}</span>}
         <span>{artist.name}</span>
       </Link>
-      <button type="button" className={`rdr-relart-follow${liked ? ' on' : ''}`} onClick={toggle} disabled={!session?.user || busy} title={session?.user ? (liked ? 'Nebesekti' : 'Sekti šį atlikėją') : 'Prisijunk, kad sektum'} aria-label={liked ? 'Nebesekti' : 'Sekti'} aria-pressed={liked}>
-        <svg width="16" height="16" viewBox="0 0 24 24" fill={liked ? '#fff' : 'currentColor'} aria-hidden><path d="M20.84 4.61a5.5 5.5 0 0 0-7.78 0L12 5.67l-1.06-1.06a5.5 5.5 0 0 0-7.78 7.78l1.06 1.06L12 21.23l7.78-7.78 1.06-1.06a5.5 5.5 0 0 0 0-7.78z" /></svg>
-        {count > 0 && <span>{count}</span>}
-      </button>
+      <EntityLikePill entityType="artist" entityId={artist.id} subjectName={artist.name} subjectPhoto={artist.image} />
     </div>
   )
 }
