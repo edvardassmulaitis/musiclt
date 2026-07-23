@@ -373,6 +373,144 @@ function SongPlayer({ song, onNavLink }: { song: { videoId: string; title: strin
   )
 }
 
+type PlSong = { videoId: string; title: string; artist?: string | null; songId?: number | null }
+
+/** „Susijusi muzika" kai jos daug (albumas/grupė) — VIENAS grotuvas + dainų
+ *  sąrašas. YouTube-blokuotos (Vevo „unavailable", klaidos 101/150/153) dainos
+ *  praleidžiamos: preflight per /api/yt/embeddable + onError → paslepiam iš
+ *  sąrašo ir šokam į kitą veikiančią. iOS play — nocookie + playVideo() gesture. */
+function SongPlaylist({ songs, onNavLink }: { songs: PlSong[]; onNavLink: () => void }) {
+  const holderRef = useRef<HTMLDivElement>(null)
+  const playerRef = useRef<any>(null)
+  const playingRef = useRef(false)
+  const curVidRef = useRef<string | null>(null)
+  const [idx, setIdx] = useState(0)
+  const [started, setStarted] = useState(false)
+  const [blocked, setBlocked] = useState<Set<string>>(new Set())
+  const cur = songs[idx]
+  const idxRef = useRef(0)
+  useEffect(() => { idxRef.current = idx }, [idx])
+
+  // Embeddable preflight aktyviai dainai — jei blokuota, pažymim.
+  useEffect(() => {
+    if (!cur?.videoId || blocked.has(cur.videoId)) return
+    let cancelled = false
+    fetch(`/api/yt/embeddable?videoId=${encodeURIComponent(cur.videoId)}`).then(r => r.ok ? r.json() : null)
+      .then(d => { if (!cancelled && d && d.embeddable === false) setBlocked(s => { const n = new Set(s); n.add(cur.videoId); return n }) })
+      .catch(() => {})
+    return () => { cancelled = true }
+  }, [cur?.videoId]) // eslint-disable-line
+
+  // Aktyvi daina blokuota → šokam į kitą neblokuotą (skip).
+  useEffect(() => {
+    if (!cur || !blocked.has(cur.videoId)) return
+    const nextI = songs.findIndex((s, i) => i > idx && !blocked.has(s.videoId))
+    const anyI = nextI >= 0 ? nextI : songs.findIndex(s => !blocked.has(s.videoId))
+    if (anyI >= 0 && anyI !== idx) setIdx(anyI)
+  }, [blocked, idx]) // eslint-disable-line
+
+  // YT player — sukuriam kartą; track switch'ai per loadVideoById.
+  useEffect(() => {
+    let dead = false
+    loadYT().then((YT) => {
+      // Naudojam idxRef (ne stale `cur` iš mount closure) — jei pirma daina
+      // blokuota ir idx pašoko kol kraunasi YT API, sukuriam su TIKRU aktyviu.
+      const startSong = songs[idxRef.current]
+      if (dead || !holderRef.current || playerRef.current || !startSong?.videoId) return
+      const inner = document.createElement('div')
+      inner.style.width = '100%'; inner.style.height = '100%'
+      holderRef.current.innerHTML = ''
+      holderRef.current.appendChild(inner)
+      playerRef.current = new YT.Player(inner, {
+        host: 'https://www.youtube-nocookie.com',
+        videoId: startSong.videoId,
+        width: '100%', height: '100%',
+        playerVars: { autoplay: 0, controls: 1, modestbranding: 1, rel: 0, playsinline: 1, iv_load_policy: 3, enablejsapi: 1, origin: typeof window !== 'undefined' ? window.location.origin : undefined },
+        events: {
+          onReady: (e: any) => { if (playingRef.current) { try { e.target.playVideo() } catch { /* ignore */ } } },
+          onError: (e: any) => {
+            const c = e?.data
+            if (c === 101 || c === 150 || c === 153) {
+              const v = curVidRef.current
+              if (v) setBlocked(s => { const n = new Set(s); n.add(v); return n })
+            }
+          },
+        },
+      })
+      curVidRef.current = startSong.videoId
+    }).catch(() => {})
+    return () => { dead = true; try { playerRef.current?.destroy?.() } catch { /* ignore */ } playerRef.current = null }
+  }, []) // eslint-disable-line
+
+  // idx pasikeitė → įkeliam naują video į esamą player'į.
+  useEffect(() => {
+    const p = playerRef.current
+    if (!p || !cur?.videoId || curVidRef.current === cur.videoId) return
+    try {
+      if (playingRef.current) p.loadVideoById?.(cur.videoId)
+      else p.cueVideoById?.(cur.videoId)
+      curVidRef.current = cur.videoId
+    } catch { /* ignore */ }
+  }, [idx, cur?.videoId])
+
+  const play = (i: number) => {
+    const s = songs[i]; if (!s) return
+    playingRef.current = true
+    setIdx(i); setStarted(true)
+    if (s.songId) fetch(`/api/tracks/${s.songId}/play`, { method: 'POST', keepalive: true }).catch(() => {})
+    const p = playerRef.current
+    try {
+      if (p) {
+        if (curVidRef.current !== s.videoId) { p.loadVideoById?.(s.videoId); curVidRef.current = s.videoId }
+        else p.playVideo?.()
+      }
+    } catch { /* ignore */ }
+  }
+
+  const trackHref = (s?: PlSong) => s?.songId ? `/dainos/${trackSlugify([s.artist, s.title].filter(Boolean).join('-'))}-${s.songId}` : null
+  const visible = songs.filter(s => !blocked.has(s.videoId))
+  if (!visible.length) return null
+  const cover = cur ? `https://i.ytimg.com/vi/${cur.videoId}/hqdefault.jpg` : ''
+
+  return (
+    <div className="rdr-song rdr-plist" onClick={(e) => e.stopPropagation()}>
+      <div className="rdr-song-video">
+        <div className={`rdr-song-ytwrap${started ? ' on' : ''}`}><div ref={holderRef} /></div>
+        {!started && (
+          <button type="button" className="rdr-song-poster" onClick={() => play(idx)} style={{ backgroundImage: `url(${cover})` }} aria-label={`Groti: ${cur?.title}`}>
+            <span className="rdr-song-play"><svg width="22" height="22" viewBox="0 0 24 24" fill="#fff" aria-hidden><path d="M8 5v14l11-7z" /></svg></span>
+          </button>
+        )}
+      </div>
+      <div className="rdr-song-bar">
+        <span className="rdr-song-info">
+          {trackHref(cur)
+            ? <Link href={trackHref(cur)!} onClick={onNavLink} className="rdr-song-title"><b>{cur?.title}</b></Link>
+            : <b>{cur?.title}</b>}
+          {cur?.artist ? <i>{cur.artist}</i> : null}
+        </span>
+        {cur?.songId ? <EntityLikePill key={cur.songId} entityType="track" entityId={cur.songId} subjectName={cur.title} subjectPhoto={cover} /> : null}
+      </div>
+      <div className="rdr-plist-list">
+        {visible.map((s) => {
+          const realI = songs.indexOf(s)
+          const on = realI === idx
+          return (
+            <button key={`${s.videoId}-${realI}`} type="button" className={`rdr-plist-row${on ? ' on' : ''}`} onClick={() => play(realI)}>
+              <span className="rdr-plist-ic">
+                {on && started
+                  ? <svg width="13" height="13" viewBox="0 0 24 24" fill="currentColor" aria-hidden><path d="M6 5h4v14H6zM14 5h4v14h-4z" /></svg>
+                  : <svg width="13" height="13" viewBox="0 0 24 24" fill="currentColor" aria-hidden><path d="M8 5v14l11-7z" /></svg>}
+              </span>
+              <span className="rdr-plist-tx"><b>{s.title}</b>{s.artist ? <i>{s.artist}</i> : null}</span>
+            </button>
+          )
+        })}
+      </div>
+    </div>
+  )
+}
+
 /** Viena istorija reader'yje. Pati valdo savo VERTIKALŲ scroll'ą (pauzina
  *  auto-advance kai nuscrollinta žemyn — „skaitymo režimas"), news pilno body
  *  lazy-fetch'ą, ♥ ir apatinę veiksmų juostą. Muzika — STANDARTINIAI YouTube
@@ -522,7 +660,11 @@ function ReaderSlide({ slide, active, seen, dk, scrollTopSignal, onScrolledChang
     return s && s.toLowerCase() !== 'daina' ? s : null
   }
   // „Susijusi muzika" — tikri track'ai (turi songId) → NATIVE grotuvas (play skaičius).
-  const nativeSongs = (slide.songs || []).filter(s => !!s.songId).slice(0, 3)
+  // >3 dainos (albumas/grupės diskografija) → VIENAS playlist grotuvas su sąrašu.
+  // ≤3 (atskirai parinktos dainos) → atskiri grotuvai (kaip anksčiau).
+  const nativeAll = (slide.songs || []).filter(s => !!s.songId)
+  const isPlaylist = nativeAll.length > 3
+  const nativeSongs = isPlaylist ? nativeAll : nativeAll.slice(0, 3)
   // Raw embed'ai (news `embeds` YouTube, chart/daily videoId, songs be songId) → paprastas iframe.
   const embeds: { videoId: string; title: string | null; artist?: string | null }[] = []
   if (!nativeSongs.length) {
@@ -630,8 +772,11 @@ function ReaderSlide({ slide, active, seen, dk, scrollTopSignal, onScrolledChang
         {active && (nativeSongs.length > 0 || embeds.length > 0) && (
           <div className="rdr-embeds" ref={embedsRef}>
             {/* Susijusi muzika → native grotuvas (be pasikartojančio title, su like
-                + internal play skaičiavimu). Kiti (raw YouTube) → paprastas iframe. */}
-            {nativeSongs.map(s => <SongPlayer key={s.videoId} song={s} onNavLink={onNavLink} />)}
+                + internal play skaičiavimu). Albumas/grupė (>3) → vienas playlist
+                grotuvas. Kiti (raw YouTube) → paprastas iframe. */}
+            {isPlaylist
+              ? <SongPlaylist songs={nativeSongs} onNavLink={onNavLink} />
+              : nativeSongs.map(s => <SongPlayer key={s.videoId} song={s} onNavLink={onNavLink} />)}
             {embeds.map(e => (
               <div key={e.videoId} className="rdr-embed">
                 {e.title && (
@@ -1628,6 +1773,23 @@ const REELS_CSS = `
         .rdr-song-like{display:inline-flex;align-items:center;gap:5px;flex-shrink:0;height:34px;padding:0 12px;border-radius:999px;border:1px solid rgba(255,255,255,0.18);background:transparent;color:#fff;font-family:'Outfit',sans-serif;font-weight:800;font-size:13px;cursor:pointer}
         .rdr-song-like.on{color:#fff;background:var(--accent-orange);border-color:var(--accent-orange)}
         .rdr-song-like:disabled{opacity:.55;cursor:not-allowed}
+        /* Playlist (albumas/grupė) — dainų sąrašas po grotuvu */
+        .rdr-plist-list{display:flex;flex-direction:column;max-height:236px;overflow-y:auto;border-top:1px solid rgba(255,255,255,0.08);scrollbar-width:thin}
+        .rdr-plist-row{display:flex;align-items:center;gap:10px;width:100%;padding:9px 12px;background:transparent;border:0;border-bottom:1px solid rgba(255,255,255,0.05);cursor:pointer;text-align:left;color:#fff}
+        .rdr-plist-row:last-child{border-bottom:0}
+        .rdr-plist-row.on{background:rgba(249,115,22,0.14)}
+        .rdr-plist-ic{display:inline-flex;align-items:center;justify-content:center;width:26px;height:26px;flex-shrink:0;border-radius:50%;background:rgba(255,255,255,0.1);color:#fff}
+        .rdr-plist-row.on .rdr-plist-ic{background:var(--accent-orange)}
+        .rdr-plist-tx{display:flex;flex-direction:column;min-width:0}
+        .rdr-plist-tx b{font-family:'Outfit',sans-serif;font-weight:700;font-size:13.5px;color:#fff;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+        .rdr-plist-tx i{font-style:normal;font-size:12px;color:rgba(255,255,255,0.6);white-space:nowrap;overflow:hidden;text-overflow:ellipsis;margin-top:1px}
+        .rdr-plist-row.on .rdr-plist-tx b{color:var(--accent-orange)}
+        .hp-reels.light .rdr-plist-list{border-top-color:var(--border-default)}
+        .hp-reels.light .rdr-plist-row{border-bottom-color:var(--border-subtle);color:var(--text-primary)}
+        .hp-reels.light .rdr-plist-tx b{color:var(--text-primary)}
+        .hp-reels.light .rdr-plist-ic{background:var(--bg-hover);color:var(--text-primary)}
+        .hp-reels.light .rdr-plist-row.on{background:rgba(249,115,22,0.12)}
+        .hp-reels.light .rdr-plist-row.on .rdr-plist-ic{color:#fff}
         .hp-reels.light .rdr-song{border-color:var(--border-default)}
         .hp-reels.light .rdr-song-bar{background:var(--bg-elevated)}
         .hp-reels.light .rdr-song-info b{color:var(--text-primary)}
