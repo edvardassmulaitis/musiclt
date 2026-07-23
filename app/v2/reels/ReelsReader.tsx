@@ -22,7 +22,7 @@ import type { HeroSlide, TopEntry } from '../HeroSlider'
 function EntityLikePill({
   entityType, entityId, subjectName, subjectPhoto, size = 'sm', variant = 'surface',
 }: {
-  entityType: 'track' | 'artist'; entityId: number
+  entityType: 'track' | 'artist' | 'news'; entityId: number
   subjectName?: string; subjectPhoto?: string | null
   size?: 'sm' | 'md'; variant?: 'light' | 'surface'
 }) {
@@ -34,7 +34,9 @@ function EntityLikePill({
   const [modalOpen, setModalOpen] = useState(false)
   const [users, setUsers] = useState<LikeUser[]>([])
   const [loadingUsers, setLoadingUsers] = useState(false)
-  const base = entityType === 'track' ? `/api/tracks/${entityId}/like` : `/api/artists/${entityId}/like`
+  const base = entityType === 'track' ? `/api/tracks/${entityId}/like`
+    : entityType === 'artist' ? `/api/artists/${entityId}/like`
+    : `/api/news/${entityId}/like`
   useEffect(() => {
     let on = true
     fetch(base, { cache: 'no-store' }).then(r => r.json()).then(d => { if (!on) return; if (typeof d.count === 'number') setCount(d.count); if (typeof d.liked === 'boolean') setLiked(d.liked) }).catch(() => {})
@@ -664,28 +666,8 @@ function ReaderSlide({ slide, active, seen, dk, scrollTopSignal, onScrolledChang
  *  atlikėjų gali būti keli, o sekimas gyvena atlikėjo puslapyje (širdele), kad
  *  nebūtų painiavos ir nekonkuruotų ikonos. */
 function NewsQuickActions({ slide }: { slide: HeroSlide }) {
-  const { data: session } = useSession()
-  const [liked, setLiked] = useState(false)
-  const [likeCount, setLikeCount] = useState(0)
   const [copied, setCopied] = useState(false)
 
-  useEffect(() => {
-    if (!slide.newsId) return
-    let on = true
-    fetch(`/api/likes/news/${slide.newsId}`).then(r => r.json()).then(d => {
-      if (!on) return
-      setLikeCount(d.count || 0)
-      const me = (session?.user as any)?.name || (session?.user as any)?.email
-      if (me) setLiked((d.users || []).some((u: any) => (u.user_username || '').toLowerCase() === String(me).toLowerCase()))
-    }).catch(() => {})
-    return () => { on = false }
-  }, [slide.newsId, session?.user])
-
-  const toggleLike = async () => {
-    if (!session?.user || !slide.newsId) return
-    const n = !liked; setLiked(n); setLikeCount(c => n ? c + 1 : Math.max(0, c - 1))
-    try { await fetch(`/api/news/${slide.newsId}/like`, { method: 'POST' }) } catch { /* ignore */ }
-  }
   const share = async () => {
     const url = (typeof location !== 'undefined' ? location.origin : '') + slide.href
     try { if (typeof navigator !== 'undefined' && (navigator as any).share) { await (navigator as any).share({ title: slide.title, url }); return } } catch { /* fallback */ }
@@ -694,10 +676,7 @@ function NewsQuickActions({ slide }: { slide: HeroSlide }) {
 
   return (
     <div className="rdr-head-acts" onClick={(e) => e.stopPropagation()}>
-      <button type="button" className={`rdr-na-btn${liked ? ' on' : ''}`} onClick={toggleLike} disabled={!session?.user} title={session?.user ? (liked ? 'Nebepatinka' : 'Patinka ši naujiena') : 'Prisijunk, kad pamėgtum'} aria-label="Patinka naujiena">
-        <svg width="17" height="17" viewBox="0 0 24 24" fill={liked ? 'currentColor' : 'none'} stroke="currentColor" strokeWidth="2"><path d="M20.84 4.61a5.5 5.5 0 0 0-7.78 0L12 5.67l-1.06-1.06a5.5 5.5 0 0 0-7.78 7.78l1.06 1.06L12 21.23l7.78-7.78 1.06-1.06a5.5 5.5 0 0 0 0-7.78z" /></svg>
-        {likeCount > 0 && <span>{likeCount}</span>}
-      </button>
+      {slide.newsId ? <EntityLikePill entityType="news" entityId={slide.newsId} subjectName={slide.title} subjectPhoto={slide.bgImg || null} /> : null}
       <button type="button" className="rdr-na-btn" onClick={share} title="Dalintis naujiena" aria-label="Dalintis">
         {copied
           ? <svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.4"><path d="M20 6 9 17l-5-5" /></svg>

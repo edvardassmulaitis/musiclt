@@ -5,12 +5,13 @@
 // (mobile) komponentams. Raktas = slideKey (`${type}::${href}`).
 //
 //  - Svečias (neprisijungęs): localStorage 'reels_seen' — per įrenginį.
-//  - Prisijungęs: server DB (/api/hero/seen) — SURIŠTA per visus įrenginius.
-//    Ant mount: sumerge'inam localStorage + server; taip pat POST'inam lokalius
-//    raktus į server (kad ankstesnė šio įrenginio istorija migruotų į paskyrą).
-//    markSeen: iškart local + optimistiškai POST į server.
+//  - Prisijungęs: TIK server DB (/api/hero/seen) — SURIŠTA per visus įrenginius.
+//    Sąmoningai NEmerge'inam localStorage į prisijungusio rinkinį ir NEpush'inam
+//    jo į server — kitaip vieno įrenginio naršymo/testų šiukšlės „užterštų"
+//    paskyrą (visos naujienos taptų „skaitytos"). Server = vienintelis tiesos
+//    šaltinis prisijungusiam; markSeen rašo tik į server pirmyn.
 
-import { useState, useEffect, useCallback, useRef } from 'react'
+import { useState, useEffect, useCallback } from 'react'
 import { useSession } from 'next-auth/react'
 
 const LS_KEY = 'reels_seen'
@@ -23,44 +24,32 @@ function writeLocal(keys: Set<string>) {
 }
 
 export function useHeroSeen() {
-  const { data: session, status } = useSession()
-  const authed = !!session?.user
+  const { status } = useSession()
+  const authed = status === 'authenticated'
   // Pradžioj tuščia — kad SSR ir pirmas client render'is sutaptų (be hydration
-  // mismatch); užpildom po mount effect'e.
+  // mismatch); užpildom po mount effect'e pagal auth būseną.
   const [seen, setSeen] = useState<Set<string>>(new Set())
-  const syncedRef = useRef(false)
 
   useEffect(() => {
-    // 1) localStorage — momentaliai (veikia svečiams ir kaip greitas cache).
-    const local = readLocal()
-    setSeen(new Set(local))
-
-    // 2) prisijungusiems — server merge + push lokalių raktų vieną kartą.
-    if (status !== 'authenticated') return
-    let on = true
-    fetch('/api/hero/seen', { cache: 'no-store' })
-      .then(r => r.json())
-      .then((d) => {
-        if (!on || !Array.isArray(d?.keys)) return
-        setSeen(prev => new Set([...prev, ...d.keys]))
-      })
-      .catch(() => {})
-    // Migruojam šio įrenginio localStorage istoriją į paskyrą (vieną kartą).
-    if (!syncedRef.current && local.length) {
-      syncedRef.current = true
-      fetch('/api/hero/seen', {
-        method: 'POST', headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ keys: local }), keepalive: true,
-      }).catch(() => {})
+    if (status === 'loading') return
+    if (status === 'authenticated') {
+      // Prisijungęs → TIK server (surišta per įrenginius).
+      let on = true
+      fetch('/api/hero/seen', { cache: 'no-store' })
+        .then(r => r.json())
+        .then((d) => { if (on && Array.isArray(d?.keys)) setSeen(new Set(d.keys)) })
+        .catch(() => {})
+      return () => { on = false }
     }
-    return () => { on = false }
+    // Svečias → localStorage.
+    setSeen(new Set(readLocal()))
   }, [status])
 
   const markSeen = useCallback((key: string) => {
     setSeen(prev => {
       if (prev.has(key)) return prev
       const next = new Set(prev); next.add(key)
-      writeLocal(next)
+      if (!authed) writeLocal(next)   // svečio istorija — tik lokaliai
       return next
     })
     if (authed) {
