@@ -13,6 +13,8 @@ import { deviceFpSync } from '@/lib/device-fp'
 import { DienosDainaHero } from '@/components/DienosDainaHero'
 import { LikePill } from '@/components/LikePill'
 import LikesModal, { type LikeUser } from '@/components/LikesModal'
+import SocialEmbed from '@/components/SocialEmbed'
+import { detectPlatform } from '@/lib/social-embed'
 import type { HeroSlide, TopEntry } from '../HeroSlider'
 
 /** Vieningas „patinka" elementas — TAS PATS kaip atlikėjo psl. (LikePill):
@@ -92,6 +94,7 @@ export const slideKey = (s: HeroSlide) => `${s.type}::${s.href}`
  *  nereiktų perkrauti to paties straipsnio iš naujo. */
 const newsBodyCache = new Map<number, string>()
 const newsEmbedCache = new Map<number, { videoId: string; title: string | null }[]>()
+const newsSocialCache = new Map<number, { url: string; caption?: string | null }[]>()
 const blogPostCache = new Map<string, any>()
 
 /** Legacy blog turinio valymas reader'iui: nukerpa scraper'io „mėgstamų" lentelės
@@ -539,6 +542,9 @@ function ReaderSlide({ slide, active, seen, dk, scrollTopSignal, onScrolledChang
   const [bodyLoading, setBodyLoading] = useState(false)
   // News video: dažnai NE `songs`, o `embeds` lauke (pvz. Chelsea Wolfe) — jį
   // ištraukiam iš /api/news/[id] atsakymo ir rodom „Muzika" sekcijoj.
+  const [socialEmbeds, setSocialEmbeds] = useState<{ url: string; caption?: string | null }[]>(
+    () => (slide.newsId ? newsSocialCache.get(slide.newsId) || [] : [])
+  )
   const [extraEmbeds, setExtraEmbeds] = useState<{ videoId: string; title: string | null }[]>(
     () => (slide.newsId ? newsEmbedCache.get(slide.newsId) || [] : [])
   )
@@ -587,6 +593,15 @@ function ReaderSlide({ slide, active, seen, dk, scrollTopSignal, onScrolledChang
           .map((v: string) => ({ videoId: v, title: null }))
         newsEmbedCache.set(slide.newsId!, ems)
         if (ems.length) setExtraEmbeds(ems)
+        // Social embed'ai (Instagram / X / TikTok / Facebook) → SocialEmbed
+        // komponentas (blockquote + oficialus embed skriptas). Anksčiau reader'yje
+        // buvo VISAI nerodomi.
+        const socials = (Array.isArray(d?.embeds) ? d.embeds : [])
+          .filter((e: any) => { const p = detectPlatform(e?.url || ''); return p === 'instagram' || p === 'x' || p === 'tiktok' || p === 'facebook' })
+          .map((e: any) => ({ url: e.url as string, caption: e.title || null }))
+          .slice(0, 5)
+        newsSocialCache.set(slide.newsId!, socials)
+        if (socials.length) setSocialEmbeds(socials)
       })
       .catch(() => {})
       .finally(() => setBodyLoading(false))
@@ -798,6 +813,15 @@ function ReaderSlide({ slide, active, seen, dk, scrollTopSignal, onScrolledChang
                 </div>
               </div>
             ))}
+          </div>
+        )}
+
+        {/* ── Social embed'ai (Instagram / X / TikTok / Facebook) — oficialūs
+            widget'ai per SocialEmbed (blockquote + embed skriptas). Anksčiau
+            reader'yje visai nerodyti. Mount'inam tik aktyvioj kortelėj. ── */}
+        {active && isNews && socialEmbeds.length > 0 && (
+          <div className="rdr-social">
+            {socialEmbeds.map((s, i) => <SocialEmbed key={`${s.url}-${i}`} url={s.url} caption={s.caption} />)}
           </div>
         )}
 
@@ -1904,6 +1928,12 @@ const REELS_CSS = `
            užapvalinti). Grojimą paleidžia pats YouTube — jokio custom UI.
            Antraštė tik kai yra TIKRAS dainos pavadinimas. ── */
         .rdr-embeds{display:flex;flex-direction:column;gap:10px;margin:20px 0 0}
+        /* Social embed'ai (Instagram/X/TikTok) — oficialūs widget'ai; centruojam,
+           ribojam plotį kad tilptų reader'yje, balta IG kortelė turi savo foną. */
+        .rdr-social{display:flex;flex-direction:column;align-items:center;gap:16px;margin:20px 0 0}
+        .rdr-social>div{width:100%;max-width:400px}
+        .rdr-social iframe{max-width:100%!important}
+        .rdr-social .instagram-media,.rdr-social .twitter-tweet,.rdr-social .tiktok-embed{margin:0 auto!important;max-width:100%!important;min-width:0!important}
         .rdr-embeds-head{font-family:'Outfit',sans-serif;font-size:12px;font-weight:700;letter-spacing:0.08em;color:rgba(255,255,255,0.6);text-transform:uppercase}
         .rdr-embed-cap{margin:0 0 5px;font-size:14px;font-weight:600;color:rgba(255,255,255,0.74);line-height:1.35;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
         .rdr-embed-frame{position:relative;width:100%;aspect-ratio:16/9;border-radius:14px;overflow:hidden;background:#000}

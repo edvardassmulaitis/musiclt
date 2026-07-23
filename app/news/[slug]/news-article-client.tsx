@@ -11,6 +11,8 @@ import { useSession } from 'next-auth/react'
 import EntityCommentsBlock from '@/components/EntityCommentsBlock'
 import LikesModal, { type LikeUser } from '@/components/LikesModal'
 import { HomeTrackModal } from '@/components/HomeTrackModal'
+import SocialEmbed from '@/components/SocialEmbed'
+import { detectPlatform } from '@/lib/social-embed'
 
 /* ─── Types ──────────────────────────────────────────────────────────────── */
 type Photo     = { url: string; caption?: string; source?: string }
@@ -463,11 +465,21 @@ function NewsEmbeds({ embeds }: { embeds: NewsEmbed[] }) {
   return (
     <div className="na-embeds">
       {embeds.map((e, i) => {
+        // Social platformos (Instagram / X / TikTok / Facebook) → oficialus
+        // SocialEmbed widget'as (blockquote + embed skriptas). Raw iframe per
+        // embedUrl daug kur nerodo turinio (IG/X reikalauja jų embed.js).
+        const platform = detectPlatform(e.url)
+        if (platform === 'instagram' || platform === 'x' || platform === 'tiktok' || platform === 'facebook') {
+          return (
+            <div key={i} className="na-embed na-embed-social">
+              <SocialEmbed url={e.url} caption={e.title} />
+            </div>
+          )
+        }
         const src = embedSrc(e)
         const t = (e.type || '').toLowerCase()
         const isAudio = t.startsWith('spotify') || t === 'soundcloud'
-        // Video (16:9) = YouTube/Vimeo. Social (Instagram/X/TikTok/FB) yra
-        // portretiniai/aukšti — jiems NEtaikom 16:9, kitaip apačia nukerpama.
+        // Video (16:9) = YouTube/Vimeo.
         const isVideoEmbed = /youtube|youtu\.be|vimeo/.test(t) || /youtube\.com\/embed|player\.vimeo/.test(src || '')
         const isSocial = !isAudio && !isVideoEmbed
         if (!src) {
