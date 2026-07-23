@@ -569,6 +569,110 @@ function NewsQuickActions({ slide }: { slide: HeroSlide }) {
   )
 }
 
+// Santykinė data komentarams.
+function cmtAgo(iso: string): string {
+  const ms = Date.now() - new Date(iso).getTime()
+  const m = Math.floor(ms / 60000)
+  if (!isFinite(m) || m < 0) return ''
+  if (m < 1) return 'ką tik'
+  if (m < 60) return `prieš ${m} min.`
+  const h = Math.floor(m / 60)
+  if (h < 24) return `prieš ${h} val.`
+  const d = Math.floor(h / 24)
+  if (d < 30) return `prieš ${d} d.`
+  return new Date(iso).toLocaleDateString('lt-LT')
+}
+
+type RelArtist = { id: number; name: string; slug: string; image: string | null }
+
+/** Vieno susijusio atlikėjo eilutė — avataras + vardas + „Sekti" ŠIRDELĖ (tas
+ *  pats mechanizmas kaip atlikėjo psl. FollowPill: /api/artists/[id]/like). */
+function ArtistFollowRow({ artist, onNavLink }: { artist: RelArtist; onNavLink: () => void }) {
+  const { data: session } = useSession()
+  const [liked, setLiked] = useState(false)
+  const [busy, setBusy] = useState(false)
+  useEffect(() => {
+    let on = true
+    fetch(`/api/artists/${artist.id}/like`, { cache: 'no-store' }).then(r => r.json()).then(d => { if (on && typeof d.liked === 'boolean') setLiked(d.liked) }).catch(() => {})
+    return () => { on = false }
+  }, [artist.id, session?.user])
+  const toggle = async () => {
+    if (!session?.user || busy) return
+    setBusy(true); const prev = liked; setLiked(!prev)
+    try { const r = await fetch(`/api/artists/${artist.id}/like`, { method: 'POST' }); const d = await r.json(); if (typeof d.liked === 'boolean') setLiked(d.liked) } catch { setLiked(prev) } finally { setBusy(false) }
+  }
+  return (
+    <div className="rdr-relart">
+      <Link href={`/atlikejai/${artist.slug}`} onClick={onNavLink} className="rdr-relart-link">
+        {artist.image
+          // eslint-disable-next-line @next/next/no-img-element
+          ? <img src={proxyImgResized(artist.image, 96)} alt="" loading="lazy" decoding="async" />
+          : <span className="rdr-relart-ph">{artist.name[0]}</span>}
+        <span>{artist.name}</span>
+      </Link>
+      <button type="button" className={`rdr-relart-follow${liked ? ' on' : ''}`} onClick={toggle} disabled={!session?.user || busy} title={session?.user ? (liked ? 'Nebesekti' : 'Sekti šį atlikėją') : 'Prisijunk, kad sektum'} aria-pressed={liked}>
+        <svg width="15" height="15" viewBox="0 0 24 24" fill={liked ? '#fff' : 'currentColor'} aria-hidden><path d="M20.84 4.61a5.5 5.5 0 0 0-7.78 0L12 5.67l-1.06-1.06a5.5 5.5 0 0 0-7.78 7.78l1.06 1.06L12 21.23l7.78-7.78 1.06-1.06a5.5 5.5 0 0 0 0-7.78z" /></svg>
+        {liked ? 'Sekama' : 'Sekti'}
+      </button>
+    </div>
+  )
+}
+
+/** News footeris — susiję atlikėjai (kiekvienas sekamas širdele) + komentarai. */
+function NewsFooter({ slide, onNavLink }: { slide: HeroSlide; onNavLink: () => void }) {
+  const [related, setRelated] = useState<RelArtist[]>(
+    slide.artist?.id ? [{ id: slide.artist.id, name: slide.artist.name, slug: slide.artist.slug, image: slide.artist.image || null }] : []
+  )
+  const [comments, setComments] = useState<any[] | null>(null)
+  useEffect(() => {
+    if (!slide.newsId) return
+    let on = true
+    fetch(`/api/news/${slide.newsId}`).then(r => r.json()).then(d => {
+      if (!on) return
+      const arts = [d?.artist, d?.artist2].filter((a: any) => a && a.id).map((a: any) => ({ id: a.id, name: a.name, slug: a.slug, image: a.cover_image_url || null }))
+      if (arts.length) setRelated(arts)
+    }).catch(() => {})
+    fetch(`/api/comments?entity_type=news&entity_id=${slide.newsId}`).then(r => r.json()).then(d => { if (on) setComments(Array.isArray(d?.comments) ? d.comments : []) }).catch(() => { if (on) setComments([]) })
+    return () => { on = false }
+  }, [slide.newsId]) // eslint-disable-line
+  const cmts = (comments || []).filter((c: any) => !c.parent_id && !c.is_deleted)
+  const shown = cmts.slice(0, 3)
+  return (
+    <div className="rdr-nfoot" onClick={(e) => e.stopPropagation()}>
+      {related.length > 0 && (
+        <div className="rdr-nfoot-sec">
+          <div className="rdr-nfoot-head">{related.length > 1 ? 'Susijusios grupės' : 'Atlikėjas'}</div>
+          <div className="rdr-relart-list">
+            {related.map(a => <ArtistFollowRow key={a.id} artist={a} onNavLink={onNavLink} />)}
+          </div>
+        </div>
+      )}
+      {cmts.length > 0 && (
+        <div className="rdr-nfoot-sec">
+          <div className="rdr-nfoot-head">Komentarai ({cmts.length})</div>
+          <div className="rdr-cmt-list">
+            {shown.map((c: any) => (
+              <div key={c.id} className="rdr-cmt">
+                {c.author_avatar
+                  // eslint-disable-next-line @next/next/no-img-element
+                  ? <img className="rdr-cmt-av" src={c.author_avatar} alt="" loading="lazy" onError={(e) => { (e.currentTarget as HTMLImageElement).style.visibility = 'hidden' }} />
+                  : <span className="rdr-cmt-av rdr-cmt-av-ph">{(c.author_name || '?')[0]}</span>}
+                <div className="rdr-cmt-main">
+                  <div className="rdr-cmt-meta"><b>{c.author_name || 'Vartotojas'}</b><span>{cmtAgo(c.created_at)}</span></div>
+                  <div className="rdr-cmt-body" dangerouslySetInnerHTML={{ __html: sanitizeRichHtml(c.body || '') }} />
+                </div>
+              </div>
+            ))}
+          </div>
+          {cmts.length > shown.length && (
+            <a href={slide.href} target="_blank" rel="noopener noreferrer" className="rdr-nfoot-more">Visi komentarai ({cmts.length}) →</a>
+          )}
+        </div>
+      )}
+    </div>
+  )
+}
+
 /** Vieningas kortelės pabaigos blokas (footer) — VIENODAS visiems slide tipams,
  *  PASKUTINIS kortelės elementas (scrollinasi su turiniu, po jo tik nedidelis
  *  tarpas). Eilutė 1 (TIK jei yra konteksto): atlikėjo avataras+vardas ARBA
@@ -579,8 +683,8 @@ function CardFooter({ slide, onNavLink }: {
   onNavLink: () => void
 }) {
   const isNews = slide.type === 'news'
-  // News → veiksmai perkelti į viršų (prie datos, žr. NewsQuickActions), footerio nerodom.
-  if (isNews) return null
+  // News → veiksmai (like/share/open) VIRŠUJ; footeryje — susiję atlikėjai (sekimas) + komentarai.
+  if (isNews) return <NewsFooter slide={slide} onNavLink={onNavLink} />
   const isChart = slide.type === 'chart_lt' || slide.type === 'chart_world'
   const showLineup = !!(slide.lineup && slide.lineup.length)
   const showArtist = !showLineup && !!slide.artist && slide.type !== 'event' && !isChart && slide.type !== 'daily'
@@ -1346,6 +1450,36 @@ const REELS_CSS = `
         /* News veiksmai header'yje (prie datos) — dešinėj, kiek mažesni */
         .rdr-head-acts{display:flex;align-items:center;gap:6px;margin-left:auto}
         .rdr-head-acts .rdr-na-btn{height:34px;min-width:34px;padding:0 9px;font-size:12.5px}
+        /* News footeris: susiję atlikėjai (sekimas širdele) + komentarai */
+        .rdr-nfoot{margin:24px 0 0;display:flex;flex-direction:column;gap:20px}
+        .rdr-nfoot-sec{display:flex;flex-direction:column;gap:10px}
+        .rdr-nfoot-head{font-family:'Outfit',sans-serif;font-weight:800;font-size:11.5px;letter-spacing:.07em;text-transform:uppercase;color:rgba(255,255,255,0.5)}
+        .rdr-relart-list{display:flex;flex-direction:column;gap:8px}
+        .rdr-relart{display:flex;align-items:center;justify-content:space-between;gap:10px;padding:8px 10px;border-radius:14px;background:rgba(255,255,255,0.06);border:1px solid rgba(255,255,255,0.10)}
+        .rdr-relart-link{display:inline-flex;align-items:center;gap:9px;min-width:0;text-decoration:none;color:#fff}
+        .rdr-relart-link img,.rdr-relart-ph{width:36px;height:36px;border-radius:50%;object-fit:cover;flex-shrink:0;background:var(--accent-orange);display:flex;align-items:center;justify-content:center;color:#fff;font-weight:800;font-size:15px;font-family:'Outfit',sans-serif;text-transform:uppercase}
+        .rdr-relart-link span{font-family:'Outfit',sans-serif;font-weight:700;font-size:14px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+        .rdr-relart-follow{display:inline-flex;align-items:center;gap:6px;flex-shrink:0;height:34px;padding:0 13px;border-radius:999px;border:1px solid var(--accent-orange);background:transparent;color:var(--accent-orange);font-family:'Outfit',sans-serif;font-weight:800;font-size:13px;cursor:pointer;white-space:nowrap}
+        .rdr-relart-follow.on{background:var(--accent-orange);color:#fff}
+        .rdr-relart-follow:disabled{opacity:.5;cursor:not-allowed}
+        .rdr-cmt-list{display:flex;flex-direction:column;gap:13px}
+        .rdr-cmt{display:flex;gap:9px;align-items:flex-start}
+        .rdr-cmt-av{width:30px;height:30px;border-radius:50%;object-fit:cover;flex-shrink:0;background:rgba(255,255,255,0.1)}
+        .rdr-cmt-av-ph{display:flex;align-items:center;justify-content:center;color:#fff;font-weight:800;font-family:'Outfit',sans-serif;font-size:13px;text-transform:uppercase}
+        .rdr-cmt-main{min-width:0;flex:1}
+        .rdr-cmt-meta{display:flex;align-items:baseline;gap:8px}
+        .rdr-cmt-meta b{font-family:'Outfit',sans-serif;font-weight:700;font-size:13.5px;color:#fff}
+        .rdr-cmt-meta span{font-size:11.5px;color:rgba(255,255,255,0.5)}
+        .rdr-cmt-body{font-size:14px;line-height:1.5;color:rgba(255,255,255,0.85);margin-top:2px}
+        .rdr-cmt-body p{margin:0}
+        .rdr-nfoot-more{display:inline-block;font-family:'Outfit',sans-serif;font-weight:700;font-size:13px;color:var(--accent-orange);text-decoration:none;margin-top:2px}
+        .hp-reels.light .rdr-nfoot-head,.hp-reels.light .rdr-cmt-meta span{color:var(--text-muted)}
+        .hp-reels.light .rdr-relart{background:var(--bg-hover);border-color:var(--border-default)}
+        .hp-reels.light .rdr-relart-link,.hp-reels.light .rdr-relart-link span{color:var(--text-primary)}
+        .hp-reels.light .rdr-relart-follow{color:var(--accent-orange)}
+        .hp-reels.light .rdr-relart-follow.on{color:#fff}
+        .hp-reels.light .rdr-cmt-meta b{color:var(--text-primary)}
+        .hp-reels.light .rdr-cmt-body{color:var(--text-secondary)}
         .hp-reels.light .rdr-na-artist,.hp-reels.light .rdr-na-artist span{color:var(--text-primary)}
         .hp-reels.light .rdr-na-btn{background:var(--bg-hover);border-color:var(--border-default);color:var(--text-primary)}
         .hp-reels.light .rdr-na-btn.on{color:#fff;border-color:var(--accent-orange);background:var(--accent-orange)}
