@@ -950,17 +950,20 @@ const V2_EXTRA = `
   .v2-mgrid{grid-template-columns:repeat(auto-fill,minmax(130px,1fr))}
   .v2-mgrid-cc{grid-template-columns:repeat(auto-fill,minmax(120px,1fr))}
 }
-/* Mobile: filtrai LŪŽTA (wrap) į kitą eilutę, o ne slenka horizontaliai —
-   kitaip „Pasaulis" būdavo nukirptas (Edvardo bug 2026-07-23). Nieko nekerpam. */
+/* Mobile: VISKAS vienoj eilutėj (be antros eilutės, be nukirpimo). Kad tilptų —
+   ant mobile atsisakom chip'ų ikonų (laikrodis/liepsna/gaublys), paliekam TIK
+   tekstą + LT vėliavėlę + stilių ikoną (Edvardo prašymu 2026-07-23). */
 @media(max-width:640px){
-  .v2-mf{flex-wrap:wrap;gap:7px}
-  .v2-mf-scroll{flex:1 1 auto;flex-wrap:wrap;overflow:visible;gap:7px 7px}
-  .v2-mf-grp{gap:6px}
+  .v2-mf{flex-wrap:nowrap;gap:6px}
+  .v2-mf-scroll{flex:1 1 auto;flex-wrap:nowrap;overflow-x:auto;overflow-y:hidden;gap:6px;scrollbar-width:none;-webkit-overflow-scrolling:touch}
+  .v2-mf-scroll::-webkit-scrollbar{display:none}
+  .v2-mf-grp{gap:6px;flex:0 0 auto}
+  .v2-mf-chip{padding:6px 12px;font-size:12.5px;gap:0}
+  .v2-mf-chip svg{display:none}          /* ikonas slepiam — tik tekstas telpa vienoj eilutėj */
+  .v2-mf-flag{display:inline-block;width:17px;height:12px;margin-right:6px}
   .v2-mf-divider{display:none}
-  .v2-mf-chip{padding:6px 11px;font-size:12px;gap:5px}
-  .v2-mf-chip svg{width:13px;height:13px}
-  .v2-mf-flag{width:16px;height:11px}
-  .v2-mf-icon{padding:6px 9px}
+  .v2-mf-icon{padding:6px 9px;flex:0 0 auto}
+  .v2-mf-icon svg{display:block}         /* stilių (sliders) ikona LIEKA — kitaip neprieitum prie žanrų */
 }
 
 /* šalies juostelė iš kairės — siaura spalvų juosta */
