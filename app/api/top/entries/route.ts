@@ -69,25 +69,26 @@ export async function GET(req: Request) {
 
   if (error) return NextResponse.json({ error: error.message }, { status: 500 })
 
-  // Jei einamosios savaitės įrašas EGZISTUOJA bet entries tuščia (cron'as
-  // sukūrė week'ą, bet nesurolovino entries iš praeitos savaitės), grąžinkim
-  // PRAEITOS savaitės entries display'ui. Voting'as lieka prikabintas prie
-  // einamosios savaitės.
+  // Jei grąžintos savaitės entries tuščia (cron'as sukūrė week'ą, bet
+  // nesurolovino entries — arba rotacija nutrūko ir kelios savaitės iš eilės
+  // tuščios), krentam į NAUJAUSIĄ ankstesnę savaitę KURI TURI entries — kaip
+  // resolveDisplayWeek /top30 /top40 puslapiuose. Grąžinam ir tos savaitės
+  // objektą (su tikru is_finalized), kad reels/psl. rodytų read-only
+  // rezultatus, o NE tuščią sąrašą (bug 2026-07-23: lt_top30 tuščias nuo 06-15).
   if (!entries?.length) {
-    const { data: prevWeek } = await supabase
+    const { data: priorWeeks } = await supabase
       .from('top_weeks')
-      .select('id')
+      .select('*')
       .eq('top_type', topType)
       .lt('week_start', week.week_start)
       .order('week_start', { ascending: false })
-      .limit(1)
-      .maybeSingle()
-    if (prevWeek?.id) {
-      const { data: prevEntries } = await supabase
+      .limit(12)
+    for (const pw of (priorWeeks || [])) {
+      const { data: pe } = await supabase
         .from('top_entries')
         .select('id, position, prev_position, weeks_in_top, total_votes, is_new, peak_position, track_id')
-        .eq('week_id', prevWeek.id)
-      if (prevEntries?.length) entries = prevEntries
+        .eq('week_id', pw.id)
+      if (pe?.length) { entries = pe; week = pw; break }
     }
   }
   if (!entries?.length) return NextResponse.json({ entries: [], week })
