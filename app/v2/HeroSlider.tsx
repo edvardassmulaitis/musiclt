@@ -74,6 +74,7 @@ export default function HeroSlider({ slides }: { slides: HeroSlide[] }) {
     <section className="hp-hero-v2">
       <style>{`
         .hp-hero-v2{display:block}
+        @media(max-width:768px){.hp-hero-v2{display:none}} /* mobile → v1 story strip (MobileHero) */
         .hp-scroll{overflow-x:auto;overflow-y:hidden;scrollbar-width:none;-webkit-overflow-scrolling:touch;scroll-behavior:smooth}
         .hp-scroll::-webkit-scrollbar{display:none}
         .hp-hero-slot{width:580px;flex-shrink:0;min-width:0}

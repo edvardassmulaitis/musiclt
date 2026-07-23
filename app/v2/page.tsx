@@ -25,6 +25,7 @@ import { DienosDainaSection } from '@/components/DienosDainaSection'
 import CommunityIcons from './CommunityIcons'
 import GilynCrate from './GilynCrate'
 import HeroSlider, { type HeroSlide } from './HeroSlider'
+import MobileHero from './MobileHero'
 import MusicPool from './MusicPool'
 
 export const revalidate = 300
@@ -767,6 +768,7 @@ export default async function V2Page() {
       <style>{V2_EXTRA}</style>
 
       <HeroSlider slides={heroSlides} />
+      <MobileHero slides={heroSlides} />
 
       <div className="v2-split">
         <div className="v2-main">
