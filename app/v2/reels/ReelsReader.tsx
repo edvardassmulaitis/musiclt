@@ -541,7 +541,6 @@ function imgFallbackRaw(raw: string) {
 
 function RdrGallery({ photos }: { photos: { url: string; caption?: string | null }[] }) {
   const [lb, setLb] = useState<number | null>(null)
-  const single = photos.length === 1
   useEffect(() => {
     if (lb === null) return
     const onKey = (e: KeyboardEvent) => {
@@ -553,16 +552,21 @@ function RdrGallery({ photos }: { photos: { url: string; caption?: string | null
     return () => window.removeEventListener('keydown', onKey)
   }, [lb, photos.length])
   const cur = lb !== null ? photos[lb] : null
+  const MAX = 4
+  const shown = photos.slice(0, MAX)
+  const extra = photos.length - MAX
   return (
-    <div className="rdr-gal" onClick={(e) => e.stopPropagation()}>
-      <div className={`rdr-gal-grid${single ? ' one' : ''}`}>
-        {photos.map((p, i) => (
-          <button key={i} type="button" className="rdr-gal-cell" onClick={() => setLb(i)} aria-label="Peržiūrėti nuotrauką">
-            {/* eslint-disable-next-line @next/next/no-img-element */}
-            <img src={proxyImgResized(p.url, single ? 1080 : 480)} alt={p.caption || ''} loading="lazy" decoding="async" onError={imgFallbackRaw(p.url)} />
-          </button>
-        ))}
-      </div>
+    // Thumbnail juostelė — dedama ant hero nuotraukos apačioje (overlay). Mygtukai
+    // (ne swipe) → tap atidaro fullscreen lightbox'ą. ignoreGesture (closest button)
+    // apsaugo, kad braukimas nuo thumbnail'o nekeistų naujienos.
+    <div className="rdr-gal-strip" onClick={(e) => e.stopPropagation()}>
+      {shown.map((p, i) => (
+        <button key={i} type="button" className="rdr-gal-thumb" onClick={() => setLb(i)} aria-label="Peržiūrėti nuotraukas">
+          {/* eslint-disable-next-line @next/next/no-img-element */}
+          <img src={proxyImgResized(p.url, 240)} alt={p.caption || ''} loading="lazy" decoding="async" onError={imgFallbackRaw(p.url)} />
+          {i === MAX - 1 && extra > 0 && <span className="rdr-gal-more">+{extra}</span>}
+        </button>
+      ))}
       {cur !== null && lb !== null && createPortal(
         <div className="rdr-gal-lb" onClick={() => setLb(null)}>
           <button type="button" className="rdr-gal-x" onClick={(e) => { e.stopPropagation(); setLb(null) }} aria-label="Uždaryti">
@@ -810,6 +814,9 @@ function ReaderSlide({ slide, active, seen, dk, scrollTopSignal, onScrolledChang
           <span className="rdr-poster-bg" style={{ backgroundImage: `url(${proxyImgResized(slide.bgImg, 64)})` }} />
           <img className="rdr-poster-img" src={proxyImgResized(slide.bgImg, 1080)} alt="" draggable={false} decoding="async" />
           <div className="rdr-media-fade" />
+          {/* Nuotraukų galerija — thumbnail juostelė ANT hero (viršuje), tap →
+              fullscreen lightbox. Nėra inline swipe → nesikerta su naujienų swipe. */}
+          {active && isNews && gallery.length > 0 && <RdrGallery photos={gallery} />}
         </div>
       ) : null}
 
@@ -918,9 +925,6 @@ function ReaderSlide({ slide, active, seen, dk, scrollTopSignal, onScrolledChang
             ))}
           </div>
         )}
-
-        {/* ── Nuotraukų galerija (news) — grid + fullscreen lightbox ── */}
-        {active && isNews && gallery.length > 0 && <RdrGallery photos={gallery} />}
 
         {slide.authorName && <p className="rdr-author">— {slide.authorName}</p>}
 
@@ -1155,6 +1159,20 @@ export function ReelsOverlay({ slides, initialIdx, seenSlides, onSeen, onClose, 
   const [scrolled, setScrolled] = useState(false)   // aktyvi kortelė nuscrollinta žemyn
   const [playing, setPlaying] = useState(false)      // legacy: grojimas nebe sekamas (standartiniai YT embed'ai) — lieka false
   const [scrollTopReq, setScrollTopReq] = useState(0) // „į viršų" rodyklės signalas aktyviai kortelei
+  // Vienkartinis swipe hint naujiems — kad suprastų, jog naujienos keičiamos
+  // braukiant į šoną. Rodom tik pirmą kartą (localStorage), auto-dingsta.
+  const [showHint, setShowHint] = useState(false)
+  useEffect(() => {
+    if (slides.length <= 1) return
+    try {
+      if (!localStorage.getItem('reels_swipe_hint')) {
+        localStorage.setItem('reels_swipe_hint', '1')
+        setShowHint(true)
+        const t = setTimeout(() => setShowHint(false), 3400)
+        return () => clearTimeout(t)
+      }
+    } catch { /* ignore */ }
+  }, []) // eslint-disable-line
 
   // PERF PERDARYMAS (2026-07-03): progresas ir braukimas — per ref'us + tiesioginį
   // DOM stilių, BE React state. Anksčiau setProgress kas RAF kadrą (~60fps)
@@ -1178,6 +1196,7 @@ export function ReelsOverlay({ slides, initialIdx, seenSlides, onSeen, onClose, 
   // Braukimas į šoną veikia VISADA (ir skaitant) — pagal gesto kryptį (h vs v).
 
   const goTo = useCallback((n: number) => {
+    setShowHint(false)
     if (n < 0) return
     if (n >= slides.length) { onClose(); return }
     setIdx(n)
@@ -1245,6 +1264,7 @@ export function ReelsOverlay({ slides, initialIdx, seenSlides, onSeen, onClose, 
     el.style.transform = `translateX(${-idxRef.current * 100}%)`
   }
   const onTouchStart = (e: React.TouchEvent) => {
+    if (showHint) setShowHint(false)
     const t = e.target as HTMLElement
     ignoreGesture.current = !!(t && t.closest && t.closest('button, a, iframe, input, textarea, .rdr-foot'))
     touchStartX.current = e.touches[0].clientX
@@ -1305,6 +1325,16 @@ export function ReelsOverlay({ slides, initialIdx, seenSlides, onSeen, onClose, 
 
       {idx > 0 && <button className="rdr-nav rdr-nav-l" onClick={() => goTo(idx - 1)} aria-label="Atgal">‹</button>}
       <button className="rdr-nav rdr-nav-r" onClick={() => goTo(idx + 1)} aria-label="Toliau">›</button>
+
+      {/* Vienkartinis swipe hint — naujiems, kad suprastų naršymą braukiant. */}
+      {showHint && (
+        <div className="rdr-hint" aria-hidden onClick={() => setShowHint(false)}>
+          <span className="rdr-hint-chev">
+            <svg width="30" height="30" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.6" strokeLinecap="round" strokeLinejoin="round"><path d="M9 6l6 6-6 6" /></svg>
+          </span>
+          <span className="rdr-hint-txt">Braukite — kitos naujienos</span>
+        </div>
+      )}
 
       <div
         ref={trackRef}
@@ -2035,13 +2065,11 @@ const REELS_CSS = `
         .rdr-social>div{width:100%;max-width:400px}
         .rdr-social iframe{max-width:100%!important}
         .rdr-social .instagram-media,.rdr-social .twitter-tweet,.rdr-social .tiktok-embed{margin:0 auto!important;max-width:100%!important;min-width:0!important}
-        /* Nuotraukų galerija */
-        .rdr-gal{margin:20px 0 0}
-        .rdr-gal-grid{display:grid;grid-template-columns:1fr 1fr;gap:6px}
-        .rdr-gal-grid.one{grid-template-columns:1fr}
-        .rdr-gal-cell{position:relative;display:block;width:100%;aspect-ratio:1;border:0;padding:0;border-radius:12px;overflow:hidden;background:rgba(255,255,255,0.06);cursor:pointer}
-        .rdr-gal-grid.one .rdr-gal-cell{aspect-ratio:4/3}
-        .rdr-gal-cell img{width:100%;height:100%;object-fit:cover;display:block}
+        /* Nuotraukų galerija — thumbnail juostelė ANT hero (overlay apačioje) */
+        .rdr-gal-strip{position:absolute;left:0;right:0;bottom:10px;z-index:3;display:flex;gap:6px;padding:0 12px}
+        .rdr-gal-thumb{position:relative;width:52px;height:52px;flex-shrink:0;border-radius:9px;overflow:hidden;border:2px solid rgba(255,255,255,0.9);background:rgba(0,0,0,0.35);padding:0;cursor:pointer;box-shadow:0 2px 10px rgba(0,0,0,0.5)}
+        .rdr-gal-thumb img{width:100%;height:100%;object-fit:cover;display:block}
+        .rdr-gal-more{position:absolute;inset:0;display:flex;align-items:center;justify-content:center;background:rgba(0,0,0,0.58);color:#fff;font-family:'Outfit',sans-serif;font-weight:800;font-size:15px}
         .rdr-gal-lb{position:fixed;inset:0;z-index:10000;background:rgba(0,0,0,0.94);display:flex;align-items:center;justify-content:center;padding:24px}
         .rdr-gal-lb-img{max-width:96vw;max-height:86vh;object-fit:contain;border-radius:8px}
         .rdr-gal-x{position:absolute;top:16px;right:16px;width:40px;height:40px;border-radius:50%;border:0;background:rgba(255,255,255,0.14);color:#fff;display:flex;align-items:center;justify-content:center;cursor:pointer}
@@ -2100,4 +2128,10 @@ const REELS_CSS = `
         .rdr-nav{position:fixed;top:50%;transform:translateY(-50%);z-index:308;width:40px;height:40px;border-radius:50%;background:rgba(0,0,0,0.4);border:1px solid rgba(255,255,255,0.15);color:#fff;font-size:24px;line-height:1;cursor:pointer;display:none;align-items:center;justify-content:center;backdrop-filter:blur(6px)}
         .rdr-nav-l{left:12px}.rdr-nav-r{right:12px}
         @media(min-width:900px){.rdr-nav{display:flex}.rdr-media,.rdr-content{max-width:560px;margin-left:auto;margin-right:auto}}
+        /* Vienkartinis swipe hint — dešinės briaunos chevron + tekstas, pulsuoja */
+        .rdr-hint{position:fixed;right:16px;top:50%;transform:translateY(-50%);z-index:320;display:flex;flex-direction:column;align-items:center;gap:8px;pointer-events:auto;animation:rdrHintFade .3s ease}
+        .rdr-hint-chev{display:flex;align-items:center;justify-content:center;width:56px;height:56px;border-radius:50%;background:rgba(0,0,0,0.6);color:#fff;backdrop-filter:blur(8px);box-shadow:0 6px 20px rgba(0,0,0,0.4);animation:rdrHintSwipe 1.25s ease-in-out infinite}
+        .rdr-hint-txt{font-family:'Outfit',sans-serif;font-size:12px;font-weight:800;color:#fff;background:rgba(0,0,0,0.6);padding:5px 10px;border-radius:999px;backdrop-filter:blur(8px);white-space:nowrap;letter-spacing:.01em}
+        @keyframes rdrHintSwipe{0%,100%{transform:translateX(6px)}50%{transform:translateX(-8px)}}
+        @keyframes rdrHintFade{from{opacity:0}to{opacity:1}}
 `
