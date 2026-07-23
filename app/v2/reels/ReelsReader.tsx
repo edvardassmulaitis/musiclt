@@ -664,7 +664,11 @@ function ReaderSlide({ slide, active, seen, dk, scrollTopSignal, onScrolledChang
   // ≤3 (atskirai parinktos dainos) → atskiri grotuvai (kaip anksčiau).
   const nativeAll = (slide.songs || []).filter(s => !!s.songId)
   const isPlaylist = nativeAll.length > 3
-  const nativeSongs = isPlaylist ? nativeAll : nativeAll.slice(0, 3)
+  // Playlist (albumas/grupė) → rikiuojam pagal populiarumą (track score desc), kaip
+  // atlikėjo psl. Atskirai parinktos dainos (≤3) → paliekam redaktoriaus tvarką.
+  const nativeSongs = isPlaylist
+    ? [...nativeAll].sort((a, b) => (b.score ?? 0) - (a.score ?? 0))
+    : nativeAll.slice(0, 3)
   // Raw embed'ai (news `embeds` YouTube, chart/daily videoId, songs be songId) → paprastas iframe.
   const embeds: { videoId: string; title: string | null; artist?: string | null }[] = []
   if (!nativeSongs.length) {
@@ -1787,6 +1791,7 @@ const REELS_CSS = `
         .hp-reels.light .rdr-plist-list{border-top-color:var(--border-default)}
         .hp-reels.light .rdr-plist-row{border-bottom-color:var(--border-subtle);color:var(--text-primary)}
         .hp-reels.light .rdr-plist-tx b{color:var(--text-primary)}
+        .hp-reels.light .rdr-plist-tx i{color:var(--text-muted)}
         .hp-reels.light .rdr-plist-ic{background:var(--bg-hover);color:var(--text-primary)}
         .hp-reels.light .rdr-plist-row.on{background:rgba(249,115,22,0.12)}
         .hp-reels.light .rdr-plist-row.on .rdr-plist-ic{color:#fff}

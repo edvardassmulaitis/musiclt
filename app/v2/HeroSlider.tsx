@@ -39,7 +39,7 @@ export type HeroSlide = {
   likeCount?: number                // ♥ skaičius kortelei (neįėjus į naujieną)
   commentCount?: number             // 💬 skaičius kortelei
   fresh24?: boolean                 // (deprecated — nebenaudojam; border rodo „neskaityta")
-  songs?: { videoId: string; title: string; artist?: string | null; songId?: number | null }[]  // news „susijusi muzika" (tikri track'ai su song_id → native grotuvas)
+  songs?: { videoId: string; title: string; artist?: string | null; songId?: number | null; score?: number }[]  // news „susijusi muzika" (tikri track'ai su song_id → native grotuvas; score → populiarumo rikiavimui)
   lineup?: { name: string; slug: string; image?: string | null }[]      // event — pilnas lineup (avatarai + nuorodos)
 }
 
