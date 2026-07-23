@@ -1576,8 +1576,9 @@ const REELS_CSS = `
         .rdr-na-btn.on svg{fill:#fff}
         .rdr-na-btn:disabled{opacity:0.5;cursor:not-allowed}
         /* News veiksmai header'yje (prie datos) — dešinėj, kiek mažesni */
-        .rdr-head-acts{display:flex;align-items:center;gap:6px;margin-left:auto}
-        .rdr-head-acts .rdr-na-btn{height:34px;min-width:34px;padding:0 9px;font-size:12.5px}
+        .rdr-head-acts{display:flex;align-items:center;gap:7px;margin-left:auto}
+        /* share / open — apvalūs, žemesni, kad derėtų su LikePill (apvalus) */
+        .rdr-head-acts .rdr-na-btn{height:30px;min-width:30px;width:30px;padding:0;border-radius:999px;font-size:12.5px}
         /* News footeris: susiję atlikėjai (sekimas širdele) + komentarai */
         .rdr-nfoot{margin:24px 0 0;display:flex;flex-direction:column;gap:20px}
         .rdr-nfoot-sec{display:flex;flex-direction:column;gap:10px}

@@ -80,13 +80,18 @@ export async function POST(
     return NextResponse.json({ liked: false, count: await likeCount(sb, newsId) })
   }
 
+  // user_username = profilio username (NE session.user.name — tai pilnas vardas
+  // iš social login; jo NIEKADA nerodom „kam patinka" sąraše). Kaip artist like.
+  const { data: prof } = await sb.from('profiles').select('username').eq('id', userId).maybeSingle()
+  const username = (prof as any)?.username || `user_${String(userId).slice(0, 8)}`
+
   // Po 2026-05-28c slim-down: user_avatar_url, source DROP'inti.
   // Avatar fetch'inamas iš profiles JOIN'u per user_id.
   const { error } = await sb.from('likes').insert({
     entity_type: 'news',
     entity_id: newsId,
     user_id: userId,
-    user_username: (session.user as any).name || session.user.email || 'user',
+    user_username: username,
   })
   if (error) return NextResponse.json({ error: error.message }, { status: 500 })
   return NextResponse.json({ liked: true, count: await likeCount(sb, newsId) })

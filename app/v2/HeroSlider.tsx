@@ -169,10 +169,10 @@ function HeroV2Card({ slide, unseen, onOpen }: { slide: HeroSlide; unseen: boole
     <Link
       href={slide.href}
       onClick={onOpen}
-      className="group relative block aspect-[16/9] overflow-hidden rounded-2xl border border-[var(--border-default)] no-underline shadow-[var(--hero-card-shadow)] transition-all hover:-translate-y-0.5 hover:shadow-[var(--hero-card-shadow-hover)]"
+      className="group relative block aspect-[16/9] overflow-hidden rounded-2xl no-underline shadow-[var(--hero-card-shadow)] transition-all hover:-translate-y-0.5 hover:shadow-[var(--hero-card-shadow-hover)]"
       style={{ background: 'linear-gradient(135deg,#141b28 0%,#0a0e17 100%)', ...unseenBorder(unseen) }}
     >
-      <div className="absolute inset-0 overflow-hidden rounded-2xl">
+      <div className="absolute inset-0">
         {slide.bgImg ? (
           // eslint-disable-next-line @next/next/no-img-element
           <img
@@ -264,7 +264,7 @@ function HeroDailyCard({ slide, unseen, onOpen }: { slide: HeroSlide; unseen: bo
     <Link
       href={slide.href}
       onClick={onOpen}
-      className="group relative block aspect-[16/9] overflow-hidden rounded-2xl border border-[var(--border-default)] no-underline shadow-[var(--hero-card-shadow)] transition-all hover:-translate-y-0.5 hover:shadow-[var(--hero-card-shadow-hover)]"
+      className="group relative block aspect-[16/9] overflow-hidden rounded-2xl no-underline shadow-[var(--hero-card-shadow)] transition-all hover:-translate-y-0.5 hover:shadow-[var(--hero-card-shadow-hover)]"
       style={{ background: `radial-gradient(ellipse at top left, ${accentSoft}, rgba(10,14,26,0.98) 60%), linear-gradient(135deg, #1c1710 0%, #0a0e17 100%)`, ...unseenBorder(unseen) }}
     >
       <div className="relative z-[1] flex h-full flex-col justify-between p-6 pt-3" style={{ width: '42%' }}>
@@ -356,7 +356,7 @@ function HeroChartCard({ slide, unseen, onOpen }: { slide: HeroSlide; unseen: bo
     <Link
       href={slide.href}
       onClick={onOpen}
-      className="group relative block aspect-[16/9] overflow-hidden rounded-2xl border border-[var(--border-default)] no-underline shadow-[var(--hero-card-shadow)] transition-all hover:-translate-y-0.5 hover:shadow-[var(--hero-card-shadow-hover)]"
+      className="group relative block aspect-[16/9] overflow-hidden rounded-2xl no-underline shadow-[var(--hero-card-shadow)] transition-all hover:-translate-y-0.5 hover:shadow-[var(--hero-card-shadow-hover)]"
       style={{
         background: isLT
           ? `radial-gradient(ellipse at top left, ${accentSoft}, rgba(10,14,26,0.98) 60%), linear-gradient(135deg, #1a1426 0%, #0a0e1a 100%)`
