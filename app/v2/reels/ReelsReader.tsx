@@ -518,6 +518,27 @@ function SongPlaylist({ songs, onNavLink }: { songs: PlSong[]; onNavLink: () => 
 
 /** Naujienos nuotraukų galerija reader'yje — grid + fullscreen lightbox su
  *  prev/next. Viena nuotrauka → didesnė; kelios → 2 stulpelių grid'as. */
+// Kreditas iš URL (weserv/proxy nerodo šaltinio) — Wikimedia/YouTube/hostname.
+function photoCredit(url: string): string {
+  try {
+    const h = new URL(url).hostname
+    if (/wikimedia|wikipedia/.test(h)) return 'Wikimedia Commons'
+    if (/ytimg|youtube/.test(h)) return 'YouTube'
+    if (/fbcdn|cdninstagram/.test(h)) return 'Instagram'
+    return h.replace(/^www\./, '')
+  } catch { return '' }
+}
+// weserv proxy 404'ina URL'us su encoded special chars (pvz. %2C kablelis) →
+// onError fallback į RAW URL (kaip news psl. galerija, kuri naudoja raw).
+function imgFallbackRaw(raw: string) {
+  return (e: React.SyntheticEvent<HTMLImageElement>) => {
+    const el = e.currentTarget
+    if (el.dataset.fb) return
+    el.dataset.fb = '1'
+    el.src = raw
+  }
+}
+
 function RdrGallery({ photos }: { photos: { url: string; caption?: string | null }[] }) {
   const [lb, setLb] = useState<number | null>(null)
   const single = photos.length === 1
@@ -538,7 +559,7 @@ function RdrGallery({ photos }: { photos: { url: string; caption?: string | null
         {photos.map((p, i) => (
           <button key={i} type="button" className="rdr-gal-cell" onClick={() => setLb(i)} aria-label="Peržiūrėti nuotrauką">
             {/* eslint-disable-next-line @next/next/no-img-element */}
-            <img src={proxyImgResized(p.url, single ? 1080 : 480)} alt={p.caption || ''} loading="lazy" decoding="async" />
+            <img src={proxyImgResized(p.url, single ? 1080 : 480)} alt={p.caption || ''} loading="lazy" decoding="async" onError={imgFallbackRaw(p.url)} />
           </button>
         ))}
       </div>
@@ -553,13 +574,18 @@ function RdrGallery({ photos }: { photos: { url: string; caption?: string | null
             </button>
           )}
           {/* eslint-disable-next-line @next/next/no-img-element */}
-          <img className="rdr-gal-lb-img" src={proxyImgResized(cur.url, 1600)} alt={cur.caption || ''} onClick={(e) => e.stopPropagation()} decoding="async" />
+          <img className="rdr-gal-lb-img" src={proxyImgResized(cur.url, 1600)} alt={cur.caption || ''} onClick={(e) => e.stopPropagation()} decoding="async" onError={imgFallbackRaw(cur.url)} />
           {photos.length > 1 && (
             <button type="button" className="rdr-gal-nav next" onClick={(e) => { e.stopPropagation(); setLb((lb + 1) % photos.length) }} aria-label="Kita">
               <svg width="26" height="26" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.4" strokeLinecap="round" strokeLinejoin="round"><path d="M9 6l6 6-6 6" /></svg>
             </button>
           )}
-          {cur.caption ? <p className="rdr-gal-cap">{cur.caption}</p> : null}
+          {(cur.caption || photoCredit(cur.url)) && (
+            <p className="rdr-gal-cap">
+              {cur.caption ? <span>{cur.caption}</span> : null}
+              {photoCredit(cur.url) ? <span className="rdr-gal-credit">{cur.caption ? ' · ' : ''}{photoCredit(cur.url)}</span> : null}
+            </p>
+          )}
           {photos.length > 1 && <span className="rdr-gal-count">{lb + 1} / {photos.length}</span>}
         </div>,
         document.body,
@@ -854,6 +880,14 @@ function ReaderSlide({ slide, active, seen, dk, scrollTopSignal, onScrolledChang
           <p className="rdr-excerpt">{slide.excerpt || slide.subtitle}</p>
         ) : null}
 
+        {/* ── Social embed'ai (Instagram / X / TikTok / Facebook) — VISADA PIRMI,
+            prieš muziką ir nuotraukas. Oficialūs widget'ai per SocialEmbed. ── */}
+        {active && isNews && socialEmbeds.length > 0 && (
+          <div className="rdr-social">
+            {socialEmbeds.map((s, i) => <SocialEmbed key={`${s.url}-${i}`} url={s.url} caption={s.caption} />)}
+          </div>
+        )}
+
         {/* ── „Muzika" — standartiniai YouTube embed'ai (16/9). Grojimą paleidžia
             pats YouTube mygtukas iframe'e (vienas tap'as visur, jokio custom
             grotuvo). Mount'inam tik aktyvioj kortelėj (perf — sunkūs iframe'ai).
@@ -882,15 +916,6 @@ function ReaderSlide({ slide, active, seen, dk, scrollTopSignal, onScrolledChang
                 </div>
               </div>
             ))}
-          </div>
-        )}
-
-        {/* ── Social embed'ai (Instagram / X / TikTok / Facebook) — oficialūs
-            widget'ai per SocialEmbed (blockquote + embed skriptas). Anksčiau
-            reader'yje visai nerodyti. Mount'inam tik aktyvioj kortelėj. ── */}
-        {active && isNews && socialEmbeds.length > 0 && (
-          <div className="rdr-social">
-            {socialEmbeds.map((s, i) => <SocialEmbed key={`${s.url}-${i}`} url={s.url} caption={s.caption} />)}
           </div>
         )}
 
@@ -2024,6 +2049,7 @@ const REELS_CSS = `
         .rdr-gal-nav.prev{left:10px}
         .rdr-gal-nav.next{right:10px}
         .rdr-gal-cap{position:absolute;left:0;right:0;bottom:52px;margin:0 auto;max-width:90vw;text-align:center;color:#fff;font-size:13px;font-family:'Outfit',sans-serif;padding:0 16px}
+        .rdr-gal-credit{color:rgba(255,255,255,0.55);font-size:12px}
         .rdr-gal-count{position:absolute;bottom:20px;left:0;right:0;text-align:center;color:rgba(255,255,255,0.7);font-size:13px;font-weight:700;font-family:'Outfit',sans-serif}
         .rdr-embeds-head{font-family:'Outfit',sans-serif;font-size:12px;font-weight:700;letter-spacing:0.08em;color:rgba(255,255,255,0.6);text-transform:uppercase}
         .rdr-embed-cap{margin:0 0 5px;font-size:14px;font-weight:600;color:rgba(255,255,255,0.74);line-height:1.35;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}

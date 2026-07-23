@@ -152,63 +152,72 @@ export default function LikesModal({
           boxShadow: '0 40px 80px -20px rgba(0,0,0,0.6)',
         }}
       >
-        {/* Header row — subject (mini photo + name) on the left,
-            LikePill + close on the right. Using the SAME pill element as
-            the artist hero keeps the like UI consistent across surfaces. */}
+        {/* Header — subject (foto + pavadinimas) VIRŠUJE per visą plotį + close;
+            LikePill ATSKIROJE eilutėje apačioj (kad ilgas news pavadinimas tilptų
+            ir pill'as su count'u nebūtų suspaustas į vien širdelę mobile). */}
         <div
           style={{
-            display: 'flex', alignItems: 'center', justifyContent: 'space-between',
-            gap: 12, padding: '14px 18px',
+            display: 'flex', flexDirection: 'column', gap: 12, padding: '14px 16px',
             borderBottom: '1px solid var(--border-subtle)',
             flexShrink: 0, minWidth: 0,
           }}
         >
-          {/* Left: subject (mini photo + name) + LikePill right next to it —
-              the like element visually belongs to the artist, not to the X. */}
-          <div style={{ display: 'flex', alignItems: 'center', gap: 12, minWidth: 0, flex: 1 }}>
+          <div style={{ display: 'flex', alignItems: 'flex-start', gap: 12, minWidth: 0 }}>
             {subjectName ? (
-              <>
-                {subjectPhoto ? (
-                  <img
-                    src={proxyImgResized(subjectPhoto, 96)}
-                    alt={subjectName}
-                    referrerPolicy="no-referrer"
-                    decoding="async"
-                    style={{
-                      width: 40, height: 40, borderRadius: 10,
-                      objectFit: 'cover', flexShrink: 0,
-                      border: '1px solid var(--border-subtle)',
-                      background: 'var(--bg-elevated)',
-                    }}
-                  />
-                ) : (
-                  <div
-                    style={{
-                      width: 40, height: 40, borderRadius: 10, flexShrink: 0,
-                      background: 'var(--bg-elevated)',
-                      border: '1px solid var(--border-subtle)',
-                    }}
-                  />
-                )}
-                <div
+              subjectPhoto ? (
+                <img
+                  src={proxyImgResized(subjectPhoto, 96)}
+                  alt={subjectName}
+                  referrerPolicy="no-referrer"
+                  decoding="async"
                   style={{
-                    fontFamily: 'Outfit,sans-serif',
-                    fontSize: 15, fontWeight: 800,
-                    color: 'var(--text-primary)',
-                    // Ilgiems news pavadinimams — iki 2 eilučių (ne kietas 1-eilutės
-                    // nukirpimas), kad matytųsi kas palaikinta.
-                    display: '-webkit-box', WebkitLineClamp: 2, WebkitBoxOrient: 'vertical',
-                    overflow: 'hidden', lineHeight: 1.25, minWidth: 0,
+                    width: 40, height: 40, borderRadius: 10,
+                    objectFit: 'cover', flexShrink: 0,
+                    border: '1px solid var(--border-subtle)',
+                    background: 'var(--bg-elevated)',
                   }}
-                  title={subjectName}
-                >
-                  {subjectName}
-                </div>
-              </>
+                />
+              ) : (
+                <div style={{ width: 40, height: 40, borderRadius: 10, flexShrink: 0, background: 'var(--bg-elevated)', border: '1px solid var(--border-subtle)' }} />
+              )
             ) : null}
+            {subjectName ? (
+              <div
+                style={{
+                  flex: 1, minWidth: 0,
+                  fontFamily: 'Outfit,sans-serif', fontSize: 15.5, fontWeight: 800,
+                  color: 'var(--text-primary)', alignSelf: 'center',
+                  display: '-webkit-box', WebkitLineClamp: 2, WebkitBoxOrient: 'vertical',
+                  overflow: 'hidden', lineHeight: 1.28,
+                }}
+                title={subjectName}
+              >
+                {subjectName}
+              </div>
+            ) : <div style={{ flex: 1 }} />}
+            {/* Close */}
+            <button
+              onClick={onClose}
+              aria-label="Uždaryti"
+              style={{
+                width: 32, height: 32, borderRadius: 10, border: '1px solid var(--border-subtle)',
+                background: 'var(--card-bg)', color: 'var(--text-secondary)',
+                display: 'flex', alignItems: 'center', justifyContent: 'center',
+                cursor: 'pointer', transition: 'all .15s', flexShrink: 0,
+              }}
+              onMouseEnter={(e) => { e.currentTarget.style.color = 'var(--text-primary)'; e.currentTarget.style.borderColor = 'var(--border-strong)' }}
+              onMouseLeave={(e) => { e.currentTarget.style.color = 'var(--text-secondary)'; e.currentTarget.style.borderColor = 'var(--border-subtle)' }}
+            >
+              <svg viewBox="0 0 16 16" width={14} height={14} fill="none" stroke="currentColor" strokeWidth={2} strokeLinecap="round">
+                <path d="M3 3l10 10M13 3L3 13" />
+              </svg>
+            </button>
+          </div>
 
-            {selfLiked !== undefined && onToggleSelfLike && (
-              authed === false ? (
+          {/* LikePill — atskira eilutė (aiškus širdelė+count elementas) */}
+          {selfLiked !== undefined && onToggleSelfLike && (
+            <div style={{ display: 'flex' }}>
+              {authed === false ? (
                 <Link
                   href="/auth/signin"
                   style={{
@@ -216,7 +225,7 @@ export default function LikesModal({
                     padding: '8px 14px', borderRadius: 100,
                     background: 'var(--accent-orange)', color: '#fff',
                     fontFamily: 'Outfit,sans-serif', fontSize: 14, fontWeight: 800,
-                    textDecoration: 'none', flexShrink: 0,
+                    textDecoration: 'none',
                     boxShadow: '0 4px 14px rgba(249,115,22,0.3)',
                   }}
                 >
@@ -231,27 +240,9 @@ export default function LikesModal({
                   pending={selfLikePending}
                   variant="surface"
                 />
-              )
-            )}
-          </div>
-
-          {/* Right: close */}
-          <button
-            onClick={onClose}
-            aria-label="Uždaryti"
-            style={{
-              width: 32, height: 32, borderRadius: 10, border: '1px solid var(--border-subtle)',
-              background: 'var(--card-bg)', color: 'var(--text-secondary)',
-              display: 'flex', alignItems: 'center', justifyContent: 'center',
-              cursor: 'pointer', transition: 'all .15s', flexShrink: 0,
-            }}
-            onMouseEnter={(e) => { e.currentTarget.style.color = 'var(--text-primary)'; e.currentTarget.style.borderColor = 'var(--border-strong)' }}
-            onMouseLeave={(e) => { e.currentTarget.style.color = 'var(--text-secondary)'; e.currentTarget.style.borderColor = 'var(--border-subtle)' }}
-          >
-            <svg viewBox="0 0 16 16" width={14} height={14} fill="none" stroke="currentColor" strokeWidth={2} strokeLinecap="round">
-              <path d="M3 3l10 10M13 3L3 13" />
-            </svg>
-          </button>
+              )}
+            </div>
+          )}
         </div>
 
         {/* Body — sorted user grid with infinite load */}
@@ -345,29 +336,7 @@ function RankBar({ level }: { level: number }) {
 
 function UserAvatar({ user, size = 34 }: { user: LikeUser; size?: number }) {
   const initial = user.user_username[0]?.toUpperCase() || '?'
-  if (user.user_avatar_url) {
-    return (
-      <img
-        src={proxyImgResized(user.user_avatar_url, 96)}
-        alt={user.user_username}
-        referrerPolicy="no-referrer"
-        loading="lazy"
-        decoding="async"
-        style={{
-          width: size, height: size, borderRadius: '50%',
-          border: '1px solid var(--border-subtle)', objectFit: 'cover',
-          flexShrink: 0, background: 'var(--bg-elevated)',
-        }}
-        onError={(e) => {
-          const el = e.currentTarget
-          el.style.display = 'none'
-          const next = el.nextElementSibling as HTMLElement | null
-          if (next) next.style.display = 'flex'
-        }}
-      />
-    )
-  }
-  return (
+  const fallback = (
     <div
       style={{
         width: size, height: size, borderRadius: '50%',
@@ -379,6 +348,35 @@ function UserAvatar({ user, size = 34 }: { user: LikeUser; size?: number }) {
       }}
     >{initial}</div>
   )
+  if (user.user_avatar_url) {
+    // Img + PASLĖPTAS fallback greta — jei nuotrauka nepasikrauna (onError),
+    // parodom inicialą (anksčiau fallback buvo tik kai avatar_url tuščias, o
+    // sulūžus nuorodai likdavo tuščia vieta).
+    return (
+      <span style={{ display: 'inline-flex', flexShrink: 0 }}>
+        <img
+          src={proxyImgResized(user.user_avatar_url, 96)}
+          alt={user.user_username}
+          referrerPolicy="no-referrer"
+          loading="lazy"
+          decoding="async"
+          style={{
+            width: size, height: size, borderRadius: '50%',
+            border: '1px solid var(--border-subtle)', objectFit: 'cover',
+            flexShrink: 0, background: 'var(--bg-elevated)',
+          }}
+          onError={(e) => {
+            const el = e.currentTarget
+            el.style.display = 'none'
+            const next = el.nextElementSibling as HTMLElement | null
+            if (next) next.style.display = 'flex'
+          }}
+        />
+        <span style={{ display: 'none' }}>{fallback}</span>
+      </span>
+    )
+  }
+  return fallback
 }
 
 function HeartIcon({ size = 16 }: { size?: number }) {
