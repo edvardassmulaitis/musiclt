@@ -610,9 +610,8 @@ function ArtistFollowRow({ artist, onNavLink }: { artist: RelArtist; onNavLink: 
           : <span className="rdr-relart-ph">{artist.name[0]}</span>}
         <span>{artist.name}</span>
       </Link>
-      <button type="button" className={`rdr-relart-follow${liked ? ' on' : ''}`} onClick={toggle} disabled={!session?.user || busy} title={session?.user ? (liked ? 'Nebesekti' : 'Sekti šį atlikėją') : 'Prisijunk, kad sektum'} aria-pressed={liked}>
-        <svg width="15" height="15" viewBox="0 0 24 24" fill={liked ? '#fff' : 'currentColor'} aria-hidden><path d="M20.84 4.61a5.5 5.5 0 0 0-7.78 0L12 5.67l-1.06-1.06a5.5 5.5 0 0 0-7.78 7.78l1.06 1.06L12 21.23l7.78-7.78 1.06-1.06a5.5 5.5 0 0 0 0-7.78z" /></svg>
-        {liked ? 'Sekama' : 'Sekti'}
+      <button type="button" className={`rdr-relart-follow${liked ? ' on' : ''}`} onClick={toggle} disabled={!session?.user || busy} title={session?.user ? (liked ? 'Nebesekti' : 'Sekti šį atlikėją') : 'Prisijunk, kad sektum'} aria-label={liked ? 'Nebesekti' : 'Sekti'} aria-pressed={liked}>
+        <svg width="17" height="17" viewBox="0 0 24 24" fill={liked ? '#fff' : 'currentColor'} aria-hidden><path d="M20.84 4.61a5.5 5.5 0 0 0-7.78 0L12 5.67l-1.06-1.06a5.5 5.5 0 0 0-7.78 7.78l1.06 1.06L12 21.23l7.78-7.78 1.06-1.06a5.5 5.5 0 0 0 0-7.78z" /></svg>
       </button>
     </div>
   )
@@ -641,7 +640,6 @@ function NewsFooter({ slide, onNavLink }: { slide: HeroSlide; onNavLink: () => v
     <div className="rdr-nfoot" onClick={(e) => e.stopPropagation()}>
       {related.length > 0 && (
         <div className="rdr-nfoot-sec">
-          <div className="rdr-nfoot-head">{related.length > 1 ? 'Susijusios grupės' : 'Atlikėjas'}</div>
           <div className="rdr-relart-list">
             {related.map(a => <ArtistFollowRow key={a.id} artist={a} onNavLink={onNavLink} />)}
           </div>
@@ -649,7 +647,7 @@ function NewsFooter({ slide, onNavLink }: { slide: HeroSlide; onNavLink: () => v
       )}
       {cmts.length > 0 && (
         <div className="rdr-nfoot-sec">
-          <div className="rdr-nfoot-head">Komentarai ({cmts.length})</div>
+          <div className="rdr-nfoot-head">Komentarai</div>
           <div className="rdr-cmt-list">
             {shown.map((c: any) => (
               <div key={c.id} className="rdr-cmt">
@@ -1459,7 +1457,7 @@ const REELS_CSS = `
         .rdr-relart-link{display:inline-flex;align-items:center;gap:9px;min-width:0;text-decoration:none;color:#fff}
         .rdr-relart-link img,.rdr-relart-ph{width:36px;height:36px;border-radius:50%;object-fit:cover;flex-shrink:0;background:var(--accent-orange);display:flex;align-items:center;justify-content:center;color:#fff;font-weight:800;font-size:15px;font-family:'Outfit',sans-serif;text-transform:uppercase}
         .rdr-relart-link span{font-family:'Outfit',sans-serif;font-weight:700;font-size:14px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
-        .rdr-relart-follow{display:inline-flex;align-items:center;gap:6px;flex-shrink:0;height:34px;padding:0 13px;border-radius:999px;border:1px solid var(--accent-orange);background:transparent;color:var(--accent-orange);font-family:'Outfit',sans-serif;font-weight:800;font-size:13px;cursor:pointer;white-space:nowrap}
+        .rdr-relart-follow{display:inline-flex;align-items:center;justify-content:center;flex-shrink:0;width:38px;height:38px;border-radius:50%;border:1px solid var(--accent-orange);background:transparent;color:var(--accent-orange);cursor:pointer}
         .rdr-relart-follow.on{background:var(--accent-orange);color:#fff}
         .rdr-relart-follow:disabled{opacity:.5;cursor:not-allowed}
         .rdr-cmt-list{display:flex;flex-direction:column;gap:13px}
