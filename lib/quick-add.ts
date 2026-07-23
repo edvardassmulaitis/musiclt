@@ -187,17 +187,6 @@ function ensureWikiInit() {
 // YT title → { artist, title }
 // ────────────────────────────────────────────────────────────────────────────
 
-/** Sakinio raidžių registras (LT): visą tekstą į mažąsias, pirmą raidinį
- *  simbolį į didžiąją (praleidžiant kabutes/skliaustus pradžioje). LT-aware
- *  (toLocaleUpperCase/'lt'), kad „į"→„Į" suveiktų teisingai. */
-function toSentenceCaseLt(s: string): string {
-  const lower = (s || '').toLocaleLowerCase('lt-LT')
-  return lower.replace(
-    /^([^\p{L}\p{N}]*)(\p{L})/u,
-    (_m, pre: string, ch: string) => pre + ch.toLocaleUpperCase('lt-LT'),
-  )
-}
-
 const YT_TITLE_NOISE = [
   /\(\s*official\s+music\s+video\s*\)/gi,
   /\(\s*official\s+video\s*\)/gi,
@@ -244,21 +233,21 @@ function stripTitleNoise(s: string): string {
   return out.replace(/\s{2,}/g, ' ').trim()
 }
 
-/** Gražus pavadinimo case'as: kiekvieno žodžio pirma raidė didžioji, likusios
- *  mažosios. Paliekam: akronimus (visos DIDŽIOSIOS, ≤4 raidės — DNA, XO, MC) ir
- *  stilizuotus žodžius su vidinėm didžiosiom (iPhone, DJ). „Last goodbye" → „Last Goodbye". */
+/** Pavadinimo registras IŠLAIKANT originalą:
+ *  - jei tekstas jau turi ir didžiųjų, ir mažųjų raidžių (autorius surašė
+ *    teisingu registru — „The One", „Įlindo į dūšlą", „DJ Snake", „iPhone") —
+ *    NELIEČIAM, grąžinam kaip yra (išlaikom angliškų titulų Title Case, LT sakinio
+ *    registrą, stilizaciją ir akronimus);
+ *  - jei tekstas VISAS DIDŽIOSIOMIS arba VISAS mažosiomis (rėkiantis/aplaidus YT
+ *    pavadinimas) — normalizuojam į „kiekvieno žodžio pirma raidė didžioji".
+ *    Pvz. „THE ONE"/„the one" → „The One"; „LAST GOODBYE" → „Last Goodbye". */
 function smartTitleCase(s: string): string {
   if (!s) return s
-  // Jei title mišrus (turi mažųjų) — akronimus/stilizaciją paliekam. Jei VISAS
-  // DIDŽIOSIOMIS — case'inam viską („LAST GOODBYE" → „Last Goodbye").
   const hasLower = /[a-ząčęėįšųūž]/.test(s)
-  return s.replace(/[^\s\-–—/()[\]]+/g, (word) => {
-    if (hasLower) {
-      if (/^[A-ZĄČĘĖĮŠŲŪŽ0-9]{1,4}$/.test(word)) return word            // akronimas
-      if (/[a-ząčęėįšųūž][A-ZĄČĘĖĮŠŲŪŽ]/.test(word)) return word          // vidinė didžioji (stilizuota)
-    }
-    return word.charAt(0).toUpperCase() + word.slice(1).toLowerCase()
-  })
+  const hasUpper = /[A-ZĄČĘĖĮŠŲŪŽ]/.test(s)
+  if (hasLower && hasUpper) return s
+  return s.replace(/[^\s\-–—/()[\]]+/g, (word) =>
+    word.charAt(0).toUpperCase() + word.slice(1).toLowerCase())
 }
 
 /** Nukerpa YouTube'e dažnus „papildomus užrašus" po skirtuko:
@@ -806,12 +795,11 @@ async function fetchTrackContext(url: string): Promise<TrackContext | { error: s
   ensureWikiInit()
   const { artist: artistSegment, title: rawTitle } = parseYtTitle(rawVideoTitle, channelName)
   const { cleanTitle, featuring: titleFeats } = wiki.parseFeaturing(rawTitle || '')
-  // Dainos pavadinimas — SAKINIO raidžių registras (pirma raidė didžioji, kitos
-  // mažosios), kaip LT konvencija dainoms. NE Title Case (kiekvienas žodis didžiąja
-  // — tai angliška/Wiki albumų konvencija). Pvz. „ĮLINDO Į DŪŠLĄ"/„Įlindo Į Dūšlą"
-  // → „Įlindo į dūšlą".
-  const baseTitle = (cleanTitle || rawTitle || '').trim()
-  const title = toSentenceCaseLt(baseTitle)
+  // Dainos pavadinimas — IŠLAIKOM originalų YouTube registrą (jį jau normalizavo
+  // parseYtTitle→smartTitleCase: mišrus registras paliekamas, rėkiantis ALL-CAPS
+  // sutvarkomas). Anksčiau čia buvo priverstinis LT sakinio registras, kuris
+  // gadindavo angliškus/tikrinius pavadinimus („The One" → „The one").
+  const title = (cleanTitle || rawTitle || '').trim()
 
   let year: number | null = null, month: number | null = null, day: number | null = null
   if (details?.uploadedAt) {
