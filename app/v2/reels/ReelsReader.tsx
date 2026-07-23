@@ -84,7 +84,7 @@ function slideDuration(s: HeroSlide): number {
 /* Unikalus slide raktas „peržiūrėta" žymėjimui. Anksčiau buvo vien href —
  * `daily` ir `daily_winner` abu turi /dienos-daina, tad peržiūrėjus vieną
  * pasižymėdavo abu. */
-const slideKey = (s: HeroSlide) => `${s.type}::${s.href}`
+export const slideKey = (s: HeroSlide) => `${s.type}::${s.href}`
 
 /** Pilno news straipsnio body cache — modulio lygyje, kad keičiant slide'us
  *  nereiktų perkrauti to paties straipsnio iš naujo. */
@@ -731,15 +731,22 @@ function relDate(iso?: string | null): string {
   if (!iso) return ''
   const t = new Date(iso).getTime()
   if (isNaN(t)) return ''
-  const s = Math.max(0, Math.floor((Date.now() - t) / 1000))
-  const m = Math.floor(s / 60), h = Math.floor(m / 60), d = Math.floor(h / 24)
+  const now = Date.now()
+  const s = Math.max(0, Math.floor((now - t) / 1000))
+  const m = Math.floor(s / 60), h = Math.floor(m / 60)
+  // Kalendorinių dienų skirtumas (ne 24h blokai) — kad „prieš 20 val." persisukus
+  // per vidurnaktį taptų „vakar", o ne liktų valandomis.
+  const then = new Date(t), nd = new Date(now)
+  const startOfDay = (d: Date) => new Date(d.getFullYear(), d.getMonth(), d.getDate()).getTime()
+  const dayDiff = Math.round((startOfDay(nd) - startOfDay(then)) / 86_400_000)
   if (s < 60) return 'ką tik'
   if (m < 60) return `prieš ${m} min.`
-  if (h < 24) return `prieš ${h} val.`
-  if (d < 7) return `prieš ${d} d.`
-  if (d < 30) return `prieš ${Math.floor(d / 7)} sav.`
-  if (d < 365) return `prieš ${Math.floor(d / 30)} mėn.`
-  return `prieš ${Math.floor(d / 365)} m.`
+  if (dayDiff === 0) return `prieš ${h} val.`
+  if (dayDiff === 1) return 'vakar'
+  if (dayDiff < 7) return `prieš ${dayDiff} d.`
+  if (dayDiff < 30) return `prieš ${Math.floor(dayDiff / 7)} sav.`
+  if (dayDiff < 365) return `prieš ${Math.floor(dayDiff / 30)} mėn.`
+  return `prieš ${Math.floor(dayDiff / 365)} m.`
 }
 
 type RelArtist = { id: number; name: string; slug: string; image: string | null }

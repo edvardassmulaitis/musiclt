@@ -9,7 +9,7 @@ import Link from 'next/link'
 import { proxyImgResized } from '@/lib/img-proxy'
 import { useSite } from '@/components/SiteContext'
 import type { HeroSlide } from './HeroSlider'
-import { ReelsOverlay, ChartBottomSheet, DailyVoteSheet } from './reels/ReelsReader'
+import { ReelsOverlay, ChartBottomSheet, DailyVoteSheet, slideKey } from './reels/ReelsReader'
 
 export default function MobileHero({ slides }: { slides: HeroSlide[] }) {
   const { dk } = useSite()
@@ -41,8 +41,9 @@ export default function MobileHero({ slides }: { slides: HeroSlide[] }) {
           const showArtist = !!artistName && !s.title.toLowerCase().includes(artistName.toLowerCase())
           const showExcerpt = s.type === 'event' && !!s.subtitle && s.subtitle.length > 5
           // Border = „neskaityta" indikatorius: oranžinis kol vartotojas
-          // neatidarė (peržiūrėta žymima per reels_seen), neutralus po to.
-          const isSeen = seenSlides.has(s.href)
+          // neatidarė (peržiūrėta žymima per reels_seen su slideKey — TAS PAT
+          // raktas kaip ReelsOverlay onSeen ir desktop), neutralus po to.
+          const isSeen = seenSlides.has(slideKey(s))
           return (
             <button
               key={`${s.type}-${s.href}`}
@@ -57,33 +58,33 @@ export default function MobileHero({ slides }: { slides: HeroSlide[] }) {
                 : <div style={{ width: '100%', height: '100%', background: 'linear-gradient(135deg,#0a1428,#162040)' }} />}
               <div style={{ position: 'absolute', inset: 0, background: 'linear-gradient(to top, rgba(0,0,0,0.95) 0%, rgba(0,0,0,0.55) 35%, rgba(0,0,0,0.10) 60%, rgba(0,0,0,0) 75%)' }} />
               <div style={{ position: 'absolute', bottom: 0, left: 0, right: 0, padding: '10px 12px 12px', textAlign: 'left' }}>
-                <p style={{ fontSize: 14, fontWeight: 800, color: '#fff', margin: 0, lineHeight: 1.2, fontFamily: 'Outfit,sans-serif', display: '-webkit-box', WebkitLineClamp: 4, WebkitBoxOrient: 'vertical', overflow: 'hidden', textOverflow: 'ellipsis', letterSpacing: '-0.01em' } as React.CSSProperties}>{s.title}</p>
+                <p style={{ fontSize: 13.5, fontWeight: 800, color: '#fff', margin: 0, lineHeight: 1.18, fontFamily: 'Outfit,sans-serif', display: '-webkit-box', WebkitLineClamp: 4, WebkitBoxOrient: 'vertical', overflow: 'hidden', textOverflow: 'ellipsis', letterSpacing: '-0.01em' } as React.CSSProperties}>{s.title}</p>
                 {showExcerpt && (
                   <p style={{ fontSize: 12, fontWeight: 500, color: 'rgba(255,255,255,0.82)', margin: '5px 0 0', lineHeight: 1.3, display: '-webkit-box', WebkitLineClamp: 2, WebkitBoxOrient: 'vertical', overflow: 'hidden', textOverflow: 'ellipsis' } as React.CSSProperties}>{s.subtitleShort || s.subtitle}</p>
                 )}
                 {showArtist && (
                   <p style={{ fontSize: 12, fontWeight: 700, color: 'rgba(255,255,255,0.78)', margin: '4px 0 0', lineHeight: 1.2, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{artistName}</p>
                 )}
-                {(!!s.likeCount || !!s.commentCount) && (
-                  <div style={{ display: 'flex', alignItems: 'center', gap: 12, margin: '6px 0 0' }}>
-                    {!!s.likeCount && (
-                      <span style={{ display: 'inline-flex', alignItems: 'center', gap: 3, fontSize: 12, fontWeight: 700, color: 'rgba(255,255,255,0.92)', fontFamily: 'Outfit,sans-serif' }}>
-                        <svg width="12" height="12" viewBox="0 0 24 24" fill="var(--accent-orange)" aria-hidden><path d="M20.84 4.61a5.5 5.5 0 0 0-7.78 0L12 5.67l-1.06-1.06a5.5 5.5 0 0 0-7.78 7.78l1.06 1.06L12 21.23l7.78-7.78 1.06-1.06a5.5 5.5 0 0 0 0-7.78z" /></svg>
-                        {s.likeCount}
-                      </span>
-                    )}
-                    {!!s.commentCount && (
-                      <span style={{ display: 'inline-flex', alignItems: 'center', gap: 3, fontSize: 12, fontWeight: 700, color: 'rgba(255,255,255,0.92)', fontFamily: 'Outfit,sans-serif' }}>
-                        <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="rgba(255,255,255,0.92)" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round" aria-hidden><path d="M21 11.5a8.38 8.38 0 0 1-.9 3.8 8.5 8.5 0 0 1-7.6 4.7 8.38 8.38 0 0 1-3.8-.9L3 21l1.9-5.7a8.38 8.38 0 0 1-.9-3.8 8.5 8.5 0 0 1 4.7-7.6 8.38 8.38 0 0 1 3.8-.9h.5a8.48 8.48 0 0 1 8 8v.5z" /></svg>
-                        {s.commentCount}
-                      </span>
-                    )}
-                  </div>
-                )}
               </div>
               {s.chip !== 'NAUJIENA' && (
                 <div style={{ position: 'absolute', top: 10, left: 10, zIndex: 2 }}>
                   <span style={{ padding: '3px 7px', borderRadius: 6, fontSize: 12, fontWeight: 700, color: '#fff', background: s.chipBg, fontFamily: 'Outfit,sans-serif', letterSpacing: '0.025em', textTransform: 'uppercase' }}>{s.chip}</span>
+                </div>
+              )}
+              {(!!s.likeCount || !!s.commentCount) && (
+                <div style={{ position: 'absolute', top: 8, right: 8, zIndex: 2, display: 'flex', alignItems: 'center', gap: 8, padding: '3px 8px', borderRadius: 999, background: 'rgba(0,0,0,0.5)', backdropFilter: 'blur(4px)' }}>
+                  {!!s.likeCount && (
+                    <span style={{ display: 'inline-flex', alignItems: 'center', gap: 3, fontSize: 11.5, fontWeight: 700, color: '#fff', fontFamily: 'Outfit,sans-serif' }}>
+                      <svg width="11" height="11" viewBox="0 0 24 24" fill="var(--accent-orange)" aria-hidden><path d="M20.84 4.61a5.5 5.5 0 0 0-7.78 0L12 5.67l-1.06-1.06a5.5 5.5 0 0 0-7.78 7.78l1.06 1.06L12 21.23l7.78-7.78 1.06-1.06a5.5 5.5 0 0 0 0-7.78z" /></svg>
+                      {s.likeCount}
+                    </span>
+                  )}
+                  {!!s.commentCount && (
+                    <span style={{ display: 'inline-flex', alignItems: 'center', gap: 3, fontSize: 11.5, fontWeight: 700, color: '#fff', fontFamily: 'Outfit,sans-serif' }}>
+                      <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="#fff" strokeWidth="2.4" strokeLinecap="round" strokeLinejoin="round" aria-hidden><path d="M21 11.5a8.38 8.38 0 0 1-.9 3.8 8.5 8.5 0 0 1-7.6 4.7 8.38 8.38 0 0 1-3.8-.9L3 21l1.9-5.7a8.38 8.38 0 0 1-.9-3.8 8.5 8.5 0 0 1 4.7-7.6 8.38 8.38 0 0 1 3.8-.9h.5a8.48 8.48 0 0 1 8 8v.5z" /></svg>
+                      {s.commentCount}
+                    </span>
+                  )}
                 </div>
               )}
             </button>

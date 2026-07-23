@@ -42,6 +42,11 @@ export type HeroSlide = {
   lineup?: { name: string; slug: string; image?: string | null }[]      // event — pilnas lineup (avatarai + nuorodos)
 }
 
+// „Peržiūrėta" raktas — TAS PAT formatas kaip reels ReelsReader.slideKey
+// (type::href), kad localStorage 'reels_seen' sutaptų tarp desktop ir mobile
+// (lokaliai apibrėžta, kad išvengtume circular import su ReelsReader).
+const slideKey = (s: HeroSlide) => `${s.type}::${s.href}`
+
 /* ─────────────── Hero v2 karuselė (rodyklės + taškai) ─────────────── */
 export default function HeroSlider({ slides }: { slides: HeroSlide[] }) {
   const trackRef = useRef<HTMLDivElement>(null)
@@ -109,7 +114,7 @@ export default function HeroSlider({ slides }: { slides: HeroSlide[] }) {
         <div ref={trackRef} className="hp-scroll hp-hero-track flex items-stretch gap-4 pb-1 snap-x snap-mandatory">
           {slides.map((slide) => (
             <div key={`${slide.type}-${slide.href}`} className="hp-hero-slot shrink-0 snap-start">
-              <HeroV2Card slide={slide} unseen={!seen.has(slide.href)} onOpen={() => markSeen(slide.href)} />
+              <HeroV2Card slide={slide} unseen={!seen.has(slideKey(slide))} onOpen={() => markSeen(slideKey(slide))} />
             </div>
           ))}
           {/* Paskutinė kortelė — „Daugiau naujienų" → /naujienos. */}
@@ -155,10 +160,11 @@ export default function HeroSlider({ slides }: { slides: HeroSlide[] }) {
   )
 }
 
-// „Neskaityta" border: oranžinis 2px kol neatidaryta, po to neutralus (kaip
-// className default). Grąžinam inline stiliaus fragmentą.
+// „Neskaityta" žiedas — outline (ne border), kad: (a) sektų border-radius,
+// (b) nekeistų box dydžio (border keitė radius nesting → ant hover nuotraukos
+// kampai išlįsdavo iš po rėmo), (c) išliktų className hover shadow.
 function unseenBorder(unseen: boolean): React.CSSProperties {
-  return unseen ? { borderColor: 'var(--accent-orange)', borderWidth: 2 } : {}
+  return unseen ? { outline: '2px solid var(--accent-orange)', outlineOffset: '0px' } : {}
 }
 
 function HeroV2Card({ slide, unseen, onOpen }: { slide: HeroSlide; unseen: boolean; onOpen: () => void }) {
@@ -197,27 +203,27 @@ function HeroV2Card({ slide, unseen, onOpen }: { slide: HeroSlide; unseen: boole
           {slide.chip}
         </span>
       )}
+      {slide.type === 'news' && (!!slide.likeCount || !!slide.commentCount) && (
+        <div className="absolute right-3 top-3 z-[2] flex items-center gap-2.5 rounded-full bg-black/50 px-2.5 py-1 backdrop-blur-sm">
+          {!!slide.likeCount && (
+            <span className="inline-flex items-center gap-1 font-['Outfit',sans-serif] text-[12px] font-bold text-white">
+              <svg width="12" height="12" viewBox="0 0 24 24" fill="var(--accent-orange)" aria-hidden><path d="M20.84 4.61a5.5 5.5 0 0 0-7.78 0L12 5.67l-1.06-1.06a5.5 5.5 0 0 0-7.78 7.78l1.06 1.06L12 21.23l7.78-7.78 1.06-1.06a5.5 5.5 0 0 0 0-7.78z" /></svg>
+              {slide.likeCount}
+            </span>
+          )}
+          {!!slide.commentCount && (
+            <span className="inline-flex items-center gap-1 font-['Outfit',sans-serif] text-[12px] font-bold text-white">
+              <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="#fff" strokeWidth="2.4" strokeLinecap="round" strokeLinejoin="round" aria-hidden><path d="M21 11.5a8.38 8.38 0 0 1-.9 3.8 8.5 8.5 0 0 1-7.6 4.7 8.38 8.38 0 0 1-3.8-.9L3 21l1.9-5.7a8.38 8.38 0 0 1-.9-3.8 8.5 8.5 0 0 1 4.7-7.6 8.38 8.38 0 0 1 3.8-.9h.5a8.48 8.48 0 0 1 8 8v.5z" /></svg>
+              {slide.commentCount}
+            </span>
+          )}
+        </div>
+      )}
       <div className="pointer-events-none absolute inset-0 bg-gradient-to-t from-black/85 via-black/30 to-transparent" />
       <div className="absolute inset-0 flex flex-col justify-end p-5">
-        <h3 className="m-0 max-w-[460px] font-['Outfit',sans-serif] text-[28px] font-black leading-[1.08] tracking-tight text-white transition-opacity group-hover:opacity-90">
+        <h3 className="m-0 max-w-[440px] font-['Outfit',sans-serif] text-[23px] font-extrabold leading-[1.12] tracking-tight text-white transition-opacity group-hover:opacity-90">
           {slide.title}
         </h3>
-        {slide.type === 'news' && (!!slide.likeCount || !!slide.commentCount) && (
-          <div className="m-0 mt-2 flex items-center gap-3.5">
-            {!!slide.likeCount && (
-              <span className="inline-flex items-center gap-1 font-['Outfit',sans-serif] text-[13px] font-bold text-white/90">
-                <svg width="14" height="14" viewBox="0 0 24 24" fill="var(--accent-orange)" aria-hidden><path d="M20.84 4.61a5.5 5.5 0 0 0-7.78 0L12 5.67l-1.06-1.06a5.5 5.5 0 0 0-7.78 7.78l1.06 1.06L12 21.23l7.78-7.78 1.06-1.06a5.5 5.5 0 0 0 0-7.78z" /></svg>
-                {slide.likeCount}
-              </span>
-            )}
-            {!!slide.commentCount && (
-              <span className="inline-flex items-center gap-1 font-['Outfit',sans-serif] text-[13px] font-bold text-white/90">
-                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round" aria-hidden><path d="M21 11.5a8.38 8.38 0 0 1-.9 3.8 8.5 8.5 0 0 1-7.6 4.7 8.38 8.38 0 0 1-3.8-.9L3 21l1.9-5.7a8.38 8.38 0 0 1-.9-3.8 8.5 8.5 0 0 1 4.7-7.6 8.38 8.38 0 0 1 3.8-.9h.5a8.48 8.48 0 0 1 8 8v.5z" /></svg>
-                {slide.commentCount}
-              </span>
-            )}
-          </div>
-        )}
         {slide.type === 'event' && slide.subtitle && (
           <p className="m-0 mt-2 flex items-center gap-1.5 font-['Outfit',sans-serif] text-[14px] font-semibold text-white/85">
             <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><rect x="3" y="5" width="18" height="16" rx="2"/><path d="M16 3v4M8 3v4M3 11h18"/></svg>
