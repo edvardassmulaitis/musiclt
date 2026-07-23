@@ -1533,7 +1533,7 @@ export default function EditArtist() {
               onWikiImport={(data: Partial<ArtistFormData>) => {
                 setInitialData(prev => {
                   if (!prev) return prev
-                  const clean = Object.fromEntries(Object.entries(data).filter(([, v]) => v !== undefined && v !== null && v !== ''))
+                  const clean = Object.fromEntries(Object.entries(data).filter(([, v]) => v !== undefined && v !== null && v !== '' && !(Array.isArray(v) && v.length === 0)))
                   const result = { ...prev, ...clean }
                   if (Array.isArray(data.members)) result.members = data.members
                   if (Array.isArray(data.groups)) result.groups = data.groups
@@ -1558,7 +1558,7 @@ export default function EditArtist() {
                       spotify:'', soundcloud:'', tiktok:'', bandcamp:'',
                       groups:[], subdomain:'',
                     }
-                    const clean = Object.fromEntries(Object.entries(data).filter(([, v]) => v !== undefined && v !== null && v !== ''))
+                    const clean = Object.fromEntries(Object.entries(data).filter(([, v]) => v !== undefined && v !== null && v !== '' && !(Array.isArray(v) && v.length === 0)))
                     const result = { ...base, ...clean }
                     if (Array.isArray(data.members)) result.members = data.members
                     if (Array.isArray(data.groups)) result.groups = data.groups
