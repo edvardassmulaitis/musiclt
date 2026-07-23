@@ -8,6 +8,7 @@
 import { useRef, useState, useEffect } from 'react'
 import Link from 'next/link'
 import { proxyImgResized } from '@/lib/img-proxy'
+import { useHeroSeen } from './useHeroSeen'
 
 export type TopEntry = { pos: number; track_id?: number; title: string; artist: string; cover_url: string | null; artist_image: string | null; trend: string; prevPos?: number | null; wks?: number; slug?: string; artist_slug?: string; videoId?: string | null }
 
@@ -54,18 +55,8 @@ export default function HeroSlider({ slides }: { slides: HeroSlide[] }) {
   const [atStart, setAtStart] = useState(true)
   const [atEnd, setAtEnd] = useState(false)
   // „Neskaityta" žymėjimas — border rodomas kol vartotojas neatidarė kortelės.
-  // Tas pats localStorage raktas kaip mobile reels ('reels_seen'). Hydratacijos
-  // saugumui — pradžioj tuščia (SSR==client), užpildom po mount.
-  const [seen, setSeen] = useState<Set<string>>(new Set())
-  useEffect(() => {
-    try { setSeen(new Set(JSON.parse(localStorage.getItem('reels_seen') || '[]') as string[])) } catch { /* SSR/no storage */ }
-  }, [])
-  const markSeen = (href: string) => setSeen(prev => {
-    if (prev.has(href)) return prev
-    const next = new Set(prev); next.add(href)
-    try { localStorage.setItem('reels_seen', JSON.stringify(Array.from(next))) } catch { /* ignore */ }
-    return next
-  })
+  // Prisijungusiems SURIŠTA per įrenginius (server), svečiams — localStorage.
+  const { seen, markSeen } = useHeroSeen()
   useEffect(() => {
     const el = trackRef.current
     if (!el) return
@@ -111,7 +102,7 @@ export default function HeroSlider({ slides }: { slides: HeroSlide[] }) {
         .hp-hero-wrap:hover .hp-hero-arrow{opacity:1}
       `}</style>
       <div className="hp-hero-wrap relative">
-        <div ref={trackRef} className="hp-scroll hp-hero-track flex items-stretch gap-4 pb-1 snap-x snap-mandatory">
+        <div ref={trackRef} className="hp-scroll hp-hero-track flex items-stretch gap-4 py-1 snap-x snap-mandatory">
           {slides.map((slide) => (
             <div key={`${slide.type}-${slide.href}`} className="hp-hero-slot shrink-0 snap-start">
               <HeroV2Card slide={slide} unseen={!seen.has(slideKey(slide))} onOpen={() => markSeen(slideKey(slide))} />

@@ -10,16 +10,15 @@ import { proxyImgResized } from '@/lib/img-proxy'
 import { useSite } from '@/components/SiteContext'
 import type { HeroSlide } from './HeroSlider'
 import { ReelsOverlay, ChartBottomSheet, DailyVoteSheet, slideKey } from './reels/ReelsReader'
+import { useHeroSeen } from './useHeroSeen'
 
 export default function MobileHero({ slides }: { slides: HeroSlide[] }) {
   const { dk } = useSite()
   const [reelsOpen, setReelsOpen] = useState(false)
   const [reelsIdx, setReelsIdx] = useState(0)
-  // „peržiūrėta" žymėjimas — persistuojamas per localStorage 'reels_seen'.
-  const [seenSlides, setSeenSlides] = useState<Set<string>>(() => {
-    try { return new Set(JSON.parse(localStorage.getItem('reels_seen') || '[]') as string[]) }
-    catch { return new Set() }
-  })
+  // „peržiūrėta" žymėjimas — prisijungusiems SURIŠTA per įrenginius (server),
+  // svečiams localStorage. Tas pats hook'as kaip desktop HeroSlider.
+  const { seen: seenSlides, markSeen } = useHeroSeen()
   const [chartSheet, setChartSheet] = useState<{ topType: 'lt_top30' | 'top40'; title: string; accent: string } | null>(null)
   const [dailySheetOpen, setDailySheetOpen] = useState(false)
 
@@ -104,11 +103,7 @@ export default function MobileHero({ slides }: { slides: HeroSlide[] }) {
           slides={slides}
           initialIdx={reelsIdx}
           seenSlides={seenSlides}
-          onSeen={(href) => setSeenSlides(prev => {
-            const next = new Set(prev); next.add(href)
-            try { localStorage.setItem('reels_seen', JSON.stringify(Array.from(next))) } catch {}
-            return next
-          })}
+          onSeen={markSeen}
           onClose={() => setReelsOpen(false)}
           onChartVote={(s) => setChartSheet({
             topType: s.type === 'chart_lt' ? 'lt_top30' : 'top40',
