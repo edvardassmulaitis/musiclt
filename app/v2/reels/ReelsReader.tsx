@@ -11,6 +11,7 @@ import { proxyImgResized } from '@/lib/img-proxy'
 import { sanitizeRichHtml } from '@/lib/sanitize-html'
 import { deviceFpSync } from '@/lib/device-fp'
 import { DienosDainaHero } from '@/components/DienosDainaHero'
+import { DienosDainaSection } from '@/components/DienosDainaSection'
 import { LikePill } from '@/components/LikePill'
 import LikesModal, { type LikeUser } from '@/components/LikesModal'
 import SocialEmbed from '@/components/SocialEmbed'
@@ -641,6 +642,7 @@ function ReaderSlide({ slide, active, seen, dk, scrollTopSignal, onScrolledChang
 
   const isChart = slide.type === 'chart_lt' || slide.type === 'chart_world'
   const isDaily = slide.type === 'daily'
+  const isDailyWinner = slide.type === 'daily_winner'
   const isNews = slide.type === 'news'
   const isRecording = slide.type === 'recording'
   const isBlog = slide.type === 'blog'
@@ -802,9 +804,9 @@ function ReaderSlide({ slide, active, seen, dk, scrollTopSignal, onScrolledChang
 
   return (
     <div ref={scrollRef} className="rdr-slide" onScroll={onScroll}>
-      {/* ── Viršus: čartams/dienos dainai — cover koliažas (mosaic); kitiems —
-          statinė nuotrauka (blur-fill posteris). Muzika — YouTube embed'ai žemiau. ── */}
-      {mosaicItems.length >= 3 ? (
+      {/* ── Viršus: čartams — cover koliažas (mosaic); kitiems — statinė nuotrauka
+          (blur-fill posteris). Dienos dainai — jokio hero (turinį valdo widget'as). ── */}
+      {isDailyWinner ? null : mosaicItems.length >= 3 ? (
         <div className="rdr-media rdr-media-mosaic">
           <RdrMosaic items={mosaicItems} accent={mosaicAccent} />
           <div className="rdr-media-fade" />
@@ -828,7 +830,7 @@ function ReaderSlide({ slide, active, seen, dk, scrollTopSignal, onScrolledChang
           {slide.chip && slide.chip !== 'NAUJIENA' && (
             <span className="rdr-chip" style={{ background: seen ? (dk ? 'rgba(255,255,255,0.16)' : 'rgba(0,0,0,0.12)') : slide.chipBg, color: seen && !dk ? 'var(--text-primary)' : '#fff' }}>{slide.chip}</span>
           )}
-          {place && <span className="rdr-date">{place}</span>}
+          {place && !isDailyWinner && <span className="rdr-date">{place}</span>}
           {/* News veiksmai (♥ like naujieną / ↗ share / ⤢ open) — VIRŠUJ prie datos/
               antraštės, ne footeryje. Atlikėjo sekimas ČIA neberodomas (jis prie
               atlikėjo — širdele, atlikėjo psl.), kad nebūtų painiavos ir tilptų keli atlikėjai. */}
@@ -836,9 +838,12 @@ function ReaderSlide({ slide, active, seen, dk, scrollTopSignal, onScrolledChang
         </div>
         {isRecording
           ? <Link href={slide.href} onClick={onNavLink} className="rdr-title rdr-title-link">{slide.title}</Link>
-          : <h2 className="rdr-title">{slide.title}</h2>}
+          : <h2 className="rdr-title">{isDailyWinner ? 'Dienos daina' : slide.title}</h2>}
 
-        {isChart ? (
+        {isDailyWinner ? (
+          active ? <div className="rdr-dd"><DienosDainaSection variant="reel" /></div>
+                 : (slide.excerpt ? <p className="rdr-excerpt">{slide.excerpt}</p> : null)
+        ) : isChart ? (
           active ? (
             <ChartVoteList
               topType={slide.type === 'chart_lt' ? 'lt_top30' : 'top40'}
@@ -899,7 +904,7 @@ function ReaderSlide({ slide, active, seen, dk, scrollTopSignal, onScrolledChang
             pats YouTube mygtukas iframe'e (vienas tap'as visur, jokio custom
             grotuvo). Mount'inam tik aktyvioj kortelėj (perf — sunkūs iframe'ai).
             Iš topo/kandidatų eilutės paprašytas video (reqVideoId) gauna autoplay=1. ── */}
-        {active && (nativeSongs.length > 0 || embeds.length > 0) && (
+        {active && !isDailyWinner && (nativeSongs.length > 0 || embeds.length > 0) && (
           <div className="rdr-embeds" ref={embedsRef}>
             {/* Susijusi muzika → native grotuvas (be pasikartojančio title, su like
                 + internal play skaičiavimu). Albumas/grupė (>3) → vienas playlist
@@ -1090,7 +1095,7 @@ function CardFooter({ slide, onNavLink }: {
   if (isNews) return <NewsFooter slide={slide} onNavLink={onNavLink} />
   const isChart = slide.type === 'chart_lt' || slide.type === 'chart_world'
   const showLineup = !!(slide.lineup && slide.lineup.length)
-  const showArtist = !showLineup && !!slide.artist && slide.type !== 'event' && !isChart && slide.type !== 'daily'
+  const showArtist = !showLineup && !!slide.artist && slide.type !== 'event' && !isChart && slide.type !== 'daily' && slide.type !== 'daily_winner'
   const hasCtx = showLineup || showArtist
   // Vieninga CTA etikečių logika — tipas → aiškus veiksmas, fallback ctaLabel.
   const ctaLabel = isNews ? 'Pilna versija ir komentarai'
@@ -1191,7 +1196,7 @@ export function ReelsOverlay({ slides, initialIdx, seenSlides, onSeen, onClose, 
   const slide = slides[idx]
   // Interaktyvios kortelės (topai, dienos daina) — auto-advance IŠ VISO neveikia
   // (kad nepradingtų bebalsuojant/beklausant). Kitur — stoja skaitant/grojant.
-  const interactive = !!slide && (slide.type === 'chart_lt' || slide.type === 'chart_world' || slide.type === 'daily')
+  const interactive = !!slide && (slide.type === 'chart_lt' || slide.type === 'chart_world' || slide.type === 'daily' || slide.type === 'daily_winner')
   const autoOff = interactive || scrolled || playing
   // Braukimas į šoną veikia VISADA (ir skaitant) — pagal gesto kryptį (h vs v).
 
@@ -2059,6 +2064,8 @@ const REELS_CSS = `
            užapvalinti). Grojimą paleidžia pats YouTube — jokio custom UI.
            Antraštė tik kai yra TIKRAS dainos pavadinimas. ── */
         .rdr-embeds{display:flex;flex-direction:column;gap:10px;margin:20px 0 0}
+        /* Dienos daina widget'as reader'yje */
+        .rdr-dd{margin:14px 0 0}
         /* Social embed'ai (Instagram/X/TikTok) — oficialūs widget'ai; centruojam,
            ribojam plotį kad tilptų reader'yje, balta IG kortelė turi savo foną. */
         .rdr-social{display:flex;flex-direction:column;align-items:center;gap:16px;margin:20px 0 0}

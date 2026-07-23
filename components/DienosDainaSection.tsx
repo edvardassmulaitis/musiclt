@@ -172,7 +172,7 @@ export function DainaSuggestModal({ onClose, onDone }: { onClose: () => void; on
 
   if (typeof document === 'undefined') return null
   return createPortal(
-    <div onClick={e => { if (e.target === e.currentTarget) onClose() }} className="fixed inset-0 z-[1300] flex items-end justify-center bg-black/60 backdrop-blur-sm sm:items-center">
+    <div onClick={e => { if (e.target === e.currentTarget) onClose() }} className="fixed inset-0 z-[10001] flex items-end justify-center bg-black/60 backdrop-blur-sm sm:items-center">
       <div className="flex w-full max-w-[480px] flex-col overflow-hidden rounded-t-2xl bg-[var(--bg-surface)] shadow-[0_24px_60px_-10px_rgba(0,0,0,0.5)] sm:mx-4 sm:rounded-2xl" style={{ maxHeight: 'min(85vh, 640px)' }}>
         <div className="flex shrink-0 items-center justify-between border-b border-[var(--border-subtle)] px-4 py-3">
           <span className="font-['Outfit',sans-serif] text-[16px] font-extrabold text-[var(--text-primary)]">Pasiūlyti dieną dainą</span>
@@ -330,7 +330,7 @@ function PastNomCard({ n, onOpenTrack, maxVotes = 1, compact = false }: { n: Nom
 }
 
 // ───────────────────────── main section ─────────────────────────
-export function DienosDainaSection({ onOpenTrack, variant = 'inline', headerVariant = 'plain' }: { onOpenTrack?: (t: any) => void; variant?: 'inline' | 'stacked' | 'list'; headerVariant?: 'plain' | 'row' }) {
+export function DienosDainaSection({ onOpenTrack, variant = 'inline', headerVariant = 'plain' }: { onOpenTrack?: (t: any) => void; variant?: 'inline' | 'stacked' | 'list' | 'reel'; headerVariant?: 'plain' | 'row' }) {
   const [noms, setNoms] = useState<Nomination[]>([])
   const [winner, setWinner] = useState<DainaWinner | null>(null)
   const [loading, setLoading] = useState(true)
@@ -382,7 +382,7 @@ export function DienosDainaSection({ onOpenTrack, variant = 'inline', headerVari
   // „stacked" varianto (/atrasti) atveju vakar dienos pasiūlymus įkeliam iškart —
   // jie rodomi atskira juosta po šiandienos kandidatais (ne tik modale).
   useEffect(() => {
-    if ((variant !== 'stacked' && variant !== 'list') || !winner?.date) return
+    if ((variant !== 'stacked' && variant !== 'list' && variant !== 'reel') || !winner?.date) return
     setYdayLoading(true)
     fetch(`/api/dienos-daina/nominations?date=${winner.date}`)
       .then(r => r.json())
@@ -732,6 +732,89 @@ export function DienosDainaSection({ onOpenTrack, variant = 'inline', headerVari
             )
           })()}
         </>
+      ) : variant === 'reel' ? (
+        // ── Reels reader: VAKAR laimėjo → vakar rezultatai → ŠIANDIEN balsuok.
+        //    Vertikalus sąrašas (ListRow), tas pats stilius kaip homepage widget. ──
+        <div className="flex flex-col gap-5">
+          {/* 1. Vakar laimėjo */}
+          {winner?.tracks && (() => {
+            const wt = winner.tracks!
+            const wyt = extractYouTubeId(wt.video_url)
+            const wImg = wt.cover_url || (wyt ? `https://img.youtube.com/vi/${wyt}/mqdefault.jpg` : null) || wt.artists?.cover_image_url || null
+            const winnerNom = ydaySorted.find((n) => n.tracks?.id === wt.id)
+            return (
+              <div>
+                <div className="mb-2 font-['Outfit',sans-serif] text-[11px] font-extrabold uppercase tracking-[0.1em] text-[var(--accent-orange)]">Vakar laimėjo</div>
+                <div className="overflow-hidden rounded-xl border border-[rgba(249,115,22,0.35)] bg-[var(--bg-surface)]">
+                  <div className="relative aspect-video w-full bg-[var(--cover-placeholder)]">
+                    {winnerPlaying && wyt ? (
+                      <iframe src={`https://www.youtube.com/embed/${wyt}?autoplay=1&rel=0&playsinline=1`} title={sanitizeTitle(wt.title)} allow="autoplay; encrypted-media; picture-in-picture" allowFullScreen className="absolute inset-0 h-full w-full border-0" />
+                    ) : (
+                      <button type="button" onClick={() => { if (wyt) setWinnerPlaying(true); else openTrack({ id: wt.id, title: wt.title, slug: wt.slug, cover_url: wt.cover_url, video_url: wt.video_url, artists: wt.artists }) }} className="group absolute inset-0 h-full w-full cursor-pointer border-0 bg-transparent p-0" aria-label="Groti">
+                        {wImg && (/* eslint-disable-next-line @next/next/no-img-element */<img src={proxyImgResized(wImg, 640)} alt={sanitizeTitle(wt.title)} loading="lazy" decoding="async" className="h-full w-full object-cover" />)}
+                        <span className="absolute inset-0 flex items-center justify-center bg-black/25 transition-colors group-hover:bg-black/40">
+                          <span className="flex h-14 w-14 items-center justify-center rounded-full bg-[var(--accent-orange)] text-white shadow-[0_8px_24px_rgba(249,115,22,0.5)]"><Ic d={PLAY_D} size={22} filled /></span>
+                        </span>
+                      </button>
+                    )}
+                  </div>
+                  <div className="px-3.5 py-3">
+                    <div className="flex items-start justify-between gap-2">
+                      <button type="button" onClick={() => openTrack({ id: wt.id, title: wt.title, slug: wt.slug, cover_url: wt.cover_url, video_url: wt.video_url, artists: wt.artists })} className="min-w-0 flex-1 cursor-pointer border-0 bg-transparent p-0 text-left">
+                        <p className="m-0 truncate font-['Outfit',sans-serif] text-[17px] font-extrabold text-[var(--text-primary)] transition-colors hover:text-[var(--accent-orange)]">{sanitizeTitle(wt.title)}</p>
+                        <p className="m-0 truncate text-[13.5px] text-[var(--text-muted)]">{wt.artists?.name}</p>
+                      </button>
+                      {winnerNom && <AvatarStack title={sanitizeTitle(wt.title)} voters={winnerNom.voters || []} anon={winnerNom.anon_votes || 0} />}
+                    </div>
+                    {winner.proposer && (winner.proposer.username || winner.proposer.full_name) && (
+                      <span className="mt-1.5 flex min-w-0 items-center gap-1 text-[11px] text-[var(--text-faint)]"><span className="shrink-0">pasiūlė</span><MiniAv p={winner.proposer} size={15} /><span className="truncate font-semibold text-[var(--text-secondary)]">{winner.proposer.username || winner.proposer.full_name}</span></span>
+                    )}
+                    {winner.winning_comment && <p className="m-0 mt-1.5 line-clamp-2 text-[12.5px] italic text-[var(--text-muted)]">„{winner.winning_comment}"</p>}
+                  </div>
+                </div>
+              </div>
+            )
+          })()}
+
+          {/* 2. Vakar dienos rezultatai (runner-ups, be balsavimo) */}
+          {ydayBest.length > 0 && (
+            <div>
+              <div className="mb-2.5 font-['Outfit',sans-serif] text-[11px] font-extrabold uppercase tracking-[0.1em] text-[var(--text-faint)]">Vakar rezultatai</div>
+              <div className="flex flex-col gap-3">
+                {ydayBest.map((n) => {
+                  const votes = n.weighted_votes || n.votes || 0
+                  const level = votes > 0 ? Math.max(1, Math.round((votes / ydayMax) * 5)) : 0
+                  return <ListRow key={n.id} t={n.tracks!} level={level} proposer={n.proposer} right={<span className="shrink-0 self-center whitespace-nowrap text-[12px] font-bold text-[var(--text-faint)]">{votes} t.</span>} />
+                })}
+              </div>
+            </div>
+          )}
+
+          {/* 3. Šiandien — balsuok */}
+          <div>
+            <div className="mb-2.5 flex items-center justify-between gap-2">
+              <div className="font-['Outfit',sans-serif] text-[11px] font-extrabold uppercase tracking-[0.1em] text-[var(--accent-orange)]">Šiandien — balsuok</div>
+              <div className="flex items-center gap-2">
+                {voteErr && <span className="text-[12px] font-bold text-[var(--accent-red,#ef4444)]">{voteErr}</span>}
+                {!alreadyNominated ? (
+                  <button type="button" onClick={() => setSuggestOpen(true)} aria-label="Pasiūlyti savo dainą" title="Pasiūlyti savo dainą" className="flex h-[26px] items-center gap-1 rounded-full bg-[rgba(249,115,22,0.12)] px-2.5 font-['Outfit',sans-serif] text-[12px] font-extrabold text-[var(--accent-orange)] transition-colors hover:bg-[var(--accent-orange)] hover:text-white"><span className="text-[15px] leading-none">+</span>Siūlyti</button>
+                ) : (
+                  <span className="flex h-[26px] items-center gap-1 rounded-full bg-[var(--bg-hover)] px-2.5 font-['Outfit',sans-serif] text-[12px] font-bold text-[var(--text-faint)]" title="Šiandien jau pasiūlei dainą">✓ Pasiūlei</span>
+                )}
+              </div>
+            </div>
+            <div className="flex flex-col gap-3">
+              {sorted.length === 0 && (
+                <p className="m-0 px-0.5 py-1 text-[13px] text-[var(--text-muted)]">Šiandien dar nėra pasiūlymų — būk pirmas.</p>
+              )}
+              {sorted.slice(0, 10).map((n, idx) => {
+                const votes = n.weighted_votes || n.votes || 0
+                const level = votes > 0 ? Math.max(1, Math.round((votes / maxVotes) * 5)) : 0
+                return <ListRow key={n.id} t={n.tracks!} big={idx === 0} level={level} proposer={n.proposer} right={<VoteControl n={n} big={idx === 0} />} />
+              })}
+            </div>
+          </div>
+        </div>
       ) : variant === 'stacked' ? (
         // ── /atrasti: dvi atskiros juostos — šiandien siūloma + vakar ──
         <>
@@ -972,7 +1055,7 @@ export function DienosDainaSection({ onOpenTrack, variant = 'inline', headerVari
 
       {/* Balsuotojų mini modalas (paspaudus avatarų stack'ą). */}
       {votersOf && typeof document !== 'undefined' && createPortal(
-        <div onClick={(e) => { if (e.target === e.currentTarget) setVotersOf(null) }} className="fixed inset-0 z-[1300] flex items-end justify-center bg-black/60 backdrop-blur-sm sm:items-center">
+        <div onClick={(e) => { if (e.target === e.currentTarget) setVotersOf(null) }} className="fixed inset-0 z-[10001] flex items-end justify-center bg-black/60 backdrop-blur-sm sm:items-center">
           <div className="flex w-full max-w-[380px] flex-col overflow-hidden rounded-t-2xl bg-[var(--bg-surface)] shadow-[0_24px_60px_-10px_rgba(0,0,0,0.5)] sm:mx-4 sm:rounded-2xl" style={{ maxHeight: 'min(70vh, 520px)' }}>
             <div className="flex shrink-0 items-center justify-between border-b border-[var(--border-subtle)] px-4 py-3">
               <span className="min-w-0 truncate font-['Outfit',sans-serif] text-[15px] font-extrabold text-[var(--text-primary)]">Balsavo · {sanitizeTitle(votersOf.title)}</span>

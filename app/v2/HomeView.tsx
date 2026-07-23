@@ -439,27 +439,18 @@ function buildHeroSlides(input: {
     const isYesterday = ageDays < 1.5
     if (tr && ageDays <= 2.5) {
       const wonLabel = isYesterday ? 'Vakar laimėjo' : (wDate ? `${cap(MONTHS_FULL_LT[wDate.getMonth()])} ${wDate.getDate()} d. laimėjo` : 'Laimėjo')
-      const coverOf = (t: any): string | null => t?.cover_url || t?.artists?.cover_image_url || ytThumb(extractYouTubeId(t?.video_url || null))
-      const collage: { cover: string; title: string; artist: string; isWinner: boolean }[] = []
-      const pushTrack = (t: any, isWinner: boolean) => {
-        if (!t) return
-        const c = coverOf(t); if (!c) return
-        const title = sanitizeTitle(t.title || '')
-        if (collage.some((x) => x.title === title && x.artist === (t.artists?.name || ''))) return
-        collage.push({ cover: c, title, artist: t.artists?.name || '', isWinner })
-      }
-      pushTrack(tr, true)
-      for (const w2 of dailyWinners) { if (collage.length >= 5) break; pushTrack(w2?.tracks, false) }
       const wVid = extractYouTubeId(tr.video_url || null)
+      // NB: reader'yje dienos daina renderinama per DienosDainaSection variant='reel'
+      // (vakar laimėjo → runner-ups → šiandien balsuok). Jokio collage — jis painiojo
+      // vakar laimėtoją su ANKSTESNIŲ dienų laimėtojais. bgImg/title lieka mobile
+      // hero juostos kortelės vizualui.
       dailySlides.push({
         type: 'daily_winner', chip: 'DIENOS DAINA', chipBg: '#f59e0b',
         title: sanitizeTitle(tr.title || ''), href: '/dienos-daina',
         subtitle: '',
         excerpt: w.winning_comment || '',
-        metaLine: [wonLabel, tr.artists?.name, w.proposer ? `siūlė ${w.proposer.full_name || w.proposer.username}` : ''].filter(Boolean).join(' · '),
+        metaLine: [wonLabel, tr.artists?.name].filter(Boolean).join(' · '),
         bgImg: tr.cover_url || tr.artists?.cover_image_url || (wVid ? ytThumb(wVid) : null),
-        collage: collage.length >= 3 ? collage.slice(0, 5) : undefined,
-        videoId: wVid,
         songTitle: tr.title || null,
         songArtist: tr.artists?.name || null,
         artist: tr.artists ? { name: tr.artists.name, slug: tr.artists.slug || '', image: tr.artists.cover_image_url || null } : null,
