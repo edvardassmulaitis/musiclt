@@ -12,7 +12,7 @@ interface MatchCandidate { id: number; name: string; slug: string; type: string 
 interface FieldDiff { field: string; label: string; old: any; new: any; changed: boolean; selectable: boolean }
 interface LinkDiff { index: number; platform: string; column: string | null; oldUrl: string | null; newUrl: string; action: string }
 interface ContactPlan { index: number; name: string; type: string; email: string | null; phone: string | null; url: string | null; confidence: string; action: string; isPotential: boolean }
-interface AlbumPlan { index: number; title: string; type: string | null; year: number | null; action: string; existingId: number | null; description: string | null; descriptionOld: string | null; descriptionChanged: boolean; descriptionOnly: boolean; notFound: boolean }
+interface AlbumPlan { index: number; title: string; type: string | null; year: number | null; action: string; existingId: number | null; description: string | null; descriptionOld: string | null; descriptionChanged: boolean; descriptionOnly: boolean; notFound: boolean; coverUrl: string | null; coverWillApply: boolean }
 interface TrackPlan { index: number; title: string; albumTitle: string | null; type: string | null; action: string; existingId: number | null; albumFound: boolean; featuring: string[]; featuringNew: string[] }
 interface ImagePlan { index: number; url: string; type: string | null; license: string | null; hasLicense: boolean; action: string }
 interface Preview {
@@ -576,6 +576,10 @@ export default function ArtistImportPage() {
                   {preview.albumPlans.map((a, i) => (
                     <div key={i} className="flex items-start gap-2 text-xs">
                       <Check checked={!a.notFound && selAlbums.has(a.index)} disabled={a.notFound} onChange={() => toggle(setSelAlbums, a.index)} />
+                      {a.coverUrl && (
+                        // eslint-disable-next-line @next/next/no-img-element
+                        <img src={a.coverUrl} alt="" className="h-9 w-9 shrink-0 rounded object-cover border border-[var(--input-border)]" loading="lazy" />
+                      )}
                       <div className="min-w-0 flex-1">
                         <div className="flex flex-wrap items-center gap-2">
                           <Pill text={a.notFound ? 'nerastas' : a.action === 'create' ? 'naujas' : 'update'} color={a.notFound ? 'red' : a.action === 'create' ? 'green' : 'blue'} />
@@ -583,6 +587,7 @@ export default function ArtistImportPage() {
                           {a.year && <span className="text-[var(--text-muted)]">{a.year}</span>}
                           {a.type && <span className="text-[var(--text-faint)]">{a.type}</span>}
                           {a.descriptionChanged && <Pill text="aprašymas" color="orange" />}
+                          {a.coverWillApply && <Pill text="viršelis" color="green" />}
                         </div>
                         {a.notFound && <p className="ml-0.5 mt-0.5 text-[var(--text-faint)]">Albumas nerastas pas atlikėją — aprašymas nebus išsaugotas.</p>}
                         {a.description && a.descriptionChanged && (

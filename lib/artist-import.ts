@@ -25,6 +25,7 @@ export interface ImportContact {
 export interface ImportFeatured { name: string }
 export interface ImportAlbum {
   title: string; source_title?: string; type?: string
+  cover_image_url?: string | null; cover_source?: string | null; cover_source_url?: string | null
   release_date?: string | null; release_year?: number | null
   total_tracks?: number | null
   description?: string | null
@@ -306,7 +307,7 @@ export async function matchArtist(sb: SupabaseClient, rawName: string): Promise<
 export interface FieldDiff { field: string; label: string; old: any; new: any; changed: boolean; selectable: boolean }
 export interface LinkDiff { index: number; platform: string; column: string | null; oldUrl: string | null; newUrl: string; action: 'add' | 'update' | 'unchanged' | 'unsupported' }
 export interface ContactPlan { index: number; name: string; type: string; email: string | null; phone: string | null; url: string | null; confidence: string; action: 'add' | 'update'; isPotential: boolean }
-export interface AlbumPlan { index: number; title: string; type: string | null; year: number | null; action: 'create' | 'update'; existingId: number | null; description: string | null; descriptionOld: string | null; descriptionChanged: boolean; descriptionOnly: boolean; notFound: boolean }
+export interface AlbumPlan { index: number; title: string; type: string | null; year: number | null; action: 'create' | 'update'; existingId: number | null; description: string | null; descriptionOld: string | null; descriptionChanged: boolean; descriptionOnly: boolean; notFound: boolean; coverUrl: string | null; coverWillApply: boolean }
 export interface TrackPlan { index: number; title: string; albumTitle: string | null; type: string | null; action: 'create' | 'update'; existingId: number | null; albumFound: boolean; featuring: string[]; featuringNew: string[] }
 export interface ImagePlan { index: number; url: string; type: string | null; license: string | null; hasLicense: boolean; action: 'review' | 'skip' }
 
@@ -465,15 +466,18 @@ export async function buildPreview(
     if (a.type && !ALBUM_TYPE_FLAG[a.type]) warnings.push(`Nežinomas albumo type "${a.type}" (${a.title}) — type flag nebus nustatytas.`)
     let existingId: number | null = null
     let existingDescription: string | null = null
+    let existingCover: string | null = null
     if (targetArtistId) {
       const slug = albumSlug(a.title, year)
-      const { data: al } = await sb.from('albums').select('id, description').eq('artist_id', targetArtistId).eq('slug', slug).maybeSingle()
+      const { data: al } = await sb.from('albums').select('id, description, cover_image_url').eq('artist_id', targetArtistId).eq('slug', slug).maybeSingle()
       existingId = al?.id ?? null
       existingDescription = al?.description ?? null
+      existingCover = al?.cover_image_url ?? null
       if (!existingId) {
-        const { data: byTitle } = await sb.from('albums').select('id, description').eq('artist_id', targetArtistId).ilike('title', a.title).maybeSingle()
+        const { data: byTitle } = await sb.from('albums').select('id, description, cover_image_url').eq('artist_id', targetArtistId).ilike('title', a.title).maybeSingle()
         existingId = byTitle?.id ?? null
         existingDescription = byTitle?.description ?? null
+        existingCover = byTitle?.cover_image_url ?? null
       }
     }
     if (existingId) albumIdByTitle[normalizeName(a.title)] = existingId
@@ -482,11 +486,17 @@ export async function buildPreview(
     // Album_description režimas: albumas TIK randamas. Jei nerastas → aprašymas nepritaikomas.
     const notFound = descriptionOnly && !existingId
     if (notFound) warnings.push(`Albumas "${a.title}" nerastas pas atlikėją — aprašymas nebus išsaugotas (album_description režimas nesukuria naujų albumų).`)
+    // Viršelis: JSON cover_image_url (thumbnail'ui) + ar apskritai bus nustatytas.
+    // Apply logika: naujam albumui viršelis nustatomas visada; esamam — tik jei dar neturi.
+    const providedCover = a.cover_image_url?.trim() || null
+    const hasCoverSource = !!(providedCover || (a.spotify_url && a.spotify_url.trim()))
+    const coverWillApply = descriptionOnly ? false : (existingId ? (hasCoverSource && !existingCover) : hasCoverSource)
     albumPlans.push({
       index: ai, title: a.title, type: a.type || null, year,
       action: existingId ? 'update' : 'create', existingId,
       description: newDescription, descriptionOld: existingDescription, descriptionChanged,
       descriptionOnly, notFound,
+      coverUrl: providedCover, coverWillApply,
     })
   }
 
@@ -737,8 +747,11 @@ export async function applyImport(
     if (a.type && ALBUM_TYPE_FLAG[a.type]) typeFlags[ALBUM_TYPE_FLAG[a.type]] = true
     // Spotify id iš URL
     const spotifyId = a.spotify_url?.match(/album\/([A-Za-z0-9]+)/)?.[1] || null
-    // Viršelis per Spotify oEmbed (be auth)
-    const albumCover = await fetchSpotifyThumb(a.spotify_url)
+    // Viršelis: pirmenybė JSON'e pateiktam cover_image_url (pvz. Bandcamp/Discogs),
+    // fallback — Spotify oEmbed (be auth). Anksčiau buvo naudojamas TIK Spotify, todėl
+    // albumai be spotify_url likdavo be viršelio, nors JSON'e cover_image_url buvo.
+    let albumCover = a.cover_image_url?.trim() || null
+    if (!albumCover) albumCover = await fetchSpotifyThumb(a.spotify_url)
 
     let { data: existingAl } = await sb.from('albums').select('id, year, month, day, spotify_id, cover_image_url, description').eq('artist_id', artistId).eq('slug', slug).maybeSingle()
     if (!existingAl) {
