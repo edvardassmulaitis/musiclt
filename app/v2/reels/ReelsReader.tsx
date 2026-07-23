@@ -479,7 +479,8 @@ function ReaderSlide({ slide, active, seen, dk, scrollTopSignal, onScrolledChang
             Iš topo/kandidatų eilutės paprašytas video (reqVideoId) gauna autoplay=1. ── */}
         {active && embeds.length > 0 && (
           <div className="rdr-embeds" ref={embedsRef}>
-            <span className="rdr-embeds-head">🎵 Muzika</span>
+            {/* Be „Muzika" antraštės — embed'as ir taip aiškus, be to gali būti ne
+                daina, o interviu/klipas. */}
             {embeds.map(e => (
               <div key={e.videoId} className="rdr-embed">
                 {e.title && (
@@ -1335,11 +1336,12 @@ const REELS_CSS = `
         .rdr-na-artist span{font-family:'Outfit',sans-serif;font-weight:700;font-size:14px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
         .rdr-na-actions{display:flex;align-items:center;gap:8px;flex-shrink:0}
         .rdr-na-btn{display:inline-flex;align-items:center;justify-content:center;gap:5px;height:38px;min-width:38px;padding:0 11px;border-radius:11px;background:rgba(255,255,255,0.08);border:1px solid rgba(255,255,255,0.14);color:#fff;font-family:'Outfit',sans-serif;font-weight:800;font-size:13px;cursor:pointer;text-decoration:none}
-        .rdr-na-btn.on{color:#ff5a7a;border-color:rgba(255,90,122,0.5);background:rgba(255,90,122,0.14)}
+        .rdr-na-btn.on{color:#fff;border-color:var(--accent-orange);background:var(--accent-orange)}
+        .rdr-na-btn.on svg{fill:#fff}
         .rdr-na-btn:disabled{opacity:0.5;cursor:not-allowed}
         .hp-reels.light .rdr-na-artist,.hp-reels.light .rdr-na-artist span{color:var(--text-primary)}
         .hp-reels.light .rdr-na-btn{background:var(--bg-hover);border-color:var(--border-default);color:var(--text-primary)}
-        .hp-reels.light .rdr-na-btn.on{color:#e11d48;border-color:rgba(225,29,72,0.4);background:rgba(225,29,72,0.08)}
+        .hp-reels.light .rdr-na-btn.on{color:#fff;border-color:var(--accent-orange);background:var(--accent-orange)}
         /* Antraštės galvutė: badge + data vienoj eilutėj (kompaktiška) */
         .rdr-head{display:flex;align-items:center;gap:8px;flex-wrap:wrap;margin-bottom:10px}
         .rdr-date{font-size:14px;font-weight:600;color:rgba(255,255,255,0.62);font-family:'Outfit',sans-serif}
