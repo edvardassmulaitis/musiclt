@@ -931,6 +931,13 @@ export default async function V2Page() {
     if (!r?.news?.length) r = await jget('/api/news?limit=10&include=songs&since_days=21', 9000)
     return r
   }
+  // Topai — ilgesnis timeout + retry (kaip news), kad šalta DB / regeneracija
+  // NEnumestų topo kortelės (bug: „kartais dingsta / tik LT TOP 30"). 2026-07-25.
+  const chartFetch = async (type: string) => {
+    let r = await jget(`/api/top/entries?type=${type}`, 9000)
+    if (!r?.entries?.length) r = await jget(`/api/top/entries?type=${type}`, 9000)
+    return r
+  }
   const [musicPool, upcomingR, newsR, eventsR, vertaR, istorijaR, feedR, membersR, gilynR, disksR, ltTopR, worldTopR, blogHeroR, dailyWinR, dailyNomsR, recsR] = await Promise.all([
     getMusicPool(),
     jget('/api/home/list?type=upcoming&limit=100', 8000),
@@ -942,8 +949,8 @@ export default async function V2Page() {
     jget('/api/atradimai/active-members'),
     jget('/api/zaidimai/gilyn', 8000),
     jget('/api/diskusijos/recent?limit=15', 6000),
-    jget('/api/top/entries?type=lt_top30'),
-    jget('/api/top/entries?type=top40'),
+    chartFetch('lt_top30'),
+    chartFetch('top40'),
     jget('/api/blog/home-hero'),
     jget('/api/dienos-daina/winners?limit=7'),
     jget('/api/dienos-daina/nominations', 6000),
