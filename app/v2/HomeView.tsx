@@ -324,12 +324,11 @@ function MusicHead({ title, browseHref }: { title: string; browseHref: string })
 function buildHeroSlides(input: {
   news: any[]; events: any[]; heroPosts: any[]; dailyWinners: any[]; todayNoms?: any[]
   ltTop: any; worldTop: any
-  verta?: any[]; recordings?: any[]; discussions?: any[]
+  verta?: any[]; recordings?: any[]
 }): HeroSlide[] {
   const { news, events, heroPosts, dailyWinners, todayNoms } = input
   const verta = input.verta || []
   const recordings = input.recordings || []
-  const discussions = input.discussions || []
   const ms = (s: string | null | undefined) => { const t = s ? Date.parse(s) : NaN; return isNaN(t) ? 0 : t }
   const ytThumb = (vid?: string | null) => vid ? `https://img.youtube.com/vi/${vid}/hqdefault.jpg` : null
   const cap = (s: string) => s ? s[0].toUpperCase() + s.slice(1) : s
@@ -369,7 +368,7 @@ function buildHeroSlides(input: {
     chartTops: worldTop.slice(0, 5),
   } })
 
-  news.slice(0, 8).forEach((n) => {
+  news.slice(0, 10).forEach((n) => {
     const typeLT = n.type === 'review' ? 'Recenzija' : n.type === 'interview' ? 'Interviu' : n.type === 'report' ? 'Reportažas' : 'Naujiena'
     const songs: any[] = n.songs || []
     const song = songs.find((s: any) => s.youtube_url)
@@ -408,72 +407,35 @@ function buildHeroSlides(input: {
       artist: n.artist ? { id: n.artist.id ?? null, name: n.artist.name, slug: n.artist.slug, image: n.artist.cover_image_url || null } : null,
     } })
   })
-  heroPosts
-    .filter((p) => { if (!p.published_at) return true; const d = new Date(p.published_at); return isNaN(d.getTime()) || (Date.now() - d.getTime()) < 14 * 86400000 })
-    .slice(0, 4)
-    .forEach((p) => {
-      dated.push({ sortMs: ms(p.published_at), slide: {
-        type: 'blog', chip: (p.chip || 'Įrašas').toUpperCase(), chipBg: p.chipBg || '#94a3b8',
-        title: sanitizeTitle(p.title),
-        subtitle: '',
-        excerpt: p.excerpt || '',
-        metaLine: [p.author, dateLT(p.published_at)].filter(Boolean).join(' · '),
-        authorName: p.author || null,
-        ctaLabel: 'Skaityti',
-        fresh24: isFresh24(p.published_at),
-        bgImg: p.cover,
-        href: p.href,
-        blogId: p.id || null,
-        videoId: p.videoId || null,
-        songTitle: p.songTitle || null,
-        songArtist: p.songArtist || null,
-        artist: null,
-      } })
-    })
-  // ── Koncertų įrašai (koncertų-įrašai) — naujausi ★ featured, su vizualu.
-  //    type='recording' → reader'yje antraštė yra nuoroda, video (youtube_id)
-  //    groja „Muzika" embed sekcijoje. Šviežumas pagal created_at. ──
-  recordings.slice(0, 2).forEach((r: any) => {
-    if (!r.thumbnail_url && !r.youtube_id) return
-    const vid = r.youtube_id || null
-    dated.push({ sortMs: ms(r.created_at), slide: {
-      type: 'recording', chip: 'KONCERTO ĮRAŠAS', chipBg: '#7c3aed',
-      title: sanitizeTitle(r.title || r.artist_name || 'Koncerto įrašas'),
-      subtitle: r.artist_name || '',
-      metaLine: [r.artist_name, dateLT(r.created_at)].filter(Boolean).join(' · '),
-      excerpt: '',
-      ctaLabel: 'Žiūrėti įrašą',
-      href: `/koncertu-irasai/${r.slug}`,
-      bgImg: r.thumbnail_url || (vid ? ytThumb(vid) : null),
-      videoId: vid,
-      songTitle: sanitizeTitle(r.title || ''), songArtist: r.artist_name || null,
-      artist: r.artist_name ? { name: r.artist_name, slug: r.artist_slug || '', image: r.thumbnail_url || null } : null,
-    } })
+  // ── COMMUNITY (3 parinkti narių įrašai) — po vieną iš trijų sričių:
+  //    renginio apžvalga (Koncertų įspūdžiai) + muzikos apžvalga + topas.
+  //    Šaltinis: admin'e pažymėti home_hero įrašai (/api/blog/home-hero),
+  //    naujausias kiekvienos srities. Taip community spotas neužplūsta viena
+  //    sritim (Edvardo spec 2026-07-24). ──
+  const blogSlide = (p: any): HeroSlide => ({
+    type: 'blog', chip: (p.chip || 'Įrašas').toUpperCase(), chipBg: p.chipBg || '#94a3b8',
+    title: sanitizeTitle(p.title),
+    subtitle: p.excerpt ? smartTruncate(p.excerpt, 140) : '',
+    excerpt: p.excerpt || '',
+    metaLine: [p.author, dateLT(p.published_at)].filter(Boolean).join(' · '),
+    authorName: p.author || null,
+    ctaLabel: 'Skaityti',
+    fresh24: isFresh24(p.published_at),
+    bgImg: p.cover,
+    href: p.href,
+    blogId: p.id || null,
+    videoId: p.videoId || null,
+    songTitle: p.songTitle || null,
+    songArtist: p.songArtist || null,
+    artist: null,
   })
-
-  // ── Bendruomenė (diskusijos) — ★ „Dėmesio centre" pažymėtos temos VIRŠUJ,
-  //    tekstinė kortelė (antraštė + naujausio komentaro ištrauka + autorius/
-  //    komentarų sk.), CTA „Skaityti diskusiją". Šviežumas: featured → dabar
-  //    (kad aktyvuotos iškiltų), kitaip last_comment_at/created_at. ──
-  discussions
-    .filter((d: any) => d.title && (d.featured_until || (d.comment_count ?? 0) > 0 || d.excerpt))
-    .slice(0, 2)
-    .forEach((d: any) => {
-      const featActive = d.featured_until && new Date(d.featured_until).getTime() > Date.now()
-      const cc = d.comment_count ?? 0
-      dated.push({ sortMs: featActive ? Date.now() : ms(d.last_comment_at || d.created_at), slide: {
-        type: 'community', chip: 'BENDRUOMENĖ', chipBg: '#8b5cf6',
-        title: sanitizeTitle(d.title || ''),
-        subtitle: d.excerpt ? smartTruncate(sanitizeTitle(d.excerpt), 140) : '',
-        excerpt: d.excerpt ? sanitizeTitle(d.excerpt) : '',
-        metaLine: [d.author_name || 'narys', cc > 0 ? `${cc} komentarai` : ''].filter(Boolean).join(' · '),
-        ctaLabel: 'Skaityti diskusiją',
-        href: `/diskusijos/${d.slug}`,
-        bgImg: d.artist_image || null,
-        commentCount: cc,
-        artist: null,
-      } })
-    })
+  const pickNewest = (chipLabel: string) => heroPosts
+    .filter((p: any) => (p.chip || '') === chipLabel)
+    .sort((a: any, b: any) => ms(b.published_at) - ms(a.published_at))[0]
+  ;['Koncertų įspūdžiai', 'Muzikos apžvalga', 'Topas']
+    .map((c) => pickNewest(c))
+    .filter(Boolean)
+    .forEach((p: any) => { dated.push({ sortMs: ms(p.published_at), slide: blogSlide(p) }) })
 
   dated.sort((a, b) => b.sortMs - a.sortMs)
   const slides: HeroSlide[] = dated.map((x) => x.slide)
@@ -564,9 +526,29 @@ function buildHeroSlides(input: {
     })
   })
 
-  // ── Koncertai verti kelionės (užsienis) — gale, kaip renginiai (max 2, su
-  //    vizualu). type='verta' → reader'yje CTA „Apie kelionę", bilietai jei yra. ──
-  verta.filter((c: any) => !!c.image).slice(0, 2).forEach((c: any) => {
+  // ── Koncertų įrašas (koncertų-įrašai) — 1 slotas, naujausias ★ featured su
+  //    vizualu. type='recording' → reader'yje antraštė = nuoroda, video groja. ──
+  const rec = recordings.find((r: any) => r.thumbnail_url || r.youtube_id)
+  if (rec) {
+    const vid = rec.youtube_id || null
+    slides.push({
+      type: 'recording', chip: 'KONCERTO ĮRAŠAS', chipBg: '#7c3aed',
+      title: sanitizeTitle(rec.title || rec.artist_name || 'Koncerto įrašas'),
+      subtitle: rec.artist_name || '',
+      metaLine: [rec.artist_name, dateLT(rec.created_at)].filter(Boolean).join(' · '),
+      excerpt: '',
+      ctaLabel: 'Žiūrėti įrašą',
+      href: `/koncertu-irasai/${rec.slug}`,
+      bgImg: rec.thumbnail_url || (vid ? ytThumb(vid) : null),
+      videoId: vid,
+      songTitle: sanitizeTitle(rec.title || ''), songArtist: rec.artist_name || null,
+      artist: rec.artist_name ? { name: rec.artist_name, slug: rec.artist_slug || '', image: rec.thumbnail_url || null } : null,
+    })
+  }
+
+  // ── Koncertai verti kelionės (užsienis) — 1 slotas gale, su vizualu.
+  //    type='verta' → reader'yje CTA „Apie kelionę", bilietai jei yra. ──
+  verta.filter((c: any) => !!c.image).slice(0, 1).forEach((c: any) => {
     const d = c.date ? new Date(c.date) : null
     const dateStr = d && !isNaN(d.getTime()) ? `${d.getDate()} ${MONTHS_LT[d.getMonth()]}` : ''
     const dateFull = d && !isNaN(d.getTime()) ? `${d.getFullYear()} m. ${MONTHS_FULL_LT[d.getMonth()]} ${d.getDate()} d.` : ''
@@ -887,7 +869,7 @@ export default async function V2Page() {
     if (!r?.news?.length) r = await jget('/api/news?limit=10&include=songs&since_days=21', 9000)
     return r
   }
-  const [musicPool, upcomingR, newsR, eventsR, vertaR, istorijaR, feedR, membersR, gilynR, disksR, ltTopR, worldTopR, blogHeroR, dailyWinR, dailyNomsR, recsR, featDisksR] = await Promise.all([
+  const [musicPool, upcomingR, newsR, eventsR, vertaR, istorijaR, feedR, membersR, gilynR, disksR, ltTopR, worldTopR, blogHeroR, dailyWinR, dailyNomsR, recsR] = await Promise.all([
     getMusicPool(),
     jget('/api/home/list?type=upcoming&limit=100', 8000),
     newsFetch(),
@@ -903,10 +885,8 @@ export default async function V2Page() {
     jget('/api/blog/home-hero'),
     jget('/api/dienos-daina/winners?limit=7'),
     jget('/api/dienos-daina/nominations', 6000),
-    // Reels feed variantai (2026-07-23): koncertų įrašai + „Dėmesio centre"
-    // bendruomenės temos → hero slide'ai (kaip naujienos/dienos daina).
+    // Reels feed variantas: koncertų įrašai → hero slotas.
     jget('/api/koncertu-irasai?limit=6'),
-    jget('/api/diskusijos/recent?featured=1&limit=6', 6000),
   ])
   const members: any[] = membersR?.members ?? []
   const gilynBox: any[] = gilynR?.box ?? []
@@ -930,9 +910,6 @@ export default async function V2Page() {
   const disks: any[] = disksR?.items ?? []
 
   const news: any[] = newsR?.news ?? []
-  // Bendruomenės hero slide'ams — pirmenybė ★ featured temoms; jei jų nėra,
-  // krentam į naujausias (disksR), kad kortelė nebūtų tuščia.
-  const heroDisks: any[] = (featDisksR?.items?.length ? featDisksR.items : disksR?.items) ?? []
   const heroSlides: HeroSlide[] = buildHeroSlides({
     news,
     events,
@@ -943,7 +920,6 @@ export default async function V2Page() {
     worldTop: worldTopR,
     verta,
     recordings: (recsR?.recordings ?? []) as any[],
-    discussions: heroDisks,
   })
 
   const upcomingItems = upcomingSoon.slice(0, 10).map((a: any) => ({

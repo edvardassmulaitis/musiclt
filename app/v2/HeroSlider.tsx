@@ -49,7 +49,10 @@ export type HeroSlide = {
 const slideKey = (s: HeroSlide) => `${s.type}::${s.href}`
 
 /* ─────────────── Hero v2 karuselė (rodyklės + taškai) ─────────────── */
-export default function HeroSlider({ slides }: { slides: HeroSlide[] }) {
+export default function HeroSlider({ slides: allSlides }: { slides: HeroSlide[] }) {
+  // Dienos daina desktop'e rodoma atskirai (aukštai, DienosDainaSection variant='list'),
+  // tad hero karuselėje jos NEdubliuojam — tik mobile reels'uose (Edvardo spec 2026-07-24).
+  const slides = allSlides.filter((s) => s.type !== 'daily_winner')
   const trackRef = useRef<HTMLDivElement>(null)
   const [activeIdx, setActiveIdx] = useState(0)
   const [atStart, setAtStart] = useState(true)

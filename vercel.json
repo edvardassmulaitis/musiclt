@@ -11,6 +11,10 @@
       "schedule": "0 13 * * 0"
     },
     {
+      "path": "/api/internal/legacy-topai",
+      "schedule": "0 19 * * 0"
+    },
+    {
       "path": "/api/admin/internal/score-recalc?limit=1500&older_than=20",
       "schedule": "0 */2 * * *"
     },
