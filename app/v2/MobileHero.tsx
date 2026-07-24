@@ -85,7 +85,7 @@ export default function MobileHero({ slides: allSlides }: { slides: HeroSlide[] 
           if (isChart) {
             // Vizualo prioritetas: atlikėjo/grupės foto → cover_url → YT thumb (fallback).
             // (Edvardo spec 2026-07-25: YT embedai nekokybiški.)
-            const imgs = (t: any) => t ? [t.cover_url, t.artist_image, ytT(t.videoId)] : []
+            const imgs = (t: any) => t ? [t.artist_image, t.cover_url, ytT(t.videoId)] : []
             const tops = (s.chartTops || []).filter((t: any) => imgs(t).some(Boolean)).slice(0, 3)
             const big = tops[0]
             const rest = tops.slice(1, 3)

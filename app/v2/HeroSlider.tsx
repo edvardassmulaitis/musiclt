@@ -192,6 +192,14 @@ function unseenBorder(unseen: boolean): React.CSSProperties {
   return unseen ? { outline: '2px solid var(--accent-orange)', outlineOffset: '0px' } : {}
 }
 
+// Viršelis su fallback'u — jei nuotrauka lūžta, šoka į kitą kandidatą / placeholder.
+function FallbackImg({ srcs, proxy, className }: { srcs: string[]; proxy: number; className?: string }) {
+  const [i, setI] = useState(0)
+  if (i >= srcs.length) return <div className={className} style={{ background: 'rgba(255,255,255,0.06)' }} />
+  // eslint-disable-next-line @next/next/no-img-element
+  return <img src={proxyImgResized(srcs[i], proxy)} alt="" loading="lazy" onError={() => setI(i + 1)} className={className} />
+}
+
 function HeroV2Card({ slide, unseen, voted, onOpen }: { slide: HeroSlide; unseen: boolean; voted?: boolean; onOpen: () => void }) {
   if (slide.type === 'chart_lt' || slide.type === 'chart_world') {
     return <HeroChartCard slide={slide} unseen={unseen} voted={voted} onOpen={onOpen} />
@@ -331,9 +339,9 @@ function HeroChartCard({ slide, unseen, voted, onOpen }: { slide: HeroSlide; uns
   // dubliavimąsi kai to paties atlikėjo 2 dainos aukštai + užpildo trūkstamas foto)
   // → atlikėjo foto (paskutinė išeitis). (Edvardo pastaba 2026-07-24.)
   const ytThumb = (v?: string | null) => v ? `https://img.youtube.com/vi/${v}/hqdefault.jpg` : null
-  // Vizualo prioritetas: albumo cover → atlikėjo foto → YT kadras (fallback).
-  // (Edvardo spec 2026-07-25: YT embedai nekokybiški.)
-  const cover = (t: TopEntry | undefined) => t ? (t.cover_url || t.artist_image || ytThumb(t.videoId)) : null
+  // Vizualo prioritetas: atlikėjo/grupės foto → albumo cover → YT kadras (fallback).
+  // (Edvardo spec 2026-07-25: rodyti atlikėjo profilio foto, ne YT/vinilą.)
+  const covers = (t: TopEntry | undefined) => t ? [t.artist_image, t.cover_url, ytThumb(t.videoId)].filter(Boolean) as string[] : []
 
   const dedupArtists = (entries: TopEntry[]) => {
     const seen = new Set<string>()
@@ -368,24 +376,18 @@ function HeroChartCard({ slide, unseen, voted, onOpen }: { slide: HeroSlide; uns
   })()
 
   const Tile = ({ entry, size }: { entry: TopEntry | undefined; size: 'big' | 'md' | 'sm' }) => {
-    const c = cover(entry)
+    const cs = covers(entry)
     const titleSize = size === 'big' ? 14.5 : size === 'md' ? 12.5 : 11
     const artistSize = size === 'big' ? 12 : size === 'md' ? 10.5 : 10
     const padding = size === 'big' ? '10px 11px 10px' : '7px 8px 7px'
     const numSize = size === 'big' ? 30 : size === 'md' ? 24 : 22
     const numFont = size === 'big' ? 13.5 : 11.5
-    if (!entry || !c) {
+    if (!entry || !cs.length) {
       return <div className="rounded-lg" style={{ background: 'rgba(255,255,255,0.05)', height: '100%', width: '100%' }} />
     }
     return (
       <div className="relative h-full w-full overflow-hidden rounded-lg" style={{ boxShadow: size === 'big' ? '0 6px 22px rgba(0,0,0,0.5)' : '0 4px 14px rgba(0,0,0,0.4)' }}>
-        {/* eslint-disable-next-line @next/next/no-img-element */}
-        <img
-          src={proxyImgResized(c, 480)}
-          alt=""
-          loading="lazy"
-          className="absolute inset-0 h-full w-full object-cover transition-transform duration-300 group-hover:scale-[1.04]"
-        />
+        <FallbackImg srcs={cs} proxy={480} className="absolute inset-0 h-full w-full object-cover transition-transform duration-300 group-hover:scale-[1.04]" />
         <div className="pointer-events-none absolute inset-0" style={{ background: 'linear-gradient(to top, rgba(0,0,0,0.92) 0%, rgba(0,0,0,0.55) 35%, rgba(0,0,0,0.12) 60%, rgba(0,0,0,0) 80%)' }} />
         <span
           className="absolute left-2 top-2 inline-flex items-center justify-center rounded-md font-['Outfit',sans-serif] font-black text-white"
@@ -429,17 +431,17 @@ function HeroChartCard({ slide, unseen, voted, onOpen }: { slide: HeroSlide; uns
         className="relative z-[1] flex h-full flex-col justify-between p-6 pt-3"
         style={{ width: '38%' }}
       >
-        <div className="flex items-center gap-2">
+        <div className="flex flex-col items-start gap-1.5">
           <span
-            className="inline-flex w-fit items-center rounded-md px-2 py-0.5 font-['Outfit',sans-serif] text-[12px] font-bold uppercase tracking-[0.03em] text-white"
-            style={{ background: accent, alignSelf: 'flex-start' }}
+            className="inline-flex w-fit items-center whitespace-nowrap rounded-md px-2 py-0.5 font-['Outfit',sans-serif] text-[12px] font-bold uppercase tracking-[0.03em] text-white"
+            style={{ background: accent }}
           >
             {isLT ? 'LT TOP 30' : 'TOP 40'}
           </span>
-          {/* Balsavai / nebalsavai indikatorius. */}
+          {/* Balsavai / nebalsavai — atskira eilutė po badge (nesquish'ina). */}
           {voted
-            ? <span title="Balsavai" className="inline-flex items-center gap-1 rounded-full bg-black/40 px-2 py-0.5 text-[11px] font-extrabold text-white"><svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="#4ade80" strokeWidth="3.2" strokeLinecap="round" strokeLinejoin="round"><path d="M20 6L9 17l-5-5" /></svg>Balsavai</span>
-            : <span title="Nebalsavai" className="inline-flex items-center gap-1 rounded-full px-2 py-0.5 text-[11px] font-extrabold text-white" style={{ background: accent }}>Balsuok</span>}
+            ? <span title="Balsavai" className="inline-flex items-center gap-1 whitespace-nowrap rounded-full bg-black/40 px-2 py-0.5 text-[11px] font-extrabold text-white"><svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="#4ade80" strokeWidth="3.2" strokeLinecap="round" strokeLinejoin="round"><path d="M20 6L9 17l-5-5" /></svg>Balsavai</span>
+            : <span title="Nebalsavai" className="inline-flex items-center gap-1 whitespace-nowrap rounded-full px-2 py-0.5 text-[11px] font-extrabold text-white" style={{ background: accent }}>Balsuok</span>}
         </div>
 
         {teaser.main && (

@@ -170,7 +170,7 @@ function ChartVoteList({ topType, accent }: { topType: 'lt_top30' | 'top40'; acc
     track_id: e.track_id,
     title: sanitizeTitle(e.tracks?.title || e.title || ''),
     artist: e.tracks?.artists?.name || e.artist_name || '',
-    cover: e.tracks?.cover_url || e.tracks?.artists?.cover_image_url || ytThumbHq(extractYouTubeId(e.tracks?.video_url || null)) || null,
+    cover: e.tracks?.artists?.cover_image_url || e.tracks?.cover_url || ytThumbHq(extractYouTubeId(e.tracks?.video_url || null)) || null,
     videoId: extractYouTubeId(e.tracks?.video_url || null),
     prev: typeof e.prev_position === 'number' ? e.prev_position : null,
     isNew: !!e.is_new,
