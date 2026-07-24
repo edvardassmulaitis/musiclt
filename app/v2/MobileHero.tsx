@@ -51,6 +51,55 @@ export default function MobileHero({ slides: allSlides }: { slides: HeroSlide[] 
           // Kol seen dar neužkrautas (seenReady=false) — traktuojam kaip „seen"
           // (neutralus borderis), kad neblyksėtų oranžinis ant jau skaitytų.
           const isSeen = !seenReady || seenSlides.has(slideKey(s))
+
+          // ── Topo kortelė (mobile juosta): kolažas — #1 didelis + top 2-4 eilutė,
+          //    su dainų vardais. (Edvardo spec 2026-07-24: buvo tik 1 foto + dublis.) ──
+          if (isChart) {
+            const cov = (t: any) => t ? (t.cover_url || ytT(t.videoId) || t.artist_image) : null
+            const tops = (s.chartTops || []).filter((t: any) => cov(t)).slice(0, 4)
+            const big = tops[0]
+            const rest = tops.slice(1, 4)
+            const chartAccent = s.type === 'chart_lt' ? 'var(--accent-orange)' : '#3b82f6'
+            return (
+              <button
+                key={`${s.type}-${s.href}`}
+                type="button"
+                onClick={() => { setReelsIdx(i); setReelsOpen(true) }}
+                className="v2-mhero-card"
+                style={{ border: isSeen ? '2px solid var(--border-default)' : `2px solid ${chartAccent}`, background: '#0b0f1a', display: 'flex', flexDirection: 'column' }}
+              >
+                {/* #1 didelis */}
+                <div style={{ position: 'relative', width: '100%', flex: '1 1 60%', overflow: 'hidden' }}>
+                  {cov(big)
+                    // eslint-disable-next-line @next/next/no-img-element
+                    ? <img src={proxyImgResized(cov(big), 480)} alt="" decoding="async" style={{ width: '100%', height: '100%', objectFit: 'cover', display: 'block' }} />
+                    : <div style={{ width: '100%', height: '100%', background: 'linear-gradient(135deg,#0a1428,#162040)' }} />}
+                  <div style={{ position: 'absolute', inset: 0, background: 'linear-gradient(to top, rgba(0,0,0,0.94) 0%, rgba(0,0,0,0.35) 45%, rgba(0,0,0,0) 70%)' }} />
+                  <span style={{ position: 'absolute', top: 8, left: 8, padding: '3px 7px', borderRadius: 6, fontSize: 11.5, fontWeight: 800, color: '#fff', background: chartAccent, fontFamily: 'Outfit,sans-serif', letterSpacing: '0.02em', textTransform: 'uppercase' }}>{s.type === 'chart_lt' ? 'LT TOP 30' : 'TOP 40'}</span>
+                  <span style={{ position: 'absolute', top: 8, right: 8, width: 22, height: 22, borderRadius: 6, display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 12.5, fontWeight: 900, color: '#fff', background: chartAccent, fontFamily: 'Outfit,sans-serif' }}>1</span>
+                  <div style={{ position: 'absolute', bottom: 0, left: 0, right: 0, padding: '6px 9px 8px', textAlign: 'left' }}>
+                    <p style={{ margin: 0, fontSize: 13, fontWeight: 800, color: '#fff', lineHeight: 1.12, fontFamily: 'Outfit,sans-serif', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{big?.title || ''}</p>
+                    {big?.artist && <p style={{ margin: '1px 0 0', fontSize: 11, fontWeight: 600, color: 'rgba(255,255,255,0.75)', lineHeight: 1.15, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{big.artist}</p>}
+                  </div>
+                </div>
+                {/* top 2-4 eilutė */}
+                {rest.length > 0 && (
+                  <div style={{ display: 'flex', width: '100%', flex: '0 0 38%', gap: 2, background: '#0b0f1a' }}>
+                    {rest.map((t: any, ri: number) => (
+                      <div key={ri} style={{ position: 'relative', flex: 1, overflow: 'hidden' }}>
+                        {/* eslint-disable-next-line @next/next/no-img-element */}
+                        <img src={proxyImgResized(cov(t), 240)} alt="" decoding="async" style={{ width: '100%', height: '100%', objectFit: 'cover', display: 'block' }} />
+                        <div style={{ position: 'absolute', inset: 0, background: 'linear-gradient(to top, rgba(0,0,0,0.85), rgba(0,0,0,0.05) 70%)' }} />
+                        <span style={{ position: 'absolute', top: 3, left: 3, minWidth: 16, height: 16, padding: '0 3px', borderRadius: 4, display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 10.5, fontWeight: 900, color: '#fff', background: 'rgba(0,0,0,0.7)', fontFamily: 'Outfit,sans-serif' }}>{ri + 2}</span>
+                        <span style={{ position: 'absolute', bottom: 2, left: 3, right: 3, fontSize: 9.5, fontWeight: 700, color: 'rgba(255,255,255,0.92)', lineHeight: 1.05, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', fontFamily: 'Outfit,sans-serif' }}>{t.title || ''}</span>
+                      </div>
+                    ))}
+                  </div>
+                )}
+              </button>
+            )
+          }
+
           return (
             <button
               key={`${s.type}-${s.href}`}
