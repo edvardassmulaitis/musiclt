@@ -128,12 +128,25 @@ function TrendBadge({ prev, pos, isNew }: { prev?: number | null; pos: number; i
 /** Inline topas reader'yje — visas sąrašas, balsavimas KAIP regular topo psl.
  *  („+" mygtukas, daug kartų iki 10/daina, votes_per_track), grojimas per
  *  „Muzika" embed sekciją žemiau (onPlay). */
+/** Balsavimo „pill" — rodyklė aukštyn + balsų skaičius greta (kaip like elementas),
+ *  kad būtų aišku, jog galima duoti kelis balsus. touch-action:manipulation nuima
+ *  mobilaus 300ms tap delay (buvo „reikia paspausti du kartus"). */
+function VoteBtn({ n, maxed, readOnly, onVote }: { n: number; maxed: boolean; readOnly?: boolean; onVote: () => void }) {
+  const Arrow = <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.8" strokeLinecap="round" strokeLinejoin="round"><path d="M12 19V5M5 12l7-7 7 7" /></svg>
+  if (readOnly) return n > 0 ? <span className="rdr-vbtn on" aria-label={`${n} balsai`}>{Arrow}<span className="rdr-vbtn-n">{n}</span></span> : null
+  return (
+    <button className={`rdr-vbtn${n > 0 ? ' on' : ''}`} disabled={maxed} onClick={onVote}
+      aria-label="Balsuoti" title={maxed ? 'Pasiektas maks. (10 balsų dainai)' : 'Spausk kelis kartus — gali atiduoti iki 10 balsų'}>
+      {Arrow}<span className="rdr-vbtn-n">{n > 0 ? n : 'Balsuoti'}</span>
+    </button>
+  )
+}
+
 function ChartVoteList({ topType, accent, onPlay }: { topType: 'lt_top30' | 'top40'; accent: string; onPlay: (videoId: string, meta?: { title?: string | null; artist?: string | null; cover?: string | null }) => void }) {
   const WEEKLY = 10
   const [entries, setEntries] = useState<any[]>([])
   const [weekId, setWeekId] = useState<number | null>(null)
   const [counts, setCounts] = useState<Record<number, number>>({})
-  const [busy, setBusy] = useState(false)
   const [loading, setLoading] = useState(true)
   // Balsavimas eina į vote_week_id (einamoji ne-finalizuota savaitė). Jei jos
   // nėra (null) → read-only (rodom rezultatus be „+"). Rodomas topas gali būti
@@ -176,23 +189,27 @@ function ChartVoteList({ topType, accent, onPlay }: { topType: 'lt_top30' | 'top
     return () => { c = true }
   }, [topType])
 
-  const vote = async (track_id: number) => {
-    if (!weekId || busy || readOnly) return
-    if ((counts[track_id] || 0) >= WEEKLY) return
-    setBusy(true)
-    setCounts(p => ({ ...p, [track_id]: (p[track_id] || 0) + 1 }))
-    try {
-      const r = await fetch('/api/top/vote', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ track_id, week_id: weekId, vote_type: 'like', fingerprint: deviceFpSync() }) })
-      if (r.status === 401) { setCounts(p => ({ ...p, [track_id]: Math.max(0, (p[track_id] || 0) - 1) })); window.location.href = '/auth/signin'; return }
-      if (!r.ok) setCounts(p => ({ ...p, [track_id]: Math.max(0, (p[track_id] || 0) - 1) }))
-      else markTopVoted(topType) // prabalsavus — topas pasislepia iš feed'o iki kitos savaitės
-    } catch { setCounts(p => ({ ...p, [track_id]: Math.max(0, (p[track_id] || 0) - 1) })) } finally { setBusy(false) }
+  // Balsavimas — OPTIMISTINIS ir be globalaus locko (kad kelis balsus iš eilės
+  // būtų galima duoti smooth, be „reikia paspausti du kartus" jausmo). Serveris
+  // riboja iki 10/daina; jei atmeta (429) — grąžinam skaičių atgal.
+  const vote = (track_id: number) => {
+    if (!weekId || readOnly) return
+    let allowed = true
+    setCounts(p => { const c = p[track_id] || 0; if (c >= WEEKLY) { allowed = false; return p } return { ...p, [track_id]: c + 1 } })
+    if (!allowed) return
+    fetch('/api/top/vote', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ track_id, week_id: weekId, vote_type: 'like', fingerprint: deviceFpSync() }) })
+      .then(r => {
+        if (r.status === 401) { setCounts(p => ({ ...p, [track_id]: Math.max(0, (p[track_id] || 0) - 1) })); window.location.href = '/auth/signin'; return }
+        if (!r.ok) setCounts(p => ({ ...p, [track_id]: Math.max(0, (p[track_id] || 0) - 1) }))
+        else markTopVoted(topType)
+      })
+      .catch(() => setCounts(p => ({ ...p, [track_id]: Math.max(0, (p[track_id] || 0) - 1) })))
   }
 
   if (loading) return <div className="rdr-load"><span /><span /><span /></div>
   return (
     <div className="rdr-cvl">
-      <div className="rdr-cvl-head">{readOnly ? 'Savaitės rezultatai' : 'Balsuok už mėgstamas'}</div>
+      <div className="rdr-cvl-head">{readOnly ? 'Savaitės rezultatai' : 'Balsuok už mėgstamas · gali kelis kartus (iki 10)'}</div>
       {entries.map(e => {
         const n = counts[e.track_id] || 0
         const maxed = n >= WEEKLY
@@ -204,16 +221,7 @@ function ChartVoteList({ topType, accent, onPlay }: { topType: 'lt_top30' | 'top
               {e.videoId && <span className="rdr-cvl-play"><svg width="13" height="13" viewBox="0 0 24 24" fill="#fff"><path d="M8 5v14l11-7z" /></svg></span>}
             </button>
             <span className="rdr-chart-info"><b>{e.title}</b><i>{e.artist}</i></span>
-            {readOnly
-              ? (n > 0 ? <span className="rdr-cvl-vote voted"><span className="rdr-cvl-mine">{n}</span></span> : null)
-              : (
-                <button className={`rdr-cvl-vote${n > 0 ? ' voted' : ''}`} disabled={maxed} onClick={() => vote(e.track_id)}
-                  aria-label="Balsuoti" title={maxed ? 'Pasiektas maks. balsų' : 'Spausk tiek kartų, kiek nori'}>
-                  {n > 0
-                    ? <span className="rdr-cvl-mine">{n}</span>
-                    : <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="3" strokeLinecap="round"><line x1="12" y1="5" x2="12" y2="19" /><line x1="5" y1="12" x2="19" y2="12" /></svg>}
-                </button>
-              )}
+            <VoteBtn n={n} maxed={maxed} readOnly={readOnly} onVote={() => vote(e.track_id)} />
           </div>
         )
       })}
@@ -233,12 +241,7 @@ function ChartVoteList({ topType, accent, onPlay }: { topType: 'lt_top30' | 'top
                   {e.videoId && <span className="rdr-cvl-play"><svg width="13" height="13" viewBox="0 0 24 24" fill="#fff"><path d="M8 5v14l11-7z" /></svg></span>}
                 </button>
                 <span className="rdr-chart-info"><b>{e.title}</b><i>{e.artist}</i></span>
-                <button className={`rdr-cvl-vote${n > 0 ? ' voted' : ''}`} disabled={maxed || readOnly} onClick={() => vote(e.track_id)}
-                  aria-label="Balsuoti" title={maxed ? 'Pasiektas maks. balsų' : 'Spausk tiek kartų, kiek nori'}>
-                  {n > 0
-                    ? <span className="rdr-cvl-mine">{n}</span>
-                    : <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="3" strokeLinecap="round"><line x1="12" y1="5" x2="12" y2="19" /><line x1="5" y1="12" x2="19" y2="12" /></svg>}
-                </button>
+                <VoteBtn n={n} maxed={maxed} readOnly={readOnly} onVote={() => vote(e.track_id)} />
               </div>
             )
           })}
@@ -2128,6 +2131,13 @@ const REELS_CSS = `
         .rdr-cvl-vote.voted{background:var(--accent-orange);color:#fff}
         .rdr-cvl-vote:disabled{opacity:0.5}
         .rdr-cvl-vote:active:not(:disabled){transform:scale(0.9)}
+        /* Balsavimo pill (rodyklė + count greta) — aišku, kad galima kelis balsus. */
+        .rdr-vbtn{display:inline-flex;align-items:center;gap:5px;flex-shrink:0;height:34px;padding:0 13px;border-radius:999px;border:1.5px solid var(--accent-orange);background:transparent;color:var(--accent-orange);font-family:'Outfit',sans-serif;font-weight:800;font-size:13.5px;line-height:1;cursor:pointer;white-space:nowrap;transition:transform .1s ease,background .15s;-webkit-tap-highlight-color:transparent;touch-action:manipulation;user-select:none}
+        .rdr-vbtn.on{background:var(--accent-orange);color:#fff}
+        .rdr-vbtn:disabled{opacity:.55;cursor:default}
+        .rdr-vbtn:active:not(:disabled){transform:scale(0.93)}
+        .rdr-vbtn svg{display:block;flex-shrink:0}
+        .rdr-vbtn-n{min-width:6px;text-align:center;font-variant-numeric:tabular-nums}
         .rdr-cvl-mine{font-size:16px;font-weight:900}
 
         /* ── „Muzika" sekcija — standartiniai YouTube embed'ai po tekstu (16/9,

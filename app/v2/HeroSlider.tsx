@@ -42,6 +42,7 @@ export type HeroSlide = {
   fresh24?: boolean                 // (deprecated — nebenaudojam; border rodo „neskaityta")
   songs?: { videoId: string; title: string; artist?: string | null; songId?: number | null; score?: number; video_views?: number }[]  // news „susijusi muzika" (tikri track'ai su song_id → native grotuvas; score/video_views → populiarumo rikiavimui)
   lineup?: { name: string; slug: string; image?: string | null }[]      // event — pilnas lineup (avatarai + nuorodos)
+  teaser?: { lead: string; main: string; sub?: string | null } | null   // topo kortelės adaptyvus tizeris (serveryje, iš PILNO topo)
 }
 
 // „Peržiūrėta" raktas — TAS PAT formatas kaip reels ReelsReader.slideKey
@@ -329,7 +330,9 @@ function HeroChartCard({ slide, unseen, onOpen }: { slide: HeroSlide; unseen: bo
     .sort((a, b) => b.jump - a.jump)[0]
   const newEntries = tops.filter(t => t.trend === 'new')
   const leaderNew = !!tops[0] && (tops[0].trend === 'new' || (tops[0].prevPos != null && tops[0].prevPos !== 1))
-  const teaser: { lead: string; main: string; sub?: string } = (() => {
+  // Serveryje suskaičiuotas tizeris (iš PILNO topo) turi pirmenybę; fallback —
+  // iš top-5 (jei serveris negrąžino).
+  const teaser: { lead: string; main: string; sub?: string | null } = slide.teaser || (() => {
     if (leaderNew && tops[0]) return { lead: '🏆 Naujas lyderis', main: tops[0].title, sub: tops[0].artist }
     if (climb && climb.jump >= 3) return { lead: `▲ Didžiausias šuolis · +${climb.jump}`, main: climb.t.title, sub: climb.t.artist }
     if (newEntries.length) {

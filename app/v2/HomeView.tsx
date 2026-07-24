@@ -348,6 +348,32 @@ function buildHeroSlides(input: {
   const worldTop = parseTop(input.worldTop)
   const worldTopDate = input.worldTop?.week?.created_at || input.worldTop?.week?.week_start || ''
 
+  // ── Adaptyvus topo tizeris — iš PILNO topo (ne tik top-5), kad rastų TIKRĄ
+  //    didžiausią šuolį / naują lyderį (Edvardo pastaba 2026-07-24: rodė +4,
+  //    nors realiai buvo +17). Parenka įdomiausią kampą. ──
+  const chartTeaser = (raw: any): { lead: string; main: string; sub?: string | null } | null => {
+    const es = ((raw?.entries ?? []) as any[]).map((e) => ({
+      pos: e.position,
+      prev: typeof e.prev_position === 'number' ? e.prev_position : null,
+      isNew: !!e.is_new,
+      jump: ((typeof e.prev_position === 'number' ? e.prev_position : e.position) - e.position),
+      title: sanitizeTitle(e.tracks?.title || e.title || ''),
+      artist: e.tracks?.artists?.name || e.artist_name || '',
+    })).filter((m) => m.title)
+    if (!es.length) return null
+    const dedup = (arr: any[]) => { const s = new Set<string>(); const o: string[] = []; for (const m of arr) { const a = (m.artist || '').trim(); if (a && !s.has(a)) { s.add(a); o.push(a) } } return o }
+    const leader = es.find((m) => m.pos === 1) || es[0]
+    const leaderNew = !!leader && (leader.isNew || (leader.prev != null && leader.prev !== 1))
+    const climb = es.filter((m) => m.jump > 0).sort((a, b) => b.jump - a.jump)[0]
+    const newEntries = es.filter((m) => m.isNew)
+    if (leaderNew && leader) return { lead: '🏆 Naujas lyderis', main: leader.title, sub: leader.artist }
+    if (climb && climb.jump >= 3) return { lead: `▲ Didžiausias šuolis · +${climb.jump}`, main: climb.title, sub: climb.artist }
+    if (newEntries.length) { const names = dedup(newEntries).slice(0, 3); return { lead: `🔥 ${newEntries.length} ${newEntries.length === 1 ? 'nauja daina' : 'naujos dainos'} tope`, main: names.join(' · ') } }
+    return { lead: 'Šią savaitę tope', main: dedup(es).slice(0, 3).join(' · ') }
+  }
+  const ltTeaser = chartTeaser(input.ltTop)
+  const worldTeaser = chartTeaser(input.worldTop)
+
   // Topai — VISADA feed'o priekyje (daugiau visibility; Edvardo spec 2026-07-24).
   // Vizualas: dainos viršelis → dainos YouTube kadras → atlikėjo foto.
   const chartSlides: HeroSlide[] = []
@@ -359,6 +385,7 @@ function buildHeroSlides(input: {
     songTitle: ltTop[0]?.title || null, songArtist: ltTop[0]?.artist || null,
     songCover: ltTop[0]?.cover_url || ytThumb(ltTop[0]?.videoId) || ltTop[0]?.artist_image || null,
     chartTops: ltTop.slice(0, 5),
+    teaser: ltTeaser,
   })
   if (worldTop.length > 0) chartSlides.push({
     type: 'chart_world', chip: 'TOP 40', chipBg: '#1d4ed8', title: 'TOP 40',
@@ -368,6 +395,7 @@ function buildHeroSlides(input: {
     songTitle: worldTop[0]?.title || null, songArtist: worldTop[0]?.artist || null,
     songCover: worldTop[0]?.cover_url || ytThumb(worldTop[0]?.videoId) || worldTop[0]?.artist_image || null,
     chartTops: worldTop.slice(0, 5),
+    teaser: worldTeaser,
   })
   const dated: { sortMs: number; slide: HeroSlide }[] = []
 
