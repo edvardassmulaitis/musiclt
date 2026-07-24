@@ -8,7 +8,7 @@
 // onOpenTrack neprivalomas: jei paduotas (homepage) — naudoja tėvo track
 // modalą; jei ne (atrasti) — komponentas pats valdo vidinį <HomeTrackModal>.
 
-import { useCallback, useEffect, useState } from 'react'
+import { useCallback, useEffect, useRef, useState } from 'react'
 import { deviceFpSync } from '@/lib/device-fp'
 import { createPortal } from 'react-dom'
 import Link from 'next/link'
@@ -332,6 +332,87 @@ function PastNomCard({ n, onOpenTrack, maxVotes = 1, compact = false }: { n: Nom
   )
 }
 
+// ───────────────────────── daily-winner YT player ─────────────────────────
+// „Dienos daina" laimėtojo grojimas — TA PATI logika kaip atlikėjo psl.:
+// YT IFrame API + PRE-CREATED cued player (autoplay=0) ant youtube-nocookie
+// host'o. Grojimas paleidžiamas SINKRONIŠKAI tap handler'yje (playVideo per
+// user gesture) → 1 tap su garsu ir ant mobile (iOS/Android).
+//
+// Kodėl ne plain <iframe autoplay=1>? Mobile'e autoplay=1 suveikia tik jei
+// iframe'as JAU DOM'e gesture momentu. Mūsų senoji reel logika iframe'ą
+// mount'indavo PO tap'o (state→rerender) → reikėdavo dvigubo tap'o.
+// (Edvardo spec 2026-07-24 — „auto play nesuveikia, reik paimt ta pacia
+// logika is artist page".)
+function DailyWinnerYtPlayer({ videoId, posterUrl, title }: { videoId: string; posterUrl?: string | null; title?: string }) {
+  const containerRef = useRef<HTMLDivElement>(null)
+  const playerRef = useRef<any>(null)
+  const [apiReady, setApiReady] = useState(false)
+  const [playing, setPlaying] = useState(false)
+  const playingRef = useRef(false)
+
+  // IFrame API scriptas — pakraunam vieną kartą per sesiją.
+  useEffect(() => {
+    const W = window as any
+    if (W.YT && W.YT.Player) { setApiReady(true); return }
+    if (!document.getElementById('yt-iframe-api')) {
+      const s = document.createElement('script')
+      s.id = 'yt-iframe-api'
+      s.src = 'https://www.youtube.com/iframe_api'
+      document.head.appendChild(s)
+    }
+    const prev = W.onYouTubeIframeAPIReady
+    W.onYouTubeIframeAPIReady = () => { if (typeof prev === 'function') prev(); setApiReady(true) }
+    const iv = window.setInterval(() => { if (W.YT && W.YT.Player) { setApiReady(true); window.clearInterval(iv) } }, 120)
+    return () => window.clearInterval(iv)
+  }, [])
+
+  // PRE-CREATE cued player (autoplay=0) kai tik turim API + videoId → iframe'as
+  // JAU DOM'e prieš pirmą tap'ą. Grojimas per gesture playVideo (žr. start()).
+  useEffect(() => {
+    if (!apiReady || !videoId || !containerRef.current) return
+    if (playerRef.current) return
+    const W = window as any
+    const inner = document.createElement('div')
+    inner.style.width = '100%'
+    inner.style.height = '100%'
+    containerRef.current.innerHTML = ''
+    containerRef.current.appendChild(inner)
+    playerRef.current = new W.YT.Player(inner, {
+      // youtube-nocookie — apeina Safari ITP → nebe „Klaida 153" (žr. atlikėjo psl.).
+      host: 'https://www.youtube-nocookie.com',
+      videoId,
+      width: '100%',
+      height: '100%',
+      playerVars: { autoplay: 0, controls: 1, modestbranding: 1, rel: 0, playsinline: 1, iv_load_policy: 3, enablejsapi: 1, origin: typeof window !== 'undefined' ? window.location.origin : undefined },
+      events: {
+        // Jei vartotojas jau paspaudė (dar player'iui kuriantis) — paleidžiam.
+        onReady: (e: any) => { if (playingRef.current) { try { e.target.playVideo() } catch { /* ignore */ } } },
+      },
+    })
+  }, [apiReady, videoId])
+
+  useEffect(() => () => { try { playerRef.current?.destroy() } catch { /* ignore */ } playerRef.current = null }, [])
+
+  const start = () => {
+    playingRef.current = true
+    setPlaying(true)
+    try { playerRef.current?.playVideo?.() } catch { /* ignore */ }
+  }
+
+  return (
+    <div className="relative aspect-video w-full bg-[var(--cover-placeholder)]">
+      <div ref={containerRef} className={`absolute inset-0 h-full w-full ${playing ? '' : 'pointer-events-none opacity-0'}`} />
+      {!playing && (
+        <button type="button" onClick={start} className="group absolute inset-0 h-full w-full cursor-pointer border-0 bg-transparent p-0" aria-label="Groti">
+          {posterUrl && (/* eslint-disable-next-line @next/next/no-img-element */<img src={proxyImgResized(posterUrl, 640)} alt={title || ''} loading="lazy" decoding="async" className="h-full w-full object-cover" />)}
+          <span className="absolute inset-0 bg-gradient-to-t from-black/35 to-transparent transition-colors group-hover:from-black/45" />
+          <span className="absolute bottom-3 right-3 flex h-12 w-12 items-center justify-center rounded-full bg-[var(--accent-orange)] text-white shadow-[0_8px_24px_rgba(249,115,22,0.5)] transition-transform group-hover:scale-105"><Ic d={PLAY_D} size={20} filled /></span>
+        </button>
+      )}
+    </div>
+  )
+}
+
 // ───────────────────────── main section ─────────────────────────
 export function DienosDainaSection({ onOpenTrack, variant = 'inline', headerVariant = 'plain' }: { onOpenTrack?: (t: any) => void; variant?: 'inline' | 'stacked' | 'list' | 'reel'; headerVariant?: 'plain' | 'row' }) {
   const [noms, setNoms] = useState<Nomination[]>([])
@@ -348,7 +429,6 @@ export function DienosDainaSection({ onOpenTrack, variant = 'inline', headerVari
   const [voteErr, setVoteErr] = useState('')
   // Vidinis track modalas — naudojamas tik kai tėvas nepaduoda onOpenTrack.
   const [innerTrack, setInnerTrack] = useState<any | null>(null)
-  const [winnerPlaying, setWinnerPlaying] = useState(false)
   const [votersOf, setVotersOf] = useState<{ title: string; voters: Proposer[]; anon: number } | null>(null)
   const openTrack = onOpenTrack || setInnerTrack
 
@@ -427,6 +507,24 @@ export function DienosDainaSection({ onOpenTrack, variant = 'inline', headerVari
   const winnerTrackId = winner?.tracks?.id
   const ydayBest = ydaySorted.filter(n => n.tracks!.id !== winnerTrackId).slice(0, 12)
   const ydayMax = Math.max(1, winner?.weighted_votes || winner?.total_votes || 0, ...ydaySorted.map(n => n.weighted_votes || n.votes || 0))
+
+  // „Vakar dalyvavo N" ženkliukas ant laimėtojo kortelės — paspaudus atsidaro
+  // TAS PATS `ydayOpen` modalas (vakar kandidatai + siūlytojai). Bendras
+  // elementas reel + list (homepage) variantams. (Edvardo spec 2026-07-24 —
+  // „vakar rezultatai naikinam, idedam skaiciuka ant kurio paspaudus atsidaro
+  // modalas su vakar kandidatais ir siulytojais".)
+  const YdayBadge = ydaySorted.length > 0 ? (
+    <button
+      type="button"
+      onClick={openYesterday}
+      aria-label={`Vakar dalyvavo ${ydaySorted.length} — žiūrėti visus`}
+      title="Vakar dienos kandidatai ir siūlytojai"
+      className="inline-flex shrink-0 items-center gap-1.5 rounded-full border border-[var(--border-default)] bg-[var(--bg-hover)] px-2.5 py-1 font-['Outfit',sans-serif] text-[11px] font-extrabold text-[var(--text-secondary)] transition-colors hover:border-[var(--accent-orange)] hover:text-[var(--accent-orange)]"
+    >
+      <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.4" strokeLinecap="round"><line x1="4" y1="7" x2="20" y2="7" /><line x1="4" y1="12" x2="20" y2="12" /><line x1="4" y1="17" x2="14" y2="17" /></svg>
+      Vakar dalyvavo {ydaySorted.length}
+    </button>
+  ) : null
 
   // headerVariant='row' — vientisas stilius su kitomis /atrasti eilėmis (accent bar
   // + section-title-size + „Visi →"). 'plain' — homepage stilius (didelis h2).
@@ -691,19 +789,13 @@ export function DienosDainaSection({ onOpenTrack, variant = 'inline', headerVari
               <div className="mt-3.5 border-t border-[var(--border-default)] pt-3.5">
                 <div className="mb-2 font-['Outfit',sans-serif] text-[11px] font-extrabold uppercase tracking-[0.1em] text-[var(--accent-orange)]">Vakar laimėjo</div>
                 <div className="overflow-hidden rounded-xl border border-[rgba(249,115,22,0.35)] bg-[var(--bg-surface)]">
-                  <div className="relative aspect-video w-full bg-[var(--cover-placeholder)]">
-                    {winnerPlaying && wyt ? (
-                      <iframe
-                        src={`https://www.youtube.com/embed/${wyt}?autoplay=1&rel=0`}
-                        title={sanitizeTitle(wt.title)}
-                        allow="autoplay; encrypted-media; picture-in-picture"
-                        allowFullScreen
-                        className="absolute inset-0 h-full w-full border-0"
-                      />
-                    ) : (
+                  {wyt ? (
+                    <DailyWinnerYtPlayer videoId={wyt} posterUrl={wImg} title={sanitizeTitle(wt.title)} />
+                  ) : (
+                    <div className="relative aspect-video w-full bg-[var(--cover-placeholder)]">
                       <button
                         type="button"
-                        onClick={() => { if (wyt) setWinnerPlaying(true); else openTrack({ id: wt.id, title: wt.title, slug: wt.slug, cover_url: wt.cover_url, video_url: wt.video_url, artists: wt.artists }) }}
+                        onClick={() => openTrack({ id: wt.id, title: wt.title, slug: wt.slug, cover_url: wt.cover_url, video_url: wt.video_url, artists: wt.artists })}
                         className="group absolute inset-0 h-full w-full cursor-pointer border-0 bg-transparent p-0"
                         aria-label="Groti"
                       >
@@ -711,8 +803,8 @@ export function DienosDainaSection({ onOpenTrack, variant = 'inline', headerVari
                         <span className="absolute inset-0 bg-gradient-to-t from-black/35 to-transparent transition-colors group-hover:from-black/45" />
                         <span className="absolute bottom-2.5 right-2.5 flex h-11 w-11 items-center justify-center rounded-full bg-[var(--accent-orange)] text-white shadow-[0_8px_24px_rgba(249,115,22,0.5)] transition-transform group-hover:scale-105"><Ic d={PLAY_D} size={18} filled /></span>
                       </button>
-                    )}
-                  </div>
+                    </div>
+                  )}
                   <div className="px-3 py-2.5">
                     <div className="flex items-start justify-between gap-2">
                       <button
@@ -728,6 +820,7 @@ export function DienosDainaSection({ onOpenTrack, variant = 'inline', headerVari
                     {winner.proposer && (winner.proposer.username || winner.proposer.full_name) && (
                       <span className="mt-1 flex min-w-0 items-center gap-1 text-[11px] text-[var(--text-faint)]"><span className="shrink-0 text-[var(--text-faint)]" title="pasiūlė"><Ic d={SUGG_D} size={12} /></span><MiniAv p={winner.proposer} size={15} /><span className="truncate font-semibold text-[var(--text-secondary)]">{winner.proposer.username || winner.proposer.full_name}</span></span>
                     )}
+                    {YdayBadge && <div className="mt-2.5">{YdayBadge}</div>}
                   </div>
                 </div>
               </div>
@@ -748,17 +841,17 @@ export function DienosDainaSection({ onOpenTrack, variant = 'inline', headerVari
               <div>
                 <div className="mb-2 font-['Outfit',sans-serif] text-[11px] font-extrabold uppercase tracking-[0.1em] text-[var(--accent-orange)]">Vakar laimėjo</div>
                 <div className="overflow-hidden rounded-xl border border-[rgba(249,115,22,0.35)] bg-[var(--bg-surface)]">
-                  <div className="relative aspect-video w-full bg-[var(--cover-placeholder)]">
-                    {winnerPlaying && wyt ? (
-                      <iframe src={`https://www.youtube.com/embed/${wyt}?autoplay=1&rel=0&playsinline=1`} title={sanitizeTitle(wt.title)} allow="autoplay; encrypted-media; picture-in-picture" allowFullScreen className="absolute inset-0 h-full w-full border-0" />
-                    ) : (
-                      <button type="button" onClick={() => { if (wyt) setWinnerPlaying(true); else openTrack({ id: wt.id, title: wt.title, slug: wt.slug, cover_url: wt.cover_url, video_url: wt.video_url, artists: wt.artists }) }} className="group absolute inset-0 h-full w-full cursor-pointer border-0 bg-transparent p-0" aria-label="Groti">
+                  {wyt ? (
+                    <DailyWinnerYtPlayer videoId={wyt} posterUrl={wImg} title={sanitizeTitle(wt.title)} />
+                  ) : (
+                    <div className="relative aspect-video w-full bg-[var(--cover-placeholder)]">
+                      <button type="button" onClick={() => openTrack({ id: wt.id, title: wt.title, slug: wt.slug, cover_url: wt.cover_url, video_url: wt.video_url, artists: wt.artists })} className="group absolute inset-0 h-full w-full cursor-pointer border-0 bg-transparent p-0" aria-label="Groti">
                         {wImg && (/* eslint-disable-next-line @next/next/no-img-element */<img src={proxyImgResized(wImg, 640)} alt={sanitizeTitle(wt.title)} loading="lazy" decoding="async" className="h-full w-full object-cover" />)}
                         <span className="absolute inset-0 bg-gradient-to-t from-black/35 to-transparent transition-colors group-hover:from-black/45" />
                         <span className="absolute bottom-3 right-3 flex h-12 w-12 items-center justify-center rounded-full bg-[var(--accent-orange)] text-white shadow-[0_8px_24px_rgba(249,115,22,0.5)] transition-transform group-hover:scale-105"><Ic d={PLAY_D} size={20} filled /></span>
                       </button>
-                    )}
-                  </div>
+                    </div>
+                  )}
                   <div className="px-3.5 py-3">
                     <div className="flex items-start justify-between gap-2">
                       <button type="button" onClick={() => openTrack({ id: wt.id, title: wt.title, slug: wt.slug, cover_url: wt.cover_url, video_url: wt.video_url, artists: wt.artists })} className="min-w-0 flex-1 cursor-pointer border-0 bg-transparent p-0 text-left">
@@ -771,25 +864,12 @@ export function DienosDainaSection({ onOpenTrack, variant = 'inline', headerVari
                       <span className="mt-1.5 flex min-w-0 items-center gap-1 text-[11px] text-[var(--text-faint)]"><span className="shrink-0 text-[var(--text-faint)]" title="pasiūlė"><Ic d={SUGG_D} size={12} /></span><MiniAv p={winner.proposer} size={15} /><span className="truncate font-semibold text-[var(--text-secondary)]">{winner.proposer.username || winner.proposer.full_name}</span></span>
                     )}
                     {winner.winning_comment && <p className="m-0 mt-1.5 line-clamp-2 text-[12.5px] italic text-[var(--text-muted)]">„{winner.winning_comment}"</p>}
+                    {YdayBadge && <div className="mt-2.5">{YdayBadge}</div>}
                   </div>
                 </div>
               </div>
             )
           })()}
-
-          {/* 2. Vakar dienos rezultatai (runner-ups, be balsavimo) */}
-          {ydayBest.length > 0 && (
-            <div>
-              <div className="mb-2.5 font-['Outfit',sans-serif] text-[11px] font-extrabold uppercase tracking-[0.1em] text-[var(--text-faint)]">Vakar rezultatai</div>
-              <div className="flex flex-col gap-3">
-                {ydayBest.map((n) => {
-                  const votes = n.weighted_votes || n.votes || 0
-                  const level = votes > 0 ? Math.max(1, Math.round((votes / ydayMax) * 5)) : 0
-                  return <ListRow key={n.id} t={n.tracks!} level={level} proposer={n.proposer} right={<span className="shrink-0 self-center whitespace-nowrap text-[12px] font-bold text-[var(--text-faint)]">{votes} t.</span>} />
-                })}
-              </div>
-            </div>
-          )}
 
           {/* 3. Šiandien siūloma — kandidatai + balsavimas + MAIN CTA */}
           <div>
