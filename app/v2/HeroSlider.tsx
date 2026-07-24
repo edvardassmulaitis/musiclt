@@ -8,7 +8,7 @@
 import { useRef, useState, useEffect } from 'react'
 import Link from 'next/link'
 import { proxyImgResized } from '@/lib/img-proxy'
-import { isTopVoted, chartTypeToTop } from '@/lib/top-voted'
+import { isTopVoted, chartTypeToTop, fetchTopVoted } from '@/lib/top-voted'
 import { useHeroSeen } from './useHeroSeen'
 
 export type TopEntry = { pos: number; track_id?: number; title: string; artist: string; cover_url: string | null; artist_image: string | null; trend: string; prevPos?: number | null; wks?: number; slug?: string; artist_slug?: string; videoId?: string | null }
@@ -54,12 +54,28 @@ const slideKey = (s: HeroSlide) => `${s.type}::${s.href}`
 export default function HeroSlider({ slides: allSlides }: { slides: HeroSlide[] }) {
   // Dienos daina desktop'e rodoma atskirai (aukštai, DienosDainaSection variant='list'),
   // tad hero karuselėje jos NEdubliuojam — tik mobile reels'uose (Edvardo spec 2026-07-24).
-  // Prabalsuoti topai pasislepia iki kitos savaitės (client-side, po mount).
+  // Prabalsuoti topai pasislepia iki kitos savaitės. localStorage = greitas
+  // optimistinis slėpimas; serverio patikra (pagal IP/user) — kad ir incognito
+  // sesijoj neatrodytų šviežias. (Edvardo spec 2026-07-24.)
   const [mounted, setMounted] = useState(false)
-  useEffect(() => { setMounted(true) }, [])
+  const [votedCharts, setVotedCharts] = useState<Set<string>>(new Set())
+  useEffect(() => {
+    setMounted(true)
+    const types = [...new Set(allSlides.map(s => chartTypeToTop(s.type)).filter(Boolean) as string[])]
+    if (!types.length) return
+    let on = true
+    Promise.all(types.map(async t => ({ t, v: await fetchTopVoted(t) }))).then(rs => {
+      if (!on) return
+      const set = new Set<string>()
+      for (const r of rs) if (r.v) set.add(r.t)
+      setVotedCharts(set)
+    })
+    return () => { on = false }
+  }, [allSlides])
   const slides = allSlides.filter((s) => {
     if (s.type === 'daily_winner') return false
-    if (mounted && isTopVoted(chartTypeToTop(s.type))) return false
+    const tt = chartTypeToTop(s.type)
+    if (mounted && tt && (isTopVoted(tt) || votedCharts.has(tt))) return false
     return true
   })
   const trackRef = useRef<HTMLDivElement>(null)

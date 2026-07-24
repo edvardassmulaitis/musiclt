@@ -10,15 +10,32 @@ import { proxyImgResized } from '@/lib/img-proxy'
 import { useSite } from '@/components/SiteContext'
 import type { HeroSlide } from './HeroSlider'
 import { ReelsOverlay, ChartBottomSheet, DailyVoteSheet, slideKey } from './reels/ReelsReader'
-import { isTopVoted, chartTypeToTop } from '@/lib/top-voted'
+import { isTopVoted, chartTypeToTop, fetchTopVoted } from '@/lib/top-voted'
 import { useHeroSeen } from './useHeroSeen'
 
 export default function MobileHero({ slides: allSlides }: { slides: HeroSlide[] }) {
   const { dk } = useSite()
-  // Prabalsuoti topai pasislepia iš juostos/reels iki kitos savaitės (po mount).
+  // Prabalsuoti topai pasislepia iš juostos/reels iki kitos savaitės. localStorage
+  // + serverio patikra (IP/user), kad ir incognito sesijoj neatrodytų šviežias.
   const [mounted, setMounted] = useState(false)
-  useEffect(() => { setMounted(true) }, [])
-  const slides = allSlides.filter((s) => !(mounted && isTopVoted(chartTypeToTop(s.type))))
+  const [votedCharts, setVotedCharts] = useState<Set<string>>(new Set())
+  useEffect(() => {
+    setMounted(true)
+    const types = [...new Set(allSlides.map(s => chartTypeToTop(s.type)).filter(Boolean) as string[])]
+    if (!types.length) return
+    let on = true
+    Promise.all(types.map(async t => ({ t, v: await fetchTopVoted(t) }))).then(rs => {
+      if (!on) return
+      const set = new Set<string>()
+      for (const r of rs) if (r.v) set.add(r.t)
+      setVotedCharts(set)
+    })
+    return () => { on = false }
+  }, [allSlides])
+  const slides = allSlides.filter((s) => {
+    const tt = chartTypeToTop(s.type)
+    return !(mounted && tt && (isTopVoted(tt) || votedCharts.has(tt)))
+  })
   const [reelsOpen, setReelsOpen] = useState(false)
   const [reelsIdx, setReelsIdx] = useState(0)
   // „peržiūrėta" žymėjimas — prisijungusiems SURIŠTA per įrenginius (server),

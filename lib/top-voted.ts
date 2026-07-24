@@ -34,3 +34,13 @@ export function isTopVoted(topType: string | null): boolean {
     return v > Date.now()
   } catch { return false }
 }
+
+// Serverio patikra (pagal user_id / IP) — ar jau balsuota tame tope. Naudojama,
+// kad prabalsuoto topo kortelė pasislėptų ir naujoj (incognito) sesijoj.
+export async function fetchTopVoted(topType: string): Promise<boolean> {
+  try {
+    const r = await fetch(`/api/top/voted?type=${topType}`, { cache: 'no-store' })
+    const d = await r.json()
+    return !!d.voted
+  } catch { return false }
+}
