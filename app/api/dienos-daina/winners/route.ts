@@ -59,6 +59,27 @@ export async function GET(req: Request) {
         }
       }
     } catch {}
+
+    // Legacy laimėtojai (scrape) neturi daily_song_nominations → siūlytoją imam iš
+    // daily_song_picks (tos dienos + tos dainos pick'o autorius). (Edvardo 2026-07-24.)
+    try {
+      const need = winners.filter(w => !w.proposer && w.track_id && w.date)
+      if (need.length > 0) {
+        const dts = Array.from(new Set(need.map(w => w.date)))
+        const tids = Array.from(new Set(need.map(w => w.track_id)))
+        const { data: picks } = await supabase
+          .from('daily_song_picks')
+          .select('picked_on, track_id, author_id, profiles:profiles!daily_song_picks_author_id_fkey ( username, full_name, avatar_url )')
+          .in('picked_on', dts)
+          .in('track_id', tids)
+        const pByKey: Record<string, any> = {}
+        for (const p of (picks || []) as any[]) pByKey[`${p.picked_on}|${p.track_id}`] = p
+        for (const w of need) {
+          const p = pByKey[`${w.date}|${w.track_id}`]
+          if (p) w.proposer = Array.isArray(p.profiles) ? p.profiles[0] : p.profiles
+        }
+      }
+    } catch {}
   }
 
   return NextResponse.json({ winners })

@@ -147,9 +147,8 @@ export default function MobileHero({ slides: allSlides }: { slides: HeroSlide[] 
                     <svg width="12" height="12" viewBox="0 0 24 24" fill="#fff" aria-hidden><path d="M8 5v14l11-7z" /></svg>
                   </span>
                   <div style={{ position: 'absolute', bottom: 0, left: 0, right: 0, padding: '6px 9px 8px', textAlign: 'left' }}>
-                    <span style={{ display: 'inline-block', fontSize: 9.5, fontWeight: 800, color: ddAccent, letterSpacing: '0.05em', textTransform: 'uppercase', fontFamily: 'Outfit,sans-serif', marginBottom: 2 }}>🏆 {dd.wonLabel}</span>
+                    <span style={{ display: 'inline-block', fontSize: 9.5, fontWeight: 800, color: ddAccent, letterSpacing: '0.05em', textTransform: 'uppercase', fontFamily: 'Outfit,sans-serif', marginBottom: 2 }}>{dd.wonLabel}</span>
                     <p style={{ margin: 0, fontSize: 13, fontWeight: 800, color: '#fff', lineHeight: 1.12, fontFamily: 'Outfit,sans-serif', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{dd.winner.title}</p>
-                    {dd.winner.artist && <p style={{ margin: '1px 0 0', fontSize: 11, fontWeight: 600, color: 'rgba(255,255,255,0.75)', lineHeight: 1.15, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{dd.winner.artist}</p>}
                     {(dd.proposer || dd.winner.votes > 0) && (
                       <div style={{ display: 'flex', alignItems: 'center', gap: 6, marginTop: 3 }}>
                         {dd.proposer && (
@@ -180,10 +179,7 @@ export default function MobileHero({ slides: allSlides }: { slides: HeroSlide[] 
                         // eslint-disable-next-line @next/next/no-img-element
                         ? <img src={proxyImgResized(dd.today.cover, 96)} alt="" decoding="async" style={{ width: 30, height: 30, borderRadius: 6, objectFit: 'cover', flexShrink: 0 }} />
                         : <span style={{ width: 30, height: 30, borderRadius: 6, background: 'rgba(255,255,255,0.1)', flexShrink: 0 }} />}
-                      <span style={{ minWidth: 0, flex: 1 }}>
-                        <span style={{ display: 'block', fontSize: 11, fontWeight: 700, color: '#fff', lineHeight: 1.1, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', fontFamily: 'Outfit,sans-serif' }}>{dd.today.title}</span>
-                        {dd.today.artist && <span style={{ display: 'block', fontSize: 9.5, fontWeight: 500, color: 'rgba(255,255,255,0.6)', lineHeight: 1.1, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{dd.today.artist}</span>}
-                      </span>
+                      <span style={{ minWidth: 0, flex: 1, display: 'block', fontSize: 11, fontWeight: 700, color: '#fff', lineHeight: 1.15, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', fontFamily: 'Outfit,sans-serif' }}>{dd.today.artist || dd.today.title}</span>
                       {dd.today.votes > 0 && (
                         <span style={{ display: 'inline-flex', alignItems: 'center', gap: 2, fontSize: 10, fontWeight: 800, color: 'rgba(255,255,255,0.85)', flexShrink: 0 }}>
                           <svg width="10" height="10" viewBox="0 0 24 24" fill="var(--accent-orange)" aria-hidden><path d="M20.84 4.61a5.5 5.5 0 0 0-7.78 0L12 5.67l-1.06-1.06a5.5 5.5 0 0 0-7.78 7.78l1.06 1.06L12 21.23l7.78-7.78 1.06-1.06a5.5 5.5 0 0 0 0-7.78z" /></svg>

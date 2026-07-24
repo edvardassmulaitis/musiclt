@@ -578,6 +578,31 @@ export function DienosDainaSection({ onOpenTrack, variant = 'inline', headerVari
   )
 
   if (loading) {
+    // Reel'e — vertikalus skeleton'as (winner kortelė + kelios eilutės), kad
+    // pereinant iš naujienos NEmirksėtų tuščias header+footer. (Edvardo 2026-07-24.)
+    if (variant === 'reel') {
+      return (
+        <div className="flex flex-col gap-5">
+          <div>
+            <div className="mb-2"><Skel w={96} h={11} r={3} /></div>
+            <div className="overflow-hidden rounded-xl border border-[var(--border-default)] bg-[var(--bg-surface)]">
+              <Skel w="100%" h={176} r={0} />
+              <div className="px-3.5 py-3">
+                <Skel w="70%" h={15} /><div className="mt-1.5"><Skel w="45%" h={12} /></div>
+              </div>
+            </div>
+          </div>
+          <div>
+            <div className="mb-2.5"><Skel w={110} h={11} r={3} /></div>
+            <div className="flex flex-col gap-3">
+              {Array(3).fill(null).map((_, i) => (
+                <div key={i} className="flex items-center gap-2.5"><Skel w={44} h={44} r={9} /><div className="flex-1"><Skel w="65%" h={13} /><div className="mt-1"><Skel w="40%" h={11} /></div></div></div>
+              ))}
+            </div>
+          </div>
+        </div>
+      )
+    }
     return (
       <>
         <div className="mb-3.5 flex items-center justify-between gap-3">
@@ -1013,16 +1038,33 @@ export function DienosDainaSection({ onOpenTrack, variant = 'inline', headerVari
               o po sąrašo — nuoroda į visą istoriją (footeryje). */}
           {recentWinners.filter(w => w.tracks).length > 0 && (
             <div>
-              <div className="mb-2.5 font-['Outfit',sans-serif] text-[11px] font-extrabold uppercase tracking-[0.1em] text-[var(--text-faint)]">Anksčiau laimėjo</div>
-              <div className="flex flex-col gap-3">
-                {recentWinners.filter(w => w.tracks).map((w) => (
-                  <ListRow
-                    key={w.id}
-                    t={w.tracks!}
-                    proposer={w.proposer}
-                    right={<span className="shrink-0 self-center whitespace-nowrap text-[11px] font-bold text-[var(--text-faint)]">{fmtDayMonth(w.date)}</span>}
-                  />
-                ))}
+              <div className="mb-3 font-['Outfit',sans-serif] text-[11px] font-extrabold uppercase tracking-[0.1em] text-[var(--text-faint)]">Anksčiau laimėjo</div>
+              <div className="flex flex-col gap-3.5">
+                {recentWinners.filter(w => w.tracks).map((w) => {
+                  const wt = w.tracks!
+                  const wv = extractYouTubeId(wt.video_url)
+                  const wImg = wt.cover_url || (wv ? `https://img.youtube.com/vi/${wv}/mqdefault.jpg` : null) || wt.artists?.cover_image_url || null
+                  return (
+                    <button
+                      key={w.id}
+                      type="button"
+                      onClick={() => openTrack({ id: wt.id, title: wt.title, slug: wt.slug, cover_url: wt.cover_url, video_url: wt.video_url, artists: wt.artists })}
+                      className="group flex items-center gap-3 border-0 bg-transparent p-0 text-left cursor-pointer"
+                    >
+                      <div className="relative shrink-0">
+                        <Cover src={wImg} alt={sanitizeTitle(wt.title)} size={64} radius={11} />
+                      </div>
+                      <div className="min-w-0 flex-1">
+                        <p className="m-0 truncate font-['Outfit',sans-serif] text-[15px] font-extrabold text-[var(--text-primary)] transition-colors group-hover:text-[var(--accent-orange)]">{sanitizeTitle(wt.title)}</p>
+                        <p className="m-0 mt-0.5 truncate text-[13px] text-[var(--text-muted)]">{wt.artists?.name}</p>
+                        {w.proposer && (w.proposer.username || w.proposer.full_name) && (
+                          <span className="mt-1 flex min-w-0 items-center gap-1 text-[11px] text-[var(--text-faint)]"><span className="shrink-0 text-[var(--text-faint)]" title="pasiūlė"><Ic d={SUGG_D} size={12} /></span><MiniAv p={w.proposer} size={15} /><span className="truncate font-semibold text-[var(--text-secondary)]">{w.proposer.username || w.proposer.full_name}</span></span>
+                        )}
+                      </div>
+                      <span className="shrink-0 self-start whitespace-nowrap text-[11px] font-bold text-[var(--text-faint)]">{fmtDayMonth(w.date)}</span>
+                    </button>
+                  )
+                })}
               </div>
             </div>
           )}

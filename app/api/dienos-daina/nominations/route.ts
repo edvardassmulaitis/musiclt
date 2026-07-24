@@ -90,6 +90,34 @@ export async function GET(req: Request) {
     own: !!sessionUserId && (n as any).user_id === sessionUserId,
   })).sort((a, b) => b.weighted_votes - a.weighted_votes)
   const alreadyNominated = !!sessionUserId && (data || []).some((n: any) => n.user_id === sessionUserId)
+
+  // Legacy dienos (scrape) neturi naujosios sistemos nominacijų → „vakar dalyvavo"
+  // sąrašą imam iš daily_song_picks (senojo music.lt pasiūlymai). Fallback įsijungia
+  // tik kai naujų nominacijų NĖRA (t.y. ne šiandienai). (Edvardo 2026-07-24.)
+  if (enriched.length === 0) {
+    const { data: picks } = await supabase
+      .from('daily_song_picks')
+      .select(`
+        id, like_count, comment,
+        tracks!track_id ( id, slug, title, cover_url, spotify_id, video_url, artists!artist_id ( id, slug, name, cover_image_url ) ),
+        proposer:profiles!daily_song_picks_author_id_fkey ( username, full_name, avatar_url )
+      `)
+      .eq('picked_on', date)
+      .not('track_id', 'is', null)
+    const legacy = ((picks || []) as any[])
+      .filter(p => p.tracks)
+      .map(p => ({
+        id: p.id, date, comment: p.comment || null, tracks: p.tracks,
+        proposer: Array.isArray(p.proposer) ? p.proposer[0] : p.proposer,
+        votes: p.like_count || 0, weighted_votes: p.like_count || 0,
+        voters: [], anon_votes: 0, own: false,
+      }))
+      .sort((a, b) => b.weighted_votes - a.weighted_votes)
+    if (legacy.length > 0) {
+      return NextResponse.json({ nominations: legacy, date, already_nominated: false, is_authenticated: !!sessionUserId, legacy: true })
+    }
+  }
+
   return NextResponse.json({ nominations: enriched, date, already_nominated: alreadyNominated, is_authenticated: !!sessionUserId })
 }
 

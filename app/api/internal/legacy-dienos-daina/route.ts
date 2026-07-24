@@ -98,7 +98,7 @@ async function resolveTrack(sb: any, legacyId: number): Promise<number | null> {
   return tid
 }
 
-async function upsertDay(sb: any, ds: string, picks: Pick[]): Promise<{ picks: number; authless: number; winner: boolean }> {
+async function upsertDay(sb: any, ds: string, picks: Pick[], finalizeWinner: boolean): Promise<{ picks: number; authless: number; winner: boolean }> {
   let stored = 0
   let authless = 0
   // ── Picks (UPSERT pagal (author_id, picked_on)) ──
@@ -119,6 +119,9 @@ async function upsertDay(sb: any, ds: string, picks: Pick[]): Promise<{ picks: n
     if (!error) stored++
   }
   // ── Winner (daugiausiai „Mėgsta" pick'as, kurio daina yra kataloge) ──
+  // TIK užbaigtoms dienoms — einamos dienos (dar balsuojama) laimėtojo NEfiksuojam,
+  // kitaip „vakar laimėjo" rodytų šiandienos in-progress dainą. (Edvardo 2026-07-24.)
+  if (!finalizeWinner) return { picks: stored, authless, winner: false }
   const cand = [...picks].filter(p => p.trackLegacyId)
     .sort((a, b) => (b.likeCount - a.likeCount) || ((a.pickLegacyId ?? 2 ** 40) - (b.pickLegacyId ?? 2 ** 40)))
   let winner = false
@@ -137,6 +140,10 @@ async function upsertDay(sb: any, ds: string, picks: Pick[]): Promise<{ picks: n
 }
 
 function fmt(d: Date): string { return d.toISOString().slice(0, 10) }
+function todayLT(): string {
+  return new Date().toLocaleDateString('lt-LT', { timeZone: 'Europe/Vilnius', year: 'numeric', month: '2-digit', day: '2-digit' })
+    .split('.').reverse().join('-')
+}
 
 async function handle(req: NextRequest): Promise<NextResponse> {
   if (!authorizeCron(req, { allowQueryKey: true }))
@@ -151,6 +158,7 @@ async function handle(req: NextRequest): Promise<NextResponse> {
   let totPicks = 0, totWinners = 0
   const today = new Date()
   today.setUTCHours(0, 0, 0, 0)
+  const tLT = todayLT()
 
   for (let i = 0; i < days; i++) {
     const d = new Date(today)
@@ -162,7 +170,8 @@ async function handle(req: NextRequest): Promise<NextResponse> {
       const html = r.ok ? await r.text() : ''
       const picks = html ? parseHistoryPage(html) : []
       if (!picks.length) { results[ds] = '0 pickų'; continue }
-      const res = await upsertDay(sb, ds, picks)
+      // Laimėtoją fiksuojam TIK užbaigtoms dienoms (ds < šiandien LT).
+      const res = await upsertDay(sb, ds, picks, ds < tLT)
       totPicks += res.picks; if (res.winner) totWinners++
       results[ds] = `picks=${picks.length} stored=${res.picks} be_nario=${res.authless}${res.winner ? ' WINNER✓' : ''}`
     } catch (e: any) {

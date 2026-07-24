@@ -16,7 +16,7 @@
     },
     {
       "path": "/api/internal/legacy-dienos-daina",
-      "schedule": "0 10 * * *"
+      "schedule": "5 9 * * *"
     },
     {
       "path": "/api/admin/internal/score-recalc?limit=1500&older_than=20",
