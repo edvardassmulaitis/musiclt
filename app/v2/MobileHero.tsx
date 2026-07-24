@@ -66,7 +66,7 @@ export default function MobileHero({ slides: allSlides }: { slides: HeroSlide[] 
                 className="v2-mhero-card"
                 style={{ border: isSeen ? '2px solid var(--border-default)' : `2px solid ${chartAccent}`, background: '#0b0f1a', display: 'flex', flexDirection: 'column' }}
               >
-                {/* #1 didelis */}
+                {/* #1 didelis — numeris PRIE atlikėjo, rodom ir atlikėją, ir dainą */}
                 <div style={{ position: 'relative', width: '100%', flex: '1 1 60%', overflow: 'hidden' }}>
                   {cov(big)
                     // eslint-disable-next-line @next/next/no-img-element
@@ -74,21 +74,26 @@ export default function MobileHero({ slides: allSlides }: { slides: HeroSlide[] 
                     : <div style={{ width: '100%', height: '100%', background: 'linear-gradient(135deg,#0a1428,#162040)' }} />}
                   <div style={{ position: 'absolute', inset: 0, background: 'linear-gradient(to top, rgba(0,0,0,0.94) 0%, rgba(0,0,0,0.35) 45%, rgba(0,0,0,0) 70%)' }} />
                   <span style={{ position: 'absolute', top: 8, left: 8, padding: '3px 7px', borderRadius: 6, fontSize: 11.5, fontWeight: 800, color: '#fff', background: chartAccent, fontFamily: 'Outfit,sans-serif', letterSpacing: '0.02em', textTransform: 'uppercase' }}>{s.type === 'chart_lt' ? 'LT TOP 30' : 'TOP 40'}</span>
-                  <span style={{ position: 'absolute', top: 8, right: 8, width: 22, height: 22, borderRadius: 6, display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 12.5, fontWeight: 900, color: '#fff', background: chartAccent, fontFamily: 'Outfit,sans-serif' }}>1</span>
                   <div style={{ position: 'absolute', bottom: 0, left: 0, right: 0, padding: '6px 9px 8px', textAlign: 'left' }}>
-                    <p style={{ margin: 0, fontSize: 13, fontWeight: 800, color: '#fff', lineHeight: 1.15, fontFamily: 'Outfit,sans-serif', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{big?.artist || big?.title || ''}</p>
+                    <div style={{ display: 'flex', alignItems: 'center', gap: 6, minWidth: 0 }}>
+                      <span style={{ flexShrink: 0, minWidth: 18, height: 18, padding: '0 4px', borderRadius: 5, display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 12, fontWeight: 900, color: '#fff', background: chartAccent, fontFamily: 'Outfit,sans-serif' }}>1</span>
+                      <p style={{ margin: 0, minWidth: 0, flex: 1, fontSize: 13, fontWeight: 800, color: '#fff', lineHeight: 1.12, fontFamily: 'Outfit,sans-serif', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{big?.artist || ''}</p>
+                    </div>
+                    {big?.title && <p style={{ margin: '2px 0 0', fontSize: 11, fontWeight: 600, color: 'rgba(255,255,255,0.78)', lineHeight: 1.15, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{big.title}</p>}
                   </div>
                 </div>
-                {/* top 2-4 eilutė */}
+                {/* 2 ir 3 vietos — numeris prie pavadinimo, vardas iki 2 eilučių */}
                 {rest.length > 0 && (
-                  <div style={{ display: 'flex', width: '100%', flex: '0 0 38%', gap: 2, background: '#0b0f1a' }}>
+                  <div style={{ display: 'flex', width: '100%', flex: '0 0 40%', gap: 2, background: '#0b0f1a' }}>
                     {rest.map((t: any, ri: number) => (
                       <div key={ri} style={{ position: 'relative', flex: 1, overflow: 'hidden' }}>
                         {/* eslint-disable-next-line @next/next/no-img-element */}
                         <img src={proxyImgResized(cov(t), 240)} alt="" decoding="async" style={{ width: '100%', height: '100%', objectFit: 'cover', display: 'block' }} />
-                        <div style={{ position: 'absolute', inset: 0, background: 'linear-gradient(to top, rgba(0,0,0,0.85), rgba(0,0,0,0.05) 70%)' }} />
-                        <span style={{ position: 'absolute', top: 3, left: 3, minWidth: 16, height: 16, padding: '0 3px', borderRadius: 4, display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 10.5, fontWeight: 900, color: '#fff', background: 'rgba(0,0,0,0.7)', fontFamily: 'Outfit,sans-serif' }}>{ri + 2}</span>
-                        <span style={{ position: 'absolute', bottom: 2, left: 3, right: 3, fontSize: 9.5, fontWeight: 700, color: 'rgba(255,255,255,0.92)', lineHeight: 1.05, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', fontFamily: 'Outfit,sans-serif' }}>{t.artist || t.title || ''}</span>
+                        <div style={{ position: 'absolute', inset: 0, background: 'linear-gradient(to top, rgba(0,0,0,0.9), rgba(0,0,0,0.05) 72%)' }} />
+                        <div style={{ position: 'absolute', bottom: 3, left: 4, right: 4, display: 'flex', alignItems: 'flex-end', gap: 3 }}>
+                          <span style={{ flexShrink: 0, minWidth: 15, height: 15, padding: '0 3px', borderRadius: 4, display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 10, fontWeight: 900, color: '#fff', background: chartAccent, fontFamily: 'Outfit,sans-serif' }}>{ri + 2}</span>
+                          <span style={{ minWidth: 0, flex: 1, fontSize: 9.5, fontWeight: 700, color: 'rgba(255,255,255,0.94)', lineHeight: 1.08, display: '-webkit-box', WebkitLineClamp: 2, WebkitBoxOrient: 'vertical', overflow: 'hidden', fontFamily: 'Outfit,sans-serif' } as React.CSSProperties}>{t.artist || t.title || ''}</span>
+                        </div>
                       </div>
                     ))}
                   </div>

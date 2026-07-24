@@ -135,11 +135,11 @@ function VoteBtn({ n, maxed, readOnly, onVote }: { n: number; maxed: boolean; re
   const Arrow = <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.8" strokeLinecap="round" strokeLinejoin="round"><path d="M12 19V5M5 12l7-7 7 7" /></svg>
   const Check = <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.8" strokeLinecap="round" strokeLinejoin="round"><path d="M20 6L9 17l-5-5" /></svg>
   if (readOnly) return n > 0 ? <span className="rdr-vbtn on" aria-label={`${n} balsai`}>{Arrow}<span className="rdr-vbtn-n">{n}</span></span> : null
-  // Pasiekus maks. (10) — vietoj rodyklės ✓ (aišku, kad daugiau nebegali).
+  // Mobile — be žodžio „Balsuoti", tik rodyklė (+skaičius kai yra). Maks. (10) → ✓.
   return (
     <button className={`rdr-vbtn${n > 0 ? ' on' : ''}`} disabled={maxed} onClick={onVote}
       aria-label="Balsuoti" title={maxed ? 'Atidavei visus 10 balsų šiai dainai' : 'Spausk kelis kartus — gali atiduoti iki 10 balsų'}>
-      {maxed ? Check : Arrow}<span className="rdr-vbtn-n">{n > 0 ? n : 'Balsuoti'}</span>
+      {maxed ? Check : Arrow}{n > 0 && <span className="rdr-vbtn-n">{n}</span>}
     </button>
   )
 }
@@ -256,8 +256,9 @@ function ChartVoteList({ topType, accent }: { topType: 'lt_top30' | 'top40'; acc
       .catch(() => setCounts(p => ({ ...p, [track_id]: Math.max(0, (p[track_id] || 0) - 1) })))
   }
 
-  // Bendra eilutė (chart / naujos). readOnlyRow — iškritusioms (be balsavimo).
-  const Row = ({ e, posNode, readOnlyRow }: { e: any; posNode: React.ReactNode; readOnlyRow?: boolean }) => {
+  // Bendra eilutė (chart / naujos / iškritę). Balsavimas VISUR — iškritusios irgi
+  // votable (kad galėtų grįžti). „›" nuoroda — PO balsavimo mygtuko (stabili vieta).
+  const Row = ({ e, posNode }: { e: any; posNode: React.ReactNode }) => {
     const n = counts[e.track_id] || 0
     const href = songHref(e)
     return (
@@ -270,17 +271,30 @@ function ChartVoteList({ topType, accent }: { topType: 'lt_top30' | 'top40'; acc
         <button className="rdr-chart-info" onClick={() => pick(e)} disabled={!e.videoId} style={{ border: 0, background: 'transparent', padding: 0, textAlign: 'left', cursor: e.videoId ? 'pointer' : 'default', font: 'inherit' }}>
           <b>{e.title}</b><i>{e.artist}</i>
         </button>
+        <VoteBtn n={n} maxed={n >= WEEKLY} readOnly={readOnly} onVote={() => vote(e.track_id)} />
         {href && (
-          <a href={href} target="_blank" rel="noopener noreferrer" onClick={(ev) => ev.stopPropagation()} aria-label="Atidaryti dainos puslapį" title="Dainos puslapis" style={{ flexShrink: 0, display: 'flex', alignItems: 'center', justifyContent: 'center', width: 30, height: 30, color: 'var(--text-muted)' }}>
+          <a href={href} target="_blank" rel="noopener noreferrer" onClick={(ev) => ev.stopPropagation()} aria-label="Atidaryti dainos puslapį" title="Dainos puslapis" style={{ flexShrink: 0, display: 'flex', alignItems: 'center', justifyContent: 'center', width: 26, height: 30, color: 'var(--text-faint)' }}>
             <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M9 18l6-6-6-6" /></svg>
           </a>
         )}
-        {!readOnlyRow && <VoteBtn n={n} maxed={n >= WEEKLY} readOnly={readOnly} onVote={() => vote(e.track_id)} />}
       </div>
     )
   }
 
-  if (loading) return <div className="rdr-load"><span /><span /><span /></div>
+  if (loading) return (
+    <div className="rdr-cvl">
+      <div style={{ width: '100%', aspectRatio: '16/9', borderRadius: 12, background: 'var(--bg-hover)', marginBottom: 10 }} className="rdr-skel" />
+      <div style={{ width: 160, height: 12, borderRadius: 4, background: 'var(--bg-hover)', margin: '2px 0 10px' }} className="rdr-skel" />
+      {Array(6).fill(null).map((_, i) => (
+        <div key={i} style={{ display: 'flex', alignItems: 'center', gap: 10, padding: '6px 0' }}>
+          <span style={{ width: 18, height: 12, borderRadius: 3, background: 'var(--bg-hover)' }} className="rdr-skel" />
+          <span style={{ width: 44, height: 44, borderRadius: 8, background: 'var(--bg-hover)', flexShrink: 0 }} className="rdr-skel" />
+          <span style={{ flex: 1, height: 12, borderRadius: 4, background: 'var(--bg-hover)' }} className="rdr-skel" />
+          <span style={{ width: 42, height: 30, borderRadius: 999, background: 'var(--bg-hover)', flexShrink: 0 }} className="rdr-skel" />
+        </div>
+      ))}
+    </div>
+  )
   return (
     <div className="rdr-cvl">
       {/* Sticky grotuvas — pre-created YT.Player, lieka viršuj scrollinant. */}
@@ -300,20 +314,20 @@ function ChartVoteList({ topType, accent }: { topType: 'lt_top30' | 'top40'; acc
       <div className="rdr-cvl-head">{readOnly ? 'Savaitės rezultatai' : 'Skirk iki 10 balsų patinkančioms dainoms'}</div>
       {entries.map(e => <Row key={e.track_id} e={e} posNode={<>{e.pos}<TrendBadge prev={e.prev} pos={e.pos} isNew={e.isNew} /></>} />)}
 
-      {/* ── Naujos (siūlomi kūriniai) — balsuok, kad pakiltų į topą. ── */}
+      {/* ── Naujienos — palaikyk, kad patektų į topą. ── */}
       {suggested.length > 0 && (
         <>
-          <div className="rdr-cvl-head" style={{ marginTop: 18 }}>🔥 Naujos — balsuok, kad pakiltų</div>
+          <div className="rdr-cvl-head" style={{ marginTop: 18 }}>🔥 Naujienos — palaikyk, kad patektų</div>
           {suggested.map(e => <Row key={`sug-${e.track_id}`} e={e} posNode={<i className="rdr-trend new">N</i>} />)}
         </>
       )}
 
-      {/* ── Iškritę iš topo (be balsavimo). ── */}
+      {/* ── Iškritę iš topo — balsuoti galima (kad grįžtų). ── */}
       {dropped.length > 0 && (
         <>
           <div className="rdr-cvl-sep" />
-          <div className="rdr-cvl-head" style={{ marginTop: 6 }}>Iškritę iš topo</div>
-          {dropped.map(e => <Row key={`drop-${e.track_id}`} e={e} posNode={<i className="rdr-trend down">▼</i>} readOnlyRow />)}
+          <div className="rdr-cvl-head" style={{ marginTop: 6 }}>Iškritę iš topo · palaikyk, kad grįžtų</div>
+          {dropped.map(e => <Row key={`drop-${e.track_id}`} e={e} posNode={<i className="rdr-trend down">▼</i>} />)}
         </>
       )}
     </div>
@@ -1277,7 +1291,7 @@ function CardFooter({ slide, onNavLink }: {
             <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M15 3h6v6M10 14 21 3M18 13v6a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h6" /></svg>
           </a>
         ) : (
-          <Link href={slide.href} onClick={onNavLink} className={`rdr-foot-cta${isChart ? ' rdr-foot-cta-ghost' : ''}`}>
+          <Link href={slide.href} onClick={onNavLink} className={`rdr-foot-cta${isChart ? ' rdr-foot-cta-soft' : ''}`}>
             {ctaLabel}
             <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.4" strokeLinecap="round" strokeLinejoin="round"><path d="M5 12h14M12 5l7 7-7 7" /></svg>
           </Link>
@@ -2238,7 +2252,10 @@ const REELS_CSS = `
         .rdr-cvl-player-poster img{width:100%;height:100%;object-fit:cover;display:block}
         .rdr-cvl-player-ph{position:absolute;inset:0;background:linear-gradient(135deg,#141b28,#0a0e17)}
         .rdr-cvl-player-scrim{position:absolute;inset:0;background:radial-gradient(circle at center,rgba(0,0,0,0.12),rgba(0,0,0,0.5))}
-        .rdr-cvl-player-btn{position:absolute;top:50%;left:50%;transform:translate(-50%,-50%);width:54px;height:54px;border-radius:50%;background:var(--accent-orange);display:flex;align-items:center;justify-content:center;box-shadow:0 6px 18px rgba(0,0,0,0.5);padding-left:3px}
+        .rdr-cvl-player-btn{position:absolute;right:12px;bottom:12px;width:48px;height:48px;border-radius:50%;background:var(--accent-orange);display:flex;align-items:center;justify-content:center;box-shadow:0 6px 18px rgba(0,0,0,0.5);padding-left:3px}
+        .rdr-skel{position:relative;overflow:hidden}
+        .rdr-skel::after{content:'';position:absolute;inset:0;background:linear-gradient(90deg,transparent,rgba(255,255,255,0.08),transparent);animation:rdrSkel 1.3s ease-in-out infinite;transform:translateX(-100%)}
+        @keyframes rdrSkel{100%{transform:translateX(100%)}}
         .rdr-cvl-player-cap{padding:6px 2px 0;font-family:'Outfit',sans-serif;font-size:12.5px;line-height:1.2;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
         .rdr-cvl-player-cap b{font-weight:800;color:var(--text-primary)}
         .rdr-cvl-player-cap i{font-style:normal;color:var(--text-muted)}
@@ -2309,6 +2326,7 @@ const REELS_CSS = `
         .rdr-foot-cta{flex:1;display:flex;align-items:center;justify-content:center;gap:7px;height:48px;border-radius:12px;background:var(--accent-orange);color:#fff;font-family:'Outfit',sans-serif;font-size:16px;font-weight:800;letter-spacing:-0.01em;text-decoration:none;min-width:0}
         .rdr-foot-cta:active{opacity:0.85}
         .rdr-foot-cta-ghost{height:44px;background:transparent;border:1px solid rgba(255,255,255,0.22);color:#eef1f6;font-size:14px;font-weight:700}
+        .rdr-foot-cta-soft{background:rgba(249,115,22,0.16);color:var(--accent-orange);font-size:15px}
         .rdr-foot-daily{margin:14px 0 2px;display:flex;justify-content:center}
         .rdr-foot-daily-link{display:inline-flex;align-items:center;gap:6px;color:var(--accent-orange);font-family:'Outfit',sans-serif;font-size:14px;font-weight:800;text-decoration:none;padding:8px 6px;-webkit-tap-highlight-color:transparent}
         .rdr-foot-daily-link:active{opacity:.65}

@@ -945,16 +945,16 @@ export function DienosDainaSection({ onOpenTrack, variant = 'inline', headerVari
           <span className="mb-1 font-['Outfit',sans-serif] text-[11px] font-extrabold uppercase tracking-[0.08em] text-[var(--accent-orange)]">Dienos nugalėtojas</span>
           <p className="m-0 line-clamp-2 font-['Outfit',sans-serif] text-[20px] font-extrabold leading-tight text-[var(--text-primary)] transition-colors group-hover:text-[var(--accent-orange)]">{sanitizeTitle(t.title)}</p>
           <p className="m-0 mt-0.5 truncate text-[15px] text-[var(--text-muted)]">{t.artists?.name}</p>
+          {/* Pop brūkšneliai — PO atlikėjo, VIRŠ avataro/username (ne šalia). */}
+          <span className="mt-2 flex items-center gap-[3px]" aria-label="Populiarumas">
+            {Array.from({ length: 5 }).map((_, i) => (
+              <span key={i} className={`h-[3px] w-[15px] rounded-[2px] ${i < (votes > 0 ? Math.max(1, Math.round((votes / Math.max(1, ydayMax)) * 5)) : 0) ? 'bg-[var(--accent-orange)]' : 'bg-[var(--border-default)]'}`} />
+            ))}
+          </span>
           <div className="mt-2 flex items-center gap-3">
             {n.proposer && (n.proposer.username || n.proposer.full_name) && (
               <span className="flex min-w-0 items-center gap-1.5"><span className="shrink-0 text-[var(--text-faint)]" title="pasiūlė"><Ic d={SUGG_D} size={13} /></span><MiniAv p={n.proposer} size={20} /><span className="truncate text-[13px] font-semibold text-[var(--text-secondary)]">{n.proposer.username || n.proposer.full_name}</span></span>
             )}
-            {/* Laimėtojo populiarumas — pop brūkšneliai (ne širdelė). */}
-            <span className="flex shrink-0 items-center gap-[3px]" aria-label="Populiarumas">
-              {Array.from({ length: 5 }).map((_, i) => (
-                <span key={i} className={`h-[3px] w-[15px] rounded-[2px] ${i < (votes > 0 ? Math.max(1, Math.round((votes / Math.max(1, ydayMax)) * 5)) : 0) ? 'bg-[var(--accent-orange)]' : 'bg-[var(--border-default)]'}`} />
-              ))}
-            </span>
             <CommentIcon comment={n.comment} who={n.proposer} title={sanitizeTitle(t.title)} />
           </div>
         </div>
