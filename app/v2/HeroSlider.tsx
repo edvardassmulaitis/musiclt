@@ -8,6 +8,7 @@
 import { useRef, useState, useEffect } from 'react'
 import Link from 'next/link'
 import { proxyImgResized } from '@/lib/img-proxy'
+import { isTopVoted, chartTypeToTop, fetchTopVoted } from '@/lib/top-voted'
 import { useHeroSeen } from './useHeroSeen'
 
 export type TopEntry = { pos: number; track_id?: number; title: string; artist: string; cover_url: string | null; artist_image: string | null; trend: string; prevPos?: number | null; wks?: number; slug?: string; artist_slug?: string; videoId?: string | null }
@@ -63,6 +64,26 @@ export default function HeroSlider({ slides: allSlides }: { slides: HeroSlide[] 
   // tad hero karuselėje jos NEdubliuojam — tik mobile reels'uose (Edvardo spec 2026-07-24).
   // Topai NEBEstumiami į galą — eina sava vaga feed'e. (Edvardo spec 2026-07-25.)
   const slides = allSlides.filter((s) => s.type !== 'daily_winner')
+  // „Balsavai / nebalsavai" indikatoriui (kortelės kampe).
+  const [mounted, setMounted] = useState(false)
+  const [votedCharts, setVotedCharts] = useState<Set<string>>(new Set())
+  useEffect(() => {
+    setMounted(true)
+    const types = [...new Set(allSlides.map(s => chartTypeToTop(s.type)).filter(Boolean) as string[])]
+    if (!types.length) return
+    let on = true
+    Promise.all(types.map(async t => ({ t, v: await fetchTopVoted(t) }))).then(rs => {
+      if (!on) return
+      const set = new Set<string>()
+      for (const r of rs) if (r.v) set.add(r.t)
+      setVotedCharts(set)
+    })
+    return () => { on = false }
+  }, [allSlides])
+  const chartVoted = (s: HeroSlide) => {
+    const tt = chartTypeToTop(s.type)
+    return !!(mounted && tt && (isTopVoted(tt) || votedCharts.has(tt)))
+  }
   const trackRef = useRef<HTMLDivElement>(null)
   const [activeIdx, setActiveIdx] = useState(0)
   const [atStart, setAtStart] = useState(true)
@@ -115,10 +136,10 @@ export default function HeroSlider({ slides: allSlides }: { slides: HeroSlide[] 
         .hp-hero-wrap:hover .hp-hero-arrow{opacity:1}
       `}</style>
       <div className="hp-hero-wrap relative">
-        <div ref={trackRef} className="hp-scroll hp-hero-track flex items-stretch gap-4 py-1 snap-x snap-mandatory">
+        <div ref={trackRef} className="hp-scroll hp-hero-track flex items-stretch gap-4 p-1 snap-x snap-mandatory">
           {slides.map((slide) => (
             <div key={`${slide.type}-${slide.href}`} className="hp-hero-slot shrink-0 snap-start">
-              <HeroV2Card slide={slide} unseen={ready && !seen.has(slideKey(slide))} onOpen={() => markSeen(slideKey(slide))} />
+              <HeroV2Card slide={slide} unseen={ready && !seen.has(slideKey(slide))} voted={chartVoted(slide)} onOpen={() => markSeen(slideKey(slide))} />
             </div>
           ))}
           {/* Paskutinė kortelė — „Daugiau naujienų" → /naujienos. */}
@@ -171,9 +192,9 @@ function unseenBorder(unseen: boolean): React.CSSProperties {
   return unseen ? { outline: '2px solid var(--accent-orange)', outlineOffset: '0px' } : {}
 }
 
-function HeroV2Card({ slide, unseen, onOpen }: { slide: HeroSlide; unseen: boolean; onOpen: () => void }) {
+function HeroV2Card({ slide, unseen, voted, onOpen }: { slide: HeroSlide; unseen: boolean; voted?: boolean; onOpen: () => void }) {
   if (slide.type === 'chart_lt' || slide.type === 'chart_world') {
-    return <HeroChartCard slide={slide} unseen={unseen} onOpen={onOpen} />
+    return <HeroChartCard slide={slide} unseen={unseen} voted={voted} onOpen={onOpen} />
   }
   if (slide.type === 'daily_winner' && slide.collage && slide.collage.length >= 2) {
     return <HeroDailyCard slide={slide} unseen={unseen} onOpen={onOpen} />
@@ -301,7 +322,7 @@ function HeroDailyCard({ slide, unseen, onOpen }: { slide: HeroSlide; unseen: bo
   )
 }
 
-function HeroChartCard({ slide, unseen, onOpen }: { slide: HeroSlide; unseen: boolean; onOpen: () => void }) {
+function HeroChartCard({ slide, unseen, voted, onOpen }: { slide: HeroSlide; unseen: boolean; voted?: boolean; onOpen: () => void }) {
   const isLT = slide.type === 'chart_lt'
   const tops = slide.chartTops || []
   const accent = isLT ? 'var(--accent-orange)' : '#3b82f6'
@@ -310,7 +331,9 @@ function HeroChartCard({ slide, unseen, onOpen }: { slide: HeroSlide; unseen: bo
   // dubliavimąsi kai to paties atlikėjo 2 dainos aukštai + užpildo trūkstamas foto)
   // → atlikėjo foto (paskutinė išeitis). (Edvardo pastaba 2026-07-24.)
   const ytThumb = (v?: string | null) => v ? `https://img.youtube.com/vi/${v}/hqdefault.jpg` : null
-  const cover = (t: TopEntry | undefined) => t ? (t.cover_url || ytThumb(t.videoId) || t.artist_image) : null
+  // Vizualo prioritetas: albumo cover → atlikėjo foto → YT kadras (fallback).
+  // (Edvardo spec 2026-07-25: YT embedai nekokybiški.)
+  const cover = (t: TopEntry | undefined) => t ? (t.cover_url || t.artist_image || ytThumb(t.videoId)) : null
 
   const dedupArtists = (entries: TopEntry[]) => {
     const seen = new Set<string>()
@@ -334,7 +357,7 @@ function HeroChartCard({ slide, unseen, onOpen }: { slide: HeroSlide; unseen: bo
   // Serveryje suskaičiuotas tizeris (iš PILNO topo) turi pirmenybę; fallback —
   // iš top-5 (jei serveris negrąžino).
   const teaser: { lead: string; main: string; sub?: string | null } = slide.teaser || (() => {
-    if (leaderNew && tops[0]) return { lead: '🏆 Naujas lyderis', main: tops[0].title, sub: tops[0].artist }
+    if (leaderNew && tops[0]) return { lead: 'Naujas lyderis', main: tops[0].title, sub: tops[0].artist }
     if (climb && climb.jump >= 3) return { lead: `▲ Didžiausias šuolis · +${climb.jump}`, main: climb.t.title, sub: climb.t.artist }
     if (newEntries.length) {
       const names = dedupArtists(newEntries).slice(0, 3)
@@ -373,14 +396,17 @@ function HeroChartCard({ slide, unseen, onOpen }: { slide: HeroSlide; unseen: bo
             backdropFilter: 'blur(2px)',
           }}
         >{entry.pos}</span>
+        {/* Tik #1 (big) rodo ir dainą, ir atlikėją; kiti — tik atlikėją (telpa). */}
         <div className="absolute bottom-0 left-0 right-0" style={{ padding }}>
+          {size === 'big' && (
+            <p
+              className="m-0 truncate font-['Outfit',sans-serif] font-black text-white"
+              style={{ fontSize: titleSize, lineHeight: 1.15, letterSpacing: '-0.01em', textShadow: '0 2px 6px rgba(0,0,0,0.85)' }}
+            >{entry.title}</p>
+          )}
           <p
-            className="m-0 truncate font-['Outfit',sans-serif] font-black text-white"
-            style={{ fontSize: titleSize, lineHeight: 1.15, letterSpacing: '-0.01em', textShadow: '0 2px 6px rgba(0,0,0,0.85)' }}
-          >{entry.title}</p>
-          <p
-            className="m-0 truncate text-white/85"
-            style={{ fontSize: artistSize, lineHeight: 1.2, marginTop: 1, textShadow: '0 1px 4px rgba(0,0,0,0.85)' }}
+            className={`m-0 truncate font-['Outfit',sans-serif] text-white ${size === 'big' ? 'text-white/85' : 'font-bold'}`}
+            style={{ fontSize: size === 'big' ? artistSize : titleSize, lineHeight: 1.2, marginTop: size === 'big' ? 1 : 0, textShadow: '0 1px 4px rgba(0,0,0,0.85)' }}
           >{entry.artist}</p>
         </div>
       </div>
@@ -403,12 +429,18 @@ function HeroChartCard({ slide, unseen, onOpen }: { slide: HeroSlide; unseen: bo
         className="relative z-[1] flex h-full flex-col justify-between p-6 pt-3"
         style={{ width: '38%' }}
       >
-        <span
-          className="inline-flex w-fit items-center rounded-md px-2 py-0.5 font-['Outfit',sans-serif] text-[12px] font-bold uppercase tracking-[0.03em] text-white"
-          style={{ background: accent, alignSelf: 'flex-start' }}
-        >
-          {isLT ? 'LT TOP 30' : 'TOP 40'}
-        </span>
+        <div className="flex items-center gap-2">
+          <span
+            className="inline-flex w-fit items-center rounded-md px-2 py-0.5 font-['Outfit',sans-serif] text-[12px] font-bold uppercase tracking-[0.03em] text-white"
+            style={{ background: accent, alignSelf: 'flex-start' }}
+          >
+            {isLT ? 'LT TOP 30' : 'TOP 40'}
+          </span>
+          {/* Balsavai / nebalsavai indikatorius. */}
+          {voted
+            ? <span title="Balsavai" className="inline-flex items-center gap-1 rounded-full bg-black/40 px-2 py-0.5 text-[11px] font-extrabold text-white"><svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="#4ade80" strokeWidth="3.2" strokeLinecap="round" strokeLinejoin="round"><path d="M20 6L9 17l-5-5" /></svg>Balsavai</span>
+            : <span title="Nebalsavai" className="inline-flex items-center gap-1 rounded-full px-2 py-0.5 text-[11px] font-extrabold text-white" style={{ background: accent }}>Balsuok</span>}
+        </div>
 
         {teaser.main && (
           <div className="flex flex-col gap-1" style={{ minWidth: 0 }}>

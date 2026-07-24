@@ -13,6 +13,16 @@ import { ReelsOverlay, ChartBottomSheet, DailyVoteSheet, slideKey } from './reel
 import { isTopVoted, chartTypeToTop, fetchTopVoted } from '@/lib/top-voted'
 import { useHeroSeen } from './useHeroSeen'
 
+// Viršelis su fallback'u: bando kandidatus iš eilės (cover → atlikėjo foto → YT),
+// o jei nuotrauka lūžta (pvz. pasikeitus YT nuorodai) — šoka į kitą / placeholder.
+function FallbackImg({ srcs, proxy, style }: { srcs: (string | null | undefined)[]; proxy: number; style: React.CSSProperties }) {
+  const list = srcs.filter(Boolean) as string[]
+  const [i, setI] = useState(0)
+  if (i >= list.length) return <div style={{ ...style, background: 'linear-gradient(135deg,#0a1428,#162040)' }} />
+  // eslint-disable-next-line @next/next/no-img-element
+  return <img src={proxyImgResized(list[i], proxy)} alt="" decoding="async" onError={() => setI(i + 1)} style={style} />
+}
+
 export default function MobileHero({ slides: allSlides }: { slides: HeroSlide[] }) {
   const { dk } = useSite()
   // Topai NEBEstumiami į galą — eina sava vaga. Bet vis tiek žymim „balsavai /
@@ -73,8 +83,10 @@ export default function MobileHero({ slides: allSlides }: { slides: HeroSlide[] 
           // ── Topo kortelė (mobile juosta): kolažas — #1 didelis + top 2-4 eilutė,
           //    su dainų vardais. (Edvardo spec 2026-07-24: buvo tik 1 foto + dublis.) ──
           if (isChart) {
-            const cov = (t: any) => t ? (t.cover_url || ytT(t.videoId) || t.artist_image) : null
-            const tops = (s.chartTops || []).filter((t: any) => cov(t)).slice(0, 3)
+            // Vizualo prioritetas: atlikėjo/grupės foto → cover_url → YT thumb (fallback).
+            // (Edvardo spec 2026-07-25: YT embedai nekokybiški.)
+            const imgs = (t: any) => t ? [t.cover_url, t.artist_image, ytT(t.videoId)] : []
+            const tops = (s.chartTops || []).filter((t: any) => imgs(t).some(Boolean)).slice(0, 3)
             const big = tops[0]
             const rest = tops.slice(1, 3)
             const chartAccent = s.type === 'chart_lt' ? 'var(--accent-orange)' : '#3b82f6'
@@ -86,39 +98,30 @@ export default function MobileHero({ slides: allSlides }: { slides: HeroSlide[] 
                 className="v2-mhero-card"
                 style={{ border: isSeen ? '2px solid var(--border-default)' : `2px solid ${chartAccent}`, background: '#0b0f1a', display: 'flex', flexDirection: 'column' }}
               >
-                {/* #1 didelis — numeris PRIE atlikėjo, rodom ir atlikėją, ir dainą */}
+                {/* #1 didelis — be numerio, rodom atlikėją + dainą */}
                 <div style={{ position: 'relative', width: '100%', flex: '1 1 60%', overflow: 'hidden' }}>
-                  {cov(big)
-                    // eslint-disable-next-line @next/next/no-img-element
-                    ? <img src={proxyImgResized(cov(big), 480)} alt="" decoding="async" style={{ width: '100%', height: '100%', objectFit: 'cover', display: 'block' }} />
-                    : <div style={{ width: '100%', height: '100%', background: 'linear-gradient(135deg,#0a1428,#162040)' }} />}
+                  <FallbackImg srcs={imgs(big)} proxy={480} style={{ width: '100%', height: '100%', objectFit: 'cover', display: 'block' }} />
                   <div style={{ position: 'absolute', inset: 0, background: 'linear-gradient(to top, rgba(0,0,0,0.94) 0%, rgba(0,0,0,0.35) 45%, rgba(0,0,0,0) 70%)' }} />
                   <span style={{ position: 'absolute', top: 8, left: 8, padding: '3px 7px', borderRadius: 6, fontSize: 11.5, fontWeight: 800, color: '#fff', background: chartAccent, fontFamily: 'Outfit,sans-serif', letterSpacing: '0.02em', textTransform: 'uppercase' }}>{s.type === 'chart_lt' ? 'LT TOP 30' : 'TOP 40'}</span>
-                  {/* Balsavai / nebalsavai indikatorius (viršuj dešinėj). */}
+                  {/* Balsavai / nebalsavai — TIK ikona (be teksto, kad neliptų ant badge). */}
                   {chartVoted(s)
-                    ? <span style={{ position: 'absolute', top: 8, right: 8, display: 'inline-flex', alignItems: 'center', gap: 3, padding: '3px 7px', borderRadius: 999, background: 'rgba(0,0,0,0.55)', backdropFilter: 'blur(4px)', fontSize: 10, fontWeight: 800, color: '#fff', fontFamily: 'Outfit,sans-serif' }}><svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="#4ade80" strokeWidth="3" strokeLinecap="round" strokeLinejoin="round"><path d="M20 6L9 17l-5-5" /></svg>Balsavai</span>
-                    : <span style={{ position: 'absolute', top: 8, right: 8, display: 'inline-flex', alignItems: 'center', gap: 3, padding: '3px 7px', borderRadius: 999, background: chartAccent, fontSize: 10, fontWeight: 800, color: '#fff', fontFamily: 'Outfit,sans-serif' }}>Balsuok</span>}
+                    ? <span title="Balsavai" style={{ position: 'absolute', top: 7, right: 7, width: 22, height: 22, borderRadius: '50%', background: 'rgba(0,0,0,0.55)', backdropFilter: 'blur(4px)', display: 'flex', alignItems: 'center', justifyContent: 'center' }}><svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="#4ade80" strokeWidth="3.2" strokeLinecap="round" strokeLinejoin="round"><path d="M20 6L9 17l-5-5" /></svg></span>
+                    : <span title="Nebalsavai" style={{ position: 'absolute', top: 7, right: 7, width: 22, height: 22, borderRadius: '50%', background: chartAccent, display: 'flex', alignItems: 'center', justifyContent: 'center' }}><svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="#fff" strokeWidth="3" strokeLinecap="round" strokeLinejoin="round"><path d="M12 19V5M5 12l7-7 7 7" /></svg></span>}
                   <div style={{ position: 'absolute', bottom: 0, left: 0, right: 0, padding: '6px 9px 8px', textAlign: 'left' }}>
-                    <div style={{ display: 'flex', alignItems: 'center', gap: 6, minWidth: 0 }}>
-                      <span style={{ flexShrink: 0, minWidth: 18, height: 18, padding: '0 4px', borderRadius: 5, display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 12, fontWeight: 900, color: '#fff', background: chartAccent, fontFamily: 'Outfit,sans-serif' }}>1</span>
-                      <p style={{ margin: 0, minWidth: 0, flex: 1, fontSize: 13, fontWeight: 800, color: '#fff', lineHeight: 1.12, fontFamily: 'Outfit,sans-serif', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{big?.artist || ''}</p>
-                    </div>
+                    <p style={{ margin: 0, fontSize: 13, fontWeight: 800, color: '#fff', lineHeight: 1.14, fontFamily: 'Outfit,sans-serif', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{big?.artist || ''}</p>
                     {big?.title && <p style={{ margin: '2px 0 0', fontSize: 11, fontWeight: 600, color: 'rgba(255,255,255,0.78)', lineHeight: 1.15, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{big.title}</p>}
                   </div>
                 </div>
-                {/* 2 ir 3 vietos — viršelis viršuj, po juo švari juostelė: numeris +
-                    atlikėjas iki 2 eilučių (daugiau vietos, nebekerpa). */}
+                {/* 2 ir 3 vietos — viršelis viršuj, po juo atlikėjas iki 2 eilučių (BE numerio). */}
                 {rest.length > 0 && (
                   <div style={{ display: 'flex', width: '100%', flex: '0 0 42%', gap: 2, background: '#0b0f1a' }}>
                     {rest.map((t: any, ri: number) => (
                       <div key={ri} style={{ flex: 1, minWidth: 0, display: 'flex', flexDirection: 'column' }}>
                         <div style={{ position: 'relative', flex: 1, overflow: 'hidden', minHeight: 0 }}>
-                          {/* eslint-disable-next-line @next/next/no-img-element */}
-                          <img src={proxyImgResized(cov(t), 240)} alt="" decoding="async" style={{ width: '100%', height: '100%', objectFit: 'cover', display: 'block' }} />
+                          <FallbackImg srcs={imgs(t)} proxy={240} style={{ width: '100%', height: '100%', objectFit: 'cover', display: 'block' }} />
                         </div>
-                        <div style={{ display: 'flex', alignItems: 'flex-start', gap: 4, padding: '3px 5px 5px' }}>
-                          <span style={{ flexShrink: 0, minWidth: 15, height: 15, padding: '0 3px', borderRadius: 4, display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 10, fontWeight: 900, color: '#fff', background: chartAccent, fontFamily: 'Outfit,sans-serif' }}>{ri + 2}</span>
-                          <span style={{ minWidth: 0, flex: 1, fontSize: 10, fontWeight: 700, color: 'rgba(255,255,255,0.92)', lineHeight: 1.12, display: '-webkit-box', WebkitLineClamp: 2, WebkitBoxOrient: 'vertical', overflow: 'hidden', fontFamily: 'Outfit,sans-serif' } as React.CSSProperties}>{t.artist || t.title || ''}</span>
+                        <div style={{ padding: '3px 6px 5px' }}>
+                          <span style={{ display: '-webkit-box', WebkitLineClamp: 2, WebkitBoxOrient: 'vertical', overflow: 'hidden', fontSize: 10.5, fontWeight: 700, color: 'rgba(255,255,255,0.92)', lineHeight: 1.14, fontFamily: 'Outfit,sans-serif' } as React.CSSProperties}>{t.artist || t.title || ''}</span>
                         </div>
                       </div>
                     ))}

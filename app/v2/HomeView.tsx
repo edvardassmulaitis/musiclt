@@ -366,7 +366,7 @@ function buildHeroSlides(input: {
     const leaderNew = !!leader && (leader.isNew || (leader.prev != null && leader.prev !== 1))
     const climb = es.filter((m) => m.jump > 0).sort((a, b) => b.jump - a.jump)[0]
     const newEntries = es.filter((m) => m.isNew)
-    if (leaderNew && leader) return { lead: '🏆 Naujas lyderis', main: leader.title, sub: leader.artist }
+    if (leaderNew && leader) return { lead: 'Naujas lyderis', main: leader.title, sub: leader.artist }
     if (climb && climb.jump >= 3) return { lead: `▲ Didžiausias šuolis · +${climb.jump}`, main: climb.title, sub: climb.artist }
     if (newEntries.length) { const names = dedup(newEntries).slice(0, 3); return { lead: `🔥 ${newEntries.length} ${newEntries.length === 1 ? 'nauja daina' : 'naujos dainos'} tope`, main: names.join(' · ') } }
     return { lead: 'Šią savaitę tope', main: dedup(es).slice(0, 3).join(' · ') }
