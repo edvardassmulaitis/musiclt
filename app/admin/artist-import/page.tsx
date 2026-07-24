@@ -27,13 +27,14 @@ interface Preview {
   trackPlans: TrackPlan[]
   imagePlans: ImagePlan[]
   existingPhotos: ExistingPhoto[]
+  willSetHeroProfile: boolean
   warnings: string[]
 }
 interface Summary {
   artist_id: number; created: boolean; fields_updated: number; links_updated: number
   contacts_added: number; contacts_updated: number; albums_created: number; albums_updated: number
   tracks_created: number; tracks_updated: number; featuring_linked: number; images_logged: number
-  images_added: number; images_skipped: number
+  images_added: number; images_skipped: number; profile_set: boolean; hero_set: boolean
   warnings: string[]
 }
 
@@ -413,6 +414,7 @@ export default function ArtistImportPage() {
               <span>Dainos: +{summary.tracks_created} / ~{summary.tracks_updated}</span>
               <span>Featuring: {summary.featuring_linked}</span>
               <span>Nuotraukos: +{summary.images_added ?? 0}{(summary.images_skipped ?? 0) > 0 ? ` (${summary.images_skipped} praleista)` : ''}</span>
+              {(summary.profile_set || summary.hero_set) && <span>Profilis + hero: nustatyta ✓</span>}
             </div>
             {summary.warnings.length > 0 && (
               <details className="mt-2 text-xs text-orange-700">
@@ -653,6 +655,9 @@ export default function ArtistImportPage() {
                 {preview.imagePlans.length > 0 ? (
                   <div className="space-y-3">
                     <p className="text-[13px] font-medium text-[var(--text-muted)]">Bus pridėta ({preview.imagePlans.filter(im => im.action === 'add').length} iš {preview.imagePlans.length})</p>
+                    {preview.willSetHeroProfile && (
+                      <p className="rounded-md bg-purple-50 px-2.5 py-1.5 text-[12px] text-purple-800">★ Atlikėjas neturi profilio/hero nuotraukos — pirma pridėta (ar pažymėta „pagrindinė") taps profiliu ir hero.</p>
+                    )}
                     {preview.imagePlans.map((img, i) => (
                       <div key={i} className="flex items-start gap-3 rounded-lg border border-[var(--input-border)] bg-[var(--input-bg)] p-2.5 text-xs">
                         <Check

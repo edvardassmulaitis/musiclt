@@ -381,6 +381,9 @@ export interface ImportPreview {
   trackPlans: TrackPlan[]
   imagePlans: ImagePlan[]
   existingPhotos: ExistingPhoto[]
+  /** true jei atlikėjas neturi nei profilio, nei hero nuotraukos ir yra bent viena
+   *  pridedama nuotrauka — pirma tokia taps profiliu ir hero. */
+  willSetHeroProfile: boolean
   warnings: string[]
 }
 
@@ -637,9 +640,15 @@ export async function buildPreview(
     else if (!hasLicense) warnings.push(`Nuotrauka be aiškios licencijos — patikrink autorystę prieš pridedant: ${n.url}`)
   }
 
+  // Ar nauja nuotrauka taps profiliu+hero (atlikėjas jų neturi + yra ką pridėti).
+  const hasProfileNow = !!(existing?.cover_image_url && String(existing.cover_image_url).trim())
+  const hasHeroNow = !!(existing?.cover_image_wide_url && String(existing.cover_image_wide_url).trim())
+  const willSetHeroProfile = imagePlans.some(im => im.action === 'add') && !hasProfileNow && !hasHeroNow
+
   return {
     match, willCreateArtist, targetArtistId,
-    fieldDiffs, linkDiffs, contactPlans, albumPlans, trackPlans, imagePlans, existingPhotos, warnings,
+    fieldDiffs, linkDiffs, contactPlans, albumPlans, trackPlans, imagePlans, existingPhotos,
+    willSetHeroProfile, warnings,
   }
 }
 
@@ -669,6 +678,8 @@ export interface ApplySummary {
   images_logged: number
   images_added: number
   images_skipped: number
+  profile_set: boolean
+  hero_set: boolean
   warnings: string[]
 }
 
@@ -683,7 +694,7 @@ export async function applyImport(
     artist_id: 0, created: false, fields_updated: 0, links_updated: 0,
     contacts_added: 0, contacts_updated: 0, albums_created: 0, albums_updated: 0,
     tracks_created: 0, tracks_updated: 0, featuring_linked: 0, images_logged: 0,
-    images_added: 0, images_skipped: 0, warnings,
+    images_added: 0, images_skipped: 0, profile_set: false, hero_set: false, warnings,
   }
 
   // ── Pasirinkimo filtras (varnelės iš preview). undefined laukas → taikoma viskas. ──
@@ -996,6 +1007,10 @@ export async function applyImport(
   // po esamų. is_active=true (admin sąmoningai importuoja).
   summary.images_logged = (payload.images || []).length
   const imagesArr = payload.images || []
+  // Kandidatai profilio/hero nuotraukai (jei atlikėjas jų dar neturi): pirmenybė
+  // is_primary nuotraukai, kitaip — pirma sėkmingai pridėta.
+  let firstAddedUrl: string | null = null
+  let primaryAddedUrl: string | null = null
   if (imagesArr.length) {
     const { data: existingPh } = await sb.from('artist_photos').select('url, sort_order').eq('artist_id', artistId)
     const seenUrls = new Set<string>((existingPh || []).map((r: any) => r.url))
@@ -1031,8 +1046,32 @@ export async function applyImport(
         sort_order: nextSort++,
         is_active: true,
       })
-      if (!error) summary.images_added++
+      if (!error) {
+        summary.images_added++
+        if (!firstAddedUrl) firstAddedUrl = n.url
+        if (n.isPrimary && !primaryAddedUrl) primaryAddedUrl = n.url
+      }
       else { summary.images_skipped++; warnings.push(`Nuotrauka insert nepavyko (${n.url}): ${error.message}`) }
+    }
+  }
+
+  // ── Profilio + hero nuotrauka (jei dar nenustatyta) ──
+  // Jei atlikėjas neturi NEI profilio (cover_image_url), NEI hero
+  // (cover_image_wide_url), nauja importuota nuotrauka tampa abiem.
+  const heroProfileUrl = primaryAddedUrl || firstAddedUrl
+  if (heroProfileUrl) {
+    const { data: artRow } = await sb.from('artists').select('cover_image_url, cover_image_wide_url').eq('id', artistId).maybeSingle()
+    const hasProfile = !!(artRow?.cover_image_url && String(artRow.cover_image_url).trim())
+    const hasHero = !!(artRow?.cover_image_wide_url && String(artRow.cover_image_wide_url).trim())
+    if (!hasProfile && !hasHero) {
+      const { error } = await sb.from('artists')
+        .update({ cover_image_url: heroProfileUrl, cover_image_wide_url: heroProfileUrl, cover_image_position: 'center 20%' })
+        .eq('id', artistId)
+      if (!error) {
+        summary.profile_set = true
+        summary.hero_set = true
+        warnings.push('Nauja nuotrauka nustatyta kaip profilio ir hero (atlikėjas jų neturėjo).')
+      } else warnings.push(`Profilio/hero nuotraukos nustatymas nepavyko: ${error.message}`)
     }
   }
 
