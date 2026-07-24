@@ -26,6 +26,16 @@ function extractYouTubeId(url: string | null | undefined): string | null {
   return m?.[1] || null
 }
 function strHue(s: string) { let h = 0; for (let i = 0; i < (s || '').length; i++) h = (h * 31 + s.charCodeAt(i)) % 360; return h }
+// „YYYY-MM-DD" → „liepos 23" (deterministinis, be Date/locale niuansų).
+const LT_MONTHS = ['sausio', 'vasario', 'kovo', 'balandžio', 'gegužės', 'birželio', 'liepos', 'rugpjūčio', 'rugsėjo', 'spalio', 'lapkričio', 'gruodžio']
+function fmtDayMonth(iso?: string | null): string {
+  if (!iso) return ''
+  const m = iso.match(/^(\d{4})-(\d{2})-(\d{2})/)
+  if (!m) return iso
+  const mon = parseInt(m[2], 10) - 1
+  const day = parseInt(m[3], 10)
+  return `${LT_MONTHS[mon] || ''} ${day}`.trim()
+}
 // Svetainės širdelės / play ikonos (kaip DienosDainaHero).
 const HEART_D = 'M20.8 4.6a5.5 5.5 0 0 0-7.8 0L12 5.7l-1-1.1a5.5 5.5 0 0 0-7.8 7.8l8.8 8.9 8.8-8.9a5.5 5.5 0 0 0 0-7.8z'
 const PLAY_D = 'M8 5v14l11-7z'
@@ -333,82 +343,87 @@ function PastNomCard({ n, onOpenTrack, maxVotes = 1, compact = false }: { n: Nom
 }
 
 // ───────────────────────── daily-winner YT player ─────────────────────────
-// „Dienos daina" laimėtojo grojimas — TA PATI logika kaip atlikėjo psl.:
-// YT IFrame API + PRE-CREATED cued player (autoplay=0) ant youtube-nocookie
-// host'o. Grojimas paleidžiamas SINKRONIŠKAI tap handler'yje (playVideo per
-// user gesture) → 1 tap su garsu ir ant mobile (iOS/Android).
-//
-// Kodėl ne plain <iframe autoplay=1>? Mobile'e autoplay=1 suveikia tik jei
-// iframe'as JAU DOM'e gesture momentu. Mūsų senoji reel logika iframe'ą
-// mount'indavo PO tap'o (state→rerender) → reikėdavo dvigubo tap'o.
-// (Edvardo spec 2026-07-24 — „auto play nesuveikia, reik paimt ta pacia
-// logika is artist page".)
-function DailyWinnerYtPlayer({ videoId, posterUrl, title, onPlay }: { videoId: string; posterUrl?: string | null; title?: string; onPlay?: () => void }) {
-  const containerRef = useRef<HTMLDivElement>(null)
-  const playerRef = useRef<any>(null)
-  const [apiReady, setApiReady] = useState(false)
-  const [playing, setPlaying] = useState(false)
-  const playingRef = useRef(false)
-
-  // IFrame API scriptas — pakraunam vieną kartą per sesiją.
-  useEffect(() => {
-    const W = window as any
-    if (W.YT && W.YT.Player) { setApiReady(true); return }
+// YouTube IFrame API — įkeliam vieną kartą (singleton), TAS PATS metodas kaip
+// reels SongPlayer/atlikėjo psl. iOS play'inimui: playVideo() gesture'e ant JAU
+// paruošto (pre-created, cued) player'io. (autoplay=1 URL'e iOS neveikia — reikia
+// antro paspaudimo.)
+let ytApiPromiseDD: Promise<any> | null = null
+function loadYTDD(): Promise<any> {
+  if (typeof window === 'undefined') return Promise.reject(new Error('no window'))
+  const w = window as any
+  if (w.YT && w.YT.Player) return Promise.resolve(w.YT)
+  if (ytApiPromiseDD) return ytApiPromiseDD
+  ytApiPromiseDD = new Promise((resolve) => {
+    const prev = w.onYouTubeIframeAPIReady
+    w.onYouTubeIframeAPIReady = () => { if (typeof prev === 'function') prev(); resolve(w.YT) }
     if (!document.getElementById('yt-iframe-api')) {
-      const s = document.createElement('script')
-      s.id = 'yt-iframe-api'
-      s.src = 'https://www.youtube.com/iframe_api'
-      document.head.appendChild(s)
+      const s = document.createElement('script'); s.id = 'yt-iframe-api'; s.src = 'https://www.youtube.com/iframe_api'; document.head.appendChild(s)
     }
-    const prev = W.onYouTubeIframeAPIReady
-    W.onYouTubeIframeAPIReady = () => { if (typeof prev === 'function') prev(); setApiReady(true) }
-    const iv = window.setInterval(() => { if (W.YT && W.YT.Player) { setApiReady(true); window.clearInterval(iv) } }, 120)
-    return () => window.clearInterval(iv)
-  }, [])
+    const iv = setInterval(() => { if (w.YT && w.YT.Player) { clearInterval(iv); resolve(w.YT) } }, 150)
+  })
+  return ytApiPromiseDD
+}
 
-  // PRE-CREATE cued player (autoplay=0) kai tik turim API + videoId → iframe'as
-  // JAU DOM'e prieš pirmą tap'ą. Grojimas per gesture playVideo (žr. start()).
+// „Dienos daina" laimėtojo grojimas — 1:1 kaip reels SongPlayer: pre-created cued
+// player (autoplay=0) ant youtube-nocookie host'o (Safari ITP → klaida 153 be
+// nocookie). Grojimas per playVideo() gesture → 1 tap ir ant iOS/Android.
+// Player kuriamas VIENAME effect'e per loadYTDD() (patikimas singleton) — ne per
+// atskirą apiReady state (senoji versija dėl to neužsikraudavo laiku).
+function DailyWinnerYtPlayer({ videoId, posterUrl, title, onPlay }: { videoId: string; posterUrl?: string | null; title?: string; onPlay?: () => void }) {
+  const holderRef = useRef<HTMLDivElement>(null)
+  const playerRef = useRef<any>(null)
+  const playingRef = useRef(false)
+  const [started, setStarted] = useState(false)
+  const [broken, setBroken] = useState(false)
+
   useEffect(() => {
-    if (!apiReady || !videoId || !containerRef.current) return
-    if (playerRef.current) return
-    const W = window as any
-    const inner = document.createElement('div')
-    inner.style.width = '100%'
-    inner.style.height = '100%'
-    containerRef.current.innerHTML = ''
-    containerRef.current.appendChild(inner)
-    playerRef.current = new W.YT.Player(inner, {
-      // youtube-nocookie — apeina Safari ITP → nebe „Klaida 153" (žr. atlikėjo psl.).
-      host: 'https://www.youtube-nocookie.com',
-      videoId,
-      width: '100%',
-      height: '100%',
-      playerVars: { autoplay: 0, controls: 1, modestbranding: 1, rel: 0, playsinline: 1, iv_load_policy: 3, enablejsapi: 1, origin: typeof window !== 'undefined' ? window.location.origin : undefined },
-      events: {
-        // Jei vartotojas jau paspaudė (dar player'iui kuriantis) — paleidžiam.
-        onReady: (e: any) => { if (playingRef.current) { try { e.target.playVideo() } catch { /* ignore */ } } },
-      },
-    })
-  }, [apiReady, videoId])
-
-  useEffect(() => () => { try { playerRef.current?.destroy() } catch { /* ignore */ } playerRef.current = null }, [])
+    let dead = false
+    setStarted(false); setBroken(false); playingRef.current = false
+    loadYTDD().then((YT) => {
+      if (dead || !holderRef.current || playerRef.current) return
+      const inner = document.createElement('div')
+      inner.style.width = '100%'; inner.style.height = '100%'
+      holderRef.current.innerHTML = ''
+      holderRef.current.appendChild(inner)
+      playerRef.current = new YT.Player(inner, {
+        host: 'https://www.youtube-nocookie.com',
+        videoId, width: '100%', height: '100%',
+        playerVars: { autoplay: 0, controls: 1, modestbranding: 1, rel: 0, playsinline: 1, iv_load_policy: 3, enablejsapi: 1, origin: typeof window !== 'undefined' ? window.location.origin : undefined },
+        events: {
+          onReady: (e: any) => { if (playingRef.current) { try { e.target.playVideo() } catch { /* ignore */ } } },
+          onError: (e: any) => { const c = e?.data; if (c === 101 || c === 150 || c === 153) setBroken(true) },
+        },
+      })
+    }).catch(() => {})
+    return () => { dead = true; try { playerRef.current?.destroy?.() } catch { /* ignore */ } playerRef.current = null }
+  }, [videoId])
 
   const start = () => {
+    if (started) return
     playingRef.current = true
-    setPlaying(true)
+    setStarted(true)
     try { onPlay?.() } catch { /* ignore */ }
     try { playerRef.current?.playVideo?.() } catch { /* ignore */ }
   }
 
   return (
-    <div className="relative aspect-video w-full bg-[var(--cover-placeholder)]">
-      <div ref={containerRef} className={`absolute inset-0 h-full w-full ${playing ? '' : 'pointer-events-none opacity-0'}`} />
-      {!playing && (
-        <button type="button" onClick={start} className="group absolute inset-0 h-full w-full cursor-pointer border-0 bg-transparent p-0" aria-label="Groti">
-          {posterUrl && (/* eslint-disable-next-line @next/next/no-img-element */<img src={proxyImgResized(posterUrl, 640)} alt={title || ''} loading="lazy" decoding="async" className="h-full w-full object-cover" />)}
-          <span className="absolute inset-0 bg-gradient-to-t from-black/35 to-transparent transition-colors group-hover:from-black/45" />
-          <span className="absolute bottom-3 right-3 flex h-12 w-12 items-center justify-center rounded-full bg-[var(--accent-orange)] text-white shadow-[0_8px_24px_rgba(249,115,22,0.5)] transition-transform group-hover:scale-105"><Ic d={PLAY_D} size={20} filled /></span>
-        </button>
+    <div style={{ position: 'relative', width: '100%', aspectRatio: '16 / 9', background: '#000' }}>
+      {/* Player'is JAU DOM'e (display:none kol nepaspausta) — playVideo() gesture'e. */}
+      <div style={{ position: 'absolute', inset: 0, display: started ? 'block' : 'none' }}><div ref={holderRef} style={{ width: '100%', height: '100%' }} /></div>
+      {!started && (
+        broken ? (
+          <a href={`https://www.youtube.com/watch?v=${videoId}`} target="_blank" rel="noopener noreferrer" aria-label="Žiūrėti YouTube" style={{ position: 'absolute', inset: 0, zIndex: 2, display: 'block', border: 0, padding: 0, cursor: 'pointer', background: '#000', textDecoration: 'none' }}>
+            {posterUrl && (/* eslint-disable-next-line @next/next/no-img-element */<img src={proxyImgResized(posterUrl, 640)} alt={title || ''} loading="lazy" decoding="async" style={{ width: '100%', height: '100%', objectFit: 'cover', opacity: 0.9 }} />)}
+            <span style={{ position: 'absolute', inset: 0, background: 'linear-gradient(to top, rgba(0,0,0,0.55), rgba(0,0,0,0.15))' }} />
+            <span style={{ position: 'absolute', left: '50%', bottom: 14, transform: 'translateX(-50%)', display: 'inline-flex', alignItems: 'center', gap: 6, padding: '7px 14px', borderRadius: 999, background: 'rgba(0,0,0,0.7)', color: '#fff', fontFamily: 'Outfit,sans-serif', fontWeight: 800, fontSize: 12.5, whiteSpace: 'nowrap' }}><Ic d={PLAY_D} size={14} filled />Žiūrėti „YouTube“</span>
+          </a>
+        ) : (
+          <button type="button" onClick={start} aria-label="Groti" style={{ position: 'absolute', inset: 0, zIndex: 2, width: '100%', height: '100%', border: 0, padding: 0, cursor: 'pointer', background: '#000' }}>
+            {posterUrl && (/* eslint-disable-next-line @next/next/no-img-element */<img src={proxyImgResized(posterUrl, 640)} alt={title || ''} loading="lazy" decoding="async" style={{ width: '100%', height: '100%', objectFit: 'cover' }} />)}
+            <span style={{ position: 'absolute', inset: 0, background: 'linear-gradient(to top, rgba(0,0,0,0.35), transparent)' }} />
+            <span style={{ position: 'absolute', bottom: 12, right: 12, display: 'flex', alignItems: 'center', justifyContent: 'center', width: 48, height: 48, borderRadius: '50%', background: 'var(--accent-orange)', color: '#fff', boxShadow: '0 8px 24px rgba(249,115,22,0.5)', paddingLeft: 2 }}><Ic d={PLAY_D} size={20} filled /></span>
+          </button>
+        )
       )}
     </div>
   )
@@ -418,6 +433,7 @@ function DailyWinnerYtPlayer({ videoId, posterUrl, title, onPlay }: { videoId: s
 export function DienosDainaSection({ onOpenTrack, variant = 'inline', headerVariant = 'plain', onPlay }: { onOpenTrack?: (t: any) => void; variant?: 'inline' | 'stacked' | 'list' | 'reel'; headerVariant?: 'plain' | 'row'; onPlay?: () => void }) {
   const [noms, setNoms] = useState<Nomination[]>([])
   const [winner, setWinner] = useState<DainaWinner | null>(null)
+  const [recentWinners, setRecentWinners] = useState<DainaWinner[]>([])
   const [loading, setLoading] = useState(true)
   const [modalOpen, setModalOpen] = useState(false)
   const [suggestOpen, setSuggestOpen] = useState(false)
@@ -436,11 +452,15 @@ export function DienosDainaSection({ onOpenTrack, variant = 'inline', headerVari
   const load = useCallback(() => {
     Promise.all([
       fetch('/api/dienos-daina/nominations').then(r => r.json()).catch(() => ({})),
-      fetch('/api/dienos-daina/winners?limit=1').then(r => r.json()).catch(() => ({})),
+      // limit=8 — [0] = vakar laimėtojas (rodomas kortelėj), [1..7] = paskutinių
+      // dienų nugalėtojai (mažas sąrašas reel apačioj → yra ką scroll'inti).
+      fetch('/api/dienos-daina/winners?limit=8').then(r => r.json()).catch(() => ({})),
     ]).then(([n, w]) => {
       setNoms(n.nominations || [])
       setAlreadyNominated(!!n.already_nominated)
-      setWinner((w.winners && w.winners[0]) || null)
+      const wins = (w.winners || []) as DainaWinner[]
+      setWinner(wins[0] || null)
+      setRecentWinners(wins.slice(1, 8))
       setLoading(false)
     }).catch(() => setLoading(false))
   }, [])
@@ -743,6 +763,83 @@ export function DienosDainaSection({ onOpenTrack, variant = 'inline', headerVari
     )
   }
 
+  // Modalo kortelė — VIENAS bendras layout'as ir šiandienos, ir vakar dienos
+  // sąrašui (Edvardo spec 2026-07-24: „nesiradinėkim dviračio, darom tą patį
+  // stilių ir layout kaip visur"). readOnly=true (vakar) → be balsavimo mygtuko.
+  const ModalCandidateCard = ({ n, idx, mx, readOnly, onPick }: { n: Nomination; idx: number; mx: number; readOnly?: boolean; onPick: () => void }) => {
+    const t = n.tracks!
+    const votes = n.weighted_votes || n.votes || 0
+    const level = votes > 0 ? Math.max(1, Math.round((votes / Math.max(1, mx)) * 5)) : 0
+    const isVotedThis = votedIds.has(n.id)
+    return (
+      <div className="hp-card group flex items-start gap-3 p-3 text-left">
+        <button
+          type="button"
+          onClick={onPick}
+          className="flex min-w-0 flex-1 items-start gap-3 border-0 bg-transparent p-0 text-left cursor-pointer"
+        >
+          <div className="relative shrink-0">
+            <Cover src={t.cover_url} ytId={extractYouTubeId(t.video_url)} artistSrc={t.artists?.cover_image_url} alt={sanitizeTitle(t.title)} size={56} radius={8} />
+            {idx < 3 && <span className="absolute -left-1 -top-1 flex h-5 w-5 items-center justify-center rounded-full bg-[var(--accent-orange)] text-[12px] font-black text-white">{idx + 1}</span>}
+          </div>
+          <div className="min-w-0 flex-1">
+            <p className="m-0 line-clamp-1 font-['Outfit',sans-serif] text-[16px] font-extrabold text-[var(--text-primary)] transition-colors group-hover:text-[var(--accent-orange)]">{sanitizeTitle(t.title)}</p>
+            <p className="m-0 truncate text-[14px] text-[var(--text-muted)]">{t.artists?.name}</p>
+            <div className="mt-1 flex items-center gap-2">
+              <span className="flex items-center gap-[3px]" aria-hidden>
+                {Array.from({ length: 5 }).map((_, i) => (
+                  <span key={i} className={`h-[3px] w-[14px] rounded-[2px] ${i < level ? 'bg-[var(--accent-orange)]' : 'bg-[var(--border-default)]'}`} />
+                ))}
+              </span>
+              <span className="shrink-0 text-[12px] font-bold text-[var(--text-faint)]">{votes} bal.</span>
+            </div>
+            <div className="mt-1"><ProposerLine p={n.proposer} /></div>
+            {((n.voters && n.voters.length > 0) || (n.anon_votes || 0) > 0) && (
+              <div className="mt-1.5 flex items-center gap-1.5">
+                <span className="text-[12px] font-bold text-[var(--text-faint)]">Balsavo:</span>
+                <span className="flex -space-x-1.5">
+                  {(n.voters || []).slice(0, 5).map((vp, i) => {
+                    const nm = vp.full_name || vp.username || '?'
+                    return vp.avatar_url ? (
+                      // eslint-disable-next-line @next/next/no-img-element
+                      <img key={i} src={proxyImgResized(vp.avatar_url, 96)} alt={nm} title={nm} loading="lazy" decoding="async" className="h-[18px] w-[18px] rounded-full border border-[var(--bg-surface)] object-cover" />
+                    ) : (
+                      <span key={i} title={nm} className="flex h-[18px] w-[18px] items-center justify-center rounded-full border border-[var(--bg-surface)] text-[12px] font-extrabold" style={{ background: `hsl(${strHue(nm)},32%,20%)`, color: `hsl(${strHue(nm)},48%,58%)` }}>{nm.charAt(0).toUpperCase()}</span>
+                    )
+                  })}
+                </span>
+                {(() => {
+                  const extra = Math.max(0, (n.voters?.length || 0) - 5) + (n.anon_votes || 0)
+                  return extra > 0 ? <span className="text-[12px] text-[var(--text-faint)]">+{extra}</span> : null
+                })()}
+              </div>
+            )}
+            {n.comment && <p className="m-0 mt-1.5 line-clamp-2 text-[14px] italic text-[var(--text-muted)]">„{n.comment}"</p>}
+          </div>
+        </button>
+        {!readOnly && (n.own ? (
+          <span className="shrink-0 self-center rounded-lg border border-dashed border-[var(--border-default)] px-3 py-2 font-['Outfit',sans-serif] text-[12px] font-bold text-[var(--text-faint)]">Tavo</span>
+        ) : (
+          <button
+            type="button"
+            onClick={() => handleVote(n.id)}
+            disabled={isVotedThis || voting !== null}
+            className={`shrink-0 self-center rounded-lg px-3 py-2 font-['Outfit',sans-serif] text-[16px] font-extrabold transition-all ${
+              isVotedThis ? 'cursor-default' : voting !== null ? 'opacity-60' : 'hover:-translate-y-px'
+            }`}
+            style={{
+              background: isVotedThis ? 'rgba(249,115,22,0.15)' : 'var(--accent-orange)',
+              color: isVotedThis ? 'var(--accent-orange)' : '#fff',
+              border: isVotedThis ? '1px solid rgba(249,115,22,0.4)' : '1px solid transparent',
+            }}
+          >
+            {voting === n.id ? '…' : isVotedThis ? '✓' : 'Balsuoti'}
+          </button>
+        ))}
+      </div>
+    )
+  }
+
   return (
     <>
       {variant !== 'list' && variant !== 'reel' && SectionHeader}
@@ -910,6 +1007,24 @@ export function DienosDainaSection({ onOpenTrack, variant = 'inline', headerVari
               <div className="mt-4 flex w-full items-center justify-center gap-2 rounded-full bg-[var(--bg-hover)] px-4 py-3 font-['Outfit',sans-serif] text-[13px] font-bold text-[var(--text-faint)]">✓ Šiandien jau pasiūlei dainą</div>
             )}
           </div>
+
+          {/* 4. Paskutinių dienų nugalėtojai — kad būtų ką scroll'inti (sustabdo
+              auto-swipe), o po sąrašo — nuoroda į visą istoriją (footeryje). */}
+          {recentWinners.filter(w => w.tracks).length > 0 && (
+            <div>
+              <div className="mb-2.5 font-['Outfit',sans-serif] text-[11px] font-extrabold uppercase tracking-[0.1em] text-[var(--text-faint)]">Paskutinių dienų nugalėtojai</div>
+              <div className="flex flex-col gap-3">
+                {recentWinners.filter(w => w.tracks).map((w) => (
+                  <ListRow
+                    key={w.id}
+                    t={w.tracks!}
+                    proposer={w.proposer}
+                    right={<span className="shrink-0 self-center whitespace-nowrap text-[11px] font-bold text-[var(--text-faint)]">{fmtDayMonth(w.date)}</span>}
+                  />
+                ))}
+              </div>
+            </div>
+          )}
         </div>
       ) : variant === 'stacked' ? (
         // ── /atrasti: dvi atskiros juostos — šiandien siūloma + vakar ──
@@ -1016,79 +1131,15 @@ export function DienosDainaSection({ onOpenTrack, variant = 'inline', headerVari
             </div>
           )}
           <div className="grid grid-cols-1 gap-2 sm:grid-cols-2">
-            {sorted.map((n, idx) => {
-              const t = n.tracks!
-              const votes = n.weighted_votes || n.votes || 0
-              const level = votes > 0 ? Math.max(1, Math.round((votes / maxVotes) * 5)) : 0
-              const isVotedThis = votedIds.has(n.id)
-              return (
-                <div key={n.id} className="hp-card group flex items-start gap-3 p-3 text-left">
-                  <button
-                    type="button"
-                    onClick={() => { setModalOpen(false); openTrack({ id: t.id, title: t.title, slug: t.slug, cover_url: t.cover_url, video_url: t.video_url, artists: t.artists }) }}
-                    className="flex min-w-0 flex-1 items-start gap-3 border-0 bg-transparent p-0 text-left cursor-pointer"
-                  >
-                    <div className="relative shrink-0">
-                      <Cover src={t.cover_url} ytId={extractYouTubeId(t.video_url)} artistSrc={t.artists?.cover_image_url} alt={sanitizeTitle(t.title)} size={56} radius={8} />
-                      {idx < 3 && <span className="absolute -left-1 -top-1 flex h-5 w-5 items-center justify-center rounded-full bg-[var(--accent-orange)] text-[12px] font-black text-white">{idx + 1}</span>}
-                    </div>
-                    <div className="min-w-0 flex-1">
-                      <p className="m-0 line-clamp-1 font-['Outfit',sans-serif] text-[16px] font-extrabold text-[var(--text-primary)] transition-colors group-hover:text-[var(--accent-orange)]">{sanitizeTitle(t.title)}</p>
-                      <p className="m-0 truncate text-[14px] text-[var(--text-muted)]">{t.artists?.name}</p>
-                      <div className="mt-1 flex items-center gap-2">
-                        <span className="flex items-center gap-[3px]" aria-hidden>
-                          {Array.from({ length: 5 }).map((_, i) => (
-                            <span key={i} className={`h-[3px] w-[14px] rounded-[2px] ${i < level ? 'bg-[var(--accent-orange)]' : 'bg-[var(--border-default)]'}`} />
-                          ))}
-                        </span>
-                        <span className="shrink-0 text-[12px] font-bold text-[var(--text-faint)]">{votes} bal.</span>
-                      </div>
-                      <div className="mt-1"><ProposerLine p={n.proposer} /></div>
-                      {((n.voters && n.voters.length > 0) || (n.anon_votes || 0) > 0) && (
-                        <div className="mt-1.5 flex items-center gap-1.5">
-                          <span className="text-[12px] font-bold text-[var(--text-faint)]">Balsavo:</span>
-                          <span className="flex -space-x-1.5">
-                            {(n.voters || []).slice(0, 5).map((vp, i) => {
-                              const nm = vp.full_name || vp.username || '?'
-                              return vp.avatar_url ? (
-                                // eslint-disable-next-line @next/next/no-img-element
-                                <img key={i} src={proxyImgResized(vp.avatar_url, 96)} alt={nm} title={nm} loading="lazy" decoding="async" className="h-[18px] w-[18px] rounded-full border border-[var(--bg-surface)] object-cover" />
-                              ) : (
-                                <span key={i} title={nm} className="flex h-[18px] w-[18px] items-center justify-center rounded-full border border-[var(--bg-surface)] text-[12px] font-extrabold" style={{ background: `hsl(${strHue(nm)},32%,20%)`, color: `hsl(${strHue(nm)},48%,58%)` }}>{nm.charAt(0).toUpperCase()}</span>
-                              )
-                            })}
-                          </span>
-                          {(() => {
-                            const extra = Math.max(0, (n.voters?.length || 0) - 5) + (n.anon_votes || 0)
-                            return extra > 0 ? <span className="text-[12px] text-[var(--text-faint)]">+{extra}</span> : null
-                          })()}
-                        </div>
-                      )}
-                      {n.comment && <p className="m-0 mt-1.5 line-clamp-2 text-[14px] italic text-[var(--text-muted)]">„{n.comment}"</p>}
-                    </div>
-                  </button>
-                  {n.own ? (
-                    <span className="shrink-0 self-center rounded-lg border border-dashed border-[var(--border-default)] px-3 py-2 font-['Outfit',sans-serif] text-[12px] font-bold text-[var(--text-faint)]">Tavo</span>
-                  ) : (
-                    <button
-                      type="button"
-                      onClick={() => handleVote(n.id)}
-                      disabled={isVotedThis || voting !== null}
-                      className={`shrink-0 self-center rounded-lg px-3 py-2 font-['Outfit',sans-serif] text-[16px] font-extrabold transition-all ${
-                        isVotedThis ? 'cursor-default' : voting !== null ? 'opacity-60' : 'hover:-translate-y-px'
-                      }`}
-                      style={{
-                        background: isVotedThis ? 'rgba(249,115,22,0.15)' : 'var(--accent-orange)',
-                        color: isVotedThis ? 'var(--accent-orange)' : '#fff',
-                        border: isVotedThis ? '1px solid rgba(249,115,22,0.4)' : '1px solid transparent',
-                      }}
-                    >
-                      {voting === n.id ? '…' : isVotedThis ? '✓' : 'Balsuoti'}
-                    </button>
-                  )}
-                </div>
-              )
-            })}
+            {sorted.map((n, idx) => (
+              <ModalCandidateCard
+                key={n.id}
+                n={n}
+                idx={idx}
+                mx={maxVotes}
+                onPick={() => { setModalOpen(false); openTrack({ id: n.tracks!.id, title: n.tracks!.title, slug: n.tracks!.slug, cover_url: n.tracks!.cover_url, video_url: n.tracks!.video_url, artists: n.tracks!.artists }) }}
+              />
+            ))}
           </div>
         </HomeListModal>
       )}
@@ -1101,47 +1152,16 @@ export function DienosDainaSection({ onOpenTrack, variant = 'inline', headerVari
             <div className="py-8 text-center text-[14px] text-[var(--text-muted)]">Vakar pasiūlymų nerasta.</div>
           ) : (
             <div className="grid grid-cols-1 gap-2 sm:grid-cols-2">
-              {[...ydayNoms].filter(n => n.tracks).sort((a, b) => (b.weighted_votes || b.votes || 0) - (a.weighted_votes || a.votes || 0)).map((n, idx) => {
-                const t = n.tracks!
-                const votes = n.weighted_votes || n.votes || 0
-                return (
-                  <button
-                    key={n.id}
-                    type="button"
-                    onClick={() => { setYdayOpen(false); openTrack({ id: t.id, title: t.title, slug: t.slug, cover_url: t.cover_url, video_url: t.video_url, artists: t.artists }) }}
-                    className={`hp-card group flex items-start gap-3 p-3 text-left ${idx === 0 ? 'border-[rgba(249,115,22,0.45)]' : ''}`}
-                  >
-                    <Cover src={t.cover_url} ytId={extractYouTubeId(t.video_url)} artistSrc={t.artists?.cover_image_url} alt={sanitizeTitle(t.title)} size={56} radius={8} />
-                    <div className="min-w-0 flex-1">
-                      <p className="m-0 line-clamp-1 font-['Outfit',sans-serif] text-[16px] font-extrabold text-[var(--text-primary)] transition-colors group-hover:text-[var(--accent-orange)]">{sanitizeTitle(t.title)}{idx === 0 && <span className="ml-1.5 rounded-full bg-[var(--accent-orange)] px-1.5 py-0.5 text-[12px] font-extrabold uppercase text-white">Laimėjo</span>}</p>
-                      <p className="m-0 truncate text-[14px] text-[var(--text-muted)]">{t.artists?.name}</p>
-                      <p className="m-0 mt-1 text-[14px] font-bold text-[var(--text-secondary)]">{votes} {votes === 1 ? 'taškas' : votes < 10 ? 'taškai' : 'taškų'}</p>
-                      <div className="mt-1"><ProposerLine p={n.proposer} /></div>
-                      {((n.voters && n.voters.length > 0) || (n.anon_votes || 0) > 0) && (
-                        <div className="mt-1.5 flex items-center gap-1.5">
-                          <span className="text-[12px] font-bold text-[var(--text-faint)]">Balsavo:</span>
-                          <span className="flex -space-x-1.5">
-                            {(n.voters || []).slice(0, 6).map((vp, i) => {
-                              const nm = vp.full_name || vp.username || '?'
-                              return vp.avatar_url ? (
-                                // eslint-disable-next-line @next/next/no-img-element
-                                <img key={i} src={proxyImgResized(vp.avatar_url, 96)} alt={nm} title={nm} loading="lazy" decoding="async" className="h-[18px] w-[18px] rounded-full border border-[var(--bg-surface)] object-cover" />
-                              ) : (
-                                <span key={i} title={nm} className="flex h-[18px] w-[18px] items-center justify-center rounded-full border border-[var(--bg-surface)] text-[12px] font-extrabold" style={{ background: `hsl(${strHue(nm)},32%,20%)`, color: `hsl(${strHue(nm)},48%,58%)` }}>{nm.charAt(0).toUpperCase()}</span>
-                              )
-                            })}
-                          </span>
-                          {(() => {
-                            const extra = Math.max(0, (n.voters?.length || 0) - 6) + (n.anon_votes || 0)
-                            return extra > 0 ? <span className="text-[12px] text-[var(--text-faint)]">+{extra} svečių</span> : null
-                          })()}
-                        </div>
-                      )}
-                      {n.comment && <p className="m-0 mt-1.5 line-clamp-2 text-[14px] italic text-[var(--text-muted)]">„{n.comment}"</p>}
-                    </div>
-                  </button>
-                )
-              })}
+              {[...ydayNoms].filter(n => n.tracks).sort((a, b) => (b.weighted_votes || b.votes || 0) - (a.weighted_votes || a.votes || 0)).map((n, idx) => (
+                <ModalCandidateCard
+                  key={n.id}
+                  n={n}
+                  idx={idx}
+                  mx={ydayMax}
+                  readOnly
+                  onPick={() => { setYdayOpen(false); openTrack({ id: n.tracks!.id, title: n.tracks!.title, slug: n.tracks!.slug, cover_url: n.tracks!.cover_url, video_url: n.tracks!.video_url, artists: n.tracks!.artists }) }}
+                />
+              ))}
             </div>
           )}
         </HomeListModal>
