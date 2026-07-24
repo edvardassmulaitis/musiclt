@@ -91,10 +91,11 @@ export async function GET(req: Request) {
   })).sort((a, b) => b.weighted_votes - a.weighted_votes)
   const alreadyNominated = !!sessionUserId && (data || []).some((n: any) => n.user_id === sessionUserId)
 
-  // Legacy dienos (scrape) neturi naujosios sistemos nominacijų → „vakar dalyvavo"
-  // sąrašą imam iš daily_song_picks (senojo music.lt pasiūlymai). Fallback įsijungia
-  // tik kai naujų nominacijų NĖRA (t.y. ne šiandienai). (Edvardo 2026-07-24.)
-  if (enriched.length === 0) {
+  // Legacy override: PRAĖJUSIOMS dienoms, kurios perimtos iš senosios music.lt
+  // sistemos (yra daily_song_picks), „vakar dalyvavo" sąrašas imamas IŠ PICKS —
+  // jie autoritetingi, ne naujosios sistemos testinės nominacijos. Šiandienai
+  // (gyvas balsavimas) — visada naujos nominacijos. (Edvardo 2026-07-24.)
+  if (date < todayLT()) {
     const { data: picks } = await supabase
       .from('daily_song_picks')
       .select(`

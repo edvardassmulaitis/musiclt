@@ -487,11 +487,10 @@ function buildHeroSlides(input: {
       // pirmaujantys kandidatai (iš gyvų nominacijų). ISR (5 min) atnaujina per dieną.
       // Vizualo prioritetas: dainos cover (tikras artwork) → tos dainos YouTube
       // maxres kadras (susijęs su daina, gera kokybė) → atlikėjo profilio foto.
-      const ytHi = (vid?: string | null) => vid ? `https://img.youtube.com/vi/${vid}/maxresdefault.jpg` : null
-      // hqdefault VISADA egzistuoja (maxresdefault dažnai 404 → tuščia mini foto).
+      // hqdefault VISADA egzistuoja (maxresdefault dažnai 404 → juoda/tuščia kortelė).
       const ytHq = (vid?: string | null) => vid ? `https://img.youtube.com/vi/${vid}/hqdefault.jpg` : null
       const trkCover = (t: any) => t?.cover_url || ytHq(extractYouTubeId(t?.video_url || null)) || t?.artists?.cover_image_url || null
-      const winnerCover = tr.cover_url || ytHi(wVid) || tr.artists?.cover_image_url || null
+      const winnerCover = tr.cover_url || ytHq(wVid) || tr.artists?.cover_image_url || null
       const todayLeaders = (todayNoms || [])
         .filter((n: any) => n?.tracks && n.tracks.id !== tr.id)
         .slice(0, 3)

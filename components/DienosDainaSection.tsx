@@ -541,10 +541,10 @@ export function DienosDainaSection({ onOpenTrack, variant = 'inline', headerVari
       onClick={openYesterday}
       aria-label={`Vakar dalyvavo ${ydaySorted.length} — žiūrėti visus`}
       title="Vakar dienos kandidatai ir siūlytojai"
-      className="inline-flex shrink-0 items-center gap-1.5 rounded-full border border-[var(--border-default)] bg-[var(--bg-hover)] px-2.5 py-1 font-['Outfit',sans-serif] text-[11px] font-extrabold text-[var(--text-secondary)] transition-colors hover:border-[var(--accent-orange)] hover:text-[var(--accent-orange)]"
+      className="inline-flex shrink-0 items-center gap-1.5 rounded-full border border-[var(--border-default)] bg-[var(--bg-hover)] px-2.5 py-1 font-['Outfit',sans-serif] text-[12px] font-extrabold text-[var(--text-secondary)] transition-colors hover:border-[var(--accent-orange)] hover:text-[var(--accent-orange)]"
     >
       <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.4" strokeLinecap="round"><line x1="4" y1="7" x2="20" y2="7" /><line x1="4" y1="12" x2="20" y2="12" /><line x1="4" y1="17" x2="14" y2="17" /></svg>
-      Vakar dalyvavo {ydaySorted.length}
+      {ydaySorted.length}
     </button>
   ) : null
 
@@ -865,6 +865,43 @@ export function DienosDainaSection({ onOpenTrack, variant = 'inline', headerVari
           </button>
         ))}
       </div>
+    )
+  }
+
+  // Vakar modalo #1 — didelis „embedas" (16:9 viršelis + play), daugiau vietos
+  // desktop'e. (Edvardo spec 2026-07-24: „realius embedus didesnio dydžio pirmų
+  // vietų bent jau".)
+  const YdayFeatured = ({ n, onPick }: { n: Nomination; onPick: () => void }) => {
+    const t = n.tracks!
+    const v = extractYouTubeId(t.video_url)
+    const img = t.cover_url || (v ? `https://img.youtube.com/vi/${v}/hqdefault.jpg` : null) || t.artists?.cover_image_url || null
+    const votes = n.weighted_votes || n.votes || 0
+    return (
+      <button
+        type="button"
+        onClick={onPick}
+        className="hp-card group flex w-full flex-col items-stretch gap-4 p-3 text-left sm:flex-row"
+      >
+        <div className="relative aspect-video w-full shrink-0 overflow-hidden rounded-xl bg-[var(--cover-placeholder)] sm:w-[46%] sm:max-w-[340px]">
+          {img
+            ? (/* eslint-disable-next-line @next/next/no-img-element */<img src={proxyImgResized(img, 640)} alt={sanitizeTitle(t.title)} loading="lazy" decoding="async" className="h-full w-full object-cover transition-transform duration-500 group-hover:scale-[1.04]" />)
+            : <div className="flex h-full w-full items-center justify-center text-3xl text-[var(--text-faint)]">🎵</div>}
+          <span className="absolute inset-0 bg-gradient-to-t from-black/45 to-transparent opacity-0 transition-opacity group-hover:opacity-100" />
+          <span className="absolute left-2.5 top-2.5 flex h-6 w-6 items-center justify-center rounded-full bg-[var(--accent-orange)] text-[13px] font-black text-white shadow">1</span>
+          <span className="absolute bottom-2.5 right-2.5 flex h-11 w-11 items-center justify-center rounded-full bg-[var(--accent-orange)] text-white shadow-[0_8px_24px_rgba(249,115,22,0.5)] transition-transform group-hover:scale-105"><Ic d={PLAY_D} size={18} filled /></span>
+        </div>
+        <div className="flex min-w-0 flex-1 flex-col justify-center">
+          <span className="mb-1 font-['Outfit',sans-serif] text-[11px] font-extrabold uppercase tracking-[0.08em] text-[var(--accent-orange)]">Dienos nugalėtojas</span>
+          <p className="m-0 line-clamp-2 font-['Outfit',sans-serif] text-[20px] font-extrabold leading-tight text-[var(--text-primary)] transition-colors group-hover:text-[var(--accent-orange)]">{sanitizeTitle(t.title)}</p>
+          <p className="m-0 mt-0.5 truncate text-[15px] text-[var(--text-muted)]">{t.artists?.name}</p>
+          <div className="mt-2 flex items-center gap-3">
+            {n.proposer && (n.proposer.username || n.proposer.full_name) && (
+              <span className="flex min-w-0 items-center gap-1.5"><span className="shrink-0 text-[var(--text-faint)]" title="pasiūlė"><Ic d={SUGG_D} size={13} /></span><MiniAv p={n.proposer} size={20} /><span className="truncate text-[13px] font-semibold text-[var(--text-secondary)]">{n.proposer.username || n.proposer.full_name}</span></span>
+            )}
+            {votes > 0 && <span className="inline-flex shrink-0 items-center gap-1 text-[13px] font-extrabold text-[var(--accent-orange)]"><Ic d={HEART_D} size={13} filled />{votes}</span>}
+          </div>
+        </div>
+      </button>
     )
   }
 
@@ -1194,17 +1231,15 @@ export function DienosDainaSection({ onOpenTrack, variant = 'inline', headerVari
           ) : ydayNoms.filter(n => n.tracks).length === 0 ? (
             <div className="py-8 text-center text-[14px] text-[var(--text-muted)]">Vakar pasiūlymų nerasta.</div>
           ) : (
-            <div className="grid grid-cols-1 gap-2 sm:grid-cols-2">
-              {[...ydayNoms].filter(n => n.tracks).sort((a, b) => (b.weighted_votes || b.votes || 0) - (a.weighted_votes || a.votes || 0)).map((n, idx) => (
-                <ModalCandidateCard
-                  key={n.id}
-                  n={n}
-                  idx={idx}
-                  mx={ydayMax}
-                  readOnly
-                  onPick={() => { setYdayOpen(false); openTrack({ id: n.tracks!.id, title: n.tracks!.title, slug: n.tracks!.slug, cover_url: n.tracks!.cover_url, video_url: n.tracks!.video_url, artists: n.tracks!.artists }) }}
-                />
-              ))}
+            <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
+              {[...ydayNoms].filter(n => n.tracks).sort((a, b) => (b.weighted_votes || b.votes || 0) - (a.weighted_votes || a.votes || 0)).map((n, idx) => {
+                const pick = () => { setYdayOpen(false); openTrack({ id: n.tracks!.id, title: n.tracks!.title, slug: n.tracks!.slug, cover_url: n.tracks!.cover_url, video_url: n.tracks!.video_url, artists: n.tracks!.artists }) }
+                return idx === 0 ? (
+                  <div key={n.id} className="sm:col-span-2"><YdayFeatured n={n} onPick={pick} /></div>
+                ) : (
+                  <ModalCandidateCard key={n.id} n={n} idx={idx} mx={ydayMax} readOnly onPick={pick} />
+                )
+              })}
             </div>
           )}
         </HomeListModal>
