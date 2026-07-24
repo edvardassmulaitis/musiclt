@@ -468,13 +468,14 @@ export function DienosDainaSection({ onOpenTrack, variant = 'inline', headerVari
 
   const openYesterday = useCallback(() => {
     if (!winner?.date) return
+    onPlay?.() // reel'e — sustabdo auto-swipe, kad neuždarytų modalo
     setYdayOpen(true); setYdayLoading(true)
     fetch(`/api/dienos-daina/nominations?date=${winner.date}`)
       .then(r => r.json())
       .then(d => setYdayNoms(d.nominations || []))
       .catch(() => setYdayNoms([]))
       .finally(() => setYdayLoading(false))
-  }, [winner])
+  }, [winner, onPlay])
 
   useEffect(() => {
     fetch('/api/dienos-daina/votes')
@@ -785,16 +786,18 @@ export function DienosDainaSection({ onOpenTrack, variant = 'inline', headerVari
           <div className="min-w-0 flex-1">
             <p className="m-0 line-clamp-1 font-['Outfit',sans-serif] text-[16px] font-extrabold text-[var(--text-primary)] transition-colors group-hover:text-[var(--accent-orange)]">{sanitizeTitle(t.title)}</p>
             <p className="m-0 truncate text-[14px] text-[var(--text-muted)]">{t.artists?.name}</p>
+            {/* Pop brūkšneliai — visada; „X bal." skaičius + „Balsavo:" avatarai TIK
+                balsuojamam (šiandien) sąrašui. Vakar (readOnly) = kompaktiška. */}
             <div className="mt-1 flex items-center gap-2">
               <span className="flex items-center gap-[3px]" aria-hidden>
                 {Array.from({ length: 5 }).map((_, i) => (
                   <span key={i} className={`h-[3px] w-[14px] rounded-[2px] ${i < level ? 'bg-[var(--accent-orange)]' : 'bg-[var(--border-default)]'}`} />
                 ))}
               </span>
-              <span className="shrink-0 text-[12px] font-bold text-[var(--text-faint)]">{votes} bal.</span>
+              {!readOnly && <span className="shrink-0 text-[12px] font-bold text-[var(--text-faint)]">{votes} bal.</span>}
             </div>
             <div className="mt-1"><ProposerLine p={n.proposer} /></div>
-            {((n.voters && n.voters.length > 0) || (n.anon_votes || 0) > 0) && (
+            {!readOnly && ((n.voters && n.voters.length > 0) || (n.anon_votes || 0) > 0) && (
               <div className="mt-1.5 flex items-center gap-1.5">
                 <span className="text-[12px] font-bold text-[var(--text-faint)]">Balsavo:</span>
                 <span className="flex -space-x-1.5">
@@ -995,24 +998,22 @@ export function DienosDainaSection({ onOpenTrack, variant = 'inline', headerVari
                 return <ListRow key={n.id} t={n.tracks!} big={idx === 0} level={level} proposer={n.proposer} right={<VoteControl n={n} big={idx === 0} />} />
               })}
             </div>
-            {!alreadyNominated ? (
+            {!alreadyNominated && (
               <button
                 type="button"
-                onClick={() => setSuggestOpen(true)}
+                onClick={() => { onPlay?.(); setSuggestOpen(true) }}
                 className="mt-4 flex w-full items-center justify-center gap-2 rounded-full bg-[var(--accent-orange)] px-4 py-3 font-['Outfit',sans-serif] text-[14px] font-extrabold text-white shadow-[0_6px_20px_rgba(249,115,22,0.35)] transition-[filter] hover:brightness-110"
               >
                 <Ic d={PLUS_D} size={17} />Siūlyti savo dainą
               </button>
-            ) : (
-              <div className="mt-4 flex w-full items-center justify-center gap-2 rounded-full bg-[var(--bg-hover)] px-4 py-3 font-['Outfit',sans-serif] text-[13px] font-bold text-[var(--text-faint)]">✓ Šiandien jau pasiūlei dainą</div>
             )}
           </div>
 
-          {/* 4. Paskutinių dienų nugalėtojai — kad būtų ką scroll'inti (sustabdo
-              auto-swipe), o po sąrašo — nuoroda į visą istoriją (footeryje). */}
+          {/* 4. Anksčiau laimėjo — kad būtų ką scroll'inti (sustabdo auto-swipe),
+              o po sąrašo — nuoroda į visą istoriją (footeryje). */}
           {recentWinners.filter(w => w.tracks).length > 0 && (
             <div>
-              <div className="mb-2.5 font-['Outfit',sans-serif] text-[11px] font-extrabold uppercase tracking-[0.1em] text-[var(--text-faint)]">Paskutinių dienų nugalėtojai</div>
+              <div className="mb-2.5 font-['Outfit',sans-serif] text-[11px] font-extrabold uppercase tracking-[0.1em] text-[var(--text-faint)]">Anksčiau laimėjo</div>
               <div className="flex flex-col gap-3">
                 {recentWinners.filter(w => w.tracks).map((w) => (
                   <ListRow
