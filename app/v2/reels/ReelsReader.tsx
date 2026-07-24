@@ -10,6 +10,7 @@ import { useSession } from 'next-auth/react'
 import { proxyImgResized } from '@/lib/img-proxy'
 import { sanitizeRichHtml } from '@/lib/sanitize-html'
 import { deviceFpSync } from '@/lib/device-fp'
+import { markTopVoted } from '@/lib/top-voted'
 import { DienosDainaHero } from '@/components/DienosDainaHero'
 import { DienosDainaSection } from '@/components/DienosDainaSection'
 import { LikePill } from '@/components/LikePill'
@@ -174,6 +175,7 @@ function ChartVoteList({ topType, accent, onPlay }: { topType: 'lt_top30' | 'top
       const r = await fetch('/api/top/vote', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ track_id, week_id: weekId, vote_type: 'like', fingerprint: deviceFpSync() }) })
       if (r.status === 401) { setCounts(p => ({ ...p, [track_id]: Math.max(0, (p[track_id] || 0) - 1) })); window.location.href = '/auth/signin'; return }
       if (!r.ok) setCounts(p => ({ ...p, [track_id]: Math.max(0, (p[track_id] || 0) - 1) }))
+      else markTopVoted(topType) // prabalsavus — topas pasislepia iš feed'o iki kitos savaitės
     } catch { setCounts(p => ({ ...p, [track_id]: Math.max(0, (p[track_id] || 0) - 1) })) } finally { setBusy(false) }
   }
 
@@ -1502,6 +1504,7 @@ export function ChartBottomSheet({
       if (res.ok) {
         setVotedIds(p => [...p, trackId])
         setVotesRemaining(p => Math.max(0, p - 1))
+        markTopVoted(topType)
       } else {
         setVoteErr(d.error || 'Klaida')
         setTimeout(() => setVoteErr(null), 2500)

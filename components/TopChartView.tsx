@@ -12,6 +12,7 @@
 
 import { useState, useEffect, useCallback, useMemo, useRef } from 'react'
 import { deviceFpSync } from '@/lib/device-fp'
+import { markTopVoted } from '@/lib/top-voted'
 import { useSession } from 'next-auth/react'
 import Link from 'next/link'
 import { ChartYtPlayer, type ChartYtPlayerHandle } from '@/components/ChartYtPlayer'
@@ -591,6 +592,7 @@ export default function TopChartView({
   const handleVoted = (id: number) => {
     setVotesPerTrack(p => ({ ...p, [id]: (p[id] || 0) + 1 }))
     setVotesRemaining(p => Math.max(0, p - 1))
+    markTopVoted(topType) // prabalsavus — topas pasislepia iš pagrindinio feed'o iki kitos savaitės
   }
 
   // Optimistic vote'as nepavyko serveryje — sumažinam local state'ą atgal,

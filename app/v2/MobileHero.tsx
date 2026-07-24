@@ -4,16 +4,21 @@
 // ant mobile (≤768px); desktop rodo HeroSlider korteles. Paspaudus — atidaro
 // pilno ekrano v1 reels reader'į (horizontalus swipe + vertikalus skaitymas +
 // čartų/dienos dainos balsavimo sheet'ai).
-import { useState } from 'react'
+import { useState, useEffect } from 'react'
 import Link from 'next/link'
 import { proxyImgResized } from '@/lib/img-proxy'
 import { useSite } from '@/components/SiteContext'
 import type { HeroSlide } from './HeroSlider'
 import { ReelsOverlay, ChartBottomSheet, DailyVoteSheet, slideKey } from './reels/ReelsReader'
+import { isTopVoted, chartTypeToTop } from '@/lib/top-voted'
 import { useHeroSeen } from './useHeroSeen'
 
-export default function MobileHero({ slides }: { slides: HeroSlide[] }) {
+export default function MobileHero({ slides: allSlides }: { slides: HeroSlide[] }) {
   const { dk } = useSite()
+  // Prabalsuoti topai pasislepia iš juostos/reels iki kitos savaitės (po mount).
+  const [mounted, setMounted] = useState(false)
+  useEffect(() => { setMounted(true) }, [])
+  const slides = allSlides.filter((s) => !(mounted && isTopVoted(chartTypeToTop(s.type))))
   const [reelsOpen, setReelsOpen] = useState(false)
   const [reelsIdx, setReelsIdx] = useState(0)
   // „peržiūrėta" žymėjimas — prisijungusiems SURIŠTA per įrenginius (server),

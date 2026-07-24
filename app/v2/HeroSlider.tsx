@@ -8,6 +8,7 @@
 import { useRef, useState, useEffect } from 'react'
 import Link from 'next/link'
 import { proxyImgResized } from '@/lib/img-proxy'
+import { isTopVoted, chartTypeToTop } from '@/lib/top-voted'
 import { useHeroSeen } from './useHeroSeen'
 
 export type TopEntry = { pos: number; track_id?: number; title: string; artist: string; cover_url: string | null; artist_image: string | null; trend: string; prevPos?: number | null; wks?: number; slug?: string; artist_slug?: string; videoId?: string | null }
@@ -52,7 +53,14 @@ const slideKey = (s: HeroSlide) => `${s.type}::${s.href}`
 export default function HeroSlider({ slides: allSlides }: { slides: HeroSlide[] }) {
   // Dienos daina desktop'e rodoma atskirai (aukštai, DienosDainaSection variant='list'),
   // tad hero karuselėje jos NEdubliuojam — tik mobile reels'uose (Edvardo spec 2026-07-24).
-  const slides = allSlides.filter((s) => s.type !== 'daily_winner')
+  // Prabalsuoti topai pasislepia iki kitos savaitės (client-side, po mount).
+  const [mounted, setMounted] = useState(false)
+  useEffect(() => { setMounted(true) }, [])
+  const slides = allSlides.filter((s) => {
+    if (s.type === 'daily_winner') return false
+    if (mounted && isTopVoted(chartTypeToTop(s.type))) return false
+    return true
+  })
   const trackRef = useRef<HTMLDivElement>(null)
   const [activeIdx, setActiveIdx] = useState(0)
   const [atStart, setAtStart] = useState(true)
