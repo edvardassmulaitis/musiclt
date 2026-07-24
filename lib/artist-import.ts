@@ -358,7 +358,7 @@ export interface FieldDiff { field: string; label: string; old: any; new: any; c
 export interface LinkDiff { index: number; platform: string; column: string | null; oldUrl: string | null; newUrl: string; action: 'add' | 'update' | 'unchanged' | 'unsupported' }
 export interface ContactPlan { index: number; name: string; type: string; email: string | null; phone: string | null; url: string | null; confidence: string; action: 'add' | 'update'; isPotential: boolean }
 export interface AlbumPlan { index: number; title: string; type: string | null; year: number | null; action: 'create' | 'update'; existingId: number | null; description: string | null; descriptionOld: string | null; descriptionChanged: boolean; descriptionOnly: boolean; notFound: boolean; coverUrl: string | null; coverWillApply: boolean }
-export interface TrackPlan { index: number; title: string; albumTitle: string | null; type: string | null; action: 'create' | 'update'; existingId: number | null; albumFound: boolean; featuring: string[]; featuringNew: string[]; year: number | null; duration: string | null }
+export interface TrackPlan { index: number; title: string; albumTitle: string | null; type: string | null; action: 'create' | 'update'; existingId: number | null; albumFound: boolean; featuring: string[]; featuringNew: string[]; year: number | null; duration: string | null; dupInPayload: boolean }
 export interface ImagePlan {
   index: number; url: string; type: string | null
   sourceLabel: string | null; sourceUrl: string | null
@@ -460,7 +460,8 @@ export async function buildPreview(
   else if (p.gender) warnings.push(`Lytis "${p.gender}" nepalaikoma DB (tik male/female) — bus praleista.`)
   addDiff('genre_group', 'Stiliaus grupė', existingGenre, p.genre_group)
   if (p.genres && p.genres.length) addDiff('substyles', 'Sub-stiliai', existingSubstyles.join(', '), p.genres.join(', '))
-  addDiff('description', 'Bio', existing?.description ? `${String(existing.description).slice(0, 120)}…` : null, p.bio ? `${p.bio.slice(0, 120)}…` : null)
+  // Bio perduodam PILNĄ (nenukirptą) — UI parodo išskleidžiamą/su slinktimi.
+  addDiff('description', 'Bio', existing?.description || null, p.bio || null)
 
   // genre_group validacija
   if (p.genre_group && !GENRE_GROUPS.includes(p.genre_group as any)) {
@@ -566,6 +567,7 @@ export async function buildPreview(
   // ── Track plans ──
   const trackPlans: TrackPlan[] = []
   const albumTitlesInPayload = new Set((payload.albums || []).map(a => normalizeName(a.title)))
+  const seenTrackTitles = new Set<string>()
   const tracksArr = payload.tracks || []
   for (let ti = 0; ti < tracksArr.length; ti++) {
     const t = tracksArr[ti]
@@ -583,11 +585,25 @@ export async function buildPreview(
       }
       if (!albumFound) warnings.push(`Daina "${t.title}": albumas "${albumTitle}" nerastas — daina bus sukurta be albumo prijungimo.`)
     }
+    // Dedup: pirma exact slug, tada title ilike (case-insensitive) — pagauna
+    // esamas dainas, kurių slug'as gavo -N galūnę dėl globalaus slug konflikto
+    // (pvz. „Keep It to Myself" → slug „keep-it-to-myself-1"). Anksčiau tik slug
+    // match'as jas praleisdavo ir rodydavo kaip naujas.
     let existingId: number | null = null
     if (targetArtistId) {
       const { data: tr } = await sb.from('tracks').select('id').eq('artist_id', targetArtistId).eq('slug', slugify(t.title)).maybeSingle()
       existingId = tr?.id ?? null
+      if (!existingId) {
+        const { data: byTitle } = await sb.from('tracks').select('id').eq('artist_id', targetArtistId).ilike('title', t.title).limit(1)
+        existingId = byTitle?.[0]?.id ?? null
+      }
     }
+    // Kartojasi tame pačiame JSON'e? (pvz. „Welcome" du kartus) — apply nesukurs
+    // antro; antra eilutė atnaujins pirmą (sujungs), tad dublikato nebus.
+    const normTitle = normalizeName(t.title)
+    const dupInPayload = seenTrackTitles.has(normTitle)
+    seenTrackTitles.add(normTitle)
+    if (dupInPayload) warnings.push(`Daina "${t.title}" JSON'e kartojasi — bus sujungta (nekuriamas dublikatas).`)
     const featuring = (t.featured_artists || []).map(f => f.name).filter(Boolean)
     const featuringNew: string[] = []
     for (const fn of featuring) {
@@ -598,7 +614,7 @@ export async function buildPreview(
     trackPlans.push({
       index: ti, title: t.title, albumTitle, type: t.type || null,
       action: existingId ? 'update' : 'create', existingId, albumFound, featuring, featuringNew,
-      year: trackYear, duration: normalizeDuration(t.duration),
+      year: trackYear, duration: normalizeDuration(t.duration), dupInPayload,
     })
   }
 
@@ -932,9 +948,15 @@ export async function applyImport(
       }
     }
 
-    // Find/insert track
+    // Find/insert track — dedup pagal slug, tada title ilike (kaip albumų flow'e).
+    // Title fallback pagauna esamas dainas su -N slug galūne IR to paties JSON'o
+    // pasikartojančias dainas (antra „Welcome" atnaujins pirmą, o ne sukurs naują).
     let trackId: number | null = null
-    const { data: existingTr } = await sb.from('tracks').select('id, release_date, release_year, spotify_id, cover_url').eq('artist_id', artistId).eq('slug', slugify(t.title)).maybeSingle()
+    let { data: existingTr } = await sb.from('tracks').select('id, release_date, release_year, spotify_id, cover_url').eq('artist_id', artistId).eq('slug', slugify(t.title)).maybeSingle()
+    if (!existingTr) {
+      const { data: byTitle } = await sb.from('tracks').select('id, release_date, release_year, spotify_id, cover_url').eq('artist_id', artistId).ilike('title', t.title).limit(1)
+      existingTr = byTitle?.[0] ?? null
+    }
     if (existingTr) {
       trackId = existingTr.id
       const upd: Record<string, any> = {}

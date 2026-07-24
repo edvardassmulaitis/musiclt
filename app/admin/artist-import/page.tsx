@@ -13,7 +13,7 @@ interface FieldDiff { field: string; label: string; old: any; new: any; changed:
 interface LinkDiff { index: number; platform: string; column: string | null; oldUrl: string | null; newUrl: string; action: string }
 interface ContactPlan { index: number; name: string; type: string; email: string | null; phone: string | null; url: string | null; confidence: string; action: string; isPotential: boolean }
 interface AlbumPlan { index: number; title: string; type: string | null; year: number | null; action: string; existingId: number | null; description: string | null; descriptionOld: string | null; descriptionChanged: boolean; descriptionOnly: boolean; notFound: boolean; coverUrl: string | null; coverWillApply: boolean }
-interface TrackPlan { index: number; title: string; albumTitle: string | null; type: string | null; action: string; existingId: number | null; albumFound: boolean; featuring: string[]; featuringNew: string[]; year: number | null; duration: string | null }
+interface TrackPlan { index: number; title: string; albumTitle: string | null; type: string | null; action: string; existingId: number | null; albumFound: boolean; featuring: string[]; featuringNew: string[]; year: number | null; duration: string | null; dupInPayload: boolean }
 interface ImagePlan { index: number; url: string; type: string | null; sourceLabel: string | null; sourceUrl: string | null; author: string | null; credit: string | null; license: string | null; caption: string | null; isPrimary: boolean; hasLicense: boolean; isDuplicate: boolean; action: string }
 interface ExistingPhoto { url: string; author: string | null; license: string | null }
 interface Preview {
@@ -498,11 +498,11 @@ export default function ArtistImportPage() {
                       />
                       <div className="grid flex-1 grid-cols-[110px_1fr] items-start gap-2">
                         <span className="font-semibold text-[var(--text-secondary)]">{f.label}</span>
-                        <div className="min-w-0">
+                        <div className="min-w-0 whitespace-pre-wrap break-words leading-relaxed max-h-56 overflow-y-auto">
                           {f.changed ? (
                             <span>
                               {f.old != null && <span className="text-red-600 line-through">{String(f.old)}</span>}
-                              {f.old != null && ' → '}
+                              {f.old != null && <span className="text-[var(--text-faint)]"> → </span>}
                               <span className="text-green-700">{String(f.new)}</span>
                             </span>
                           ) : (
@@ -637,6 +637,7 @@ export default function ArtistImportPage() {
                         : <span className="text-[var(--text-faint)]">singlas</span>}
                       {t.featuring.length > 0 && <span className="text-[var(--text-faint)]">feat. {t.featuring.join(', ')}</span>}
                       {t.featuringNew.length > 0 && <Pill text={`+${t.featuringNew.length} nauji`} color="orange" />}
+                      {t.dupInPayload && <Pill text="kartojasi JSON'e — bus sujungta" color="orange" />}
                     </div>
                   ))}
                 </div>
