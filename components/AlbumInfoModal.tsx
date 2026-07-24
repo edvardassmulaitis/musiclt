@@ -34,6 +34,7 @@ type AlbumDetails = {
     description?: string | null
   }
   artist: { id: number; slug: string; name: string; cover_image_url: string | null; description?: string | null }
+  coArtists?: Array<{ id: number; slug: string; name: string }>
   tracks: Array<{
     id: number; slug: string; title: string; type: string
     video_url: string | null; is_new: boolean; is_single: boolean
@@ -496,6 +497,14 @@ export default function AlbumInfoModal({
                 <Link href={`/atlikejai/${artist.slug}`} className="font-['Outfit',sans-serif] font-bold text-[var(--accent-orange)] no-underline hover:underline">
                   {artist.name}
                 </Link>
+                {(details?.coArtists || []).map((ca) => (
+                  <span key={ca.id}>
+                    <span className="text-[var(--text-faint)]"> &amp; </span>
+                    <Link href={`/atlikejai/${ca.slug}`} className="font-['Outfit',sans-serif] font-bold text-[var(--accent-orange)] no-underline hover:underline">
+                      {ca.name}
+                    </Link>
+                  </span>
+                ))}
               </div>
             )}
             {/* Data — po atlikėjo pavadinimo (perkelta iš kicker'io). */}

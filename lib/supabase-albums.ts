@@ -154,7 +154,15 @@ export async function getAlbums(artistId?: number, limit = 50, offset = 0, searc
   let q = supabase
     .from('albums')
     .select(ALBUM_LIST_SELECT, { count: 'exact' })
-  if (artistId) q = q.eq('artist_id', artistId)
+  if (artistId) {
+    // Bendri/kolaboraciniai albumai: be nuosavų (artist_id) įtraukiam ir tuos, kur
+    // atlikėjas dalyvauja per album_artists (pvz. „Neriuos"). Defensyvu.
+    const { data: aa } = await supabase.from('album_artists').select('album_id').eq('artist_id', artistId)
+    const sharedIds = (aa || []).map((r: any) => r.album_id).filter((x: any) => Number.isFinite(x))
+    q = sharedIds.length
+      ? q.or(`artist_id.eq.${artistId},id.in.(${sharedIds.join(',')})`)
+      : q.eq('artist_id', artistId)
+  }
   q = q.order('year', { ascending: false }).order('month', { ascending: false }).range(offset, offset + limit - 1)
   const { data, error, count } = await q
   if (error) throw error

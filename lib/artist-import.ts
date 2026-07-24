@@ -1040,11 +1040,14 @@ export async function applyImport(
     // galūne ar JSON'e pasikartojanti) → sujungiama.
     let trackId: number | null = null
     const existingTrackId = await resolveExistingTrackId(sb, artistId as number, t.title, albumId)
-    let existingTr: { id: number; release_date: string | null; release_year: number | null; spotify_id: string | null; cover_url: string | null } | null = null
+    let existingTr: { id: number; artist_id: number; release_date: string | null; release_year: number | null; spotify_id: string | null; cover_url: string | null } | null = null
     if (existingTrackId) {
-      const { data } = await sb.from('tracks').select('id, release_date, release_year, spotify_id, cover_url').eq('id', existingTrackId).maybeSingle()
+      const { data } = await sb.from('tracks').select('id, artist_id, release_date, release_year, spotify_id, cover_url').eq('id', existingTrackId).maybeSingle()
       existingTr = data as any
     }
+    // Track SAVININKAS (artist_id): reused → esamas savininkas; naujas → importuojantis.
+    // Savininko NEdedam į track_artists (kitaip rodytųsi ir kaip main, ir kaip featuring).
+    const trackOwnerId: number = existingTr ? existingTr.artist_id : (artistId as number)
     if (existingTr) {
       trackId = existingTr.id
       const upd: Record<string, any> = {}
@@ -1098,12 +1101,14 @@ export async function applyImport(
           if (!error) summary.featuring_linked++
         }
       }
-      // primary_artists: pirmas = pats atlikėjas, kiti → is_primary collab
+      // primary_artists: bendraatlikėjai → is_primary=true track_artists eilutės.
+      // Praleidžiam track SAVININKĄ (artist_id) — jis jau pagrindinis, nedubliuojam
+      // į track_artists (anksčiau būdavo praleidžiamas tik importuojantis atlikėjas,
+      // todėl pernaudojant kito atlikėjo dainą savininkas atsirasdavo ir kaip featuring).
       const primaries = (t.primary_artists || []).map(f => f.name).filter(Boolean)
       for (const pn of primaries) {
-        if (normalizeName(pn) === normalizeName(p.name)) continue
         const pid = await findOrCreateArtist(sb, pn)
-        if (pid) {
+        if (pid && pid !== trackOwnerId) {
           await sb.from('track_artists').upsert({ track_id: trackId, artist_id: pid, is_primary: true }, { onConflict: 'track_id,artist_id' })
           summary.featuring_linked++
         }

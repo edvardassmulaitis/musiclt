@@ -103,6 +103,18 @@ export async function GET(
     }
   }
 
+  // Bendri/kolaboraciniai albumai — visi albumo atlikėjai (be pagrindinio).
+  // Defensyvu: jei album_artists lentelės nėra, grąžina tuščią.
+  const { data: aaRows } = await sb
+    .from('album_artists')
+    .select('sort_order, artists(id, slug, name)')
+    .eq('album_id', albumId)
+    .order('sort_order')
+  const coArtists = ((aaRows || []) as any[])
+    .map((r: any) => r.artists)
+    .filter(Boolean)
+    .filter((x: any) => x.id !== artist.id)
+
   // Album likes
   const { count: likesCount } = await sb
     .from('likes')
@@ -180,6 +192,7 @@ export async function GET(
       cover_image_url: artist.cover_image_url || null,
       description: artist.description || null,
     },
+    coArtists,
     tracks,
     otherAlbums,
     similarAlbums,
