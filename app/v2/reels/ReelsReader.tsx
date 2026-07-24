@@ -1179,6 +1179,15 @@ function CardFooter({ slide, onNavLink }: {
   const isNews = slide.type === 'news'
   // News → veiksmai (like/share/open) VIRŠUJ; footeryje — susiję atlikėjai (sekimas) + komentarai.
   if (isNews) return <NewsFooter slide={slide} onNavLink={onNavLink} />
+  // Dienos daina — švari minimali nuoroda (be dvigubo borderio / bulky box'o).
+  if (slide.type === 'daily_winner') return (
+    <div className="rdr-foot-daily" onClick={(e) => e.stopPropagation()}>
+      <a href="/dienos-daina" target="_blank" rel="noopener noreferrer" className="rdr-foot-daily-link">
+        Visa dienos dainų istorija
+        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round"><path d="M5 12h14M12 5l7 7-7 7" /></svg>
+      </a>
+    </div>
+  )
   const isChart = slide.type === 'chart_lt' || slide.type === 'chart_world'
   const showLineup = !!(slide.lineup && slide.lineup.length)
   const showArtist = !showLineup && !!slide.artist && slide.type !== 'event' && !isChart && slide.type !== 'daily' && slide.type !== 'daily_winner'
@@ -1294,7 +1303,9 @@ export function ReelsOverlay({ slides, initialIdx, seenSlides, onSeen, onClose, 
   // Dienos daina — auto-advance VEIKIA kaip naujienoms: viršuje progress bar'as
   // užsipildo ir pereina toliau; vos nuscrollinus į widget'ą (balsuoti) — sustoja
   // (scrolled), tad balsavimo nenutraukia.
-  const interactive = !!slide && (slide.type === 'chart_lt' || slide.type === 'chart_world')
+  // Auto-advance NEVEIKIA interaktyviems (topai + dienos daina) — kad grojimo/
+  // balsavimo nenutrauktų (Edvardo pastaba: „paleidus dainą auto slide numuša").
+  const interactive = !!slide && (slide.type === 'chart_lt' || slide.type === 'chart_world' || slide.type === 'daily_winner')
   const autoOff = interactive || scrolled || playing
   // Braukimas į šoną veikia VISADA (ir skaitant) — pagal gesto kryptį (h vs v).
 
@@ -1369,7 +1380,10 @@ export function ReelsOverlay({ slides, initialIdx, seenSlides, onSeen, onClose, 
   const onTouchStart = (e: React.TouchEvent) => {
     if (showHint) setShowHint(false)
     const t = e.target as HTMLElement
-    ignoreGesture.current = !!(t && t.closest && t.closest('button, a, iframe, input, textarea, .rdr-foot'))
+    // Braukimą blokuojam TIK ant video grotuvo / įvesties laukų — kitaip
+    // button'ų pilnas dienos dainos reel'as visai neleisdavo slidinti į šoną
+    // (Edvardo pastaba 2026-07-24). Tap'as ant mygtuko vis tiek suveikia (be judesio).
+    ignoreGesture.current = !!(t && t.closest && t.closest('iframe, input, textarea'))
     touchStartX.current = e.touches[0].clientX
     touchStartY.current = e.touches[0].clientY
     gestureDir.current = null
@@ -2246,6 +2260,9 @@ const REELS_CSS = `
         .rdr-foot-cta{flex:1;display:flex;align-items:center;justify-content:center;gap:7px;height:48px;border-radius:12px;background:var(--accent-orange);color:#fff;font-family:'Outfit',sans-serif;font-size:16px;font-weight:800;letter-spacing:-0.01em;text-decoration:none;min-width:0}
         .rdr-foot-cta:active{opacity:0.85}
         .rdr-foot-cta-ghost{height:44px;background:transparent;border:1px solid rgba(255,255,255,0.22);color:#eef1f6;font-size:14px;font-weight:700}
+        .rdr-foot-daily{margin:14px 0 2px;display:flex;justify-content:center}
+        .rdr-foot-daily-link{display:inline-flex;align-items:center;gap:6px;color:var(--accent-orange);font-family:'Outfit',sans-serif;font-size:14px;font-weight:800;text-decoration:none;padding:8px 6px;-webkit-tap-highlight-color:transparent}
+        .rdr-foot-daily-link:active{opacity:.65}
         .hp-reels.light .rdr-foot-cta-ghost{border-color:var(--border-default);color:var(--text-primary)}
         .rdr-foot-ticket{flex:1;display:flex;align-items:center;justify-content:center;gap:6px;height:48px;border-radius:12px;background:transparent;border:1px solid rgba(255,255,255,0.25);color:#fff;font-family:'Outfit',sans-serif;font-size:14px;font-weight:800;text-decoration:none;min-width:0}
 
