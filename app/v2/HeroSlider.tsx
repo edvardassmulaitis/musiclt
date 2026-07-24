@@ -43,6 +43,14 @@ export type HeroSlide = {
   songs?: { videoId: string; title: string; artist?: string | null; songId?: number | null; score?: number; video_views?: number }[]  // news „susijusi muzika" (tikri track'ai su song_id → native grotuvas; score/video_views → populiarumo rikiavimui)
   lineup?: { name: string; slug: string; image?: string | null }[]      // event — pilnas lineup (avatarai + nuorodos)
   teaser?: { lead: string; main: string; sub?: string | null } | null   // topo kortelės adaptyvus tizeris (serveryje, iš PILNO topo)
+  // ── Dienos daina mobile hero kortelė (vakar nugalėtojas + šiandien pirmauja +
+  //    siūlytojas/balsai). Edvardo spec 2026-07-24 — gyvesnė nei 1 YT thumb. ──
+  dd?: {
+    wonLabel: string
+    winner: { cover: string; title: string; artist: string; votes: number }
+    proposer?: { name: string; avatar: string | null } | null
+    today?: { cover: string; title: string; artist: string; votes: number } | null
+  } | null
 }
 
 // „Peržiūrėta" raktas — TAS PAT formatas kaip reels ReelsReader.slideKey

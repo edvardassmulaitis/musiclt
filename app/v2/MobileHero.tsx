@@ -119,6 +119,89 @@ export default function MobileHero({ slides: allSlides }: { slides: HeroSlide[] 
             )
           }
 
+          // ── Dienos daina kortelė: VAKAR nugalėtojas (didelis + siūlytojas + balsai)
+          //    viršuje, ŠIANDIEN pirmauja apačioje. (Edvardo spec 2026-07-24 — 2+3 miksas.) ──
+          if (s.type === 'daily_winner' && s.dd) {
+            const dd = s.dd
+            const av = (u?: string | null) => !u ? null : (u.startsWith('/') || u.endsWith('.svg')) ? u : proxyImgResized(u, 48)
+            const propAv = av(dd.proposer?.avatar)
+            const ddAccent = '#f59e0b'
+            return (
+              <button
+                key={`${s.type}-${s.href}`}
+                type="button"
+                onClick={() => { setReelsIdx(i); setReelsOpen(true) }}
+                className="v2-mhero-card"
+                style={{ border: isSeen ? '2px solid var(--border-default)' : `2px solid ${ddAccent}`, background: '#0b0f1a', display: 'flex', flexDirection: 'column' }}
+              >
+                {/* Vakar nugalėtojas — didelis */}
+                <div style={{ position: 'relative', width: '100%', flex: '1 1 62%', overflow: 'hidden' }}>
+                  {dd.winner.cover
+                    // eslint-disable-next-line @next/next/no-img-element
+                    ? <img src={proxyImgResized(dd.winner.cover, 480)} alt="" decoding="async" style={{ width: '100%', height: '100%', objectFit: 'cover', display: 'block' }} />
+                    : <div style={{ width: '100%', height: '100%', background: 'linear-gradient(135deg,#3a2a08,#5c3d0a)' }} />}
+                  <div style={{ position: 'absolute', inset: 0, background: 'linear-gradient(to top, rgba(0,0,0,0.95) 0%, rgba(0,0,0,0.35) 48%, rgba(0,0,0,0) 72%)' }} />
+                  <span style={{ position: 'absolute', top: 8, left: 8, padding: '3px 7px', borderRadius: 6, fontSize: 10.5, fontWeight: 800, color: '#fff', background: ddAccent, fontFamily: 'Outfit,sans-serif', letterSpacing: '0.03em', textTransform: 'uppercase' }}>Dienos daina</span>
+                  {/* play glyph */}
+                  <span style={{ position: 'absolute', top: 7, right: 7, width: 26, height: 26, borderRadius: '50%', background: 'rgba(0,0,0,0.5)', backdropFilter: 'blur(4px)', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+                    <svg width="12" height="12" viewBox="0 0 24 24" fill="#fff" aria-hidden><path d="M8 5v14l11-7z" /></svg>
+                  </span>
+                  <div style={{ position: 'absolute', bottom: 0, left: 0, right: 0, padding: '6px 9px 8px', textAlign: 'left' }}>
+                    <span style={{ display: 'inline-block', fontSize: 9.5, fontWeight: 800, color: ddAccent, letterSpacing: '0.05em', textTransform: 'uppercase', fontFamily: 'Outfit,sans-serif', marginBottom: 2 }}>🏆 {dd.wonLabel}</span>
+                    <p style={{ margin: 0, fontSize: 13, fontWeight: 800, color: '#fff', lineHeight: 1.12, fontFamily: 'Outfit,sans-serif', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{dd.winner.title}</p>
+                    {dd.winner.artist && <p style={{ margin: '1px 0 0', fontSize: 11, fontWeight: 600, color: 'rgba(255,255,255,0.75)', lineHeight: 1.15, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{dd.winner.artist}</p>}
+                    {(dd.proposer || dd.winner.votes > 0) && (
+                      <div style={{ display: 'flex', alignItems: 'center', gap: 6, marginTop: 3 }}>
+                        {dd.proposer && (
+                          <span style={{ display: 'inline-flex', alignItems: 'center', gap: 3, minWidth: 0 }}>
+                            {propAv
+                              // eslint-disable-next-line @next/next/no-img-element
+                              ? <img src={propAv} alt="" decoding="async" style={{ width: 14, height: 14, borderRadius: '50%', objectFit: 'cover', flexShrink: 0 }} />
+                              : <span style={{ width: 14, height: 14, borderRadius: '50%', background: 'rgba(255,255,255,0.25)', flexShrink: 0 }} />}
+                            <span style={{ fontSize: 10, fontWeight: 600, color: 'rgba(255,255,255,0.72)', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', maxWidth: 66 }}>{dd.proposer.name}</span>
+                          </span>
+                        )}
+                        {dd.winner.votes > 0 && (
+                          <span style={{ display: 'inline-flex', alignItems: 'center', gap: 2, fontSize: 10, fontWeight: 800, color: ddAccent, flexShrink: 0 }}>
+                            <svg width="10" height="10" viewBox="0 0 24 24" fill="currentColor" aria-hidden><path d="M20.84 4.61a5.5 5.5 0 0 0-7.78 0L12 5.67l-1.06-1.06a5.5 5.5 0 0 0-7.78 7.78l1.06 1.06L12 21.23l7.78-7.78 1.06-1.06a5.5 5.5 0 0 0 0-7.78z" /></svg>
+                            {dd.winner.votes}
+                          </span>
+                        )}
+                      </div>
+                    )}
+                  </div>
+                </div>
+                {/* Šiandien pirmauja — apačia */}
+                <div style={{ flex: '0 0 auto', padding: '6px 8px 7px', background: '#0b0f1a', borderTop: '1px solid rgba(255,255,255,0.07)' }}>
+                  <span style={{ display: 'block', fontSize: 8.5, fontWeight: 800, letterSpacing: '0.06em', textTransform: 'uppercase', color: 'rgba(255,255,255,0.45)', marginBottom: 4, fontFamily: 'Outfit,sans-serif' }}>Šiandien pirmauja</span>
+                  {dd.today ? (
+                    <div style={{ display: 'flex', alignItems: 'center', gap: 7 }}>
+                      {dd.today.cover
+                        // eslint-disable-next-line @next/next/no-img-element
+                        ? <img src={proxyImgResized(dd.today.cover, 96)} alt="" decoding="async" style={{ width: 30, height: 30, borderRadius: 6, objectFit: 'cover', flexShrink: 0 }} />
+                        : <span style={{ width: 30, height: 30, borderRadius: 6, background: 'rgba(255,255,255,0.1)', flexShrink: 0 }} />}
+                      <span style={{ minWidth: 0, flex: 1 }}>
+                        <span style={{ display: 'block', fontSize: 11, fontWeight: 700, color: '#fff', lineHeight: 1.1, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', fontFamily: 'Outfit,sans-serif' }}>{dd.today.title}</span>
+                        {dd.today.artist && <span style={{ display: 'block', fontSize: 9.5, fontWeight: 500, color: 'rgba(255,255,255,0.6)', lineHeight: 1.1, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{dd.today.artist}</span>}
+                      </span>
+                      {dd.today.votes > 0 && (
+                        <span style={{ display: 'inline-flex', alignItems: 'center', gap: 2, fontSize: 10, fontWeight: 800, color: 'rgba(255,255,255,0.85)', flexShrink: 0 }}>
+                          <svg width="10" height="10" viewBox="0 0 24 24" fill="var(--accent-orange)" aria-hidden><path d="M20.84 4.61a5.5 5.5 0 0 0-7.78 0L12 5.67l-1.06-1.06a5.5 5.5 0 0 0-7.78 7.78l1.06 1.06L12 21.23l7.78-7.78 1.06-1.06a5.5 5.5 0 0 0 0-7.78z" /></svg>
+                          {dd.today.votes}
+                        </span>
+                      )}
+                    </div>
+                  ) : (
+                    <span style={{ display: 'inline-flex', alignItems: 'center', gap: 5, fontSize: 11, fontWeight: 800, color: ddAccent, fontFamily: 'Outfit,sans-serif' }}>
+                      <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.4" strokeLinecap="round"><path d="M12 5v14M5 12h14" /></svg>
+                      Balsuok šiandien
+                    </span>
+                  )}
+                </div>
+              </button>
+            )
+          }
+
           return (
             <button
               key={`${s.type}-${s.href}`}

@@ -498,6 +498,32 @@ function buildHeroSlides(input: {
       const dailyCollage = winnerCover
         ? [{ cover: winnerCover, title: sanitizeTitle(tr.title || ''), artist: tr.artists?.name || '', isWinner: true }, ...todayLeaders]
         : []
+      // Mobile hero kortelės „gyvas" turinys: vakar nugalėtojas + siūlytojas +
+      // balsai, ir šiandien pirmaujantis kandidatas (2+3 miksas). (Edvardo 2026-07-24.)
+      const winnerVotes = Number(w.weighted_votes || w.total_votes || 0)
+      const ddProposer = w.proposer && (w.proposer.full_name || w.proposer.username)
+        ? { name: w.proposer.full_name || w.proposer.username, avatar: w.proposer.avatar_url || null }
+        : null
+      const todaySorted = [...(todayNoms || [])]
+        .filter((n: any) => n?.tracks && n.tracks.id !== tr.id)
+        .sort((a: any, b: any) => (b.weighted_votes || b.votes || 0) - (a.weighted_votes || a.votes || 0))
+      const ddLeadNom = todaySorted[0]
+      const ddToday = ddLeadNom?.tracks
+        ? {
+            cover: trkCover(ddLeadNom.tracks) || '',
+            title: sanitizeTitle(ddLeadNom.tracks.title || ''),
+            artist: ddLeadNom.tracks.artists?.name || '',
+            votes: Number(ddLeadNom.weighted_votes || ddLeadNom.votes || 0),
+          }
+        : null
+      const ddData = winnerCover
+        ? {
+            wonLabel,
+            winner: { cover: winnerCover, title: sanitizeTitle(tr.title || ''), artist: tr.artists?.name || '', votes: winnerVotes },
+            proposer: ddProposer,
+            today: ddToday && ddToday.cover ? ddToday : null,
+          }
+        : null
       // NB: reader'yje dienos daina renderinama per DienosDainaSection variant='reel'
       // (vakar laimėjo → runner-ups → šiandien balsuok). Jokio collage — jis painiojo
       // vakar laimėtoją su ANKSTESNIŲ dienų laimėtojais. bgImg/title lieka mobile
@@ -517,6 +543,7 @@ function buildHeroSlides(input: {
         ctaLabel: 'Dienos daina',
         // Koliažą rodom desktop'e tik jei turim ≥1 šiandienos lyderį (kitaip — paprasta kortelė).
         collage: dailyCollage.length >= 2 ? dailyCollage : undefined,
+        dd: ddData,
       })
     }
   }
