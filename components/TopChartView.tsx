@@ -38,7 +38,7 @@ type Week = {
 
 // isFallback=true → rodom NE einamąją savaitę, o naujausią finalizuotą (legacy)
 // archyvo savaitę. Balsavimas išjungtas, viršuje rodom žymą.
-export type TopData = { entries: Entry[]; week: Week | null; isFallback?: boolean; voteWeekId?: number | null }
+export type TopData = { entries: Entry[]; week: Week | null; isFallback?: boolean; voteWeekId?: number | null; suggested?: Entry[] }
 
 type ThemeAccent = {
   /** Solid hex color used for badges, hero accents */
@@ -566,7 +566,12 @@ export default function TopChartView({
   // Read-only (archyvo/finalizuotos) savaitės rodom kaip paprastą ranked sąrašą
   // pagal position — JOKIO newcomer/below skirstymo. Legacy entries dažnai turi
   // weeks_in_top=null, tad senasis split visus paverstų "naujienomis".
-  const newcomers = readOnly ? [] : data.entries.filter(e => (e.weeks_in_top || 0) === 0)
+  // „Naujos — balsuok" newcomer'iai: pirmenybė gyvos savaitės siūlomiems
+  // (data.suggested — music.lt „Siūlomi kūriniai"), net kai rodom legacy (readOnly)
+  // topą. Kitaip — display savaitės newcomer'iai. (Edvardo spec 2026-07-24.)
+  const newcomers = (data.suggested && data.suggested.length)
+    ? data.suggested
+    : (readOnly ? [] : data.entries.filter(e => (e.weeks_in_top || 0) === 0))
   const mainTop = readOnly
     ? data.entries.filter(e => (e.position || 0) >= 1 && (e.position || 0) <= TOP_SIZE)
     : data.entries.filter(e => (e.weeks_in_top || 0) >= 1 && (e.position || 0) <= TOP_SIZE)

@@ -49,6 +49,30 @@ export async function getCurrentVoteWeekId(supabase: any, topType: string): Prom
 }
 
 /**
+ * „Siūlomi kūriniai" (music.lt naujos dainos) = gyvos vote savaitės newcomer'iai
+ * (weeks_in_top=0). Grąžina jau normalizuotus (tracks/artists išlyginti) įrašus
+ * standalone /top30 /top40 puslapiams — votable į gyvą savaitę.
+ */
+export async function getLiveSuggested(supabase: any, voteWeekId: number | null): Promise<any[]> {
+  if (!voteWeekId) return []
+  const { data } = await supabase
+    .from('top_entries')
+    .select(`
+      id, position, prev_position, weeks_in_top, total_votes, is_new, peak_position, track_id,
+      legacy_track_id, artist_name, title,
+      tracks:track_id ( id, slug, title, cover_url, spotify_id, video_url,
+        artists:artist_id ( id, slug, name, cover_image_url ) )
+    `)
+    .eq('week_id', voteWeekId)
+    .eq('weeks_in_top', 0)
+    .order('position', { ascending: true })
+  return (data || [])
+    .map((e: any) => ({ ...e, tracks: Array.isArray(e.tracks) ? e.tracks[0] ?? null : e.tracks }))
+    .map((e: any) => ({ ...e, tracks: e.tracks ? { ...e.tracks, artists: Array.isArray(e.tracks.artists) ? e.tracks.artists[0] ?? null : e.tracks.artists } : null }))
+    .filter((e: any) => e.tracks)
+}
+
+/**
  * Pereinamojo laikotarpio fallback: kurią `top_weeks` savaitę rodyti public'e.
  *
  * Taisyklė:
