@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { createAdminClient } from '@/lib/supabase'
-import { getCurrentWeekMonday } from '@/lib/top-week'
+import { getCurrentWeekMonday, getCurrentVoteWeekId } from '@/lib/top-week'
 import { authorizeCron } from '@/lib/cron-auth'
 
 export const dynamic = 'force-dynamic'
@@ -164,6 +164,46 @@ async function storeWeek(sb: any, topType: string, weekStart: string, entries: P
   return { entries: rows.length, matched }
 }
 
+// ── „Siūlomi kūriniai" (naujos dainos) — iš /top40 /top30 pagrindinio psl. ──
+const PAGE_URL: Record<number, string> = { 1: `${BASE}/top40`, 2: `${BASE}/top30` }
+const RE_TITLE_SUG = /<a[^>]*daina\/[^"]+\/\d+\/"><b>([^<]+)<\/b>/
+
+function parseSuggested(html: string): { legacy_track_id: number; title: string; artist_name: string }[] {
+  const i = html.indexOf('Siūlomi kūriniai')
+  if (i < 0) return []
+  let seg = html.slice(i, i + 20000)
+  const end = seg.indexOf('</table>')
+  if (end > 0) seg = seg.slice(0, end)
+  const out: { legacy_track_id: number; title: string; artist_name: string }[] = []
+  for (const b of seg.split('<tr class="table_row"').slice(1)) {
+    const md = RE_DAINA.exec(b)
+    if (!md) continue
+    const mt = RE_TITLE_SUG.exec(b)
+    const mg = RE_GRUPE_TXT.exec(b)
+    out.push({ legacy_track_id: parseInt(md[2], 10), title: mt ? mt[1].trim() : '', artist_name: mg ? mg[1].trim() : '' })
+  }
+  const seen = new Map<number, any>()
+  for (const e of out) seen.set(e.legacy_track_id, e)
+  return [...seen.values()]
+}
+
+async function storeSuggested(sb: any, topType: string, voteWeekId: number, sug: { legacy_track_id: number; title: string; artist_name: string }[]): Promise<number> {
+  if (!sug.length) { await sb.from('top_entries').delete().eq('week_id', voteWeekId).eq('weeks_in_top', 0); return 0 }
+  const matched = await matchTracks(sb, sug.map(s => s.legacy_track_id))
+  const seen = new Set<number>()
+  let pos = 0
+  const rows = sug.map((s) => {
+    let tid: number | null = matched.get(s.legacy_track_id)?.id ?? null
+    if (tid != null && seen.has(tid)) tid = null
+    if (tid != null) seen.add(tid)
+    pos++
+    return { week_id: voteWeekId, top_type: topType, position: pos, track_id: tid, legacy_track_id: s.legacy_track_id, artist_name: s.artist_name || null, title: s.title || null, is_new: true, weeks_in_top: 0, total_votes: 0 }
+  })
+  await sb.from('top_entries').delete().eq('week_id', voteWeekId).eq('weeks_in_top', 0)
+  for (let i = 0; i < rows.length; i += 100) await sb.from('top_entries').insert(rows.slice(i, i + 100))
+  return rows.length
+}
+
 function mondaysBack(n: number): string[] {
   const cur = getCurrentWeekMonday() // 'YYYY-MM-DD'
   const base = new Date(cur + 'T00:00:00Z')
@@ -214,6 +254,19 @@ async function handle(req: NextRequest): Promise<NextResponse> {
     if (!w || w.is_legacy) continue
     const { data: ents } = await sb.from('top_entries').select('id').eq('week_id', w.id).limit(1)
     if (ents?.length) { await sb.from('top_entries').delete().eq('week_id', w.id); results[`clear ${topType} ${cw}`] = 'stub išvalytas → fallback' }
+  }
+
+  // ── „Siūlomi kūriniai" (naujos dainos) → gyvos savaitės newcomer'iai (votable).
+  //    PO stub-clear, kad clear'as neištrintų ką tik įdėtų siūlomų. ──
+  for (const topid of [1, 2]) {
+    const topType = TOPID_TYPE[topid]
+    const voteWeekId = await getCurrentVoteWeekId(sb, topType)
+    if (!voteWeekId) { results[`suggested ${topType}`] = 'nėra vote savaitės'; continue }
+    try {
+      const html = await (await fetch(PAGE_URL[topid], { headers: { 'User-Agent': UA }, cache: 'no-store' })).text()
+      const n = await storeSuggested(sb, topType, voteWeekId, parseSuggested(html))
+      results[`suggested ${topType}`] = `${n} siūlomos`
+    } catch (e: any) { results[`suggested ${topType}`] = `klaida: ${e.message}` }
   }
 
   // Relink pagal atlikėją+pavadinimą (fresh entries be legacy_id match → katalogo track).

@@ -61,7 +61,7 @@ export async function GET(req: Request) {
       week = latest
     }
   }
-  if (!week) return NextResponse.json({ entries: [], week: null, vote_week_id: voteWeekId })
+  if (!week) return NextResponse.json({ entries: [], week: null, vote_week_id: voteWeekId, suggested: [] })
 
   let { data: entries, error } = await supabase
     .from('top_entries')
@@ -76,7 +76,10 @@ export async function GET(req: Request) {
   // resolveDisplayWeek /top30 /top40 puslapiuose. Grąžinam ir tos savaitės
   // objektą (su tikru is_finalized), kad reels/psl. rodytų read-only
   // rezultatus, o NE tuščią sąrašą (bug 2026-07-23: lt_top30 tuščias nuo 06-15).
-  if (!entries?.length) {
+  // „Chart" = eilutės su weeks_in_top>=1. Vien newcomer'iai (weeks_in_top=0,
+  // t.y. „Siūlomi kūriniai" gyvoj savaitėj) NĖRA topas — tada krentam į legacy.
+  const hasChart = (arr: any[] | null | undefined) => (arr || []).some((e: any) => (e.weeks_in_top || 0) >= 1)
+  if (!hasChart(entries)) {
     const { data: priorWeeks } = await supabase
       .from('top_weeks')
       .select('*')
@@ -89,10 +92,10 @@ export async function GET(req: Request) {
         .from('top_entries')
         .select('id, position, prev_position, weeks_in_top, total_votes, is_new, peak_position, track_id')
         .eq('week_id', pw.id)
-      if (pe?.length) { entries = pe; week = pw; break }
+      if (hasChart(pe)) { entries = pe; week = pw; break }
     }
   }
-  if (!entries?.length) return NextResponse.json({ entries: [], week, vote_week_id: voteWeekId })
+  if (!entries?.length) return NextResponse.json({ entries: [], week, vote_week_id: voteWeekId, suggested: [] })
 
   // LIVE vote split (registered vs anon). Admin'as nori matyti split'ą
   // (anti-spam), o rank'inimas remiasi TIK registered balsais — anon balsai
@@ -163,10 +166,38 @@ export async function GET(req: Request) {
     tracks: trackMap.get(e.track_id) ?? null,
   }))
 
+  // ── Siūlomos naujos dainos (music.lt „Siūlomi kūriniai") — iš GYVOS vote
+  //    savaitės newcomer'iai (weeks_in_top=0). Votable (track_id → /api/top/vote
+  //    week_id=voteWeekId). Rodomos atskiroj „Naujos — balsuok" sekcijoj. ──
+  let suggested: any[] = []
+  if (voteWeekId) {
+    const { data: sug } = await supabase
+      .from('top_entries')
+      .select('id, position, track_id, is_new, title, artist_name')
+      .eq('week_id', voteWeekId)
+      .eq('weeks_in_top', 0)
+      .order('position', { ascending: true })
+    const sIds = (sug || []).map((e: any) => e.track_id).filter(Boolean)
+    const { data: sTracks } = sIds.length
+      ? await supabase.from('tracks').select('id, slug, title, cover_url, artist_id, video_url').in('id', sIds)
+      : { data: [] }
+    const sArtIds = [...new Set((sTracks || []).map((t: any) => t.artist_id).filter(Boolean))]
+    const { data: sArts } = sArtIds.length
+      ? await supabase.from('artists').select('id, slug, name, cover_image_url').in('id', sArtIds)
+      : { data: [] }
+    const sAMap = new Map((sArts || []).map((a: any) => [a.id, a]))
+    const sTMap = new Map((sTracks || []).map((t: any) => [t.id, { ...t, artists: sAMap.get(t.artist_id) ?? null }]))
+    // Live vote count'ai siūlomoms (kad rodytų kiek jau surinko)
+    const { data: sVotes } = await supabase.from('top_votes').select('track_id, user_id, voter_ip').eq('week_id', voteWeekId).eq('vote_type', 'like')
+    const sCount = new Map<number, Set<string>>()
+    ;(sVotes || []).forEach((v: any) => { const k = v.user_id ? 'u:' + v.user_id : 'ip:' + (v.voter_ip || '?'); if (!sCount.has(v.track_id)) sCount.set(v.track_id, new Set()); sCount.get(v.track_id)!.add(k) })
+    suggested = (sug || []).map((e: any) => ({ ...e, total_votes: sCount.get(e.track_id)?.size ?? 0, tracks: e.track_id ? (sTMap.get(e.track_id) ?? null) : null })).filter((e: any) => e.tracks)
+  }
+
   // BE cache header'ių — admin operacijos (populate, finalize, reset) turi
   // matyti freshness'ą iš karto. Public /top40, /top30 puslapiai naudoja
   // savo Supabase queries (server components), ne /api/top/entries.
-  return NextResponse.json({ entries: merged, week, vote_week_id: voteWeekId })
+  return NextResponse.json({ entries: merged, week, vote_week_id: voteWeekId, suggested })
 }
 
 export async function POST(req: Request) {

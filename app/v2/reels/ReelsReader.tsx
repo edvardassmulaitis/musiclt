@@ -139,6 +139,8 @@ function ChartVoteList({ topType, accent, onPlay }: { topType: 'lt_top30' | 'top
   // nėra (null) → read-only (rodom rezultatus be „+"). Rodomas topas gali būti
   // iš legacy savaitės, bet balsai kaupiami gyvoj savaitėj (Edvardo spec).
   const [readOnly, setReadOnly] = useState(false)
+  // „Siūlomi kūriniai" (music.lt) — naujos dainos, votable į gyvą savaitę.
+  const [suggested, setSuggested] = useState<any[]>([])
 
   useEffect(() => {
     let c = false
@@ -149,6 +151,14 @@ function ChartVoteList({ topType, accent, onPlay }: { topType: 'lt_top30' | 'top
         if (c) return
         setWeekId(d.vote_week_id ?? null)
         setReadOnly(!d.vote_week_id)
+        setSuggested((d.suggested || []).map((e: any, i: number) => ({
+          pos: i + 1,
+          track_id: e.track_id,
+          title: sanitizeTitle(e.tracks?.title || e.title || ''),
+          artist: e.tracks?.artists?.name || e.artist_name || '',
+          cover: e.tracks?.cover_url || ytThumbHq(extractYouTubeId(e.tracks?.video_url || null)) || e.tracks?.artists?.cover_image_url || null,
+          videoId: extractYouTubeId(e.tracks?.video_url || null),
+        })))
         setEntries((d.entries || []).map((e: any, i: number) => ({
           pos: e.position ?? (i + 1),
           track_id: e.track_id,
@@ -207,6 +217,33 @@ function ChartVoteList({ topType, accent, onPlay }: { topType: 'lt_top30' | 'top
           </div>
         )
       })}
+
+      {/* ── Siūlomi kūriniai (naujos dainos) — balsuok, kad pakiltų į topą. ── */}
+      {suggested.length > 0 && (
+        <>
+          <div className="rdr-cvl-head" style={{ marginTop: 16 }}>🔥 Naujos — balsuok, kad pakiltų</div>
+          {suggested.map(e => {
+            const n = counts[e.track_id] || 0
+            const maxed = n >= WEEKLY
+            return (
+              <div key={`sug-${e.track_id}`} className="rdr-chart-row">
+                <span className="rdr-chart-pos"><i className="rdr-trend new">N</i></span>
+                <button className="rdr-cvl-cover" onClick={() => e.videoId && onPlay(e.videoId, { title: e.title, artist: e.artist, cover: e.cover })} disabled={!e.videoId} aria-label="Groti">
+                  {e.cover ? <img src={proxyImgResized(e.cover, 96)} alt="" loading="lazy" decoding="async" /> : <span className="rdr-chart-ph" />}
+                  {e.videoId && <span className="rdr-cvl-play"><svg width="13" height="13" viewBox="0 0 24 24" fill="#fff"><path d="M8 5v14l11-7z" /></svg></span>}
+                </button>
+                <span className="rdr-chart-info"><b>{e.title}</b><i>{e.artist}</i></span>
+                <button className={`rdr-cvl-vote${n > 0 ? ' voted' : ''}`} disabled={maxed || readOnly} onClick={() => vote(e.track_id)}
+                  aria-label="Balsuoti" title={maxed ? 'Pasiektas maks. balsų' : 'Spausk tiek kartų, kiek nori'}>
+                  {n > 0
+                    ? <span className="rdr-cvl-mine">{n}</span>
+                    : <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="3" strokeLinecap="round"><line x1="12" y1="5" x2="12" y2="19" /><line x1="5" y1="12" x2="19" y2="12" /></svg>}
+                </button>
+              </div>
+            )
+          })}
+        </>
+      )}
     </div>
   )
 }
