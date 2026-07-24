@@ -115,7 +115,7 @@ export default function MobileHero({ slides: allSlides }: { slides: HeroSlide[] 
               >
                 {/* #1 didelis — be numerio, rodom atlikėją + dainą */}
                 <div style={{ position: 'relative', width: '100%', flex: '1 1 60%', overflow: 'hidden' }}>
-                  <FallbackImg srcs={imgs(big)} proxy={480} style={{ width: '100%', height: '100%', objectFit: 'cover', display: 'block' }} />
+                  <FallbackImg srcs={imgs(big)} proxy={480} style={{ width: '100%', height: '100%', objectFit: 'cover', objectPosition: 'top', display: 'block' }} />
                   <div style={{ position: 'absolute', inset: 0, background: 'linear-gradient(to top, rgba(0,0,0,0.94) 0%, rgba(0,0,0,0.35) 45%, rgba(0,0,0,0) 70%)' }} />
                   <span style={{ position: 'absolute', top: 8, left: 8, padding: '3px 7px', borderRadius: 6, fontSize: 11.5, fontWeight: 800, color: '#fff', background: chartAccent, fontFamily: 'Outfit,sans-serif', letterSpacing: '0.02em', textTransform: 'uppercase' }}>{s.type === 'chart_lt' ? 'LT TOP 30' : 'TOP 40'}</span>
                   {/* Balsavai / nebalsavai — TIK ikona (be teksto, kad neliptų ant badge). */}
@@ -133,7 +133,7 @@ export default function MobileHero({ slides: allSlides }: { slides: HeroSlide[] 
                     {rest.map((t: any, ri: number) => (
                       <div key={ri} style={{ flex: 1, minWidth: 0, display: 'flex', flexDirection: 'column' }}>
                         <div style={{ position: 'relative', flex: 1, overflow: 'hidden', minHeight: 0 }}>
-                          <FallbackImg srcs={imgs(t)} proxy={240} style={{ width: '100%', height: '100%', objectFit: 'cover', display: 'block' }} />
+                          <FallbackImg srcs={imgs(t)} proxy={240} style={{ width: '100%', height: '100%', objectFit: 'cover', objectPosition: 'top', display: 'block' }} />
                         </div>
                         <div style={{ padding: '3px 6px 5px' }}>
                           <span style={{ display: '-webkit-box', WebkitLineClamp: 2, WebkitBoxOrient: 'vertical', overflow: 'hidden', fontSize: 10.5, fontWeight: 700, color: 'rgba(255,255,255,0.92)', lineHeight: 1.14, fontFamily: 'Outfit,sans-serif' } as React.CSSProperties}>{t.artist || t.title || ''}</span>
@@ -163,7 +163,7 @@ export default function MobileHero({ slides: allSlides }: { slides: HeroSlide[] 
               >
                 {/* Vakar nugalėtojas — didelis */}
                 <div style={{ position: 'relative', width: '100%', flex: '1 1 62%', overflow: 'hidden' }}>
-                  <FallbackImg srcs={dd.winner.covers} proxy={480} style={{ width: '100%', height: '100%', objectFit: 'cover', display: 'block' }} />
+                  <FallbackImg srcs={dd.winner.covers} proxy={480} style={{ width: '100%', height: '100%', objectFit: 'cover', objectPosition: 'top', display: 'block' }} />
                   <div style={{ position: 'absolute', inset: 0, background: 'linear-gradient(to top, rgba(0,0,0,0.95) 0%, rgba(0,0,0,0.35) 48%, rgba(0,0,0,0) 72%)' }} />
                   <span style={{ position: 'absolute', top: 8, left: 8, padding: '3px 7px', borderRadius: 6, fontSize: 10.5, fontWeight: 800, color: '#fff', background: ddAccent, fontFamily: 'Outfit,sans-serif', letterSpacing: '0.03em', textTransform: 'uppercase' }}>Dienos daina</span>
                   {/* Pasiūlei / siūlyk indikatorius (kaip topuose) — tik ikona. */}
@@ -227,7 +227,7 @@ export default function MobileHero({ slides: allSlides }: { slides: HeroSlide[] 
             >
               {bg
                 // eslint-disable-next-line @next/next/no-img-element
-                ? <img src={proxyImgResized(bg, 480)} alt="" decoding="async" style={{ width: '100%', height: '100%', objectFit: 'cover', display: 'block' }} />
+                ? <img src={proxyImgResized(bg, 480)} alt="" decoding="async" style={{ width: '100%', height: '100%', objectFit: 'cover', objectPosition: 'top', display: 'block' }} />
                 : <div style={{ width: '100%', height: '100%', background: 'linear-gradient(135deg,#0a1428,#162040)' }} />}
               <div style={{ position: 'absolute', inset: 0, background: 'linear-gradient(to top, rgba(0,0,0,0.95) 0%, rgba(0,0,0,0.55) 35%, rgba(0,0,0,0.10) 60%, rgba(0,0,0,0) 75%)' }} />
               <div style={{ position: 'absolute', bottom: 0, left: 0, right: 0, padding: '10px 12px 12px', textAlign: 'left' }}>

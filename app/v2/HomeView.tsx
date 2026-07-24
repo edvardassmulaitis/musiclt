@@ -366,10 +366,27 @@ function buildHeroSlides(input: {
     const leaderNew = !!leader && (leader.isNew || (leader.prev != null && leader.prev !== 1))
     const climb = es.filter((m) => m.jump > 0).sort((a, b) => b.jump - a.jump)[0]
     const newEntries = es.filter((m) => m.isNew)
-    if (leaderNew && leader) return { lead: 'Naujas lyderis', main: leader.title, sub: leader.artist }
-    if (climb && climb.jump >= 3) return { lead: `▲ Didžiausias šuolis · +${climb.jump}`, main: climb.title, sub: climb.artist }
-    if (newEntries.length) { const names = dedup(newEntries).slice(0, 3); return { lead: `🔥 ${newEntries.length} ${newEntries.length === 1 ? 'nauja daina' : 'naujos dainos'} tope`, main: names.join(' · ') } }
-    return { lead: 'Šią savaitę tope', main: dedup(es).slice(0, 3).join(' · ') }
+    // Nauji kandidatai (siūlomi, dar ne tope) — įtraukiam į tizerių rotaciją.
+    const sugg = ((raw?.suggested ?? []) as any[]).map((e) => ({
+      title: sanitizeTitle(e.tracks?.title || e.title || ''),
+      artist: e.tracks?.artists?.name || e.artist_name || '',
+    })).filter((x) => x.artist)
+    // Surenkam VISUS įdomius kampus → rotuojam per savaitę (pagal dieną), kad
+    // tizeris nebūtų statiškas. (Edvardo spec 2026-07-25.)
+    const cands: { lead: string; main: string; sub?: string | null }[] = []
+    if (leaderNew && leader) cands.push({ lead: 'Naujas lyderis', main: leader.title, sub: leader.artist })
+    if (climb && climb.jump >= 3) cands.push({ lead: `▲ Didžiausias šuolis · +${climb.jump}`, main: climb.title, sub: climb.artist })
+    if (newEntries.length) { const names = dedup(newEntries).slice(0, 3); cands.push({ lead: `🔥 ${newEntries.length} ${newEntries.length === 1 ? 'nauja daina' : 'naujos dainos'} tope`, main: names.join(' · ') }) }
+    if (sugg.length) {
+      const sNames = [...new Set(sugg.map((s) => s.artist))].slice(0, 3)
+      cands.push(sugg.length === 1
+        ? { lead: 'Naujas kandidatas', main: sugg[0].title || sugg[0].artist, sub: sugg[0].artist }
+        : { lead: `${sugg.length} nauji kandidatai`, main: sNames.join(' · ') })
+    }
+    if (!cands.length) return { lead: 'Šią savaitę tope', main: dedup(es).slice(0, 3).join(' · ') }
+    // Rotacija pagal dieną (keičiasi savaitės eigoje; per parą stabilus).
+    const dayIdx = Math.floor(Date.now() / 86400000)
+    return cands[dayIdx % cands.length]
   }
   const ltTeaser = chartTeaser(input.ltTop)
   const worldTeaser = chartTeaser(input.worldTop)

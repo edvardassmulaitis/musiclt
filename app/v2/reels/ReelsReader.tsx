@@ -170,7 +170,8 @@ function ChartVoteList({ topType, accent }: { topType: 'lt_top30' | 'top40'; acc
     track_id: e.track_id,
     title: sanitizeTitle(e.tracks?.title || e.title || ''),
     artist: e.tracks?.artists?.name || e.artist_name || '',
-    cover: e.tracks?.artists?.cover_image_url || e.tracks?.cover_url || ytThumbHq(extractYouTubeId(e.tracks?.video_url || null)) || null,
+    // Reel sąraše — TIKRAS dainos/albumo viršelis pirmiau (ne grupės foto/YT).
+    cover: e.tracks?.cover_url || ytThumbHq(extractYouTubeId(e.tracks?.video_url || null)) || e.tracks?.artists?.cover_image_url || null,
     videoId: extractYouTubeId(e.tracks?.video_url || null),
     prev: typeof e.prev_position === 'number' ? e.prev_position : null,
     isNew: !!e.is_new,
@@ -265,8 +266,7 @@ function ChartVoteList({ topType, accent }: { topType: 'lt_top30' | 'top40'; acc
       <div className="rdr-chart-row">
         <span className="rdr-chart-pos">{posNode}</span>
         <button className="rdr-cvl-cover" onClick={() => pick(e)} disabled={!e.videoId} aria-label="Groti">
-          {e.cover ? <img src={proxyImgResized(e.cover, 96)} alt="" loading="lazy" decoding="async" /> : <span className="rdr-chart-ph" />}
-          {e.videoId && <span className="rdr-cvl-play"><svg width="13" height="13" viewBox="0 0 24 24" fill="#fff"><path d="M8 5v14l11-7z" /></svg></span>}
+          {e.cover ? <img src={proxyImgResized(e.cover, 160)} alt="" loading="lazy" decoding="async" /> : <span className="rdr-chart-ph" />}
         </button>
         <button className="rdr-chart-info" onClick={() => pick(e)} disabled={!e.videoId} style={{ border: 0, background: 'transparent', padding: 0, textAlign: 'left', cursor: e.videoId ? 'pointer' : 'default', font: 'inherit' }}>
           <b>{e.title}</b><i>{e.artist}</i>
@@ -2231,8 +2231,8 @@ const REELS_CSS = `
         .hp-reels.light .rdr-cvl-head{color:var(--text-muted)}
         .rdr-cvl-sep{height:1px;background:var(--border-default);margin:16px 0 0}
         .hp-reels.light .rdr-cvl-sep{background:var(--border-default)}
-        .rdr-cvl-cover{position:relative;width:42px;height:42px;border-radius:8px;overflow:hidden;flex-shrink:0;border:none;padding:0;background:#1a1a1a;cursor:pointer}
-        .rdr-cvl-cover img{width:100%;height:100%;object-fit:cover;display:block}
+        .rdr-cvl-cover{position:relative;width:60px;height:60px;border-radius:9px;overflow:hidden;flex-shrink:0;border:none;padding:0;background:#1a1a1a;cursor:pointer}
+        .rdr-cvl-cover img{width:100%;height:100%;object-fit:cover;object-position:top;display:block}
         .rdr-cvl-cover:disabled{cursor:default}
         .rdr-cvl-play{position:absolute;inset:0;display:flex;align-items:center;justify-content:center;background:rgba(0,0,0,0.32)}
         .rdr-cvl-vote{display:flex;align-items:center;justify-content:center;flex-shrink:0;width:38px;height:38px;border-radius:50%;border:1.5px solid var(--accent-orange);background:transparent;color:var(--accent-orange);font-family:'Outfit',sans-serif;cursor:pointer;transition:transform .12s,background .15s}

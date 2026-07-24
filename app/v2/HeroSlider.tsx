@@ -387,7 +387,8 @@ function HeroChartCard({ slide, unseen, voted, onOpen }: { slide: HeroSlide; uns
     }
     return (
       <div className="relative h-full w-full overflow-hidden rounded-lg" style={{ boxShadow: size === 'big' ? '0 6px 22px rgba(0,0,0,0.5)' : '0 4px 14px rgba(0,0,0,0.4)' }}>
-        <FallbackImg srcs={cs} proxy={480} className="absolute inset-0 h-full w-full object-cover transition-transform duration-300 group-hover:scale-[1.04]" />
+        {/* object-top — kerpant paliekam viršų (ten dažniausiai veidas). */}
+        <FallbackImg srcs={cs} proxy={480} className="absolute inset-0 h-full w-full object-cover object-top transition-transform duration-300 group-hover:scale-[1.04]" />
         <div className="pointer-events-none absolute inset-0" style={{ background: 'linear-gradient(to top, rgba(0,0,0,0.92) 0%, rgba(0,0,0,0.55) 35%, rgba(0,0,0,0.12) 60%, rgba(0,0,0,0) 80%)' }} />
         <span
           className="absolute left-2 top-2 inline-flex items-center justify-center rounded-md font-['Outfit',sans-serif] font-black text-white"
@@ -431,17 +432,17 @@ function HeroChartCard({ slide, unseen, voted, onOpen }: { slide: HeroSlide; uns
         className="relative z-[1] flex h-full flex-col justify-between p-6 pt-3"
         style={{ width: '38%' }}
       >
-        <div className="flex flex-col items-start gap-1.5">
+        <div className="flex items-center gap-2">
           <span
             className="inline-flex w-fit items-center whitespace-nowrap rounded-md px-2 py-0.5 font-['Outfit',sans-serif] text-[12px] font-bold uppercase tracking-[0.03em] text-white"
             style={{ background: accent }}
           >
             {isLT ? 'LT TOP 30' : 'TOP 40'}
           </span>
-          {/* Balsavai / nebalsavai — atskira eilutė po badge (nesquish'ina). */}
+          {/* Balsavai / nebalsavai — TIK ikona (kaip ant mobile). */}
           {voted
-            ? <span title="Balsavai" className="inline-flex items-center gap-1 whitespace-nowrap rounded-full bg-black/40 px-2 py-0.5 text-[11px] font-extrabold text-white"><svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="#4ade80" strokeWidth="3.2" strokeLinecap="round" strokeLinejoin="round"><path d="M20 6L9 17l-5-5" /></svg>Balsavai</span>
-            : <span title="Nebalsavai" className="inline-flex items-center gap-1 whitespace-nowrap rounded-full px-2 py-0.5 text-[11px] font-extrabold text-white" style={{ background: accent }}>Balsuok</span>}
+            ? <span title="Balsavai" className="inline-flex h-[22px] w-[22px] items-center justify-center rounded-full bg-black/40"><svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="#4ade80" strokeWidth="3.2" strokeLinecap="round" strokeLinejoin="round"><path d="M20 6L9 17l-5-5" /></svg></span>
+            : <span title="Nebalsavai" className="inline-flex h-[22px] w-[22px] items-center justify-center rounded-full" style={{ background: accent }}><svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="#fff" strokeWidth="3" strokeLinecap="round" strokeLinejoin="round"><path d="M12 19V5M5 12l7-7 7 7" /></svg></span>}
         </div>
 
         {teaser.main && (
