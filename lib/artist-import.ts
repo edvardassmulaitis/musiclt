@@ -16,6 +16,7 @@ import { slugify } from './slugify'
 import { findOrCreateArtist } from './featuring-utils'
 import { loadSubstyleRows, resolveSubstyle } from './substyle-resolve'
 import { resolvePhotographerId, splitAuthorLicense } from './photographers'
+import { resolveExistingTrackId } from './track-dedup'
 
 // ── Tipai ─────────────────────────────────────────────────────────────────────
 export interface ImportLink { platform: string; url: string }
@@ -575,35 +576,31 @@ export async function buildPreview(
     if (t.type && !TRACK_TYPE_MAP[t.type]) warnings.push(`Nežinomas dainos type "${t.type}" (${t.title}) — saugoma kaip "normal".`)
     const albumTitle = t.album_title || null
     let albumFound = false
+    let albumIdForTrack: number | null = null
     if (albumTitle) {
       const normAlb = normalizeName(albumTitle)
-      if (albumIdByTitle[normAlb] || albumTitlesInPayload.has(normAlb)) albumFound = true
+      if (albumIdByTitle[normAlb]) { albumFound = true; albumIdForTrack = albumIdByTitle[normAlb] }
+      else if (albumTitlesInPayload.has(normAlb)) albumFound = true // bus sukurtas su importu
       else if (targetArtistId) {
         const { data: al } = await sb.from('albums').select('id').eq('artist_id', targetArtistId).ilike('title', albumTitle).maybeSingle()
         albumFound = !!al?.id
-        if (al?.id) albumIdByTitle[normAlb] = al.id
+        if (al?.id) { albumIdByTitle[normAlb] = al.id; albumIdForTrack = al.id }
       }
       if (!albumFound) warnings.push(`Daina "${t.title}": albumas "${albumTitle}" nerastas — daina bus sukurta be albumo prijungimo.`)
     }
-    // Dedup: pirma exact slug, tada title ilike (case-insensitive) — pagauna
-    // esamas dainas, kurių slug'as gavo -N galūnę dėl globalaus slug konflikto
-    // (pvz. „Keep It to Myself" → slug „keep-it-to-myself-1"). Anksčiau tik slug
-    // match'as jas praleisdavo ir rodydavo kaip naujas.
+    // Album-aware dedup: „Intro" albume A ≠ „Intro" albume B. Randam esamą dainą
+    // pagal atlikėją + pavadinimą + albumo kontekstą (žr. lib/track-dedup.ts).
     let existingId: number | null = null
     if (targetArtistId) {
-      const { data: tr } = await sb.from('tracks').select('id').eq('artist_id', targetArtistId).eq('slug', slugify(t.title)).maybeSingle()
-      existingId = tr?.id ?? null
-      if (!existingId) {
-        const { data: byTitle } = await sb.from('tracks').select('id').eq('artist_id', targetArtistId).ilike('title', t.title).limit(1)
-        existingId = byTitle?.[0]?.id ?? null
-      }
+      existingId = await resolveExistingTrackId(sb, targetArtistId, t.title, albumIdForTrack)
     }
-    // Kartojasi tame pačiame JSON'e? (pvz. „Welcome" du kartus) — apply nesukurs
-    // antro; antra eilutė atnaujins pirmą (sujungs), tad dublikato nebus.
-    const normTitle = normalizeName(t.title)
-    const dupInPayload = seenTrackTitles.has(normTitle)
-    seenTrackTitles.add(normTitle)
-    if (dupInPayload) warnings.push(`Daina "${t.title}" JSON'e kartojasi — bus sujungta (nekuriamas dublikatas).`)
+    // Kartojasi tame pačiame JSON'e? Raktas = pavadinimas + albumas (kad du „Intro"
+    // skirtinguose albumuose NEBŪTŲ laikomi tuo pačiu). Toks pat singlas/albumo
+    // daina du kartus → apply sujungs (nekuria dublikato).
+    const dupKey = normalizeName(t.title) + '|' + normalizeName(albumTitle || '')
+    const dupInPayload = seenTrackTitles.has(dupKey)
+    seenTrackTitles.add(dupKey)
+    if (dupInPayload) warnings.push(`Daina "${t.title}"${albumTitle ? ` (albumas „${albumTitle}")` : ' (singlas)'} JSON'e kartojasi — bus sujungta.`)
     const featuring = (t.featured_artists || []).map(f => f.name).filter(Boolean)
     const featuringNew: string[] = []
     for (const fn of featuring) {
@@ -948,14 +945,15 @@ export async function applyImport(
       }
     }
 
-    // Find/insert track — dedup pagal slug, tada title ilike (kaip albumų flow'e).
-    // Title fallback pagauna esamas dainas su -N slug galūne IR to paties JSON'o
-    // pasikartojančias dainas (antra „Welcome" atnaujins pirmą, o ne sukurs naują).
+    // Album-aware dedup (žr. lib/track-dedup.ts): „Intro" albume A ≠ „Intro"
+    // albume B → skirtingos dainos; to paties albumo/singlo kartotė (net su -N slug
+    // galūne ar JSON'e pasikartojanti) → sujungiama.
     let trackId: number | null = null
-    let { data: existingTr } = await sb.from('tracks').select('id, release_date, release_year, spotify_id, cover_url').eq('artist_id', artistId).eq('slug', slugify(t.title)).maybeSingle()
-    if (!existingTr) {
-      const { data: byTitle } = await sb.from('tracks').select('id, release_date, release_year, spotify_id, cover_url').eq('artist_id', artistId).ilike('title', t.title).limit(1)
-      existingTr = byTitle?.[0] ?? null
+    const existingTrackId = await resolveExistingTrackId(sb, artistId as number, t.title, albumId)
+    let existingTr: { id: number; release_date: string | null; release_year: number | null; spotify_id: string | null; cover_url: string | null } | null = null
+    if (existingTrackId) {
+      const { data } = await sb.from('tracks').select('id, release_date, release_year, spotify_id, cover_url').eq('id', existingTrackId).maybeSingle()
+      existingTr = data as any
     }
     if (existingTr) {
       trackId = existingTr.id

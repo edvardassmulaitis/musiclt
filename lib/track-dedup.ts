@@ -195,3 +195,66 @@ export async function findDuplicateTracks(
   out.sort((a, b) => b.shared_artist_ids.length - a.shared_artist_ids.length)
   return params.limit ? out.slice(0, params.limit) : out
 }
+
+/**
+ * „Gudrus" esamos dainos radimas IMPORTUI (album-aware). Naudojamas visuose
+ * importo keliuose (artist-import JSON, Wikipedia albumų flow, quick-add), kad
+ * elgesys būtų vienodas.
+ *
+ * Esmė: ta pati daina = tas pats atlikėjas + tas pats pavadinimas + tas pats
+ * ALBUMO KONTEKSTAS. „Intro" albume A ≠ „Intro" albume B (skirtingos dainos tuo
+ * pačiu pavadinimu) — todėl vien pavadinimo/slug'o match'as jas klaidingai
+ * sujungdavo. Logika:
+ *   • album track (albumId žinomas):
+ *       1) kandidatas jau prijungtas prie ŠIO albumo → ta pati daina (reuse)
+ *       2) kandidatas be jokio albumo (pvz. buvęs singlas) → reuse (bus prijungtas)
+ *       3) tik kitų albumų kandidatai → skirtinga daina → null (kurti naują)
+ *   • singlas (albumId = null): reuse singlą arba neprijungtą; kitaip null.
+ *
+ * Grąžina esamos dainos id arba null (→ kurti naują).
+ */
+export async function resolveExistingTrackId(
+  supabase: SupabaseClient,
+  artistId: number,
+  title: string,
+  albumId: number | null,
+  /** Track id'ai, kuriuos reikia laikyti „priklausančiais ŠIAM albumui", net jei
+   *  album_tracks nuoroda dabar nutrinta. Reikalinga flow'ams, kurie PIRMA ištrina
+   *  albumo track ryšius, o tada iš naujo įrašo (syncAlbumTracks) — kad re-sync'as
+   *  nedublikuotų dainų (ypač esančių keliuose albumuose). */
+  ownAlbumTrackIds?: Set<number>,
+): Promise<number | null> {
+  const clean = (title || '').trim()
+  if (!clean || !artistId) return null
+
+  const { data: cands } = await supabase
+    .from('tracks')
+    .select('id, is_single')
+    .eq('artist_id', artistId)
+    .ilike('title', clean)
+  const rows = (cands || []) as { id: number; is_single: boolean | null }[]
+  if (!rows.length) return null
+
+  const ids = rows.map(r => r.id)
+  const { data: links } = await supabase
+    .from('album_tracks')
+    .select('track_id, album_id')
+    .in('track_id', ids)
+  const linkRows = (links || []) as { track_id: number; album_id: number }[]
+  const albumsByTrack = new Map<number, Set<number>>()
+  for (const l of linkRows) {
+    if (!albumsByTrack.has(l.track_id)) albumsByTrack.set(l.track_id, new Set())
+    albumsByTrack.get(l.track_id)!.add(l.album_id)
+  }
+
+  if (albumId) {
+    const sameAlbum = rows.find(r => albumsByTrack.get(r.id)?.has(albumId) || ownAlbumTrackIds?.has(r.id))
+    if (sameAlbum) return sameAlbum.id
+    const unlinked = rows.find(r => !albumsByTrack.has(r.id))
+    if (unlinked) return unlinked.id
+    return null
+  }
+
+  const singleOrUnlinked = rows.find(r => r.is_single || !albumsByTrack.has(r.id))
+  return singleOrUnlinked ? singleOrUnlinked.id : null
+}

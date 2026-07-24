@@ -17,6 +17,7 @@ function toInt(v: any): number | null {
 import { slugify } from './slugify'
 import { matchGenreToSubstyle, type SubstyleRow } from './genre-match'
 import { findOrCreateArtist as findOrCreateArtistShared } from './featuring-utils'
+import { resolveExistingTrackId } from './track-dedup'
 
 export type AlbumFull = {
   id?: number
@@ -420,6 +421,11 @@ async function fillReleaseDateIfMissing(trackId: number, t: TrackInAlbum, update
 
 async function syncAlbumTracks(albumId: number, artistId: number, tracks: TrackInAlbum[]) {
   console.log('[syncAlbumTracks] START albumId:', albumId, 'artistId:', artistId, 'tracks:', tracks.length)
+  // Prieš trynimą užfiksuojam, kurios dainos jau buvo ŠIAME albume — kad
+  // album-aware dedup (resolveExistingTrackId) re-sync metu jas atpažintų kaip
+  // „to paties albumo" ir nedublikuotų (ypač esančių keliuose albumuose).
+  const { data: prevLinks } = await supabase.from('album_tracks').select('track_id').eq('album_id', albumId)
+  const ownAlbumTrackIds = new Set<number>((prevLinks || []).map((r: any) => r.track_id))
   await supabase.from('album_tracks').delete().eq('album_id', albumId)
   if (!tracks.length) return
 
@@ -470,17 +476,14 @@ async function syncAlbumTracks(albumId: number, artistId: number, tracks: TrackI
       //   1. Exact slug match (greitas)
       //   2. Title ilike match (case-insensitive, apima trailing spaces ar
       //      apostrophe variantus kuriuose slugify gali skirtis)
+      // Album-aware dedup: „Intro" šiame albume ≠ „Intro" kitame albume →
+      // skirtingos dainos. Randam esamą tik jei ji priklauso ŠIAM albumui (arba
+      // buvo jame prieš re-sync), arba yra neprijungta prie jokio albumo.
+      // Remix'ai visada nauji (žr. aukščiau).
       let existing: { id: number } | null = null
       if (!isRemix) {
-        const bySlug = await supabase
-          .from('tracks').select('id').eq('artist_id', artistId).eq('slug', baseSlug).maybeSingle()
-        if (bySlug.data) {
-          existing = bySlug.data
-        } else {
-          const byTitle = await supabase
-            .from('tracks').select('id').eq('artist_id', artistId).ilike('title', cleanTitle).maybeSingle()
-          if (byTitle.data) existing = byTitle.data
-        }
+        const foundId = await resolveExistingTrackId(supabase, artistId, cleanTitle, albumId, ownAlbumTrackIds)
+        if (foundId) existing = { id: foundId }
       }
 
       if (existing) {
