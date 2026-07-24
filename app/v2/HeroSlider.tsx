@@ -47,9 +47,9 @@ export type HeroSlide = {
   //    siūlytojas/balsai). Edvardo spec 2026-07-24 — gyvesnė nei 1 YT thumb. ──
   dd?: {
     wonLabel: string
-    winner: { cover: string; title: string; artist: string; votes: number }
+    winner: { covers: string[]; title: string; artist: string; votes: number }
     proposer?: { name: string; avatar: string | null } | null
-    today?: { cover: string; title: string; artist: string; votes: number } | null
+    today?: { covers: string[]; title: string; artist: string; votes: number } | null
   } | null
 }
 

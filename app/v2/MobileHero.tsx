@@ -22,6 +22,13 @@ function FallbackImg({ srcs, proxy, style }: { srcs: (string | null | undefined)
   // eslint-disable-next-line @next/next/no-img-element
   return <img src={proxyImgResized(list[i], proxy)} alt="" decoding="async" onError={() => setI(i + 1)} style={style} />
 }
+// Jau paruoštas src (pvz. avataras) — jei lūžta, rodom neutralų placeholder.
+function SafeImg({ src, style }: { src: string | null; style: React.CSSProperties }) {
+  const [err, setErr] = useState(false)
+  if (!src || err) return <div style={{ ...style, background: 'rgba(255,255,255,0.2)' }} />
+  // eslint-disable-next-line @next/next/no-img-element
+  return <img src={src} alt="" decoding="async" onError={() => setErr(true)} style={style} />
+}
 
 export default function MobileHero({ slides: allSlides }: { slides: HeroSlide[] }) {
   const { dk } = useSite()
@@ -47,6 +54,14 @@ export default function MobileHero({ slides: allSlides }: { slides: HeroSlide[] 
     const tt = chartTypeToTop(s.type)
     return !!(mounted && tt && (isTopVoted(tt) || votedCharts.has(tt)))
   }
+  // Dienos daina — ar vartotojas jau pasiūlė šiandien (indikatoriui, kaip topuose).
+  const [ddNominated, setDdNominated] = useState<boolean | null>(null)
+  useEffect(() => {
+    let on = true
+    if (!allSlides.some(s => s.type === 'daily_winner')) return
+    fetch('/api/dienos-daina/nominations').then(r => r.json()).then(d => { if (on) setDdNominated(!!d.already_nominated) }).catch(() => {})
+    return () => { on = false }
+  }, [allSlides])
   const [reelsOpen, setReelsOpen] = useState(false)
   const [reelsIdx, setReelsIdx] = useState(0)
   // „peržiūrėta" žymėjimas — prisijungusiems SURIŠTA per įrenginius (server),
@@ -148,12 +163,14 @@ export default function MobileHero({ slides: allSlides }: { slides: HeroSlide[] 
               >
                 {/* Vakar nugalėtojas — didelis */}
                 <div style={{ position: 'relative', width: '100%', flex: '1 1 62%', overflow: 'hidden' }}>
-                  {dd.winner.cover
-                    // eslint-disable-next-line @next/next/no-img-element
-                    ? <img src={proxyImgResized(dd.winner.cover, 480)} alt="" decoding="async" style={{ width: '100%', height: '100%', objectFit: 'cover', display: 'block' }} />
-                    : <div style={{ width: '100%', height: '100%', background: 'linear-gradient(135deg,#3a2a08,#5c3d0a)' }} />}
+                  <FallbackImg srcs={dd.winner.covers} proxy={480} style={{ width: '100%', height: '100%', objectFit: 'cover', display: 'block' }} />
                   <div style={{ position: 'absolute', inset: 0, background: 'linear-gradient(to top, rgba(0,0,0,0.95) 0%, rgba(0,0,0,0.35) 48%, rgba(0,0,0,0) 72%)' }} />
                   <span style={{ position: 'absolute', top: 8, left: 8, padding: '3px 7px', borderRadius: 6, fontSize: 10.5, fontWeight: 800, color: '#fff', background: ddAccent, fontFamily: 'Outfit,sans-serif', letterSpacing: '0.03em', textTransform: 'uppercase' }}>Dienos daina</span>
+                  {/* Pasiūlei / siūlyk indikatorius (kaip topuose) — tik ikona. */}
+                  {ddNominated === true
+                    ? <span title="Jau pasiūlei" style={{ position: 'absolute', top: 7, right: 7, width: 22, height: 22, borderRadius: '50%', background: 'rgba(0,0,0,0.55)', backdropFilter: 'blur(4px)', display: 'flex', alignItems: 'center', justifyContent: 'center' }}><svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="#4ade80" strokeWidth="3.2" strokeLinecap="round" strokeLinejoin="round"><path d="M20 6L9 17l-5-5" /></svg></span>
+                    : ddNominated === false ? <span title="Pasiūlyk dainą" style={{ position: 'absolute', top: 7, right: 7, width: 22, height: 22, borderRadius: '50%', background: ddAccent, display: 'flex', alignItems: 'center', justifyContent: 'center' }}><svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="#fff" strokeWidth="3" strokeLinecap="round"><path d="M12 5v14M5 12h14" /></svg></span>
+                    : null}
                   <div style={{ position: 'absolute', bottom: 0, left: 0, right: 0, padding: '6px 9px 8px', textAlign: 'left' }}>
                     <span style={{ display: 'inline-block', fontSize: 9.5, fontWeight: 800, color: ddAccent, letterSpacing: '0.05em', textTransform: 'uppercase', fontFamily: 'Outfit,sans-serif', marginBottom: 2 }}>{dd.wonLabel}</span>
                     <p style={{ margin: 0, fontSize: 13, fontWeight: 800, color: '#fff', lineHeight: 1.12, fontFamily: 'Outfit,sans-serif', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{dd.winner.title}</p>
@@ -161,10 +178,7 @@ export default function MobileHero({ slides: allSlides }: { slides: HeroSlide[] 
                       <div style={{ display: 'flex', alignItems: 'center', gap: 6, marginTop: 3 }}>
                         {dd.proposer && (
                           <span style={{ display: 'inline-flex', alignItems: 'center', gap: 3, minWidth: 0 }}>
-                            {propAv
-                              // eslint-disable-next-line @next/next/no-img-element
-                              ? <img src={propAv} alt="" decoding="async" style={{ width: 14, height: 14, borderRadius: '50%', objectFit: 'cover', flexShrink: 0 }} />
-                              : <span style={{ width: 14, height: 14, borderRadius: '50%', background: 'rgba(255,255,255,0.25)', flexShrink: 0 }} />}
+                            <SafeImg src={propAv} style={{ width: 14, height: 14, borderRadius: '50%', objectFit: 'cover', flexShrink: 0 }} />
                             <span style={{ fontSize: 10, fontWeight: 600, color: 'rgba(255,255,255,0.72)', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', maxWidth: 66 }}>{dd.proposer.name}</span>
                           </span>
                         )}
@@ -183,10 +197,7 @@ export default function MobileHero({ slides: allSlides }: { slides: HeroSlide[] 
                   <span style={{ display: 'block', fontSize: 8.5, fontWeight: 800, letterSpacing: '0.06em', textTransform: 'uppercase', color: 'rgba(255,255,255,0.45)', marginBottom: 4, fontFamily: 'Outfit,sans-serif' }}>Šiandien pirmauja</span>
                   {dd.today ? (
                     <div style={{ display: 'flex', alignItems: 'center', gap: 7 }}>
-                      {dd.today.cover
-                        // eslint-disable-next-line @next/next/no-img-element
-                        ? <img src={proxyImgResized(dd.today.cover, 96)} alt="" decoding="async" style={{ width: 30, height: 30, borderRadius: 6, objectFit: 'cover', flexShrink: 0 }} />
-                        : <span style={{ width: 30, height: 30, borderRadius: 6, background: 'rgba(255,255,255,0.1)', flexShrink: 0 }} />}
+                      <FallbackImg srcs={dd.today.covers} proxy={96} style={{ width: 30, height: 30, borderRadius: 6, objectFit: 'cover', flexShrink: 0 }} />
                       <span style={{ minWidth: 0, flex: 1, display: 'block', fontSize: 11, fontWeight: 700, color: '#fff', lineHeight: 1.15, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', fontFamily: 'Outfit,sans-serif' }}>{dd.today.artist || dd.today.title}</span>
                       {dd.today.votes > 0 && (
                         <span style={{ display: 'inline-flex', alignItems: 'center', gap: 2, fontSize: 10, fontWeight: 800, color: 'rgba(255,255,255,0.85)', flexShrink: 0 }}>

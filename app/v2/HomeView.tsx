@@ -508,23 +508,27 @@ function buildHeroSlides(input: {
       const todaySorted = [...(todayNoms || [])]
         .filter((n: any) => n?.tracks && n.tracks.id !== tr.id)
         .sort((a: any, b: any) => (b.weighted_votes || b.votes || 0) - (a.weighted_votes || a.votes || 0))
+      // Kandidatų sąrašai (fallback'ui, jei nuotrauka lūžta): cover → atlikėjo foto → YT.
+      const coverList = (t: any) => [t?.cover_url, t?.artists?.cover_image_url, ytHq(extractYouTubeId(t?.video_url || null))].filter(Boolean) as string[]
+      const winnerCovers = coverList(tr)
       const ddLeadNom = todaySorted[0]
-      const ddToday = ddLeadNom?.tracks
+      const ddTodayCovers = ddLeadNom?.tracks ? coverList(ddLeadNom.tracks) : []
+      const ddToday = ddLeadNom?.tracks && ddTodayCovers.length
         ? {
-            cover: trkCover(ddLeadNom.tracks) || '',
+            covers: ddTodayCovers,
             title: sanitizeTitle(ddLeadNom.tracks.title || ''),
             artist: ddLeadNom.tracks.artists?.name || '',
             votes: Number(ddLeadNom.weighted_votes || ddLeadNom.votes || 0),
           }
         : null
-      const ddData = winnerCover
+      const ddData = winnerCovers.length
         ? {
             // Visada „Vakar laimėjo" (be konkrečios datos) — įrašas atsinaujina
             // kas naktį, tad laimėtojas visada vakarykštis. (Edvardo spec 2026-07-25.)
             wonLabel: 'Vakar laimėjo',
-            winner: { cover: winnerCover, title: sanitizeTitle(tr.title || ''), artist: tr.artists?.name || '', votes: winnerVotes },
+            winner: { covers: winnerCovers, title: sanitizeTitle(tr.title || ''), artist: tr.artists?.name || '', votes: winnerVotes },
             proposer: ddProposer,
-            today: ddToday && ddToday.cover ? ddToday : null,
+            today: ddToday,
           }
         : null
       // NB: reader'yje dienos daina renderinama per DienosDainaSection variant='reel'
