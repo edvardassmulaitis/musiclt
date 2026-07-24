@@ -2,7 +2,7 @@ import { NextResponse } from 'next/server'
 import { createAdminClient } from '@/lib/supabase'
 import { getServerSession } from 'next-auth'
 import { authOptions } from '@/lib/auth'
-import { getCurrentWeekMonday, getCurrentVoteWeekId } from '@/lib/top-week'
+import { getCurrentWeekMonday, getCurrentVoteWeekId, getLiveSuggested, getLiveDropped } from '@/lib/top-week'
 
 export const dynamic = 'force-dynamic'
 
@@ -171,38 +171,16 @@ export async function GET(req: Request) {
     tracks: trackMap.get(e.track_id) ?? null,
   }))
 
-  // ── Siūlomos naujos dainos (music.lt „Siūlomi kūriniai") — iš GYVOS vote
-  //    savaitės newcomer'iai (weeks_in_top=0). Votable (track_id → /api/top/vote
-  //    week_id=voteWeekId). Rodomos atskiroj „Naujos — balsuok" sekcijoj. ──
-  let suggested: any[] = []
-  if (voteWeekId) {
-    const { data: sug } = await supabase
-      .from('top_entries')
-      .select('id, position, track_id, is_new, title, artist_name')
-      .eq('week_id', voteWeekId)
-      .eq('weeks_in_top', 0)
-      .order('position', { ascending: true })
-    const sIds = (sug || []).map((e: any) => e.track_id).filter(Boolean)
-    const { data: sTracks } = sIds.length
-      ? await supabase.from('tracks').select('id, slug, title, cover_url, artist_id, video_url').in('id', sIds)
-      : { data: [] }
-    const sArtIds = [...new Set((sTracks || []).map((t: any) => t.artist_id).filter(Boolean))]
-    const { data: sArts } = sArtIds.length
-      ? await supabase.from('artists').select('id, slug, name, cover_image_url').in('id', sArtIds)
-      : { data: [] }
-    const sAMap = new Map((sArts || []).map((a: any) => [a.id, a]))
-    const sTMap = new Map((sTracks || []).map((t: any) => [t.id, { ...t, artists: sAMap.get(t.artist_id) ?? null }]))
-    // Live vote count'ai siūlomoms (kad rodytų kiek jau surinko)
-    const { data: sVotes } = await supabase.from('top_votes').select('track_id, user_id, voter_ip').eq('week_id', voteWeekId).eq('vote_type', 'like')
-    const sCount = new Map<number, Set<string>>()
-    ;(sVotes || []).forEach((v: any) => { const k = v.user_id ? 'u:' + v.user_id : 'ip:' + (v.voter_ip || '?'); if (!sCount.has(v.track_id)) sCount.set(v.track_id, new Set()); sCount.get(v.track_id)!.add(k) })
-    suggested = (sug || []).map((e: any) => ({ ...e, total_votes: sCount.get(e.track_id)?.size ?? 0, tracks: e.track_id ? (sTMap.get(e.track_id) ?? null) : null })).filter((e: any) => e.tracks)
-  }
+  // ── Gyvos vote savaitės „extra" įrašai: siūlomos naujos (weeks_in_top=0,
+  //    votable „Naujos — balsuok") + iškritę (weeks_in_top=-1, read-only). ──
+  const [suggested, dropped] = voteWeekId
+    ? await Promise.all([getLiveSuggested(supabase, voteWeekId), getLiveDropped(supabase, voteWeekId)])
+    : [[], []]
 
   // BE cache header'ių — admin operacijos (populate, finalize, reset) turi
   // matyti freshness'ą iš karto. Public /top40, /top30 puslapiai naudoja
   // savo Supabase queries (server components), ne /api/top/entries.
-  return NextResponse.json({ entries: merged, week, vote_week_id: voteWeekId, suggested })
+  return NextResponse.json({ entries: merged, week, vote_week_id: voteWeekId, suggested, dropped })
 }
 
 export async function POST(req: Request) {

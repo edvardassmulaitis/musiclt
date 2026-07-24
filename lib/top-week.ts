@@ -49,11 +49,12 @@ export async function getCurrentVoteWeekId(supabase: any, topType: string): Prom
 }
 
 /**
- * „Siūlomi kūriniai" (music.lt naujos dainos) = gyvos vote savaitės newcomer'iai
- * (weeks_in_top=0). Grąžina jau normalizuotus (tracks/artists išlyginti) įrašus
- * standalone /top30 /top40 puslapiams — votable į gyvą savaitę.
+ * Gyvos vote savaitės „extra" įrašai pagal weeks_in_top sentinelį:
+ *   0  = „Siūlomi kūriniai" (naujos dainos, votable)
+ *   -1 = „Iškritę kūriniai" (iškritę iš topo, read-only)
+ * Grąžina normalizuotus (tracks/artists išlyginti) įrašus.
  */
-export async function getLiveSuggested(supabase: any, voteWeekId: number | null): Promise<any[]> {
+async function getLiveExtras(supabase: any, voteWeekId: number | null, weeksInTop: number): Promise<any[]> {
   if (!voteWeekId) return []
   const { data } = await supabase
     .from('top_entries')
@@ -64,13 +65,15 @@ export async function getLiveSuggested(supabase: any, voteWeekId: number | null)
         artists:artist_id ( id, slug, name, cover_image_url ) )
     `)
     .eq('week_id', voteWeekId)
-    .eq('weeks_in_top', 0)
+    .eq('weeks_in_top', weeksInTop)
     .order('position', { ascending: true })
   return (data || [])
     .map((e: any) => ({ ...e, tracks: Array.isArray(e.tracks) ? e.tracks[0] ?? null : e.tracks }))
     .map((e: any) => ({ ...e, tracks: e.tracks ? { ...e.tracks, artists: Array.isArray(e.tracks.artists) ? e.tracks.artists[0] ?? null : e.tracks.artists } : null }))
     .filter((e: any) => e.tracks)
 }
+export const getLiveSuggested = (supabase: any, voteWeekId: number | null) => getLiveExtras(supabase, voteWeekId, 0)
+export const getLiveDropped = (supabase: any, voteWeekId: number | null) => getLiveExtras(supabase, voteWeekId, -1)
 
 /**
  * Pereinamojo laikotarpio fallback: kurią `top_weeks` savaitę rodyti public'e.

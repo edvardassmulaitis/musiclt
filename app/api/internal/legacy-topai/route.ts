@@ -168,38 +168,45 @@ async function storeWeek(sb: any, topType: string, weekStart: string, entries: P
 const PAGE_URL: Record<number, string> = { 1: `${BASE}/top40`, 2: `${BASE}/top30` }
 const RE_TITLE_SUG = /<a[^>]*daina\/[^"]+\/\d+\/"><b>([^<]+)<\/b>/
 
-function parseSuggested(html: string): { legacy_track_id: number; title: string; artist_name: string }[] {
-  const i = html.indexOf('Siūlomi kūriniai')
+type Extra = { legacy_track_id: number; title: string; artist_name: string; position?: number }
+
+// section = „Siūlomi kūriniai" (naujos) arba „Iškritę kūriniai" (iškritę).
+function parseSection(html: string, heading: string, withPos: boolean): Extra[] {
+  const i = html.indexOf(heading)
   if (i < 0) return []
   let seg = html.slice(i, i + 20000)
   const end = seg.indexOf('</table>')
   if (end > 0) seg = seg.slice(0, end)
-  const out: { legacy_track_id: number; title: string; artist_name: string }[] = []
+  const out: Extra[] = []
   for (const b of seg.split('<tr class="table_row"').slice(1)) {
     const md = RE_DAINA.exec(b)
     if (!md) continue
     const mt = RE_TITLE_SUG.exec(b)
     const mg = RE_GRUPE_TXT.exec(b)
-    out.push({ legacy_track_id: parseInt(md[2], 10), title: mt ? mt[1].trim() : '', artist_name: mg ? mg[1].trim() : '' })
+    const mp = withPos ? RE_POS.exec(b) : null
+    out.push({ legacy_track_id: parseInt(md[2], 10), title: mt ? mt[1].trim() : '', artist_name: mg ? mg[1].trim() : '', position: mp ? parseInt(mp[1], 10) : undefined })
   }
-  const seen = new Map<number, any>()
+  const seen = new Map<number, Extra>()
   for (const e of out) seen.set(e.legacy_track_id, e)
   return [...seen.values()]
 }
+const parseSuggested = (html: string) => parseSection(html, 'Siūlomi kūriniai', false)
+const parseDropped = (html: string) => parseSection(html, 'Iškritę kūriniai', true)
 
-async function storeSuggested(sb: any, topType: string, voteWeekId: number, sug: { legacy_track_id: number; title: string; artist_name: string }[]): Promise<number> {
-  if (!sug.length) { await sb.from('top_entries').delete().eq('week_id', voteWeekId).eq('weeks_in_top', 0); return 0 }
-  const matched = await matchTracks(sb, sug.map(s => s.legacy_track_id))
+// weeksInTop sentinelis: 0 = siūlomos (votable), -1 = iškritę (read-only).
+async function storeExtras(sb: any, topType: string, voteWeekId: number, items: Extra[], weeksInTop: number): Promise<number> {
+  await sb.from('top_entries').delete().eq('week_id', voteWeekId).eq('weeks_in_top', weeksInTop)
+  if (!items.length) return 0
+  const matched = await matchTracks(sb, items.map(s => s.legacy_track_id))
   const seen = new Set<number>()
   let pos = 0
-  const rows = sug.map((s) => {
+  const rows = items.map((s) => {
     let tid: number | null = matched.get(s.legacy_track_id)?.id ?? null
     if (tid != null && seen.has(tid)) tid = null
     if (tid != null) seen.add(tid)
     pos++
-    return { week_id: voteWeekId, top_type: topType, position: pos, track_id: tid, legacy_track_id: s.legacy_track_id, artist_name: s.artist_name || null, title: s.title || null, is_new: true, weeks_in_top: 0, total_votes: 0 }
+    return { week_id: voteWeekId, top_type: topType, position: s.position ?? pos, track_id: tid, legacy_track_id: s.legacy_track_id, artist_name: s.artist_name || null, title: s.title || null, is_new: weeksInTop === 0, weeks_in_top: weeksInTop, total_votes: 0 }
   })
-  await sb.from('top_entries').delete().eq('week_id', voteWeekId).eq('weeks_in_top', 0)
   for (let i = 0; i < rows.length; i += 100) await sb.from('top_entries').insert(rows.slice(i, i + 100))
   return rows.length
 }
@@ -264,9 +271,10 @@ async function handle(req: NextRequest): Promise<NextResponse> {
     if (!voteWeekId) { results[`suggested ${topType}`] = 'nėra vote savaitės'; continue }
     try {
       const html = await (await fetch(PAGE_URL[topid], { headers: { 'User-Agent': UA }, cache: 'no-store' })).text()
-      const n = await storeSuggested(sb, topType, voteWeekId, parseSuggested(html))
-      results[`suggested ${topType}`] = `${n} siūlomos`
-    } catch (e: any) { results[`suggested ${topType}`] = `klaida: ${e.message}` }
+      const ns = await storeExtras(sb, topType, voteWeekId, parseSuggested(html), 0)
+      const nd = await storeExtras(sb, topType, voteWeekId, parseDropped(html), -1)
+      results[`extras ${topType}`] = `${ns} siūlomos, ${nd} iškritę`
+    } catch (e: any) { results[`extras ${topType}`] = `klaida: ${e.message}` }
   }
 
   // Relink pagal atlikėją+pavadinimą (fresh entries be legacy_id match → katalogo track).

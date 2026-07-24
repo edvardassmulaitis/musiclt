@@ -1,7 +1,7 @@
 import { Metadata } from 'next'
 import { createAdminClient } from '@/lib/supabase'
 import TopChartView, { type TopData } from '@/components/TopChartView'
-import { resolveDisplayWeek, fetchLiveVoteSplit, getCurrentVoteWeekId, getLiveSuggested } from '@/lib/top-week'
+import { resolveDisplayWeek, fetchLiveVoteSplit, getCurrentVoteWeekId, getLiveSuggested, getLiveDropped } from '@/lib/top-week'
 
 export const metadata: Metadata = {
   title: 'LT TOP 30 — Lietuvos muzikos topas | music.lt',
@@ -18,8 +18,8 @@ async function getTopData(topType: string): Promise<TopData> {
   // finalizuota (legacy archyvas). Žr. lib/top-week.ts.
   const { week, isFallback } = await resolveDisplayWeek(supabase, topType)
   const voteWeekId = await getCurrentVoteWeekId(supabase, topType)
-  const suggested = await getLiveSuggested(supabase, voteWeekId)
-  if (!week) return { entries: [], week: null, isFallback: false, voteWeekId, suggested }
+  const [suggested, dropped] = await Promise.all([getLiveSuggested(supabase, voteWeekId), getLiveDropped(supabase, voteWeekId)])
+  if (!week) return { entries: [], week: null, isFallback: false, voteWeekId, suggested, dropped }
   const { data: entries } = await supabase
     .from('top_entries')
     .select(`
@@ -55,7 +55,7 @@ async function getTopData(topType: string): Promise<TopData> {
   inTop.sort((a: any, b: any) => (a.position || 999) - (b.position || 999))
   newcomerEntries.sort((a: any, b: any) => (a.position || 999) - (b.position || 999))
 
-  return { entries: [...inTop, ...newcomerEntries] as any, week, isFallback, voteWeekId, suggested }
+  return { entries: [...inTop, ...newcomerEntries] as any, week, isFallback, voteWeekId, suggested, dropped }
 }
 
 export default async function Top30Page() {
