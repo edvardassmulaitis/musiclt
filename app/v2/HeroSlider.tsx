@@ -72,12 +72,14 @@ export default function HeroSlider({ slides: allSlides }: { slides: HeroSlide[] 
     })
     return () => { on = false }
   }, [allSlides])
-  const slides = allSlides.filter((s) => {
-    if (s.type === 'daily_winner') return false
+  // Prabalsuoti topai NEslepiami visai — tik pastumiami į feed'o galą (kad būtų
+  // galima peržiūrėti/pertestuoti). (Edvardo pastaba 2026-07-24.)
+  const isVotedChart = (s: HeroSlide) => {
     const tt = chartTypeToTop(s.type)
-    if (mounted && tt && (isTopVoted(tt) || votedCharts.has(tt))) return false
-    return true
-  })
+    return !!(mounted && tt && (isTopVoted(tt) || votedCharts.has(tt)))
+  }
+  const visible = allSlides.filter((s) => s.type !== 'daily_winner')
+  const slides = [...visible.filter((s) => !isVotedChart(s)), ...visible.filter((s) => isVotedChart(s))]
   const trackRef = useRef<HTMLDivElement>(null)
   const [activeIdx, setActiveIdx] = useState(0)
   const [atStart, setAtStart] = useState(true)

@@ -32,10 +32,12 @@ export default function MobileHero({ slides: allSlides }: { slides: HeroSlide[] 
     })
     return () => { on = false }
   }, [allSlides])
-  const slides = allSlides.filter((s) => {
+  // Prabalsuoti topai NEslepiami — tik pastumiami į juostos galą.
+  const isVotedChart = (s: HeroSlide) => {
     const tt = chartTypeToTop(s.type)
-    return !(mounted && tt && (isTopVoted(tt) || votedCharts.has(tt)))
-  })
+    return !!(mounted && tt && (isTopVoted(tt) || votedCharts.has(tt)))
+  }
+  const slides = [...allSlides.filter((s) => !isVotedChart(s)), ...allSlides.filter((s) => isVotedChart(s))]
   const [reelsOpen, setReelsOpen] = useState(false)
   const [reelsIdx, setReelsIdx] = useState(0)
   // „peržiūrėta" žymėjimas — prisijungusiems SURIŠTA per įrenginius (server),
