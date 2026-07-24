@@ -2,13 +2,14 @@ import { NextResponse } from 'next/server'
 import { createAdminClient } from '@/lib/supabase'
 import { getServerSession } from 'next-auth'
 import { authOptions } from '@/lib/auth'
-import { getCurrentWeekMonday } from '@/lib/top-week'
+import { getCurrentWeekMonday, getCurrentVoteWeekId } from '@/lib/top-week'
 
 export async function GET(req: Request) {
   const { searchParams } = new URL(req.url)
   const topType = searchParams.get('type') || 'top40'
   const weekId = searchParams.get('week_id')
   const supabase = createAdminClient()
+  const voteWeekId = await getCurrentVoteWeekId(supabase, topType)
 
   // Find target week — by explicit week_id, or by current calendar week's
   // Monday (week_start anchor). NE TIKRINAM is_active flag — visada
@@ -60,7 +61,7 @@ export async function GET(req: Request) {
       week = latest
     }
   }
-  if (!week) return NextResponse.json({ entries: [], week: null })
+  if (!week) return NextResponse.json({ entries: [], week: null, vote_week_id: voteWeekId })
 
   let { data: entries, error } = await supabase
     .from('top_entries')
@@ -91,7 +92,7 @@ export async function GET(req: Request) {
       if (pe?.length) { entries = pe; week = pw; break }
     }
   }
-  if (!entries?.length) return NextResponse.json({ entries: [], week })
+  if (!entries?.length) return NextResponse.json({ entries: [], week, vote_week_id: voteWeekId })
 
   // LIVE vote split (registered vs anon). Admin'as nori matyti split'ą
   // (anti-spam), o rank'inimas remiasi TIK registered balsais — anon balsai
@@ -165,7 +166,7 @@ export async function GET(req: Request) {
   // BE cache header'ių — admin operacijos (populate, finalize, reset) turi
   // matyti freshness'ą iš karto. Public /top40, /top30 puslapiai naudoja
   // savo Supabase queries (server components), ne /api/top/entries.
-  return NextResponse.json({ entries: merged, week })
+  return NextResponse.json({ entries: merged, week, vote_week_id: voteWeekId })
 }
 
 export async function POST(req: Request) {

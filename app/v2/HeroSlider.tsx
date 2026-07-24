@@ -312,9 +312,25 @@ function HeroChartCard({ slide, unseen, onOpen }: { slide: HeroSlide; unseen: bo
     }
     return out
   }
-  const newArtists = dedupArtists(tops.filter(t => t.trend === 'new'))
-  const valueLead = newArtists.length > 0 ? 'Tarp naujų pretendentų:' : ''
-  const valueNames = newArtists.slice(0, 4)
+  // ── Adaptyvus tizeris virš „Balsuok" — parenka įdomiausią savaitės kampą
+  //    (Edvardo spec 2026-07-24): naujas lyderis → didžiausias šuolis → naujokai
+  //    → didieji vardai. Grąžina {lead (mažas), main (bold), sub (blankus)}. ──
+  const climb = tops
+    .map(t => ({ t, jump: (t.prevPos ?? t.pos) - t.pos }))
+    .filter(x => x.jump > 0)
+    .sort((a, b) => b.jump - a.jump)[0]
+  const newEntries = tops.filter(t => t.trend === 'new')
+  const leaderNew = !!tops[0] && (tops[0].trend === 'new' || (tops[0].prevPos != null && tops[0].prevPos !== 1))
+  const teaser: { lead: string; main: string; sub?: string } = (() => {
+    if (leaderNew && tops[0]) return { lead: '🏆 Naujas lyderis', main: tops[0].title, sub: tops[0].artist }
+    if (climb && climb.jump >= 3) return { lead: `▲ Didžiausias šuolis · +${climb.jump}`, main: climb.t.title, sub: climb.t.artist }
+    if (newEntries.length) {
+      const names = dedupArtists(newEntries).slice(0, 3)
+      const word = newEntries.length === 1 ? 'nauja daina' : 'naujos dainos'
+      return { lead: `🔥 ${newEntries.length} ${word} tope`, main: names.join(' · ') }
+    }
+    return { lead: 'Šią savaitę tope', main: dedupArtists(tops).slice(0, 3).join(' · ') }
+  })()
 
   const Tile = ({ entry, size }: { entry: TopEntry | undefined; size: 'big' | 'md' | 'sm' }) => {
     const c = cover(entry)
@@ -382,34 +398,18 @@ function HeroChartCard({ slide, unseen, onOpen }: { slide: HeroSlide; unseen: bo
           {isLT ? 'LT TOP 30' : 'TOP 40'}
         </span>
 
-        {valueNames.length > 0 && (
-          <div className="flex flex-col gap-1.5" style={{ minWidth: 0 }}>
-            <p className="m-0 text-[14px] font-semibold uppercase tracking-[0.14em] text-white/55">
-              {valueLead}
+        {teaser.main && (
+          <div className="flex flex-col gap-1" style={{ minWidth: 0 }}>
+            <p className="m-0 text-[12.5px] font-bold uppercase tracking-[0.1em]" style={{ color: accent }}>
+              {teaser.lead}
             </p>
-            <ul style={{ listStyle: 'none', margin: 0, padding: 0, display: 'flex', flexDirection: 'column', gap: 3 }}>
-              {valueNames.slice(0, 4).map((n, i) => (
-                <li
-                  key={i}
-                  style={{
-                    fontFamily: 'Outfit,sans-serif',
-                    fontSize: 14, fontWeight: 600, color: 'rgba(255,255,255,0.78)',
-                    lineHeight: 1.3, letterSpacing: '-0.005em',
-                    display: 'flex', alignItems: 'center', gap: 8,
-                    minWidth: 0,
-                  }}
-                >
-                  <span style={{
-                    flexShrink: 0, width: 4, height: 4, borderRadius: '50%',
-                    background: accent, opacity: 0.7,
-                  }} />
-                  <span style={{
-                    minWidth: 0, flex: 1,
-                    overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap',
-                  }}>{n}</span>
-                </li>
-              ))}
-            </ul>
+            <p className="m-0 font-['Outfit',sans-serif] text-[19px] font-extrabold leading-tight text-white"
+              style={{ display: '-webkit-box', WebkitLineClamp: 2, WebkitBoxOrient: 'vertical', overflow: 'hidden' } as React.CSSProperties}>
+              {teaser.main}
+            </p>
+            {teaser.sub && (
+              <p className="m-0 truncate font-['Outfit',sans-serif] text-[14px] font-semibold text-white/60">{teaser.sub}</p>
+            )}
           </div>
         )}
 

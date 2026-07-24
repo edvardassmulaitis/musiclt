@@ -134,9 +134,10 @@ function ChartVoteList({ topType, accent, onPlay }: { topType: 'lt_top30' | 'top
   const [counts, setCounts] = useState<Record<number, number>>({})
   const [busy, setBusy] = useState(false)
   const [loading, setLoading] = useState(true)
-  // Finalizuota savaitė → balsavimas uždarytas (serveris grąžintų 400). Tada
-  // rodom sąrašą read-only, be „+" mygtukų (kaip topo psl. archyvo režime).
-  const [finalized, setFinalized] = useState(false)
+  // Balsavimas eina į vote_week_id (einamoji ne-finalizuota savaitė). Jei jos
+  // nėra (null) → read-only (rodom rezultatus be „+"). Rodomas topas gali būti
+  // iš legacy savaitės, bet balsai kaupiami gyvoj savaitėj (Edvardo spec).
+  const [readOnly, setReadOnly] = useState(false)
 
   useEffect(() => {
     let c = false
@@ -145,8 +146,8 @@ function ChartVoteList({ topType, accent, onPlay }: { topType: 'lt_top30' | 'top
       .then(r => r.json())
       .then(d => {
         if (c) return
-        setWeekId(d.week?.id ?? null)
-        setFinalized(!!d.week?.is_finalized)
+        setWeekId(d.vote_week_id ?? null)
+        setReadOnly(!d.vote_week_id)
         setEntries((d.entries || []).map((e: any, i: number) => ({
           pos: e.position ?? (i + 1),
           track_id: e.track_id,
@@ -157,7 +158,7 @@ function ChartVoteList({ topType, accent, onPlay }: { topType: 'lt_top30' | 'top
           prev: typeof e.prev_position === 'number' ? e.prev_position : null,
           isNew: !!e.is_new,
         })))
-        if (d.week?.id) fetch(`/api/top/vote?week_id=${d.week.id}`).then(r => r.json()).then(v => { if (!c) setCounts(v.votes_per_track || {}) }).catch(() => {})
+        if (d.vote_week_id) fetch(`/api/top/vote?week_id=${d.vote_week_id}`).then(r => r.json()).then(v => { if (!c) setCounts(v.votes_per_track || {}) }).catch(() => {})
       })
       .catch(() => {})
       .finally(() => { if (!c) setLoading(false) })
@@ -165,7 +166,7 @@ function ChartVoteList({ topType, accent, onPlay }: { topType: 'lt_top30' | 'top
   }, [topType])
 
   const vote = async (track_id: number) => {
-    if (!weekId || busy || finalized) return
+    if (!weekId || busy || readOnly) return
     if ((counts[track_id] || 0) >= WEEKLY) return
     setBusy(true)
     setCounts(p => ({ ...p, [track_id]: (p[track_id] || 0) + 1 }))
@@ -179,7 +180,7 @@ function ChartVoteList({ topType, accent, onPlay }: { topType: 'lt_top30' | 'top
   if (loading) return <div className="rdr-load"><span /><span /><span /></div>
   return (
     <div className="rdr-cvl">
-      <div className="rdr-cvl-head">{finalized ? 'Savaitės rezultatai' : 'Balsuok už mėgstamas'}</div>
+      <div className="rdr-cvl-head">{readOnly ? 'Savaitės rezultatai' : 'Balsuok už mėgstamas'}</div>
       {entries.map(e => {
         const n = counts[e.track_id] || 0
         const maxed = n >= WEEKLY
@@ -191,7 +192,7 @@ function ChartVoteList({ topType, accent, onPlay }: { topType: 'lt_top30' | 'top
               {e.videoId && <span className="rdr-cvl-play"><svg width="13" height="13" viewBox="0 0 24 24" fill="#fff"><path d="M8 5v14l11-7z" /></svg></span>}
             </button>
             <span className="rdr-chart-info"><b>{e.title}</b><i>{e.artist}</i></span>
-            {finalized
+            {readOnly
               ? (n > 0 ? <span className="rdr-cvl-vote voted"><span className="rdr-cvl-mine">{n}</span></span> : null)
               : (
                 <button className={`rdr-cvl-vote${n > 0 ? ' voted' : ''}`} disabled={maxed} onClick={() => vote(e.track_id)}
@@ -1446,7 +1447,8 @@ export function ChartBottomSheet({
       .then(r => r.json())
       .then(d => {
         if (cancel) return
-        const wId = d.week?.id ?? null
+        // Balsai → vote_week_id (gyva savaitė), o rodomas topas gali būti legacy.
+        const wId = d.vote_week_id ?? null
         setWeekId(wId)
         const list: ChartSheetEntry[] = (d.entries || []).map((e: any, i: number) => ({
           position: e.position ?? (i + 1),

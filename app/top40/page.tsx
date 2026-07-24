@@ -1,7 +1,7 @@
 import { Metadata } from 'next'
 import { createAdminClient } from '@/lib/supabase'
 import TopChartView, { type TopData } from '@/components/TopChartView'
-import { resolveDisplayWeek, fetchLiveVoteSplit } from '@/lib/top-week'
+import { resolveDisplayWeek, fetchLiveVoteSplit, getCurrentVoteWeekId } from '@/lib/top-week'
 
 export const metadata: Metadata = {
   title: 'TOP 40 — Pasaulinės muzikos topas | music.lt',
@@ -17,7 +17,8 @@ async function getTopData(topType: string): Promise<TopData> {
   // Pereinamasis fallback: einamoji savaitė jei turi entries, kitaip naujausia
   // finalizuota (legacy archyvas). Žr. lib/top-week.ts.
   const { week, isFallback } = await resolveDisplayWeek(supabase, topType)
-  if (!week) return { entries: [], week: null, isFallback: false }
+  const voteWeekId = await getCurrentVoteWeekId(supabase, topType)
+  if (!week) return { entries: [], week: null, isFallback: false, voteWeekId }
   const { data: entries } = await supabase
     .from('top_entries')
     .select(`
@@ -60,7 +61,7 @@ async function getTopData(topType: string): Promise<TopData> {
   inTop.sort((a: any, b: any) => (a.position || 999) - (b.position || 999))
   newcomerEntries.sort((a: any, b: any) => (a.position || 999) - (b.position || 999))
 
-  return { entries: [...inTop, ...newcomerEntries] as any, week, isFallback }
+  return { entries: [...inTop, ...newcomerEntries] as any, week, isFallback, voteWeekId }
 }
 
 export default async function Top40Page() {

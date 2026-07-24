@@ -37,7 +37,7 @@ type Week = {
 
 // isFallback=true → rodom NE einamąją savaitę, o naujausią finalizuotą (legacy)
 // archyvo savaitę. Balsavimas išjungtas, viršuje rodom žymą.
-export type TopData = { entries: Entry[]; week: Week | null; isFallback?: boolean }
+export type TopData = { entries: Entry[]; week: Week | null; isFallback?: boolean; voteWeekId?: number | null }
 
 type ThemeAccent = {
   /** Solid hex color used for badges, hero accents */
@@ -558,7 +558,10 @@ export default function TopChartView({
   // Read-only kai rodom fallback (legacy archyvas) arba jau finalizuotą savaitę —
   // balsavimas tokioms savaitėms išjungtas (weekId=0 → VoteButton nerodomas).
   const readOnly = archiveMode || !!data.isFallback || !!data.week?.is_finalized
-  const voteWeekId = readOnly ? 0 : (data.week?.id ?? 0)
+  // Balsavimas: testavimo/perėjimo periodu balsai eina į GYVĄ savaitę (voteWeekId
+  // iš serverio), net kai rodom legacy fallback topą. Archyvo peržiūra (konkati
+  // savaitė) lieka read-only. (Edvardo spec 2026-07-24.)
+  const voteWeekId = archiveMode ? 0 : (((data.voteWeekId ?? 0) > 0) ? data.voteWeekId! : (readOnly ? 0 : (data.week?.id ?? 0)))
   // Read-only (archyvo/finalizuotos) savaitės rodom kaip paprastą ranked sąrašą
   // pagal position — JOKIO newcomer/below skirstymo. Legacy entries dažnai turi
   // weeks_in_top=null, tad senasis split visus paverstų "naujienomis".
@@ -576,12 +579,12 @@ export default function TopChartView({
   }, [data])
 
   const loadVoteStatus = useCallback(async () => {
-    if (!data.week) return
-    const res = await fetch(`/api/top/vote?week_id=${data.week.id}`)
+    if (!voteWeekId) return
+    const res = await fetch(`/api/top/vote?week_id=${voteWeekId}`)
     const d = await res.json()
     setVotesPerTrack(d.votes_per_track || {})
     setVotesRemaining(d.votes_remaining ?? weeklyLimit)
-  }, [data.week?.id, weeklyLimit])  // eslint-disable-line
+  }, [voteWeekId, weeklyLimit])  // eslint-disable-line
 
   useEffect(() => { loadVoteStatus() }, [loadVoteStatus])
 

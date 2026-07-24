@@ -31,6 +31,24 @@ export function getCurrentWeekMonday(now: Date = new Date()): string {
 }
 
 /**
+ * Balsavimo savaitė = einamoji kalendorinė (ne-finalizuota) top_weeks eilutė.
+ * Testavimo/perėjimo periodu balsai eina ČIA, o rodomas topas gali būti iš
+ * legacy savaitės (resolveDisplayWeek) — taip legacy standings nesugadinami.
+ * null → nėra votable savaitės (read-only). (Edvardo spec 2026-07-24.)
+ */
+export async function getCurrentVoteWeekId(supabase: any, topType: string): Promise<number | null> {
+  const cw = getCurrentWeekMonday()
+  const { data } = await supabase
+    .from('top_weeks')
+    .select('id, is_finalized')
+    .eq('top_type', topType)
+    .eq('week_start', cw)
+    .limit(1)
+  const row = data?.[0]
+  return row && !row.is_finalized ? row.id : null
+}
+
+/**
  * Pereinamojo laikotarpio fallback: kurią `top_weeks` savaitę rodyti public'e.
  *
  * Taisyklė:
