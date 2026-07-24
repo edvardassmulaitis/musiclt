@@ -9,6 +9,7 @@
 // modalą; jei ne (atrasti) — komponentas pats valdo vidinį <HomeTrackModal>.
 
 import { useCallback, useEffect, useRef, useState } from 'react'
+import { signIn, useSession } from 'next-auth/react'
 import { deviceFpSync } from '@/lib/device-fp'
 import { createPortal } from 'react-dom'
 import Link from 'next/link'
@@ -42,6 +43,8 @@ const PLAY_D = 'M8 5v14l11-7z'
 const PLUS_D = 'M12 5v14M5 12h14'
 // „pasiūlė" ikona — rodyklė į pasiūliusįjį (mažiau teksto nei žodis „pasiūlė")
 const SUGG_D = 'M5 12h14M13 6l6 6-6 6'
+// komentaro (kalbos burbulo) ikona
+const COMMENT_D = 'M21 11.5a8.38 8.38 0 0 1-.9 3.8 8.5 8.5 0 0 1-7.6 4.7 8.38 8.38 0 0 1-3.8-.9L3 21l1.9-5.7a8.38 8.38 0 0 1-.9-3.8 8.5 8.5 0 0 1 4.7-7.6 8.38 8.38 0 0 1 3.8-.9h.5a8.48 8.48 0 0 1 8 8v.5z'
 function Ic({ d, size = 14, filled = false }: { d: string; size?: number; filled?: boolean }) {
   return <svg width={size} height={size} viewBox="0 0 24 24" fill={filled ? 'currentColor' : 'none'} stroke={filled ? 'none' : 'currentColor'} strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="shrink-0"><path d={d} /></svg>
 }
@@ -127,6 +130,10 @@ export function DainaSuggestModal({ onClose, onDone }: { onClose: () => void; on
   const [comment, setComment] = useState('')
   const [sending, setSending] = useState(false)
   const [error, setError] = useState('')
+  const [needAuth, setNeedAuth] = useState(false)
+  const { status } = useSession()
+  // Prisijungimas su grįžimu atgal į šį puslapį (tęsti pasiūlymo flow).
+  const goLogin = () => signIn(undefined, { callbackUrl: typeof window !== 'undefined' ? window.location.href : '/' })
 
   useEffect(() => {
     const scrollY = window.scrollY
@@ -170,7 +177,9 @@ export function DainaSuggestModal({ onClose, onDone }: { onClose: () => void; on
 
   const submit = async () => {
     if (!selected || sending) return
-    setSending(true); setError('')
+    // Svečias → iškart siūlom prisijungti (ne API klaidą). Po login grįžta atgal.
+    if (status === 'unauthenticated') { setNeedAuth(true); return }
+    setSending(true); setError(''); setNeedAuth(false)
     try {
       const res = await fetch('/api/dienos-daina/nominations', {
         method: 'POST', headers: { 'Content-Type': 'application/json' },
@@ -178,6 +187,7 @@ export function DainaSuggestModal({ onClose, onDone }: { onClose: () => void; on
       })
       const d = await res.json()
       if (res.ok) { onDone(); onClose() }
+      else if (res.status === 401) setNeedAuth(true)
       else setError(d.error || 'Klaida')
     } catch { setError('Tinklo klaida') }
     finally { setSending(false) }
@@ -253,13 +263,26 @@ export function DainaSuggestModal({ onClose, onDone }: { onClose: () => void; on
                 className="mt-3 w-full resize-none rounded-lg border border-[var(--border-default)] bg-[var(--bg-hover)] px-3 py-2.5 text-[var(--text-primary)] outline-none focus:border-[var(--accent-orange)]"
               />
               {error && <p className="m-0 mt-2 text-[14px] text-[var(--accent-red)]">{error}</p>}
-              <button
-                onClick={submit}
-                disabled={sending}
-                className="mt-3 w-full rounded-xl bg-[var(--accent-orange)] py-3 text-[16px] font-extrabold text-white shadow-[0_3px_14px_rgba(249,115,22,0.35)] transition-transform hover:-translate-y-px disabled:opacity-50"
-              >
-                {sending ? 'Siunčiama…' : 'Pasiūlyti dainą'}
-              </button>
+              {needAuth ? (
+                <div className="mt-3 rounded-xl border border-[var(--accent-orange)]/30 bg-[var(--accent-orange)]/10 p-3.5 text-center">
+                  <p className="m-0 text-[14px] font-semibold text-[var(--text-primary)]">Kad pasiūlytum dainą, reikia paskyros.</p>
+                  <p className="m-0 mt-0.5 text-[13px] text-[var(--text-muted)]">Prisijunk arba užsiregistruok — grįši čia ir galėsi tęsti.</p>
+                  <button
+                    onClick={goLogin}
+                    className="mt-3 w-full rounded-xl bg-[var(--accent-orange)] py-3 text-[15px] font-extrabold text-white shadow-[0_3px_14px_rgba(249,115,22,0.35)] transition-transform hover:-translate-y-px"
+                  >
+                    Prisijungti arba registruotis
+                  </button>
+                </div>
+              ) : (
+                <button
+                  onClick={submit}
+                  disabled={sending}
+                  className="mt-3 w-full rounded-xl bg-[var(--accent-orange)] py-3 text-[16px] font-extrabold text-white shadow-[0_3px_14px_rgba(249,115,22,0.35)] transition-transform hover:-translate-y-px disabled:opacity-50"
+                >
+                  {sending ? 'Siunčiama…' : 'Pasiūlyti dainą'}
+                </button>
+              )}
             </>
           )}
         </div>
@@ -447,6 +470,9 @@ export function DienosDainaSection({ onOpenTrack, variant = 'inline', headerVari
   // Vidinis track modalas — naudojamas tik kai tėvas nepaduoda onOpenTrack.
   const [innerTrack, setInnerTrack] = useState<any | null>(null)
   const [votersOf, setVotersOf] = useState<{ title: string; voters: Proposer[]; anon: number } | null>(null)
+  // Komentaro peržiūra — mažas modalas (paspaudus komentaro ikoną). Komentarų
+  // teksto inline nerodom (kad negriautų dizaino), tik ikoną jei yra. (Edvardo 2026-07-24.)
+  const [commentOf, setCommentOf] = useState<{ text: string; who?: Proposer | null; title?: string } | null>(null)
   const openTrack = onOpenTrack || setInnerTrack
 
   const load = useCallback(() => {
@@ -652,7 +678,12 @@ export function DienosDainaSection({ onOpenTrack, variant = 'inline', headerVari
             <p className="m-0 mt-0.5 truncate text-[14px] text-[var(--text-muted)]">{t.artists?.name}</p>
           </div>
         </button>
-        {!compact && n.proposer && <div className="mt-1.5 px-0.5"><ProposerLine p={n.proposer} /></div>}
+        {(!compact && n.proposer) || n.comment ? (
+          <div className="mt-1.5 flex items-center justify-between gap-1 px-0.5">
+            {!compact && n.proposer ? <ProposerLine p={n.proposer} /> : <span />}
+            <CommentIcon comment={n.comment} who={n.proposer} title={sanitizeTitle(t.title)} />
+          </div>
+        ) : null}
         {!n.own && (
           <div className="mt-1.5 px-0.5">
             <button
@@ -672,7 +703,6 @@ export function DienosDainaSection({ onOpenTrack, variant = 'inline', headerVari
             </button>
           </div>
         )}
-        {n.comment && <p className="m-0 mt-1 px-0.5 line-clamp-2 text-[12px] italic text-[var(--text-muted)]">„{n.comment}"</p>}
       </div>
     )
   }
@@ -751,9 +781,26 @@ export function DienosDainaSection({ onOpenTrack, variant = 'inline', headerVari
     )
   }
 
+  // Komentaro ikona — rodoma tik jei yra komentaras; paspaudus atidaro mažą modalą.
+  const CommentIcon = ({ comment, who, title }: { comment?: string | null; who?: Proposer | null; title?: string }) => {
+    if (!comment) return null
+    return (
+      <button
+        type="button"
+        onClick={(e) => { e.preventDefault(); e.stopPropagation(); setCommentOf({ text: comment, who: who || null, title }) }}
+        aria-label="Rodyti komentarą"
+        title="Komentaras"
+        className="flex h-7 w-7 shrink-0 items-center justify-center self-center rounded-full text-[var(--text-faint)] transition-colors hover:bg-[var(--bg-hover)] hover:text-[var(--accent-orange)]"
+      >
+        <Ic d={COMMENT_D} size={15} />
+      </button>
+    )
+  }
+
   // Viena list-eilutė. `big` — pirmaujanti (lyderė) didesnė; `right` — balsavimas;
-  // `proposer` — „pasiūlė X"; `level` — pop brūkšneliai (tik šiandienos eilutėms).
-  const ListRow = ({ t, big, right, proposer, level }: { t: TrackLite; big?: boolean; right?: React.ReactNode; proposer?: Proposer | null; level?: number }) => {
+  // `proposer` — „pasiūlė X"; `level` — pop brūkšneliai (tik šiandienos eilutėms);
+  // `comment` — jei yra, rodom komentaro ikoną (tekstas modale).
+  const ListRow = ({ t, big, right, proposer, level, comment }: { t: TrackLite; big?: boolean; right?: React.ReactNode; proposer?: Proposer | null; level?: number; comment?: string | null }) => {
     const v = extractYouTubeId(t.video_url)
     const ytThumb = v ? `https://img.youtube.com/vi/${v}/mqdefault.jpg` : null
     const imgSrc = t.cover_url || ytThumb || t.artists?.cover_image_url || null
@@ -784,6 +831,7 @@ export function DienosDainaSection({ onOpenTrack, variant = 'inline', headerVari
             <span className="mt-1 flex min-w-0 items-center gap-1 text-[11px] text-[var(--text-faint)]"><span className="shrink-0 text-[var(--text-faint)]" title="pasiūlė"><Ic d={SUGG_D} size={12} /></span><MiniAv p={proposer} size={15} /><span className="truncate font-semibold text-[var(--text-secondary)]">{proposer.username || proposer.full_name}</span></span>
           )}
         </button>
+        <CommentIcon comment={comment} who={proposer} title={sanitizeTitle(t.title)} />
         {right}
       </div>
     )
@@ -842,9 +890,9 @@ export function DienosDainaSection({ onOpenTrack, variant = 'inline', headerVari
                 })()}
               </div>
             )}
-            {n.comment && <p className="m-0 mt-1.5 line-clamp-2 text-[14px] italic text-[var(--text-muted)]">„{n.comment}"</p>}
           </div>
         </button>
+        <CommentIcon comment={n.comment} who={n.proposer} title={sanitizeTitle(t.title)} />
         {!readOnly && (n.own ? (
           <span className="shrink-0 self-center rounded-lg border border-dashed border-[var(--border-default)] px-3 py-2 font-['Outfit',sans-serif] text-[12px] font-bold text-[var(--text-faint)]">Tavo</span>
         ) : (
@@ -899,6 +947,7 @@ export function DienosDainaSection({ onOpenTrack, variant = 'inline', headerVari
               <span className="flex min-w-0 items-center gap-1.5"><span className="shrink-0 text-[var(--text-faint)]" title="pasiūlė"><Ic d={SUGG_D} size={13} /></span><MiniAv p={n.proposer} size={20} /><span className="truncate text-[13px] font-semibold text-[var(--text-secondary)]">{n.proposer.username || n.proposer.full_name}</span></span>
             )}
             {votes > 0 && <span className="inline-flex shrink-0 items-center gap-1 text-[13px] font-extrabold text-[var(--accent-orange)]"><Ic d={HEART_D} size={13} filled />{votes}</span>}
+            <CommentIcon comment={n.comment} who={n.proposer} title={sanitizeTitle(t.title)} />
           </div>
         </div>
       </button>
@@ -939,7 +988,7 @@ export function DienosDainaSection({ onOpenTrack, variant = 'inline', headerVari
             {sorted.slice(0, 5).map((n, idx) => {
               const votes = n.weighted_votes || n.votes || 0
               const level = votes > 0 ? Math.max(1, Math.round((votes / maxVotes) * 5)) : 0
-              return <ListRow key={n.id} t={n.tracks!} big={idx === 0} level={level} right={<VoteControl n={n} big={idx === 0} />} />
+              return <ListRow key={n.id} t={n.tracks!} big={idx === 0} level={level} comment={n.comment} right={<VoteControl n={n} big={idx === 0} />} />
             })}
           </div>
 
@@ -1028,16 +1077,16 @@ export function DienosDainaSection({ onOpenTrack, variant = 'inline', headerVari
                       </button>
                       {winnerNom && <AvatarStack title={sanitizeTitle(wt.title)} voters={winnerNom.voters || []} anon={winnerNom.anon_votes || 0} />}
                     </div>
-                    {/* Siūlytojas (kairėje) + „Vakar dalyvavo N" ženkliukas (dešinėje) toj pačioj eilutėj. */}
-                    {((winner.proposer && (winner.proposer.username || winner.proposer.full_name)) || YdayBadge) && (
+                    {/* Siūlytojas + komentaro ikona (kairėje) + „Vakar dalyvavo N" ženkliukas (dešinėje). */}
+                    {((winner.proposer && (winner.proposer.username || winner.proposer.full_name)) || winner.winning_comment || YdayBadge) && (
                       <div className="mt-1.5 flex items-center gap-2">
                         {winner.proposer && (winner.proposer.username || winner.proposer.full_name) ? (
                           <span className="flex min-w-0 flex-1 items-center gap-1 text-[11px] text-[var(--text-faint)]"><span className="shrink-0 text-[var(--text-faint)]" title="pasiūlė"><Ic d={SUGG_D} size={12} /></span><MiniAv p={winner.proposer} size={15} /><span className="truncate font-semibold text-[var(--text-secondary)]">{winner.proposer.username || winner.proposer.full_name}</span></span>
                         ) : <span className="flex-1" />}
+                        <CommentIcon comment={winner.winning_comment} who={winner.proposer} title={sanitizeTitle(wt.title)} />
                         {YdayBadge}
                       </div>
                     )}
-                    {winner.winning_comment && <p className="m-0 mt-1.5 line-clamp-2 text-[12.5px] italic text-[var(--text-muted)]">„{winner.winning_comment}"</p>}
                   </div>
                 </div>
               </div>
@@ -1057,7 +1106,7 @@ export function DienosDainaSection({ onOpenTrack, variant = 'inline', headerVari
               {sorted.slice(0, 10).map((n, idx) => {
                 const votes = n.weighted_votes || n.votes || 0
                 const level = votes > 0 ? Math.max(1, Math.round((votes / maxVotes) * 5)) : 0
-                return <ListRow key={n.id} t={n.tracks!} big={idx === 0} level={level} proposer={n.proposer} right={<VoteControl n={n} big={idx === 0} />} />
+                return <ListRow key={n.id} t={n.tracks!} big={idx === 0} level={level} proposer={n.proposer} comment={n.comment} right={<VoteControl n={n} big={idx === 0} />} />
               })}
             </div>
             {!alreadyNominated && (
@@ -1246,6 +1295,25 @@ export function DienosDainaSection({ onOpenTrack, variant = 'inline', headerVari
       )}
 
       {suggestOpen && <DainaSuggestModal onClose={() => setSuggestOpen(false)} onDone={load} />}
+
+      {/* Komentaro mažas modalas (paspaudus komentaro ikoną). */}
+      {commentOf && typeof document !== 'undefined' && createPortal(
+        <div onClick={(e) => { if (e.target === e.currentTarget) setCommentOf(null) }} className="fixed inset-0 z-[10001] flex items-end justify-center bg-black/60 backdrop-blur-sm sm:items-center">
+          <div className="flex w-full max-w-[420px] flex-col overflow-hidden rounded-t-2xl bg-[var(--bg-surface)] shadow-[0_24px_60px_-10px_rgba(0,0,0,0.5)] sm:mx-4 sm:rounded-2xl">
+            <div className="flex shrink-0 items-center justify-between border-b border-[var(--border-subtle)] px-4 py-3">
+              <span className="flex min-w-0 items-center gap-2 font-['Outfit',sans-serif] text-[15px] font-extrabold text-[var(--text-primary)]"><span className="shrink-0 text-[var(--accent-orange)]"><Ic d={COMMENT_D} size={16} /></span><span className="truncate">Komentaras{commentOf.title ? ` · ${commentOf.title}` : ''}</span></span>
+              <button onClick={() => setCommentOf(null)} aria-label="Uždaryti" className="flex h-7 w-7 shrink-0 items-center justify-center rounded-full bg-[var(--bg-active)] text-[var(--text-secondary)]">✕</button>
+            </div>
+            <div className="p-4">
+              {commentOf.who && (commentOf.who.username || commentOf.who.full_name) && (
+                <div className="mb-2.5 flex items-center gap-2"><MiniAv p={commentOf.who} size={26} /><span className="text-[13px] font-bold text-[var(--text-secondary)]">{commentOf.who.full_name || commentOf.who.username}</span></div>
+              )}
+              <p className="m-0 whitespace-pre-wrap text-[15px] leading-relaxed text-[var(--text-primary)]">„{commentOf.text}"</p>
+            </div>
+          </div>
+        </div>,
+        document.body,
+      )}
 
       {/* Balsuotojų mini modalas (paspaudus avatarų stack'ą). */}
       {votersOf && typeof document !== 'undefined' && createPortal(
