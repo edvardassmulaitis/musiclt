@@ -927,7 +927,7 @@ function ReaderSlide({ slide, active, seen, dk, scrollTopSignal, onScrolledChang
           : <h2 className="rdr-title">{isDailyWinner ? 'Dienos daina' : slide.title}</h2>}
 
         {isDailyWinner ? (
-          active ? <div className="rdr-dd"><DienosDainaSection variant="reel" /></div>
+          active ? <div className="rdr-dd"><DienosDainaSection variant="reel" onPlay={() => onPlayingChange(true)} /></div>
                  : (slide.excerpt ? <p className="rdr-excerpt">{slide.excerpt}</p> : null)
         ) : isChart ? (
           active ? (
@@ -1305,7 +1305,13 @@ export function ReelsOverlay({ slides, initialIdx, seenSlides, onSeen, onClose, 
   // (scrolled), tad balsavimo nenutraukia.
   // Auto-advance NEVEIKIA interaktyviems (topai + dienos daina) — kad grojimo/
   // balsavimo nenutrauktų (Edvardo pastaba: „paleidus dainą auto slide numuša").
-  const interactive = !!slide && (slide.type === 'chart_lt' || slide.type === 'chart_world' || slide.type === 'daily_winner')
+  // Dienos daina (daily_winner) — auto-advance VEIKIA kaip naujienoms: kol
+  // NEnuscrollinta ir NEpaleista muzika, progress bar'as užsipildo ir pereina
+  // toliau. Vos paleidus laimėtojo dainą (onPlay → playing=true) arba nuscrollinus
+  // (scrolled) — sustoja, tad grojimo/balsavimo nenutraukia. (Edvardo pastaba
+  // 2026-07-24: „auto swipe turi vykti kol nepascrolini arba nepaleidi muzikos".)
+  // Topai (chart_*) — turi atskirą balsavimo sheet'ą, auto-advance IŠ VISO neveikia.
+  const interactive = !!slide && (slide.type === 'chart_lt' || slide.type === 'chart_world')
   const autoOff = interactive || scrolled || playing
   // Braukimas į šoną veikia VISADA (ir skaitant) — pagal gesto kryptį (h vs v).
 

@@ -343,7 +343,7 @@ function PastNomCard({ n, onOpenTrack, maxVotes = 1, compact = false }: { n: Nom
 // mount'indavo PO tap'o (state→rerender) → reikėdavo dvigubo tap'o.
 // (Edvardo spec 2026-07-24 — „auto play nesuveikia, reik paimt ta pacia
 // logika is artist page".)
-function DailyWinnerYtPlayer({ videoId, posterUrl, title }: { videoId: string; posterUrl?: string | null; title?: string }) {
+function DailyWinnerYtPlayer({ videoId, posterUrl, title, onPlay }: { videoId: string; posterUrl?: string | null; title?: string; onPlay?: () => void }) {
   const containerRef = useRef<HTMLDivElement>(null)
   const playerRef = useRef<any>(null)
   const [apiReady, setApiReady] = useState(false)
@@ -396,6 +396,7 @@ function DailyWinnerYtPlayer({ videoId, posterUrl, title }: { videoId: string; p
   const start = () => {
     playingRef.current = true
     setPlaying(true)
+    try { onPlay?.() } catch { /* ignore */ }
     try { playerRef.current?.playVideo?.() } catch { /* ignore */ }
   }
 
@@ -414,7 +415,7 @@ function DailyWinnerYtPlayer({ videoId, posterUrl, title }: { videoId: string; p
 }
 
 // ───────────────────────── main section ─────────────────────────
-export function DienosDainaSection({ onOpenTrack, variant = 'inline', headerVariant = 'plain' }: { onOpenTrack?: (t: any) => void; variant?: 'inline' | 'stacked' | 'list' | 'reel'; headerVariant?: 'plain' | 'row' }) {
+export function DienosDainaSection({ onOpenTrack, variant = 'inline', headerVariant = 'plain', onPlay }: { onOpenTrack?: (t: any) => void; variant?: 'inline' | 'stacked' | 'list' | 'reel'; headerVariant?: 'plain' | 'row'; onPlay?: () => void }) {
   const [noms, setNoms] = useState<Nomination[]>([])
   const [winner, setWinner] = useState<DainaWinner | null>(null)
   const [loading, setLoading] = useState(true)
@@ -817,10 +818,15 @@ export function DienosDainaSection({ onOpenTrack, variant = 'inline', headerVari
                       </button>
                       {winnerNom && <AvatarStack title={sanitizeTitle(wt.title)} voters={winnerNom.voters || []} anon={winnerNom.anon_votes || 0} />}
                     </div>
-                    {winner.proposer && (winner.proposer.username || winner.proposer.full_name) && (
-                      <span className="mt-1 flex min-w-0 items-center gap-1 text-[11px] text-[var(--text-faint)]"><span className="shrink-0 text-[var(--text-faint)]" title="pasiūlė"><Ic d={SUGG_D} size={12} /></span><MiniAv p={winner.proposer} size={15} /><span className="truncate font-semibold text-[var(--text-secondary)]">{winner.proposer.username || winner.proposer.full_name}</span></span>
+                    {/* Siūlytojas (kairėje) + „Vakar dalyvavo N" ženkliukas (dešinėje) toj pačioj eilutėj. */}
+                    {((winner.proposer && (winner.proposer.username || winner.proposer.full_name)) || YdayBadge) && (
+                      <div className="mt-1 flex items-center gap-2">
+                        {winner.proposer && (winner.proposer.username || winner.proposer.full_name) ? (
+                          <span className="flex min-w-0 flex-1 items-center gap-1 text-[11px] text-[var(--text-faint)]"><span className="shrink-0 text-[var(--text-faint)]" title="pasiūlė"><Ic d={SUGG_D} size={12} /></span><MiniAv p={winner.proposer} size={15} /><span className="truncate font-semibold text-[var(--text-secondary)]">{winner.proposer.username || winner.proposer.full_name}</span></span>
+                        ) : <span className="flex-1" />}
+                        {YdayBadge}
+                      </div>
                     )}
-                    {YdayBadge && <div className="mt-2.5">{YdayBadge}</div>}
                   </div>
                 </div>
               </div>
@@ -842,10 +848,10 @@ export function DienosDainaSection({ onOpenTrack, variant = 'inline', headerVari
                 <div className="mb-2 font-['Outfit',sans-serif] text-[11px] font-extrabold uppercase tracking-[0.1em] text-[var(--accent-orange)]">Vakar laimėjo</div>
                 <div className="overflow-hidden rounded-xl border border-[rgba(249,115,22,0.35)] bg-[var(--bg-surface)]">
                   {wyt ? (
-                    <DailyWinnerYtPlayer videoId={wyt} posterUrl={wImg} title={sanitizeTitle(wt.title)} />
+                    <DailyWinnerYtPlayer videoId={wyt} posterUrl={wImg} title={sanitizeTitle(wt.title)} onPlay={onPlay} />
                   ) : (
                     <div className="relative aspect-video w-full bg-[var(--cover-placeholder)]">
-                      <button type="button" onClick={() => openTrack({ id: wt.id, title: wt.title, slug: wt.slug, cover_url: wt.cover_url, video_url: wt.video_url, artists: wt.artists })} className="group absolute inset-0 h-full w-full cursor-pointer border-0 bg-transparent p-0" aria-label="Groti">
+                      <button type="button" onClick={() => { onPlay?.(); openTrack({ id: wt.id, title: wt.title, slug: wt.slug, cover_url: wt.cover_url, video_url: wt.video_url, artists: wt.artists }) }} className="group absolute inset-0 h-full w-full cursor-pointer border-0 bg-transparent p-0" aria-label="Groti">
                         {wImg && (/* eslint-disable-next-line @next/next/no-img-element */<img src={proxyImgResized(wImg, 640)} alt={sanitizeTitle(wt.title)} loading="lazy" decoding="async" className="h-full w-full object-cover" />)}
                         <span className="absolute inset-0 bg-gradient-to-t from-black/35 to-transparent transition-colors group-hover:from-black/45" />
                         <span className="absolute bottom-3 right-3 flex h-12 w-12 items-center justify-center rounded-full bg-[var(--accent-orange)] text-white shadow-[0_8px_24px_rgba(249,115,22,0.5)] transition-transform group-hover:scale-105"><Ic d={PLAY_D} size={20} filled /></span>
@@ -860,11 +866,16 @@ export function DienosDainaSection({ onOpenTrack, variant = 'inline', headerVari
                       </button>
                       {winnerNom && <AvatarStack title={sanitizeTitle(wt.title)} voters={winnerNom.voters || []} anon={winnerNom.anon_votes || 0} />}
                     </div>
-                    {winner.proposer && (winner.proposer.username || winner.proposer.full_name) && (
-                      <span className="mt-1.5 flex min-w-0 items-center gap-1 text-[11px] text-[var(--text-faint)]"><span className="shrink-0 text-[var(--text-faint)]" title="pasiūlė"><Ic d={SUGG_D} size={12} /></span><MiniAv p={winner.proposer} size={15} /><span className="truncate font-semibold text-[var(--text-secondary)]">{winner.proposer.username || winner.proposer.full_name}</span></span>
+                    {/* Siūlytojas (kairėje) + „Vakar dalyvavo N" ženkliukas (dešinėje) toj pačioj eilutėj. */}
+                    {((winner.proposer && (winner.proposer.username || winner.proposer.full_name)) || YdayBadge) && (
+                      <div className="mt-1.5 flex items-center gap-2">
+                        {winner.proposer && (winner.proposer.username || winner.proposer.full_name) ? (
+                          <span className="flex min-w-0 flex-1 items-center gap-1 text-[11px] text-[var(--text-faint)]"><span className="shrink-0 text-[var(--text-faint)]" title="pasiūlė"><Ic d={SUGG_D} size={12} /></span><MiniAv p={winner.proposer} size={15} /><span className="truncate font-semibold text-[var(--text-secondary)]">{winner.proposer.username || winner.proposer.full_name}</span></span>
+                        ) : <span className="flex-1" />}
+                        {YdayBadge}
+                      </div>
                     )}
                     {winner.winning_comment && <p className="m-0 mt-1.5 line-clamp-2 text-[12.5px] italic text-[var(--text-muted)]">„{winner.winning_comment}"</p>}
-                    {YdayBadge && <div className="mt-2.5">{YdayBadge}</div>}
                   </div>
                 </div>
               </div>
@@ -997,7 +1008,7 @@ export function DienosDainaSection({ onOpenTrack, variant = 'inline', headerVari
       )}
 
       {modalOpen && (
-        <HomeListModal open onClose={() => setModalOpen(false)} title="Dienos daina" subtitle="Šiandienos kandidatai pagal balsus">
+        <HomeListModal open onClose={() => setModalOpen(false)} title="Dienos daina" subtitle="Šiandienos kandidatai pagal balsus" z={variant === 'reel' ? 10001 : undefined}>
           {winner?.tracks && (
             <div className="mb-4">
               <p className="mb-2 font-['Outfit',sans-serif] text-[16px] font-extrabold uppercase tracking-[0.08em] text-[var(--accent-orange)]">Vakar laimėjo</p>
@@ -1083,7 +1094,7 @@ export function DienosDainaSection({ onOpenTrack, variant = 'inline', headerVari
       )}
 
       {ydayOpen && (
-        <HomeListModal open onClose={() => setYdayOpen(false)} title="Vakar dienos pasiūlymai" subtitle={winner?.date ? `${winner.date} · pagal balsus` : null}>
+        <HomeListModal open onClose={() => setYdayOpen(false)} title="Vakar dienos pasiūlymai" subtitle={winner?.date ? `${winner.date} · pagal balsus` : null} z={variant === 'reel' ? 10001 : undefined}>
           {ydayLoading ? (
             <div className="py-8 text-center text-[14px] text-[var(--text-muted)]">Kraunama…</div>
           ) : ydayNoms.filter(n => n.tracks).length === 0 ? (

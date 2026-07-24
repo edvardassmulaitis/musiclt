@@ -21,12 +21,16 @@ export function HomeListModal({
   title,
   subtitle,
   children,
+  z = 1250,
 }: {
   open: boolean
   onClose: () => void
   title: string
   subtitle?: string | null
   children: React.ReactNode
+  /** z-index. Numatytas 1250 (homepage). Reels overlay'us yra z-9999, tad ten
+   *  reikia paduoti aukštesnį (pvz. 10001), kitaip modalas atsidaro FONE. */
+  z?: number
 }) {
   useEffect(() => {
     if (!open) return
@@ -55,8 +59,8 @@ export function HomeListModal({
   return createPortal(
     <div
       onClick={onClose}
-      className="fixed inset-0 z-[1250] flex items-center justify-center p-3 sm:p-6 backdrop-blur-md"
-      style={{ background: 'rgba(0,0,0,0.65)' }}
+      className="fixed inset-0 flex items-center justify-center p-3 sm:p-6 backdrop-blur-md"
+      style={{ background: 'rgba(0,0,0,0.65)', zIndex: z }}
     >
       <div
         onClick={(e) => e.stopPropagation()}
