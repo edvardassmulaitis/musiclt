@@ -27,7 +27,7 @@ import type { HeroSlide, TopEntry } from '../HeroSlider'
 function EntityLikePill({
   entityType, entityId, subjectName, subjectPhoto, size = 'sm', variant = 'surface',
 }: {
-  entityType: 'track' | 'artist' | 'news'; entityId: number
+  entityType: 'track' | 'artist' | 'news' | 'blog'; entityId: number | string
   subjectName?: string; subjectPhoto?: string | null
   size?: 'sm' | 'md'; variant?: 'light' | 'surface'
 }) {
@@ -41,6 +41,7 @@ function EntityLikePill({
   const [loadingUsers, setLoadingUsers] = useState(false)
   const base = entityType === 'track' ? `/api/tracks/${entityId}/like`
     : entityType === 'artist' ? `/api/artists/${entityId}/like`
+    : entityType === 'blog' ? `/api/blog/posts/${entityId}/like`
     : `/api/news/${entityId}/like`
   useEffect(() => {
     let on = true
@@ -893,7 +894,8 @@ function ReaderSlide({ slide, active, seen, dk, scrollTopSignal, onScrolledChang
 
   // Naujienoms — santykinė data („prieš X d.") vietoj metų formato. Kitiems —
   // metaLine (renginiams: vieta · data; blog: autorius · data).
-  const place = (isNews && slide.publishedAt ? relDate(slide.publishedAt) : '') || slide.metaLine || (isChart ? '' : slide.subtitle) || ''
+  // News IR community (blog: koncerto apžvalga/topai) — santykinė data kaip news.
+  const place = ((isNews || isBlog) && slide.publishedAt ? relDate(slide.publishedAt) : '') || slide.metaLine || (isChart ? '' : slide.subtitle) || ''
   // Trumpo turinio kortelės (be body teksto) — aukštesnis posteris, kad kortelė
   // neatrodytų pustuštė (event/verta/discovery/recording).
   const tallPoster = !body && !bodyLoading && !isChart && !isDaily && !isNews && !isBlog && slide.type !== 'daily_winner'
@@ -973,10 +975,10 @@ function ReaderSlide({ slide, active, seen, dk, scrollTopSignal, onScrolledChang
             <span className="rdr-chip" style={{ background: seen ? (dk ? 'rgba(255,255,255,0.16)' : 'rgba(0,0,0,0.12)') : slide.chipBg, color: seen && !dk ? 'var(--text-primary)' : '#fff' }}>{slide.chip}</span>
           )}
           {place && !isDailyWinner && <span className="rdr-date">{place}</span>}
-          {/* News veiksmai (♥ like naujieną / ↗ share / ⤢ open) — VIRŠUJ prie datos/
-              antraštės, ne footeryje. Atlikėjo sekimas ČIA neberodomas (jis prie
-              atlikėjo — širdele, atlikėjo psl.), kad nebūtų painiavos ir tilptų keli atlikėjai. */}
-          {isNews && <NewsQuickActions slide={slide} />}
+          {/* News + community (koncerto apžvalga/topai) veiksmai (♥ like / ↗ share /
+              ⤢ open) — VIRŠUJ prie datos. (Edvardo spec 2026-07-25: community
+              įrašus atnaujinti kaip naujienas.) */}
+          {(isNews || isBlog) && <NewsQuickActions slide={slide} />}
         </div>
         {isRecording
           ? <Link href={slide.href} onClick={onNavLink} className="rdr-title rdr-title-link">{slide.title}</Link>
@@ -1015,7 +1017,7 @@ function ReaderSlide({ slide, active, seen, dk, scrollTopSignal, onScrolledChang
                 <div key={idx} className="rdr-top-item">
                   <span className="rdr-top-rank">{it.rank ?? idx + 1}</span>
                   {it.image_url
-                    ? <img className="rdr-top-cover" src={proxyImgResized(it.image_url, 96)} alt="" loading="lazy" decoding="async" />
+                    ? <img className="rdr-top-cover" src={proxyImgResized(it.image_url, 200)} alt="" loading="lazy" decoding="async" />
                     : <span className="rdr-top-cover rdr-top-ph" />}
                   <div className="rdr-top-info">
                     <p className="rdr-top-title">{it.title}{it.artist ? <span className="rdr-top-artist"> — {it.artist}</span> : null}</p>
@@ -1098,8 +1100,9 @@ function NewsQuickActions({ slide }: { slide: HeroSlide }) {
 
   return (
     <div className="rdr-head-acts" onClick={(e) => e.stopPropagation()}>
-      {slide.newsId ? <EntityLikePill entityType="news" entityId={slide.newsId} subjectName={slide.title} subjectPhoto={slide.bgImg || null} /> : null}
-      <button type="button" className="rdr-na-btn" onClick={share} title="Dalintis naujiena" aria-label="Dalintis">
+      {slide.newsId ? <EntityLikePill entityType="news" entityId={slide.newsId} subjectName={slide.title} subjectPhoto={slide.bgImg || null} />
+        : slide.blogId ? <EntityLikePill entityType="blog" entityId={slide.blogId} subjectName={slide.title} subjectPhoto={slide.bgImg || null} /> : null}
+      <button type="button" className="rdr-na-btn" onClick={share} title="Dalintis" aria-label="Dalintis">
         {copied
           ? <svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.4"><path d="M20 6 9 17l-5-5" /></svg>
           : <svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><circle cx="18" cy="5" r="3" /><circle cx="6" cy="12" r="3" /><circle cx="18" cy="19" r="3" /><path d="m8.59 13.51 6.83 3.98M15.41 6.51 8.59 10.49" /></svg>}
@@ -2191,10 +2194,10 @@ const REELS_CSS = `
         .rdr-html ul,.rdr-html ol{padding-left:20px;margin:0 0 14px}
         .rdr-html blockquote{border-left:3px solid var(--accent-orange);padding-left:14px;margin:0 0 14px;color:rgba(255,255,255,0.7);font-style:italic}
         .rdr-toplist-wrap .rdr-html{margin-bottom:14px}
-        .rdr-toplist{display:flex;flex-direction:column;gap:15px;margin:4px 0}
-        .rdr-top-item{display:flex;gap:11px;align-items:flex-start}
-        .rdr-top-rank{flex-shrink:0;width:26px;height:26px;border-radius:8px;background:rgba(249,115,22,0.22);color:#fb923c;font-family:'Outfit',sans-serif;font-weight:900;font-size:14px;display:flex;align-items:center;justify-content:center;margin-top:1px}
-        .rdr-top-cover{flex-shrink:0;width:56px;height:56px;border-radius:10px;object-fit:cover;display:block}
+        .rdr-toplist{display:flex;flex-direction:column;gap:14px;margin:4px 0}
+        .rdr-top-item{display:flex;gap:12px;align-items:center}
+        .rdr-top-rank{flex-shrink:0;width:28px;height:28px;border-radius:8px;background:rgba(249,115,22,0.22);color:#fb923c;font-family:'Outfit',sans-serif;font-weight:900;font-size:15px;display:flex;align-items:center;justify-content:center}
+        .rdr-top-cover{flex-shrink:0;width:80px;height:80px;border-radius:12px;object-fit:cover;display:block}
         .rdr-top-ph{background:rgba(255,255,255,0.08)}
         .rdr-top-info{min-width:0;flex:1}
         .rdr-top-title{margin:0;font-family:'Outfit',sans-serif;font-weight:800;font-size:16px;color:#eef1f6;line-height:1.25}

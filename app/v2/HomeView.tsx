@@ -472,6 +472,11 @@ function buildHeroSlides(input: {
     bgImg: p.cover,
     href: p.href,
     blogId: p.id || null,
+    // News-stiliaus header'iui: santykinė data + like/komentarų skaičiai.
+    publishedAt: p.published_at || null,
+    likeCount: typeof p.like_count === 'number' ? p.like_count : undefined,
+    commentCount: typeof p.comment_count === 'number' ? p.comment_count : undefined,
+    likeable: true,
     videoId: p.videoId || null,
     songTitle: p.songTitle || null,
     songArtist: p.songArtist || null,
