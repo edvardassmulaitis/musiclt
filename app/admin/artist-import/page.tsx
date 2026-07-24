@@ -12,7 +12,7 @@ interface MatchCandidate { id: number; name: string; slug: string; type: string 
 interface FieldDiff { field: string; label: string; old: any; new: any; changed: boolean; selectable: boolean }
 interface LinkDiff { index: number; platform: string; column: string | null; oldUrl: string | null; newUrl: string; action: string }
 interface ContactPlan { index: number; name: string; type: string; email: string | null; phone: string | null; url: string | null; confidence: string; action: string; isPotential: boolean }
-interface AlbumPlan { index: number; title: string; type: string | null; year: number | null; action: string; existingId: number | null; description: string | null; descriptionOld: string | null; descriptionChanged: boolean; descriptionOnly: boolean; notFound: boolean; coverUrl: string | null; coverWillApply: boolean }
+interface AlbumPlan { index: number; title: string; type: string | null; year: number | null; action: string; existingId: number | null; description: string | null; descriptionOld: string | null; descriptionChanged: boolean; descriptionOnly: boolean; notFound: boolean; coverUrl: string | null; coverWillApply: boolean; albumArtists: string[]; shared: boolean }
 interface TrackPlan { index: number; title: string; albumTitle: string | null; type: string | null; action: string; existingId: number | null; albumFound: boolean; featuring: string[]; featuringNew: string[]; year: number | null; duration: string | null; dupInPayload: boolean }
 interface ImagePlan { index: number; url: string; type: string | null; sourceLabel: string | null; sourceUrl: string | null; author: string | null; credit: string | null; license: string | null; caption: string | null; isPrimary: boolean; hasLicense: boolean; isDuplicate: boolean; action: string }
 interface ExistingPhoto { url: string; author: string | null; license: string | null }
@@ -598,6 +598,7 @@ export default function ArtistImportPage() {
                           {a.type && <span className="text-[var(--text-faint)]">{a.type}</span>}
                           {a.descriptionChanged && <Pill text="aprašymas" color="orange" />}
                           {a.coverWillApply && <Pill text="viršelis" color="green" />}
+                          {a.shared && <Pill text={`bendras: ${a.albumArtists.join(' & ')}`} color="blue" />}
                         </div>
                         {a.notFound && <p className="ml-0.5 mt-0.5 text-[var(--text-faint)]">Albumas nerastas pas atlikėją — aprašymas nebus išsaugotas.</p>}
                         {a.description && a.descriptionChanged && (

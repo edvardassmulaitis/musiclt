@@ -227,6 +227,23 @@ export async function resolveExistingTrackId(
   const clean = (title || '').trim()
   if (!clean || !artistId) return null
 
+  // A) Bendrų albumų atvejis: daina jau prijungta prie ŠIO albumo — nesvarbu,
+  // kuris atlikėjas ją turi (pvz. „Neriuos" dainos, sukurtos thelastsunday, kai
+  // importuojam Jausmę). Randam pagal albumą + pavadinimą → pernaudojam (kad
+  // bendro albumo dainos nebūtų dubliuojamos kiekvienam atlikėjui).
+  // (syncAlbumTracks album_tracks ištrina prieš re-sync, tad tada čia nieko neras —
+  //  tuo atveju suveikia artist-scoped logika su ownAlbumTrackIds.)
+  if (albumId) {
+    const { data: onAlbum } = await supabase
+      .from('album_tracks')
+      .select('track_id, tracks!inner(id, title)')
+      .eq('album_id', albumId)
+      .ilike('tracks.title', clean)
+      .limit(1)
+    const hit = (onAlbum || [])[0] as any
+    if (hit?.track_id) return hit.track_id as number
+  }
+
   const { data: cands } = await supabase
     .from('tracks')
     .select('id, is_single')

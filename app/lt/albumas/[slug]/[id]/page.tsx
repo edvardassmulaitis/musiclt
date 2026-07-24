@@ -68,6 +68,18 @@ async function getAlbumTracks(albumId: number) {
   return rows
 }
 
+/** Visi albumo atlikėjai (bendri/kolab albumai) sort_order tvarka. Defensyvu —
+ *  jei album_artists lentelės dar nėra, grąžina tuščią (rodom tik savininką). */
+async function getAlbumArtists(albumId: number): Promise<{ id: number; slug: string; name: string }[]> {
+  const sb = createAdminClient()
+  const { data } = await sb
+    .from('album_artists')
+    .select('sort_order, artists(id, slug, name)')
+    .eq('album_id', albumId)
+    .order('sort_order')
+  return (data || []).map((r: any) => r.artists).filter(Boolean)
+}
+
 async function getOtherAlbums(artistId: number, currentId: number) {
   const sb = createAdminClient()
   const { data } = await sb
@@ -167,12 +179,15 @@ export default async function AlbumPage({ params }: Props) {
   if (!album) notFound()
 
   const artist = album.artists
-  const [tracks, otherAlbums, similarAlbums, likes] = await Promise.all([
+  const [tracks, otherAlbums, similarAlbums, likes, allArtists] = await Promise.all([
     getAlbumTracks(albumId),
     getOtherAlbums(artist.id, albumId),
     getSimilarAlbums(artist.id, albumId),
     getAlbumLikes(albumId),
+    getAlbumArtists(albumId),
   ])
+  // Bendri albumai: co-atlikėjai (be pagrindinio savininko), rodymui šalia vardo.
+  const coArtists = allArtists.filter((x) => x.id !== artist.id)
 
   return (
     <AlbumPageClient
@@ -198,6 +213,7 @@ export default async function AlbumPage({ params }: Props) {
         name: artist.name,
         cover_image_url: artist.cover_image_url || null,
       }}
+      coArtists={coArtists}
       tracks={tracks}
       otherAlbums={otherAlbums.map((a: any) => ({ ...a, type: albumType(a) }))}
       similarAlbums={similarAlbums}

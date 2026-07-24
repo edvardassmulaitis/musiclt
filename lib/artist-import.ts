@@ -32,6 +32,10 @@ export interface ImportAlbum {
   total_tracks?: number | null
   description?: string | null
   spotify_url?: string | null; apple_music_url?: string | null; deezer_url?: string | null
+  /** Visi albumo atlikėjai kredito tvarka (pirmas = pagrindinis). Bendriems/
+   *  kolaboraciniams albumams — GPT pateikia visus (pvz. ["thelastsunday","Jausmė"]).
+   *  Leidžia importui sujungti tą patį albumą tarp atlikėjų, o ne dubliuoti. */
+  album_artists?: string[]
 }
 export interface ImportTrack {
   title: string; source_title?: string
@@ -182,6 +186,35 @@ function parseDateParts(d?: string | null): { year: number | null; month: number
 
 function albumSlug(title: string, year?: number | null): string {
   return slugify(title) + (year ? `-${year}` : '')
+}
+
+/** Albumo atlikėjų sąrašas (bendriems/kolab albumams). Pirmenybė aiškiam
+ *  a.album_artists laukui; jei jo nėra — išvedam iš to albumo dainų
+ *  primary_artists (pvz. „Neriuos" dainos visos turi [thelastsunday, Jausmė]).
+ *  Fallback — [pagrindinis atlikėjas]. Eiliškumas: pirmas = pagrindinis. */
+function deriveAlbumArtists(a: ImportAlbum, tracks: ImportTrack[], primaryName: string): string[] {
+  const dedup = (arr: string[]): string[] => {
+    const out: string[] = []
+    for (const nm of arr) {
+      const s = (nm || '').trim()
+      if (s && !out.some(x => normalizeName(x) === normalizeName(s))) out.push(s)
+    }
+    return out
+  }
+  if (a.album_artists && a.album_artists.length) {
+    const d = dedup(a.album_artists)
+    if (d.length) return d
+  }
+  const normAlbum = normalizeName(a.title)
+  const names: string[] = []
+  for (const t of tracks) {
+    if (!t.album_title || normalizeName(t.album_title) !== normAlbum) continue
+    for (const pa of (t.primary_artists || [])) {
+      const nm = (pa.name || '').trim()
+      if (nm && !names.some(x => normalizeName(x) === normalizeName(nm))) names.push(nm)
+    }
+  }
+  return names.length ? names : [primaryName]
 }
 
 /** Trukmė „M:SS" / „MM:SS" / „H:MM:SS" — normalizuojama TIK preview rodymui
@@ -358,7 +391,7 @@ export async function matchArtist(sb: SupabaseClient, rawName: string): Promise<
 export interface FieldDiff { field: string; label: string; old: any; new: any; changed: boolean; selectable: boolean }
 export interface LinkDiff { index: number; platform: string; column: string | null; oldUrl: string | null; newUrl: string; action: 'add' | 'update' | 'unchanged' | 'unsupported' }
 export interface ContactPlan { index: number; name: string; type: string; email: string | null; phone: string | null; url: string | null; confidence: string; action: 'add' | 'update'; isPotential: boolean }
-export interface AlbumPlan { index: number; title: string; type: string | null; year: number | null; action: 'create' | 'update'; existingId: number | null; description: string | null; descriptionOld: string | null; descriptionChanged: boolean; descriptionOnly: boolean; notFound: boolean; coverUrl: string | null; coverWillApply: boolean }
+export interface AlbumPlan { index: number; title: string; type: string | null; year: number | null; action: 'create' | 'update'; existingId: number | null; description: string | null; descriptionOld: string | null; descriptionChanged: boolean; descriptionOnly: boolean; notFound: boolean; coverUrl: string | null; coverWillApply: boolean; albumArtists: string[]; shared: boolean }
 export interface TrackPlan { index: number; title: string; albumTitle: string | null; type: string | null; action: 'create' | 'update'; existingId: number | null; albumFound: boolean; featuring: string[]; featuringNew: string[]; year: number | null; duration: string | null; dupInPayload: boolean }
 export interface ImagePlan {
   index: number; url: string; type: string | null
@@ -529,21 +562,30 @@ export async function buildPreview(
     const parts = parseDateParts(a.release_date)
     const year = a.release_year ?? parts.year
     if (a.type && !ALBUM_TYPE_FLAG[a.type]) warnings.push(`Nežinomas albumo type "${a.type}" (${a.title}) — type flag nebus nustatytas.`)
+    // Albumo atlikėjai (bendri/kolab): a.album_artists arba išvesta iš dainų.
+    // Preview'e resolve tik į ESAMUS id (nekuriam) — cross-artist paieškai.
+    const albumArtistNames = deriveAlbumArtists(a, payload.tracks || [], p.name)
+    const ownerCandidates: number[] = []
+    if (targetArtistId) ownerCandidates.push(targetArtistId)
+    for (const nm of albumArtistNames) {
+      const { data: ar } = await sb.from('artists').select('id').or(`slug.eq.${slugify(nm)},name.ilike.${nm}`).limit(1)
+      const id = ar?.[0]?.id
+      if (id && !ownerCandidates.includes(id)) ownerCandidates.push(id)
+    }
     let existingId: number | null = null
     let existingDescription: string | null = null
     let existingCover: string | null = null
-    if (targetArtistId) {
+    if (ownerCandidates.length) {
       const slug = albumSlug(a.title, year)
-      const { data: al } = await sb.from('albums').select('id, description, cover_image_url').eq('artist_id', targetArtistId).eq('slug', slug).maybeSingle()
-      existingId = al?.id ?? null
-      existingDescription = al?.description ?? null
-      existingCover = al?.cover_image_url ?? null
-      if (!existingId) {
-        const { data: byTitle } = await sb.from('albums').select('id, description, cover_image_url').eq('artist_id', targetArtistId).ilike('title', a.title).maybeSingle()
-        existingId = byTitle?.id ?? null
-        existingDescription = byTitle?.description ?? null
-        existingCover = byTitle?.cover_image_url ?? null
+      const { data: al } = await sb.from('albums').select('id, description, cover_image_url').in('artist_id', ownerCandidates).eq('slug', slug).limit(1)
+      let row = al?.[0]
+      if (!row) {
+        const { data: byTitle } = await sb.from('albums').select('id, description, cover_image_url').in('artist_id', ownerCandidates).ilike('title', a.title).limit(1)
+        row = byTitle?.[0]
       }
+      existingId = row?.id ?? null
+      existingDescription = row?.description ?? null
+      existingCover = row?.cover_image_url ?? null
     }
     if (existingId) albumIdByTitle[normalizeName(a.title)] = existingId
     const newDescription = a.description?.trim() || null
@@ -562,6 +604,7 @@ export async function buildPreview(
       description: newDescription, descriptionOld: existingDescription, descriptionChanged,
       descriptionOnly, notFound,
       coverUrl: providedCover, coverWillApply,
+      albumArtists: albumArtistNames, shared: albumArtistNames.length > 1,
     })
   }
 
@@ -662,6 +705,23 @@ export async function buildPreview(
     match, willCreateArtist, targetArtistId,
     fieldDiffs, linkDiffs, contactPlans, albumPlans, trackPlans, imagePlans, existingPhotos,
     willSetHeroProfile, warnings,
+  }
+}
+
+/** Prilinkina albumo atlikėjus prie album_artists (bendri/kolab albumai).
+ *  Defensyvu: jei migracija (album_artists lentelė) dar nepritaikyta — tyliai
+ *  praleidžia (albumas vis tiek sukuriamas). is_primary nustatomas TIK naujam
+ *  albumui (row0); re-use atveju tik papildo narystę (nekeičia esamo primary). */
+async function linkAlbumArtists(
+  sb: SupabaseClient, albumId: number, artistIds: number[], isNewAlbum: boolean, warnings: string[]
+): Promise<void> {
+  if (!albumId || !artistIds.length) return
+  const rows = artistIds.map((id, i) => ({
+    album_id: albumId, artist_id: id, is_primary: isNewAlbum && i === 0, sort_order: i,
+  }))
+  const { error } = await sb.from('album_artists').upsert(rows, { onConflict: 'album_id,artist_id', ignoreDuplicates: true })
+  if (error && !/does not exist|schema cache/i.test(error.message || '')) {
+    warnings.push(`album_artists prilinkinimas nepavyko: ${error.message}`)
   }
 }
 
@@ -877,11 +937,36 @@ export async function applyImport(
     let albumCover = a.cover_image_url?.trim() || null
     if (!albumCover) albumCover = await fetchSpotifyThumb(a.spotify_url)
 
-    let { data: existingAl } = await sb.from('albums').select('id, year, month, day, spotify_id, cover_image_url, description').eq('artist_id', artistId).eq('slug', slug).maybeSingle()
-    if (!existingAl) {
-      const { data: byTitle } = await sb.from('albums').select('id, year, month, day, spotify_id, cover_image_url, description').eq('artist_id', artistId).ilike('title', a.title).maybeSingle()
-      existingAl = byTitle
+    // Albumo atlikėjai (bendri/kolab): a.album_artists arba išvesta iš dainų.
+    // Resolve į id (sukuria stub'us jei reikia), pirmas = pagrindinis savininkas.
+    const albumArtistNames = deriveAlbumArtists(a, payload.tracks || [], p.name)
+    const albumArtistIds: number[] = []
+    for (const nm of albumArtistNames) {
+      const aid = await findOrCreateArtist(sb, nm)
+      if (aid && !albumArtistIds.includes(aid)) albumArtistIds.push(aid)
     }
+    if (artistId && !albumArtistIds.includes(artistId)) albumArtistIds.push(artistId)
+    const ownerCandidates = Array.from(new Set(albumArtistIds.length ? albumArtistIds : [artistId!]))
+    const primaryOwnerId = albumArtistIds[0] ?? artistId!
+
+    // Cross-artist paieška: albumas gali priklausyti BET KURIAM iš albumo atlikėjų
+    // (pvz. „Neriuos" jau sukurtas thelastsunday, importuojam Jausmę) → pernaudojam,
+    // nedubliuojam. Slug, tada title fallback. Spotify ID — tik kaip papildomas
+    // patikrinimas (jei skiriasi → laikom skirtingu albumu).
+    let existingAl: any = null
+    {
+      const { data } = await sb.from('albums').select('id, artist_id, year, month, day, spotify_id, cover_image_url, description').in('artist_id', ownerCandidates).eq('slug', slug).limit(1)
+      existingAl = (data || [])[0] || null
+    }
+    if (!existingAl) {
+      const { data } = await sb.from('albums').select('id, artist_id, year, month, day, spotify_id, cover_image_url, description').in('artist_id', ownerCandidates).ilike('title', a.title).limit(1)
+      existingAl = (data || [])[0] || null
+    }
+    if (existingAl && existingAl.spotify_id && spotifyId && existingAl.spotify_id !== spotifyId) {
+      warnings.push(`Albumas "${a.title}": Spotify ID nesutampa su esamu — laikoma skirtingu albumu.`)
+      existingAl = null
+    }
+
     if (existingAl) {
       // FILL missing fields (neperrašom esamų); APRAŠYMAS perrašomas jei pateiktas.
       const upd: Record<string, any> = {}
@@ -898,19 +983,24 @@ export async function applyImport(
         else warnings.push(`Albumas "${a.title}" update nepavyko: ${error.message}`)
       }
       albumIdByTitle[normalizeName(a.title)] = existingAl.id
+      await linkAlbumArtists(sb, existingAl.id, albumArtistIds, false, warnings)
     } else if (descriptionOnly) {
       // Album_description režimas NEKURIA naujų albumų — tik enrichina esamus.
       warnings.push(`Albumas "${a.title}" nerastas pas atlikėją — aprašymas nepritaikytas (naujas albumas nesukurtas).`)
     } else {
       const insert: Record<string, any> = {
-        title: a.title, slug, artist_id: artistId,
+        title: a.title, slug, artist_id: primaryOwnerId,
         year, month: parts.month, day: parts.day,
         cover_image_url: albumCover,
         description: newDescription,
         spotify_id: spotifyId, source: 'json_import', ...typeFlags,
       }
       const { data: newAl, error } = await sb.from('albums').insert(insert).select('id').single()
-      if (!error && newAl) { summary.albums_created++; albumIdByTitle[normalizeName(a.title)] = newAl.id }
+      if (!error && newAl) {
+        summary.albums_created++
+        albumIdByTitle[normalizeName(a.title)] = newAl.id
+        await linkAlbumArtists(sb, newAl.id, albumArtistIds, true, warnings)
+      }
       else warnings.push(`Albumas "${a.title}" insert nepavyko: ${error?.message}`)
     }
   }

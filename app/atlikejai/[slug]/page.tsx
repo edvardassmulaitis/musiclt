@@ -131,17 +131,30 @@ async function getPhotos(id: number) {
 }
 async function getAlbums(id: number) {
   const sb = createAdminClient()
-  const { data } = await sb
-    .from('albums')
-    .select('id, slug, title, year, month, cover_image_url, type_studio, type_compilation, type_ep, type_single, type_live, type_remix, type_soundtrack, type_demo, spotify_id, video_url, legacy_id, score')
-    .eq('artist_id', id)
-    // Pending review įrašai (sukurti per match_legacy_overlay) viešai
-    // nematomi — admin pirma turi patvirtinti per /admin/import/pending.
-    // NULL-safe: PostgREST `neq` neapima NULL eilučių (three-valued logic),
-    // todėl OR.
-    .or('source.is.null,source.neq.legacy_scrape_pending')
-    .order('year', { ascending: false })
-  const albums = (data || []) as any[]
+  const SELECT = 'id, slug, title, year, month, cover_image_url, type_studio, type_compilation, type_ep, type_single, type_live, type_remix, type_soundtrack, type_demo, spotify_id, video_url, legacy_id, score'
+  // Pending review įrašai (sukurti per match_legacy_overlay) viešai nematomi.
+  // NULL-safe: PostgREST `neq` neapima NULL eilučių, todėl OR.
+  const SOURCE_FILTER = 'source.is.null,source.neq.legacy_scrape_pending'
+
+  // 1) Nuosavi albumai (artist_id).
+  const { data: own } = await sb.from('albums').select(SELECT)
+    .eq('artist_id', id).or(SOURCE_FILTER).order('year', { ascending: false })
+
+  // 2) Bendri/kolaboraciniai: albumai, kur atlikėjas dalyvauja per album_artists
+  // (pvz. „Neriuos"). Defensyvu — jei album_artists lentelės dar nėra, praleidžiam.
+  let shared: any[] = []
+  const { data: aa } = await sb.from('album_artists').select('album_id').eq('artist_id', id)
+  const sharedIds = (aa || []).map((r: any) => r.album_id).filter((x: any) => Number.isFinite(x))
+  if (sharedIds.length) {
+    const { data: sh } = await sb.from('albums').select(SELECT)
+      .in('id', sharedIds).or(SOURCE_FILTER)
+    shared = sh || []
+  }
+
+  // Sujungiam + dedup pagal id, rikiuojam pagal metus (naujausi viršuje).
+  const byId = new Map<number, any>()
+  for (const r of [...(own || []), ...shared]) byId.set(r.id, r)
+  const albums = Array.from(byId.values()).sort((a, b) => (b.year || 0) - (a.year || 0)) as any[]
   if (albums.length === 0) return albums
   // Attach album like counts.
   //

@@ -52,6 +52,7 @@ type Props = {
   album: Album; artist: Artist; tracks: Track[]
   otherAlbums: SimpleAlbum[]; similarAlbums: any[]
   likes: number
+  coArtists?: { id: number; slug: string; name: string }[]
 }
 
 function ytId(url?: string | null) {
@@ -111,7 +112,7 @@ function PopBar({ level }: { level: number }) {
 }
 
 export default function AlbumPageClient({
-  album, artist, tracks, otherAlbums, similarAlbums, likes,
+  album, artist, tracks, otherAlbums, similarAlbums, likes, coArtists = [],
 }: Props) {
   const [activeIdx, setActiveIdx] = useState<number>(-1)
   const [playing, setPlaying] = useState(false)
@@ -381,6 +382,14 @@ export default function AlbumPageClient({
               <Link href={`/atlikejai/${artist.slug}`} className="font-['Outfit',sans-serif] font-bold text-[var(--accent-orange)] no-underline hover:underline">
                 {artist.name}
               </Link>
+              {coArtists.map((ca) => (
+                <span key={ca.id}>
+                  <span className="text-[var(--text-faint)]"> &amp; </span>
+                  <Link href={`/atlikejai/${ca.slug}`} className="font-['Outfit',sans-serif] font-bold text-[var(--accent-orange)] no-underline hover:underline">
+                    {ca.name}
+                  </Link>
+                </span>
+              ))}
             </div>
             {/* Data — po atlikėjo pavadinimo. Tik mobile (desktop'e data rodoma chip'e
                 kairiajame stulpelyje). */}
