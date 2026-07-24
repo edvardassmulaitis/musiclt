@@ -1137,7 +1137,8 @@ export function DienosDainaSection({ onOpenTrack, variant = 'inline', headerVari
                 {recentWinners.filter(w => w.tracks).map((w) => {
                   const wt = w.tracks!
                   const wv = extractYouTubeId(wt.video_url)
-                  const wImg = wt.cover_url || (wv ? `https://img.youtube.com/vi/${wv}/mqdefault.jpg` : null) || wt.artists?.cover_image_url || null
+                  // Kokybiškesnis viršelis: cover_url → hqdefault (ne mqdefault) → atlikėjo foto.
+                  const wImg = wt.cover_url || (wv ? `https://img.youtube.com/vi/${wv}/hqdefault.jpg` : null) || wt.artists?.cover_image_url || null
                   return (
                     <button
                       key={w.id}
@@ -1145,8 +1146,10 @@ export function DienosDainaSection({ onOpenTrack, variant = 'inline', headerVari
                       onClick={() => openTrack({ id: wt.id, title: wt.title, slug: wt.slug, cover_url: wt.cover_url, video_url: wt.video_url, artists: wt.artists })}
                       className="group flex items-center gap-3 border-0 bg-transparent p-0 text-left cursor-pointer"
                     >
-                      <div className="relative shrink-0">
-                        <Cover src={wImg} alt={sanitizeTitle(wt.title)} size={64} radius={11} />
+                      <div className="relative shrink-0 overflow-hidden rounded-[11px]" style={{ width: 64, height: 64, background: 'var(--cover-placeholder)' }}>
+                        {wImg
+                          ? (/* eslint-disable-next-line @next/next/no-img-element */<img src={proxyImgResized(wImg, 200)} alt={sanitizeTitle(wt.title)} loading="lazy" decoding="async" className="h-full w-full object-cover" />)
+                          : <span className="flex h-full w-full items-center justify-center text-lg text-[var(--text-faint)]">🎵</span>}
                       </div>
                       <div className="min-w-0 flex-1">
                         <p className="m-0 truncate font-['Outfit',sans-serif] text-[15px] font-extrabold text-[var(--text-primary)] transition-colors group-hover:text-[var(--accent-orange)]">{sanitizeTitle(wt.title)}</p>

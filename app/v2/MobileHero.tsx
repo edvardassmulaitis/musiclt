@@ -4,19 +4,39 @@
 // ant mobile (≤768px); desktop rodo HeroSlider korteles. Paspaudus — atidaro
 // pilno ekrano v1 reels reader'į (horizontalus swipe + vertikalus skaitymas +
 // čartų/dienos dainos balsavimo sheet'ai).
-import { useState } from 'react'
+import { useState, useEffect } from 'react'
 import Link from 'next/link'
 import { proxyImgResized } from '@/lib/img-proxy'
 import { useSite } from '@/components/SiteContext'
 import type { HeroSlide } from './HeroSlider'
 import { ReelsOverlay, ChartBottomSheet, DailyVoteSheet, slideKey } from './reels/ReelsReader'
+import { isTopVoted, chartTypeToTop, fetchTopVoted } from '@/lib/top-voted'
 import { useHeroSeen } from './useHeroSeen'
 
 export default function MobileHero({ slides: allSlides }: { slides: HeroSlide[] }) {
   const { dk } = useSite()
-  // Topai NEBEstumiami į galą — eina sava vaga (po atsinaujinimo priekyje, paskui
-  // naujesnės naujienos juos stumia). (Edvardo spec 2026-07-25.)
+  // Topai NEBEstumiami į galą — eina sava vaga. Bet vis tiek žymim „balsavai /
+  // nebalsavai" (indikatorius kortelės kampe). (Edvardo spec 2026-07-25.)
   const slides = allSlides
+  const [mounted, setMounted] = useState(false)
+  const [votedCharts, setVotedCharts] = useState<Set<string>>(new Set())
+  useEffect(() => {
+    setMounted(true)
+    const types = [...new Set(allSlides.map(s => chartTypeToTop(s.type)).filter(Boolean) as string[])]
+    if (!types.length) return
+    let on = true
+    Promise.all(types.map(async t => ({ t, v: await fetchTopVoted(t) }))).then(rs => {
+      if (!on) return
+      const set = new Set<string>()
+      for (const r of rs) if (r.v) set.add(r.t)
+      setVotedCharts(set)
+    })
+    return () => { on = false }
+  }, [allSlides])
+  const chartVoted = (s: HeroSlide) => {
+    const tt = chartTypeToTop(s.type)
+    return !!(mounted && tt && (isTopVoted(tt) || votedCharts.has(tt)))
+  }
   const [reelsOpen, setReelsOpen] = useState(false)
   const [reelsIdx, setReelsIdx] = useState(0)
   // „peržiūrėta" žymėjimas — prisijungusiems SURIŠTA per įrenginius (server),
@@ -74,6 +94,10 @@ export default function MobileHero({ slides: allSlides }: { slides: HeroSlide[] 
                     : <div style={{ width: '100%', height: '100%', background: 'linear-gradient(135deg,#0a1428,#162040)' }} />}
                   <div style={{ position: 'absolute', inset: 0, background: 'linear-gradient(to top, rgba(0,0,0,0.94) 0%, rgba(0,0,0,0.35) 45%, rgba(0,0,0,0) 70%)' }} />
                   <span style={{ position: 'absolute', top: 8, left: 8, padding: '3px 7px', borderRadius: 6, fontSize: 11.5, fontWeight: 800, color: '#fff', background: chartAccent, fontFamily: 'Outfit,sans-serif', letterSpacing: '0.02em', textTransform: 'uppercase' }}>{s.type === 'chart_lt' ? 'LT TOP 30' : 'TOP 40'}</span>
+                  {/* Balsavai / nebalsavai indikatorius (viršuj dešinėj). */}
+                  {chartVoted(s)
+                    ? <span style={{ position: 'absolute', top: 8, right: 8, display: 'inline-flex', alignItems: 'center', gap: 3, padding: '3px 7px', borderRadius: 999, background: 'rgba(0,0,0,0.55)', backdropFilter: 'blur(4px)', fontSize: 10, fontWeight: 800, color: '#fff', fontFamily: 'Outfit,sans-serif' }}><svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="#4ade80" strokeWidth="3" strokeLinecap="round" strokeLinejoin="round"><path d="M20 6L9 17l-5-5" /></svg>Balsavai</span>
+                    : <span style={{ position: 'absolute', top: 8, right: 8, display: 'inline-flex', alignItems: 'center', gap: 3, padding: '3px 7px', borderRadius: 999, background: chartAccent, fontSize: 10, fontWeight: 800, color: '#fff', fontFamily: 'Outfit,sans-serif' }}>Balsuok</span>}
                   <div style={{ position: 'absolute', bottom: 0, left: 0, right: 0, padding: '6px 9px 8px', textAlign: 'left' }}>
                     <div style={{ display: 'flex', alignItems: 'center', gap: 6, minWidth: 0 }}>
                       <span style={{ flexShrink: 0, minWidth: 18, height: 18, padding: '0 4px', borderRadius: 5, display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 12, fontWeight: 900, color: '#fff', background: chartAccent, fontFamily: 'Outfit,sans-serif' }}>1</span>
@@ -82,17 +106,19 @@ export default function MobileHero({ slides: allSlides }: { slides: HeroSlide[] 
                     {big?.title && <p style={{ margin: '2px 0 0', fontSize: 11, fontWeight: 600, color: 'rgba(255,255,255,0.78)', lineHeight: 1.15, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{big.title}</p>}
                   </div>
                 </div>
-                {/* 2 ir 3 vietos — numeris prie pavadinimo, vardas iki 2 eilučių */}
+                {/* 2 ir 3 vietos — viršelis viršuj, po juo švari juostelė: numeris +
+                    atlikėjas iki 2 eilučių (daugiau vietos, nebekerpa). */}
                 {rest.length > 0 && (
-                  <div style={{ display: 'flex', width: '100%', flex: '0 0 40%', gap: 2, background: '#0b0f1a' }}>
+                  <div style={{ display: 'flex', width: '100%', flex: '0 0 42%', gap: 2, background: '#0b0f1a' }}>
                     {rest.map((t: any, ri: number) => (
-                      <div key={ri} style={{ position: 'relative', flex: 1, overflow: 'hidden' }}>
-                        {/* eslint-disable-next-line @next/next/no-img-element */}
-                        <img src={proxyImgResized(cov(t), 240)} alt="" decoding="async" style={{ width: '100%', height: '100%', objectFit: 'cover', display: 'block' }} />
-                        <div style={{ position: 'absolute', inset: 0, background: 'linear-gradient(to top, rgba(0,0,0,0.9), rgba(0,0,0,0.05) 72%)' }} />
-                        <div style={{ position: 'absolute', bottom: 3, left: 4, right: 4, display: 'flex', alignItems: 'flex-end', gap: 3 }}>
+                      <div key={ri} style={{ flex: 1, minWidth: 0, display: 'flex', flexDirection: 'column' }}>
+                        <div style={{ position: 'relative', flex: 1, overflow: 'hidden', minHeight: 0 }}>
+                          {/* eslint-disable-next-line @next/next/no-img-element */}
+                          <img src={proxyImgResized(cov(t), 240)} alt="" decoding="async" style={{ width: '100%', height: '100%', objectFit: 'cover', display: 'block' }} />
+                        </div>
+                        <div style={{ display: 'flex', alignItems: 'flex-start', gap: 4, padding: '3px 5px 5px' }}>
                           <span style={{ flexShrink: 0, minWidth: 15, height: 15, padding: '0 3px', borderRadius: 4, display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 10, fontWeight: 900, color: '#fff', background: chartAccent, fontFamily: 'Outfit,sans-serif' }}>{ri + 2}</span>
-                          <span style={{ minWidth: 0, flex: 1, fontSize: 9.5, fontWeight: 700, color: 'rgba(255,255,255,0.94)', lineHeight: 1.08, display: '-webkit-box', WebkitLineClamp: 2, WebkitBoxOrient: 'vertical', overflow: 'hidden', fontFamily: 'Outfit,sans-serif' } as React.CSSProperties}>{t.artist || t.title || ''}</span>
+                          <span style={{ minWidth: 0, flex: 1, fontSize: 10, fontWeight: 700, color: 'rgba(255,255,255,0.92)', lineHeight: 1.12, display: '-webkit-box', WebkitLineClamp: 2, WebkitBoxOrient: 'vertical', overflow: 'hidden', fontFamily: 'Outfit,sans-serif' } as React.CSSProperties}>{t.artist || t.title || ''}</span>
                         </div>
                       </div>
                     ))}

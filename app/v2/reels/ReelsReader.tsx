@@ -13,6 +13,7 @@ import { deviceFpSync } from '@/lib/device-fp'
 import { markTopVoted } from '@/lib/top-voted'
 import { DienosDainaHero } from '@/components/DienosDainaHero'
 import { DienosDainaSection } from '@/components/DienosDainaSection'
+import { HomeTrackModal } from '@/components/HomeTrackModal'
 import { LikePill } from '@/components/LikePill'
 import LikesModal, { type LikeUser } from '@/components/LikesModal'
 import SocialEmbed from '@/components/SocialEmbed'
@@ -157,6 +158,8 @@ function ChartVoteList({ topType, accent }: { topType: 'lt_top30' | 'top40'; acc
   // Sticky grotuvas viršuj — pre-created YT.Player (kaip atlikėjo psl.), groja 1 tap'u.
   const [now, setNow] = useState<{ videoId: string; title: string; artist: string; cover: string | null; trackId: number | null } | null>(null)
   const [playing, setPlaying] = useState(false)
+  // „›" atidaro dainos modalą (ne naują puslapį) — uždarius grįžti į topą. (Edvardo 2026-07-25.)
+  const [trackModal, setTrackModal] = useState<any>(null)
   const holderRef = useRef<HTMLDivElement>(null)
   const playerRef = useRef<any>(null)
   const curVidRef = useRef<string | null>(null)
@@ -240,8 +243,6 @@ function ChartVoteList({ topType, accent }: { topType: 'lt_top30' | 'top40'; acc
     const p = playerRef.current
     try { if (p) { if (curVidRef.current !== now.videoId) { p.loadVideoById?.(now.videoId); curVidRef.current = now.videoId } else p.playVideo?.() } } catch { /* ignore */ }
   }
-  const songHref = (e: any) => e.track_id ? `/dainos/${trackSlugify([e.artist, e.title].filter(Boolean).join('-'))}-${e.track_id}` : null
-
   const vote = (track_id: number) => {
     if (!weekId || readOnly) return
     let allowed = true
@@ -260,7 +261,6 @@ function ChartVoteList({ topType, accent }: { topType: 'lt_top30' | 'top40'; acc
   // votable (kad galėtų grįžti). „›" nuoroda — PO balsavimo mygtuko (stabili vieta).
   const Row = ({ e, posNode }: { e: any; posNode: React.ReactNode }) => {
     const n = counts[e.track_id] || 0
-    const href = songHref(e)
     return (
       <div className="rdr-chart-row">
         <span className="rdr-chart-pos">{posNode}</span>
@@ -272,10 +272,10 @@ function ChartVoteList({ topType, accent }: { topType: 'lt_top30' | 'top40'; acc
           <b>{e.title}</b><i>{e.artist}</i>
         </button>
         <VoteBtn n={n} maxed={n >= WEEKLY} readOnly={readOnly} onVote={() => vote(e.track_id)} />
-        {href && (
-          <a href={href} target="_blank" rel="noopener noreferrer" onClick={(ev) => ev.stopPropagation()} aria-label="Atidaryti dainos puslapį" title="Dainos puslapis" style={{ flexShrink: 0, display: 'flex', alignItems: 'center', justifyContent: 'center', width: 26, height: 30, color: 'var(--text-faint)' }}>
+        {e.track_id && (
+          <button type="button" onClick={(ev) => { ev.stopPropagation(); setTrackModal({ id: e.track_id, title: e.title, cover_url: e.cover, artists: { name: e.artist } }) }} aria-label="Apie dainą" title="Apie dainą" style={{ flexShrink: 0, border: 0, background: 'transparent', padding: 0, cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', width: 26, height: 30, color: 'var(--text-faint)' }}>
             <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M9 18l6-6-6-6" /></svg>
-          </a>
+          </button>
         )}
       </div>
     )
@@ -317,7 +317,7 @@ function ChartVoteList({ topType, accent }: { topType: 'lt_top30' | 'top40'; acc
       {/* ── Naujienos — palaikyk, kad patektų į topą. ── */}
       {suggested.length > 0 && (
         <>
-          <div className="rdr-cvl-head" style={{ marginTop: 18 }}>🔥 Naujienos — palaikyk, kad patektų</div>
+          <div className="rdr-cvl-head" style={{ marginTop: 18 }}>🔥 Naujienos · palaikyk, kad patektų</div>
           {suggested.map(e => <Row key={`sug-${e.track_id}`} e={e} posNode={<i className="rdr-trend new">N</i>} />)}
         </>
       )}
@@ -330,6 +330,8 @@ function ChartVoteList({ topType, accent }: { topType: 'lt_top30' | 'top40'; acc
           {dropped.map(e => <Row key={`drop-${e.track_id}`} e={e} posNode={<i className="rdr-trend down">▼</i>} />)}
         </>
       )}
+
+      {trackModal && <HomeTrackModal track={trackModal} onClose={() => setTrackModal(null)} />}
     </div>
   )
 }
@@ -2326,7 +2328,7 @@ const REELS_CSS = `
         .rdr-foot-cta{flex:1;display:flex;align-items:center;justify-content:center;gap:7px;height:48px;border-radius:12px;background:var(--accent-orange);color:#fff;font-family:'Outfit',sans-serif;font-size:16px;font-weight:800;letter-spacing:-0.01em;text-decoration:none;min-width:0}
         .rdr-foot-cta:active{opacity:0.85}
         .rdr-foot-cta-ghost{height:44px;background:transparent;border:1px solid rgba(255,255,255,0.22);color:#eef1f6;font-size:14px;font-weight:700}
-        .rdr-foot-cta-soft{background:rgba(249,115,22,0.16);color:var(--accent-orange);font-size:15px}
+        .rdr-foot-cta-soft{background:transparent;color:var(--accent-orange);font-size:15px}
         .rdr-foot-daily{margin:14px 0 2px;display:flex;justify-content:center}
         .rdr-foot-daily-link{display:inline-flex;align-items:center;gap:6px;color:var(--accent-orange);font-family:'Outfit',sans-serif;font-size:14px;font-weight:800;text-decoration:none;padding:8px 6px;-webkit-tap-highlight-color:transparent}
         .rdr-foot-daily-link:active{opacity:.65}
