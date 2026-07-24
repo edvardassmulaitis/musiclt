@@ -154,6 +154,10 @@ function ChartVoteList({ topType, accent, onPlay }: { topType: 'lt_top30' | 'top
   const [readOnly, setReadOnly] = useState(false)
   // „Siūlomi kūriniai" (music.lt) — naujos dainos, votable į gyvą savaitę.
   const [suggested, setSuggested] = useState<any[]>([])
+  // Sticky grotuvas viršuj — paspaudus dainą groja ir lieka matomas scrollinant.
+  const [now, setNow] = useState<{ videoId: string; title: string; artist: string; cover: string | null } | null>(null)
+  const [playing, setPlaying] = useState(false)
+  const pick = (e: any) => { if (!e.videoId) return; setNow({ videoId: e.videoId, title: e.title, artist: e.artist, cover: e.cover }); setPlaying(true) }
 
   useEffect(() => {
     let c = false
@@ -189,6 +193,13 @@ function ChartVoteList({ topType, accent, onPlay }: { topType: 'lt_top30' | 'top
     return () => { c = true }
   }, [topType])
 
+  // Sticky grotuvo default = #1 daina (posteris, be autoplay).
+  useEffect(() => {
+    if (now || !entries.length) return
+    const f = entries.find((e: any) => e.videoId)
+    if (f) setNow({ videoId: f.videoId, title: f.title, artist: f.artist, cover: f.cover })
+  }, [entries]) // eslint-disable-line
+
   // Balsavimas — OPTIMISTINIS ir be globalaus locko (kad kelis balsus iš eilės
   // būtų galima duoti smooth, be „reikia paspausti du kartus" jausmo). Serveris
   // riboja iki 10/daina; jei atmeta (429) — grąžinam skaičių atgal.
@@ -209,6 +220,24 @@ function ChartVoteList({ topType, accent, onPlay }: { topType: 'lt_top30' | 'top
   if (loading) return <div className="rdr-load"><span /><span /><span /></div>
   return (
     <div className="rdr-cvl">
+      {/* Sticky grotuvas — lieka viršuj scrollinant; paspaudus dainą sąraše, groja čia. */}
+      {now && (
+        <div className="rdr-cvl-player">
+          {playing
+            ? <div className="rdr-cvl-player-frame">
+                <iframe key={now.videoId} src={`https://www.youtube.com/embed/${now.videoId}?autoplay=1&playsinline=1&rel=0`}
+                  allow="autoplay; encrypted-media; fullscreen; picture-in-picture" allowFullScreen title={now.title} />
+              </div>
+            : <button className="rdr-cvl-player-poster" onClick={() => setPlaying(true)} aria-label="Groti">
+                {now.cover
+                  ? <img src={proxyImgResized(now.cover, 720)} alt="" decoding="async" />
+                  : <span className="rdr-cvl-player-ph" />}
+                <span className="rdr-cvl-player-scrim" />
+                <span className="rdr-cvl-player-btn"><svg width="26" height="26" viewBox="0 0 24 24" fill="#fff"><path d="M8 5v14l11-7z" /></svg></span>
+              </button>}
+          <div className="rdr-cvl-player-cap"><b>{now.title}</b>{now.artist ? <i> · {now.artist}</i> : null}</div>
+        </div>
+      )}
       <div className="rdr-cvl-head">{readOnly ? 'Savaitės rezultatai' : 'Balsuok už mėgstamas · gali kelis kartus (iki 10)'}</div>
       {entries.map(e => {
         const n = counts[e.track_id] || 0
@@ -216,7 +245,7 @@ function ChartVoteList({ topType, accent, onPlay }: { topType: 'lt_top30' | 'top
         return (
           <div key={e.track_id} className="rdr-chart-row">
             <span className="rdr-chart-pos">{e.pos}<TrendBadge prev={e.prev} pos={e.pos} isNew={e.isNew} /></span>
-            <button className="rdr-cvl-cover" onClick={() => e.videoId && onPlay(e.videoId, { title: e.title, artist: e.artist, cover: e.cover })} disabled={!e.videoId} aria-label="Groti">
+            <button className="rdr-cvl-cover" onClick={() => pick(e)} disabled={!e.videoId} aria-label="Groti">
               {e.cover ? <img src={proxyImgResized(e.cover, 96)} alt="" loading="lazy" decoding="async" /> : <span className="rdr-chart-ph" />}
               {e.videoId && <span className="rdr-cvl-play"><svg width="13" height="13" viewBox="0 0 24 24" fill="#fff"><path d="M8 5v14l11-7z" /></svg></span>}
             </button>
@@ -236,7 +265,7 @@ function ChartVoteList({ topType, accent, onPlay }: { topType: 'lt_top30' | 'top
             return (
               <div key={`sug-${e.track_id}`} className="rdr-chart-row">
                 <span className="rdr-chart-pos"><i className="rdr-trend new">N</i></span>
-                <button className="rdr-cvl-cover" onClick={() => e.videoId && onPlay(e.videoId, { title: e.title, artist: e.artist, cover: e.cover })} disabled={!e.videoId} aria-label="Groti">
+                <button className="rdr-cvl-cover" onClick={() => pick(e)} disabled={!e.videoId} aria-label="Groti">
                   {e.cover ? <img src={proxyImgResized(e.cover, 96)} alt="" loading="lazy" decoding="async" /> : <span className="rdr-chart-ph" />}
                   {e.videoId && <span className="rdr-cvl-play"><svg width="13" height="13" viewBox="0 0 24 24" fill="#fff"><path d="M8 5v14l11-7z" /></svg></span>}
                 </button>
@@ -862,7 +891,7 @@ function ReaderSlide({ slide, active, seen, dk, scrollTopSignal, onScrolledChang
     <div ref={scrollRef} className="rdr-slide" onScroll={onScroll}>
       {/* ── Viršus: čartams — cover koliažas (mosaic); kitiems — statinė nuotrauka
           (blur-fill posteris). Dienos dainai — jokio hero (turinį valdo widget'as). ── */}
-      {isDailyWinner ? null : mosaicItems.length >= 3 ? (
+      {isDailyWinner || (isChart && active) ? null : mosaicItems.length >= 3 ? (
         <div className="rdr-media rdr-media-mosaic">
           <RdrMosaic items={mosaicItems} accent={mosaicAccent} />
           <div className="rdr-media-fade" />
@@ -2138,6 +2167,18 @@ const REELS_CSS = `
         .rdr-vbtn:active:not(:disabled){transform:scale(0.93)}
         .rdr-vbtn svg{display:block;flex-shrink:0}
         .rdr-vbtn-n{min-width:6px;text-align:center;font-variant-numeric:tabular-nums}
+        /* Sticky topo grotuvas — lieka viršuj scrollinant sąrašą. */
+        .rdr-cvl-player{position:sticky;top:0;z-index:6;background:var(--bg-body);padding:4px 0 8px;margin:0 0 4px}
+        .rdr-cvl-player-frame,.rdr-cvl-player-poster{position:relative;width:100%;aspect-ratio:16/9;border-radius:12px;overflow:hidden;background:#000;box-shadow:0 6px 20px rgba(0,0,0,0.42);display:block}
+        .rdr-cvl-player-frame iframe{position:absolute;inset:0;width:100%;height:100%;border:0;display:block}
+        .rdr-cvl-player-poster{border:none;padding:0;cursor:pointer}
+        .rdr-cvl-player-poster img{width:100%;height:100%;object-fit:cover;display:block}
+        .rdr-cvl-player-ph{position:absolute;inset:0;background:linear-gradient(135deg,#141b28,#0a0e17)}
+        .rdr-cvl-player-scrim{position:absolute;inset:0;background:radial-gradient(circle at center,rgba(0,0,0,0.12),rgba(0,0,0,0.5))}
+        .rdr-cvl-player-btn{position:absolute;top:50%;left:50%;transform:translate(-50%,-50%);width:54px;height:54px;border-radius:50%;background:var(--accent-orange);display:flex;align-items:center;justify-content:center;box-shadow:0 6px 18px rgba(0,0,0,0.5);padding-left:3px}
+        .rdr-cvl-player-cap{padding:6px 2px 0;font-family:'Outfit',sans-serif;font-size:12.5px;line-height:1.2;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+        .rdr-cvl-player-cap b{font-weight:800;color:var(--text-primary)}
+        .rdr-cvl-player-cap i{font-style:normal;color:var(--text-muted)}
         .rdr-cvl-mine{font-size:16px;font-weight:900}
 
         /* ── „Muzika" sekcija — standartiniai YouTube embed'ai po tekstu (16/9,
