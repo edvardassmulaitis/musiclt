@@ -4,40 +4,19 @@
 // ant mobile (≤768px); desktop rodo HeroSlider korteles. Paspaudus — atidaro
 // pilno ekrano v1 reels reader'į (horizontalus swipe + vertikalus skaitymas +
 // čartų/dienos dainos balsavimo sheet'ai).
-import { useState, useEffect } from 'react'
+import { useState } from 'react'
 import Link from 'next/link'
 import { proxyImgResized } from '@/lib/img-proxy'
 import { useSite } from '@/components/SiteContext'
 import type { HeroSlide } from './HeroSlider'
 import { ReelsOverlay, ChartBottomSheet, DailyVoteSheet, slideKey } from './reels/ReelsReader'
-import { isTopVoted, chartTypeToTop, fetchTopVoted } from '@/lib/top-voted'
 import { useHeroSeen } from './useHeroSeen'
 
 export default function MobileHero({ slides: allSlides }: { slides: HeroSlide[] }) {
   const { dk } = useSite()
-  // Prabalsuoti topai pasislepia iš juostos/reels iki kitos savaitės. localStorage
-  // + serverio patikra (IP/user), kad ir incognito sesijoj neatrodytų šviežias.
-  const [mounted, setMounted] = useState(false)
-  const [votedCharts, setVotedCharts] = useState<Set<string>>(new Set())
-  useEffect(() => {
-    setMounted(true)
-    const types = [...new Set(allSlides.map(s => chartTypeToTop(s.type)).filter(Boolean) as string[])]
-    if (!types.length) return
-    let on = true
-    Promise.all(types.map(async t => ({ t, v: await fetchTopVoted(t) }))).then(rs => {
-      if (!on) return
-      const set = new Set<string>()
-      for (const r of rs) if (r.v) set.add(r.t)
-      setVotedCharts(set)
-    })
-    return () => { on = false }
-  }, [allSlides])
-  // Prabalsuoti topai NEslepiami — tik pastumiami į juostos galą.
-  const isVotedChart = (s: HeroSlide) => {
-    const tt = chartTypeToTop(s.type)
-    return !!(mounted && tt && (isTopVoted(tt) || votedCharts.has(tt)))
-  }
-  const slides = [...allSlides.filter((s) => !isVotedChart(s)), ...allSlides.filter((s) => isVotedChart(s))]
+  // Topai NEBEstumiami į galą — eina sava vaga (po atsinaujinimo priekyje, paskui
+  // naujesnės naujienos juos stumia). (Edvardo spec 2026-07-25.)
+  const slides = allSlides
   const [reelsOpen, setReelsOpen] = useState(false)
   const [reelsIdx, setReelsIdx] = useState(0)
   // „peržiūrėta" žymėjimas — prisijungusiems SURIŠTA per įrenginius (server),
@@ -75,9 +54,9 @@ export default function MobileHero({ slides: allSlides }: { slides: HeroSlide[] 
           //    su dainų vardais. (Edvardo spec 2026-07-24: buvo tik 1 foto + dublis.) ──
           if (isChart) {
             const cov = (t: any) => t ? (t.cover_url || ytT(t.videoId) || t.artist_image) : null
-            const tops = (s.chartTops || []).filter((t: any) => cov(t)).slice(0, 4)
+            const tops = (s.chartTops || []).filter((t: any) => cov(t)).slice(0, 3)
             const big = tops[0]
-            const rest = tops.slice(1, 4)
+            const rest = tops.slice(1, 3)
             const chartAccent = s.type === 'chart_lt' ? 'var(--accent-orange)' : '#3b82f6'
             return (
               <button
@@ -97,8 +76,7 @@ export default function MobileHero({ slides: allSlides }: { slides: HeroSlide[] 
                   <span style={{ position: 'absolute', top: 8, left: 8, padding: '3px 7px', borderRadius: 6, fontSize: 11.5, fontWeight: 800, color: '#fff', background: chartAccent, fontFamily: 'Outfit,sans-serif', letterSpacing: '0.02em', textTransform: 'uppercase' }}>{s.type === 'chart_lt' ? 'LT TOP 30' : 'TOP 40'}</span>
                   <span style={{ position: 'absolute', top: 8, right: 8, width: 22, height: 22, borderRadius: 6, display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 12.5, fontWeight: 900, color: '#fff', background: chartAccent, fontFamily: 'Outfit,sans-serif' }}>1</span>
                   <div style={{ position: 'absolute', bottom: 0, left: 0, right: 0, padding: '6px 9px 8px', textAlign: 'left' }}>
-                    <p style={{ margin: 0, fontSize: 13, fontWeight: 800, color: '#fff', lineHeight: 1.12, fontFamily: 'Outfit,sans-serif', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{big?.title || ''}</p>
-                    {big?.artist && <p style={{ margin: '1px 0 0', fontSize: 11, fontWeight: 600, color: 'rgba(255,255,255,0.75)', lineHeight: 1.15, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{big.artist}</p>}
+                    <p style={{ margin: 0, fontSize: 13, fontWeight: 800, color: '#fff', lineHeight: 1.15, fontFamily: 'Outfit,sans-serif', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{big?.artist || big?.title || ''}</p>
                   </div>
                 </div>
                 {/* top 2-4 eilutė */}
@@ -110,7 +88,7 @@ export default function MobileHero({ slides: allSlides }: { slides: HeroSlide[] 
                         <img src={proxyImgResized(cov(t), 240)} alt="" decoding="async" style={{ width: '100%', height: '100%', objectFit: 'cover', display: 'block' }} />
                         <div style={{ position: 'absolute', inset: 0, background: 'linear-gradient(to top, rgba(0,0,0,0.85), rgba(0,0,0,0.05) 70%)' }} />
                         <span style={{ position: 'absolute', top: 3, left: 3, minWidth: 16, height: 16, padding: '0 3px', borderRadius: 4, display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 10.5, fontWeight: 900, color: '#fff', background: 'rgba(0,0,0,0.7)', fontFamily: 'Outfit,sans-serif' }}>{ri + 2}</span>
-                        <span style={{ position: 'absolute', bottom: 2, left: 3, right: 3, fontSize: 9.5, fontWeight: 700, color: 'rgba(255,255,255,0.92)', lineHeight: 1.05, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', fontFamily: 'Outfit,sans-serif' }}>{t.title || ''}</span>
+                        <span style={{ position: 'absolute', bottom: 2, left: 3, right: 3, fontSize: 9.5, fontWeight: 700, color: 'rgba(255,255,255,0.92)', lineHeight: 1.05, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', fontFamily: 'Outfit,sans-serif' }}>{t.artist || t.title || ''}</span>
                       </div>
                     ))}
                   </div>
@@ -142,10 +120,6 @@ export default function MobileHero({ slides: allSlides }: { slides: HeroSlide[] 
                     : <div style={{ width: '100%', height: '100%', background: 'linear-gradient(135deg,#3a2a08,#5c3d0a)' }} />}
                   <div style={{ position: 'absolute', inset: 0, background: 'linear-gradient(to top, rgba(0,0,0,0.95) 0%, rgba(0,0,0,0.35) 48%, rgba(0,0,0,0) 72%)' }} />
                   <span style={{ position: 'absolute', top: 8, left: 8, padding: '3px 7px', borderRadius: 6, fontSize: 10.5, fontWeight: 800, color: '#fff', background: ddAccent, fontFamily: 'Outfit,sans-serif', letterSpacing: '0.03em', textTransform: 'uppercase' }}>Dienos daina</span>
-                  {/* play glyph */}
-                  <span style={{ position: 'absolute', top: 7, right: 7, width: 26, height: 26, borderRadius: '50%', background: 'rgba(0,0,0,0.5)', backdropFilter: 'blur(4px)', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-                    <svg width="12" height="12" viewBox="0 0 24 24" fill="#fff" aria-hidden><path d="M8 5v14l11-7z" /></svg>
-                  </span>
                   <div style={{ position: 'absolute', bottom: 0, left: 0, right: 0, padding: '6px 9px 8px', textAlign: 'left' }}>
                     <span style={{ display: 'inline-block', fontSize: 9.5, fontWeight: 800, color: ddAccent, letterSpacing: '0.05em', textTransform: 'uppercase', fontFamily: 'Outfit,sans-serif', marginBottom: 2 }}>{dd.wonLabel}</span>
                     <p style={{ margin: 0, fontSize: 13, fontWeight: 800, color: '#fff', lineHeight: 1.12, fontFamily: 'Outfit,sans-serif', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{dd.winner.title}</p>

@@ -519,7 +519,9 @@ function buildHeroSlides(input: {
         : null
       const ddData = winnerCover
         ? {
-            wonLabel,
+            // Visada „Vakar laimėjo" (be konkrečios datos) — įrašas atsinaujina
+            // kas naktį, tad laimėtojas visada vakarykštis. (Edvardo spec 2026-07-25.)
+            wonLabel: 'Vakar laimėjo',
             winner: { cover: winnerCover, title: sanitizeTitle(tr.title || ''), artist: tr.artists?.name || '', votes: winnerVotes },
             proposer: ddProposer,
             today: ddToday && ddToday.cover ? ddToday : null,

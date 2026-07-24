@@ -90,15 +90,18 @@ type Nomination = { id: number; votes: number; weighted_votes: number; comment?:
 type DainaWinner = { id: number; date: string; total_votes: number; weighted_votes: number; winning_comment?: string | null; proposer?: Proposer | null; tracks: TrackLite | null }
 
 // ───────────────────────── proposer line ─────────────────────────
+// VISADA username (ne full_name) — kad būtų nuoseklu (senoji sistema = handle'ai,
+// pvz. einaras13, 4Blackberry, ne „Viltė"). (Edvardo spec 2026-07-25.)
 function proposerName(p?: Proposer | null): string | null {
   if (!p) return null
-  return p.full_name || p.username || null
+  return p.username || p.full_name || null
 }
 function ProposerLine({ p }: { p?: Proposer | null }) {
   const name = proposerName(p)
   if (!name) return null
   return (
     <span className="flex min-w-0 items-center gap-1">
+      <span className="shrink-0 text-[var(--text-faint)]" title="pasiūlė"><Ic d={SUGG_D} size={12} /></span>
       {p?.avatar_url ? (
         // eslint-disable-next-line @next/next/no-img-element
         <img src={proxyImgResized(p.avatar_url, 96)} alt="" loading="lazy" decoding="async" className="h-[14px] w-[14px] shrink-0 rounded-full object-cover" />
@@ -946,7 +949,12 @@ export function DienosDainaSection({ onOpenTrack, variant = 'inline', headerVari
             {n.proposer && (n.proposer.username || n.proposer.full_name) && (
               <span className="flex min-w-0 items-center gap-1.5"><span className="shrink-0 text-[var(--text-faint)]" title="pasiūlė"><Ic d={SUGG_D} size={13} /></span><MiniAv p={n.proposer} size={20} /><span className="truncate text-[13px] font-semibold text-[var(--text-secondary)]">{n.proposer.username || n.proposer.full_name}</span></span>
             )}
-            {votes > 0 && <span className="inline-flex shrink-0 items-center gap-1 text-[13px] font-extrabold text-[var(--accent-orange)]"><Ic d={HEART_D} size={13} filled />{votes}</span>}
+            {/* Laimėtojo populiarumas — pop brūkšneliai (ne širdelė). */}
+            <span className="flex shrink-0 items-center gap-[3px]" aria-label="Populiarumas">
+              {Array.from({ length: 5 }).map((_, i) => (
+                <span key={i} className={`h-[3px] w-[15px] rounded-[2px] ${i < (votes > 0 ? Math.max(1, Math.round((votes / Math.max(1, ydayMax)) * 5)) : 0) ? 'bg-[var(--accent-orange)]' : 'bg-[var(--border-default)]'}`} />
+              ))}
+            </span>
             <CommentIcon comment={n.comment} who={n.proposer} title={sanitizeTitle(t.title)} />
           </div>
         </div>
@@ -1274,7 +1282,7 @@ export function DienosDainaSection({ onOpenTrack, variant = 'inline', headerVari
       )}
 
       {ydayOpen && (
-        <HomeListModal open onClose={() => setYdayOpen(false)} title="Vakar dienos pasiūlymai" subtitle={winner?.date ? `${winner.date} · pagal balsus` : null} z={variant === 'reel' ? 10001 : undefined}>
+        <HomeListModal open onClose={() => setYdayOpen(false)} title="Vakar dienos pasiūlymai" subtitle={winner?.date || null} z={variant === 'reel' ? 10001 : undefined}>
           {ydayLoading ? (
             <div className="py-8 text-center text-[14px] text-[var(--text-muted)]">Kraunama…</div>
           ) : ydayNoms.filter(n => n.tracks).length === 0 ? (
