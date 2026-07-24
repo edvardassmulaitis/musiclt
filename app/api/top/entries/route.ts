@@ -4,6 +4,8 @@ import { getServerSession } from 'next-auth'
 import { authOptions } from '@/lib/auth'
 import { getCurrentWeekMonday, getCurrentVoteWeekId } from '@/lib/top-week'
 
+export const dynamic = 'force-dynamic'
+
 export async function GET(req: Request) {
   const { searchParams } = new URL(req.url)
   const topType = searchParams.get('type') || 'top40'
@@ -79,6 +81,7 @@ export async function GET(req: Request) {
   // „Chart" = eilutės su weeks_in_top>=1. Vien newcomer'iai (weeks_in_top=0,
   // t.y. „Siūlomi kūriniai" gyvoj savaitėj) NĖRA topas — tada krentam į legacy.
   const hasChart = (arr: any[] | null | undefined) => (arr || []).some((e: any) => (e.weeks_in_top || 0) >= 1)
+  const _dbg = { initWeek: week?.week_start, initCount: entries?.length ?? 0, initChart: hasChart(entries) }
   if (!hasChart(entries)) {
     const { data: priorWeeks } = await supabase
       .from('top_weeks')
@@ -197,7 +200,7 @@ export async function GET(req: Request) {
   // BE cache header'ių — admin operacijos (populate, finalize, reset) turi
   // matyti freshness'ą iš karto. Public /top40, /top30 puslapiai naudoja
   // savo Supabase queries (server components), ne /api/top/entries.
-  return NextResponse.json({ entries: merged, week, vote_week_id: voteWeekId, suggested })
+  return NextResponse.json({ entries: merged, week, vote_week_id: voteWeekId, suggested, _dbg })
 }
 
 export async function POST(req: Request) {

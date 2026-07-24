@@ -73,16 +73,20 @@ export async function resolveDisplayWeek(
     .eq('top_type', topType)
     .eq('week_start', thisMonday)
     .maybeSingle()
-  const hasEntries = async (weekId: number) => {
+  // „Chart" savaitė = turi eilučių su weeks_in_top>=1. Vien newcomer'iai
+  // (weeks_in_top=0, t.y. „Siūlomi kūriniai" gyvoj savaitėj) NĖRA topas — kitaip
+  // rodytume siūlomas dainas vietoj tikro topo (bug 2026-07-24).
+  const hasChartEntries = async (weekId: number) => {
     const { count } = await supabase
       .from('top_entries')
       .select('id', { count: 'exact', head: true })
       .eq('week_id', weekId)
+      .gte('weeks_in_top', 1)
     return (count || 0) > 0
   }
-  if (cur && (await hasEntries(cur.id))) return { week: cur, isFallback: false }
+  if (cur && (await hasChartEntries(cur.id))) return { week: cur, isFallback: false }
 
-  // Fallback: naujausia finalizuota savaitė KURI TURI entries. Svarbu —
+  // Fallback: naujausia finalizuota savaitė KURI TURI chart entries. Svarbu —
   // gali egzistuoti tuščia finalizuota live savaitė (0 balsų), tokią praleidžiam,
   // kitaip rodytume tuščią sąrašą vietoj migruoto legacy archyvo.
   const { data: fins } = await supabase
@@ -93,7 +97,7 @@ export async function resolveDisplayWeek(
     .order('week_start', { ascending: false })
     .limit(12)
   for (const w of (fins || [])) {
-    if (await hasEntries(w.id)) return { week: w, isFallback: true }
+    if (await hasChartEntries(w.id)) return { week: w, isFallback: true }
   }
   return { week: cur ?? null, isFallback: false }
 }
