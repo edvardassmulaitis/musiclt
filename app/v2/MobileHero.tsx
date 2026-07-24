@@ -35,7 +35,8 @@ export default function MobileHero({ slides }: { slides: HeroSlide[] }) {
       <div className="v2-mhero-strip">
         {slides.map((s, i) => {
           const isChart = s.type === 'chart_lt' || s.type === 'chart_world'
-          const bg = s.bgImg || (isChart ? (s.chartTops?.[0]?.cover_url || s.chartTops?.[0]?.artist_image || null) : null)
+          const ytT = (v?: string | null) => v ? `https://img.youtube.com/vi/${v}/hqdefault.jpg` : null
+          const bg = s.bgImg || (isChart ? (s.chartTops?.[0]?.cover_url || ytT(s.chartTops?.[0]?.videoId) || s.chartTops?.[0]?.artist_image || null) : null)
           const artistName = s.type === 'event' ? null : (s.artist?.name || null)
           const showArtist = !!artistName && !s.title.toLowerCase().includes(artistName.toLowerCase())
           const showExcerpt = (s.type === 'event' || s.type === 'verta' || s.type === 'recording' || s.type === 'community') && !!s.subtitle && s.subtitle.length > 5

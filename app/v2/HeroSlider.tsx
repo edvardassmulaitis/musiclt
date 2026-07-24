@@ -296,7 +296,11 @@ function HeroChartCard({ slide, unseen, onOpen }: { slide: HeroSlide; unseen: bo
   const tops = slide.chartTops || []
   const accent = isLT ? 'var(--accent-orange)' : '#3b82f6'
   const accentSoft = isLT ? 'rgba(249,115,22,0.22)' : 'rgba(59,130,246,0.22)'
-  const cover = (t: TopEntry | undefined) => t ? (t.cover_url || t.artist_image) : null
+  // Vizualas: dainos viršelis → dainos YouTube kadras (dainai UNIKALUS, sprendžia
+  // dubliavimąsi kai to paties atlikėjo 2 dainos aukštai + užpildo trūkstamas foto)
+  // → atlikėjo foto (paskutinė išeitis). (Edvardo pastaba 2026-07-24.)
+  const ytThumb = (v?: string | null) => v ? `https://img.youtube.com/vi/${v}/hqdefault.jpg` : null
+  const cover = (t: TopEntry | undefined) => t ? (t.cover_url || ytThumb(t.videoId) || t.artist_image) : null
 
   const dedupArtists = (entries: TopEntry[]) => {
     const seen = new Set<string>()

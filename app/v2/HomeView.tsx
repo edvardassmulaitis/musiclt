@@ -348,25 +348,28 @@ function buildHeroSlides(input: {
   const worldTop = parseTop(input.worldTop)
   const worldTopDate = input.worldTop?.week?.created_at || input.worldTop?.week?.week_start || ''
 
-  const dated: { sortMs: number; slide: HeroSlide }[] = []
-  if (ltTop.length > 0) dated.push({ sortMs: ms(ltTopDate), slide: {
+  // Topai — VISADA feed'o priekyje (daugiau visibility; Edvardo spec 2026-07-24).
+  // Vizualas: dainos viršelis → dainos YouTube kadras → atlikėjo foto.
+  const chartSlides: HeroSlide[] = []
+  if (ltTop.length > 0) chartSlides.push({
     type: 'chart_lt', chip: 'LT TOP 30', chipBg: '#ea580c', title: 'LT TOP 30',
     subtitle: ltTop.slice(0, 3).map((t) => `${t.pos}. ${t.title}`).join(' · '),
     href: '/top30', videoId: ltTop[0]?.videoId || null,
-    bgImg: ltTop[0]?.cover_url || ltTop[0]?.artist_image || ytThumb(ltTop[0]?.videoId) || null,
+    bgImg: ltTop[0]?.cover_url || ytThumb(ltTop[0]?.videoId) || ltTop[0]?.artist_image || null,
     songTitle: ltTop[0]?.title || null, songArtist: ltTop[0]?.artist || null,
-    songCover: ltTop[0]?.cover_url || ltTop[0]?.artist_image || null,
+    songCover: ltTop[0]?.cover_url || ytThumb(ltTop[0]?.videoId) || ltTop[0]?.artist_image || null,
     chartTops: ltTop.slice(0, 5),
-  } })
-  if (worldTop.length > 0) dated.push({ sortMs: ms(worldTopDate), slide: {
+  })
+  if (worldTop.length > 0) chartSlides.push({
     type: 'chart_world', chip: 'TOP 40', chipBg: '#1d4ed8', title: 'TOP 40',
     subtitle: worldTop.slice(0, 3).map((t) => `${t.pos}. ${t.title}`).join(' · '),
     href: '/top40', videoId: worldTop[0]?.videoId || null,
-    bgImg: worldTop[0]?.cover_url || worldTop[0]?.artist_image || ytThumb(worldTop[0]?.videoId) || null,
+    bgImg: worldTop[0]?.cover_url || ytThumb(worldTop[0]?.videoId) || worldTop[0]?.artist_image || null,
     songTitle: worldTop[0]?.title || null, songArtist: worldTop[0]?.artist || null,
-    songCover: worldTop[0]?.cover_url || worldTop[0]?.artist_image || null,
+    songCover: worldTop[0]?.cover_url || ytThumb(worldTop[0]?.videoId) || worldTop[0]?.artist_image || null,
     chartTops: worldTop.slice(0, 5),
-  } })
+  })
+  const dated: { sortMs: number; slide: HeroSlide }[] = []
 
   news.slice(0, 10).forEach((n) => {
     const typeLT = n.type === 'review' ? 'Recenzija' : n.type === 'interview' ? 'Interviu' : n.type === 'report' ? 'Reportažas' : 'Naujiena'
@@ -438,7 +441,8 @@ function buildHeroSlides(input: {
     .forEach((p: any) => { dated.push({ sortMs: ms(p.published_at), slide: blogSlide(p) }) })
 
   dated.sort((a, b) => b.sortMs - a.sortMs)
-  const slides: HeroSlide[] = dated.map((x) => x.slide)
+  // Topai priekyje, tada naujienos/community pagal šviežumą.
+  const slides: HeroSlide[] = [...chartSlides, ...dated.map((x) => x.slide)]
 
   // Dienos daina — koliažas (laimėtojas + naujausi laimėtojai), įterpiama po ~3 įrašų.
   const dailySlides: HeroSlide[] = []

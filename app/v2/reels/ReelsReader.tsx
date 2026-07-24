@@ -72,6 +72,11 @@ function extractYouTubeId(url: string | null | undefined): string | null {
   const m = url.match(/(?:youtu\.be\/|youtube\.com\/(?:embed\/|v\/|watch\?v=|watch\?.+&v=))([^&?\s]{11})/)
   return m?.[1] || null
 }
+// Topo eilutės vizualas: dainos YouTube kadras (dainai UNIKALUS — sprendžia to
+// paties atlikėjo dublius + užpildo trūkstamas foto). (Edvardo pastaba 2026-07-24.)
+function ytThumbHq(vid: string | null | undefined): string | null {
+  return vid ? `https://img.youtube.com/vi/${vid}/hqdefault.jpg` : null
+}
 
 /* ════════════════════════════════════════════════════════════════════
                          REELS OVERLAY COMPONENT
@@ -147,7 +152,7 @@ function ChartVoteList({ topType, accent, onPlay }: { topType: 'lt_top30' | 'top
           track_id: e.track_id,
           title: sanitizeTitle(e.tracks?.title || ''),
           artist: e.tracks?.artists?.name || '',
-          cover: e.tracks?.cover_url || e.tracks?.artists?.cover_image_url || null,
+          cover: e.tracks?.cover_url || ytThumbHq(extractYouTubeId(e.tracks?.video_url || null)) || e.tracks?.artists?.cover_image_url || null,
           videoId: extractYouTubeId(e.tracks?.video_url || null),
           prev: typeof e.prev_position === 'number' ? e.prev_position : null,
           isNew: !!e.is_new,
@@ -770,7 +775,7 @@ function ReaderSlide({ slide, active, seen, dk, scrollTopSignal, onScrolledChang
   const mosaicAccent = slide.type === 'chart_world' ? '#3b82f6' : 'var(--accent-orange)'
   const mosaicItems: { cover: string; badge?: number | null; winner?: boolean }[] = isChart
     ? (slide.chartTops || []).slice(0, 5)
-        .map(t => ({ cover: (t.cover_url || t.artist_image) as string, badge: t.pos }))
+        .map(t => ({ cover: (t.cover_url || ytThumbHq(t.videoId) || t.artist_image) as string, badge: t.pos }))
         .filter(x => !!x.cover)
     : slide.type === 'daily_winner' && slide.collage
       ? slide.collage.slice(0, 5).map(c => ({ cover: c.cover, winner: c.isWinner }))
@@ -864,8 +869,8 @@ function ReaderSlide({ slide, active, seen, dk, scrollTopSignal, onScrolledChang
               {slide.chartTops.map(t => (
                 <div key={t.pos} className="rdr-chart-row">
                   <span className="rdr-chart-pos">{t.pos}<TrendBadge prev={t.prevPos} pos={t.pos} isNew={t.trend === 'new'} /></span>
-                  {t.cover_url || t.artist_image
-                    ? <img src={proxyImgResized(t.cover_url || t.artist_image!, 96)} alt="" loading="lazy" decoding="async" />
+                  {t.cover_url || ytThumbHq(t.videoId) || t.artist_image
+                    ? <img src={proxyImgResized(t.cover_url || ytThumbHq(t.videoId) || t.artist_image!, 96)} alt="" loading="lazy" decoding="async" />
                     : <span className="rdr-chart-ph" />}
                   <span className="rdr-chart-info"><b>{t.title}</b><i>{t.artist}</i></span>
                 </div>
@@ -1407,6 +1412,7 @@ type ChartSheetEntry = {
   artist: string
   cover_url: string | null
   artist_image: string | null
+  video_id?: string | null
   is_new?: boolean
   weeks_in_top?: number
   prev_position?: number | null
@@ -1449,6 +1455,7 @@ export function ChartBottomSheet({
           artist: e.tracks?.artists?.name || '',
           cover_url: e.tracks?.cover_url || null,
           artist_image: e.tracks?.artists?.cover_image_url || null,
+          video_id: extractYouTubeId(e.tracks?.video_url || null),
           is_new: e.is_new,
           weeks_in_top: e.weeks_in_top,
           prev_position: e.prev_position,
@@ -1605,7 +1612,7 @@ export function ChartBottomSheet({
             </div>
           )}
           {entries.map(e => {
-            const c = e.cover_url || e.artist_image
+            const c = e.cover_url || ytThumbHq(e.video_id) || e.artist_image
             const voted = votedIds.includes(e.track_id)
             const pending = pendingId === e.track_id
             const trend =
@@ -1700,7 +1707,7 @@ export function MobileChartSlide({
   const tops = slide.chartTops || []
   const accent = slide.type === 'chart_lt' ? 'var(--accent-orange)' : '#3b82f6'
   const accentShadow = slide.type === 'chart_lt' ? 'rgba(249,115,22,0.45)' : 'rgba(59,130,246,0.45)'
-  const cover = (t: TopEntry | undefined) => t ? (t.cover_url || t.artist_image) : null
+  const cover = (t: TopEntry | undefined) => t ? (t.cover_url || ytThumbHq(t.videoId) || t.artist_image) : null
 
   // Plain onClick — kaip news/event preview kortelės. Joks touch handler
   // nereikalingas: paprastas tap'as atidaro reels (kuris pats turi swipe-down
